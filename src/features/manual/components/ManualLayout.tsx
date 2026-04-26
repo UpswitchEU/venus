@@ -52,6 +52,7 @@ import {
   type FieldContext,
   FullscreenReportModal,
   HistoryPanel,
+  isImportedLedgerNormalizationItem,
   ManualInputPanel,
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
@@ -182,7 +183,6 @@ import {
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
-import { shouldPreferIntegrationEntry } from '../../../utils/shouldPreferIntegrationEntry'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -198,7 +198,10 @@ import {
   getLatestCompleteYearlyFinancial,
   yearlyFinancialRowHasNonPlaceholderData,
 } from '../../../utils/yearlyFinancials'
-import { deleteValuationEntry } from '../utils/deleteValuationEntry'
+import {
+  buildPostDeleteNewValuationUrl,
+  deleteValuationEntry,
+} from '../utils/deleteValuationEntry'
 import {
   deriveGuidedNormalizationPrefill,
   type GuidedNormalizationPrefill,
@@ -786,10 +789,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
     Object.keys(importQualityMap).length > 0
-  const preferIntegrationEntry = useMemo(
-    () => shouldPreferIntegrationEntry(hasImportQuality, prefillData?.sources),
-    [hasImportQuality, prefillData?.sources]
-  )
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
@@ -1281,6 +1280,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const normalizationItems = useNormalizationStore((s) => s.items)
   const normalizationActions = useNormalizationStore()
   const [suggestedNormalisations, setSuggestedNormalisations] = useState<any[]>([])
+
+  useEffect(() => {
+    const hasImportedPendingItems = normalizationItems.some(
+      (item) => isImportedLedgerNormalizationItem(item) && item.status === 'pending'
+    )
+    if (!hasImportedPendingItems) return
+
+    normalizationActions.setItems(
+      normalizationItems.map((item) =>
+        isImportedLedgerNormalizationItem(item) && item.status === 'pending'
+          ? { ...item, status: 'accepted' as const }
+          : item
+      )
+    )
+
+    const idForApi = resolvedReportId || reportId
+    if (idForApi) normalizationActions.persistToSession(idForApi)
+  }, [normalizationActions, normalizationItems, reportId, resolvedReportId])
   /** Latest financial data from ManualInputPanel (for AI context before submit) */
   const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
@@ -3844,8 +3861,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       let returnUrl: string | null = null
       let sourceApp: string | null = null
       try {
-        returnUrl = sessionStorage.getItem('upswitch_return_url')
-        sourceApp = sessionStorage.getItem('upswitch_source')
+        const urlParams = new URLSearchParams(window.location.search)
+        returnUrl = sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
+        sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
       } catch {}
 
       // Mirror the `onContinueToListing` heuristic so seller exits emit the
@@ -3857,7 +3875,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         (!!report && typeof report.valuation === 'number' && Number.isFinite(report.valuation)) ||
         !!(session?.valuationResult || session?.htmlReport)
 
-      const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+      const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
+      const clientDetailFallback = clientContextId
+        ? `${mercuryBaseUrl}/${validLocale}/advisor/clients/${clientContextId}`
+        : null
+
+      const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? clientDetailFallback, {
         clientContextId: clientContextId ?? undefined,
         locale: validLocale,
         sourceApp: sourceApp ?? undefined,
@@ -3878,7 +3901,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         try {
           sourceApp = sessionStorage.getItem('upswitch_source')
         } catch {}
-        window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
+        window.location.href = clientContextId
+          ? `${getMercuryUrl().replace(/\/$/, '')}/${loc}/advisor/clients/${clientContextId}`
+          : fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
       } catch {}
     }
   }, [clientContextId, currentLocale, report, session])
@@ -3893,9 +3918,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleBack = useCallback(() => {
     if (typeof window !== 'undefined') {
       try {
-        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        const urlParams = new URLSearchParams(window.location.search)
+        const returnUrl = sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
         if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
           handleExitClientView()
+          return
+        }
+        if (clientContextId) {
+          handleExitClientView()
+          return
+        }
+        if (window.history.length <= 1) {
+          const sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
+          const loc =
+            currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+          window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
           return
         }
       } catch {
@@ -3903,7 +3940,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
     }
     router.back()
-  }, [router, handleExitClientView])
+  }, [clientContextId, currentLocale, router, handleExitClientView])
 
   const handlePreview = useCallback(() => {
     trackPreviewOpen()
@@ -4114,6 +4151,46 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       deleteInProgressRef.current = id
       setDeletingValuationId(id)
       try {
+        const isCurrentReport =
+          id === reportId ||
+          id === resolvedReportId ||
+          id === session?.reportId ||
+          id === (session as any)?.key
+        let postDeleteNewValuationUrl: string | null = null
+        if (isCurrentReport) {
+          try {
+            const formData = useManualFormStore.getState().formData
+            const normItems = useNormalizationStore
+              .getState()
+              .items.filter((n) => n.status === 'accepted')
+            writeNewValuationPrefill(formData as unknown as Record<string, unknown>, {
+              normCount: normItems.length,
+            })
+
+            const ctx = useClientContext.getState()
+            const relId = clientContextId ?? ctx?.relationshipId
+            const currentSearch =
+              typeof window !== 'undefined' ? window.location.search : undefined
+            postDeleteNewValuationUrl = buildPostDeleteNewValuationUrl({
+              locale: currentLocale,
+              clientId:
+                (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
+              companyName:
+                formData.company_name ||
+                collectedData.companyName ||
+                identity.clientContext?.clientCompanyName,
+              kboNumber: formData.kbo_number,
+              vatNumber: (formData as unknown as { vat_number?: string | null }).vat_number,
+              currentSearch,
+            })
+          } catch (snapshotErr) {
+            generalLogger.warn('[ManualLayout] Failed to snapshot current report before delete', {
+              reportId: id,
+              error: snapshotErr instanceof Error ? snapshotErr.message : String(snapshotErr),
+            })
+          }
+        }
+
         await deleteValuationEntry({
           valuation,
           deleteDraftSession: (sessionId) => backendAPI.deleteValuationSession(sessionId),
@@ -4126,11 +4203,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         } catch {
           // Non-fatal
         }
-        const isCurrentReport =
-          id === reportId ||
-          id === resolvedReportId ||
-          id === session?.reportId ||
-          id === (session as any)?.key
         if (isCurrentReport) {
           useSessionStore.getState().clearSession()
           const remaining = rawRecentValuations.filter((v) => v.id !== id)
@@ -4141,7 +4213,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           // Always notify Mercury when embedded so it invalidates cache (avoids stale "1 bedrijfsschatting")
           if (isEmbedded && typeof window !== 'undefined') {
-            const redirectTo = `/${currentLocale}/advisor/dashboard`
+            const redirectTo = clientContextId
+              ? `/${currentLocale}/advisor/clients/${clientContextId}`
+              : `/${currentLocale}/advisor/dashboard`
             window.parent.postMessage(
               {
                 type: 'venus-report-deleted',
@@ -4159,10 +4233,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             // Navigate to most recent remaining valuation (both accountant and client)
             router.push(`/${currentLocale}/reports/${remaining[0].id}`)
           } else {
-            // No valuations left: accountant → return_url or Mercury dashboard, client → new valuation
+            // No valuations left: continue with a fresh valuation for the same company/client.
             // CRITICAL: Redirect immediately to avoid "stuck" state (e.g. concept-only delete, embedded parent not responding)
             let redirectUrl: string
-            if (isAccountantMode) {
+            if (postDeleteNewValuationUrl) {
+              redirectUrl = postDeleteNewValuationUrl
+            } else if (isAccountantMode) {
               try {
                 const returnUrl =
                   typeof window !== 'undefined'
@@ -4217,9 +4293,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       reportId,
       resolvedReportId,
       session?.reportId,
+      (session as any)?.key,
       rawRecentValuations,
       isAccountantMode,
       clientContextId,
+      collectedData.companyName,
+      identity.clientContext?.clientCompanyName,
       router,
       currentLocale,
       tReport,
@@ -5083,9 +5162,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
     readOnlyKbo,
     autoAdvancePastPrefilledSteps,
-    preferIntegrationEntry,
-    integrationsEnabled: planFeatures?.integrations_enabled ?? false,
-    planType: plan?.plan_type ?? 'free',
     synthesisWeights: userWeights,
     synthesisJustification: userWeightJustification,
     onSynthesisWeightsChange: setUserWeights,
@@ -5265,8 +5341,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenNormalization={
             showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
           }
-          normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-          openTasksCount={pendingNormalizationCount + pendingUpdates.length}
+          // Hub badge surfaces PENDING work, not ACCEPTED progress: the
+          // button's job is "here's what needs your review." When
+          // `pendingNormalizationCount` was removed from the Assistant
+          // badge (it didn't render content inside that drawer), pending
+          // normalizations lost their visible signal entirely — a user
+          // with 4 pending and 0 accepted saw no badge at all. Pivoting
+          // to pending count restores the notification semantics. The
+          // accepted count is still derivable inside the Hub panel itself
+          // (where progress feedback belongs).
+          normalizationCount={pendingNormalizationCount}
+          // Badge ONLY counts items visible inside the assistant drawer
+          // when opened (the pending field-update cards rendered above the
+          // messages list). Including `pendingNormalizationCount` here used
+          // to promise content the drawer didn't deliver — clicking the
+          // badged button opened an empty conversation, since pending
+          // normalizations live in the Normalization Hub button next door
+          // and only drive a suggestion-text hint here, not a card.
+          openTasksCount={pendingUpdates.length}
           isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
@@ -5442,8 +5534,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenNormalization={
           showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
         }
-        normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-        openTasksCount={pendingNormalizationCount + pendingUpdates.length}
+        // See sibling site for full rationale on why Hub badge is `pending`,
+        // not `accepted`, and Assistant badge is `pendingUpdates` only.
+        normalizationCount={pendingNormalizationCount}
+        openTasksCount={pendingUpdates.length}
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {

@@ -25,16 +25,16 @@ afterEach(() => {
 
 describe('Manual filing year defaults', () => {
   it('seeds the yearly grid from the filing year in March even when current_year_data carries 2025', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
-
-    const seededYears = getSeedYearlyFinancials({
-      current_year_data: {
-        year: 2025,
-        revenue: 1_000_000,
-        ebitda: 100_000,
-      },
-    } as any)
+    const seededYears = getSeedYearlyFinancials(
+      {
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+      } as any,
+      new Date('2026-03-27T12:00:00Z')
+    )
 
     expect(seededYears.map((row) => row.year)).toEqual(['2024', '2023', '2022'])
   })

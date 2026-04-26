@@ -72,6 +72,12 @@ export interface SpotlightImportQuality {
 interface SpotlightState {
   isSpotlightActive: boolean
   importQuality: Record<string, SpotlightImportQuality> | null
+  /**
+   * Accounting integration provider key (e.g. 'yuki', 'exact', 'silverfin').
+   * Sourced from `business_context._imported_ledger_provenance.provider` and used
+   * by SourceDataPanel to attribute the import. Null when unknown / manual entry.
+   */
+  provider: string | null
   /** Ordered actionable flag targets (error → warning, then id). */
   orderedFlagDomIds: string[]
   resolvedFields: Set<string>
@@ -81,8 +87,9 @@ interface SpotlightState {
 
   setImportQuality: (
     quality: Record<string, SpotlightImportQuality>,
-    opts?: { forceSpotlight?: boolean }
+    opts?: { forceSpotlight?: boolean; provider?: string | null }
   ) => void
+  setProvider: (provider: string | null) => void
   applyUrlGuidance: (opts: { focusField?: string; flagYear?: string; forceSpotlight?: boolean }) => void
   activateSpotlight: () => void
   dismissSpotlight: () => void
@@ -135,6 +142,7 @@ function unresolvedIds(state: SpotlightState): string[] {
 export const useSpotlightStore = create<SpotlightState>((set, get) => ({
   isSpotlightActive: false,
   importQuality: null,
+  provider: null,
   orderedFlagDomIds: [],
   resolvedFields: new Set(),
   activeDomId: null,
@@ -147,14 +155,19 @@ export const useSpotlightStore = create<SpotlightState>((set, get) => ({
 
     const firstActive = orderedFlagDomIds[0] ?? null
 
+    // Provider is always reset alongside import quality — it belongs to *this* import,
+    // not the previous one. Callers without provenance pass null (or omit) and we clear.
     set({
       importQuality: quality,
       orderedFlagDomIds,
       resolvedFields: new Set(),
       activeDomId: firstActive,
       isSpotlightActive: shouldActivate,
+      provider: opts?.provider ?? null,
     })
   },
+
+  setProvider: (provider) => set({ provider }),
 
   applyUrlGuidance: (opts) => {
     const state = get()

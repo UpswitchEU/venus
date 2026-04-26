@@ -24,7 +24,8 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { accountingProviderDisplayName } from '../../services/api/accounting'
 import {
   parseSpotlightDomId,
   useSpotlightStore,
@@ -86,7 +87,8 @@ function formatCurrency(value: number | null): string {
 
 export function SourceDataPanel() {
   const locale = useLocale()
-  const { showSourcePanel, toggleSourcePanel, importQuality, activeDomId } = useSpotlightStore()
+  const { showSourcePanel, toggleSourcePanel, importQuality, activeDomId, provider } =
+    useSpotlightStore()
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -167,20 +169,72 @@ export function SourceDataPanel() {
         {/* Quality summary */}
         <div className='px-4 py-3 bg-foreground/[0.02] border-b border-border text-xs text-muted-foreground'>
           {(() => {
-            const years = Object.keys(importQuality)
+            const years = Object.keys(importQuality).sort((a, b) => Number(a) - Number(b))
             const totalAccounts = Object.values(importQuality).reduce((s, q) => s + q.total_accounts_processed, 0)
             const directAccounts = Object.values(importQuality).reduce((s, q) => s + q.accounts_mapped_directly, 0)
             const fallbackAccounts = Object.values(importQuality).reduce((s, q) => s + q.accounts_fallback, 0)
+
+            const providerLabel = provider ? accountingProviderDisplayName(provider) : null
+
+            // Most recent fetch across years; tolerates undefined/invalid timestamps.
+            const latestFetchedAt = (() => {
+              let latest: Date | null = null
+              for (const q of Object.values(importQuality)) {
+                if (!q.fetched_at) continue
+                const d = new Date(q.fetched_at)
+                if (Number.isNaN(d.getTime())) continue
+                if (!latest || d > latest) latest = d
+              }
+              if (!latest) return null
+              return latest.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-BE', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            })()
+
+            const summaryParts: ReactNode[] = [
+              `${totalAccounts} ${locale === 'nl' ? 'rekeningen verwerkt' : 'accounts processed'}`,
+            ]
+            if (providerLabel) {
+              summaryParts.push(`via ${providerLabel}`)
+            }
+            if (latestFetchedAt) {
+              summaryParts.push(latestFetchedAt)
+            }
+            summaryParts.push(
+              <span key='direct' className='text-emerald-600'>{directAccounts} direct</span>,
+            )
+            if (fallbackAccounts > 0) {
+              summaryParts.push(
+                <span key='fallback' className='text-amber-600'>{fallbackAccounts} fallback</span>,
+              )
+            }
+
+            // Years that the integration returned but for which no field got mapped.
+            // Flags a real coverage gap an accountant should know about.
+            const yearsWithoutProvenance = years.filter(
+              (y) => (importQuality[y]?.field_provenance ?? []).length === 0
+            )
+
             return (
               <div className='space-y-1'>
                 <p>{locale === 'nl' ? 'Boekjaren' : 'Fiscal years'}: {years.join(', ')}</p>
-                <p>
-                  {totalAccounts} {locale === 'nl' ? 'rekeningen verwerkt' : 'accounts processed'} ·{' '}
-                  <span className='text-emerald-600'>{directAccounts} direct</span> ·{' '}
-                  {fallbackAccounts > 0 && (
-                    <span className='text-amber-600'>{fallbackAccounts} fallback</span>
-                  )}
+                <p className='flex flex-wrap items-center gap-x-1.5 gap-y-0.5'>
+                  {summaryParts.map((part, i) => (
+                    <span key={i} className='inline-flex items-center'>
+                      {i > 0 && <span className='text-foreground/30 mr-1.5'>·</span>}
+                      {part}
+                    </span>
+                  ))}
                 </p>
+                {yearsWithoutProvenance.length > 0 && (
+                  <p className='text-amber-600'>
+                    {locale === 'nl'
+                      ? `Geen veldmappings voor: ${yearsWithoutProvenance.map((y) => `BJ ${y}`).join(', ')}`
+                      : `No field mappings for: ${yearsWithoutProvenance.map((y) => `FY ${y}`).join(', ')}`}
+                  </p>
+                )}
               </div>
             )
           })()}
@@ -344,6 +398,86 @@ export function SourceDataPanel() {
               </div>
             )
           })}
+
+          {/* Unmapped ledger lines per year — Hermes saw these but couldn't map them.
+              Surfaced so the accountant has a working list of accounts to review. */}
+          {(() => {
+            const yearsWithUnmapped = Object.entries(importQuality)
+              .filter(([, q]) => (q.unmapped_ledger_lines ?? []).length > 0)
+              .sort(([a], [b]) => Number(b) - Number(a))
+            if (yearsWithUnmapped.length === 0) return null
+
+            return (
+              <div className='border-b border-border/50'>
+                <div className='px-4 py-2 bg-foreground/[0.02]'>
+                  <span className='text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>
+                    {locale === 'nl' ? 'Niet-gemapte rekeningen' : 'Unmapped accounts'}
+                  </span>
+                </div>
+                {yearsWithUnmapped.map(([yearKey, q]) => {
+                  const lines = q.unmapped_ledger_lines ?? []
+                  const sectionKey = `unmapped::${yearKey}`
+                  const isOpen = expandedFields.has(sectionKey)
+                  return (
+                    <div key={sectionKey}>
+                      <button
+                        type='button'
+                        onClick={() => toggleField(sectionKey)}
+                        className='w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-foreground/[0.03] transition-colors'
+                      >
+                        {isOpen ? (
+                          <ChevronDown className='w-3 h-3 text-muted-foreground shrink-0' />
+                        ) : (
+                          <ChevronRight className='w-3 h-3 text-muted-foreground shrink-0' />
+                        )}
+                        <span className='text-xs font-medium text-foreground flex-1 truncate'>
+                          {locale === 'nl' ? 'Niet gemapt' : 'Unmapped'}
+                        </span>
+                        <span className='text-[10px] text-muted-foreground rounded-full bg-foreground/[0.04] px-1.5 py-0.5'>
+                          {locale === 'nl' ? 'BJ' : 'FY'} {yearKey}
+                        </span>
+                        <span className='text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600'>
+                          {lines.length}
+                        </span>
+                      </button>
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className='overflow-hidden'
+                          >
+                            <div className='px-4 pb-2 space-y-1'>
+                              {lines.slice(0, 50).map((line, i) => (
+                                <div
+                                  key={`${line.account_code}-${i}`}
+                                  className='flex items-center gap-2 text-[11px] text-muted-foreground pl-5'
+                                >
+                                  <span className='font-mono text-foreground/50'>
+                                    {line.account_code}
+                                  </span>
+                                  <span className='truncate text-foreground/60'>
+                                    {line.description}
+                                  </span>
+                                </div>
+                              ))}
+                              {lines.length > 50 && (
+                                <p className='text-[11px] text-muted-foreground pl-5 italic'>
+                                  +{lines.length - 50} {locale === 'nl' ? 'meer' : 'more'}
+                                </p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       </motion.div>
     </AnimatePresence>

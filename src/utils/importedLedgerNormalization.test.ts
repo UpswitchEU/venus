@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from './importedLedgerNormalization'
 
 describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
-  it('maps SDE flags to pending normalization items', () => {
+  it('maps SDE flags to applied normalization items', () => {
     const items = buildNormalizationItemsFromImportedLedgerAnalysis({
       latest_fiscal_year: 2024,
       sde_flags: [
@@ -23,7 +23,7 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
     expect(items).toHaveLength(1)
     expect(items[0].ledgerCode).toBe('600')
     expect(items[0].category).toBe('salary')
-    expect(items[0].status).toBe('pending')
+    expect(items[0].status).toBe('accepted')
     expect(items[0].confidence).toBe('high')
     expect(items[0].year).toBe(2023)
   })

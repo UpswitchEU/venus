@@ -2,7 +2,14 @@
 
 /**
  * Surfaces import/AI flags whose `field` is not on the streamlined Revenue/EBITDA/Industry form.
- * Without this, spotlight navigation would scroll nowhere — a major guided-resolution blocker.
+ *
+ * NOT mounted on the streamlined calculator (ManualInputPanel) by design: flags about
+ * non-editable fields (equity, long_term_debt, etc.) can't be resolved from that screen and
+ * just dilute attention away from the revenue/EBITDA/industry inputs that drive the valuation.
+ * Mount this in deal-room / full-audit views where those fields ARE editable.
+ *
+ * Known issue (do not propagate): the "Lokaal gereviewd" button writes only to local
+ * `resolvedFields` state — it does not persist. Rename / rewire before re-mounting.
  */
 
 import { cn } from '@/design-system/utils'

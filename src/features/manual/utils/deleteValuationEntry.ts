@@ -6,6 +6,74 @@ interface DeleteValuationEntryParams {
   deleteReport: (id: string) => Promise<unknown>
 }
 
+const POST_DELETE_PASSTHROUGH_PARAMS = [
+  'clientToken',
+  'return_url',
+  'source',
+  'flow',
+  'mode',
+] as const
+
+interface BuildPostDeleteNewValuationUrlParams {
+  locale: string
+  clientId?: string | null
+  companyName?: string | null
+  kboNumber?: string | null
+  vatNumber?: string | null
+  currentSearch?: string | URLSearchParams | null
+}
+
+function normalizeText(value?: string | null): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function isSafePassthroughParam(key: string, value: string): boolean {
+  if (!value) return false
+  if (key !== 'return_url') return true
+  if (value.startsWith('/') && !value.startsWith('//')) return true
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+function normalizeSearchParams(input?: string | URLSearchParams | null): URLSearchParams {
+  if (!input) return new URLSearchParams()
+  if (input instanceof URLSearchParams) return new URLSearchParams(input)
+  return new URLSearchParams(input.startsWith('?') ? input.slice(1) : input)
+}
+
+export function buildPostDeleteNewValuationUrl({
+  locale,
+  clientId,
+  companyName,
+  kboNumber,
+  vatNumber,
+  currentSearch,
+}: BuildPostDeleteNewValuationUrlParams): string {
+  const params = new URLSearchParams()
+  const normalizedClientId = normalizeText(clientId)
+  const prefilledQuery =
+    normalizeText(companyName) ?? normalizeText(kboNumber) ?? normalizeText(vatNumber)
+
+  if (normalizedClientId) params.set('clientId', normalizedClientId)
+  if (prefilledQuery) params.set('prefilledQuery', prefilledQuery)
+
+  const current = normalizeSearchParams(currentSearch)
+  for (const key of POST_DELETE_PASSTHROUGH_PARAMS) {
+    const value = current.get(key)
+    if (value && !params.has(key) && isSafePassthroughParam(key, value)) {
+      params.set(key, value)
+    }
+  }
+
+  const query = params.toString()
+  return query ? `/${locale}/reports/new?${query}` : `/${locale}/reports/new`
+}
+
 export async function deleteValuationEntry({
   valuation,
   deleteDraftSession,

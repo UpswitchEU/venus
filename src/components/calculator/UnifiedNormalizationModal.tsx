@@ -16,6 +16,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
+  ArrowLeft,
   Calendar,
   CalendarRange,
   Check,
@@ -1072,6 +1073,18 @@ export function UnifiedNormalizationModal({
         {/* Header - Compact with EBITDA summary inline */}
         <div className="px-6 py-3 border-b border-foreground/[0.06] flex items-center justify-between pr-14">
           <div className="flex items-center gap-3">
+            {/* Back: explicit affordance — the modal feels like a sub-page (92vh) so users
+                instinctively reach for a left-arrow. The X close in the corner is too easy
+                to miss, and the calculator's own back button sits behind the modal overlay. */}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label={tCommon('back')}
+              title={tCommon('back')}
+              className="p-2 -ml-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06] transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <FileSpreadsheet className="w-4 h-4 text-primary" />
             </div>
@@ -1114,6 +1127,20 @@ export function UnifiedNormalizationModal({
                   {totals.adjustment > 0 ? '+' : ''}
                   {formatCurrency(totals.adjustment)}
                 </motion.p>
+                {/* Pending hint: tells the user WHY Aanpassing is €0 when there are visible
+                    pending rows. Don't fold pending into the accepted total — it would silently
+                    inflate the EBITDA bridge against what the report actually computed. */}
+                {totals.pendingCount > 0 && totals.pendingAdjustment !== 0 && (
+                  <p
+                    className="text-[9px] font-mono font-medium text-warning/80 mt-0.5 tabular-nums"
+                    title={nh('pendingHintTooltip', { count: totals.pendingCount })}
+                  >
+                    {nh('pendingHint', {
+                      sign: totals.pendingAdjustment > 0 ? '+' : '',
+                      amount: formatCurrency(totals.pendingAdjustment),
+                    })}
+                  </p>
+                )}
               </div>
               <div className="w-px h-8 bg-foreground/10" />
               <div className="text-right">
@@ -2039,10 +2066,10 @@ export function UnifiedNormalizationModal({
                   <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
                   <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
                   <div className="w-20 flex-shrink-0 text-center">{nh('table.jaar')}</div>
-                  <div className="w-16 flex-shrink-0 text-center">{nh('table.bron')}</div>
-                  <div className="w-20 flex-shrink-0 text-center">{nh('table.status')}</div>
+                  <div className="w-36 flex-shrink-0 text-center">{nh('table.bron')}</div>
+                  <div className="w-32 flex-shrink-0 text-center">{nh('table.status')}</div>
                   <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                  <div className="w-24 flex-shrink-0 text-right">{nh('table.acties')}</div>
+                  <div className="w-20 flex-shrink-0 text-right">{nh('table.acties')}</div>
                 </div>
               )}
 
@@ -2121,10 +2148,10 @@ export function UnifiedNormalizationModal({
                                 <div className="w-6 flex-shrink-0" />
                                 <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
                                 <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
-                                <div className="w-16 flex-shrink-0 text-center">{nh('table.bron')}</div>
-                                <div className="w-20 flex-shrink-0 text-center">{nh('table.status')}</div>
+                                <div className="w-36 flex-shrink-0 text-center">{nh('table.bron')}</div>
+                                <div className="w-32 flex-shrink-0 text-center">{nh('table.status')}</div>
                                 <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                                <div className="w-24 flex-shrink-0 text-right">{nh('table.acties')}</div>
+                                <div className="w-20 flex-shrink-0 text-right">{nh('table.acties')}</div>
                               </div>
 
                               {/* Items */}
@@ -2329,6 +2356,7 @@ function CompactTableRow({
         color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
       }
     : sourceBase
+  const appliedStatusLabel = isImportedLedger ? nh('statusApplied') : nh('statusOk')
 
   // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
   const displayAdjustment = useMemo(() => {
@@ -2411,31 +2439,34 @@ function CompactTableRow({
       )}
 
       {/* Source */}
-      <div className="w-16 flex-shrink-0 text-center">
+      <div className="w-36 flex-shrink-0 text-center">
         <span
           title={isImportedLedger ? nh('importedLedgerTooltip') : undefined}
-          className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', source.color)}
+          className={cn(
+            'inline-flex max-w-full items-center justify-center truncate rounded-full px-2.5 py-1 text-[10px] font-medium',
+            source.color
+          )}
         >
           {nh(source.labelKey)}
         </span>
       </div>
 
       {/* Status */}
-      <div className="w-20 flex-shrink-0 text-center">
+      <div className="w-32 flex-shrink-0 text-center">
         {item.status === 'pending' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-warning/10 text-warning">
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-[10px] font-medium text-warning">
             <Clock className="w-2.5 h-2.5" />
             {nh('statusPending')}
           </span>
         )}
         {item.status === 'accepted' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-[10px] font-medium text-success">
             <Check className="w-2.5 h-2.5" />
-            {nh('statusOk')}
+            {appliedStatusLabel}
           </span>
         )}
         {item.status === 'rejected' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2.5 py-1 text-[10px] font-medium text-secondary">
             <X className="w-2.5 h-2.5" />
             {nh('no')}
           </span>
@@ -2460,7 +2491,7 @@ function CompactTableRow({
       </div>
 
       {/* Actions - gap-2 for clearer separation between Edit and Delete (accountant UX) */}
-      <div className="w-28 flex-shrink-0 flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      <div className="w-20 flex-shrink-0 flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         {item.status === 'pending' && (
           <>
             <TooltipProvider>

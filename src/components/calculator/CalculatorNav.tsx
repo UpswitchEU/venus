@@ -841,7 +841,14 @@ export function CalculatorNav({
                   {t('assistant.shortcut')}
                 </kbd>
                 {openTasksCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm">
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm"
+                    aria-label={
+                      navLocale === 'nl'
+                        ? `${openTasksCount} openstaande taak${openTasksCount === 1 ? '' : 'en'} in de assistent`
+                        : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
+                    }
+                  >
                     {openTasksCount > 9 ? '9+' : openTasksCount}
                   </span>
                 )}
@@ -882,8 +889,15 @@ export function CalculatorNav({
                     </span>
                   )}
                   {normalizationCount > 0 && (
-                    <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
-                      {normalizationCount}
+                    <span
+                      className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary"
+                      aria-label={
+                        navLocale === 'nl'
+                          ? `${normalizationCount} normalisatie${normalizationCount === 1 ? '' : 's'} ter beoordeling`
+                          : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
+                      }
+                    >
+                      {normalizationCount > 9 ? '9+' : normalizationCount}
                     </span>
                   )}
                 </AuroraButton>

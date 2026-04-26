@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { useLocale } from 'next-intl'
+import { accountingProviderDisplayName } from '../../services/api/accounting'
 import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
 
@@ -62,7 +63,7 @@ const DOT_STYLES: Record<string, { color: string; label: string; nlLabel: string
 
 export function ProvenanceDot({ fieldName, fiscalYear, className }: ProvenanceDotProps) {
   const locale = useLocale()
-  const { importQuality, getFieldMappingMethod, getFieldProvenance } = useSpotlightStore()
+  const { importQuality, provider, getFieldMappingMethod, getFieldProvenance } = useSpotlightStore()
   const nbbSnapshot = useNbbPrefillStore((s) =>
     fiscalYear != null ? s.getYearSnapshot(fiscalYear) : undefined
   )
@@ -139,9 +140,10 @@ export function ProvenanceDot({ fieldName, fiscalYear, className }: ProvenanceDo
     try {
       const d = new Date(importQuality[yearKey].fetched_at as string)
       if (Number.isNaN(d.getTime())) return null
+      const providerSuffix = provider ? ` via ${accountingProviderDisplayName(provider)}` : ''
       return locale === 'nl'
-        ? `Gesynchroniseerd: ${d.toLocaleString('nl-BE')}`
-        : `Synced: ${d.toLocaleString('en-BE')}`
+        ? `Gesynchroniseerd${providerSuffix}: ${d.toLocaleString('nl-BE')}`
+        : `Synced${providerSuffix}: ${d.toLocaleString('en-BE')}`
     } catch {
       return null
     }

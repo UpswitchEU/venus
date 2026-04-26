@@ -2,8 +2,8 @@
  * Build EBITDA normalization draft items from Titan/Mercury imported-ledger SDE flags.
  * Shared by bootstrap prefill and session restoration so persisted analysis is consistent.
  *
- * SDE “wizard” UX: flags become pending NormalizationItems and are reviewed in UnifiedNormalizationModal
- * (Yes/No per line item), not a separate step-by-step wizard route.
+ * SDE flags from synced accounting data are applied by default and remain editable
+ * in UnifiedNormalizationModal with clear provenance.
  */
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
@@ -112,7 +112,7 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
       reason,
       source: 'auto' as const,
       sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
-      status: 'pending' as const,
+      status: 'accepted' as const,
       applyAllYears: false,
       applyYears: flag.year ? [flag.year] : undefined,
       year: flag.year || getCurrentFilingYear(),

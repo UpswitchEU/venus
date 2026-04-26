@@ -60,16 +60,29 @@ export function getNormalizationAmountForBase(
 export function summarizeAcceptedNormalizations(
   items: Array<Pick<NormalizationItem, 'status' | 'type' | 'value' | 'adjustment'>>,
   reportedEbitda: number
-): { original: number; adjustment: number; normalized: number } {
+): {
+  original: number
+  adjustment: number
+  normalized: number
+  pendingAdjustment: number
+  pendingCount: number
+} {
   const original = Number.isFinite(reportedEbitda) ? reportedEbitda : 0
   const adjustment = items
     .filter((item) => item.status === 'accepted')
     .reduce((sum, item) => sum + getNormalizationAmountForBase(item, original), 0)
+  const pendingItems = items.filter((item) => item.status === 'pending')
+  const pendingAdjustment = pendingItems.reduce(
+    (sum, item) => sum + getNormalizationAmountForBase(item, original),
+    0
+  )
 
   return {
     original,
     adjustment,
     normalized: original + adjustment,
+    pendingAdjustment,
+    pendingCount: pendingItems.length,
   }
 }
 
@@ -84,7 +97,13 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   reportedEbitdaByYear?: Record<number, number>
   fallbackYear: number
   fallbackReportedEbitda?: number
-}): { original: number; adjustment: number; normalized: number } {
+}): {
+  original: number
+  adjustment: number
+  normalized: number
+  pendingAdjustment: number
+  pendingCount: number
+} {
   const {
     items,
     availableYears,
@@ -94,6 +113,28 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   } = options
 
   const acceptedItems = items.filter((item) => item.status === 'accepted')
+  const pendingItems = items.filter((item) => item.status === 'pending')
+
+  // Compute pending contribution by spreading items across the years they apply to
+  // (mirrors the accepted flow). This is shown as a secondary signal in the header so
+  // users see why the Aanpassing tile is €0 even when there are visible pending rows
+  // — without inflating the accepted normalized EBITDA value the report relies on.
+  const pendingAdjustment = pendingItems.reduce((acc, item) => {
+    const years = item.applyAllYears
+      ? availableYears
+      : item.applyYears && item.applyYears.length > 0
+        ? item.applyYears
+        : [item.year]
+    let sum = 0
+    for (const year of years) {
+      if (!Number.isFinite(year)) continue
+      const reported =
+        getFirstFiniteNumber(reportedEbitdaByYear?.[year], fallbackReportedEbitda) ?? 0
+      sum += getNormalizationAmountForBase(item, reported)
+    }
+    return acc + sum
+  }, 0)
+
   if (acceptedItems.length === 0) {
     const original =
       getFirstFiniteNumber(reportedEbitdaByYear?.[fallbackYear], fallbackReportedEbitda) ?? 0
@@ -101,6 +142,8 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
       original,
       adjustment: 0,
       normalized: original,
+      pendingAdjustment,
+      pendingCount: pendingItems.length,
     }
   }
 
@@ -144,10 +187,12 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
       original,
       adjustment: 0,
       normalized: original,
+      pendingAdjustment,
+      pendingCount: pendingItems.length,
     }
   }
 
-  return summary
+  return { ...summary, pendingAdjustment, pendingCount: pendingItems.length }
 }
 
 /**

@@ -573,7 +573,13 @@ function applyPrefillToForm(
       typeof financials.importQuality === 'object' &&
       Object.keys(financials.importQuality).length > 0
     ) {
-      useSpotlightStore.getState().setImportQuality(financials.importQuality as any)
+      // Bootstrap doesn't carry `_imported_ledger_provenance` directly. Preserve any provider
+      // already set by SessionRestoration so a later bootstrap fire can't clobber the trust
+      // attribution. If neither has set it, this is null (correct).
+      const existingProvider = useSpotlightStore.getState().provider
+      useSpotlightStore.getState().setImportQuality(financials.importQuality as any, {
+        provider: existingProvider,
+      })
     }
     if (financials.saasMetrics) {
       const importedSaasMetrics = financials.saasMetrics
@@ -665,6 +671,15 @@ function applyPrefillToForm(
           revenue: currentYearRow.revenue,
           ebitda: currentYearRow.ebitda,
         }
+        // Mirror into the array form the calculator panel and Origineel/Genormaliseerd
+        // tiles read from. Without this, panel `yearlyFinancials` keeps its placeholder
+        // €0 rows and the normalization modal shows €0 / €0 / €0 even when bootstrap
+        // delivered Yuki/CBSO figures. See ManualLayout `originalEBITDAByYear`.
+        allData.yearlyFinancials = safeHistoricalYears.map((row) => ({
+          year: String(row.year),
+          revenue: Number.isFinite(Number(row.revenue)) ? Number(row.revenue) : 0,
+          ebitda: Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : 0,
+        }))
       } else if (financials.yearData && Object.keys(financials.yearData).length > 0) {
         // Every yearData row was beyond the filing window (e.g. only "future" years in H1).
         // Replace stale manual-store defaults (current_year_data is initialized once at module load).

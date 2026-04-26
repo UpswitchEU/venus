@@ -677,7 +677,11 @@ class SessionRestorationServiceImpl {
     try {
       const rawIQ = (data.formData as any)?._import_quality
       if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
-        useSpotlightStore.getState().setImportQuality(rawIQ)
+        const provenanceProvider = (data.formData as any)?.business_context
+          ?._imported_ledger_provenance?.provider
+        useSpotlightStore.getState().setImportQuality(rawIQ, {
+          provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
+        })
         generalLogger.info('[SessionRestoration] Import quality hydrated for spotlight mode', {
           years: Object.keys(rawIQ).length,
         })
@@ -974,7 +978,14 @@ class SessionRestorationServiceImpl {
           }
           try {
             if (raw._import_quality && typeof raw._import_quality === 'object') {
-              useSpotlightStore.getState().setImportQuality(raw._import_quality as any)
+              const bc = (raw.business_context ?? raw.businessContext) as
+                | Record<string, unknown>
+                | undefined
+              const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)
+                ?.provider
+              useSpotlightStore.getState().setImportQuality(raw._import_quality as any, {
+                provider: typeof prov === 'string' ? prov : null,
+              })
             }
           } catch {
             // Non-critical

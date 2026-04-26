@@ -381,7 +381,10 @@ describe('useBootstrapPrefill', () => {
         expect.objectContaining({
           ledgerCode: '620000',
           ledgerName: 'Related party rent',
-          status: 'pending',
+          // Hermes-derived SDE flags from synced accounting data are auto-applied
+          // (status='accepted'); buildNormalizationItemsFromImportedLedgerAnalysis
+          // owns this default. Editable in UnifiedNormalizationModal with provenance.
+          status: 'accepted',
           year: 2024,
         }),
       ])

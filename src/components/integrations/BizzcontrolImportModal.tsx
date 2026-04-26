@@ -1,10 +1,9 @@
 'use client'
 
 import { Building2, Loader2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useMemo, useState } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraSelect } from '@/design-system/components/Select'
 import {
   Modal,
   ModalContent,
@@ -13,13 +12,12 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/design-system/components/Modal'
+import { AuroraSelect } from '@/design-system/components/Select'
 import type { AccountingAdministration } from '@/services/api/accounting'
-import { buildMercuryIntegrationsUrl } from '@/utils/getMercuryUrl'
 
 interface BizzcontrolImportModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  locale: string
   isLoadingCompanies: boolean
   isImporting: boolean
   error?: string | null
@@ -36,7 +34,6 @@ interface BizzcontrolImportModalProps {
 export function BizzcontrolImportModal({
   open,
   onOpenChange,
-  locale,
   isLoadingCompanies,
   isImporting,
   error,
@@ -74,17 +71,7 @@ export function BizzcontrolImportModal({
         </ModalHeader>
 
         <div className="space-y-4">
-          <p className="text-sm text-foreground/70">
-            {t('connectHint')}{' '}
-            <a
-              href={buildMercuryIntegrationsUrl(locale, { accountingProvider: 'bizzcontrol' })}
-              className="text-primary underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t('openIntegrationsSettings')}
-            </a>
-          </p>
+          <p className="text-sm text-foreground/70">{t('connectHint')}</p>
 
           <div>
             <label className="text-sm font-medium text-foreground">{t('searchCompanies')}</label>
