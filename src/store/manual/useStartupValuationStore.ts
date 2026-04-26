@@ -161,6 +161,72 @@ export interface StartupSafeNote {
   holder_label: string
 }
 
+/**
+ * Founder-pedigree qualification flags. Each is a discrete, defensible
+ * claim that drives a multiplicative overlay on the leg-blend baseline.
+ * Mirrors `apps/valuation-iq/src/domain/startup_valuation/schemas.py`
+ * (`FounderPedigreeInputs`).
+ */
+export type FounderPedigreeKey =
+  | 'prior_exit'
+  | 'top_unicorn_alumnus'
+  | 'domain_expert_10y'
+  | 'second_time_founder'
+  | 'has_technical_cofounder'
+  | 'solo_founder'
+
+export type FounderPedigreeFlags = Record<FounderPedigreeKey, boolean>
+
+/**
+ * Per-qualification multiplier deltas used by the live receipt to render
+ * "+X.XX×" / "-X.XX×" chips next to each option.  Source of truth lives
+ * in the Python engine (`founder_pedigree.PEDIGREE_DELTAS`) — this table
+ * is a UI-only mirror, kept conservative-by-construction so a UX glitch
+ * never flatters the founder above what the engine returns.
+ */
+export const PEDIGREE_DELTA_PCT: Record<FounderPedigreeKey, number> = {
+  prior_exit: 0.3,
+  top_unicorn_alumnus: 0.2,
+  domain_expert_10y: 0.15,
+  second_time_founder: 0.1,
+  has_technical_cofounder: 0.1,
+  solo_founder: -0.2,
+}
+
+export const PEDIGREE_FLOOR = 0.7
+export const PEDIGREE_CEILING = 1.8
+
+export const PEDIGREE_KEYS: readonly FounderPedigreeKey[] = [
+  'prior_exit',
+  'top_unicorn_alumnus',
+  'domain_expert_10y',
+  'second_time_founder',
+  'has_technical_cofounder',
+  'solo_founder',
+] as const
+
+const INITIAL_PEDIGREE: FounderPedigreeFlags = {
+  prior_exit: false,
+  top_unicorn_alumnus: false,
+  domain_expert_10y: false,
+  second_time_founder: false,
+  has_technical_cofounder: false,
+  solo_founder: false,
+}
+
+/**
+ * Sum the active qualification deltas + 1.0 base, clamped to the empirical
+ * envelope.  Used by the live receipt; the canonical number always comes
+ * back from the engine.
+ */
+export function calculatePedigreeMultiplier(flags: FounderPedigreeFlags): number {
+  let raw = 1.0
+  for (const key of PEDIGREE_KEYS) {
+    if (flags[key]) raw += PEDIGREE_DELTA_PCT[key]
+  }
+  return Math.min(PEDIGREE_CEILING, Math.max(PEDIGREE_FLOOR, raw))
+}
+
 export interface StartupCapTableState {
   pre_money_target: number | null
   option_pool_pct: number
@@ -217,6 +283,14 @@ export interface StartupValuationState {
 
   cap_table: StartupCapTableState
 
+  /**
+   * Founder-pedigree flags — each is a discrete, defensible claim that
+   * the engine converts into a multiplicative overlay on the leg-blend
+   * baseline.  Defaults to all-false so a payload that pre-dates this
+   * field reads as multiplier 1.0 (no overlay).
+   */
+  founder_pedigree: FounderPedigreeFlags
+
   // ---------------------------------------------------------------
   // Studio v2 — milestone-card state.
   //
@@ -262,6 +336,27 @@ interface StartupValuationStore extends StartupValuationState {
    * use `setField` directly.
    */
   setMaturity: (key: StudioMilestoneKey, level: MaturityLevel) => void
+  /**
+   * One-click preset apply — pre-fills the entire wizard with sensible
+   * defaults for a (sector, stage) profile.  See
+   * `apps/venus/src/features/startup-studio/data/presets.ts` for the
+   * built-in presets.
+   *
+   * The patch is applied destructively over preset-managed fields
+   * (stage, sector, country, maturity, pedigree, VC inputs, TAM/SAM/SOM)
+   * so a returning user who picks a different preset gets a clean slate
+   * for the new profile.  Free-text fields (`description`, evidence
+   * sentences not in the preset) are *preserved* so a founder who already
+   * typed their pitch doesn't lose it.
+   */
+  applyPreset: (preset: import('@/features/startup-studio/data/presets').StudioPreset) => void
+  /**
+   * Toggle a founder-pedigree qualification.  Picking ``solo_founder``
+   * implicitly clears ``has_technical_cofounder`` (and vice-versa) so the
+   * UI cannot land in a state where both are checked, which would let
+   * the founder claim a discount-AND-lift combo the engine doesn't grant.
+   */
+  setPedigreeFlag: (key: FounderPedigreeKey, applied: boolean) => void
   /** Studio v2 — evidence note setter (free-text per milestone). */
   setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
   /** Studio v2 — Step 4 TAM/SAM/SOM trio setter. */
@@ -331,6 +426,8 @@ const INITIAL_STATE: StartupValuationState = {
   investment_amount_sought: STARTUP_STAGE_DEFAULT_RAISE.seed,
 
   cap_table: INITIAL_CAP_TABLE,
+
+  founder_pedigree: { ...INITIAL_PEDIGREE },
 
   // Studio v2 ---------------------------------------------------------
   // Default to `none` so the live receipt does not anchor the founder
@@ -405,6 +502,67 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // what the legacy slider panel would have produced.
           [key]: MATURITY_TO_SCORE[level],
         }) as StartupValuationState),
+
+      setPedigreeFlag: (key, applied) =>
+        set((state) => {
+          const next = { ...state.founder_pedigree, [key]: applied }
+          // Mutually-exclusive guard: solo founder ↔ technical cofounder.
+          // If both were true the engine would still clamp the multiplier,
+          // but the UI claim would be incoherent ("I have a cofounder AND
+          // I'm solo"). Auto-clear the partner flag when one is picked.
+          if (applied && key === 'solo_founder') next.has_technical_cofounder = false
+          if (applied && key === 'has_technical_cofounder') next.solo_founder = false
+          return { ...state, founder_pedigree: next }
+        }),
+
+      applyPreset: (preset) =>
+        set((state) => {
+          // Derive 0-100 scores from the preset's maturity picks so the
+          // engine consumes the same shape it would if a founder had
+          // clicked through the wizard.  Mirrors `setMaturity`.
+          const maturityFields: Partial<StartupValuationState> = {}
+          for (const [key, level] of Object.entries(preset.maturity) as Array<
+            [StudioMilestoneKey, MaturityLevel]
+          >) {
+            ;(maturityFields as Record<string, unknown>)[key] = MATURITY_TO_SCORE[level]
+          }
+
+          // Merge evidence notes — preset overrides only those it
+          // explicitly sets; founder's own sentences for other milestones
+          // survive.
+          const nextEvidence = { ...state.evidence_notes }
+          if (preset.evidence_notes) {
+            for (const [key, note] of Object.entries(preset.evidence_notes)) {
+              if (note != null) {
+                nextEvidence[key as StudioMilestoneKey] = note
+              }
+            }
+          }
+
+          return {
+            ...state,
+            ...maturityFields,
+            stage: preset.stage,
+            sector: preset.sector,
+            country_code: preset.country_code,
+            investment_amount_sought: preset.investment_amount_sought,
+            description: preset.description ?? state.description,
+            maturity: { ...state.maturity, ...preset.maturity },
+            evidence_notes: nextEvidence,
+            founder_pedigree: { ...preset.founder_pedigree },
+            ...(preset.year5_revenue_projection != null
+              ? { year5_revenue_projection: preset.year5_revenue_projection }
+              : {}),
+            ...(preset.exit_revenue_multiple != null
+              ? { exit_revenue_multiple: preset.exit_revenue_multiple }
+              : {}),
+            ...(preset.target_roi_x != null ? { target_roi_x: preset.target_roi_x } : {}),
+            ...(preset.tam_sam_som ? { tam_sam_som: preset.tam_sam_som } : {}),
+            // Mark sector as user-set so the NACE auto-seed never silently
+            // overrides what the preset picked.
+            _sectorWasUserSet: true,
+          } as StartupValuationState
+        }),
 
       setEvidenceNote: (key, note) =>
         set((state) => ({
@@ -544,13 +702,20 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             investment_amount_sought: state.investment_amount_sought,
           }),
           cap_table: { ...capTable, safe_notes },
+          // Include the pedigree object only when at least one flag is set.
+          // The engine treats the absence of the field as "no overlay"
+          // (default multiplier 1.0), so an all-false payload would be a
+          // wasteful round-trip with the same outcome.
+          ...(Object.values(state.founder_pedigree).some(Boolean)
+            ? { founder_pedigree: state.founder_pedigree }
+            : {}),
           ...(Object.keys(studioMetadata).length > 0 ? { studio_v2: studioMetadata } : {}),
         }
       },
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 4,
+      version: 5,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -563,6 +728,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       //            preserved (the engine still consumes them); maturity
       //            is bucketed from the existing scores so legacy users
       //            land on a wizard pre-filled with their last picks.
+      //   v4 → v5: founder pedigree overlay — added `founder_pedigree`
+      //            flags (six discrete qualifications).  Defaults to
+      //            all-false so returning users see no behaviour change
+      //            until they actively pick a qualification.
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as StartupValuationState
@@ -613,6 +782,14 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           if (s.description === undefined) s.description = ''
           if (!s.tam_sam_som) s.tam_sam_som = { tam: null, sam: null, som: null }
         }
+        if (version < 5) {
+          // Default to all-false so the multiplier is 1.0 (no overlay) for
+          // every persisted user — the founder explicitly opts in by
+          // picking a qualification on the new wizard step.
+          if (!s.founder_pedigree) {
+            s.founder_pedigree = { ...INITIAL_PEDIGREE }
+          }
+        }
         return s as StartupValuationState
       },
       partialize: (state) => {
@@ -620,6 +797,8 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           setField,
           setCapField,
           setMaturity,
+          setPedigreeFlag,
+          applyPreset,
           setEvidenceNote,
           setTamSamSom,
           addSafeNote,
@@ -633,6 +812,8 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         void setField
         void setCapField
         void setMaturity
+        void setPedigreeFlag
+        void applyPreset
         void setEvidenceNote
         void setTamSamSom
         void addSafeNote

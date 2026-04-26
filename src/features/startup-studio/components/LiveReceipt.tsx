@@ -104,6 +104,28 @@ export function LiveReceipt({
             </span>
           </p>
         )}
+        {/* Pedigree multiplier chip — only when active and we have a number to compare against. */}
+        {valuation.blended && valuation.pedigreeMultiplier !== 1.0 && (
+          <p
+            className={cn(
+              'mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium tabular-nums',
+              valuation.pedigreeMultiplier > 1.0
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+            )}
+            aria-label={
+              locale === 'nl'
+                ? `Pedigree-multiplier ${valuation.pedigreeMultiplier.toFixed(2)} keer`
+                : `Pedigree multiplier ${valuation.pedigreeMultiplier.toFixed(2)} times`
+            }
+          >
+            {valuation.pedigreeMultiplier > 1.0 ? '↑' : '↓'} {valuation.pedigreeMultiplier.toFixed(2)}× ·{' '}
+            <span className="opacity-65">
+              {locale === 'nl' ? 'leg-blend' : 'leg blend'}{' '}
+              {formatEur(valuation.blendedPrePedigree?.mid ?? null)}
+            </span>
+          </p>
+        )}
       </header>
 
       {/* Football field — per-leg horizontal bars */}

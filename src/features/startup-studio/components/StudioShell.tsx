@@ -44,6 +44,7 @@ export const STUDIO_STEPS: StudioStepDef[] = [
   { id: 'profile', label: { en: 'Profile', nl: 'Profiel' } },
   { id: 'berkus', label: { en: 'Risk reduction', nl: 'Risico-reductie' } },
   { id: 'scorecard', label: { en: 'Defensibility', nl: 'Defensibility' } },
+  { id: 'founder_pedigree', label: { en: 'Team pedigree', nl: 'Team' } },
   { id: 'traction', label: { en: 'Traction', nl: 'Tractie' } },
   { id: 'exit_story', label: { en: 'Exit story', nl: 'Exit-verhaal' } },
   { id: 'round_simulator', label: { en: 'Round', nl: 'Ronde' } },

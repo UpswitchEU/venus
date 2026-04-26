@@ -17,6 +17,7 @@ import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptiveP
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
+  STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
   STARTUP_SECTOR_EXIT_MULTIPLES,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
@@ -55,6 +56,11 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
   const applyGrowthCurve = (curve: GrowthCurve) => {
     if (!tamSamSom.som || tamSamSom.som <= 0) return
     setField('year5_revenue_projection', Math.round(tamSamSom.som * GROWTH_MULTIPLIERS[curve]))
+  }
+
+  const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector] ?? 5_000_000
+  const applySectorDefaultY5 = () => {
+    setField('year5_revenue_projection', sectorDefaultY5)
   }
 
   const previewY5 = y5 ?? 0
@@ -127,7 +133,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             : 'Pick a growth curve to suggest your Y5 revenue, or enter it manually.'}
         </p>
 
-        {tamSamSom.som && tamSamSom.som > 0 && (
+        {tamSamSom.som && tamSamSom.som > 0 ? (
           <div className="mb-4 flex flex-wrap gap-2">
             {(['3x', '5x', '8x'] as const).map((curve) => {
               const som = tamSamSom.som ?? 0
@@ -142,6 +148,26 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
                 </button>
               )
             })}
+          </div>
+        ) : (
+          /* No SOM yet — let the founder one-click the conservative
+             sector-default Y5 revenue so the VC method leg never silently
+             drops out of the blend. */
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={applySectorDefaultY5}
+              className="rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary/[0.08]"
+            >
+              {locale === 'nl'
+                ? `Gebruik sector-default · ${formatEur(sectorDefaultY5)}`
+                : `Use sector default · ${formatEur(sectorDefaultY5)}`}
+            </button>
+            <span className="text-[11px] text-foreground/55">
+              {locale === 'nl'
+                ? `(typisch Y5 ARR voor ${sector} pre-seed)`
+                : `(typical Y5 ARR for ${sector} pre-seed)`}
+            </span>
           </div>
         )}
 

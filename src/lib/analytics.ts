@@ -295,6 +295,7 @@ export type StudioStep =
   | 'profile'
   | 'berkus'
   | 'scorecard'
+  | 'founder_pedigree'
   | 'traction'
   | 'exit_story'
   | 'round_simulator'

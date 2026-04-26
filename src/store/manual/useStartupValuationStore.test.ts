@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   STARTUP_STAGE_DEFAULT_RAISE,
+  calculatePedigreeMultiplier,
   useStartupValuationStore,
 } from './useStartupValuationStore'
 
@@ -131,6 +132,160 @@ describe('useStartupValuationStore', () => {
     expect(after.management_strength).toBe(50)
     expect(after.cap_table.option_pool_pct).toBe(10)
     expect(after.cap_table.safe_notes).toHaveLength(0)
+  })
+
+  describe('applyPreset — one-click smart defaults', () => {
+    it('applies the Upswitch demo preset end-to-end', async () => {
+      const { UPSWITCH_DEMO_PRESET } = await import(
+        '@/features/startup-studio/data/presets'
+      )
+      useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
+      const s = useStartupValuationStore.getState()
+
+      expect(s.stage).toBe('pre_seed')
+      expect(s.sector).toBe('marketplace')
+      expect(s.country_code).toBe('BE')
+      expect(s.investment_amount_sought).toBe(750_000)
+
+      // Berkus maturity → 0-100 score derivation
+      expect(s.maturity.sound_idea).toBe('exceptional')
+      expect(s.sound_idea).toBe(100)
+      expect(s.maturity.product_rollout).toBe('basic')
+      expect(s.product_rollout).toBe(40)
+
+      // Founder pedigree
+      expect(s.founder_pedigree.domain_expert_10y).toBe(true)
+      expect(s.founder_pedigree.has_technical_cofounder).toBe(true)
+      expect(s.founder_pedigree.solo_founder).toBe(false)
+
+      // VC method anchors
+      expect(s.year5_revenue_projection).toBe(10_000_000)
+      expect(s.exit_revenue_multiple).toBe(5)
+      expect(s.target_roi_x).toBe(15)
+
+      // TAM/SAM/SOM funnel
+      expect(s.tam_sam_som.som).toBe(500_000_000)
+
+      // Sector flag flipped — guards against NACE auto-seed silently
+      // overriding the preset on a refresh.
+      expect(s._sectorWasUserSet).toBe(true)
+    })
+
+    it('preserves existing free-text description on preset re-apply', async () => {
+      const { B2B_SAAS_PRESEED_PRESET, UPSWITCH_DEMO_PRESET } = await import(
+        '@/features/startup-studio/data/presets'
+      )
+      // Founder picks a SaaS preset (no description), types their own,
+      // then switches to Upswitch demo (which has a description).
+      useStartupValuationStore.getState().applyPreset(B2B_SAAS_PRESEED_PRESET)
+      useStartupValuationStore.getState().setField('description', 'My custom pitch.')
+
+      useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
+      // Upswitch preset HAS a description so this one wins — that's the
+      // intended behaviour for this preset (it's a self-demo).
+      expect(useStartupValuationStore.getState().description).toContain('Upswitch')
+
+      // But going back to a preset without a description preserves the
+      // founder's text.
+      useStartupValuationStore.getState().setField('description', 'Founder text wins.')
+      useStartupValuationStore.getState().applyPreset(B2B_SAAS_PRESEED_PRESET)
+      expect(useStartupValuationStore.getState().description).toBe('Founder text wins.')
+    })
+
+    it('preset with prior_exit lifts the pedigree multiplier above 1.0', async () => {
+      const { UPSWITCH_DEMO_PRESET } = await import(
+        '@/features/startup-studio/data/presets'
+      )
+      useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
+      const flags = useStartupValuationStore.getState().founder_pedigree
+      // domain_expert_10y (+0.15) + has_technical_cofounder (+0.10) = 1.25×
+      expect(calculatePedigreeMultiplier(flags)).toBeCloseTo(1.25, 5)
+    })
+  })
+
+  describe('founder pedigree overlay', () => {
+    it('defaults to all-false flags so the multiplier is neutral', () => {
+      const s = useStartupValuationStore.getState()
+      expect(s.founder_pedigree).toEqual({
+        prior_exit: false,
+        top_unicorn_alumnus: false,
+        domain_expert_10y: false,
+        second_time_founder: false,
+        has_technical_cofounder: false,
+        solo_founder: false,
+      })
+      expect(calculatePedigreeMultiplier(s.founder_pedigree)).toBe(1.0)
+    })
+
+    it('omits founder_pedigree from the payload when neutral', () => {
+      // Engine treats the absence of the field as "no overlay" — sending
+      // an all-false object would be a wasteful round-trip.
+      const payload = useStartupValuationStore.getState().toRequestPayload()
+      expect(payload).not.toHaveProperty('founder_pedigree')
+    })
+
+    it('threads a single flag through to the request payload', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: Record<string, boolean>
+      }
+      expect(payload.founder_pedigree).toBeDefined()
+      expect(payload.founder_pedigree!.prior_exit).toBe(true)
+      expect(payload.founder_pedigree!.solo_founder).toBe(false)
+    })
+
+    it('mutually excludes solo_founder and has_technical_cofounder', () => {
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('has_technical_cofounder', true)
+      s.setPedigreeFlag('solo_founder', true)
+      const after = useStartupValuationStore.getState().founder_pedigree
+      expect(after.solo_founder).toBe(true)
+      expect(after.has_technical_cofounder).toBe(false)
+
+      // And the reverse direction works too
+      s.setPedigreeFlag('has_technical_cofounder', true)
+      const flipped = useStartupValuationStore.getState().founder_pedigree
+      expect(flipped.has_technical_cofounder).toBe(true)
+      expect(flipped.solo_founder).toBe(false)
+    })
+
+    it('calculatePedigreeMultiplier sums active deltas with clamp', () => {
+      // 1.0 + 0.30 = 1.30 — single qualification.
+      expect(
+        calculatePedigreeMultiplier({
+          prior_exit: true,
+          top_unicorn_alumnus: false,
+          domain_expert_10y: false,
+          second_time_founder: false,
+          has_technical_cofounder: false,
+          solo_founder: false,
+        }),
+      ).toBeCloseTo(1.3, 5)
+
+      // Maxed-out case (all positive) clamps at the 1.80 ceiling.
+      expect(
+        calculatePedigreeMultiplier({
+          prior_exit: true,
+          top_unicorn_alumnus: true,
+          domain_expert_10y: true,
+          second_time_founder: true,
+          has_technical_cofounder: true,
+          solo_founder: false,
+        }),
+      ).toBe(1.8)
+
+      // Solo-only case lands at 0.80 — above the floor.
+      expect(
+        calculatePedigreeMultiplier({
+          prior_exit: false,
+          top_unicorn_alumnus: false,
+          domain_expert_10y: false,
+          second_time_founder: false,
+          has_technical_cofounder: false,
+          solo_founder: true,
+        }),
+      ).toBeCloseTo(0.8, 5)
+    })
   })
 
   describe('seedSectorFromNaceIfDefault — PLG NACE smart-default', () => {

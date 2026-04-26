@@ -26,6 +26,7 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { PresetPicker } from './PresetPicker'
 
 interface ProfileStepProps {
   locale?: 'en' | 'nl'
@@ -108,10 +109,16 @@ export function ProfileStep({ locale = 'en' }: ProfileStepProps) {
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <p className="text-sm text-foreground/70">
           {locale === 'nl'
-            ? 'Welkom bij de Startup Waarderingsmotor. Beantwoord 6 stappen — je live waardering verschijnt rechts terwijl je werkt.'
-            : "Welcome to the Startup Valuation Studio. Answer 6 steps — your live valuation appears on the right as you go."}
+            ? 'Welkom bij de Startup Waarderingsmotor. Beantwoord 7 stappen — je live waardering verschijnt rechts terwijl je werkt.'
+            : "Welcome to the Startup Valuation Studio. Answer 7 steps — your live valuation appears on the right as you go."}
         </p>
       </div>
+
+      {/* One-click preset picker — pre-fills a defensible baseline so the
+          founder never faces a blank canvas.  The Upswitch demo preset
+          doubles as our self-demonstration: pick it and watch the engine
+          value its own company. */}
+      <PresetPicker locale={locale} />
 
       <div className="space-y-5 rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <div>

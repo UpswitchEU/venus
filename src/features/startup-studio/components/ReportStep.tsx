@@ -17,8 +17,8 @@
  * it's the founder's final preview before submitting.
  */
 
-import { AlertCircle, Send } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, Copy, Send } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
 import {
   STUDIO_BERKUS_KEYS,
@@ -40,6 +40,7 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code)
+  const investment = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
   const evidenceNotes = useStartupValuationStore((s) => s.evidence_notes)
   const maturity = useStartupValuationStore((s) => s.maturity)
@@ -47,6 +48,45 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
   const valuation = useLiveValuation(benchmark)
 
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Build the deck-ready one-liner: pre-money + raise → post-money + dilution.
+  // Numbers come straight from the live preview (the engine returns the
+  // canonical figures after submit; this is the "ready to paste" anchor for
+  // the founder's pre-seed deck).
+  const blendedMid = valuation.blended?.mid ?? null
+  const postMoney = blendedMid != null && investment ? blendedMid + investment : null
+  const dilutionPct =
+    blendedMid != null && investment && postMoney != null && postMoney > 0
+      ? (investment / postMoney) * 100
+      : null
+
+  const deckSentence = (() => {
+    if (blendedMid == null) return null
+    const preF = formatEur(blendedMid)
+    if (!investment || !postMoney || dilutionPct == null) {
+      return locale === 'nl'
+        ? `Pre-money waardering: ${preF} (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+        : `Pre-money valuation: ${preF} (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+    }
+    const askF = formatEur(investment)
+    const postF = formatEur(postMoney)
+    return locale === 'nl'
+      ? `${preF} pre-money · op te halen ${askF} · post-money ${postF} · ~${dilutionPct.toFixed(0)}% dilutie (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+      : `${preF} pre-money · raising ${askF} · post-money ${postF} · ~${dilutionPct.toFixed(0)}% dilution (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+  })()
+
+  const copyDeckSentence = useCallback(async () => {
+    if (!deckSentence) return
+    try {
+      await navigator.clipboard.writeText(deckSentence)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API blocked (insecure context, Safari permissions) —
+      // silently no-op; the sentence is already visible on-screen.
+    }
+  }, [deckSentence])
 
   const handleSubmit = async () => {
     setSubmitError(null)
@@ -78,6 +118,69 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
 
   return (
     <div className="space-y-5">
+      {/* Deck-ready summary ----------------------------------------- */}
+      {deckSentence && (
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-primary">
+                {locale === 'nl' ? 'Klaar voor je deck' : 'Ready for your deck'}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground">{deckSentence}</p>
+              {/* Headline grid: pre / post / dilution */}
+              <div className="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-background/60 p-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                    {locale === 'nl' ? 'Pre-money' : 'Pre-money'}
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
+                    {formatEur(blendedMid)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                    {locale === 'nl' ? 'Post-money' : 'Post-money'}
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
+                    {formatEur(postMoney)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                    {locale === 'nl' ? 'Dilutie' : 'Dilution'}
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
+                    {dilutionPct != null ? `${dilutionPct.toFixed(0)}%` : '—'}
+                  </p>
+                </div>
+              </div>
+              {valuation.pedigreeMultiplier !== 1.0 && (
+                <p className="mt-2 text-[11px] text-foreground/55">
+                  {locale === 'nl'
+                    ? `Inclusief founder-pedigree multiplier ${valuation.pedigreeMultiplier.toFixed(2)}× op de leg-blend baseline (${formatEur(valuation.blendedPrePedigree?.mid ?? null)}).`
+                    : `Includes founder-pedigree multiplier ${valuation.pedigreeMultiplier.toFixed(2)}× on the leg-blend baseline (${formatEur(valuation.blendedPrePedigree?.mid ?? null)}).`}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={copyDeckSentence}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background/80 px-3 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary hover:text-primary"
+              aria-label={locale === 'nl' ? 'Kopieer naar klembord' : 'Copy to clipboard'}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              {copied
+                ? locale === 'nl'
+                  ? 'Gekopieerd'
+                  : 'Copied'
+                : locale === 'nl'
+                  ? 'Kopieer'
+                  : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero pre-result -------------------------------------------- */}
       <div className="rounded-2xl border border-foreground/10 bg-gradient-to-br from-primary/10 to-background p-6">
         <p className="text-[10px] uppercase tracking-wide text-foreground/55">

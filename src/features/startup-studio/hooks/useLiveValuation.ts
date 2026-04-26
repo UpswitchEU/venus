@@ -26,6 +26,7 @@
 import { useMemo } from 'react'
 import {
   STUDIO_BERKUS_KEYS,
+  calculatePedigreeMultiplier,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
@@ -48,8 +49,13 @@ export interface LiveLeg {
 }
 
 export interface LiveValuation {
-  /** Blended pre-money range EUR. */
+  /** Blended pre-money range EUR — *after* the founder pedigree overlay. */
   blended: { low: number; mid: number; high: number } | null
+  /** Same blend without the pedigree multiplier — surfaced so the report
+   *  preview can show "leg blend €X → with pedigree €Y" transparently. */
+  blendedPrePedigree: { low: number; mid: number; high: number } | null
+  /** Founder pedigree multiplier currently applied (1.0 = neutral). */
+  pedigreeMultiplier: number
   legs: LiveLeg[]
   /** True until the founder has answered enough to compute anything. */
   isEmpty: boolean
@@ -144,15 +150,32 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
     ]
 
     const normalised = normaliseWeights(legs)
+    const pedigreeMultiplier = calculatePedigreeMultiplier(state.founder_pedigree)
     const usable = normalised.filter((l) => !l.unavailable && l.value != null)
     if (usable.length === 0) {
-      return { blended: null, legs: normalised, isEmpty: true }
+      return {
+        blended: null,
+        blendedPrePedigree: null,
+        pedigreeMultiplier,
+        legs: normalised,
+        isEmpty: true,
+      }
     }
-    const mid = usable.reduce((sum, l) => sum + (l.value ?? 0) * l.weight, 0)
-    const low = Math.min(...usable.map((l) => l.low ?? 0))
-    const high = Math.max(...usable.map((l) => l.high ?? 0))
+    const midPre = usable.reduce((sum, l) => sum + (l.value ?? 0) * l.weight, 0)
+    const lowPre = Math.min(...usable.map((l) => l.low ?? 0))
+    const highPre = Math.max(...usable.map((l) => l.high ?? 0))
     return {
-      blended: { low: Math.round(low), mid: Math.round(mid), high: Math.round(high) },
+      blended: {
+        low: Math.round(lowPre * pedigreeMultiplier),
+        mid: Math.round(midPre * pedigreeMultiplier),
+        high: Math.round(highPre * pedigreeMultiplier),
+      },
+      blendedPrePedigree: {
+        low: Math.round(lowPre),
+        mid: Math.round(midPre),
+        high: Math.round(highPre),
+      },
+      pedigreeMultiplier,
       legs: normalised,
       isEmpty: false,
     }
@@ -170,6 +193,7 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
     state.exit_revenue_multiple,
     state.target_roi_x,
     state.investment_amount_sought,
+    state.founder_pedigree,
     benchmark.berkus_max_per_milestone_eur,
   ])
 }

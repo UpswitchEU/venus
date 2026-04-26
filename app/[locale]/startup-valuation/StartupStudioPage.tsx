@@ -18,6 +18,7 @@ import { StudioShell } from '@/features/startup-studio/components/StudioShell'
 import { ProfileStep } from '@/features/startup-studio/components/ProfileStep'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
+import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
@@ -119,12 +120,14 @@ export function StartupStudioPage({ locale }: Props) {
       case 2:
         return <ScorecardStep locale={locale} />
       case 3:
-        return <TractionStep locale={locale} />
+        return <FounderPedigreeStep locale={locale} />
       case 4:
-        return <ExitStoryStep locale={locale} />
+        return <TractionStep locale={locale} />
       case 5:
-        return <RoundSimulatorStep locale={locale} />
+        return <ExitStoryStep locale={locale} />
       case 6:
+        return <RoundSimulatorStep locale={locale} />
+      case 7:
         return (
           <ReportStep
             locale={locale}
