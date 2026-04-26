@@ -50,6 +50,7 @@ import type { CompanySearchResult } from '@/services/registry/types'
 import { naceBusinessTypeService } from '@/services/naceBusinessTypeService'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { AmbitionPicker } from '@/features/startup-studio/components/AmbitionPicker'
+import { InceptionLensPicker } from '@/features/startup-studio/components/InceptionLensPicker'
 import { TeamPicker } from '@/features/startup-studio/components/TeamPicker'
 import { TransparencyPanel } from '@/features/startup-studio/components/TransparencyPanel'
 import { getAmbitionAnchors } from '@/features/startup-studio/data/ambition'
@@ -733,6 +734,13 @@ export function ExpressStudioPage({ locale }: Props) {
                 The engine still consumes Y5 / exit / ROI; the founder
                 just never has to know what those words mean. */}
             <AmbitionPicker locale={locale} />
+
+            {/* Inception lens — opt-in overlay for founders who aren't
+                on a conventional milestone path.  Acknowledges that pre-
+                seed is won by momentum (not moats) and that the best
+                founders cost more.  Default is no-op so milestone-track
+                founders see no behaviour change. */}
+            <InceptionLensPicker locale={locale} />
 
             {/* Advanced disclosure — for advisors / auditors who want
                 per-claim provenance and fine-grained engine controls.

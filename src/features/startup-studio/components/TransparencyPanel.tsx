@@ -25,7 +25,7 @@
  * already in the live-preview payload, with an honest label.
  */
 
-import { ChevronDown, ExternalLink, Info, Microscope, TrendingUp } from 'lucide-react'
+import { ChevronDown, Compass, ExternalLink, Info, Microscope, TrendingUp } from 'lucide-react'
 import {
   type AmbitionLevel,
   inferAmbition,
@@ -272,11 +272,98 @@ export function TransparencyPanel({
           {valuation.pedigreeMultiplier !== 1.0 && (
             <p className="mt-3 rounded-md bg-primary/[0.06] p-2.5 text-xs text-foreground/75">
               {locale === 'nl'
-                ? `Daarna een team-pedigree multiplier van ${valuation.pedigreeMultiplier.toFixed(2)}× op de leg-blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blended.mid)}).`
-                : `Then a team-pedigree multiplier of ${valuation.pedigreeMultiplier.toFixed(2)}× on the leg blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blended.mid)}).`}
+                ? `Daarna een team-pedigree multiplier van ${valuation.pedigreeMultiplier.toFixed(2)}× op de leg-blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blendedPreLens?.mid ?? valuation.blended.mid)}).`
+                : `Then a team-pedigree multiplier of ${valuation.pedigreeMultiplier.toFixed(2)}× on the leg blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blendedPreLens?.mid ?? valuation.blended.mid)}).`}
             </p>
           )}
         </section>
+
+        {/* 2.5. Inception lens — surfaced ONLY when the founder picked
+            a non-default lens.  Critical for transparency: when the
+            band suddenly widens dramatically, the panel must explain
+            why (multiplier + band-widening + named lens rationale)
+            instead of leaving a Bain consultant guessing. */}
+        {valuation.inceptionLens !== 'milestones_driven' && (
+          <section className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/[0.05] to-primary/[0.02] p-4">
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              <Compass className="h-3 w-3" />
+              {locale === 'nl' ? '2½. Inception lens — toegepast' : '2½. Inception lens — applied'}
+            </h4>
+            <p className="text-xs leading-relaxed text-foreground/80">
+              {valuation.inceptionLens === 'momentum_driven' ? (
+                locale === 'nl' ? (
+                  <>
+                    <span className="font-semibold text-foreground">Momentum-gedreven lens</span> —
+                    pre-seed wordt gewonnen door momentum, niet door moats.{' '}
+                    <span className="tabular-nums font-medium text-foreground">
+                      {valuation.inceptionLensMultiplier.toFixed(2)}×
+                    </span>{' '}
+                    lift op de mid;{' '}
+                    <span className="tabular-nums font-medium text-foreground">
+                      ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
+                    </span>{' '}
+                    bredere variantie band om de werkelijke pre-seed onzekerheid eerlijk te
+                    rapporteren.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-foreground">Momentum-driven lens</span> —
+                    pre-seed is won by momentum, not moats.{' '}
+                    <span className="tabular-nums font-medium text-foreground">
+                      {valuation.inceptionLensMultiplier.toFixed(2)}×
+                    </span>{' '}
+                    lift on the mid;{' '}
+                    <span className="tabular-nums font-medium text-foreground">
+                      ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
+                    </span>{' '}
+                    wider variance band to honestly report real pre-seed uncertainty.
+                  </>
+                )
+              ) : locale === 'nl' ? (
+                <>
+                  <span className="font-semibold text-foreground">Inception bet lens</span> — edge
+                  premium + markt-creatie thesis.{' '}
+                  <span className="tabular-nums font-medium text-foreground">
+                    {valuation.inceptionLensMultiplier.toFixed(2)}×
+                  </span>{' '}
+                  lift op de mid;{' '}
+                  <span className="tabular-nums font-medium text-foreground">
+                    ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
+                  </span>{' '}
+                  bredere band — vloer iets lager (verhoogd downside-risico erkend), plafond
+                  aanzienlijk hoger (asymmetrische upside).  Anthropic / Lovable / Cursor profiel.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-foreground">Inception bet lens</span> — edge
+                  premium + market-creation thesis.{' '}
+                  <span className="tabular-nums font-medium text-foreground">
+                    {valuation.inceptionLensMultiplier.toFixed(2)}×
+                  </span>{' '}
+                  lift on the mid;{' '}
+                  <span className="tabular-nums font-medium text-foreground">
+                    ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
+                  </span>{' '}
+                  wider band — floor dips slightly (acknowledging higher downside), ceiling lifts
+                  substantially (asymmetric upside).  Anthropic / Lovable / Cursor profile.
+                </>
+              )}
+            </p>
+            {valuation.blendedPreLens && (
+              <p className="mt-2 text-[11px] tabular-nums text-foreground/65">
+                {locale === 'nl' ? 'Pre-lens (post-pedigree) mid: ' : 'Pre-lens (post-pedigree) mid: '}
+                <span className="font-medium text-foreground">
+                  {formatEur(valuation.blendedPreLens.mid)}
+                </span>
+                {' → '}
+                {locale === 'nl' ? 'na lens: ' : 'after lens: '}
+                <span className="font-medium text-foreground">
+                  {formatEur(valuation.blended.mid)}
+                </span>
+              </p>
+            )}
+          </section>
+        )}
 
         {/* 3. Benchmark band ---------------------------------------- */}
         <section>
@@ -418,6 +505,12 @@ export function TransparencyPanel({
               {locale === 'nl'
                 ? 'Multiplicatieve overlay 0.70×–1.80× op leg-blend baseline.'
                 : 'Multiplicative overlay 0.70×–1.80× on leg-blend baseline.'}
+            </li>
+            <li>
+              <span className="font-medium text-foreground/75">Inception lens (opt-in):</span>{' '}
+              {locale === 'nl'
+                ? 'Multiplier + band-widening overlay voor momentum-driven en inception-bet profielen. Erkent dat moats niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.'
+                : 'Multiplier + band-widening overlay for momentum-driven and inception-bet profiles.  Acknowledges that moats don\'t exist at pre-seed, TAM is unknowable, and the best founders cost more.'}
             </li>
             <li className="pt-1 text-foreground/45">
               {locale === 'nl' ? 'Benchmarks: ' : 'Benchmarks: '}

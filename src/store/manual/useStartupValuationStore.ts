@@ -205,6 +205,41 @@ export const PEDIGREE_KEYS: readonly FounderPedigreeKey[] = [
   'solo_founder',
 ] as const
 
+/**
+ * Inception lens — opt-in overlay that fixes the three pre-seed gaps
+ * the milestone-track methods (Berkus / Scorecard) systematically miss:
+ *   1. Moats don't exist yet at inception — momentum is oxygen
+ *   2. TAM is unknowable — best founders create new markets
+ *   3. Edge founders cost more — paying $30M post for 2% of a Lovable /
+ *      Anthropic / Cursor profile is a defensible bet shape
+ *
+ * Mirrors the Pydantic enum in
+ * `apps/valuation-iq/src/domain/startup_valuation/schemas.py::InceptionLens`.
+ *
+ * Default ``milestones_driven`` is a no-op — every existing payload
+ * round-trips bit-for-bit unchanged.  The other two levels apply a
+ * multiplier + band widening overlay computed engine-side.
+ */
+export type InceptionLens = 'milestones_driven' | 'momentum_driven' | 'inception_bet'
+
+/** Per-lens UI mirror of the Python calibration.  Source of truth lives
+ *  in `inception_lens.py::_LENS_TABLE`; this table only powers the live
+ *  preview, the canonical numbers always come back from the engine. */
+export const INCEPTION_LENS_OVERLAY: Record<
+  InceptionLens,
+  { multiplier: number; bandWidenPct: number }
+> = {
+  milestones_driven: { multiplier: 1.0, bandWidenPct: 0 },
+  momentum_driven: { multiplier: 1.1, bandWidenPct: 0.15 },
+  inception_bet: { multiplier: 1.25, bandWidenPct: 0.25 },
+}
+
+export const INCEPTION_LENS_ORDER: readonly InceptionLens[] = [
+  'milestones_driven',
+  'momentum_driven',
+  'inception_bet',
+] as const
+
 const INITIAL_PEDIGREE: FounderPedigreeFlags = {
   prior_exit: false,
   top_unicorn_alumnus: false,
@@ -290,6 +325,15 @@ export interface StartupValuationState {
    * field reads as multiplier 1.0 (no overlay).
    */
   founder_pedigree: FounderPedigreeFlags
+
+  /**
+   * Inception lens — opt-in overlay applied AFTER the pedigree multiplier.
+   * Acknowledges three pre-seed realities milestone methods miss
+   * (moat-blindness, TAM-unknowability, edge-founder premium).  Default
+   * `milestones_driven` is a no-op so every existing session round-trips
+   * bit-for-bit unchanged.
+   */
+  inception_lens: InceptionLens
 
   // ---------------------------------------------------------------
   // Studio v2 — milestone-card state.
@@ -428,6 +472,8 @@ const INITIAL_STATE: StartupValuationState = {
   cap_table: INITIAL_CAP_TABLE,
 
   founder_pedigree: { ...INITIAL_PEDIGREE },
+
+  inception_lens: 'milestones_driven',
 
   // Studio v2 ---------------------------------------------------------
   // Default to `none` so the live receipt does not anchor the founder
@@ -702,6 +748,13 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             investment_amount_sought: state.investment_amount_sought,
           }),
           cap_table: { ...capTable, safe_notes },
+          // Inception lens — only thread the field through when the
+          // founder has explicitly opted into a non-default lens.
+          // Engine treats absence as `milestones_driven` (no-op), so an
+          // explicit default would be a wasteful round-trip.
+          ...(state.inception_lens && state.inception_lens !== 'milestones_driven'
+            ? { inception_lens: state.inception_lens }
+            : {}),
           // Include the pedigree object only when at least one flag is set.
           // The engine treats the absence of the field as "no overlay"
           // (default multiplier 1.0), so an all-false payload would be a
@@ -715,7 +768,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 5,
+      version: 6,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -732,6 +785,12 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       //            flags (six discrete qualifications).  Defaults to
       //            all-false so returning users see no behaviour change
       //            until they actively pick a qualification.
+      //   v5 → v6: inception lens — added `inception_lens` (3-level
+      //            opt-in overlay fixing the moat-blindness, TAM-
+      //            unknowability and edge-premium gaps).  Defaults to
+      //            `milestones_driven` (no-op) so returning users see
+      //            no change until they actively pick momentum_driven
+      //            or inception_bet on the new picker.
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as StartupValuationState
@@ -788,6 +847,15 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // picking a qualification on the new wizard step.
           if (!s.founder_pedigree) {
             s.founder_pedigree = { ...INITIAL_PEDIGREE }
+          }
+        }
+        if (version < 6) {
+          // Default to the no-op lens so persisted users see exactly
+          // the same engine output as before — the founder must
+          // actively opt in via the new InceptionLensPicker for the
+          // overlay to apply.
+          if (!s.inception_lens) {
+            s.inception_lens = 'milestones_driven'
           }
         }
         return s as StartupValuationState

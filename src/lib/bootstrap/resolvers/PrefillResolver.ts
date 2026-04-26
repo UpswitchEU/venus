@@ -155,6 +155,8 @@ export interface ParsedPrefilledQueryIdentifiers {
   kboNumber?: string
   /** Belgian VAT number prefixed with `BE` and no separators. */
   vatNumber?: string
+  /** Dutch KVK number — exactly 8 digits (e.g. `12345678`). */
+  kvkNumber?: string
   /** Activity / NACE code (4 or 5 digits). Best-effort. */
   naceCode?: string
   /** Original query with detected identifiers stripped — usable as a name search. */
@@ -162,11 +164,18 @@ export interface ParsedPrefilledQueryIdentifiers {
 }
 
 /**
- * Extract Belgian KBO/VAT and NACE identifiers from a free-form prefilled
- * query string. Defensive against missing/extra whitespace and `BE` prefix
- * variants. NACE extraction only runs after a KBO is found, since a 4-digit
- * sequence in an arbitrary company name (year, postal code) would otherwise
- * be a false positive.
+ * Extract Belgian KBO/VAT, Dutch KVK, and NACE identifiers from a free-form
+ * prefilled query string. Defensive against missing/extra whitespace and `BE`
+ * prefix variants. NACE extraction only runs after a KBO/KVK is found, since
+ * a 4-digit sequence in an arbitrary company name (year, postal code) would
+ * otherwise be a false positive.
+ *
+ * Detection order matters:
+ *   1. Belgian KBO (10 digits, starts with 0) — checked first because it is
+ *      a strict superset of the 8-digit check; a 10-digit all-digit string
+ *      starting with 0 would otherwise falsely match the KVK branch.
+ *   2. Dutch KVK (exactly 8 digits, no leading 0 required).
+ *   3. NACE code — only after a registry number is isolated.
  */
 export function parsePrefilledQueryIdentifiers(
   query: string,
@@ -174,8 +183,7 @@ export function parsePrefilledQueryIdentifiers(
   const result: ParsedPrefilledQueryIdentifiers = { cleanedName: query.trim() }
   if (!query) return result
 
-  // Match Belgian enterprise number: optional "BE" prefix, exactly 10 digits
-  // starting with 0, with optional dots/spaces/hyphens between groups.
+  // ── Belgian KBO (10 digits, starts with 0) ────────────────────────────
   const kboPattern = /\b(?:BE\s*)?0\d{3}[.\s-]?\d{3}[.\s-]?\d{3}\b/i
   const kboMatch = result.cleanedName.match(kboPattern)
   if (kboMatch) {
@@ -187,10 +195,23 @@ export function parsePrefilledQueryIdentifiers(
     }
   }
 
-  // Only attempt NACE extraction if we already isolated a KBO. The Mercury
-  // builder concatenates `name kbo nace`; once kbo is removed, a remaining
-  // 4–5 digit token is overwhelmingly the NACE code.
-  if (result.kboNumber) {
+  // ── Dutch KVK (exactly 8 digits, not already matched as a KBO fragment) ─
+  // Only attempt when no KBO was found — a KBO contains 10 digits and the
+  // 8-digit KVK pattern could spuriously match a KBO substring.
+  if (!result.kboNumber) {
+    // Word-boundary match ensures we don't pick up an 8-digit run inside a
+    // longer digit string (e.g. a postal code run embedded in a company name).
+    const kvkPattern = /\b(\d{8})\b/
+    const kvkMatch = result.cleanedName.match(kvkPattern)
+    if (kvkMatch) {
+      result.kvkNumber = kvkMatch[1]
+      result.cleanedName = result.cleanedName.replace(kvkMatch[0], ' ').trim()
+    }
+  }
+
+  // ── NACE / SBI code — only after a registry number is isolated ─────────
+  const hasRegistryNumber = !!(result.kboNumber || result.kvkNumber)
+  if (hasRegistryNumber) {
     const naceMatch = result.cleanedName.match(/\b\d{4,5}\b/)
     if (naceMatch) {
       result.naceCode = naceMatch[0]
@@ -373,10 +394,14 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     kboData?: KBOCompanyEntity
   } | null> {
     const identifiers = parsePrefilledQueryIdentifiers(query)
-    const kbo =
-      identifiers.kboNumber || identifiers.vatNumber
-        ? await this.lookupKBOByIdentifier(identifiers, countryCode)
-        : await this.searchKBOByName(identifiers.cleanedName || query, countryCode)
+    const hasExactIdentifier = !!(
+      identifiers.kboNumber ||
+      identifiers.vatNumber ||
+      identifiers.kvkNumber
+    )
+    const kbo = hasExactIdentifier
+      ? await this.lookupKBOByIdentifier(identifiers, countryCode)
+      : await this.searchKBOByName(identifiers.cleanedName || query, countryCode)
 
     if (!kbo) return null
 
@@ -441,6 +466,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       const body: Record<string, string> = {}
       if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
       if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
+      // KVK numbers are stored in the kbo_number field (registry-agnostic column)
+      if (identifiers.kvkNumber) body.kbo_number = identifiers.kvkNumber
       if (identifiers.cleanedName) body.company_name = identifiers.cleanedName
 
       const response = await fetch(`${API_URL}/api/v2/registry/kbo/lookup`, {

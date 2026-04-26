@@ -67,6 +67,37 @@ describe('parsePrefilledQueryIdentifiers', () => {
     const result = parsePrefilledQueryIdentifiers('')
     expect(result).toEqual({ cleanedName: '' })
   })
+
+  it('extracts an 8-digit Dutch KVK number', () => {
+    const result = parsePrefilledQueryIdentifiers('ASML Holding NV 12345678')
+    expect(result.kvkNumber).toBe('12345678')
+    expect(result.kboNumber).toBeUndefined()
+    expect(result.cleanedName).toBe('ASML Holding NV')
+  })
+
+  it('extracts a KVK number and NACE/SBI code together', () => {
+    const result = parsePrefilledQueryIdentifiers('De Hollandse Bakker 12345678 10711')
+    expect(result.kvkNumber).toBe('12345678')
+    expect(result.naceCode).toBe('10711')
+    expect(result.cleanedName).toBe('De Hollandse Bakker')
+  })
+
+  it('does not match a 10-digit Belgian KBO as a KVK', () => {
+    const result = parsePrefilledQueryIdentifiers('Foo NV 0861786602')
+    expect(result.kvkNumber).toBeUndefined()
+    expect(result.kboNumber).toBe('0861.786.602')
+  })
+
+  it('does not match a 7-digit or 9-digit number as KVK', () => {
+    expect(parsePrefilledQueryIdentifiers('Foo 1234567').kvkNumber).toBeUndefined()
+    expect(parsePrefilledQueryIdentifiers('Foo 123456789').kvkNumber).toBeUndefined()
+  })
+
+  it('handles a bare 8-digit KVK query (number-only search)', () => {
+    const result = parsePrefilledQueryIdentifiers('12345678')
+    expect(result.kvkNumber).toBe('12345678')
+    expect(result.cleanedName).toBe('')
+  })
 })
 
 describe('PrefillResolver.mergeCompanyInfo precedence', () => {

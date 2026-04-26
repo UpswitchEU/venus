@@ -215,6 +215,42 @@ describe('useStartupValuationStore', () => {
     })
   })
 
+  describe('inception lens overlay', () => {
+    it('defaults to milestones_driven (no-op overlay)', () => {
+      expect(useStartupValuationStore.getState().inception_lens).toBe(
+        'milestones_driven',
+      )
+    })
+
+    it('omits lens from payload when default', () => {
+      // Engine treats absence as `milestones_driven` so a default
+      // payload should not include the field — saves a wasteful
+      // round-trip and keeps the wire format minimal.
+      const payload = useStartupValuationStore.getState().toRequestPayload()
+      expect(payload).not.toHaveProperty('inception_lens')
+    })
+
+    it('threads non-default lens through to the request payload', () => {
+      useStartupValuationStore.getState().setField('inception_lens', 'inception_bet')
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        inception_lens?: string
+      }
+      expect(payload.inception_lens).toBe('inception_bet')
+    })
+
+    it('momentum_driven and inception_bet are valid options', () => {
+      const s = useStartupValuationStore.getState()
+      s.setField('inception_lens', 'momentum_driven')
+      expect(useStartupValuationStore.getState().inception_lens).toBe(
+        'momentum_driven',
+      )
+      s.setField('inception_lens', 'inception_bet')
+      expect(useStartupValuationStore.getState().inception_lens).toBe(
+        'inception_bet',
+      )
+    })
+  })
+
   describe('founder pedigree overlay', () => {
     it('defaults to all-false flags so the multiplier is neutral', () => {
       const s = useStartupValuationStore.getState()

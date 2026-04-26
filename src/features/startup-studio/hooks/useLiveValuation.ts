@@ -25,8 +25,10 @@
 
 import { useMemo } from 'react'
 import {
+  INCEPTION_LENS_OVERLAY,
   STUDIO_BERKUS_KEYS,
   calculatePedigreeMultiplier,
+  type InceptionLens,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
@@ -49,13 +51,23 @@ export interface LiveLeg {
 }
 
 export interface LiveValuation {
-  /** Blended pre-money range EUR — *after* the founder pedigree overlay. */
+  /** Blended pre-money range EUR — *after* both pedigree AND inception
+   *  lens overlays.  Mirrors the engine's canonical `equity_*` fields. */
   blended: { low: number; mid: number; high: number } | null
   /** Same blend without the pedigree multiplier — surfaced so the report
    *  preview can show "leg blend €X → with pedigree €Y" transparently. */
   blendedPrePedigree: { low: number; mid: number; high: number } | null
   /** Founder pedigree multiplier currently applied (1.0 = neutral). */
   pedigreeMultiplier: number
+  /** Inception-lens currently applied. */
+  inceptionLens: InceptionLens
+  /** Inception-lens overlay multiplier (1.0 = milestones_driven). */
+  inceptionLensMultiplier: number
+  /** Inception-lens band-widening pct (0 = milestones_driven). */
+  inceptionLensBandWidenPct: number
+  /** Pre-lens blend (post-pedigree but pre-inception-lens) — surfaced so
+   *  the report can show "leg blend × pedigree → with lens" transparently. */
+  blendedPreLens: { low: number; mid: number; high: number } | null
   legs: LiveLeg[]
   /** True until the founder has answered enough to compute anything. */
   isEmpty: boolean
@@ -151,12 +163,20 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
 
     const normalised = normaliseWeights(legs)
     const pedigreeMultiplier = calculatePedigreeMultiplier(state.founder_pedigree)
+    const lensSpec = INCEPTION_LENS_OVERLAY[state.inception_lens] ?? {
+      multiplier: 1,
+      bandWidenPct: 0,
+    }
     const usable = normalised.filter((l) => !l.unavailable && l.value != null)
     if (usable.length === 0) {
       return {
         blended: null,
         blendedPrePedigree: null,
         pedigreeMultiplier,
+        inceptionLens: state.inception_lens,
+        inceptionLensMultiplier: lensSpec.multiplier,
+        inceptionLensBandWidenPct: lensSpec.bandWidenPct,
+        blendedPreLens: null,
         legs: normalised,
         isEmpty: true,
       }
@@ -164,18 +184,41 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
     const midPre = usable.reduce((sum, l) => sum + (l.value ?? 0) * l.weight, 0)
     const lowPre = Math.min(...usable.map((l) => l.low ?? 0))
     const highPre = Math.max(...usable.map((l) => l.high ?? 0))
+
+    // Pedigree applied (pre-lens band):
+    const midPedigree = midPre * pedigreeMultiplier
+    const lowPedigree = lowPre * pedigreeMultiplier
+    const highPedigree = highPre * pedigreeMultiplier
+
+    // Inception lens — multiplier lifts the mid uniformly; band-widen
+    // multiplicatively widens the EXISTING leg-spread band so the
+    // engine's "Berkus disagrees with VC by 15×" signal stays visible.
+    // Floor dips (mult × (1 − widen)), ceiling lifts (mult × (1 + widen)).
+    // Mirrors the Python engine's `apply_inception_lens` exactly.
+    const midPostLens = midPedigree * lensSpec.multiplier
+    const lowPostLens = lowPedigree * lensSpec.multiplier * (1 - lensSpec.bandWidenPct)
+    const highPostLens = highPedigree * lensSpec.multiplier * (1 + lensSpec.bandWidenPct)
+
     return {
       blended: {
-        low: Math.round(lowPre * pedigreeMultiplier),
-        mid: Math.round(midPre * pedigreeMultiplier),
-        high: Math.round(highPre * pedigreeMultiplier),
+        low: Math.round(lowPostLens),
+        mid: Math.round(midPostLens),
+        high: Math.round(highPostLens),
       },
       blendedPrePedigree: {
         low: Math.round(lowPre),
         mid: Math.round(midPre),
         high: Math.round(highPre),
       },
+      blendedPreLens: {
+        low: Math.round(lowPedigree),
+        mid: Math.round(midPedigree),
+        high: Math.round(highPedigree),
+      },
       pedigreeMultiplier,
+      inceptionLens: state.inception_lens,
+      inceptionLensMultiplier: lensSpec.multiplier,
+      inceptionLensBandWidenPct: lensSpec.bandWidenPct,
       legs: normalised,
       isEmpty: false,
     }
@@ -194,6 +237,7 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
     state.target_roi_x,
     state.investment_amount_sought,
     state.founder_pedigree,
+    state.inception_lens,
     benchmark.berkus_max_per_milestone_eur,
   ])
 }
