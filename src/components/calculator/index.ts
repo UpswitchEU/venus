@@ -73,6 +73,7 @@ export type { IntegrationStepPanelProps } from './IntegrationStepPanel'
 export { IntegrationStepPanel } from './IntegrationStepPanel'
 export type {
   FieldHelpContext,
+  ManualValuationFormData,
   ValuationFormData,
   YearlyFinancials,
 } from './ManualInputPanel'

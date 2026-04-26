@@ -59,4 +59,16 @@ describe('transformRegistryDataToValuationRequest', () => {
       })
     ).toThrow('No filing-safe financial data available for transformation. Please use manual entry.')
   })
+
+  it('clamps projection years to the ValuationIQ legacy contract', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    expect(
+      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 1 }).projection_years
+    ).toBe(5)
+    expect(
+      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 20 }).projection_years
+    ).toBe(15)
+  })
 })

@@ -332,6 +332,8 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   dcf_cost_of_debt_pct?: number
   dcf_debt_equity_pct?: number
   dcf_tax_shield_pct?: number
+  /** DCF terminal value: growth vs multiple (manual calculator). */
+  dcf_terminal_value_method?: 'perpetual_growth' | 'exit_multiple'
   // Adjusted NAV
   nav_real_estate_adjustment?: number
   nav_inventory_adjustment?: number
@@ -415,6 +417,76 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   rev_gross_churn_pct?: number
   rev_capitalized_rd_amount?: number
 }
+
+// -----------------------------------------------------------------------------
+// Manual calculator (`ManualInputPanel`) — do not duplicate engine fields
+// -----------------------------------------------------------------------------
+
+/**
+ * One row in the manual multi-year financial grid (KBO, CSV, import). Year labels
+ * are strings; the shape is not sent as-is to the engine — it becomes `YearDataInput`.
+ */
+export interface YearlyFinancials {
+  year: string
+  revenue: number
+  ebitda: number
+  capex?: number
+  depreciation?: number
+  tax_expense?: number
+  cash?: number
+  total_debt?: number
+  current_assets?: number
+  current_liabilities?: number
+  accounts_receivable?: number
+  accounts_payable?: number
+  inventory?: number
+  short_term_debt?: number
+  nwc_change?: number
+  /** Optional balance sheet strip (import / advanced row) — fiscal / NAV context. */
+  total_equity?: number
+  total_assets?: number
+  total_liabilities?: number
+  normalizedEbitda?: number
+  /** Explicit FCFF per forecast year (“zonder EBITDA”). */
+  free_cash_flow?: number
+  isForecast?: boolean
+}
+
+/**
+ * UI-only and camelCase state for the manual panel (not the API request body).
+ * All valuation-engine inputs (NAV, DCF knobs, deal structure, etc.) must be defined on
+ * {@link ValuationFormData} only; they are merged in via `Partial<ValuationFormData>` in
+ * {@link ManualValuationFormData} so the panel cannot drift on the next new API key.
+ */
+export interface ManualValuationFormUiBase {
+  companyName: string
+  kboNumber?: string
+  legalForm?: string
+  address?: string
+  naceCode?: string
+  naceDescription?: string
+  /** Canonical NACE for Titan when `naceCode` is a market alias (e.g. SBI). */
+  canonicalNaceCode?: string
+  businessType: string
+  businessTypeCode?: string
+  industry: string
+  country: string
+  country_code?: string
+  yearFounded: string
+  businessStructure: string
+  ownerManagers: number
+  fteEmployees: number | undefined
+  yearlyFinancials: YearlyFinancials[]
+  averageNormalizedEbitda?: number
+  /** Local UX; API field is `filing_year_confirmed` on `ValuationRequest` / `ValuationFormData`. */
+  filingYearConfirmed?: boolean
+}
+
+/**
+ * Manual `ManualInputPanel` state: full optional API surface of {@link ValuationFormData}
+ * plus the UI base. Add new server/engine form keys to `ValuationFormData` only.
+ */
+export type ManualValuationFormData = Partial<ValuationFormData> & ManualValuationFormUiBase
 
 export interface QuickValuationRequest {
   revenue: number

@@ -107,10 +107,12 @@ import { useSessionStore } from '../../store/useSessionStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
+  ManualValuationFormData,
   OfficialFinancialsPayload,
   OfficialVarianceAnalysis,
   OfficialVerificationBadge,
   YearDataInput,
+  YearlyFinancials,
 } from '../../types/valuation'
 import {
   getCurrentFilingYear,
@@ -248,123 +250,10 @@ function NbbResetHint({
   )
 }
 
-// Types
-export interface YearlyFinancials {
-  year: string
-  revenue: number
-  ebitda: number
-  capex?: number
-  depreciation?: number
-  tax_expense?: number
-  cash?: number
-  total_debt?: number
-  current_assets?: number
-  current_liabilities?: number
-  accounts_receivable?: number
-  accounts_payable?: number
-  inventory?: number
-  short_term_debt?: number
-  nwc_change?: number
-  /** Optional balance sheet strip (import / advanced row) — used for fiscal / NAV context. */
-  total_equity?: number
-  total_assets?: number
-  total_liabilities?: number
-  normalizedEbitda?: number
-  /** Explicit FCFF per forecast year (“zonder EBITDA”). */
-  free_cash_flow?: number
-  isForecast?: boolean
-}
-
-export interface ValuationFormData {
-  companyName: string
-  kboNumber?: string
-  legalForm?: string
-  address?: string
-  naceCode?: string
-  naceDescription?: string
-  /** Canonical NACE for Titan lookups when naceCode shows a market alias (e.g. SBI). */
-  canonicalNaceCode?: string
-  businessType: string
-  businessTypeCode?: string
-  industry: string
-  country: string
-  country_code?: string
-  yearFounded: string
-  businessStructure: string
-  ownerManagers: number
-  fteEmployees: number | undefined
-  // Multi-year financials with normalizations per year
-  yearlyFinancials: YearlyFinancials[]
-  // Calculated values
-  averageNormalizedEbitda?: number
-  // Convenience fields for AI context (derived from the latest complete financial year)
-  revenue?: number
-  ebitda?: number
-  current_year_data?: YearDataInput
-  historical_years_data?: YearDataInput[]
-  forecast_years_data?: YearDataInput[]
-  filingYearConfirmed?: boolean
-  // Adaptive Input Studio: method-specific bonus fields
-  dcf_revenue_growth_pct?: number
-  dcf_ebitda_margin_pct?: number
-  dcf_capex_pct?: number
-  dcf_da_pct?: number
-  dcf_nwc_pct?: number
-  dcf_tax_rate_pct?: number
-  dcf_wacc_pct?: number
-  dcf_terminal_growth_pct?: number
-  dcf_exit_multiple?: number
-  dcf_risk_free_rate_pct?: number
-  dcf_equity_risk_premium_pct?: number
-  dcf_beta?: number
-  dcf_cost_of_debt_pct?: number
-  dcf_debt_equity_pct?: number
-  dcf_tax_shield_pct?: number
-  dcf_terminal_value_method?: 'perpetual_growth' | 'exit_multiple'
-  /** Manual DCF forecast entry: EBITDA bridge vs explicit FCFF only. */
-  dcf_input_mode?: 'ebitda' | 'fcff_only'
-  nav_real_estate_adjustment?: number
-  nav_inventory_adjustment?: number
-  nav_hidden_reserves?: number
-  nav_goodwill_writeoff?: number
-  nav_receivables_adjustment?: number
-  nav_other_revaluations?: number
-  nav_tax_latency_pct?: number
-  nav_off_balance_items?: number
-  exclude_real_estate?: boolean
-  real_estate_book_value?: number
-  estimated_market_rent?: number
-  saas_arr?: number
-  saas_mrr?: number
-  saas_arr_growth_pct?: number
-  saas_churn_pct?: number
-  saas_customer_churn_pct?: number
-  saas_nrr_pct?: number
-  saas_gross_margin_pct?: number
-  saas_cac?: number
-  saas_customer_concentration_pct?: number
-  saas_expansion_revenue_pct?: number
-  saas_sm_spend?: number
-  rev_recurring_pct?: number
-  rev_recurring_amount?: number
-  rev_top_client_concentration_pct?: number
-  rev_top_client_amount?: number
-  rev_contract_backlog?: number
-  rev_gross_churn_pct?: number
-  rev_capitalized_rd_amount?: number
-  /** 0–100; normalized to 100% in Zustand for the manual product, but kept for API parity. */
-  shares_for_sale?: number
-  /** Annual owner compensation (€) for SDE — matches ValuationRequest / Titan. */
-  owner_salary_addback?: number
-  /** Optional import/session metadata (e.g. SaaS provenance from accounting import). */
-  business_context?: Record<string, unknown>
-  /** Aligns with Titan / manual Zustand store when synced from session or import. */
-  business_model?: string
-  /** Belgian official filing trust (merged from Zustand on submit for ManualLayout → store bridge). */
-  official_financials?: OfficialFinancialsPayload
-  official_variance_analysis?: OfficialVarianceAnalysis
-  official_verification_badge?: OfficialVerificationBadge
-}
+// Types — `ManualValuationFormData` = `Partial<` canonical `ValuationFormData` + `ManualValuationFormUiBase` (`src/types/valuation.ts`)
+export type { ManualValuationFormData, YearlyFinancials }
+/** Back-compat name used throughout this file and `calculator` exports. */
+export type ValuationFormData = ManualValuationFormData
 
 /** Smart DCF defaults from historical rows + sector text (used inside setForm(prev) callbacks). */
 function dcfSmartDefaultsFromFormSlice(

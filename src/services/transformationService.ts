@@ -271,6 +271,8 @@ export const transformRegistryDataToValuationRequest = (
     yearsOfData: safeHistory.length,
   })
 
+  const projectionYears = Math.min(15, Math.max(5, options?.projectionYears ?? 5))
+
   // Build valuation request
   const valuationRequest: ValuationRequest = {
     // Company information
@@ -291,7 +293,7 @@ export const transformRegistryDataToValuationRequest = (
     // Valuation preferences
     use_dcf: options?.useDcf ?? true,
     use_multiples: options?.useMultiples ?? true,
-    projection_years: options?.projectionYears ?? 5,
+    projection_years: projectionYears,
   }
 
   return valuationRequest
