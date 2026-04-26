@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -11,9 +11,9 @@ package-lock.json
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# next.js — never commit (webpack pack files exceed GitHub’s 100MB limit)
+.next/
+out/
 
 # production
 /build
