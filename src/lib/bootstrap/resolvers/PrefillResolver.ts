@@ -71,6 +71,11 @@ interface RawKboRecord {
   nace_description?: string
   foundation_date?: string
   is_active?: boolean
+  /** Server-resolved business type ID from Titan's enrichRegistrySearchResults
+   * (BE: NACE → mapping; NL: SBI alias → canonical NACE → mapping). */
+  business_type_id?: string
+  /** Server-resolved sector title (e.g. "Logistics"). */
+  business_type_title?: string
 }
 
 interface UserProfile {
@@ -254,6 +259,22 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
 
       let businessType = sessionResult?.businessType || profileResult?.businessType
 
+      // Fast path: Titan resolved the business type server-side during the
+      // registry search (BE: NACE → mapping; NL: SBI alias → canonical NACE →
+      // mapping). Use it directly so we skip the network round-trip below.
+      const serverBtId =
+        kboResult?.companyInfo?.businessTypeId || kboResult?.kboData?.businessTypeId
+      if (!businessType && serverBtId) {
+        const serverBusinessType = await this.fetchBusinessType(serverBtId)
+        if (serverBusinessType) {
+          businessType = serverBusinessType
+          this.logger.info('[PrefillResolver] Resolved business type from server enrichment', {
+            businessTypeId: serverBtId,
+            countryCode: kboResult?.companyInfo?.countryCode,
+          })
+        }
+      }
+
       // Fallback: Look up business type from NACE code when we have nace_code but no businessType
       const naceCode =
         companyInfo?.naceCode || (companyInfo as any)?.nace_code || kboResult?.kboData?.naceCode
@@ -373,6 +394,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       naceDescription: kbo.nace_description,
       foundationDate: kbo.foundation_date,
       isActive: kbo.is_active,
+      businessTypeId: kbo.business_type_id,
+      businessTypeTitle: kbo.business_type_title,
     }
 
     const companyInfo: CompanyInfo = {
@@ -388,6 +411,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       naceDescription: kbo.nace_description,
       foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
       isActive: kbo.is_active,
+      businessTypeId: kbo.business_type_id,
+      businessTypeTitle: kbo.business_type_title,
     }
 
     this.logger.info('[PrefillResolver] KBO data fetched', {

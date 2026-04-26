@@ -32,6 +32,10 @@ export interface CompanySearchResult {
   canonical_nace_code?: string
   postal_code?: string
   city?: string
+  /** Server-resolved business type ID from sector DB (Titan enrichment). */
+  business_type_id?: string
+  /** Server-resolved sector title (e.g. "Logistics"). */
+  business_type_title?: string
 }
 
 export interface CompanyFinancialData {

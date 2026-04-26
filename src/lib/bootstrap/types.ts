@@ -121,6 +121,10 @@ export interface CompanyInfo {
   taxonomy?: string
   foundingYear?: number
   isActive?: boolean
+  /** Server-resolved business type ID from Titan registry enrichment. */
+  businessTypeId?: string
+  /** Human-readable sector title (e.g. "Logistics") matching businessTypeId. */
+  businessTypeTitle?: string
 }
 
 export interface PartialFinancials {
@@ -271,6 +275,10 @@ export interface KBOCompanyEntity {
   lastUpdated?: string
   isActive?: boolean
   metadata?: Record<string, unknown>
+  /** Server-resolved business type ID from Titan registry enrichment. */
+  businessTypeId?: string
+  /** Human-readable sector title matching businessTypeId. */
+  businessTypeTitle?: string
 }
 
 export interface PrefillData {

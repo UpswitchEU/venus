@@ -236,6 +236,14 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         business_context: updatedBusinessContext,
       }
 
+      // Pre-populate business_type_id from Titan's server-side enrichment
+      // (resolved from NACE/SBI in the sector DB). Avoids the user having to
+      // pick the sector manually after KBO/KVK selection. Only set when the
+      // form doesn't already have a value — never overwrite a user choice.
+      if (selectedCompany.business_type_id && !currentFormData.business_type_id) {
+        updates.business_type_id = selectedCompany.business_type_id
+      }
+
       // Fetch financial data if available
       if (selectedCompany.company_id && selectedCompany.company_id.length > 3) {
         try {
