@@ -302,10 +302,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       if (!businessType && naceCode?.trim()) {
         const naceBusinessType = await this.fetchBusinessTypeForNaceCode(
           naceCode.trim(),
+          // Prefer the company's own country code; fall back to the session-
+          // resolved country so NL companies get SBI alias resolution
+          // (country_code=NL triggers the SBI_2008 alias lookup in Titan).
           resolveCountryCode(
             companyInfo?.countryCode as string | undefined,
             (companyInfo as any)?.country as string | undefined,
-          ) || 'BE',
+          ) || resolvedCountryCode,
         )
         if (naceBusinessType) {
           businessType = naceBusinessType
@@ -449,25 +452,36 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
   }
 
   /**
-   * Exact-match registry lookup using a parsed KBO/VAT identifier.
+   * Exact-match registry lookup using a parsed KBO/VAT or KVK identifier.
    *
-   * The lookup endpoint accepts `kbo_number`, `vat_number`, or `company_name`
-   * and returns a single canonical record — eliminating the ambiguity of a
-   * fuzzy name search with `limit: 1` when the URL has already given us a
-   * unique identifier.
+   * **Belgian KBO/VAT**: routes to the `/kbo/lookup` endpoint which hits the
+   * Belgian KBO database directly — deterministic, cannot return the wrong
+   * company.
+   *
+   * **Dutch KVK**: the `/kbo/lookup` endpoint is Belgian-only; sending an
+   * 8-digit KVK number there will always 404. Instead we route KVK numbers
+   * through the registry search endpoint with `country_code: NL`. The KVK
+   * service on Titan detects the 8-digit pattern and performs an exact
+   * `filters[kvknummer]` lookup against Overheid.io — same precision,
+   * different path.
    */
   private async lookupKBOByIdentifier(
     identifiers: ParsedPrefilledQueryIdentifiers,
     countryCode: string,
   ): Promise<RawKboRecord | null> {
+    // Dutch KVK — must go through registry/search with country_code=NL.
+    // The KVK service detects the 8-digit query and does an exact lookup.
+    if (identifiers.kvkNumber) {
+      return this.searchKBOByName(identifiers.kvkNumber, 'NL')
+    }
+
+    // Belgian KBO/VAT — use the dedicated exact-match lookup endpoint.
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 6000)
       const body: Record<string, string> = {}
       if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
       if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
-      // KVK numbers are stored in the kbo_number field (registry-agnostic column)
-      if (identifiers.kvkNumber) body.kbo_number = identifiers.kvkNumber
       if (identifiers.cleanedName) body.company_name = identifiers.cleanedName
 
       const response = await fetch(`${API_URL}/api/v2/registry/kbo/lookup`, {

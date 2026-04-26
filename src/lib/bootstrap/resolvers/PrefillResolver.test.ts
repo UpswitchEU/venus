@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parsePrefilledQueryIdentifiers, PrefillResolver } from './PrefillResolver'
 
 describe('PrefillResolver session fallback years', () => {
@@ -97,6 +97,49 @@ describe('parsePrefilledQueryIdentifiers', () => {
     const result = parsePrefilledQueryIdentifiers('12345678')
     expect(result.kvkNumber).toBe('12345678')
     expect(result.cleanedName).toBe('')
+  })
+})
+
+describe('PrefillResolver KVK lookup routing', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    )
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('routes KVK numbers through registry/search with country_code=NL, never kbo/lookup', async () => {
+    const resolver = new PrefillResolver()
+    // Call fetchKBO with a query containing an 8-digit KVK number
+    await (resolver as any).fetchKBO('ASML Holding NV 12345678', 'NL')
+
+    const calls = fetchSpy.mock.calls.map(([url]) => String(url))
+    // Must NOT call the BE-only kbo/lookup endpoint
+    expect(calls.some((u) => u.includes('kbo/lookup'))).toBe(false)
+    // Must call registry/search (the NL-aware endpoint)
+    expect(calls.some((u) => u.includes('registry/search'))).toBe(true)
+    // The search body must include country_code NL and the KVK number as query
+    const searchCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('registry/search'))
+    const body = JSON.parse(searchCall![1]?.body as string)
+    expect(body.country_code).toBe('NL')
+    expect(body.company_name).toBe('12345678')
+  })
+
+  it('still routes Belgian KBO numbers through kbo/lookup', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ data: null }), { status: 404 }),
+    )
+    const resolver = new PrefillResolver()
+    await (resolver as any).fetchKBO('RESTAURANT AB BE0861.786.602', 'BE')
+
+    const calls = fetchSpy.mock.calls.map(([url]) => String(url))
+    expect(calls.some((u) => u.includes('kbo/lookup'))).toBe(true)
+    expect(calls.some((u) => u.includes('registry/search') && JSON.parse(fetchSpy.mock.calls.find(([u2]) => String(u2).includes('registry/search'))?.[1]?.body as string ?? '{}')?.country_code === 'NL')).toBe(false)
   })
 })
 

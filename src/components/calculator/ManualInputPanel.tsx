@@ -168,7 +168,9 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
+  DealStructureCompareSection,
   NavAssetScheduleSection,
+  NavRealEstateAppraisalSection,
   RealEstateCarveOutSection,
   RevenueQualitySection,
   SaasMetricsSection,
@@ -4340,6 +4342,7 @@ export function AdaptiveSections({
   sectionHeaderSteps,
   suppressDcfGlobalAssumptions,
   onFieldChange,
+  onAnyFieldChange,
   onViewAllNormalizations,
   currentFiscalYear,
   onApplyDcfPercentAutofill,
@@ -4368,6 +4371,11 @@ export function AdaptiveSections({
   /** When true, DCF globals are rendered in ManualInputPanel (forecast defaults first). */
   suppressDcfGlobalAssumptions?: boolean
   onFieldChange: (field: string, value: number | undefined) => void
+  /**
+   * Generic setter for non-numeric form fields (owner role, deal type flags,
+   * boolean toggles). Wired through `updateField` upstream.
+   */
+  onAnyFieldChange?: (field: string, value: unknown) => void
   onViewAllNormalizations?: () => void
   currentFiscalYear?: number
   onApplyDcfPercentAutofill?: () => void
@@ -4643,6 +4651,14 @@ export function AdaptiveSections({
                   : undefined
               }
               onFieldChange={onFieldChange}
+              ownerRole={
+                (formData as ValuationFormData & { owner_role?: 'working' | 'passive' }).owner_role
+              }
+              onOwnerRoleChange={
+                onAnyFieldChange
+                  ? (role) => onAnyFieldChange('owner_role', role)
+                  : undefined
+              }
               disabled={disabled}
             />
           </>

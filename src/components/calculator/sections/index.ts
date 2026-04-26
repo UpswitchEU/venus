@@ -27,6 +27,20 @@ export { NavAssetScheduleSection } from './NavAssetScheduleSection'
 export { RealEstateCarveOutSection } from './RealEstateCarveOutSection'
 export { RevenueQualitySection } from './RevenueQualitySection'
 export { SdeOwnerCompensationSection } from './SdeOwnerCompensationSection'
+export { SdeBridgeLadder, type SdeBridgeRow } from './SdeBridgeLadder'
+export {
+  NavRevaluationAuditLog,
+  type DeferredTaxBreakdownRow,
+  type SmeEligibilityPayload,
+  type RealEstateRevaluation,
+} from './NavRevaluationAuditLog'
+export { NavRealEstateAppraisalSection } from './NavRealEstateAppraisalSection'
+export {
+  DealStructureCompareSection,
+  type DealScenario,
+  type DealStructureComparison,
+  type DealStructureInputs,
+} from './DealStructureCompareSection'
 export { SaasMetricsSection } from './SaasMetricsSection'
 export { SynthesisWeightingSection } from './SynthesisWeightingSection'
 
