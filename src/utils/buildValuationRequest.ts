@@ -614,6 +614,60 @@ export function buildValuationRequest(
   }
   if (fd.nav_off_balance_items != null && Number.isFinite(Number(fd.nav_off_balance_items)))
     adaptiveFields.nav_off_balance_items = Number(fd.nav_off_balance_items)
+  // Real estate book → appraisal swap (engine derives the meerwaarde)
+  if (
+    fd.nav_real_estate_book_value != null &&
+    Number.isFinite(Number(fd.nav_real_estate_book_value))
+  )
+    adaptiveFields.nav_real_estate_book_value = Number(fd.nav_real_estate_book_value)
+  if (
+    fd.nav_real_estate_appraisal_value != null &&
+    Number.isFinite(Number(fd.nav_real_estate_appraisal_value))
+  )
+    adaptiveFields.nav_real_estate_appraisal_value = Number(fd.nav_real_estate_appraisal_value)
+  // Per-asset deferred tax rates
+  if (fd.nav_per_asset_tax_rates && typeof fd.nav_per_asset_tax_rates === 'object') {
+    const cleaned: Record<string, number> = {}
+    for (const [k, v] of Object.entries(fd.nav_per_asset_tax_rates)) {
+      if (v != null && Number.isFinite(Number(v))) {
+        cleaned[k] = Math.min(Math.max(Number(v), 0), 100)
+      }
+    }
+    if (Object.keys(cleaned).length > 0) adaptiveFields.nav_per_asset_tax_rates = cleaned
+  }
+  // Equipment economic lifespan revaluation
+  if (
+    fd.nav_equipment_revaluation &&
+    typeof fd.nav_equipment_revaluation === 'object' &&
+    Object.values(fd.nav_equipment_revaluation).some((v) => v != null && Number.isFinite(Number(v)))
+  ) {
+    adaptiveFields.nav_equipment_revaluation = fd.nav_equipment_revaluation
+  }
+  // SME rate resolution inputs (Art. 215 WIB 92)
+  if (fd.taxable_profit != null && Number.isFinite(Number(fd.taxable_profit)))
+    adaptiveFields.taxable_profit = Number(fd.taxable_profit)
+  if (fd.director_remuneration != null && Number.isFinite(Number(fd.director_remuneration)))
+    adaptiveFields.director_remuneration = Number(fd.director_remuneration)
+  if (fd.is_financial_company != null)
+    adaptiveFields.is_financial_company = Boolean(fd.is_financial_company)
+  if (fd.is_holding_more_than_50pct_shares != null)
+    adaptiveFields.is_holding_more_than_50pct_shares = Boolean(fd.is_holding_more_than_50pct_shares)
+  if (fd.sme_rate_override != null) adaptiveFields.sme_rate_override = Boolean(fd.sme_rate_override)
+  // Asset vs share deal toggle
+  if (fd.deal_type) adaptiveFields.deal_type = fd.deal_type
+  if (fd.deal_goodwill_amount != null && Number.isFinite(Number(fd.deal_goodwill_amount)))
+    adaptiveFields.deal_goodwill_amount = Number(fd.deal_goodwill_amount)
+  if (fd.deal_seller_share_basis != null && Number.isFinite(Number(fd.deal_seller_share_basis)))
+    adaptiveFields.deal_seller_share_basis = Number(fd.deal_seller_share_basis)
+  if (fd.deal_seller_is_individual != null)
+    adaptiveFields.deal_seller_is_individual = Boolean(fd.deal_seller_is_individual)
+  if (
+    fd.deal_buyer_discount_rate_pct != null &&
+    Number.isFinite(Number(fd.deal_buyer_discount_rate_pct))
+  )
+    adaptiveFields.deal_buyer_discount_rate_pct = Number(fd.deal_buyer_discount_rate_pct)
+  if (fd.deal_registration_duty_pct != null && Number.isFinite(Number(fd.deal_registration_duty_pct)))
+    adaptiveFields.deal_registration_duty_pct = Number(fd.deal_registration_duty_pct)
   if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
   if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
   if (fd.saas_arr_growth_pct != null) adaptiveFields.saas_arr_growth_pct = fd.saas_arr_growth_pct
@@ -719,6 +773,10 @@ export function buildValuationRequest(
       Number.isFinite(Number(fd.owner_salary_addback)) && {
         owner_salary_addback: Number(fd.owner_salary_addback),
       }),
+    // SDE working-owner vs passive-investor flag — drives full vs delta add-back
+    ...((fd as { owner_role?: 'working' | 'passive' }).owner_role && {
+      owner_role: (fd as { owner_role?: 'working' | 'passive' }).owner_role,
+    }),
     ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
       (formData as any).official_financials && {
         official_financials: (formData as any).official_financials,

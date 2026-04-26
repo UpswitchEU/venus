@@ -300,6 +300,9 @@ function collectExplicitAssetBasedDetails(
     const explicitFields = [
       'enterprise_value',
       'net_asset_value',
+      'net_asset_value_before_deductions',
+      'tax_latency_deduction',
+      'off_balance_deduction',
       'total_assets_book',
       'total_liabilities_book',
       'total_assets_adjusted',
@@ -312,6 +315,16 @@ function collectExplicitAssetBasedDetails(
       'confidence',
       'warnings',
       'asset_adjustments',
+      // Audit-trail surfaces (Belgian SME engine)
+      'deferred_tax_breakdown',
+      'gross_positive_adjustments',
+      'effective_tax_latency_pct',
+      'sme_eligibility',
+      'real_estate_revaluation',
+      'equipment_revaluation',
+      'deal_structure_comparison',
+      'deal_type_selected',
+      'manual_nav_adjustments',
     ]
 
     for (const field of explicitFields) {

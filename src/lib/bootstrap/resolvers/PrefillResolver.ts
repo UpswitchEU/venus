@@ -69,6 +69,10 @@ interface RawKboRecord {
   country_code?: string
   nace_code?: string
   nace_description?: string
+  /** Full market activity code (NL: 5-digit SBI_2008; BE: NACE_REV2 with dot). */
+  activity_code?: string
+  /** Human-readable label for activity_code. */
+  activity_label?: string
   foundation_date?: string
   is_active?: boolean
   /** Server-resolved business type ID from Titan's enrichRegistrySearchResults
@@ -296,9 +300,15 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         }
       }
 
-      // Fallback: Look up business type from NACE code when we have nace_code but no businessType
+      // Fallback: Look up business type from NACE/SBI code when server enrichment didn't resolve.
+      // Prefer the full activity_code (e.g. 5-digit SBI "62011") over the truncated 4-digit
+      // NACE proxy — buildAliasLookupCandidates on the Titan side falls back through the
+      // prefix chain, so either will ultimately resolve, but the 5-digit code is more precise.
       const naceCode =
-        companyInfo?.naceCode || (companyInfo as any)?.nace_code || kboResult?.kboData?.naceCode
+        companyInfo?.activityCode ||
+        companyInfo?.naceCode ||
+        kboResult?.kboData?.activityCode ||
+        kboResult?.kboData?.naceCode
       if (!businessType && naceCode?.trim()) {
         const naceBusinessType = await this.fetchBusinessTypeForNaceCode(
           naceCode.trim(),
@@ -408,6 +418,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
 
     if (!kbo) return null
 
+    const resolvedKboCountry = resolveCountryCode(kbo.country_code, countryCode) || 'BE'
+
     const kboData: KBOCompanyEntity = {
       kboNumber: kbo.kbo_number,
       companyName: kbo.company_name,
@@ -417,9 +429,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       address: kbo.address,
       postalCode: kbo.postal_code,
       city: kbo.city,
-      countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
+      countryCode: resolvedKboCountry,
       naceCode: kbo.nace_code,
       naceDescription: kbo.nace_description,
+      activityCode: kbo.activity_code,
+      activityLabel: kbo.activity_label,
       foundationDate: kbo.foundation_date,
       isActive: kbo.is_active,
       businessTypeId: kbo.business_type_id,
@@ -434,9 +448,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       address: kbo.address,
       postalCode: kbo.postal_code,
       city: kbo.city,
-      countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
+      countryCode: resolvedKboCountry,
       naceCode: kbo.nace_code,
       naceDescription: kbo.nace_description,
+      activityCode: kbo.activity_code,
+      activityLabel: kbo.activity_label,
       foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
       isActive: kbo.is_active,
       businessTypeId: kbo.business_type_id,

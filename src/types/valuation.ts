@@ -361,6 +361,19 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
     hidden_reserves?: number
     other_revaluations?: number
   }
+  /**
+   * Equipment economic-lifespan revaluation. Reconstructs the economic
+   * book value from original cost + age + useful life and surfaces the
+   * meerwaarde vs. the (often near-zero) tax book value.
+   */
+  nav_equipment_revaluation?: {
+    original_cost?: number
+    acquisition_year?: number
+    tax_book_value?: number
+    economic_useful_life_years?: number
+    /** Override: skip the formula and use a user-supplied economic book. */
+    economic_book_value?: number
+  }
   // SME rate resolution inputs (Art. 215 WIB 92)
   taxable_profit?: number
   director_remuneration?: number

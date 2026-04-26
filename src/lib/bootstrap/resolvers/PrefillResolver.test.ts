@@ -141,6 +141,39 @@ describe('PrefillResolver KVK lookup routing', () => {
     expect(calls.some((u) => u.includes('kbo/lookup'))).toBe(true)
     expect(calls.some((u) => u.includes('registry/search') && JSON.parse(fetchSpy.mock.calls.find(([u2]) => String(u2).includes('registry/search'))?.[1]?.body as string ?? '{}')?.country_code === 'NL')).toBe(false)
   })
+
+  it('propagates activity_code from the registry response into companyInfo and kboData', async () => {
+    // KvkService always returns activity_code (5-digit SBI) alongside the
+    // 4-digit nace_code. Venus must carry it through so the NACE fallback
+    // uses the more specific code and the engine receives the full SBI token.
+    const kvkPayload = {
+      results: [
+        {
+          kbo_number: '12345678',
+          company_name: 'ASML Holding NV',
+          country_code: 'NL',
+          nace_code: '6201',
+          activity_code: '62011',
+          activity_label: 'Ontwikkelen en produceren van software (maatwerk)',
+          business_type_id: 'bt_software',
+          business_type_title: 'Software & IT',
+        },
+      ],
+    }
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(kvkPayload), { status: 200 }),
+    )
+
+    const resolver = new PrefillResolver()
+    const result = await (resolver as any).fetchKBO('ASML Holding NV 12345678', 'NL')
+
+    expect(result).not.toBeNull()
+    expect(result.companyInfo.activityCode).toBe('62011')
+    expect(result.companyInfo.naceCode).toBe('6201')
+    expect(result.kboData.activityCode).toBe('62011')
+    expect(result.kboData.naceCode).toBe('6201')
+    expect(result.companyInfo.businessTypeId).toBe('bt_software')
+  })
 })
 
 describe('PrefillResolver.mergeCompanyInfo precedence', () => {

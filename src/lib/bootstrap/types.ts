@@ -271,6 +271,9 @@ export interface KBOCompanyEntity {
   countryCode?: string
   naceCode?: string
   naceDescription?: string
+  /** Full market activity code (NL: 5-digit SBI_2008; BE: NACE_REV2). */
+  activityCode?: string
+  activityLabel?: string
   foundationDate?: string
   lastUpdated?: string
   isActive?: boolean

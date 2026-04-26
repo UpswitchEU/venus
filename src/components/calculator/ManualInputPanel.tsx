@@ -168,8 +168,10 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
+  BelgianSmeAuditPanel,
   DealStructureCompareSection,
   NavAssetScheduleSection,
+  NavEquipmentLifespanSection,
   NavRealEstateAppraisalSection,
   RealEstateCarveOutSection,
   RevenueQualitySection,
@@ -4094,6 +4096,9 @@ export function ManualInputPanel({
                 onFieldChange={(field, value) => {
                   setFormData((prev) => ({ ...prev, [field]: value }))
                 }}
+                onAnyFieldChange={(field, value) => {
+                  setFormData((prev) => ({ ...prev, [field]: value }))
+                }}
                 onViewAllNormalizations={onViewAllNormalizations}
                 currentFiscalYear={
                   historicalCardRows.length > 0 ? Number(historicalCardRows[0].year) : undefined
@@ -4150,6 +4155,25 @@ export function ManualInputPanel({
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/*
+               * Belgian SME audit trail.
+               * Surfaces engine outputs (SDE bridge, NAV revaluation log, deal
+               * structure comparison) for whichever methods returned them. The
+               * panel renders nothing when no audit-worthy details are present.
+               */}
+              {synthesisValuationResults
+                ? Object.entries(synthesisValuationResults).map(([methodKey, result]) =>
+                    result?.details ? (
+                      <BelgianSmeAuditPanel
+                        key={`audit-${methodKey}`}
+                        details={result.details as Record<string, unknown>}
+                        title={`${methodKey.replace(/_/g, ' ')} — audit trail`}
+                        className="mt-6"
+                      />
+                    ) : null
+                  )
+                : null}
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
@@ -4328,6 +4352,37 @@ export function ManualInputPanel({
       </Modal>
     </>
   )
+}
+
+/**
+ * Pulls the most recent `deal_structure_comparison` payload out of the form
+ * data. The engine emits it under the asset-based / NAV method's `details`
+ * after any calculation. We accept either a freshly-cached form override
+ * (`_last_deal_structure_comparison`) or any of the synthesis result
+ * details — whichever was set last.
+ */
+function resolveLatestDealStructureComparison(
+  formData: ValuationFormData
+): import('./sections').DealStructureComparison | null {
+  const overlay = (
+    formData as ValuationFormData & {
+      _last_deal_structure_comparison?: import('./sections').DealStructureComparison
+    }
+  )._last_deal_structure_comparison
+  if (overlay) return overlay
+  const results =
+    (formData as ValuationFormData & {
+      _last_method_results?: Record<string, { details?: Record<string, unknown> | null }>
+    })._last_method_results ?? null
+  if (!results) return null
+  for (const result of Object.values(results)) {
+    const cmp = (result?.details as Record<string, unknown> | undefined)
+      ?.deal_structure_comparison
+    if (cmp && typeof cmp === 'object') {
+      return cmp as import('./sections').DealStructureComparison
+    }
+  }
+  return null
 }
 
 export function AdaptiveSections({
@@ -4570,6 +4625,54 @@ export function AdaptiveSections({
             }
             businessType={formData.industry || undefined}
             onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
+        )}
+        {sections.includes('nav_asset_schedule') && (
+          <NavRealEstateAppraisalSection
+            key="nav_real_estate_appraisal"
+            bookValue={formData.nav_real_estate_book_value as number | undefined}
+            appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
+            deferredTaxRatePct={
+              (formData.nav_per_asset_tax_rates?.real_estate as number | undefined) ??
+              (formData.nav_tax_latency_pct as number | undefined)
+            }
+            onChange={onFieldChange}
+            disabled={disabled}
+          />
+        )}
+        {sections.includes('nav_asset_schedule') && onAnyFieldChange && (
+          <NavEquipmentLifespanSection
+            key="nav_equipment_lifespan"
+            value={formData.nav_equipment_revaluation}
+            reportingYear={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.year)
+                : undefined
+            }
+            onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
+            disabled={disabled}
+          />
+        )}
+        {sections.includes('nav_asset_schedule') && onAnyFieldChange && (
+          <DealStructureCompareSection
+            key="deal_structure_compare"
+            inputs={{
+              dealType: formData.deal_type,
+              goodwillAmount: formData.deal_goodwill_amount,
+              sellerShareBasis: formData.deal_seller_share_basis,
+              sellerIsIndividual: formData.deal_seller_is_individual ?? true,
+              buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
+              registrationDutyPct: formData.deal_registration_duty_pct,
+            }}
+            comparison={resolveLatestDealStructureComparison(formData)}
+            onChange={(field, value) => {
+              if (typeof value === 'number' || value === undefined) {
+                onFieldChange(field, value as number | undefined)
+              } else {
+                onAnyFieldChange(field, value)
+              }
+            }}
             disabled={disabled}
           />
         )}

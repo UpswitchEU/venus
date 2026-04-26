@@ -35,6 +35,8 @@ export {
   type RealEstateRevaluation,
 } from './NavRevaluationAuditLog'
 export { NavRealEstateAppraisalSection } from './NavRealEstateAppraisalSection'
+export { NavEquipmentLifespanSection } from './NavEquipmentLifespanSection'
+export { BelgianSmeAuditPanel } from './BelgianSmeAuditPanel'
 export {
   DealStructureCompareSection,
   type DealScenario,
