@@ -49,6 +49,22 @@ export interface NormalizationItemBase {
 	year?: number;
 	ledger_code?: string;
 	ledger_name?: string;
+	/**
+	 * Owner role context — only meaningful for OWNER_COMPENSATION items.
+	 *
+	 * - 'working' : seller is an active operator. Add back the delta between
+	 *   actual compensation and a market-rate replacement salary only.
+	 * - 'passive' : seller is a non-operating shareholder. The full owner
+	 *   compensation (salary + dividend + benefits) is added back to SDE
+	 *   because the buyer does not need to replace the role.
+	 */
+	owner_role?: 'working' | 'passive';
+	/**
+	 * Replacement-manager benchmark salary used for the working-owner add-back
+	 * computation. When present, the engine treats `amount` as the delta
+	 * (actual_owner_compensation − replacement_salary).
+	 */
+	replacement_salary_benchmark?: number;
 }
 
 export interface NormalizationCategoryMetadata {

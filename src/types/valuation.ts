@@ -341,10 +341,46 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   nav_other_revaluations?: number
   nav_tax_latency_pct?: number
   nav_off_balance_items?: number
+  /**
+   * Real-estate book→appraisal swap. When both fields are supplied, the
+   * engine derives the meerwaarde as (appraisal - book) and ignores
+   * `nav_real_estate_adjustment`. Provides a defensible audit trail.
+   */
+  nav_real_estate_book_value?: number
+  nav_real_estate_appraisal_value?: number
+  /**
+   * Per-asset deferred-tax rates (% of meerwaarde). Keys: real_estate,
+   * inventory, receivables, hidden_reserves, other_revaluations.
+   * When omitted, the engine falls back to `nav_tax_latency_pct` or to
+   * the SME-rate-resolved default.
+   */
+  nav_per_asset_tax_rates?: {
+    real_estate?: number
+    inventory?: number
+    receivables?: number
+    hidden_reserves?: number
+    other_revaluations?: number
+  }
+  // SME rate resolution inputs (Art. 215 WIB 92)
+  taxable_profit?: number
+  director_remuneration?: number
+  is_financial_company?: boolean
+  is_holding_more_than_50pct_shares?: boolean
+  sme_rate_override?: boolean
   // M&A transaction structure
   exclude_real_estate?: boolean
   real_estate_book_value?: number
   estimated_market_rent?: number
+  /**
+   * Asset-vs-share deal selector. 'compare' returns both scenarios.
+   * Triggers `deal_structure_comparison` in the engine response.
+   */
+  deal_type?: 'share' | 'asset' | 'compare'
+  deal_goodwill_amount?: number
+  deal_seller_share_basis?: number
+  deal_seller_is_individual?: boolean
+  deal_buyer_discount_rate_pct?: number
+  deal_registration_duty_pct?: number
   // SaaS metrics
   saas_arr?: number
   saas_mrr?: number

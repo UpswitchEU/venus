@@ -24,6 +24,14 @@ interface SdeOwnerCompensationSectionProps {
   revenue?: number
   ebitda?: number
   onFieldChange: (field: string, value: number | undefined) => void
+  /**
+   * Working owner = active operator, buyer must hire a replacement;
+   * SDE add-back = excess compensation above market rate only.
+   * Passive investor = non-operating shareholder, no replacement needed;
+   * SDE add-back = full compensation (salary + benefits + dividend).
+   */
+  ownerRole?: 'working' | 'passive'
+  onOwnerRoleChange?: (role: 'working' | 'passive') => void
   disabled?: boolean
 }
 
@@ -33,6 +41,8 @@ export function SdeOwnerCompensationSection({
   revenue,
   ebitda,
   onFieldChange,
+  ownerRole,
+  onOwnerRoleChange,
   disabled,
 }: SdeOwnerCompensationSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
@@ -93,8 +103,64 @@ export function SdeOwnerCompensationSection({
         <span>{t('sdeExplainer')}</span>
       </div>
 
+      {onOwnerRoleChange ? (
+        <fieldset className="rounded-xl border border-foreground/[0.08] bg-background px-3.5 py-3">
+          <legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
+            Seller's role post-close
+          </legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5">
+            {(
+              [
+                {
+                  value: 'working' as const,
+                  title: 'Working owner',
+                  hint: 'Active operator. Buyer hires a replacement manager. Add back the delta above a market-rate salary.',
+                },
+                {
+                  value: 'passive' as const,
+                  title: 'Passive investor',
+                  hint: 'Non-operating shareholder. No replacement needed. Add back the full compensation (salary + dividend + benefits).',
+                },
+              ]
+            ).map((opt) => {
+              const selected = ownerRole === opt.value
+              return (
+                <label
+                  key={opt.value}
+                  className={`cursor-pointer rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                    selected
+                      ? 'border-primary/60 bg-primary/[0.06]'
+                      : 'border-foreground/[0.08] hover:border-foreground/[0.18]'
+                  } ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="sde-owner-role"
+                    value={opt.value}
+                    className="sr-only"
+                    checked={selected}
+                    disabled={disabled}
+                    onChange={() => onOwnerRoleChange(opt.value)}
+                  />
+                  <span className="block text-[12px] font-semibold text-foreground/85">{opt.title}</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-foreground/55">
+                    {opt.hint}
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        </fieldset>
+      ) : null}
+
       <CurrencyInput
-        label={t('fields.ownerSalaryAddback')}
+        label={
+          ownerRole === 'passive'
+            ? "Owner compensation add-back (full — salary + benefits + dividend)"
+            : ownerRole === 'working'
+              ? "Excess compensation vs. market replacement salary"
+              : t('fields.ownerSalaryAddback')
+        }
         value={ownerSalaryAddback}
         onChange={(v) => onFieldChange('owner_salary_addback', v)}
         size="sm"
