@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   ChevronRight,
   Edit3,
   HelpCircle,
@@ -271,15 +272,23 @@ function TaxLatencyCandidateCard({
   const candidate = group.candidate
   const firstYear = group.years[0]
   const lastYear = group.years[group.years.length - 1]
+  const isConsecutive =
+    group.years.length > 1 &&
+    group.years.every((year, idx) => idx === 0 || year === group.years[idx - 1] + 1)
   const yearLabel =
     group.years.length === 1
       ? t('candidateYear', { year: firstYear })
       : group.years.length > 1
-        ? t('candidateYearsRange', {
-            start: firstYear,
-            end: lastYear,
-            count: group.years.length,
-          })
+        ? isConsecutive
+          ? t('candidateYearsRange', {
+              start: firstYear,
+              end: lastYear,
+              count: group.years.length,
+            })
+          : t('candidateYearsList', {
+              years: group.years.join(', '),
+              count: group.years.length,
+            })
         : null
 
   return (
@@ -394,6 +403,10 @@ export function TaxLatencySection({
   const hasItems = items.length > 0
   const [isExpanded, setIsExpanded] = useState(alwaysExpanded || hasItems)
   const groupedCandidates = useMemo(() => groupTaxLatencyCandidates(candidates), [candidates])
+  // Editor is collapsed by default in alwaysExpanded mode unless the user has nothing else to interact with.
+  const [isEditorOpen, setIsEditorOpen] = useState(
+    () => alwaysExpanded && !hasItems && candidates.length === 0
+  )
 
   // Conflict detection: NAV-% deduction (asset-based bridge) AND a BSA tax_latency
   // row (equity bridge) on overlapping asset classes will both deduct latent tax
@@ -542,6 +555,7 @@ export function TaxLatencySection({
     setDraftCandidateIds([])
     setLedgerQuery('')
     setShowLedgerDropdown(false)
+    setIsEditorOpen(false)
   }, [effectiveDefaultRate])
 
   const handleSubmit = useCallback(() => {
@@ -607,6 +621,7 @@ export function TaxLatencySection({
     setEditingId(item.id)
     setDraftCandidateIds([])
     setIsExpanded(true)
+    setIsEditorOpen(true)
   }, [])
 
   const handleCancelEdit = useCallback(() => {
@@ -660,6 +675,8 @@ export function TaxLatencySection({
         resetDraft()
         return
       }
+
+      setIsEditorOpen(true)
 
       const focusAmountInput = () => {
         const input = amountInputRef.current
@@ -1099,12 +1116,64 @@ export function TaxLatencySection({
     ) : null
 
   if (alwaysExpanded) {
+    const editorToggle = (
+      <button
+        type="button"
+        onClick={() => setIsEditorOpen((open) => !open)}
+        aria-expanded={isEditorOpen}
+        aria-controls="tax-latency-editor-panel"
+        className={cn(
+          'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
+          isEditorOpen
+            ? 'border-primary/30 bg-primary/[0.04]'
+            : 'border-foreground/[0.08] bg-foreground/[0.02] hover:bg-foreground/[0.04]'
+        )}
+      >
+        <div className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">
+            {editingId ? t('editorToggleEditingTitle') : t('editorToggleTitle')}
+          </span>
+          <span className="mt-0.5 block text-xs text-foreground/50">
+            {t('editorToggleSubtitle')}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!isEditorOpen && !editingId && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-foreground/[0.08] bg-background px-2 py-0.5 text-[11px] font-medium text-foreground/70">
+              <Plus className="w-3 h-3" />
+              {t('addCta')}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-foreground/40 transition-transform',
+              isEditorOpen && 'rotate-180'
+            )}
+          />
+        </div>
+      </button>
+    )
+
     return (
-      <div className="pt-2">
+      <div className="pt-2 space-y-3">
         {conflictBanner}
         {candidateCards}
-        {inputForm}
         {itemsList}
+        {editorToggle}
+        <AnimatePresence initial={false}>
+          {isEditorOpen && (
+            <motion.div
+              id="tax-latency-editor-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              {inputForm}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     )
   }

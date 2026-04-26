@@ -208,6 +208,50 @@ describe('TaxLatencySection', () => {
     })
   })
 
+  it('renders a list (not a range) when grouped candidate years are non-consecutive', async () => {
+    const question =
+      'Opgelet: MAR 630200 bevat vastgoed. Wilt u hier een belastinglatentie op toepassen?'
+    useTaxLatencyStore.getState().setCandidates([
+      {
+        id: 'candidate-2021',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description: 'desc',
+        suggestedQuestion: question,
+        taxRate: 25,
+        year: 2021,
+      },
+      {
+        id: 'candidate-2023',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description: 'desc',
+        suggestedQuestion: question,
+        taxRate: 25,
+        year: 2023,
+      },
+      {
+        id: 'candidate-2025',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description: 'desc',
+        suggestedQuestion: question,
+        taxRate: 25,
+        year: 2025,
+      },
+    ])
+
+    render(<TaxLatencySection alwaysExpanded />)
+
+    expect(screen.getAllByText(question)).toHaveLength(1)
+    expect(
+      screen.getByText('candidateYearsList:years=2021, 2023, 2025,count=3')
+    ).toBeInTheDocument()
+  })
+
   it('prefills and focuses the gross surplus input for zero-value imported candidates', async () => {
     useTaxLatencyStore.getState().setCandidates([
       {

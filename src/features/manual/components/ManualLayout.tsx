@@ -126,7 +126,7 @@ import {
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { useSpotlightStore } from '../../../store/useSpotlightStore'
+import { useImportQualityStore } from '../../../store/useImportQualityStore'
 import {
   consumeLatencyRecalcSuppression,
   enableTaxLatencyAutoPersist,
@@ -203,6 +203,18 @@ import {
 interface GuidedNormalizationPrefill {
   initialSearchQuery: string
   initialYearFilter: number | null
+}
+
+/**
+ * When Mercury passes `focusField` / `flagYear` query params, seed the unified normalization
+ * modal search without requiring importQuality in the store (Hermes may not have hydrated yet).
+ */
+const MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS: Record<string, string> = {
+  owner_director_compensation: '620',
+  personnel_costs: '62',
+  rent_expense: '610',
+  depreciation: '63',
+  operating_expenses: '61',
 }
 
 function getHttpStatusFromError(err: unknown): number | undefined {
@@ -652,7 +664,10 @@ interface ManualLayoutProps {
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
   initialDrawerOpen?: boolean
-  /** Mercury STP deep link: spotlight / focusField / flagYear */
+  /**
+   * Mercury STP: `focusField` + optional `flagYear` open the normalization modal once with
+   * a ledger search hint (`spotlight` is ignored; kept for URL compatibility).
+   */
   guidedResolutionUrl?: {
     spotlight?: string
     focusField?: string
@@ -677,6 +692,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
+  guidedResolutionUrl,
   initialSelectedMethodFromUrl,
 }) => {
   const router = useTransitionRouter()
@@ -774,7 +790,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
-  const importQualityMap = useSpotlightStore((s) => s.importQuality)
+  const importQualityMap = useImportQualityStore((s) => s.importQuality)
   const hasImportQuality =
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
@@ -4458,6 +4474,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     },
     [planFeatures, openStarterPaywall]
   )
+
+  useEffect(() => {
+    const focus = guidedResolutionUrl?.focusField?.trim()
+    if (!focus) return
+    // `useCredits().planFeatures` is `null` until the plan is loaded (not `undefined`).
+    if (planFeatures === null) return
+    if (!planFeatures.ebitda_normalization) return
+    const rawYear = guidedResolutionUrl?.flagYear
+    const storageKey = `venus:guided-norm-handled:${reportId}:${focus}:${rawYear ?? ''}`
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(storageKey)) return
+
+    const yearParsed =
+      rawYear != null && String(rawYear).length > 0
+        ? Number.parseInt(String(rawYear), 10)
+        : Number.NaN
+    const initialYearFilter = Number.isFinite(yearParsed) ? yearParsed : null
+    const initialSearchQuery = MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS[focus] ?? ''
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(storageKey, '1')
+    }
+    openUnifiedNormalizationModal({
+      prefill: { initialSearchQuery, initialYearFilter },
+      track: false,
+    })
+  }, [reportId, guidedResolutionUrl, openUnifiedNormalizationModal, planFeatures])
 
   const handleUnifiedNormalizationModalOpenChange = useCallback((open: boolean) => {
     setShowUnifiedNormalizationModal(open)

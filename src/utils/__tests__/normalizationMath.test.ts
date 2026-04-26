@@ -43,6 +43,8 @@ describe('normalizationMath', () => {
       original: 100_000,
       adjustment: -1_000,
       normalized: 99_000,
+      pendingAdjustment: 0,
+      pendingCount: 0,
     })
   })
 
@@ -123,6 +125,8 @@ describe('normalizationMath', () => {
       original: 150_000,
       adjustment: -15_000,
       normalized: 135_000,
+      pendingAdjustment: 0,
+      pendingCount: 0,
     })
   })
 

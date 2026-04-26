@@ -19,7 +19,7 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import { useSpotlightStore } from '../../store/useSpotlightStore'
+import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import {
   recoverPendingNormalizations,
@@ -673,16 +673,16 @@ class SessionRestorationServiceImpl {
       })
     }
 
-    // 6. Import Quality — hydrate spotlight store for guided resolution
+    // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
     try {
       const rawIQ = (data.formData as any)?._import_quality
       if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
         const provenanceProvider = (data.formData as any)?.business_context
           ?._imported_ledger_provenance?.provider
-        useSpotlightStore.getState().setImportQuality(rawIQ, {
+        useImportQualityStore.getState().setImportQuality(rawIQ, {
           provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
         })
-        generalLogger.info('[SessionRestoration] Import quality hydrated for spotlight mode', {
+        generalLogger.info('[SessionRestoration] Import quality hydrated', {
           years: Object.keys(rawIQ).length,
         })
       }
@@ -983,7 +983,7 @@ class SessionRestorationServiceImpl {
                 | undefined
               const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)
                 ?.provider
-              useSpotlightStore.getState().setImportQuality(raw._import_quality as any, {
+              useImportQualityStore.getState().setImportQuality(raw._import_quality as any, {
                 provider: typeof prov === 'string' ? prov : null,
               })
             }

@@ -2299,19 +2299,10 @@ export function UnifiedNormalizationModal({
           <div
             id="balans-tab-content"
             role="tabpanel"
-            className="flex-1 overflow-y-auto px-6 pb-6"
+            aria-label={nh('section2Header')}
+            className="flex-1 overflow-y-auto px-6 pt-2 pb-6"
           >
-            <section
-              className="pt-4"
-              role="region"
-              aria-labelledby="section2-header"
-            >
-              <h3 id="section2-header" className="text-sm font-semibold text-foreground">
-                {nh('section2Header')}
-              </h3>
-              <p className="text-xs text-foreground/50 mt-0.5">{nh('section2Subheader')}</p>
-              <TaxLatencySection alwaysExpanded />
-            </section>
+            <TaxLatencySection alwaysExpanded />
           </div>
         )}
 

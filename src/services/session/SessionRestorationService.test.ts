@@ -144,7 +144,7 @@ describe('SessionRestorationService', () => {
     const items = useNormalizationStore.getState().items
     expect(items.length).toBe(1)
     expect(items[0].ledgerCode).toBe('610')
-    expect(items[0].status).toBe('pending')
+    expect(items[0].status).toBe('accepted')
     expect(useTaxLatencyStore.getState().candidates).toEqual([])
   })
 

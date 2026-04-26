@@ -20,10 +20,10 @@ import type {
   PrefillSource,
 } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { type ImportQualityPerYear, useImportQualityStore } from '../store/useImportQualityStore'
 import { useNbbPrefillStore } from '../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSessionStore } from '../store/useSessionStore'
-import { useSpotlightStore } from '../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
 import {
@@ -329,10 +329,7 @@ export function useBootstrapPrefill(): {
             if (cyd && (cyd.revenue == null || cyd.ebitda == null)) {
               financialPatch.current_year_data = {
                 ...cyd,
-                year: normalizeCurrentYearForFiling(
-                  cyd.year,
-                  fdBefore.filing_year_confirmed
-                ),
+                year: normalizeCurrentYearForFiling(cyd.year, fdBefore.filing_year_confirmed),
                 revenue:
                   cyd.revenue == null && mapped.revenue != null ? mapped.revenue : cyd.revenue,
                 ebitda: cyd.ebitda == null && mapped.ebitda != null ? mapped.ebitda : cyd.ebitda,
@@ -501,7 +498,8 @@ function applyPrefillToForm(
     if (kboData.naceDescription && !allData.nace_description)
       allData.nace_description = kboData.naceDescription
     if (kboData.activityCode && !allData.activity_code) allData.activity_code = kboData.activityCode
-    if (kboData.activityLabel && !allData.activity_label) allData.activity_label = kboData.activityLabel
+    if (kboData.activityLabel && !allData.activity_label)
+      allData.activity_label = kboData.activityLabel
     // CRITICAL FIX: Only use kboData.companyName if it's non-empty and we don't already have one
     if (kboData.companyName && kboData.companyName.trim() !== '' && !allData.company_name) {
       allData.company_name = kboData.companyName
@@ -576,10 +574,12 @@ function applyPrefillToForm(
       // Bootstrap doesn't carry `_imported_ledger_provenance` directly. Preserve any provider
       // already set by SessionRestoration so a later bootstrap fire can't clobber the trust
       // attribution. If neither has set it, this is null (correct).
-      const existingProvider = useSpotlightStore.getState().provider
-      useSpotlightStore.getState().setImportQuality(financials.importQuality as any, {
-        provider: existingProvider,
-      })
+      const existingProvider = useImportQualityStore.getState().provider
+      useImportQualityStore
+        .getState()
+        .setImportQuality(financials.importQuality as Record<string, ImportQualityPerYear>, {
+          provider: existingProvider,
+        })
     }
     if (financials.saasMetrics) {
       const importedSaasMetrics = financials.saasMetrics
@@ -630,10 +630,8 @@ function applyPrefillToForm(
         // including legitimate zero. The previous `(data?.revenue || data?.ebitda)`
         // guard silently dropped break-even years AND placeholder rows that the
         // server would otherwise refresh from CBSO/integrations on next sync.
-        const hasFiniteRevenue =
-          data?.revenue != null && Number.isFinite(Number(data.revenue))
-        const hasFiniteEbitda =
-          data?.ebitda != null && Number.isFinite(Number(data.ebitda))
+        const hasFiniteRevenue = data?.revenue != null && Number.isFinite(Number(data.revenue))
+        const hasFiniteEbitda = data?.ebitda != null && Number.isFinite(Number(data.ebitda))
         if (year >= 2000 && year <= 2100 && (hasFiniteRevenue || hasFiniteEbitda)) {
           historicalYears.push({
             year,

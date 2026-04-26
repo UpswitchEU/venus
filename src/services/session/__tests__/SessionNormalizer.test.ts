@@ -212,7 +212,7 @@ describe('normalizeSessionData', () => {
     expect((normalizedCamel.formData as any).filing_year_confirmed).toBe(true)
   })
 
-  it('preserves _import_quality on the form payload for spotlight restoration', () => {
+  it('preserves _import_quality on the form payload for session restoration', () => {
     const iq = {
       '2024': {
         confidence_score: 0.92,

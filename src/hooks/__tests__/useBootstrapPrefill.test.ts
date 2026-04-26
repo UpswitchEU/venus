@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PREFILL_SOURCE_ACCOUNTING_INTEGRATION } from '../../lib/bootstrap/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
-import { useSpotlightStore } from '../../store/useSpotlightStore'
+import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { resetBootstrapPrefillState, useBootstrapPrefill } from '../useBootstrapPrefill'
 
@@ -20,12 +20,9 @@ describe('useBootstrapPrefill', () => {
     resetBootstrapPrefillState()
     useManualFormStore.getState().resetForm()
     useNormalizationStore.getState().clear()
-    useSpotlightStore.setState({
-      isSpotlightActive: false,
+    useImportQualityStore.setState({
       importQuality: null,
-      orderedFlagDomIds: [],
-      resolvedFields: new Set(),
-      activeDomId: null,
+      provider: null,
     })
     useTaxLatencyStore.getState().clear()
     mockUseBootstrapSafe.mockReset()
@@ -272,7 +269,7 @@ describe('useBootstrapPrefill', () => {
     })
   })
 
-  it('hydrates Mercury-synced Exact prefill into the manual, normalization, and spotlight stores', async () => {
+  it('hydrates Mercury-synced Exact prefill into the manual, normalization, and import quality stores', async () => {
     const importedLedgerAnalysis = {
       latest_fiscal_year: 2024,
       sde_flags: [
@@ -388,7 +385,7 @@ describe('useBootstrapPrefill', () => {
         }),
       ])
 
-      expect(useSpotlightStore.getState().importQuality).toEqual(importQuality)
+      expect(useImportQualityStore.getState().importQuality).toEqual(importQuality)
     })
   })
 

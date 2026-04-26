@@ -100,7 +100,7 @@ import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import { useSpotlightStore } from '../../store/useSpotlightStore'
+import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
   ManualValuationFormData,
@@ -657,7 +657,7 @@ export function ManualInputPanel({
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const spotlightImportQuality = useSpotlightStore((s) => s.importQuality)
+  const importQualityFromStore = useImportQualityStore((s) => s.importQuality)
   const hasExplicitNumericValue = useCallback(
     (value: unknown) => hasExplicitFinancialValue(value),
     []
@@ -2933,8 +2933,8 @@ export function ManualInputPanel({
       )
     }
 
-    if (spotlightImportQuality && Object.keys(spotlightImportQuality).length > 0) {
-      const qualities = Object.values(spotlightImportQuality)
+    if (importQualityFromStore && Object.keys(importQualityFromStore).length > 0) {
+      const qualities = Object.values(importQualityFromStore)
       const averageConfidence =
         qualities.reduce((sum, quality) => sum + (quality.confidence_score ?? 0), 0) /
         qualities.length
@@ -2942,7 +2942,7 @@ export function ManualInputPanel({
     }
 
     return null
-  }, [importBatchData, spotlightImportQuality])
+  }, [importBatchData, importQualityFromStore])
   const importedYearCount =
     importBatchData?.years.length ??
     [
