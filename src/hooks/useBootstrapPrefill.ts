@@ -461,6 +461,11 @@ function applyPrefillToForm(
     if (companyInfo.vatNumber) allData.vat_number = companyInfo.vatNumber
     if (companyInfo.naceCode) allData.nace_code = companyInfo.naceCode
     if (companyInfo.naceDescription) allData.nace_description = companyInfo.naceDescription
+    // Full market activity code (NL: 5-digit SBI; BE: NACE with dot). Must be persisted
+    // so subsequent session re-bootstrap uses the precise code for alias lookup instead
+    // of the truncated 4-digit NACE proxy stored in nace_code.
+    if (companyInfo.activityCode) allData.activity_code = companyInfo.activityCode
+    if (companyInfo.activityLabel) allData.activity_label = companyInfo.activityLabel
 
     // CRITICAL FIX: Set business_context from companyInfo if it has KBO data
     // This ensures the KBO confirmation box shows even when data comes from companyInfo (not kboData)
@@ -495,6 +500,8 @@ function applyPrefillToForm(
     if (kboData.naceCode && !allData.nace_code) allData.nace_code = kboData.naceCode
     if (kboData.naceDescription && !allData.nace_description)
       allData.nace_description = kboData.naceDescription
+    if (kboData.activityCode && !allData.activity_code) allData.activity_code = kboData.activityCode
+    if (kboData.activityLabel && !allData.activity_label) allData.activity_label = kboData.activityLabel
     // CRITICAL FIX: Only use kboData.companyName if it's non-empty and we don't already have one
     if (kboData.companyName && kboData.companyName.trim() !== '' && !allData.company_name) {
       allData.company_name = kboData.companyName
@@ -826,6 +833,8 @@ function buildBusinessCard(
     legal_form: companyInfo.legalForm,
     nace_code: companyInfo.naceCode,
     nace_description: companyInfo.naceDescription,
+    activity_code: companyInfo.activityCode,
+    activity_label: companyInfo.activityLabel,
   }
 }
 

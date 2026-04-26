@@ -26,6 +26,14 @@ export interface ImportedLedgerSdeFlag {
   suggested_question: string
   rationale?: string
   category?: string
+  /**
+   * Heuristic default share (% of `amount`) plausibly private spending.
+   * When provided, the prefill seeds the normalization item with the
+   * derived `suggested_addback_amount` (= amount × pct/100) instead of
+   * the raw line total — so accountants accept/edit a sensible default.
+   */
+  default_private_use_pct?: number
+  suggested_addback_amount?: number
 }
 
 export interface ImportedLedgerAnalysisLike {
@@ -41,6 +49,7 @@ function mapImportedLedgerCategory(category?: string): NormalizationItem['catego
       return 'salary'
     case 'related_party_rent':
       return 'rent'
+    case 'management_fees':
     case 'discretionary_expense':
       return 'vehicle'
     default:
@@ -53,6 +62,8 @@ function mapImportedLedgerBackendCategory(category?: string): string | undefined
     case 'owner_compensation':
       return 'owner_compensation_adjustment'
     case 'related_party_rent':
+      return 'related_party_transactions'
+    case 'management_fees':
       return 'related_party_transactions'
     case 'discretionary_expense':
       return 'discretionary_expenses'
@@ -73,23 +84,40 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
   const flags = analysis.sde_flags
   if (!flags?.length) return []
 
-  return flags.map((flag, index) => ({
-    id: `imported_sde_${flag.year ?? 'y'}_${flag.ledger_code}_${index}`,
-    ledgerCode: flag.ledger_code,
-    ledgerName: flag.ledger_name,
-    category: mapImportedLedgerCategory(flag.category),
-    backendCategory: mapImportedLedgerBackendCategory(flag.category),
-    type: 'add' as const,
-    value: coalesceFiniteNumber(flag.amount),
-    adjustment: coalesceFiniteNumber(flag.amount),
-    reason: flag.rationale || flag.suggested_question,
-    source: 'auto' as const,
-    sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
-    status: 'pending' as const,
-    applyAllYears: false,
-    applyYears: flag.year ? [flag.year] : undefined,
-    year: flag.year || getCurrentFilingYear(),
-    confidence: mapImportedLedgerConfidence(flag.confidence),
-    marketBenchmark: flag.benchmark_median_pct,
-  }))
+  return flags.map((flag, index) => {
+    const rawAmount = coalesceFiniteNumber(flag.amount)
+    const heuristicAmount =
+      flag.suggested_addback_amount != null && Number.isFinite(flag.suggested_addback_amount)
+        ? Number(flag.suggested_addback_amount)
+        : flag.default_private_use_pct != null && Number.isFinite(flag.default_private_use_pct)
+          ? rawAmount * (Number(flag.default_private_use_pct) / 100)
+          : null
+    const seededAmount = heuristicAmount != null ? heuristicAmount : rawAmount
+
+    const baseReason = flag.rationale || flag.suggested_question
+    const reason =
+      heuristicAmount != null && flag.default_private_use_pct != null
+        ? `${baseReason} Default ${flag.default_private_use_pct.toFixed(0)}% private-use share applied; adjust as needed.`
+        : baseReason
+
+    return {
+      id: `imported_sde_${flag.year ?? 'y'}_${flag.ledger_code}_${index}`,
+      ledgerCode: flag.ledger_code,
+      ledgerName: flag.ledger_name,
+      category: mapImportedLedgerCategory(flag.category),
+      backendCategory: mapImportedLedgerBackendCategory(flag.category),
+      type: 'add' as const,
+      value: rawAmount,
+      adjustment: seededAmount,
+      reason,
+      source: 'auto' as const,
+      sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
+      status: 'pending' as const,
+      applyAllYears: false,
+      applyYears: flag.year ? [flag.year] : undefined,
+      year: flag.year || getCurrentFilingYear(),
+      confidence: mapImportedLedgerConfidence(flag.confidence),
+      marketBenchmark: flag.benchmark_median_pct,
+    }
+  })
 }

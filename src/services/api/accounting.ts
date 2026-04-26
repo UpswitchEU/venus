@@ -62,6 +62,13 @@ export interface AccountingSdeFlag {
   suggested_question: string
   rationale?: string
   category?: string
+  /**
+   * Heuristic default share (% of `amount`) considered private spending and
+   * therefore an SDE add-back. The Venus normalization modal pre-fills a
+   * slider with this value so accountants don't have to estimate from zero.
+   */
+  default_private_use_pct?: number
+  suggested_addback_amount?: number
 }
 
 export interface EvEquityBridge {
