@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
-import { isStartupStudioV2RouteEnabled } from '../../../src/config/features'
 import { StartupStudioPage } from './StartupStudioPage'
 
 export const dynamic = 'force-dynamic'
@@ -77,17 +75,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * the cramped left-rail in `ManualLayout` for founders running the
  * pre-revenue 9th method.
  *
- * Gated behind `isStartupStudioV2RouteEnabled()` — the ROUTE-level
- * check that returns `true` whenever any rollout exists (global hard-
- * flag OR `STARTUP_STUDIO_V2_ROLLOUT_PCT > 0`).  Per-visitor bucketing
- * runs client-side via `isStartupStudioV2Enabled()` and decides who
- * gets *redirected* here from the legacy panel — a deeplink to this
- * URL must always work the moment the rollout starts so partners and
- * QA can preview without flipping their bucket.
+ * Always live — the rollout flag (`STARTUP_STUDIO_V2_ROLLOUT_PCT`) was
+ * removed once Express + the AmbitionPicker + the TeamPicker landed.
+ * The legacy slider panel still auto-redirects here via
+ * `StartupAwareInputPanel` for any cross-app deeplink that lands on
+ * `?method=startup_valuation` so the engine path is uniform across
+ * Mercury / Venus / partner integrations.
  */
 export default async function StartupValuationRoute({ params }: Props) {
-  if (!isStartupStudioV2RouteEnabled()) notFound()
-
   let locale: 'en' | 'nl' = 'en'
   try {
     const resolved = await params

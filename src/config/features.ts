@@ -97,34 +97,32 @@ function getStudioVisitorBucket(): number | null {
  * returns `false` because there is no bucket yet — that is intentional;
  * only a deterministic, render-stable answer is allowed during SSR.
  */
+/**
+ * Studio v2 is now the canonical pre-revenue path — the rollout flag
+ * was retired once Express + the AmbitionPicker + the TeamPicker landed
+ * (early-2026).  These helpers stay as `() => true` so:
+ *   - the legacy `StartupAwareInputPanel` redirect to Studio v2 keeps
+ *     firing without forcing every call-site to delete the gate,
+ *   - any deeplink with `?source=studio_v2` or `?studio=legacy` still
+ *     escapes the redirect for QA / partner integrations,
+ *   - the env vars (`NEXT_PUBLIC_STARTUP_STUDIO_V2*`) become no-ops
+ *     instead of breaking on stale Vercel configurations.
+ *
+ * Reference to the underlying flag values is preserved (`void`-cast
+ * below) so a grep for `FEATURE_FLAGS.STARTUP_STUDIO_V2` still leads
+ * here, and so the linter doesn't flag unused fields if a future
+ * rollback wants to re-introduce gradient bucketing.
+ */
 export const isStartupStudioV2Enabled = (): boolean => {
-  if (FEATURE_FLAGS.STARTUP_STUDIO_V2) return true
-  const pct = FEATURE_FLAGS.STARTUP_STUDIO_V2_ROLLOUT_PCT
-  if (!Number.isFinite(pct) || pct <= 0) return false
-  if (pct >= 100) return true
-  const bucket = getStudioVisitorBucket()
-  if (bucket === null) return false
-  return bucket < pct
+  void FEATURE_FLAGS.STARTUP_STUDIO_V2
+  void FEATURE_FLAGS.STARTUP_STUDIO_V2_ROLLOUT_PCT
+  void getStudioVisitorBucket
+  return true
 }
 
-/**
- * Server-side gate for the `/[locale]/startup-valuation` route.
- *
- * Bucketing happens client-side, so a server check that depends on
- * `localStorage` would 404 every visitor outside a 100% rollout.
- * Instead, the route is "open" the moment any rollout exists at all
- * (`STARTUP_STUDIO_V2 === true` OR `pct > 0`).  Visitors outside the
- * bucket simply will not be redirected here from the legacy panel, but
- * the page itself remains directly addressable for QA and partner
- * landing pages.
- *
- * Safe to call from server components.
- */
-export const isStartupStudioV2RouteEnabled = (): boolean => {
-  if (FEATURE_FLAGS.STARTUP_STUDIO_V2) return true
-  const pct = FEATURE_FLAGS.STARTUP_STUDIO_V2_ROLLOUT_PCT
-  return Number.isFinite(pct) && pct > 0
-}
+/** Always-true counterpart of {@link isStartupStudioV2Enabled} for SSR
+ * route gates.  See the docblock above for retirement rationale. */
+export const isStartupStudioV2RouteEnabled = (): boolean => true
 
 // Environment-specific configurations
 export const getEnvironmentConfig = () => {

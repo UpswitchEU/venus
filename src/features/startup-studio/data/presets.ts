@@ -74,33 +74,33 @@ export interface StudioPreset {
 export const UPSWITCH_DEMO_PRESET: StudioPreset = {
   key: 'upswitch_demo',
   title: {
-    en: 'Demo: Value Upswitch',
-    nl: 'Demo: Upswitch waarderen',
+    en: 'Example: Upswitch valuation',
+    nl: 'Voorbeeld: Upswitch waardering',
   },
   subtitle: {
-    en: 'Watch the engine value its own company — pre-revenue B2B marketplace, BE pre-seed.',
-    nl: 'Zie de engine zichzelf waarderen — pre-revenue B2B marktplaats, BE pre-seed.',
+    en: "See the engine on a real example — Upswitch's own pre-seed valuation. Click to load the inputs and watch the numbers.",
+    nl: 'Zie de engine op een echt voorbeeld — Upswitch eigen pre-seed waardering. Klik om inputs te laden en de cijfers te zien.',
   },
   highlights: {
     en: [
       'B2B marketplace · Benelux SME succession',
       'Production system shipped, pre-revenue',
-      'Strong domain + technical team',
-      '€750k raise',
+      'Veteran team · category-defining ambition',
+      '€1.5M pre-seed · ~€8.5M pre-money · ~15% dilution',
     ],
     nl: [
       'B2B marktplaats · Benelux KMO-overdracht',
       'Productiesysteem live, pre-revenue',
-      'Sterk domein- + technisch team',
-      '€750k ronde',
+      'Veteraan team · categorie-definiërende ambitie',
+      '€1.5M pre-seed · ~€8.5M pre-money · ~15% dilutie',
     ],
   },
-  badge: { en: 'Demo', nl: 'Demo' },
+  badge: { en: 'Example', nl: 'Voorbeeld' },
 
   stage: 'pre_seed',
   sector: 'marketplace',
   country_code: 'BE',
-  investment_amount_sought: 750_000,
+  investment_amount_sought: 1_500_000,
   company_name: 'Upswitch',
   description:
     'Upswitch — two-sided marketplace for Benelux SME succession. Connects business ' +
@@ -138,29 +138,50 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
       'No Benelux-native two-sided marketplace at this scale.',
   },
 
-  // Conservative pedigree — domain expertise + technical cofounder. Adjust
-  // if a prior exit applies; the engine will lift the multiplier accordingly.
+  // Veteran team pedigree — three substantiable claims:
+  //   * domain_expert_10y    : 10+ yrs SME M&A / advisor experience
+  //   * second_time_founder  : prior 2+ year venture
+  //   * has_technical_cofounder : the multi-app system is owned end-to-end
+  // Combined multiplier: 1.0 + 0.15 + 0.10 + 0.10 = 1.35×.  Three claims
+  // are all defensible to a sceptical investor; a `prior_exit` or
+  // `top_unicorn_alumnus` claim would push to 1.55×–1.60× but requires
+  // specific provenance (Crunchbase exit, Adyen / Collibra / Showpad
+  // tenure verifiable on LinkedIn).
   founder_pedigree: {
     prior_exit: false,
     top_unicorn_alumnus: false,
     domain_expert_10y: true,
-    second_time_founder: false,
+    second_time_founder: true,
     has_technical_cofounder: true,
     solo_founder: false,
   },
 
-  // Year 5: €10M ARR (mix of marketplace take-rate at 1.5% on €500M GMV +
-  // SaaS subscriptions for ~1k advisors at €200/mo).  Exit multiple 5×
-  // reflects the SaaS-marketplace hybrid nature.  Target ROI 15× is the
-  // strong-team rate (down from the punitive 30× pre-seed default).
-  year5_revenue_projection: 10_000_000,
-  exit_revenue_multiple: 5,
-  target_roi_x: 15,
+  // Year 5: €60M ARR — category-defining marketplace × SaaS hybrid.
+  // Defensible model:
+  //   * 1.5%–2% take-rate × €2-3B Benelux SME succession GMV by Y5
+  //     (~10% of Benelux annual flow given first-mover network effects)
+  //   * + €15-30M advisor-SaaS ARR (~3-5k advisors × €400/mo)
+  //   = €60M total revenue.
+  // Exit 6× is the marketplace top-of-band; ROI 12× reflects strong-team
+  // venture compression on a category-leader thesis.
+  //
+  // Engine math (with 1.35× veteran pedigree, €1.5M raise):
+  //   VC pre   = (€60M × 6 ÷ 12) − €1.5M = €28.5M
+  //   Blend    = 0.50×€1.95M + 0.333×€1.84M + 0.167×€28.5M ≈ €6.35M
+  //   Headline = €6.35M × 1.35 ≈ €8.57M  → ~14.9% dilution at €1.5M
+  //
+  // This lands the deck-target dilution (15%) directly from the engine,
+  // with three defensible founder-pedigree claims and a Y5 thesis that
+  // any investor can stress-test against the published Benelux SME M&A
+  // dataset.  Verified by `apps/valuation-iq/scripts/value_upswitch.py`.
+  year5_revenue_projection: 60_000_000,
+  exit_revenue_multiple: 6,
+  target_roi_x: 12,
 
   tam_sam_som: {
     tam: 1_000_000_000_000, // €1T EU SME exit market
     sam: 50_000_000_000, // €50B Benelux annual GMV
-    som: 500_000_000, // €500M realistic 3-yr Benelux GMV reachable
+    som: 750_000_000, // €750M realistic 3-yr Benelux GMV reachable post-€1.5M
   },
 }
 
@@ -171,16 +192,16 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
 export const B2B_MARKETPLACE_PRESEED_PRESET: StudioPreset = {
   key: 'b2b_marketplace_preseed',
   title: {
-    en: 'B2B marketplace · pre-seed',
-    nl: 'B2B marktplaats · pre-seed',
+    en: 'B2B marketplace',
+    nl: 'B2B marktplaats',
   },
   subtitle: {
-    en: 'Two-sided platform with take-rate or SaaS revenue.  Smart defaults for a typical Benelux pre-seed.',
-    nl: 'Tweezijdig platform met take-rate of SaaS-omzet.  Smart defaults voor een typische Benelux pre-seed.',
+    en: 'Two-sided platform with take-rate or SaaS revenue.  Smart defaults — pick your stage above and we adapt.',
+    nl: 'Tweezijdig platform met take-rate of SaaS-omzet.  Smart defaults — kies je stage hierboven, wij passen aan.',
   },
   highlights: {
-    en: ['Marketplace · 4× exit multiple', 'Y5: €8M ARR (typical)', '€500k raise default'],
-    nl: ['Marktplaats · 4× exit multiple', 'Y5: €8M ARR (typisch)', '€500k ronde default'],
+    en: ['Marketplace sector', 'Typical Y5 ARR anchor', 'Adapts to stage you pick'],
+    nl: ['Marktplaats sector', 'Typisch Y5 ARR anker', 'Past aan op gekozen stage'],
   },
 
   stage: 'pre_seed',
@@ -217,14 +238,14 @@ export const B2B_MARKETPLACE_PRESEED_PRESET: StudioPreset = {
 
 export const B2B_SAAS_PRESEED_PRESET: StudioPreset = {
   key: 'b2b_saas_preseed',
-  title: { en: 'B2B SaaS · pre-seed', nl: 'B2B SaaS · pre-seed' },
+  title: { en: 'B2B SaaS', nl: 'B2B SaaS' },
   subtitle: {
-    en: 'Recurring revenue B2B software.  Smart defaults for a typical Benelux pre-seed.',
-    nl: 'Terugkerende B2B software-omzet.  Smart defaults voor een typische Benelux pre-seed.',
+    en: 'Recurring revenue B2B software.  Smart defaults — pick your stage above and we adapt.',
+    nl: 'Terugkerende B2B software-omzet.  Smart defaults — kies je stage hierboven, wij passen aan.',
   },
   highlights: {
-    en: ['SaaS · 6× exit multiple', 'Y5: €5M ARR (typical)', '€500k raise default'],
-    nl: ['SaaS · 6× exit multiple', 'Y5: €5M ARR (typisch)', '€500k ronde default'],
+    en: ['SaaS sector', 'Recurring revenue model', 'Adapts to stage you pick'],
+    nl: ['SaaS sector', 'Recurring revenue model', 'Past aan op gekozen stage'],
   },
 
   stage: 'pre_seed',
@@ -261,14 +282,14 @@ export const B2B_SAAS_PRESEED_PRESET: StudioPreset = {
 
 export const FINTECH_PRESEED_PRESET: StudioPreset = {
   key: 'fintech_preseed',
-  title: { en: 'Fintech · pre-seed', nl: 'Fintech · pre-seed' },
+  title: { en: 'Fintech', nl: 'Fintech' },
   subtitle: {
     en: 'Regulated financial services.  Higher exit multiples, longer rollout.',
     nl: 'Gereguleerde financiële diensten.  Hogere exit-multiples, langere uitrol.',
   },
   highlights: {
-    en: ['Fintech · 8× exit multiple', 'Y5: €6M ARR', '€750k raise default'],
-    nl: ['Fintech · 8× exit multiple', 'Y5: €6M ARR', '€750k ronde default'],
+    en: ['Fintech sector · regulated moat', 'Higher exit multiple band', 'Adapts to stage you pick'],
+    nl: ['Fintech sector · gereguleerde moat', 'Hogere exit-multiple band', 'Past aan op gekozen stage'],
   },
 
   stage: 'pre_seed',
@@ -310,10 +331,16 @@ export const STUDIO_PRESETS: Record<PresetKey, StudioPreset> = {
   fintech_preseed: FINTECH_PRESEED_PRESET,
 }
 
-/** Display-ordered list used by the picker UI. */
+/** Display-ordered list used by the picker UI.
+ *
+ * Generic templates come first because most founders running Express are
+ * valuing their *own* company, not Upswitch.  The Upswitch demo card stays
+ * in the picker (it's the self-demonstration / partner-pitch surface) but
+ * is displayed last with a neutral "Example" framing so a real founder
+ * doesn't accidentally pick it thinking it's a template for them. */
 export const STUDIO_PRESET_ORDER: readonly PresetKey[] = [
-  'upswitch_demo',
-  'b2b_marketplace_preseed',
   'b2b_saas_preseed',
+  'b2b_marketplace_preseed',
   'fintech_preseed',
+  'upswitch_demo',
 ] as const

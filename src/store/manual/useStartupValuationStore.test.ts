@@ -145,7 +145,9 @@ describe('useStartupValuationStore', () => {
       expect(s.stage).toBe('pre_seed')
       expect(s.sector).toBe('marketplace')
       expect(s.country_code).toBe('BE')
-      expect(s.investment_amount_sought).toBe(750_000)
+      // €1.5M pre-seed raise — calibrated to the Atomico Benelux marketplace
+      // pre-seed median (€1-2M) and the founder's stated deck target.
+      expect(s.investment_amount_sought).toBe(1_500_000)
 
       // Berkus maturity → 0-100 score derivation
       expect(s.maturity.sound_idea).toBe('exceptional')
@@ -153,18 +155,27 @@ describe('useStartupValuationStore', () => {
       expect(s.maturity.product_rollout).toBe('basic')
       expect(s.product_rollout).toBe(40)
 
-      // Founder pedigree
+      // Founder pedigree — veteran team (3 substantiable claims):
+      // domain_expert_10y + second_time_founder + has_technical_cofounder
+      // → multiplier 1.0 + 0.15 + 0.10 + 0.10 = 1.35×.
       expect(s.founder_pedigree.domain_expert_10y).toBe(true)
+      expect(s.founder_pedigree.second_time_founder).toBe(true)
       expect(s.founder_pedigree.has_technical_cofounder).toBe(true)
+      expect(s.founder_pedigree.prior_exit).toBe(false)
+      expect(s.founder_pedigree.top_unicorn_alumnus).toBe(false)
       expect(s.founder_pedigree.solo_founder).toBe(false)
 
-      // VC method anchors
-      expect(s.year5_revenue_projection).toBe(10_000_000)
-      expect(s.exit_revenue_multiple).toBe(5)
-      expect(s.target_roi_x).toBe(15)
+      // VC method anchors — calibrated to land at €8.5M pre-money /
+      // 15% dilution at the €1.5M raise (the deck target).  Engine math
+      // (verified in `apps/valuation-iq/scripts/value_upswitch.py`):
+      //   VC pre = (€60M × 6 ÷ 12) − €1.5M = €28.5M
+      //   Blend × 1.35× veteran pedigree = ~€8.57M  → ~14.9% dilution.
+      expect(s.year5_revenue_projection).toBe(60_000_000)
+      expect(s.exit_revenue_multiple).toBe(6)
+      expect(s.target_roi_x).toBe(12)
 
-      // TAM/SAM/SOM funnel
-      expect(s.tam_sam_som.som).toBe(500_000_000)
+      // TAM/SAM/SOM funnel — €750M realistic 3-yr Benelux GMV
+      expect(s.tam_sam_som.som).toBe(750_000_000)
 
       // Sector flag flipped — guards against NACE auto-seed silently
       // overriding the preset on a refresh.
@@ -192,14 +203,15 @@ describe('useStartupValuationStore', () => {
       expect(useStartupValuationStore.getState().description).toBe('Founder text wins.')
     })
 
-    it('preset with prior_exit lifts the pedigree multiplier above 1.0', async () => {
+    it('Upswitch preset lifts the pedigree multiplier to 1.35× (veteran)', async () => {
       const { UPSWITCH_DEMO_PRESET } = await import(
         '@/features/startup-studio/data/presets'
       )
       useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
       const flags = useStartupValuationStore.getState().founder_pedigree
-      // domain_expert_10y (+0.15) + has_technical_cofounder (+0.10) = 1.25×
-      expect(calculatePedigreeMultiplier(flags)).toBeCloseTo(1.25, 5)
+      // domain_expert_10y (+0.15) + second_time_founder (+0.10)
+      // + has_technical_cofounder (+0.10) = 1.35×
+      expect(calculatePedigreeMultiplier(flags)).toBeCloseTo(1.35, 5)
     })
   })
 

@@ -139,16 +139,21 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
                 isActive
                   ? 'border-primary bg-primary/[0.06] shadow-md'
                   : 'border-foreground/10 bg-background/80 hover:border-primary/40 hover:bg-primary/[0.03]',
-                isDemo && !isActive && 'border-primary/30 bg-primary/[0.02]',
+                // Demo card is visually neutral (not primary-tinted) so a
+                // founder valuing their OWN company doesn't accidentally
+                // pick it thinking it's a template for them.
+                isDemo && !isActive && 'opacity-90',
               )}
             >
-              {/* Badge */}
+              {/* Badge — Demo card uses a soft "Example" framing now,
+                  not a primary call-out, so the visual hierarchy reads
+                  "templates for you · plus an example for context". */}
               {preset.badge && (
                 <span
                   className={cn(
                     'absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
                     isDemo
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-foreground/10 text-foreground/70'
                       : 'bg-foreground/10 text-foreground/70',
                   )}
                 >
@@ -190,6 +195,26 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
           ? 'Een template overschrijft alleen de preset-velden — je vrije tekst blijft staan. Je kan altijd handmatig verder finetunen.'
           : 'Picking a template only overwrites preset-managed fields — your free text stays. Tune everything afterwards.'}
       </p>
+
+      {/* Express path shortcut — for founders who want PDF in 90s, not the
+          guided 8-step learning UX.  Renders only when the consumer is the
+          wizard (Express page already IS the express UX, so we hide the
+          link there to avoid a self-loop). */}
+      {typeof window !== 'undefined' &&
+        !window.location.pathname.includes('/startup-valuation/express') && (
+          <p className="mt-3 text-xs">
+            <a
+              href={`/${locale === 'nl' ? 'nl' : 'en'}/startup-valuation/express`}
+              className="inline-flex items-center gap-1 font-medium text-primary hover:text-primary/80"
+            >
+              <Sparkles className="h-3 w-3" />
+              {locale === 'nl'
+                ? 'Of: ga direct naar de Express-flow (PDF in 90 seconden)'
+                : 'Or: jump to the Express flow (PDF in 90 seconds)'}
+              {' →'}
+            </a>
+          </p>
+        )}
     </section>
   )
 }
