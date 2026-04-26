@@ -1312,6 +1312,7 @@
 		"importFromAccountingEmpty": "Geen cijfers van {provider} voor {year}",
 		"importFromAccountingEmptyDescription": "Omzet en EBITDA zijn nul. Controleer het boekjaar in je boekhoudpakket of vul de waarden handmatig in.",
 		"importFromAccountingError": "Importeren mislukt",
+		"importFromAccountingUnavailable": "Deze provider wordt vanuit het adviseursdashboard gesynchroniseerd. Blijf deze waardering hier invullen, of open ze opnieuw na synchronisatie.",
 		"countryOptionBE": "België (KBO)",
 		"countryOptionNL": "Nederland (KVK)",
 		"businessTypeHint": "Dit bedrijfstype bepaalt de benchmark data en multiples voor de schatting",

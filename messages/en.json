@@ -1312,6 +1312,7 @@
 		"importFromAccountingEmpty": "No figures from {provider} for {year}",
 		"importFromAccountingEmptyDescription": "Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.",
 		"importFromAccountingError": "Import failed",
+		"importFromAccountingUnavailable": "This provider is synced from the advisor dashboard. Keep editing this valuation here, or reopen it after syncing.",
 		"countryOptionBE": "Belgium (KBO)",
 		"countryOptionNL": "Netherlands (KVK)",
 		"businessTypeHint": "This business type determines the benchmark data and multiples for the estimate",

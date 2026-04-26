@@ -1868,8 +1868,9 @@ export function ManualInputPanel({
   }, [selectedOctopusCompanyId, octopusHistoryRange, currentFilingYear, applyImportedBatch, mi])
 
   /**
-   * Connected-accounting import entry. Bizzcontrol/Octopus open in-app batch modals; Silverfin, Yuki, and
-   * Exact redirect to Mercury / Titan sync — see `ACCOUNTING_IMPORT_PROVIDER_ORDER` in `services/api/accounting.ts`.
+   * Connected-accounting import entry. Only providers with in-app batch import
+   * open modals here. Yuki/Exact/Silverfin are synced before Venus and must not
+   * redirect the user out of the valuation flow.
    */
   const handleImportFromAccounting = useCallback(async () => {
     setImportAccountingError(null)
@@ -1884,7 +1885,7 @@ export function ManualInputPanel({
       }
       const provider = row && isAccountingImportProvider(row.provider) ? row.provider : null
       if (!provider) {
-        setImportAccountingError(mi('importFromAccountingError'))
+        setImportAccountingError(mi('importFromAccountingUnavailable'))
         return
       }
 
@@ -1929,11 +1930,11 @@ export function ManualInputPanel({
       }
 
       if (provider === 'silverfin') {
-        setImportAccountingError(mi('importFromAccountingError'))
+        setImportAccountingError(mi('importFromAccountingUnavailable'))
         return
       }
 
-      setImportAccountingError(mi('importFromAccountingError'))
+      setImportAccountingError(mi('importFromAccountingUnavailable'))
       return
     } catch (err) {
       const msg = parseAccountingApiError(err)
