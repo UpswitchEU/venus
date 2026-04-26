@@ -238,6 +238,31 @@ export function buildValuationRequest(
   const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
   const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
 
+  // Integrity guard: if the user can see normalizations in the UI but none reach the API
+  // payload, the resulting valuation will silently use unnormalized EBITDA. That is the
+  // failure mode that produced the Metaalbewerking incident (€272K of adjustments dropped,
+  // ~€1M understatement). Surface it loudly so QA/telemetry can catch it.
+  if (
+    allItems.length > 0 &&
+    acceptedNorms.length === 0 &&
+    Object.keys(legacyNormalizations || {}).length === 0
+  ) {
+    const visibleAdjustment = allItems.reduce(
+      (sum, n) => sum + (toFiniteNumber(n.adjustment) ?? 0),
+      0
+    )
+    generalLogger.warn(
+      '[buildValuationRequest] Normalization integrity guard: items visible to user but none applied to request',
+      {
+        business_name: companyName,
+        visible_count: allItems.length,
+        visible_total_adjustment: visibleAdjustment,
+        statuses: Array.from(new Set(allItems.map((n) => n.status ?? 'undefined'))),
+        note: 'Valuation will use unnormalized EBITDA. Confirm the user accepted these adjustments before submitting.',
+      }
+    )
+  }
+
   // Separate historical actuals from explicit forecast projections.
   const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
     formData.historical_years_data?.filter((y) => !y.is_forecast),

@@ -87,6 +87,8 @@ export type NormalizationSource =
   | 'manual'
   | 'yuki'
   | 'exact'
+  | 'silverfin'
+  | 'bizzcontrol'
   | 'odoo'
   | 'octopus'
   | 'accountable'
@@ -170,6 +172,8 @@ const sourceConfig: Record<NormalizationSource, { labelKey: string; color: strin
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  silverfin: { labelKey: 'sources.silverfin', color: 'bg-indigo-500/10 text-indigo-600' },
+  bizzcontrol: { labelKey: 'sources.bizzcontrol', color: 'bg-cyan-500/10 text-cyan-600' },
   odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
   octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
   accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
@@ -424,6 +428,7 @@ export function UnifiedNormalizationModal({
     [currencyLocale]
   )
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
+  const taxLatencyCandidateCount = useTaxLatencyStore((s) => s.candidates.length)
   const taxLatencyNetImpact = useTaxLatencyStore((s) => getNetTaxLatencyImpact(s.items))
 
   const [primaryTab, setPrimaryTab] = useState<'ebitda' | 'balans'>('ebitda')
@@ -730,11 +735,51 @@ export function UnifiedNormalizationModal({
     return summarizeAcceptedNormalizations(filteredNormalizations, reportedEbitda)
   }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA, availableYears, currentYear])
 
-  // Group normalizations by year for collapsible sections
+  // Auto-detected suggestions (pending + zero adjustment) that fire identically
+  // across ≥2 years are noise when expanded into per-year rows — the same "rent
+  // is high" flag appearing in 2021..2025 reads as five rows of nothing. Lift
+  // them into a single consolidated card and exclude them from the per-year
+  // grouping below. Accepted items keep year-specific rows because their
+  // adjustments differ per year (different revenue / line totals).
+  const crossYearPendingGroups = useMemo(() => {
+    const buckets = new Map<string, { sample: NormalizationItem; ids: string[]; years: number[] }>()
+    for (const n of filteredNormalizations) {
+      if (n.status !== 'pending') continue
+      if (Number.isFinite(n.adjustment) && Math.abs(n.adjustment) > 0) continue
+      const key = `${(n.ledgerCode || '').trim().toLowerCase()}|${(n.reason || '').trim().toLowerCase()}|${n.source}`
+      const existing = buckets.get(key)
+      const year = Number.isFinite(n.year) ? n.year : null
+      if (existing) {
+        existing.ids.push(n.id)
+        if (year != null && !existing.years.includes(year)) existing.years.push(year)
+      } else {
+        buckets.set(key, {
+          sample: n,
+          ids: [n.id],
+          years: year != null ? [year] : [],
+        })
+      }
+    }
+    return Array.from(buckets.values())
+      .filter((bucket) => bucket.years.length >= 2)
+      .map((bucket) => ({
+        ...bucket,
+        years: bucket.years.sort((a, b) => b - a),
+      }))
+  }, [filteredNormalizations])
+
+  const crossYearPendingIds = useMemo(
+    () => new Set(crossYearPendingGroups.flatMap((bucket) => bucket.ids)),
+    [crossYearPendingGroups]
+  )
+
+  // Group normalizations by year for collapsible sections.
+  // Cross-year pending duplicates are surfaced separately above the year cards.
   const groupedByYear = useMemo(() => {
     const groups = new Map<number, NormalizationItem[]>()
 
     filteredNormalizations.forEach((n) => {
+      if (crossYearPendingIds.has(n.id)) return
       const years =
         n.applyAllYears
           ? availableYears
@@ -753,7 +798,7 @@ export function UnifiedNormalizationModal({
     return Array.from(groups.entries())
       .sort(([a], [b]) => b - a)
       .map(([year, items]) => ({ year, items }))
-  }, [filteredNormalizations, availableYears])
+  }, [filteredNormalizations, availableYears, crossYearPendingIds])
 
   // Toggle year collapse
   const toggleYearCollapse = useCallback((year: number) => {
@@ -1178,6 +1223,16 @@ export function UnifiedNormalizationModal({
                 <p className="text-sm font-mono font-medium text-foreground/50 tabular-nums">
                   {tTax('itemCount', { count: taxLatencyCount })}
                 </p>
+                {taxLatencyCandidateCount > 0 && (
+                  <p
+                    className="text-[9px] font-mono font-medium text-warning/80 mt-0.5 tabular-nums"
+                    title={tTax('pendingCandidatesTooltip', {
+                      count: taxLatencyCandidateCount,
+                    })}
+                  >
+                    {tTax('pendingCandidatesHint', { count: taxLatencyCandidateCount })}
+                  </p>
+                )}
               </div>
               <div className="w-px h-8 bg-foreground/10" />
               <div className="text-right">
@@ -2108,6 +2163,71 @@ export function UnifiedNormalizationModal({
                   <div className="w-32 flex-shrink-0 text-center">{nh('table.status')}</div>
                   <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
                   <div className="w-20 flex-shrink-0 text-right">{nh('table.acties')}</div>
+                </div>
+              )}
+
+              {/* Cross-year pending suggestions consolidated to one card per
+                  (code, reason). Collapses 5 noisy "rent flag fires every
+                  year" rows into a single review affordance. */}
+              {crossYearPendingGroups.length > 0 && (
+                <div className="mb-3 rounded-xl border border-warning/20 bg-warning/[0.03] overflow-hidden">
+                  <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-warning/80 border-b border-warning/15 bg-warning/[0.04]">
+                    {nh('crossYearSuggestionsTitle', { count: crossYearPendingGroups.length })}
+                  </div>
+                  <div className="divide-y divide-warning/10">
+                    {crossYearPendingGroups.map((bucket) => {
+                      const code = bucket.sample.ledgerCode
+                      const ledgerLabel = getLedgerDisplayName(
+                        bucket.sample.ledgerCode,
+                        bucket.sample.ledgerName
+                      )
+                      const yearsLabel =
+                        bucket.years.length > 1
+                          ? `${bucket.years[bucket.years.length - 1]}–${bucket.years[0]} (${bucket.years.length})`
+                          : String(bucket.years[0] ?? '')
+                      return (
+                        <div
+                          key={bucket.ids.join(',')}
+                          className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/70">
+                                {code}
+                              </span>
+                              <span className="text-sm font-medium text-foreground truncate">
+                                {ledgerLabel}
+                              </span>
+                              <span className="text-[11px] text-foreground/55">{yearsLabel}</span>
+                            </div>
+                            {bucket.sample.reason && (
+                              <p className="mt-1 text-xs text-foreground/55 line-clamp-2">
+                                {bucket.sample.reason}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                for (const id of bucket.ids) updateStatus(id, 'rejected')
+                              }}
+                              className="h-7 px-2.5 rounded-md text-[11px] font-medium text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+                            >
+                              {nh('actions.reject')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditing(bucket.sample)}
+                              className="h-7 px-3 rounded-md text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                            >
+                              {nh('actions.review')}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 

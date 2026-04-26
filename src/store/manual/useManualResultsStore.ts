@@ -14,18 +14,19 @@
  */
 
 import { create } from 'zustand'
-import { useSessionStore } from '../useSessionStore'
-import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import {
   equalWeightsFor,
-  isStandaloneMethod,
-  isCombinableMethod,
   getConflictingMethod,
+  isCombinableMethod,
+  isStandaloneMethod,
   resolveSynthesisPercentWeightsForMethods,
   sanitizeMethodSelection,
 } from '../../constants/methodFieldConfig'
+import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
+import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { storeLogger } from '../../utils/logger'
+import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { useSessionStore } from '../useSessionStore'
 
 /**
  * When Titan/ValuationIQ returns weighted synthesis, restore multi-method + weights for the
@@ -121,7 +122,6 @@ interface ManualResultsStore {
   // Use this for immediate UI feedback (< 16ms)
   trySetCalculating: () => boolean
   setCalculating: (isCalculating: boolean) => void
-
 }
 
 export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
@@ -247,7 +247,8 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           selectedValuationMethod: result.selected_valuation_method,
         })
         const hydratedMethodFromPayload =
-          typeof result.selected_valuation_method === 'string' && result.selected_valuation_method.trim()
+          typeof result.selected_valuation_method === 'string' &&
+          result.selected_valuation_method.trim()
             ? result.selected_valuation_method
             : null
         const hydratedSelectedMethod =
@@ -263,9 +264,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
                   ? Object.keys(hydratedValuationResults)[0]
                   : state.selectedMethod
 
+        const renderableHtmlReport = getRenderableReportHtml(result.html_report)
+
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: result.valuation_id,
-          hasHtmlReport: !!result.html_report,
+          hasHtmlReport: !!renderableHtmlReport,
           htmlReportLength: result.html_report?.length || 0,
           selectedMethod: hydratedSelectedMethod,
         })
@@ -286,7 +289,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
             if (session) {
               useSessionStore.getState().updateSession({
                 valuationResult: result as any,
-                htmlReport: result.html_report,
+                htmlReport: renderableHtmlReport,
               })
               storeLogger.debug('[Manual] Session cache updated optimistically', {
                 valuationId: result.valuation_id,
@@ -335,7 +338,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         return {
           ...state,
           result,
-          htmlReport: result.html_report || state.htmlReport,
+          htmlReport: renderableHtmlReport || state.htmlReport,
           selectedMethod: nextSelectedMethod,
           preSelectedMethod: nextPreSelectedMethodSlot,
           preSelectedMethods: nextPreSelectedMethods,
@@ -362,29 +365,37 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   // Set HTML report separately (atomic)
   setHtmlReport: (html: string) => {
     set((state) => {
+      const renderableHtml = getRenderableReportHtml(html)
+      if (!renderableHtml) {
+        storeLogger.warn('[Manual] Ignored non-renderable HTML report update', {
+          htmlLength: html.length,
+        })
+        return state
+      }
+
       const currentResult = state.result
 
       if (currentResult) {
-        const updatedResult = { ...currentResult, html_report: html }
+        const updatedResult = { ...currentResult, html_report: renderableHtml }
 
         storeLogger.info('[Manual] HTML report updated in existing result', {
-          htmlLength: html.length,
+          htmlLength: renderableHtml.length,
         })
 
         return {
           ...state,
           result: updatedResult,
-          htmlReport: html,
+          htmlReport: renderableHtml,
         }
       } else {
         // Store HTML report even without result object
         storeLogger.info('[Manual] HTML report set without existing result', {
-          htmlLength: html.length,
+          htmlLength: renderableHtml.length,
         })
 
         return {
           ...state,
-          htmlReport: html,
+          htmlReport: renderableHtml,
         }
       }
     })

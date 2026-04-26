@@ -127,7 +127,35 @@ describe('StartupSubmitFooter', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it('does NOT auto-fire when the URL is missing source=studio_v2', () => {
+  it('auto-fires once when an advisor returns via source=mercury+studio_completed=1', () => {
+    // Mercury → Studio v2 → report round-trip: `source=mercury` is
+    // preserved verbatim so the bootstrap fallback can restore the
+    // accountant-for-client identity, and `studio_completed=1` is the
+    // separate "just finished the wizard" signal that fires the calc.
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
+      },
+      true,
+    )
+    useStartupValuationStore.setState(
+      {
+        ...initialStudioSnapshot,
+        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
+        sound_idea: MATURITY_TO_SCORE.strong,
+      },
+      true,
+    )
+    setLocation('?source=mercury&mode=accountant&studio_completed=1')
+
+    const onSubmit = vi.fn()
+    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT auto-fire when neither studio source signal is present', () => {
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,

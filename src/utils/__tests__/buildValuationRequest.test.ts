@@ -938,4 +938,96 @@ describe('buildValuationRequest', () => {
       label: 'Verified by NBB',
     })
   })
+
+  // ─── Normalization integrity guard ─────────────────────────────────────────
+  // Regression for the Metaalbewerking incident: visible normalizations in the
+  // store with status !== 'accepted' would silently drop from the request, the
+  // valuation would run on unnormalized EBITDA, and the seller would be
+  // undervalued by ~€1M. The guard logs a warning so QA/telemetry catches it.
+  it('logs an integrity warning when items are visible but none reach the request', async () => {
+    const loggerModule = await import('../logger')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 290_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_950_000,
+          ebitda: 290_000,
+        },
+      }),
+      [
+        // Pending — would be displayed as a normalization but is NOT applied.
+        {
+          id: 'norm-pending-1',
+          title: 'Owner compensation',
+          rationale: 'Above-market owner salary',
+          category: 'salary',
+          type: 'add',
+          value: 280_000,
+          adjustment: 280_000,
+          year: lastFullYear,
+          status: 'pending',
+          source: 'manual',
+          confidence: 'high',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(290_000)
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+
+    const matched = warnSpy.mock.calls.find(([msg]) =>
+      typeof msg === 'string' && msg.includes('Normalization integrity guard')
+    )
+    expect(matched).toBeDefined()
+    const ctx = matched?.[1] as Record<string, unknown> | undefined
+    expect(ctx?.visible_count).toBe(1)
+    expect(ctx?.visible_total_adjustment).toBe(280_000)
+
+    warnSpy.mockRestore()
+  })
+
+  it('does not warn when at least one item is accepted', async () => {
+    const loggerModule = await import('../logger')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+
+    const lastFullYear = getCurrentFilingYear()
+    buildValuationRequest(
+      makeFormData({
+        ebitda: 290_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_950_000,
+          ebitda: 290_000,
+        },
+      }),
+      [
+        {
+          id: 'norm-accepted-1',
+          title: 'Owner compensation',
+          rationale: 'Above-market owner salary',
+          category: 'salary',
+          type: 'add',
+          value: 280_000,
+          adjustment: 280_000,
+          year: lastFullYear,
+          status: 'accepted',
+          source: 'manual',
+          confidence: 'high',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    )
+
+    const matched = warnSpy.mock.calls.find(([msg]) =>
+      typeof msg === 'string' && msg.includes('Normalization integrity guard')
+    )
+    expect(matched).toBeUndefined()
+
+    warnSpy.mockRestore()
+  })
 })

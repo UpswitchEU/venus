@@ -16,21 +16,21 @@
  * gating (single contract — no drift).
  */
 
-import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
-import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
-import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
-import { useAuth } from '@/hooks/useAuth'
-import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
-import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
-import { ManualInputPanel } from '../../ManualInputPanel'
-import { useRouter, useParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, type ComponentProps } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { type ComponentProps, useCallback, useEffect, useRef } from 'react'
 import { isStartupStudioV2Enabled } from '@/config/features'
+import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
 import { AuroraButton } from '@/design-system'
+import { useAuth } from '@/hooks/useAuth'
+import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { ValuationFormData } from '@/types/valuation'
 import { getCurrentFilingYear } from '@/utils/fiscalYear'
 import { resolveVentureCountryIso2 } from '@/utils/resolveVentureCountryIso2'
+import { ManualInputPanel } from '../../ManualInputPanel'
 import { StartupValuationPanel } from './StartupValuationPanel'
 
 export type StartupAwareInputPanelProps = ComponentProps<typeof ManualInputPanel>
@@ -67,18 +67,62 @@ function useStartupStageDeepLinkPrefill() {
 }
 
 /**
- * Re-route founders to the Studio v2 wizard the first time they land
- * on the legacy slider panel.  Idempotent: bails out the moment a
- * startup result already exists in the manual results store (so we
- * never yank the user away from an in-flight report) or the source
- * query param marks them as already coming from the Studio.
+ * SessionStorage key for the advisor → Studio v2 → report round-trip
+ * handoff.  When an advisor coming from Mercury enters the wizard we
+ * stash the original report id + Mercury context here so
+ * `StartupStudioPage.handleSubmit` can route the calculation back to
+ * the SAME report (instead of creating a new one via `/reports/new`,
+ * the founder default).  Cleared once consumed.
  */
-function useStartupStudioRedirect(method: string | null | undefined) {
+export const ADVISOR_HANDOFF_KEY = 'upswitch.studio.advisor_handoff'
+
+export interface AdvisorHandoff {
+  reportId: string
+  locale: 'en' | 'nl'
+  /** Mercury hand-off context — preserved verbatim so the bootstrap
+   *  fallback path (sourceApp === 'mercury' && reportId && !clientToken)
+   *  can restore the accountant-for-client identity on return. */
+  mode?: string
+  clientId?: string
+  returnUrl?: string
+  source?: string
+}
+
+function captureAdvisorHandoff(payload: AdvisorHandoff): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(ADVISOR_HANDOFF_KEY, JSON.stringify(payload))
+  } catch {
+    // sessionStorage disabled (incognito/Safari) — wizard will fall
+    // back to the founder default (`/reports/new`); the advisor still
+    // gets a usable report, just not stitched to the original id.
+  }
+}
+
+/**
+ * Re-route every pre-revenue user (founders AND advisors) to the
+ * Studio v2 wizard the first time they land on the legacy slider
+ * panel.  For advisors coming from Mercury we additionally stash the
+ * report id + Mercury context so the wizard can return them to the
+ * SAME report.  Idempotent: bails out the moment a startup result
+ * already exists (so we never yank a user out of an open report) or
+ * the URL marks them as already returning from the Studio.
+ */
+function useStartupStudioRedirect(
+  method: string | null | undefined,
+  startupMode: 'founder' | 'advisor',
+  /** True while the BootstrapProvider is still resolving auth +
+   *  client-context exchange.  We MUST wait for this to settle before
+   *  redirecting: until then `isAccountantFlow` may be stale-false,
+   *  which would misclassify an advisor as a founder, skip the
+   *  Mercury-handoff capture, and silently misroute the wizard's
+   *  submission to `/reports/new` instead of the original report id. */
+  isBootstrapPending: boolean
+) {
   const router = useRouter()
-  const params = useParams<{ locale?: string }>()
-  // Treat the founder as "in-flight" the moment a result has been
-  // computed in this session — we don't want to yank them out of an
-  // open report into the wizard.
+  const params = useParams<{ locale?: string; id?: string }>()
+  // Treat as "in-flight" the moment a result has been computed in this
+  // session — we don't want to yank a user out of an open report.
   const hasStartupResult = useManualResultsStore((s) => s.result != null)
   const redirectedRef = useRef(false)
 
@@ -87,15 +131,47 @@ function useStartupStudioRedirect(method: string | null | undefined) {
     if (method !== 'startup_valuation') return
     if (!isStartupStudioV2Enabled()) return
     if (hasStartupResult) return
+    if (isBootstrapPending) return
     if (typeof window === 'undefined') return
     const search = new URLSearchParams(window.location.search)
+    // Two return-from-Studio signals: founders carry `source=studio_v2`,
+    // advisors carry `studio_completed=1` (so `source=mercury` can
+    // remain intact for the bootstrap fallback).
     if (search.get('source') === 'studio_v2') return
+    if (search.get('studio_completed') === '1') return
     if (search.get('studio') === 'legacy') return
 
-    redirectedRef.current = true
     const locale = params?.locale === 'nl' ? 'nl' : 'en'
-    router.push(`/${locale}/startup-valuation`)
-  }, [method, hasStartupResult, router, params])
+
+    // Advisor entry: stash the report id + Mercury context so the
+    // wizard's submit handler can route back to the same report.
+    if (startupMode === 'advisor') {
+      const reportId = params?.id?.trim()
+      if (reportId) {
+        captureAdvisorHandoff({
+          reportId,
+          locale,
+          mode: search.get('mode') ?? undefined,
+          clientId: search.get('clientId') ?? undefined,
+          returnUrl: search.get('return_url') ?? undefined,
+          source: search.get('source') ?? undefined,
+        })
+      }
+    }
+
+    redirectedRef.current = true
+    // `?from=advisor` is the URL signal that gates handoff consumption
+    // in `StartupStudioPage.handleSubmit`.  Without it, a stale
+    // sessionStorage handoff (advisor abandoned mid-wizard) could
+    // misroute a subsequent founder's submission to the wrong report
+    // id.  The signal lives only on the wizard URL, so a fresh direct
+    // visit to `/startup-valuation` cannot consume a leftover payload.
+    const wizardPath =
+      startupMode === 'advisor'
+        ? `/${locale}/startup-valuation?from=advisor`
+        : `/${locale}/startup-valuation`
+    router.push(wizardPath)
+  }, [method, hasStartupResult, isBootstrapPending, router, params, startupMode])
 }
 
 /**
@@ -117,7 +193,7 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
       ? fy
       : getCurrentFilingYear()
   return {
-    companyName: (formState.company_name?.trim() || 'Unknown Startup'),
+    companyName: formState.company_name?.trim() || 'Unknown Startup',
     businessType: formState.business_type ?? 'startup',
     industry: formState.industry ?? 'technology',
     business_model: formState.business_model ?? sector,
@@ -193,7 +269,12 @@ export function StartupSubmitFooter({
     if (!companyName.trim()) return
 
     const search = new URLSearchParams(window.location.search)
-    if (search.get('source') !== 'studio_v2') return
+    // Two return-from-Studio signals — see `useStartupStudioRedirect`
+    // for the rationale (advisors keep `source=mercury` intact for the
+    // bootstrap fallback and use `studio_completed=1` instead).
+    const fromStudio =
+      search.get('source') === 'studio_v2' || search.get('studio_completed') === '1'
+    if (!fromStudio) return
 
     // Defer until persist has rehydrated; subscribe once so a slow
     // adapter still triggers the auto-fire when it eventually finishes.
@@ -261,9 +342,7 @@ export function StartupSubmitFooter({
 }
 
 export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
-  const effectiveMethod = useManualResultsStore(
-    (s) => s.preSelectedMethod ?? s.selectedMethod
-  )
+  const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   // ``useBootstrapSafe`` may be null (tests, Storybook). ``useAuth`` supplies
   // role for standalone advisors — same helper as ``ManualLayout``'s
   // ``showFullAdvisorMethodNav`` (`showAdvisorCalculatorSurface`).
@@ -271,7 +350,7 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
   const { user } = useAuth()
   const startupMode: 'founder' | 'advisor' = showAdvisorCalculatorSurface(
     Boolean(bootstrap?.isAccountantFlow),
-    user?.role,
+    user?.role
   )
     ? 'advisor'
     : 'founder'
@@ -279,9 +358,22 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
   const isCalculating = useManualResultsStore((s) => s.isCalculating)
 
   useStartupStageDeepLinkPrefill()
-  // Founder Studio v2 redirect — advisors keep the legacy panel until
-  // the round-simulator step ships in the wizard's advisor surface.
-  useStartupStudioRedirect(startupMode === 'founder' ? effectiveMethod : null)
+  // Studio v2 is the canonical pre-revenue surface for BOTH founders
+  // and advisors.  Advisors get the same evidence-card wizard founders
+  // already use; the round-trip back to the original Mercury report is
+  // handled via `ADVISOR_HANDOFF_KEY` in sessionStorage.
+  //
+  // `isBootstrapPending` defends the founder/advisor classification
+  // from a known race: `useBootstrapSafe()` returns `null` (then a
+  // hydrating object) before client-context exchange resolves.  An
+  // accountant-for-client identity therefore reads as "founder" for
+  // the first render or two — and without this gate we'd redirect
+  // them as a founder, skip the Mercury handoff capture, and drop
+  // them into `/reports/new` on submit.  When no provider is mounted
+  // (tests, Storybook), `bootstrap` is `null` and we treat that as
+  // "not pending" so the existing fixtures keep working.
+  const isBootstrapPending = !!bootstrap?.isBootstrapping
+  useStartupStudioRedirect(effectiveMethod, startupMode, isBootstrapPending)
 
   if (effectiveMethod === 'startup_valuation') {
     return (

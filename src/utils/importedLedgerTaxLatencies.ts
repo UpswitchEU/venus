@@ -18,24 +18,37 @@ export interface ImportedLedgerTaxLatencyAnalysisLike {
   tax_latency_candidates?: ImportedLedgerTaxLatencyCandidate[]
 }
 
+// Mirrors the titan-api guard. The matcher there now blocks BE MAR class 6/7/8/9
+// (P&L + off-balance) at source, but already-persisted analyses from earlier
+// builds still carry false positives like MAR 630200 "Afschrijvingen op
+// gebouwen". Filter them defensively on read so the UI cleans itself up
+// without forcing a re-import.
+const PROFIT_AND_LOSS_OR_OFF_BALANCE_PREFIX = /^[6789]/
+
 export function buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
   analysis: ImportedLedgerTaxLatencyAnalysisLike
 ): TaxLatencyCandidate[] {
   const candidates = analysis.tax_latency_candidates
   if (!candidates?.length) return []
 
-  return candidates.map((candidate, index) => ({
-    id: `tax_latency_${candidate.fiscal_year ?? 'y'}_${candidate.account_code}_${index}`,
-    type: candidate.type === 'active' ? 'active' : 'passive',
-    accountCode: candidate.account_code,
-    accountName: candidate.account_name,
-    description: candidate.description,
-    suggestedQuestion: candidate.suggested_question,
-    rationale: candidate.rationale,
-    temporaryDifference:
-      candidate.temporary_difference != null ? Number(candidate.temporary_difference) : undefined,
-    taxRate: candidate.tax_rate != null ? Number(candidate.tax_rate) : 25,
-    year: candidate.fiscal_year,
-    autoApply: Boolean(candidate.auto_apply),
-  }))
+  return candidates
+    .filter((candidate) => {
+      const code = String(candidate.account_code ?? '').trim()
+      if (!code) return false
+      return !PROFIT_AND_LOSS_OR_OFF_BALANCE_PREFIX.test(code)
+    })
+    .map((candidate, index) => ({
+      id: `tax_latency_${candidate.fiscal_year ?? 'y'}_${candidate.account_code}_${index}`,
+      type: candidate.type === 'active' ? 'active' : 'passive',
+      accountCode: candidate.account_code,
+      accountName: candidate.account_name,
+      description: candidate.description,
+      suggestedQuestion: candidate.suggested_question,
+      rationale: candidate.rationale,
+      temporaryDifference:
+        candidate.temporary_difference != null ? Number(candidate.temporary_difference) : undefined,
+      taxRate: candidate.tax_rate != null ? Number(candidate.tax_rate) : 25,
+      year: candidate.fiscal_year,
+      autoApply: Boolean(candidate.auto_apply),
+    }))
 }

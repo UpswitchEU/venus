@@ -5,9 +5,10 @@ import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
+import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { ErrorState } from '../ErrorState'
-import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
+import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -36,9 +37,9 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   )
 
   // Use session htmlReport if available, fallback to result prop
-  const htmlReport = sessionHtmlReport || result?.html_report
-  const evEquitySteps =
-    sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
+  const rawHtmlReport = sessionHtmlReport || result?.html_report
+  const htmlReport = getRenderableReportHtml(rawHtmlReport)
+  const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
 
   // Verification logging: Track when result changes
   useEffect(() => {

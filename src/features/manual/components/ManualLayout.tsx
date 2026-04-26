@@ -117,6 +117,7 @@ import {
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
 import { useConversationStore } from '../../../store/useConversationStore'
+import { useImportQualityStore } from '../../../store/useImportQualityStore'
 import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import {
   enableNormalizationAutoPersist,
@@ -126,7 +127,6 @@ import {
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { useImportQualityStore } from '../../../store/useImportQualityStore'
 import {
   consumeLatencyRecalcSuppression,
   enableTaxLatencyAutoPersist,
@@ -177,6 +177,7 @@ import {
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
+import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import {
   hasExistingValuationVersion,
@@ -717,7 +718,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       Object.keys(localStorage)
         .filter((k) => k.includes('react-resizable-panels') || k.includes('venus-calculator'))
         .forEach((k) => localStorage.removeItem(k))
-    } catch {}
+    } catch {
+      // localStorage may be unavailable in embedded/private contexts.
+    }
   }, [])
 
   // Provide i18n for normalization store toasts (store cannot use hooks).
@@ -2115,7 +2118,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (version?.valuationResult) {
         const enrichedResult = {
           ...version.valuationResult,
-          html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+          html_report: getRenderableReportHtml(
+            version.valuationResult.html_report || version.htmlReport
+          ),
         }
         setResult(enrichedResult)
         toast.info(t('versionLoaded', { label: version.versionLabel }))
@@ -2151,7 +2156,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
         const askingPrice =
           askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
-        const htmlReport = r.html_report ?? r.details?.html_report
+        const htmlReport = getRenderableReportHtml(r.html_report ?? r.details?.html_report)
         const dcfHistoricalFcfReadiness =
           r.dcf_valuation?.historical_fcf_readiness ??
           r.details?.dcf_valuation?.historical_fcf_readiness ??
@@ -2283,7 +2288,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
         }
         setResult(mergedResult)
-        const htmlForPreview = htmlFromPatch || fresh.html_report
+        const htmlForPreview = getRenderableReportHtml(htmlFromPatch || fresh.html_report)
         setReport((prev) => {
           if (!prev) return prev
           const pdfMeta: Pick<
@@ -2316,10 +2321,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         generalLogger.warn('[ManualLayout] getReport after valuation edit failed', {
           error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
         })
-        if (htmlFromPatch) {
-          setReport((prev) => (prev ? { ...prev, htmlReport: htmlFromPatch } : prev))
+        const renderableHtmlFromPatch = getRenderableReportHtml(htmlFromPatch)
+        if (renderableHtmlFromPatch) {
+          setReport((prev) => (prev ? { ...prev, htmlReport: renderableHtmlFromPatch } : prev))
           const latestResult = useManualResultsStore.getState().result
-          setResult(latestResult ? { ...latestResult, html_report: htmlFromPatch } : latestResult)
+          setResult(
+            latestResult ? { ...latestResult, html_report: renderableHtmlFromPatch } : latestResult
+          )
           if (planFeatures?.valuation_download !== false) {
             generatePdf?.().catch((err) => {
               if (err instanceof APIError && err.statusCode === 402) return
@@ -2963,7 +2971,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 useTaxLatencyStore.getState().items
               ),
               valuationResult: calcResult,
-              htmlReport: calcResult.html_report || undefined,
+              htmlReport: getRenderableReportHtml(calcResult.html_report),
               name: sessionName,
             })
             useSessionStore.getState().markSaved(saveStartDirtyVersion)
@@ -3041,7 +3049,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     reportId: idForApi,
                     formData: request,
                     valuationResult: calcResult,
-                    htmlReport: calcResult.html_report || undefined,
+                    htmlReport: getRenderableReportHtml(calcResult.html_report),
                     changesSummary: effectiveChanges,
                     versionLabel: generateAutoLabel(
                       effectivePrevious.versionNumber + 1,
@@ -4608,7 +4616,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 useTaxLatencyStore.getState().items
               ),
               valuationResult: calcResult,
-              htmlReport: calcResult.html_report || undefined,
+              htmlReport: getRenderableReportHtml(calcResult.html_report),
               name: sessionName,
             })
           } catch (saveError) {
@@ -4970,7 +4978,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (version.valuationResult) {
           const enrichedResult = {
             ...version.valuationResult,
-            html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+            html_report: getRenderableReportHtml(
+              version.valuationResult.html_report || version.htmlReport
+            ),
           }
           setResult(enrichedResult)
         }

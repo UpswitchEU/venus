@@ -56,6 +56,8 @@ export type NormalizationSource =
   | 'manual'
   | 'yuki'
   | 'exact'
+  | 'silverfin'
+  | 'bizzcontrol'
   | 'odoo'
   | 'octopus'
   | 'accountable'
@@ -128,6 +130,8 @@ const sourceLabels: Record<NormalizationSource, { labelKey: string; color: strin
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  silverfin: { labelKey: 'sources.silverfin', color: 'bg-indigo-500/10 text-indigo-600' },
+  bizzcontrol: { labelKey: 'sources.bizzcontrol', color: 'bg-cyan-500/10 text-cyan-600' },
   odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
   octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
   accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },

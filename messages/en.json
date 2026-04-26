@@ -1473,7 +1473,7 @@
 			"customBlend": "Market & income (combinable)",
 			"moreInfoForMethod": "More about: {method}",
 			"combinableHint": "Pick one or more methods to include in your weighted synthesis.",
-			"exclusivityHint": "SDE and EV/EBITDA cannot be combined. Omzet and the English revenue key count as one method.",
+			"exclusivityHint": "SDE and EV/EBITDA cannot be combined. Revenue-based methods count as one method.",
 			"statutoryLabel": "Statutory / standalone",
 			"standaloneHint": "Selection replaces all other methods",
 			"conflictsWith": "Cannot be combined with {method}",
@@ -1746,7 +1746,7 @@
 				"fiscalPreviewUnavailableMissingEbitda": "Add a complete historical year with EBITDA to preview the fiscal anchor.",
 				"fiscalPreviewUnavailableMissingEquity": "Book equity is missing from the latest year row — anchor is shown; full fiscal equity needs balance-sheet equity (or assets − liabilities)."
 			},
-			"realEstateCarveOutHint": "Use this when the buyer acquires the operating company but rents the property from the seller after closing. The engine removes the property value from the deal and deducts market rent from the EBITDA basis.",
+			"realEstateCarveOutHint": "For deal structure (asset deal): use this when the buyer acquires the operating company but rents the property from the seller after closing. The engine removes the property value from the deal and deducts market rent from the EBITDA basis. For the deferred tax on hidden gains, see 'Balans & Latenties' in the normalization modal.",
 			"estimatedMarketRentEbitdaHint": "Enter your best estimate of annual market rent (not book). The valuation engine uses this to normalize EBITDA when the operating company no longer owns the bricks.",
 			"terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
 			"saasProjectionPreview": {
@@ -2162,6 +2162,8 @@
 			"manual": "Manual",
 			"yuki": "Yuki Export",
 			"exact": "Exact Online",
+			"silverfin": "Silverfin",
+			"bizzcontrol": "Bizzcontrol",
 			"odoo": "Odoo",
 			"octopus": "Octopus",
 			"accountable": "Accountable",
@@ -2170,7 +2172,7 @@
 			"auto": "Auto (STP)",
 			"importedLedger": "Auto-suggestion"
 		},
-		"importedLedgerTooltip": "Suggested from statistical analysis of your synced ledger (Yuki, Exact, …). Not a direct import — accept it to count toward normalized EBITDA.",
+		"importedLedgerTooltip": "Suggested from statistical analysis of your synced ledger (Yuki, Exact, Silverfin, Octopus, …). Not a direct import — accept it to count toward normalized EBITDA.",
 		"pendingHint": "{sign}{amount} pending",
 		"pendingHintTooltip": "{count} suggestion(s) waiting for review. Click a row or select multiple to accept.",
 		"table": {
@@ -2194,6 +2196,7 @@
 			"edit": "Edit",
 			"reject": "Reject",
 			"accept": "Accept",
+			"review": "Review",
 			"remove": "Remove",
 			"removeAdjustment": "Remove adjustment",
 			"restore": "Restore",
@@ -2202,6 +2205,7 @@
 			"save": "Save",
 			"add": "Add"
 		},
+		"crossYearSuggestionsTitle": "{count, plural, one {# suggestion across multiple years} other {# suggestions across multiple years}}",
 		"marketPrefix": "Market:",
 		"applyToAllYears": "Apply to all years",
 		"closeLedgerDropdown": "Close ledger dropdown",
@@ -2487,6 +2491,8 @@
 		"editorToggleTitle": "Add or edit a tax latency",
 		"editorToggleEditingTitle": "Editing tax latency",
 		"editorToggleSubtitle": "Open only to manually add a deferred tax row or adjust an existing one.",
+		"pendingCandidatesHint": "{count, plural, one {# suggestion} other {# suggestions}} to review",
+		"pendingCandidatesTooltip": "{count, plural, one {# auto-detected suggestion} other {# auto-detected suggestions}} from the imported ledger awaiting review.",
 		"addCta": "Add",
 		"saveCta": "Save",
 		"editItem": "Edit",

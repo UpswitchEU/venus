@@ -93,6 +93,15 @@ function normalizeTaxLatencyItems(input: unknown): TaxLatencyItem[] {
     .filter((item): item is TaxLatencyItem => item !== null)
 }
 
+/**
+ * Stable key for deduping items / promoted candidates by (accountCode, type).
+ * Same MAR row showing up twice (e.g. once as a manual passive entry, once as
+ * an auto-promoted candidate) collapses to a single row.
+ */
+function taxLatencyItemKey(accountCode?: string, type?: string): string {
+  return `${String(accountCode ?? '').trim().toLowerCase()}|${String(type ?? '').toLowerCase()}`
+}
+
 export function calculateLatencyAmount(item: TaxLatencyItem): number {
   const amount = Math.abs(item.temporaryDifference) * (item.taxRate / 100)
   return item.type === 'active' ? amount : -amount
@@ -275,7 +284,67 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 
       setItems: (items) => set({ items: normalizeTaxLatencyItems(items) }, false, 'setItems'),
 
-      setCandidates: (candidates) => set({ candidates }, false, 'setCandidates'),
+      setCandidates: (candidates) =>
+        set(
+          (state) => {
+            // Zero-draft: auto-promote candidates that arrive fully specified
+            // (`autoApply === true` AND a positive `temporaryDifference`) into
+            // items immediately, instead of parking them in a card the user
+            // has to click. The canonical case is BE MAR 168 deferred tax
+            // pulled from any synced provider (Yuki / Exact / Silverfin /
+            // Octopus) — the on-balance value already IS the latent tax, so
+            // there's nothing for the accountant to compute.
+            //
+            // Candidates without `autoApply` (real-estate needing FMV input,
+            // 16x provisions awaiting accountant judgement) stay as cards.
+            const itemKeys = new Set(
+              state.items.map((item) => taxLatencyItemKey(item.accountCode, item.type))
+            )
+            const promoted: TaxLatencyItem[] = []
+            const remaining: TaxLatencyCandidate[] = []
+            const seenPromotedKeys = new Set<string>()
+
+            for (const candidate of candidates) {
+              const code = String(candidate.accountCode ?? '').trim()
+              const qualifies =
+                candidate.autoApply === true &&
+                typeof candidate.temporaryDifference === 'number' &&
+                Number.isFinite(candidate.temporaryDifference) &&
+                candidate.temporaryDifference > 0 &&
+                code.length > 0
+              if (!qualifies) {
+                remaining.push(candidate)
+                continue
+              }
+              const key = taxLatencyItemKey(code, candidate.type)
+              // Don't double-apply: skip if an item already exists for this
+              // (accountCode, type) pair (manual entry, prior session, or an
+              // earlier candidate in this same batch).
+              if (itemKeys.has(key) || seenPromotedKeys.has(key)) continue
+              seenPromotedKeys.add(key)
+              const item = normalizeTaxLatencyItem({
+                id: `auto_${candidate.id}`,
+                type: candidate.type,
+                accountCode: code,
+                accountName: candidate.accountName,
+                description: candidate.description,
+                temporaryDifference: candidate.temporaryDifference,
+                taxRate: candidate.taxRate,
+              })
+              if (item) promoted.push(item)
+            }
+
+            if (promoted.length === 0) {
+              return { candidates: remaining }
+            }
+            return {
+              items: [...state.items, ...promoted],
+              candidates: remaining,
+            }
+          },
+          false,
+          'setCandidates'
+        ),
 
       dismissCandidate: (id) =>
         set(

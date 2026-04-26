@@ -36,4 +36,26 @@ describe('Results', () => {
 
     expect(screen.getByText('Ready report html')).toBeInTheDocument()
   })
+
+  it('treats legacy safety-net summary html as no report', () => {
+    useSessionStore.setState({
+      status: 'loaded',
+      errorMessage: null,
+      session: {
+        reportId: 'val_safety',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        partialData: {},
+        htmlReport:
+          '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>',
+      } as any,
+    })
+
+    render(<Results result={null} />)
+
+    expect(screen.queryByText(/Waardeschatting/)).not.toBeInTheDocument()
+    expect(screen.getByText('reportNotAvailable')).toBeInTheDocument()
+  })
 })

@@ -151,6 +151,23 @@ describe('useManualResultsStore', () => {
       expect(result.current.htmlReport).toBe('<html>Report</html>')
     })
 
+    it('does not store safety-net summary html as renderable report html', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      const mockResult = {
+        valuation_id: 'val-safety',
+        html_report:
+          '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>',
+      } as any
+
+      act(() => {
+        result.current.setResult(mockResult)
+      })
+
+      expect(result.current.result).toEqual(mockResult)
+      expect(result.current.htmlReport).toBeNull()
+    })
+
     it('should derive the active valuation from nested valuation_result payloads', () => {
       const { result } = renderHook(() => useManualResultsStore())
 
@@ -242,8 +259,20 @@ describe('useManualResultsStore', () => {
           weighted_valuation: {
             blended_equity_value: 400000,
             contributions: [
-              { method_key: 'ebitda_multiple', label: 'EBITDA', equity_value: 400000, weight: 0.5, weighted_contribution: 200000 },
-              { method_key: 'adjusted_nav', label: 'NAV', equity_value: 400000, weight: 0.5, weighted_contribution: 200000 },
+              {
+                method_key: 'ebitda_multiple',
+                label: 'EBITDA',
+                equity_value: 400000,
+                weight: 0.5,
+                weighted_contribution: 200000,
+              },
+              {
+                method_key: 'adjusted_nav',
+                label: 'NAV',
+                equity_value: 400000,
+                weight: 0.5,
+                weighted_contribution: 200000,
+              },
             ],
             user_justification: 'Test note',
           },
@@ -374,6 +403,18 @@ describe('useManualResultsStore', () => {
 
       expect(result.current.result?.html_report).toBe('<html>New</html>')
       expect(result.current.htmlReport).toBe('<html>New</html>')
+    })
+
+    it('ignores safety-net summary html updates', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setHtmlReport(
+          '<section class="valuation-summary"><h1>Valuation — summary</h1></section>'
+        )
+      })
+
+      expect(result.current.htmlReport).toBeNull()
     })
   })
 
