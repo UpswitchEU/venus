@@ -213,7 +213,7 @@ export const getErrorMessage = (errorType: RegistryErrorType, context?: string):
       return `Invalid input. ${context || 'Please check your company name or registration number.'}`
 
     case RegistryErrorType.UNSUPPORTED_COUNTRY:
-      return `This country is not yet supported. ${context || 'Currently only Belgium (BE) is supported.'}`
+      return `This country is not yet supported. ${context || 'Currently Belgium (BE) and Netherlands (NL) are supported.'}`
 
     case RegistryErrorType.UNKNOWN_ERROR:
     default:

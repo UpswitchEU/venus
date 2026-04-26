@@ -78,6 +78,8 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   if (prefillData.companyInfo?.naceCode) fields.nace_code = prefillData.companyInfo.naceCode
   if (prefillData.companyInfo?.naceDescription)
     fields.nace_description = prefillData.companyInfo.naceDescription
+  if (prefillData.companyInfo?.activityCode) fields.activity_code = prefillData.companyInfo.activityCode
+  if (prefillData.companyInfo?.activityLabel) fields.activity_label = prefillData.companyInfo.activityLabel
   if (prefillData.businessType?.id) fields.business_type_id = prefillData.businessType.id
   if (prefillData.businessType?.industry) fields.industry = prefillData.businessType.industry
   if (prefillData.financials?.revenue !== undefined) fields.revenue = prefillData.financials.revenue
