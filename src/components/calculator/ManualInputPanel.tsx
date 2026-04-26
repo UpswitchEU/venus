@@ -1388,6 +1388,16 @@ export function ManualInputPanel({
         const activity = (r.activity_code || '').trim()
         const displayActivity =
           activity && canonical && activity !== canonical ? activity : undefined
+        // Titan now resolves NACE/SBI → business type server-side and ships
+        // business_type_id / business_type_title in the search response. Pull
+        // both through so handleCompanySelect can skip the redundant client
+        // NACE → business-type round-trip when present.
+        const btIdRaw = raw['business_type_id']
+        const btTitleRaw = raw['business_type_title']
+        const businessTypeId =
+          typeof btIdRaw === 'string' && btIdRaw.trim() ? btIdRaw.trim() : undefined
+        const businessTypeTitle =
+          typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
         return {
           id:
             r.company_id ||
@@ -1405,6 +1415,8 @@ export function ManualInputPanel({
           activityLabel: (r.activity_label || r.nace_description || '').trim() || undefined,
           activityTaxonomy: r.taxonomy,
           countryCode: r.country_code || searchCountry,
+          businessTypeId,
+          businessTypeTitle,
         }
       })
     },
@@ -2742,6 +2754,39 @@ export function ManualInputPanel({
           ? { activity_code: displayCode }
           : { activity_code: undefined }),
       })
+
+      // Fast path: Titan resolved business type server-side (BE/KBO + NL/KVK).
+      // Skip the client `getBusinessTypeForNaceCode` round-trip — pre-populate
+      // from the search response and only fall back to the network lookup when
+      // the server didn't have a match (e.g. NL company with no SBI in Overheid.io).
+      const seededBtId = company.businessTypeId?.trim()
+      if (seededBtId) {
+        const mapped =
+          businessTypesForSearch.find((t) => t.id === seededBtId) ??
+          ({
+            id: seededBtId,
+            code: seededBtId,
+            name: company.businessTypeTitle || seededBtId,
+            category: 'services',
+            icon: Building2,
+            emoji: '🏢',
+            popular: false,
+          } as BusinessType)
+        setSelectedBusinessType(mapped)
+        setFormData((prev) => ({
+          ...prev,
+          ...baseUpdates,
+          businessType: mapped.id,
+          businessTypeCode: mapped.code || mapped.id,
+          industry: mapped.category || 'services',
+        }))
+        updateFormData({ business_type_id: mapped.id, industry: mapped.category })
+        setNacePrefillError(null)
+        if (companySelectAbortRef.current === controller) {
+          companySelectAbortRef.current = null
+        }
+        return
+      }
 
       const naceCode = canonical || company.naceCode?.trim()
       if (naceCode) {

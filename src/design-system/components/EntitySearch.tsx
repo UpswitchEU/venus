@@ -197,6 +197,10 @@ export interface KBOCompany {
   countryCode?: string
   /** Website URL for screenshot feature */
   website?: string
+  /** Business type ID from sector DB — present when Titan resolved NACE/SBI → business type. */
+  businessTypeId?: string
+  /** Human-readable sector title from sector DB (e.g. "Logistics"). */
+  businessTypeTitle?: string
 }
 
 export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVariants> {
