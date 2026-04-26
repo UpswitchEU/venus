@@ -26,7 +26,6 @@ describe('useBootstrapPrefill', () => {
       orderedFlagDomIds: [],
       resolvedFields: new Set(),
       activeDomId: null,
-      showSourcePanel: false,
     })
     useTaxLatencyStore.getState().clear()
     mockUseBootstrapSafe.mockReset()

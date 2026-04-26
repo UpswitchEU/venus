@@ -6,14 +6,12 @@ import { TaxLatencySection } from './TaxLatencySection'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations:
-    () =>
-    (key: string, values?: Record<string, string | number>) =>
-      values
-        ? `${key}:${Object.entries(values)
-            .map(([entryKey, value]) => `${entryKey}=${value}`)
-            .join(',')}`
-        : key,
+  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
+    values
+      ? `${key}:${Object.entries(values)
+          .map(([entryKey, value]) => `${entryKey}=${value}`)
+          .join(',')}`
+      : key,
 }))
 
 describe('TaxLatencySection', () => {
@@ -67,7 +65,7 @@ describe('TaxLatencySection', () => {
       // would deduct latent tax against the same gain → expect the warning.
       nav_tax_latency_pct: 25,
       nav_real_estate_adjustment: 200000,
-    } as any)
+    })
     useTaxLatencyStore.getState().setItems([
       {
         id: 'be-real-estate',
@@ -86,7 +84,7 @@ describe('TaxLatencySection', () => {
 
     // Same setup but country is NL → BE-prefix matchers are out of scope and
     // we should NOT show the false-positive warning.
-    useManualFormStore.getState().updateFormData({ country_code: 'NL' } as any)
+    useManualFormStore.getState().updateFormData({ country_code: 'NL' })
     rerender(<TaxLatencySection alwaysExpanded />)
     expect(screen.queryByText('navConflictTitle')).not.toBeInTheDocument()
   })
@@ -99,7 +97,7 @@ describe('TaxLatencySection', () => {
     useManualFormStore.getState().updateFormData({
       nav_tax_latency_pct: 25,
       nav_real_estate_adjustment: 200000,
-    } as any)
+    })
     useTaxLatencyStore.getState().setItems([
       {
         id: 'be-real-estate',
@@ -121,7 +119,7 @@ describe('TaxLatencySection', () => {
       country_code: 'BE',
       nav_tax_latency_pct: 0,
       nav_real_estate_adjustment: 200000,
-    } as any)
+    })
     useTaxLatencyStore.getState().setItems([
       {
         id: 'be-real-estate',
@@ -168,5 +166,79 @@ describe('TaxLatencySection', () => {
         }),
       ])
     })
+  })
+
+  it('groups duplicate imported balance signals and dismisses the whole group', async () => {
+    const question =
+      'Opgelet: MAR 630200 bevat vastgoed. Wilt u hier een belastinglatentie op toepassen?'
+    useTaxLatencyStore.getState().setCandidates([
+      {
+        id: 'candidate-2021',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description:
+          'Opgelet: Depreciation of buildings lijkt vastgoed te bevatten. Vul de bruto meerwaarde boven boekwaarde in.',
+        suggestedQuestion: question,
+        taxRate: 25,
+        year: 2021,
+      },
+      {
+        id: 'candidate-2022',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description:
+          'Opgelet: Depreciation of buildings lijkt vastgoed te bevatten. Vul de bruto meerwaarde boven boekwaarde in.',
+        suggestedQuestion: question,
+        taxRate: 25,
+        year: 2022,
+      },
+    ])
+
+    render(<TaxLatencySection alwaysExpanded />)
+
+    expect(screen.getAllByText(question)).toHaveLength(1)
+    expect(screen.getByText('candidateYearsRange:start=2021,end=2022,count=2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('dismissSuggestion'))
+
+    await waitFor(() => {
+      expect(useTaxLatencyStore.getState().candidates).toEqual([])
+    })
+  })
+
+  it('prefills and focuses the gross surplus input for zero-value imported candidates', async () => {
+    useTaxLatencyStore.getState().setCandidates([
+      {
+        id: 'candidate-zero',
+        type: 'passive',
+        accountCode: '630200',
+        accountName: 'Depreciation of buildings',
+        description:
+          'Opgelet: Depreciation of buildings lijkt vastgoed te bevatten. Vul de bruto meerwaarde boven boekwaarde in.',
+        suggestedQuestion:
+          'Opgelet: MAR 630200 bevat vastgoed. Wilt u hier een belastinglatentie op toepassen?',
+        taxRate: 25,
+        year: 2025,
+      },
+    ])
+
+    render(<TaxLatencySection alwaysExpanded />)
+
+    fireEvent.click(screen.getByText('reviewCandidate'))
+
+    expect(screen.getByPlaceholderText('accountPlaceholder')).toHaveValue(
+      '630200 · Depreciation of buildings'
+    )
+    expect(screen.getByPlaceholderText('descriptionPlaceholder')).toHaveValue(
+      'Opgelet: Depreciation of buildings lijkt vastgoed te bevatten. Vul de bruto meerwaarde boven boekwaarde in.'
+    )
+
+    const amountInput = screen.getByPlaceholderText('0')
+    await waitFor(() => {
+      expect(amountInput).toHaveFocus()
+    })
+    expect(useTaxLatencyStore.getState().items).toEqual([])
   })
 })

@@ -32,6 +32,7 @@ import {
   LogOut,
   Maximize2,
   MessageCircle,
+  MoreHorizontal,
   MoreVertical,
   Pencil,
   Settings,
@@ -41,12 +42,12 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useMemo, useState } from 'react'
+import { MethodSelectorMenu } from '@/components/calculator/method-selector-menu'
 import {
   getPreSelectableMethodsForFirm,
   resolveDisplayPreSelectedMethodKey,
 } from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
-import { MethodSelectorMenu } from '@/components/calculator/method-selector-menu'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
 
@@ -310,6 +311,238 @@ const Dropdown: React.FC<DropdownProps> = ({
 }
 
 // ─────────────────────────────────────────
+// TOOLBAR OVERFLOW MENU
+// Hosts secondary actions (Brondata, Versiegeschiedenis, Download, Fullscreen)
+// to keep the top bar legible. The trigger gets a primary tint when a panel
+// toggle inside the menu is currently active, and swaps to a spinner during
+// PDF export so users still see that the long-running action is in progress.
+// ─────────────────────────────────────────
+
+interface ToolbarOverflowMenuProps {
+  navLocale: string
+  t: ReturnType<typeof useTranslations>
+  hasReport: boolean
+  rightPanelView: RightPanelView
+  showSourceDataToggle: boolean
+  sourceDataOpen: boolean
+  onToggleSourceData?: () => void
+  onShowHistory?: () => void
+  onDownload?: () => void | Promise<void>
+  onRedownload?: (item: DownloadHistoryItem) => void
+  onFullscreen?: () => void
+  isExporting: boolean
+  pdfPlanLocked: boolean
+  pdfDownloadTooltip: string | null
+  downloadHistory: DownloadHistoryItem[]
+  /** When true, sizes the trigger to satisfy a 44px tap target (mobile cluster). */
+  compactTouchTarget?: boolean
+}
+
+const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
+  navLocale,
+  t,
+  hasReport,
+  rightPanelView,
+  showSourceDataToggle,
+  sourceDataOpen,
+  onToggleSourceData,
+  onShowHistory,
+  onDownload,
+  onRedownload,
+  onFullscreen,
+  isExporting,
+  pdfPlanLocked,
+  pdfDownloadTooltip,
+  downloadHistory,
+  compactTouchTarget = false,
+}) => {
+  const hasSourceData = showSourceDataToggle && !!onToggleSourceData
+  const hasHistory = !!onShowHistory
+  const hasDownload = !!onDownload
+  const hasFullscreen = !!onFullscreen
+  const hasAnyAction = hasSourceData || hasHistory || hasDownload || hasFullscreen
+
+  // Don't render an empty trigger — caller may have wired none of the actions.
+  if (!hasAnyAction) return null
+
+  const sourceDataLabel = navLocale === 'nl' ? 'Brondata' : 'Source data'
+  const moreLabel = navLocale === 'nl' ? 'Meer acties' : 'More actions'
+  const upgradeLabel =
+    navLocale === 'nl'
+      ? 'Upgrade voor PDF-download (Starter)'
+      : 'Upgrade for PDF download (Starter)'
+  // Tint the trigger primary when any panel-toggle inside the menu is on, so
+  // the user still sees that the side panel is being driven from this menu.
+  const triggerActive =
+    (sourceDataOpen && hasSourceData) || (rightPanelView === 'history' && hasReport)
+
+  // Section divider only when both groups have at least one item to separate.
+  const showPanelDivider = (hasSourceData || hasHistory) && (hasDownload || hasFullscreen)
+
+  return (
+    <Dropdown
+      align="end"
+      trigger={
+        <button
+          type="button"
+          aria-label={moreLabel}
+          aria-haspopup="menu"
+          title={moreLabel}
+          className={cn(
+            'relative rounded-lg transition-colors flex items-center justify-center',
+            compactTouchTarget ? 'p-2 min-h-[44px] min-w-[44px]' : 'p-2',
+            triggerActive
+              ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
+              : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
+          )}
+        >
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 animate-spin text-primary" aria-hidden />
+          ) : (
+            <MoreHorizontal className="w-4 h-4" aria-hidden />
+          )}
+        </button>
+      }
+    >
+      <div className="p-1.5 w-64" role="menu">
+        {/* Brondata — toggle item: subtle bg + checkmark convey "panel is open" */}
+        {hasSourceData && (
+          <button
+            type="button"
+            role="menuitem"
+            aria-pressed={sourceDataOpen}
+            onClick={onToggleSourceData}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              sourceDataOpen
+                ? 'bg-primary/[0.06] text-foreground'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            <Database className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            <span className="flex-1">{sourceDataLabel}</span>
+            {sourceDataOpen && <Check className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />}
+          </button>
+        )}
+
+        {/* Versiegeschiedenis — toggle item */}
+        {hasHistory && (
+          <button
+            type="button"
+            role="menuitem"
+            aria-pressed={rightPanelView === 'history'}
+            onClick={onShowHistory}
+            disabled={!hasReport}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport
+                ? 'text-foreground/30 cursor-not-allowed'
+                : rightPanelView === 'history'
+                  ? 'bg-primary/[0.06] text-foreground'
+                  : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            <History className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            <span className="flex-1">{t('report.history')}</span>
+            {rightPanelView === 'history' && hasReport && (
+              <Check className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+            )}
+          </button>
+        )}
+
+        {showPanelDivider && <div className="h-px bg-foreground/[0.06] my-1.5" />}
+
+        {/* Download */}
+        {hasDownload && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onDownload}
+            disabled={!hasReport || isExporting}
+            title={pdfPlanLocked ? (pdfDownloadTooltip ?? undefined) : undefined}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport || isExporting
+                ? 'opacity-50 cursor-not-allowed'
+                : pdfPlanLocked
+                  ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-500/10'
+                  : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" aria-hidden />
+            ) : pdfPlanLocked ? (
+              <Lock
+                className="w-4 h-4 shrink-0 text-amber-600/90 dark:text-amber-400/90"
+                aria-hidden
+              />
+            ) : (
+              <Download className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            )}
+            <span className="flex-1">
+              {isExporting
+                ? t('report.generatingPDF')
+                : pdfPlanLocked
+                  ? upgradeLabel
+                  : t('report.downloadPDF')}
+            </span>
+          </button>
+        )}
+
+        {/* Fullscreen */}
+        {hasFullscreen && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onFullscreen}
+            disabled={!hasReport}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport
+                ? 'text-foreground/30 cursor-not-allowed'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            <Maximize2 className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            <span className="flex-1">{t('report.fullscreen')}</span>
+          </button>
+        )}
+
+        {/* Recent downloads */}
+        {downloadHistory.length > 0 && (
+          <>
+            <div className="h-px bg-foreground/[0.06] my-1.5" />
+            <div className="text-[10px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
+              {t('report.recentDownloads')}
+            </div>
+            {downloadHistory.slice(0, 5).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitem"
+                onClick={() => (pdfPlanLocked ? void onDownload?.() : void onRedownload?.(item))}
+                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors text-left"
+              >
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" aria-hidden />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{item.fileName}</p>
+                  <p className="text-[10px] text-foreground/40">
+                    {formatTimeAgo(item.timestamp, t)}
+                    {item.size && ` · ${item.size}`}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
+      </div>
+    </Dropdown>
+  )
+}
+
+// ─────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────
 
@@ -417,11 +650,12 @@ export function CalculatorNav({
     METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
   )
   const multiMethodCount = preSelectedMethods?.length ?? 0
-  const isMultiMethod = multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
+  const isMultiMethod =
+    multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
   const compactMethodLabel = isMultiMethod
     ? `${multiMethodCount} ${t('manualInput.methodSelector.methods')}`
     : displayPreSelectedMethod === 'upswitch_adaptive'
-      ? t('manualInput.methodSelector.adaptive')
+      ? t('manualInput.methodSelector.adaptiveShort')
       : selectedMethodLabel
   const methodTriggerLabel = `${t('manualInput.methodSelector.label')} — ${selectedMethodLabel}`
 
@@ -678,13 +912,10 @@ export function CalculatorNav({
                         <span
                           className={cn(
                             valuationNavAmountClass,
-                            // Below xl (1280px) the askPrice is enough — the
-                            // full range overflows on standard laptop widths,
-                            // especially when paired with the Assistant /
-                            // Normalisaties buttons on the right edge. The
-                            // dropdown trigger still surfaces the full range
-                            // on click for users who want it.
-                            'hidden xl:inline'
+                            // The full range fits at lg+ now that secondary
+                            // actions live in the overflow menu; below lg the
+                            // dropdown still surfaces the full range on click.
+                            'hidden lg:inline'
                           )}
                         >
                           {formatPrice(displaySummary.priceRange.min)}–
@@ -871,7 +1102,7 @@ export function CalculatorNav({
                   size="sm"
                   onClick={
                     normalizationFeatureLocked
-                      ? onNormalizationFeatureLocked ?? onOpenNormalization
+                      ? (onNormalizationFeatureLocked ?? onOpenNormalization)
                       : onOpenNormalization
                   }
                   className={cn(
@@ -904,34 +1135,8 @@ export function CalculatorNav({
               </Tooltip>
             )}
 
-            {showSourceDataToggle && onToggleSourceData && (
-              <Tooltip
-                content={
-                  navLocale === 'nl'
-                    ? 'Brongegevens — volledige trial balance & AI-uitleg (trust but verify)'
-                    : 'Source data — full trial balance & AI rationale (trust but verify)'
-                }
-              >
-                <AuroraButton
-                  variant={sourceDataOpen ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={onToggleSourceData}
-                  className={cn(
-                    'gap-1.5 mr-1 transition-all duration-200',
-                    sourceDataOpen ? '' : 'text-foreground/60 hover:text-foreground'
-                  )}
-                  aria-pressed={sourceDataOpen}
-                >
-                  <Database className="w-4 h-4" />
-                  <span className="hidden lg:inline">
-                    {navLocale === 'nl' ? 'Brondata' : 'Source'}
-                  </span>
-                </AuroraButton>
-              </Tooltip>
-            )}
-
-            <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
-
+            {/* Preview toggle — grouped with Assistent + Normalisaties as the
+                primary "actions you take while reviewing" cluster */}
             <Tooltip content={hasReport ? t('report.preview') : t('report.noReport')}>
               <button
                 type="button"
@@ -952,141 +1157,28 @@ export function CalculatorNav({
               </button>
             </Tooltip>
 
-            <Tooltip content={hasReport ? t('report.history') : t('report.noReport')}>
-              <button
-                type="button"
-                onClick={onShowHistory}
-                disabled={!hasReport}
-                className={cn(
-                  'p-2 rounded-lg transition-all duration-200',
-                  rightPanelView === 'history' && hasReport
-                    ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
-                    : hasReport
-                      ? 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]'
-                      : 'text-foreground/20 cursor-not-allowed'
-                )}
-                aria-label={t('report.history')}
-                aria-pressed={rightPanelView === 'history'}
-              >
-                <History className="w-4 h-4" aria-hidden />
-              </button>
-            </Tooltip>
-
+            {/* Divider separates the primary action cluster from the secondary
+                container — the overflow menu — and the user identity */}
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
-            {/* PDF Download with Loading State + History Dropdown */}
-            <Dropdown
-                trigger={
-                  <button
-                    type="button"
-                    disabled={!hasReport}
-                    title={pdfPlanLocked ? pdfDownloadTooltip ?? undefined : undefined}
-                    className={cn(
-                      'flex items-center gap-1 p-2 rounded-lg transition-colors',
-                      hasReport
-                        ? pdfPlanLocked
-                          ? 'text-amber-600/90 dark:text-amber-400/90 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-500/10'
-                          : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                        : 'text-foreground/20 cursor-not-allowed'
-                    )}
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    ) : pdfPlanLocked ? (
-                      <Lock className="w-4 h-4" aria-hidden />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    <ChevronDown className="w-3 h-3 text-foreground/30" />
-                  </button>
-                }
-                align="end"
-              >
-                <div className="p-2 w-64">
-                  {/* Download Action */}
-                  <button
-                    type="button"
-                    onClick={onDownload}
-                    disabled={isExporting}
-                    className={cn(
-                      'w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-colors',
-                      isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-foreground/[0.04]'
-                    )}
-                  >
-                    {isExporting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        <span className="text-sm">{t('report.generatingPDF')}</span>
-                      </>
-                    ) : (
-                      <>
-                        {pdfPlanLocked ? (
-                          <Lock className="w-4 h-4 text-amber-600/90 dark:text-amber-400/90 shrink-0" aria-hidden />
-                        ) : (
-                          <Download className="w-4 h-4 text-foreground/50" />
-                        )}
-                        <span className="text-sm">
-                          {pdfPlanLocked
-                            ? navLocale === 'nl'
-                              ? 'Upgrade voor PDF-download (Starter)'
-                              : 'Upgrade for PDF download (Starter)'
-                            : t('report.downloadPDF')}
-                        </span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Download History */}
-                  {downloadHistory.length > 0 && (
-                  <>
-                    <div className="h-px bg-foreground/[0.06] my-2" />
-                    <div className="text-[10px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-                      {t('report.recentDownloads')}
-                    </div>
-                    {downloadHistory.slice(0, 5).map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() =>
-                          pdfPlanLocked ? void onDownload?.() : void onRedownload?.(item)
-                        }
-                        className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className="text-xs font-medium text-foreground truncate">
-                            {item.fileName}
-                          </p>
-                          <p className="text-[10px] text-foreground/40">
-                            {formatTimeAgo(item.timestamp, t)}
-                            {item.size && ` · ${item.size}`}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            </Dropdown>
-
-            <Tooltip content={hasReport ? t('report.fullscreen') : t('report.noReport')}>
-              <button
-                type="button"
-                onClick={onFullscreen}
-                disabled={!hasReport}
-                aria-label={t('report.fullscreen')}
-                className={cn(
-                  'p-2 rounded-lg transition-colors',
-                  hasReport
-                    ? 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                    : 'text-foreground/20 cursor-not-allowed'
-                )}
-              >
-                <Maximize2 className="w-4 h-4" aria-hidden />
-              </button>
-            </Tooltip>
+            {/* Overflow menu: Brondata, Versiegeschiedenis, Download (+ recent), Fullscreen */}
+            <ToolbarOverflowMenu
+              navLocale={navLocale}
+              t={t}
+              hasReport={hasReport}
+              rightPanelView={rightPanelView}
+              showSourceDataToggle={showSourceDataToggle}
+              sourceDataOpen={sourceDataOpen}
+              onToggleSourceData={onToggleSourceData}
+              onShowHistory={onShowHistory}
+              onDownload={onDownload}
+              onRedownload={onRedownload}
+              onFullscreen={onFullscreen}
+              isExporting={isExporting}
+              pdfPlanLocked={pdfPlanLocked}
+              pdfDownloadTooltip={pdfDownloadTooltip}
+              downloadHistory={downloadHistory}
+            />
           </div>
 
           {/* Mobile actions */}
@@ -1153,73 +1245,89 @@ export function CalculatorNav({
                 type="button"
                 onClick={onOpenAssistant}
                 className={cn(
-                  'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
+                  'relative p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
                   isAssistantOpen
                     ? 'text-primary bg-primary/10'
                     : 'text-foreground/50 hover:text-foreground'
                 )}
               >
                 <MessageCircle className="w-4 h-4" />
+                {openTasksCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm"
+                    aria-label={
+                      navLocale === 'nl'
+                        ? `${openTasksCount} openstaande taak${openTasksCount === 1 ? '' : 'en'} in de assistent`
+                        : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
+                    }
+                  >
+                    {openTasksCount > 9 ? '9+' : openTasksCount}
+                  </span>
+                )}
               </button>
             </Tooltip>
-            {showSourceDataToggle && onToggleSourceData && (
+
+            {/* Normalisaties — promoted to mobile so the pending-count badge is never hidden */}
+            {onOpenNormalization && (
               <Tooltip
                 content={
-                  navLocale === 'nl'
-                    ? 'Brongegevens — volledige trial balance & AI-uitleg (trust but verify)'
-                    : 'Source data — full trial balance & AI rationale (trust but verify)'
+                  normalizationFeatureLocked
+                    ? navLocale === 'nl'
+                      ? 'EBITDA-normalisatie — Starter+'
+                      : 'EBITDA normalization — Starter+'
+                    : t('normalization.title')
                 }
               >
                 <button
                   type="button"
-                  onClick={onToggleSourceData}
+                  onClick={
+                    normalizationFeatureLocked
+                      ? (onNormalizationFeatureLocked ?? onOpenNormalization)
+                      : onOpenNormalization
+                  }
                   className={cn(
-                    'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
-                    sourceDataOpen
-                      ? 'text-primary bg-primary/10'
-                      : 'text-foreground/50 hover:text-foreground'
+                    'relative p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
+                    'text-foreground/50 hover:text-foreground',
+                    normalizationFeatureLocked &&
+                      'blur-[1px] opacity-90 saturate-75 ring-1 ring-amber-500/15'
                   )}
-                  aria-pressed={sourceDataOpen}
                 >
-                  <Database className="w-4 h-4" />
+                  <FileSpreadsheet className="w-4 h-4" />
+                  {normalizationCount > 0 && (
+                    <span
+                      className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary shadow-sm"
+                      aria-label={
+                        navLocale === 'nl'
+                          ? `${normalizationCount} normalisatie${normalizationCount === 1 ? '' : 's'} ter beoordeling`
+                          : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
+                      }
+                    >
+                      {normalizationCount > 9 ? '9+' : normalizationCount}
+                    </span>
+                  )}
                 </button>
               </Tooltip>
             )}
-            <Tooltip
-              content={
-                isExporting
-                  ? t('common.exporting')
-                  : !hasReport
-                    ? t('report.noReport')
-                    : pdfPlanLocked
-                      ? pdfDownloadTooltip
-                      : t('report.download')
-              }
-            >
-              <button
-                type="button"
-                onClick={onDownload}
-                disabled={!hasReport || isExporting}
-                className={cn(
-                  'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
-                  isExporting
-                    ? 'text-primary'
-                    : hasReport
-                      ? pdfPlanLocked
-                        ? 'text-amber-600/90 dark:text-amber-400/90 hover:text-amber-700 dark:hover:text-amber-300'
-                        : 'text-foreground/50 hover:text-foreground'
-                      : 'text-foreground/20 cursor-not-allowed'
-                )}
-              >
-                {isExporting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : pdfPlanLocked ? (
-                  <Lock className="w-4 h-4" aria-hidden />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-              </button>
-            </Tooltip>
+
+            {/* Mobile overflow — same surface as desktop, with 44px tap target */}
+            <ToolbarOverflowMenu
+              navLocale={navLocale}
+              t={t}
+              hasReport={hasReport}
+              rightPanelView={rightPanelView}
+              showSourceDataToggle={showSourceDataToggle}
+              sourceDataOpen={sourceDataOpen}
+              onToggleSourceData={onToggleSourceData}
+              onShowHistory={onShowHistory}
+              onDownload={onDownload}
+              onRedownload={onRedownload}
+              onFullscreen={onFullscreen}
+              isExporting={isExporting}
+              pdfPlanLocked={pdfPlanLocked}
+              pdfDownloadTooltip={pdfDownloadTooltip}
+              downloadHistory={downloadHistory}
+              compactTouchTarget
+            />
           </div>
 
           {/* Separator before avatar */}

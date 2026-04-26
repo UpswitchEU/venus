@@ -17,15 +17,14 @@ import {
   HelpCircle,
   Plus,
   Search,
-  Sparkles,
   Trash2,
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DEFAULT_LEDGER_ACCOUNTS,
   applyGrootboekCountryOverrides,
+  DEFAULT_LEDGER_ACCOUNTS,
   type LedgerAccount,
 } from '@/constants/grootboek'
 import { Badge } from '@/design-system/components/Badge'
@@ -36,6 +35,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import {
   calculateLatencyAmount,
   formatCurrencyTaxLatency,
@@ -45,7 +45,6 @@ import {
   type TaxLatencyType,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
-import { useManualFormStore } from '../../store/manual/useManualFormStore'
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -71,10 +70,58 @@ function getLedgerDisplayLabel(code?: string, name?: string): string {
   return code || name || '—'
 }
 
-const fuzzyMatch = (
-  text: string,
-  query: string
-): { matches: boolean; score: number } => {
+export interface GroupedTaxLatencyCandidate {
+  id: string
+  candidate: TaxLatencyCandidate
+  candidateIds: string[]
+  years: number[]
+}
+
+function normalizeGroupingValue(value?: string | number | null): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+}
+
+export function groupTaxLatencyCandidates(
+  candidates: TaxLatencyCandidate[]
+): GroupedTaxLatencyCandidate[] {
+  const groups = new Map<string, GroupedTaxLatencyCandidate>()
+
+  for (const candidate of candidates) {
+    const key = [
+      normalizeGroupingValue(candidate.accountCode),
+      normalizeGroupingValue(candidate.accountName),
+      normalizeGroupingValue(candidate.type),
+      normalizeGroupingValue(candidate.taxRate),
+      normalizeGroupingValue(candidate.description),
+    ].join('|')
+
+    const existing = groups.get(key)
+    if (existing) {
+      existing.candidateIds.push(candidate.id)
+      if (candidate.year != null && !existing.years.includes(candidate.year)) {
+        existing.years.push(candidate.year)
+        existing.years.sort((a, b) => a - b)
+      }
+      if (existing.candidate.temporaryDifference == null && candidate.temporaryDifference != null) {
+        existing.candidate = candidate
+      }
+      continue
+    }
+
+    groups.set(key, {
+      id: key,
+      candidate,
+      candidateIds: [candidate.id],
+      years: candidate.year != null ? [candidate.year] : [],
+    })
+  }
+
+  return Array.from(groups.values())
+}
+
+const fuzzyMatch = (text: string, query: string): { matches: boolean; score: number } => {
   const normalizedText = text.toLowerCase()
   const normalizedQuery = query.toLowerCase()
 
@@ -207,20 +254,34 @@ const TaxLatencyRow = forwardRef<HTMLDivElement, TaxLatencyRowProps>(function Ta
 })
 
 interface TaxLatencyCandidateCardProps {
-  candidate: TaxLatencyCandidate
+  group: GroupedTaxLatencyCandidate
   currencyLocale: string
-  onUse: (candidate: TaxLatencyCandidate) => void
-  onDismiss: (id: string) => void
+  onUse: (group: GroupedTaxLatencyCandidate) => void
+  onDismiss: (ids: string[]) => void
   t: ReturnType<typeof useTranslations<'taxLatency'>>
 }
 
 function TaxLatencyCandidateCard({
-  candidate,
+  group,
   currencyLocale,
   onUse,
   onDismiss,
   t,
 }: TaxLatencyCandidateCardProps) {
+  const candidate = group.candidate
+  const firstYear = group.years[0]
+  const lastYear = group.years[group.years.length - 1]
+  const yearLabel =
+    group.years.length === 1
+      ? t('candidateYear', { year: firstYear })
+      : group.years.length > 1
+        ? t('candidateYearsRange', {
+            start: firstYear,
+            end: lastYear,
+            count: group.years.length,
+          })
+        : null
+
   return (
     <div className="rounded-xl border border-amber-200/70 bg-amber-50/60 dark:bg-amber-950/10 dark:border-amber-800/40 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -234,7 +295,7 @@ function TaxLatencyCandidateCard({
               {candidate.accountCode}
             </Badge>
             <span>{candidate.accountName}</span>
-            {candidate.year ? <span>{t('candidateYear', { year: candidate.year })}</span> : null}
+            {yearLabel ? <span>{yearLabel}</span> : null}
           </div>
           <p className="text-xs text-foreground/55">{candidate.description}</p>
           <div className="flex flex-wrap items-center gap-3 text-xs text-foreground/55">
@@ -253,7 +314,7 @@ function TaxLatencyCandidateCard({
         </div>
         <button
           type="button"
-          onClick={() => onDismiss(candidate.id)}
+          onClick={() => onDismiss(group.candidateIds)}
           className="p-1 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-background/70 transition-colors"
           aria-label={t('dismissSuggestion')}
         >
@@ -263,10 +324,9 @@ function TaxLatencyCandidateCard({
       <div className="flex items-center justify-end mt-3">
         <button
           type="button"
-          onClick={() => onUse(candidate)}
+          onClick={() => onUse(group)}
           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         >
-          <Sparkles className="w-3.5 h-3.5" />
           {candidate.autoApply && candidate.temporaryDifference
             ? t('applyCandidate')
             : t('reviewCandidate')}
@@ -332,6 +392,8 @@ export function TaxLatencySection({
 
   const netImpact = getNetTaxLatencyImpact(items)
   const hasItems = items.length > 0
+  const [isExpanded, setIsExpanded] = useState(alwaysExpanded || hasItems)
+  const groupedCandidates = useMemo(() => groupTaxLatencyCandidates(candidates), [candidates])
 
   // Conflict detection: NAV-% deduction (asset-based bridge) AND a BSA tax_latency
   // row (equity bridge) on overlapping asset classes will both deduct latent tax
@@ -392,10 +454,11 @@ export function TaxLatencySection({
   const [draftAmount, setDraftAmount] = useState('')
   const [draftRate, setDraftRate] = useState(String(effectiveDefaultRate))
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [draftCandidateId, setDraftCandidateId] = useState<string | null>(null)
+  const [draftCandidateIds, setDraftCandidateIds] = useState<string[]>([])
   const [ledgerQuery, setLedgerQuery] = useState('')
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
   const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
+  const amountInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const ac = new AbortController()
@@ -476,7 +539,7 @@ export function TaxLatencySection({
     setDraftAmount('')
     setDraftRate(String(effectiveDefaultRate))
     setEditingId(null)
-    setDraftCandidateId(null)
+    setDraftCandidateIds([])
     setLedgerQuery('')
     setShowLedgerDropdown(false)
   }, [effectiveDefaultRate])
@@ -508,8 +571,10 @@ export function TaxLatencySection({
         taxRate: parsedRate,
       })
     }
-    if (draftCandidateId) {
-      dismissCandidate(draftCandidateId)
+    if (draftCandidateIds.length > 0) {
+      for (const candidateId of draftCandidateIds) {
+        dismissCandidate(candidateId)
+      }
     }
     resetDraft()
   }, [
@@ -517,7 +582,7 @@ export function TaxLatencySection({
     canSubmit,
     draftAccountCode,
     draftAccountName,
-    draftCandidateId,
+    draftCandidateIds,
     draftDescription,
     draftType,
     dismissCandidate,
@@ -540,7 +605,8 @@ export function TaxLatencySection({
     setDraftAmount(String(item.temporaryDifference))
     setDraftRate(String(item.taxRate))
     setEditingId(item.id)
-    setDraftCandidateId(null)
+    setDraftCandidateIds([])
+    setIsExpanded(true)
   }, [])
 
   const handleCancelEdit = useCallback(() => {
@@ -556,7 +622,8 @@ export function TaxLatencySection({
   )
 
   const handleUseCandidate = useCallback(
-    (candidate: TaxLatencyCandidate) => {
+    (group: GroupedTaxLatencyCandidate) => {
+      const candidate = group.candidate
       setDraftType(candidate.type)
       setDraftAccountCode(candidate.accountCode)
       setDraftAccountName(candidate.accountName)
@@ -570,7 +637,8 @@ export function TaxLatencySection({
       )
       setDraftRate(String(candidate.taxRate))
       setEditingId(null)
-      setDraftCandidateId(candidate.id)
+      setDraftCandidateIds(group.candidateIds)
+      setIsExpanded(true)
 
       if (
         candidate.autoApply &&
@@ -586,11 +654,37 @@ export function TaxLatencySection({
           temporaryDifference: Math.abs(candidate.temporaryDifference),
           taxRate: candidate.taxRate,
         })
-        dismissCandidate(candidate.id)
+        for (const candidateId of group.candidateIds) {
+          dismissCandidate(candidateId)
+        }
         resetDraft()
+        return
+      }
+
+      const focusAmountInput = () => {
+        const input = amountInputRef.current
+        if (!input) return
+        if (typeof input.scrollIntoView === 'function') {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        input.focus()
+      }
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusAmountInput)
+      } else {
+        window.setTimeout(focusAmountInput, 0)
       }
     },
     [addItem, dismissCandidate, resetDraft]
+  )
+
+  const handleDismissCandidateGroup = useCallback(
+    (candidateIds: string[]) => {
+      for (const candidateId of candidateIds) {
+        dismissCandidate(candidateId)
+      }
+    },
+    [dismissCandidate]
   )
 
   const handleSelectLedger = useCallback((ledger: LedgerAccount) => {
@@ -599,8 +693,6 @@ export function TaxLatencySection({
     setLedgerQuery(getLedgerDisplayLabel(ledger.code, ledger.name))
     setShowLedgerDropdown(false)
   }, [])
-
-  const [isExpanded, setIsExpanded] = useState(alwaysExpanded || hasItems)
 
   useEffect(() => {
     if (alwaysExpanded || hasItems || candidates.length > 0) {
@@ -782,6 +874,7 @@ export function TaxLatencySection({
               €
             </span>
             <input
+              ref={amountInputRef}
               type="text"
               inputMode="decimal"
               value={draftAmount}
@@ -960,19 +1053,19 @@ export function TaxLatencySection({
   )
 
   const candidateCards =
-    candidates.length > 0 ? (
+    groupedCandidates.length > 0 ? (
       <div className="space-y-3 mb-4">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/55">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
           <span>{t('suggestedCandidatesTitle')}</span>
         </div>
-        {candidates.map((candidate) => (
+        {groupedCandidates.map((group) => (
           <TaxLatencyCandidateCard
-            key={candidate.id}
-            candidate={candidate}
+            key={group.id}
+            group={group}
             currencyLocale={currencyLocale}
             onUse={handleUseCandidate}
-            onDismiss={dismissCandidate}
+            onDismiss={handleDismissCandidateGroup}
             t={t}
           />
         ))}
@@ -1039,9 +1132,9 @@ export function TaxLatencySection({
             {t('sectionTitle')}
           </span>
 
-          {(hasItems || candidates.length > 0) && (
+          {(hasItems || groupedCandidates.length > 0) && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-foreground/[0.06] text-foreground/50">
-              {items.length + candidates.length}
+              {items.length + groupedCandidates.length}
             </span>
           )}
 

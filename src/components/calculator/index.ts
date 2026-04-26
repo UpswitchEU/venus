@@ -81,11 +81,6 @@ export type {
 // INPUT & FORMS
 // ─────────────────────────────────────────
 export { ManualInputPanel } from './ManualInputPanel'
-export { ProvenanceDot } from './ProvenanceDot'
-export { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
-export { SourceDataPanel } from './SourceDataPanel'
-export { SpotlightBanner } from './SpotlightBanner'
-export { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 export type {
   NormalisationReviewStepProps,
   SuggestedNormalisation,
@@ -102,7 +97,9 @@ export type { NormalizationHubProps } from './NormalizationHub'
 // ─────────────────────────────────────────
 export { NormalizationHub } from './NormalizationHub'
 export { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
+export { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 export { TaxLatencySection } from './TaxLatencySection'
+export type { ReportMetric, ValuationReportData } from './types'
 export type {
   LedgerAccount,
   NormalizationItem,
@@ -112,13 +109,11 @@ export type {
   UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationModal'
 export {
-  UnifiedNormalizationModal,
   isImportedLedgerNormalizationItem,
+  UnifiedNormalizationModal,
 } from './UnifiedNormalizationModal'
-export type { ReportMetric, ValuationReportData } from './types'
 export type { ValuationEditModalProps } from './ValuationEditModal'
 export { ValuationEditModal } from './ValuationEditModal'
-export { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 export type {
   VersionChange,
   VersionCompareModalProps,

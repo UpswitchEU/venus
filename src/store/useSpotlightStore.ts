@@ -74,8 +74,8 @@ interface SpotlightState {
   importQuality: Record<string, SpotlightImportQuality> | null
   /**
    * Accounting integration provider key (e.g. 'yuki', 'exact', 'silverfin').
-   * Sourced from `business_context._imported_ledger_provenance.provider` and used
-   * by SourceDataPanel to attribute the import. Null when unknown / manual entry.
+   * Sourced from `business_context._imported_ledger_provenance.provider`.
+   * Null when unknown / manual entry.
    */
   provider: string | null
   /** Ordered actionable flag targets (error → warning, then id). */
@@ -83,24 +83,22 @@ interface SpotlightState {
   resolvedFields: Set<string>
   /** Currently focused flag in navigation. */
   activeDomId: string | null
-  showSourcePanel: boolean
 
   setImportQuality: (
     quality: Record<string, SpotlightImportQuality>,
     opts?: { forceSpotlight?: boolean; provider?: string | null }
   ) => void
   setProvider: (provider: string | null) => void
-  applyUrlGuidance: (opts: { focusField?: string; flagYear?: string; forceSpotlight?: boolean }) => void
+  applyUrlGuidance: (opts: {
+    focusField?: string
+    flagYear?: string
+    forceSpotlight?: boolean
+  }) => void
   activateSpotlight: () => void
   dismissSpotlight: () => void
   resolveField: (domId: string) => void
   nextFlag: () => void
   prevFlag: () => void
-  toggleSourcePanel: () => void
-  openSourcePanel: () => void
-  getFieldProvenance: (field: string, yearKey?: string | null) => SpotlightFieldProvenance | null
-  getFlagsForDomId: (domId: string) => SpotlightAuditFlag[]
-  getFieldMappingMethod: (field: string, yearKey?: string | null) => 'direct' | 'computed' | 'fallback' | 'manual' | null
 }
 
 function severityOrder(sev: string): number {
@@ -132,11 +130,11 @@ function buildFlagOrder(quality: Record<string, SpotlightImportQuality>): string
     return a.domId.localeCompare(b.domId)
   })
 
-  return entries.map(e => e.domId)
+  return entries.map((e) => e.domId)
 }
 
 function unresolvedIds(state: SpotlightState): string[] {
-  return state.orderedFlagDomIds.filter(id => !state.resolvedFields.has(id))
+  return state.orderedFlagDomIds.filter((id) => !state.resolvedFields.has(id))
 }
 
 export const useSpotlightStore = create<SpotlightState>((set, get) => ({
@@ -146,7 +144,6 @@ export const useSpotlightStore = create<SpotlightState>((set, get) => ({
   orderedFlagDomIds: [],
   resolvedFields: new Set(),
   activeDomId: null,
-  showSourcePanel: false,
 
   setImportQuality: (quality, opts) => {
     const orderedFlagDomIds = buildFlagOrder(quality)
@@ -199,11 +196,11 @@ export const useSpotlightStore = create<SpotlightState>((set, get) => ({
     const next = new Set(resolvedFields)
     next.add(domId)
 
-    const remaining = orderedFlagDomIds.filter(id => !next.has(id))
+    const remaining = orderedFlagDomIds.filter((id) => !next.has(id))
     const allResolved = remaining.length === 0
 
     const nextActive =
-      activeDomId && remaining.includes(activeDomId) ? activeDomId : remaining[0] ?? null
+      activeDomId && remaining.includes(activeDomId) ? activeDomId : (remaining[0] ?? null)
 
     set({
       resolvedFields: next,
@@ -228,40 +225,5 @@ export const useSpotlightStore = create<SpotlightState>((set, get) => ({
     const cur = state.activeDomId && u.includes(state.activeDomId) ? state.activeDomId : u[0]
     const i = u.indexOf(cur)
     set({ activeDomId: u[(i - 1 + u.length) % u.length] })
-  },
-
-  toggleSourcePanel: () => set(s => ({ showSourcePanel: !s.showSourcePanel })),
-  openSourcePanel: () => set({ showSourcePanel: true }),
-
-  getFieldProvenance: (field, yearKey) => {
-    const { importQuality } = get()
-    if (!importQuality) return null
-    if (yearKey != null && importQuality[yearKey]) {
-      return importQuality[yearKey].field_provenance.find(p => p.field === field) ?? null
-    }
-    for (const yq of Object.values(importQuality)) {
-      const prov = yq.field_provenance.find(p => p.field === field)
-      if (prov) return prov
-    }
-    return null
-  },
-
-  getFlagsForDomId: (domId) => {
-    const { field, yearKey } = parseSpotlightDomId(domId)
-    const { importQuality } = get()
-    if (!importQuality) return []
-    if (yearKey != null && importQuality[yearKey]) {
-      return importQuality[yearKey].audit_flags.filter(f => f.field === field)
-    }
-    const out: SpotlightAuditFlag[] = []
-    for (const yq of Object.values(importQuality)) {
-      out.push(...yq.audit_flags.filter(f => f.field === field))
-    }
-    return out
-  },
-
-  getFieldMappingMethod: (field, yearKey) => {
-    const prov = get().getFieldProvenance(field, yearKey)
-    return prov?.mapping_method ?? null
   },
 }))

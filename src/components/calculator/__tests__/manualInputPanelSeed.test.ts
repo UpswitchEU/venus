@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ValuationMethodResult } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
+  getSelectedBelgianAuditEntries,
   shouldShowImportedAccountingSummary,
 } from '../ManualInputPanel'
 
@@ -111,5 +113,30 @@ describe('shouldShowImportedAccountingSummary', () => {
         },
       })
     ).toBe(true)
+  })
+})
+
+describe('getSelectedBelgianAuditEntries', () => {
+  it('only returns audit panels for the selected valuation method', () => {
+    const entries = getSelectedBelgianAuditEntries({
+      effectiveMethod: 'upswitch_adaptive',
+      effectiveMethods: ['upswitch_adaptive'],
+      valuationResults: {
+        upswitch_adaptive: {
+          available: true,
+          label: 'UpSwitch Adaptive',
+          value: 1_000_000,
+          details: { sde_bridge: [{ label: 'Normalized EBITDA' }] },
+        },
+        adjusted_nav: {
+          available: true,
+          label: 'Adjusted NAV',
+          value: 900_000,
+          details: { sme_eligibility: { is_eligible: true, rate_pct: 20, reasons: [] } },
+        },
+      } satisfies Record<string, ValuationMethodResult>,
+    })
+
+    expect(entries.map(([methodKey]) => methodKey)).toEqual(['upswitch_adaptive'])
   })
 })

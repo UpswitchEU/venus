@@ -438,6 +438,7 @@ export function UnifiedNormalizationModal({
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isEditorExpanded, setIsEditorExpanded] = useState(() => initialSearchQuery.trim().length > 0)
 
   // Full state reset when modal opens/closes to prevent stale UI between sessions
   useEffect(() => {
@@ -447,6 +448,7 @@ export function UnifiedNormalizationModal({
       setShowLedgerDropdown(false)
       setSearchQuery(initialSearchQuery)
       setYearFilter(initialYearFilter)
+      setIsEditorExpanded(initialSearchQuery.trim().length > 0)
     } else {
       setShowAddForm(false)
       setSearchQuery(initialSearchQuery)
@@ -460,6 +462,7 @@ export function UnifiedNormalizationModal({
       setNewValue('')
       setNewType('add')
       setNewReason('')
+      setIsEditorExpanded(false)
     }
   }, [open, currentYear, initialSearchQuery, initialYearFilter])
 
@@ -768,6 +771,12 @@ export function UnifiedNormalizationModal({
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (showAddForm || editingId || initialSearchQuery.trim().length > 0) {
+      setIsEditorExpanded(true)
+    }
+  }, [editingId, initialSearchQuery, showAddForm])
+
   // Virtualization ref
   const listContainerRef = useRef<HTMLDivElement>(null)
 
@@ -844,6 +853,7 @@ export function UnifiedNormalizationModal({
       )
 
       // Show the form
+      setIsEditorExpanded(true)
       setShowAddForm(true)
       setShowLedgerDropdown(false)
     },
@@ -1003,6 +1013,7 @@ export function UnifiedNormalizationModal({
   // Handle AI prompt submission - parse for ledger code/name and values
   const handlePromptSubmit = useCallback(
     (value: string) => {
+      setIsEditorExpanded(true)
       setEditingId(null)
       // Try to parse the input for ledger codes (3-digit numbers)
       const codeMatch = value.match(/\b(\d{3})\b/)
@@ -1244,20 +1255,43 @@ export function UnifiedNormalizationModal({
         {/* Tab 1: EBITDA Normalisaties */}
         {primaryTab === 'ebitda' && (
           <>
-          <section
-            className="px-6 pt-4 pb-2"
-            role="region"
-            aria-labelledby="section1-header"
-          >
-            <h3 id="section1-header" className="text-sm font-semibold text-foreground">
-              {nh('section1Header')}
-            </h3>
-            <p className="text-xs text-foreground/50 mt-0.5">{nh('section1Subheader')}</p>
+          <section className="px-6 pt-4 pb-2" role="region" aria-labelledby="section1-header">
+            <button
+              type="button"
+              onClick={() => setIsEditorExpanded((expanded) => !expanded)}
+              aria-expanded={isEditorExpanded}
+              aria-controls="normalization-editor-panel"
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
+            >
+              <div className="min-w-0">
+                <h3 id="section1-header" className="text-sm font-semibold text-foreground">
+                  {nh('editorToggleTitle')}
+                </h3>
+                <p className="mt-0.5 text-xs text-foreground/50">{nh('editorToggleSubtitle')}</p>
+              </div>
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 shrink-0 text-foreground/40 transition-transform',
+                  isEditorExpanded && 'rotate-180'
+                )}
+              />
+            </button>
           </section>
+
         {/* Prompt Input Area - Compact */}
+        <AnimatePresence initial={false}>
+          {isEditorExpanded && (
+            <motion.div
+              id="normalization-editor-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18, ease: 'easeInOut' }}
+              className="overflow-hidden border-b border-foreground/[0.06]"
+            >
         <div
           ref={inputContainerRef}
-          className="px-6 py-4 border-b border-foreground/[0.06] relative"
+          className="px-6 py-4 relative"
         >
           {/* Main Input Container - Enhanced glassmorphism with glow focus */}
           <motion.div
@@ -1377,6 +1411,7 @@ export function UnifiedNormalizationModal({
                         whileHover={{ y: -2, scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => {
+                          setIsEditorExpanded(true)
                           setEditingId(null)
                           setSelectedLedger({
                             code: preset.ledgerCode,
@@ -1686,6 +1721,9 @@ export function UnifiedNormalizationModal({
             </div>
           </div>
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bulk Actions Bar */}
         <AnimatePresence>

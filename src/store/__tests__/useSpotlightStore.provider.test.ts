@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useSpotlightStore, type SpotlightImportQuality } from '../useSpotlightStore'
+import { type SpotlightImportQuality, useSpotlightStore } from '../useSpotlightStore'
 
 const baseQuality: Record<string, SpotlightImportQuality> = {
   '2025': {
@@ -22,7 +22,6 @@ describe('useSpotlightStore — provider lifecycle', () => {
       orderedFlagDomIds: [],
       resolvedFields: new Set(),
       activeDomId: null,
-      showSourcePanel: false,
     })
   })
 

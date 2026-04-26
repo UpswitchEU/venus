@@ -107,6 +107,7 @@ import type {
   OfficialFinancialsPayload,
   OfficialVarianceAnalysis,
   OfficialVerificationBadge,
+  ValuationMethodResult,
   YearDataInput,
   YearlyFinancials,
 } from '../../types/valuation'
@@ -155,9 +156,6 @@ import {
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
-import { ProvenanceDot } from './ProvenanceDot'
-import { SpotlightBanner } from './SpotlightBanner'
-import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
@@ -305,6 +303,25 @@ export function shouldShowImportedAccountingSummary({
   )
 }
 
+export function getSelectedBelgianAuditEntries({
+  valuationResults,
+  effectiveMethod,
+  effectiveMethods,
+}: {
+  valuationResults?: Record<string, ValuationMethodResult> | null
+  effectiveMethod: string
+  effectiveMethods: string[]
+}): Array<[string, ValuationMethodResult]> {
+  if (!valuationResults) return []
+  const selected = new Set(
+    (effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]).filter(Boolean)
+  )
+  return Object.entries(valuationResults).filter(
+    (entry): entry is [string, ValuationMethodResult] =>
+      selected.has(entry[0]) && Boolean(entry[1]?.details)
+  )
+}
+
 // Field help context for AI assistant integration
 export interface FieldHelpContext {
   field: string
@@ -345,10 +362,7 @@ interface ManualInputPanelProps {
   /** Synthesis: whether the feature is unlocked (Starter+). */
   synthesisUnlocked?: boolean
   /** Synthesis: valuation results keyed by method. */
-  synthesisValuationResults?: Record<
-    string,
-    import('../../types/valuation').ValuationMethodResult
-  > | null
+  synthesisValuationResults?: Record<string, ValuationMethodResult> | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
 }
@@ -2937,14 +2951,21 @@ export function ManualInputPanel({
     ].filter((year, index, years) => years.indexOf(year) === index).length
   const importedSdeFlagCount = effectiveImportedLedgerAnalysis?.sde_flags?.length ?? 0
   const effectiveEvBridge = effectiveImportedLedgerAnalysis?.ev_equity_bridge
+  const selectedBelgianAuditEntries = useMemo(
+    () =>
+      getSelectedBelgianAuditEntries({
+        valuationResults: synthesisValuationResults,
+        effectiveMethod,
+        effectiveMethods,
+      }),
+    [effectiveMethod, effectiveMethods, synthesisValuationResults]
+  )
 
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
-            <SpotlightBanner />
-
             {shouldShowImportedBatchSummary && (
               <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -3168,37 +3189,34 @@ export function ManualInputPanel({
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <SpotlightFieldWrapper fieldName="industry">
-                      <div className="space-y-1">
-                        <div className="flex items-start gap-1.5">
-                          <ProvenanceDot fieldName="industry" className="mt-2" />
-                          <div className="flex-1 min-w-0">
-                            <BusinessTypeSearchInput
-                              label={mi('fields.businessType')}
-                              value={formData.businessType}
-                              onChange={handleBusinessTypeSelect}
-                              types={
-                                businessTypesForSearch.length > 0
-                                  ? businessTypesForSearch
-                                  : undefined
-                              }
-                              loading={businessTypesLoading}
-                              loadError={businessTypesError}
-                              onRetryLoad={refetchBusinessTypes}
-                              naceMatchedTypeId={
-                                selectedCompany?.naceCode &&
-                                formData.businessType?.trim() &&
-                                !looksLikeNaceCode(formData.businessType)
-                                  ? formData.businessType.trim()
-                                  : undefined
-                              }
-                              size="sm"
-                              disabled={isCalculating}
-                            />
-                          </div>
+                    <div className="space-y-1">
+                      <div className="flex items-start gap-1.5">
+                        <div className="flex-1 min-w-0">
+                          <BusinessTypeSearchInput
+                            label={mi('fields.businessType')}
+                            value={formData.businessType}
+                            onChange={handleBusinessTypeSelect}
+                            types={
+                              businessTypesForSearch.length > 0
+                                ? businessTypesForSearch
+                                : undefined
+                            }
+                            loading={businessTypesLoading}
+                            loadError={businessTypesError}
+                            onRetryLoad={refetchBusinessTypes}
+                            naceMatchedTypeId={
+                              selectedCompany?.naceCode &&
+                              formData.businessType?.trim() &&
+                              !looksLikeNaceCode(formData.businessType)
+                                ? formData.businessType.trim()
+                                : undefined
+                            }
+                            size="sm"
+                            disabled={isCalculating}
+                          />
                         </div>
                       </div>
-                    </SpotlightFieldWrapper>
+                    </div>
                     {nacePrefillError && (
                       <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/20 -mt-1">
                         <p className="text-[11px] text-destructive/80">{nacePrefillError}</p>
@@ -3597,82 +3615,76 @@ export function ManualInputPanel({
                         </div>
 
                         <div className={cn('grid gap-3', 'grid-cols-1 sm:grid-cols-2')}>
-                          <SpotlightFieldWrapper fieldName="revenue" fiscalYear={yearData.year}>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <ProvenanceDot fieldName="revenue" fiscalYear={yearData.year} />
-                                <CurrencyInput
-                                  label={mi('fields.revenue')}
-                                  value={yearData.revenue}
-                                  onChange={(v) =>
-                                    updateYearlyFinancials(
-                                      yearData.year,
-                                      !!yearData.isForecast,
-                                      'revenue',
-                                      v ?? 0
-                                    )
-                                  }
-                                  size="sm"
-                                  placeholder="1.500.000"
-                                  truncateLabel={false}
-                                />
-                              </div>
-                              {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
-                                fieldValidation.errors[`revenue-${yearData.year}`]) && (
-                                <p
-                                  className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                                >
-                                  {fieldValidation.errors[`revenue-${yearData.year}`] ||
-                                    fieldValidation.warnings[`revenue-${yearData.year}`]}
-                                </p>
-                              )}
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <CurrencyInput
+                                label={mi('fields.revenue')}
+                                value={yearData.revenue}
+                                onChange={(v) =>
+                                  updateYearlyFinancials(
+                                    yearData.year,
+                                    !!yearData.isForecast,
+                                    'revenue',
+                                    v ?? 0
+                                  )
+                                }
+                                size="sm"
+                                placeholder="1.500.000"
+                                truncateLabel={false}
+                              />
                             </div>
-                          </SpotlightFieldWrapper>
-                          <SpotlightFieldWrapper fieldName="ebitda" fiscalYear={yearData.year}>
-                            <div className="relative">
-                              <div className="flex items-center gap-1.5">
-                                <ProvenanceDot fieldName="ebitda" fiscalYear={yearData.year} />
-                                <CurrencyInput
-                                  label={mi('fields.ebitda')}
-                                  value={yearData.ebitda}
-                                  onChange={(v) =>
-                                    updateYearlyFinancials(
-                                      yearData.year,
-                                      !!yearData.isForecast,
-                                      'ebitda',
-                                      v ?? 0
-                                    )
-                                  }
-                                  size="sm"
-                                  placeholder="250.000"
-                                  truncateLabel={false}
-                                  rightIcon={
-                                    <FieldHelpTrigger
-                                      context={{
-                                        field: 'ebitda',
-                                        label: `EBITDA ${yearLabelForHelp}`,
-                                        value: yearData.ebitda,
-                                        hint: mi('ebitdaRelevantHint'),
-                                        normalizationType: 'other',
-                                      }}
-                                      onTrigger={onFieldHelpRequest}
-                                    />
-                                  }
-                                />
-                              </div>
-                              {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                                fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                                fieldValidation.warnings[`margin-${yearData.year}`]) && (
-                                <p
-                                  className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                                >
-                                  {fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                                    fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                                    fieldValidation.warnings[`margin-${yearData.year}`]}
-                                </p>
-                              )}
+                            {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
+                              fieldValidation.errors[`revenue-${yearData.year}`]) && (
+                              <p
+                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
+                              >
+                                {fieldValidation.errors[`revenue-${yearData.year}`] ||
+                                  fieldValidation.warnings[`revenue-${yearData.year}`]}
+                              </p>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <div className="flex items-center gap-1.5">
+                              <CurrencyInput
+                                label={mi('fields.ebitda')}
+                                value={yearData.ebitda}
+                                onChange={(v) =>
+                                  updateYearlyFinancials(
+                                    yearData.year,
+                                    !!yearData.isForecast,
+                                    'ebitda',
+                                    v ?? 0
+                                  )
+                                }
+                                size="sm"
+                                placeholder="250.000"
+                                truncateLabel={false}
+                                rightIcon={
+                                  <FieldHelpTrigger
+                                    context={{
+                                      field: 'ebitda',
+                                      label: `EBITDA ${yearLabelForHelp}`,
+                                      value: yearData.ebitda,
+                                      hint: mi('ebitdaRelevantHint'),
+                                      normalizationType: 'other',
+                                    }}
+                                    onTrigger={onFieldHelpRequest}
+                                  />
+                                }
+                              />
                             </div>
-                          </SpotlightFieldWrapper>
+                            {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
+                              fieldValidation.errors[`ebitda-${yearData.year}`] ||
+                              fieldValidation.warnings[`margin-${yearData.year}`]) && (
+                              <p
+                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
+                              >
+                                {fieldValidation.errors[`ebitda-${yearData.year}`] ||
+                                  fieldValidation.warnings[`ebitda-${yearData.year}`] ||
+                                  fieldValidation.warnings[`margin-${yearData.year}`]}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
                         <NbbResetHint
@@ -4005,18 +4017,14 @@ export function ManualInputPanel({
                * structure comparison) for whichever methods returned them. The
                * panel renders nothing when no audit-worthy details are present.
                */}
-              {synthesisValuationResults
-                ? Object.entries(synthesisValuationResults).map(([methodKey, result]) =>
-                    result?.details ? (
-                      <BelgianSmeAuditPanel
-                        key={`audit-${methodKey}`}
-                        details={result.details as Record<string, unknown>}
-                        title={`${methodKey.replace(/_/g, ' ')} — audit trail`}
-                        className="mt-6"
-                      />
-                    ) : null
-                  )
-                : null}
+              {selectedBelgianAuditEntries.map(([methodKey, result]) => (
+                <BelgianSmeAuditPanel
+                  key={`audit-${methodKey}`}
+                  details={result.details as Record<string, unknown>}
+                  title={`${methodKey.replace(/_/g, ' ')} — audit trail`}
+                  className="mt-6"
+                />
+              ))}
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}

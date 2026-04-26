@@ -62,7 +62,6 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
-import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
 import { StartupFounderDashboard } from '../../../components/calculator/sections/startup/StartupFounderDashboard'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
@@ -127,11 +126,7 @@ import {
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import {
-  parseSpotlightDomId,
-  spotlightDomId,
-  useSpotlightStore,
-} from '../../../store/useSpotlightStore'
+import { useSpotlightStore } from '../../../store/useSpotlightStore'
 import {
   consumeLatencyRecalcSuppression,
   enableTaxLatencyAutoPersist,
@@ -198,19 +193,17 @@ import {
   getLatestCompleteYearlyFinancial,
   yearlyFinancialRowHasNonPlaceholderData,
 } from '../../../utils/yearlyFinancials'
-import {
-  buildPostDeleteNewValuationUrl,
-  deleteValuationEntry,
-} from '../utils/deleteValuationEntry'
-import {
-  deriveGuidedNormalizationPrefill,
-  type GuidedNormalizationPrefill,
-} from '../utils/guidedNormalizationPrefill'
+import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
 } from './manualReportPresentation'
+
+interface GuidedNormalizationPrefill {
+  initialSearchQuery: string
+  initialYearFilter: number | null
+}
 
 function getHttpStatusFromError(err: unknown): number | undefined {
   if (err instanceof APIError) return err.statusCode
@@ -684,7 +677,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
-  guidedResolutionUrl,
   initialSelectedMethodFromUrl,
 }) => {
   const router = useTransitionRouter()
@@ -783,8 +775,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
   const importQualityMap = useSpotlightStore((s) => s.importQuality)
-  const toggleSourceDataPanel = useSpotlightStore((s) => s.toggleSourcePanel)
-  const showSourceDataPanel = useSpotlightStore((s) => s.showSourcePanel)
   const hasImportQuality =
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
@@ -3919,7 +3909,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (typeof window !== 'undefined') {
       try {
         const urlParams = new URLSearchParams(window.location.search)
-        const returnUrl = sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
+        const returnUrl =
+          sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
         if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
           handleExitClientView()
           return
@@ -3931,7 +3922,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (window.history.length <= 1) {
           const sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
           const loc =
-            currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+            currentLocale && (currentLocale === 'en' || currentLocale === 'nl')
+              ? currentLocale
+              : 'en'
           window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
           return
         }
@@ -4169,12 +4162,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
             const ctx = useClientContext.getState()
             const relId = clientContextId ?? ctx?.relationshipId
-            const currentSearch =
-              typeof window !== 'undefined' ? window.location.search : undefined
+            const currentSearch = typeof window !== 'undefined' ? window.location.search : undefined
             postDeleteNewValuationUrl = buildPostDeleteNewValuationUrl({
               locale: currentLocale,
-              clientId:
-                (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
+              clientId: (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
               companyName:
                 formData.company_name ||
                 collectedData.companyName ||
@@ -5232,85 +5223,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
 
-  const guidedResolutionAppliedRef = useRef(false)
-
-  useEffect(() => {
-    guidedResolutionAppliedRef.current = false
-  }, [reportId])
-
-  useEffect(() => {
-    if (!restorationComplete || !guidedResolutionUrl) return
-    const hasGuidance =
-      guidedResolutionUrl.spotlight === '1' ||
-      !!guidedResolutionUrl.focusField ||
-      !!guidedResolutionUrl.flagYear
-    if (!hasGuidance) return
-    if (!importQualityMap || Object.keys(importQualityMap).length === 0) return
-    if (guidedResolutionAppliedRef.current) return
-    guidedResolutionAppliedRef.current = true
-
-    useSpotlightStore.getState().applyUrlGuidance({
-      forceSpotlight: guidedResolutionUrl.spotlight === '1',
-      focusField: guidedResolutionUrl.focusField,
-      flagYear: guidedResolutionUrl.flagYear,
-    })
-
-    const spotlightState = useSpotlightStore.getState()
-    const mappingHeavyFlagCodes = new Set([
-      'FALLBACK_MAPPING',
-      'AI_MAPPING_REVIEW',
-      'AI_MAPPING_MANUAL',
-      'LOW_CONFIDENCE',
-      'REVIEW_METADATA_MISSING',
-    ])
-    const activeTargetDomId = spotlightState.activeDomId
-    if (activeTargetDomId) {
-      const flags = spotlightState.getFlagsForDomId(activeTargetDomId)
-      const { field, yearKey } = parseSpotlightDomId(activeTargetDomId)
-      const mappingMethod = spotlightState.getFieldMappingMethod(field, yearKey)
-      const shouldOpenSourcePanel =
-        mappingMethod === 'fallback' ||
-        mappingMethod === 'manual' ||
-        flags.some(
-          (flag) => mappingHeavyFlagCodes.has(flag.code) || (flag.source_accounts?.length ?? 0) > 0
-        )
-      if (shouldOpenSourcePanel && !spotlightState.showSourcePanel) {
-        spotlightState.openSourcePanel()
-      }
-
-      const normalizationPrefill = deriveGuidedNormalizationPrefill({
-        activeDomId: activeTargetDomId,
-        importQuality: importQualityMap,
-      })
-      if (!shouldOpenSourcePanel && normalizationPrefill) {
-        openUnifiedNormalizationModal({
-          prefill: normalizationPrefill,
-          track: false,
-        })
-      }
-    }
-
-    const ff = guidedResolutionUrl.focusField
-    if (!ff) return
-
-    const domId = spotlightDomId(
-      ff,
-      guidedResolutionUrl.flagYear != null && guidedResolutionUrl.flagYear !== ''
-        ? guidedResolutionUrl.flagYear
-        : undefined
-    )
-    const scrollToFlag = () => {
-      try {
-        const el = document.querySelector(`[data-spotlight-field="${CSS.escape(domId)}"]`)
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      } catch {
-        const el = document.querySelector(`[data-spotlight-field="${domId}"]`)
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }
-    requestAnimationFrame(() => requestAnimationFrame(scrollToFlag))
-  }, [restorationComplete, guidedResolutionUrl, importQualityMap, openUnifiedNormalizationModal])
-
   // ═══════════════════════════════════════
   // MOBILE LAYOUT
   // ═══════════════════════════════════════
@@ -5375,9 +5287,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNavigateToHelp={handleNavigateToHelp}
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
-          showSourceDataToggle={hasImportQuality}
-          sourceDataOpen={showSourceDataPanel}
-          onToggleSourceData={toggleSourceDataPanel}
+          showSourceDataToggle={false}
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
           preSelectedMethod={preSelectedMethod ?? undefined}
           preSelectedMethods={preSelectedMethods}
@@ -5588,9 +5498,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onSwitchWorkspace={handleSwitchWorkspace}
         isAccountantMode={isAccountantMode}
         onExitClientView={handleExitClientView}
-        showSourceDataToggle={hasImportQuality}
-        sourceDataOpen={showSourceDataPanel}
-        onToggleSourceData={toggleSourceDataPanel}
+        showSourceDataToggle={false}
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
         preSelectedMethod={preSelectedMethod ?? undefined}
         preSelectedMethods={preSelectedMethods}
@@ -5913,9 +5821,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
         }
       />
-
-      {/* Source Data Panel — "Trust but Verify" raw ledger data */}
-      <SourceDataPanel />
 
       <ValuationEditModal
         open={showValuationEditModal}
