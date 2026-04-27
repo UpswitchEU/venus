@@ -20,17 +20,17 @@
  */
 
 import { motion } from 'framer-motion'
-import { Check, Sparkles } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useCallback } from 'react'
 import {
-  STUDIO_PRESETS,
-  STUDIO_PRESET_ORDER,
   type PresetKey,
+  STUDIO_PRESET_ORDER,
+  STUDIO_PRESETS,
   type StudioPreset,
 } from '@/features/startup-studio/data/presets'
+import { cn } from '@/lib/utils'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
-import { cn } from '@/lib/utils'
 
 const SESSION_KEY = 'upswitch.studio.applied_preset'
 
@@ -84,13 +84,13 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
       // Fire-and-forget analytics — the picker doesn't await this.
       try {
         window.dispatchEvent(
-          new CustomEvent('venus:preset_applied', { detail: { key: preset.key } }),
+          new CustomEvent('venus:preset_applied', { detail: { key: preset.key } })
         )
       } catch {
         // jsdom / older browsers — non-fatal
       }
     },
-    [applyPreset, updateFormData],
+    [applyPreset, updateFormData]
   )
 
   const active = readActivePreset()
@@ -102,8 +102,7 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
     >
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-primary">
-            <Sparkles className="h-3.5 w-3.5" />
+          <p className="text-xs font-medium uppercase tracking-wide text-primary">
             {locale === 'nl' ? 'Snelle start' : 'Quick start'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">
@@ -142,7 +141,7 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
                 // Demo card is visually neutral (not primary-tinted) so a
                 // founder valuing their OWN company doesn't accidentally
                 // pick it thinking it's a template for them.
-                isDemo && !isActive && 'opacity-90',
+                isDemo && !isActive && 'opacity-90'
               )}
             >
               {/* Badge — Demo card uses a soft "Example" framing now,
@@ -154,7 +153,7 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
                     'absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
                     isDemo
                       ? 'bg-foreground/10 text-foreground/70'
-                      : 'bg-foreground/10 text-foreground/70',
+                      : 'bg-foreground/10 text-foreground/70'
                   )}
                 >
                   {preset.badge[locale]}
@@ -205,9 +204,8 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
           <p className="mt-3 text-xs">
             <a
               href={`/${locale === 'nl' ? 'nl' : 'en'}/startup-valuation/express`}
-              className="inline-flex items-center gap-1 font-medium text-primary hover:text-primary/80"
+              className="font-medium text-primary hover:text-primary/80"
             >
-              <Sparkles className="h-3 w-3" />
               {locale === 'nl'
                 ? 'Of: ga direct naar de Express-flow (PDF in 90 seconden)'
                 : 'Or: jump to the Express flow (PDF in 90 seconds)'}

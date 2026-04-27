@@ -19,22 +19,19 @@
  */
 
 import { motion } from 'framer-motion'
-import { ChevronDown, Sparkles } from 'lucide-react'
-import { useId, useState, type KeyboardEvent } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { type KeyboardEvent, useId, useState } from 'react'
 import { AuroraTextarea } from '@/design-system/components/Input'
+import { getMilestoneCopy, type StudioLocale } from '@/features/startup-studio/data/maturityOptions'
+import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { trackStudioEvidenceAdded } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
-import {
-  type StudioLocale,
-  getMilestoneCopy,
-} from '@/features/startup-studio/data/maturityOptions'
 import {
   MATURITY_TO_SCORE,
   type MaturityLevel,
   type StudioMilestoneKey,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { trackStudioEvidenceAdded } from '@/lib/analytics'
-import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 
 interface MilestoneCardProps {
   milestoneKey: StudioMilestoneKey
@@ -151,7 +148,7 @@ export function MilestoneCard({
                 'focus:outline-none focus:ring-2 focus:ring-primary/40',
                 isSelected
                   ? 'border-primary bg-primary/5 shadow-inner'
-                  : 'border-foreground/10 bg-background/40 hover:border-primary/40 hover:bg-primary/[0.03]',
+                  : 'border-foreground/10 bg-background/40 hover:border-primary/40 hover:bg-primary/[0.03]'
               )}
             >
               <div className="flex flex-1 items-start gap-3">
@@ -160,7 +157,7 @@ export function MilestoneCard({
                     'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
                     isSelected
                       ? 'border-primary bg-primary'
-                      : 'border-foreground/30 group-hover:border-primary/60',
+                      : 'border-foreground/30 group-hover:border-primary/60'
                   )}
                 >
                   {isSelected && <span className="h-2 w-2 rounded-full bg-background" />}
@@ -173,7 +170,7 @@ export function MilestoneCard({
                     'shrink-0 rounded-md px-2 py-1 text-xs font-medium tabular-nums',
                     isSelected
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-foreground/5 text-foreground/55',
+                      : 'bg-foreground/5 text-foreground/55'
                   )}
                   aria-label={`${opt.label} unlocks ${formatEur(eurValue)}`}
                 >
@@ -189,10 +186,9 @@ export function MilestoneCard({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80"
         aria-expanded={open}
       >
-        <Sparkles className="h-4 w-4" />
         {locale === 'nl' ? 'Wat investeerders zoeken' : 'What investors look for'}
         <ChevronDown
           className={cn('h-4 w-4 transition-transform', open ? 'rotate-180' : 'rotate-0')}

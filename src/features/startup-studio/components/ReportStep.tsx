@@ -17,7 +17,7 @@
  * it's the founder's final preview before submitting.
  */
 
-import { AlertCircle, Check, Copy, Send, Sparkles } from 'lucide-react'
+import { AlertCircle, Check, Copy, Send } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
 import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
@@ -399,7 +399,7 @@ function HealthCheck({
       }
     >
       <div className="flex items-start gap-3">
-        <Sparkles
+        <AlertCircle
           className={
             blockerCount > 0
               ? 'mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400'

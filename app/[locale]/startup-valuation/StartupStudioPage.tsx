@@ -3,12 +3,16 @@
 /**
  * StartupStudioPage
  *
- * Client wrapper that wires the `StudioShell` to the seven step
- * components and delegates final report generation to the existing
+ * Wires the stacked-sections `StudioShell` to the seven step components
+ * and delegates final report generation to the existing
  * `/reports/new?flow=startup` pipeline.  Founder state lives in the
  * persisted `useStartupValuationStore` so navigating to /reports/new
  * preserves every milestone, evidence note and TAM input the founder
  * just typed.
+ *
+ * Unlike the previous wizard surface, all seven sections render
+ * top-to-bottom on a single page (matching the DCF / Adaptive / SaaS
+ * panel pattern); there is no per-step navigation state to manage here.
  */
 
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -24,7 +28,7 @@ import { ProfileStep } from '@/features/startup-studio/components/ProfileStep'
 import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
-import { StudioShell } from '@/features/startup-studio/components/StudioShell'
+import { type StudioSection, StudioShell } from '@/features/startup-studio/components/StudioShell'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { buildAdvisorReturnUrl, buildFounderReturnUrl } from './studioReturnUrls'
@@ -36,7 +40,6 @@ interface Props {
 export function StartupStudioPage({ locale }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // One-shot wizard reset — `?reset=1` clears the persisted Studio
@@ -159,38 +162,26 @@ export function StartupStudioPage({ locale }: Props) {
     }
   }
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 0:
-        return <ProfileStep locale={locale} />
-      case 1:
-        return <BerkusStep locale={locale} />
-      case 2:
-        return <ScorecardStep locale={locale} />
-      case 3:
-        return <FounderPedigreeStep locale={locale} />
-      case 4:
-        return <TractionStep locale={locale} />
-      case 5:
-        return <ExitStoryStep locale={locale} />
-      case 6:
-        return <RoundSimulatorStep locale={locale} />
-      case 7:
-        return <ReportStep locale={locale} onSubmit={handleSubmit} isSubmitting={isSubmitting} />
-      default:
-        return null
-    }
-  }
+  const sections: StudioSection[] = [
+    { id: 'profile', content: <ProfileStep locale={locale} /> },
+    { id: 'berkus', content: <BerkusStep locale={locale} /> },
+    { id: 'scorecard', content: <ScorecardStep locale={locale} /> },
+    { id: 'founder_pedigree', content: <FounderPedigreeStep locale={locale} /> },
+    { id: 'traction', content: <TractionStep locale={locale} /> },
+    { id: 'exit_story', content: <ExitStoryStep locale={locale} /> },
+    { id: 'round_simulator', content: <RoundSimulatorStep locale={locale} /> },
+    {
+      id: 'report',
+      content: <ReportStep locale={locale} onSubmit={handleSubmit} isSubmitting={isSubmitting} />,
+    },
+  ]
 
   return (
     <StudioShell
-      currentStep={currentStep}
-      onStepChange={setCurrentStep}
+      sections={sections}
       onComplete={handleSubmit}
       locale={locale}
       isCompleting={isSubmitting}
-    >
-      {renderStep()}
-    </StudioShell>
+    />
   )
 }

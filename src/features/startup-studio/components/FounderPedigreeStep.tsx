@@ -21,15 +21,15 @@
  */
 
 import { motion } from 'framer-motion'
-import { Sparkles, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
+  calculatePedigreeMultiplier,
   type FounderPedigreeKey,
   PEDIGREE_DELTA_PCT,
   PEDIGREE_KEYS,
-  calculatePedigreeMultiplier,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { cn } from '@/lib/utils'
 
 type Locale = 'en' | 'nl'
 
@@ -74,7 +74,7 @@ const PEDIGREE_COPY: Record<FounderPedigreeKey, PedigreeOptionCopy> = {
       nl: '10+ jaar branche-ervaring',
     },
     description: {
-      en: 'Any cofounder has 10+ years operating experience inside the target customer\'s industry — founder-market fit beats generic founder strength at pre-seed.',
+      en: "Any cofounder has 10+ years operating experience inside the target customer's industry — founder-market fit beats generic founder strength at pre-seed.",
       nl: 'Een medeoprichter heeft 10+ jaar operationele ervaring in de doelsector — founder-market fit weegt zwaarder dan generieke "founder strength".',
     },
     evidence: {
@@ -120,7 +120,7 @@ const PEDIGREE_COPY: Record<FounderPedigreeKey, PedigreeOptionCopy> = {
       nl: 'Eén oprichter zonder medeoprichters. Solo-oprichters sluiten significant lager in gepubliceerde Benelux-datasets — de korting is empirisch, geen oordeel.',
     },
     evidence: {
-      en: 'Picking this clears the technical-cofounder lift — both can\'t be true at once.',
+      en: "Picking this clears the technical-cofounder lift — both can't be true at once.",
       nl: 'Bij selectie vervalt de "technische medeoprichter" lift — beide kunnen niet tegelijk waar zijn.',
     },
   },
@@ -153,18 +153,20 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
               {locale === 'nl' ? (
                 <>
                   Investeerders prijzen pre-seed niet alleen op{' '}
-                  <span className="font-medium text-foreground">welk risico je hebt
-                  weggenomen</span>, maar ook op{' '}
-                  <span className="font-medium text-foreground">wie je bent op papier</span>.
-                  Dit is een aparte multiplier op de leg-blend baseline.
+                  <span className="font-medium text-foreground">
+                    welk risico je hebt weggenomen
+                  </span>
+                  , maar ook op{' '}
+                  <span className="font-medium text-foreground">wie je bent op papier</span>. Dit is
+                  een aparte multiplier op de leg-blend baseline.
                 </>
               ) : (
                 <>
                   Investors price pre-seed not only on{' '}
-                  <span className="font-medium text-foreground">how much risk you've
-                  removed</span>, but also on{' '}
-                  <span className="font-medium text-foreground">who you are on paper</span>.
-                  This is a separate multiplier on the leg-blend baseline.
+                  <span className="font-medium text-foreground">how much risk you've removed</span>,
+                  but also on{' '}
+                  <span className="font-medium text-foreground">who you are on paper</span>. This is
+                  a separate multiplier on the leg-blend baseline.
                 </>
               )}
             </p>
@@ -181,15 +183,13 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
                 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                 : isDiscount
                   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'bg-foreground/5 text-foreground/70',
+                  : 'bg-foreground/5 text-foreground/70'
             )}
           >
             <p className="text-[10px] uppercase tracking-wide opacity-75">
               {locale === 'nl' ? 'Pedigree-multiplier' : 'Pedigree multiplier'}
             </p>
-            <p className="mt-0.5 text-2xl font-bold tabular-nums">
-              {multiplier.toFixed(2)}×
-            </p>
+            <p className="mt-0.5 text-2xl font-bold tabular-nums">{multiplier.toFixed(2)}×</p>
             <p className="mt-1 text-[10px] opacity-65">
               {isLift && (locale === 'nl' ? 'Lift toegepast' : 'Lift applied')}
               {isDiscount && (locale === 'nl' ? 'Korting toegepast' : 'Discount applied')}
@@ -225,7 +225,7 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
                   ? isPenalty
                     ? 'border-amber-400 bg-amber-500/5 shadow-inner'
                     : 'border-primary bg-primary/5 shadow-inner'
-                  : 'border-foreground/10 bg-background/60 hover:border-primary/40 hover:bg-primary/[0.03]',
+                  : 'border-foreground/10 bg-background/60 hover:border-primary/40 hover:bg-primary/[0.03]'
               )}
             >
               <div className="flex items-start gap-3">
@@ -236,7 +236,7 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
                       ? isPenalty
                         ? 'border-amber-500 bg-amber-500'
                         : 'border-primary bg-primary'
-                      : 'border-foreground/30 group-hover:border-primary/60',
+                      : 'border-foreground/30 group-hover:border-primary/60'
                   )}
                 >
                   {checked && (
@@ -261,7 +261,7 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
                         'rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums',
                         isPenalty
                           ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                       )}
                     >
                       {formatDelta(delta)}
@@ -270,10 +270,7 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
                   <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">
                     {copy.description[locale]}
                   </p>
-                  <p className="mt-2 flex items-start gap-1.5 text-xs text-foreground/55">
-                    <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-foreground/40" />
-                    <span>{copy.evidence[locale]}</span>
-                  </p>
+                  <p className="mt-2 text-xs text-foreground/55">{copy.evidence[locale]}</p>
                 </div>
               </div>
             </motion.button>
@@ -289,18 +286,18 @@ export function FounderPedigreeStep({ locale = 'en' }: FounderPedigreeStepProps)
             {locale === 'nl' ? (
               <>
                 Calibratie: Strebulaev (Stanford GSB){' '}
-                <span className="italic">Venture Mindset</span> 2024, Atomico SoEU 2024,
-                Dealroom Benelux 2024. De multiplier is geclamped op{' '}
-                <span className="font-medium text-foreground">0.70× – 1.80×</span> om
-                niet-fundbare extremen te voorkomen.
+                <span className="italic">Venture Mindset</span> 2024, Atomico SoEU 2024, Dealroom
+                Benelux 2024. De multiplier is geclamped op{' '}
+                <span className="font-medium text-foreground">0.70× – 1.80×</span> om niet-fundbare
+                extremen te voorkomen.
               </>
             ) : (
               <>
                 Calibration: Strebulaev (Stanford GSB){' '}
-                <span className="italic">Venture Mindset</span> 2024, Atomico SoEU 2024,
-                Dealroom Benelux 2024. The multiplier is clamped to{' '}
-                <span className="font-medium text-foreground">0.70× – 1.80×</span> to keep
-                the overlay inside the empirical envelope.
+                <span className="italic">Venture Mindset</span> 2024, Atomico SoEU 2024, Dealroom
+                Benelux 2024. The multiplier is clamped to{' '}
+                <span className="font-medium text-foreground">0.70× – 1.80×</span> to keep the
+                overlay inside the empirical envelope.
               </>
             )}
           </span>

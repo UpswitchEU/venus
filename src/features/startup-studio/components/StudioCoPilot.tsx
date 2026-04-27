@@ -32,16 +32,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertCircle,
-  ArrowRight,
-  Check,
-  Loader2,
-  MessageCircle,
-  Send,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, Loader2, MessageCircle, Send, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   StudioIssue,
@@ -325,7 +316,7 @@ export function StudioCoPilot({
             blockerCount > 0 && 'ring-2 ring-rose-300/60'
           )}
         >
-          <Sparkles className="h-4 w-4" aria-hidden />
+          <MessageCircle className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">{fabLabel}</span>
           <span className="sm:hidden">{fabBadgeCount > 0 ? fabBadgeCount : ''}</span>
           {blockerCount > 0 && (
@@ -367,7 +358,7 @@ export function StudioCoPilot({
               <header className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Sparkles className="h-4 w-4" aria-hidden />
+                    <MessageCircle className="h-4 w-4" aria-hidden />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-foreground">
@@ -439,7 +430,6 @@ export function StudioCoPilot({
                               disabled={isStreaming}
                               className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
                             >
-                              <Sparkles className="h-3 w-3" />
                               {locale === 'nl' ? 'Fix met AI' : 'Fix with AI'}
                             </button>
                             {onJumpToStep && (

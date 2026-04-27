@@ -36,45 +36,42 @@
  * for founders who already know what they need.
  */
 
+import { ArrowRight, ChevronDown, Download, FileText, Loader2, Wand2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, ChevronDown, Download, FileText, Loader2, Sparkles, Wand2 } from 'lucide-react'
-import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
-import { AuroraSelect } from '@/design-system/components/Select'
-import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { CompanyNameInput } from '@/components/forms/CompanyNameInput'
-import type { CompanySearchResult } from '@/services/registry/types'
-import { naceBusinessTypeService } from '@/services/naceBusinessTypeService'
-import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
+import { AuroraButton } from '@/design-system/components/Button'
+import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
+import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { AuroraSelect } from '@/design-system/components/Select'
 import { AmbitionPicker } from '@/features/startup-studio/components/AmbitionPicker'
 import { InceptionLensPicker } from '@/features/startup-studio/components/InceptionLensPicker'
+import { LiveReceipt } from '@/features/startup-studio/components/LiveReceipt'
+import { PresetPicker } from '@/features/startup-studio/components/PresetPicker'
 import { TeamPicker } from '@/features/startup-studio/components/TeamPicker'
 import { TransparencyPanel } from '@/features/startup-studio/components/TransparencyPanel'
 import { getAmbitionAnchors } from '@/features/startup-studio/data/ambition'
-import { LiveReceipt } from '@/features/startup-studio/components/LiveReceipt'
-import { PresetPicker } from '@/features/startup-studio/components/PresetPicker'
-import {
-  formatEur,
-  useLiveValuation,
-} from '@/features/startup-studio/hooks/useLiveValuation'
+import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { cn } from '@/lib/utils'
+import { naceBusinessTypeService } from '@/services/naceBusinessTypeService'
+import type { CompanySearchResult } from '@/services/registry/types'
+import { valuationService } from '@/services/valuation/ValuationService'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
+  type FounderPedigreeKey,
   PEDIGREE_DELTA_PCT,
   PEDIGREE_KEYS,
-  type FounderPedigreeKey,
   type StartupSector,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { buildStartupValuationRequest } from '@/utils/buildStartupValuationRequest'
-import { valuationService } from '@/services/valuation/ValuationService'
-import { generateReportId } from '@/utils/reportIdGenerator'
+import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { generalLogger } from '@/utils/logger'
-import { cn } from '@/lib/utils'
+import { generateReportId } from '@/utils/reportIdGenerator'
 
 interface Props {
   locale: 'en' | 'nl'
@@ -97,7 +94,10 @@ const SECTOR_OPTIONS: Array<{ value: StartupSector; label: { en: string; nl: str
   { value: 'saas', label: { en: 'SaaS', nl: 'SaaS' } },
   { value: 'marketplace', label: { en: 'Marketplace', nl: 'Marketplace' } },
   { value: 'fintech', label: { en: 'Fintech', nl: 'Fintech' } },
-  { value: 'biotech_healthtech', label: { en: 'Biotech / Healthtech', nl: 'Biotech / Healthtech' } },
+  {
+    value: 'biotech_healthtech',
+    label: { en: 'Biotech / Healthtech', nl: 'Biotech / Healthtech' },
+  },
   { value: 'deeptech_ai', label: { en: 'Deeptech / AI', nl: 'Deeptech / AI' } },
   { value: 'consumer', label: { en: 'Consumer', nl: 'Consumer' } },
   { value: 'hardware', label: { en: 'Hardware', nl: 'Hardware' } },
@@ -111,7 +111,10 @@ const COUNTRY_OPTIONS = [
 ]
 
 const PEDIGREE_LABELS: Record<FounderPedigreeKey, { en: string; nl: string }> = {
-  prior_exit: { en: 'Prior venture-backed exit (≥€10M)', nl: 'Eerdere venture-backed exit (≥€10M)' },
+  prior_exit: {
+    en: 'Prior venture-backed exit (≥€10M)',
+    nl: 'Eerdere venture-backed exit (≥€10M)',
+  },
   top_unicorn_alumnus: {
     en: 'Top-tier scaleup alumnus (Adyen / Collibra / Showpad / …)',
     nl: 'Senior alumnus topscaleup (Adyen / Collibra / Showpad / …)',
@@ -120,8 +123,14 @@ const PEDIGREE_LABELS: Record<FounderPedigreeKey, { en: string; nl: string }> = 
     en: '10+ years industry experience (founder-market fit)',
     nl: '10+ jaar branche-ervaring (founder-market fit)',
   },
-  second_time_founder: { en: 'Second-time founder (prior 2y+ venture)', nl: 'Tweede keer oprichter (eerdere 2j+ venture)' },
-  has_technical_cofounder: { en: 'Full-time technical cofounder', nl: 'Voltijdse technische medeoprichter' },
+  second_time_founder: {
+    en: 'Second-time founder (prior 2y+ venture)',
+    nl: 'Tweede keer oprichter (eerdere 2j+ venture)',
+  },
+  has_technical_cofounder: {
+    en: 'Full-time technical cofounder',
+    nl: 'Voltijdse technische medeoprichter',
+  },
   solo_founder: { en: 'Solo founder (no cofounders)', nl: 'Solo-oprichter (geen medeoprichters)' },
 }
 
@@ -168,31 +177,31 @@ export function ExpressStudioPage({ locale }: Props) {
   // ── Form helpers ─────────────────────────────────────────────────────
   const setSector = useCallback(
     (next: string) => setField('sector', next as StartupSector),
-    [setField],
+    [setField]
   )
   const setStage = useCallback(
     (next: string) => setField('stage', next as StartupStage),
-    [setField],
+    [setField]
   )
   const setCountry = useCallback(
     (next: string) => setField('country_code', String(next)),
-    [setField],
+    [setField]
   )
   const setInvestment = useCallback(
     (next: number | undefined) => setField('investment_amount_sought', next ?? null),
-    [setField],
+    [setField]
   )
   const setY5 = useCallback(
     (next: number | undefined) => setField('year5_revenue_projection', next ?? null),
-    [setField],
+    [setField]
   )
   const setExit = useCallback(
     (next: number | undefined) => setField('exit_revenue_multiple', next ?? null),
-    [setField],
+    [setField]
   )
   const setRoi = useCallback(
     (next: number | undefined) => setField('target_roi_x', next ?? null),
-    [setField],
+    [setField]
   )
 
   // Free-text pitch lives on the Studio store (it's already wired into the
@@ -202,7 +211,7 @@ export function ExpressStudioPage({ locale }: Props) {
   const description = useStartupValuationStore((s) => s.description)
   const setDescription = useCallback(
     (next: string) => setField('description', next.slice(0, 600)),
-    [setField],
+    [setField]
   )
 
   // ── KBO/KVK registry lookup — mirrors ManualInputPanel.handleCompanySelect.
@@ -211,12 +220,8 @@ export function ExpressStudioPage({ locale }: Props) {
   // the long-form ManualLayout: company name + KBO + legal form + NACE
   // (canonical + display) + business type + industry, plus our Studio-only
   // sector inference via `seedSectorFromNaceIfDefault`.
-  const seedSectorFromNace = useStartupValuationStore(
-    (s) => s.seedSectorFromNaceIfDefault,
-  )
-  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(
-    null,
-  )
+  const seedSectorFromNace = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
+  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
   const naceLookupAbortRef = useRef<AbortController | null>(null)
 
   const handleCompanySelected = useCallback(
@@ -238,8 +243,7 @@ export function ExpressStudioPage({ locale }: Props) {
         return
       }
 
-      const canonical =
-        (company.canonical_nace_code ?? company.nace_code ?? '').trim() || ''
+      const canonical = (company.canonical_nace_code ?? company.nace_code ?? '').trim() || ''
       const displayCode = (company.activity_code ?? company.nace_code ?? '').trim()
 
       // Compose a single address line if KBO returned the parts.
@@ -250,9 +254,7 @@ export function ExpressStudioPage({ locale }: Props) {
       const postal = (company.postal_code ?? '').trim()
       const city = (company.city ?? '').trim()
       const composedAddress =
-        postal && addr && !addr.includes(postal)
-          ? `${addr}, ${postal} ${city}`.trim()
-          : addr
+        postal && addr && !addr.includes(postal) ? `${addr}, ${postal} ${city}`.trim() : addr
 
       // Single canonical update — mirrors `ManualInputPanel.handleCompanySelect`.
       // Keys map directly to Titan/ValuationIQ payload field names so the
@@ -312,7 +314,7 @@ export function ExpressStudioPage({ locale }: Props) {
           const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(
             canonical,
             controller.signal,
-            company.country_code || undefined,
+            company.country_code || undefined
           )
           if (controller.signal.aborted) return
           if (bt) {
@@ -332,7 +334,7 @@ export function ExpressStudioPage({ locale }: Props) {
         }
       }
     },
-    [seedSectorFromNace, setField, updateFormData],
+    [seedSectorFromNace, setField, updateFormData]
   )
 
   // Email capture — required for the Wintercircus PLG flow ("KBO + email
@@ -340,12 +342,10 @@ export function ExpressStudioPage({ locale }: Props) {
   // canonical request via `metadata.email`; ValuationIQ ignores it for
   // the math but Titan persists it on the session record so the founder
   // can be resolved against the Mercury auth model later.
-  const founderEmail = useManualFormStore(
-    (s) => (s.formData as { email?: string }).email ?? '',
-  )
+  const founderEmail = useManualFormStore((s) => (s.formData as { email?: string }).email ?? '')
   const setFounderEmail = useCallback(
     (next: string) => updateFormData({ email: next.slice(0, 240) } as Record<string, unknown>),
-    [updateFormData],
+    [updateFormData]
   )
 
   // ── The big "Generate" button ────────────────────────────────────────
@@ -356,8 +356,7 @@ export function ExpressStudioPage({ locale }: Props) {
   // 3. POST `/api/valuations/{id}/pdf` to kick off Puppeteer PDF render.
   // 4. Surface the download URL inline (and a "View full report" link
   //    that drops the user into the canonical /reports/[id] page).
-  const isGenerating =
-    status.phase === 'calculating' || status.phase === 'pdf-generating'
+  const isGenerating = status.phase === 'calculating' || status.phase === 'pdf-generating'
 
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
@@ -404,12 +403,8 @@ export function ExpressStudioPage({ locale }: Props) {
         ...(formSnap.business_model ? { businessModel: formSnap.business_model } : {}),
         ...(formSnap.founding_year ? { foundingYear: formSnap.founding_year } : {}),
         ...(formSnap.nace_code ? { naceCode: formSnap.nace_code } : {}),
-        ...(formSnap.nace_description
-          ? { naceDescription: formSnap.nace_description }
-          : {}),
-        ...(formSnap.business_type_id
-          ? { businessTypeId: formSnap.business_type_id }
-          : {}),
+        ...(formSnap.nace_description ? { naceDescription: formSnap.nace_description } : {}),
+        ...(formSnap.business_type_id ? { businessTypeId: formSnap.business_type_id } : {}),
       })
       // Tag the request with the reservation id so the backend session
       // record links to the same id we'll point the PDF endpoint at.
@@ -428,7 +423,7 @@ export function ExpressStudioPage({ locale }: Props) {
       ;(request as { metadata?: Record<string, unknown> }).metadata = meta
 
       const response = await valuationService.calculateValuation(request, (p) =>
-        setStatus({ phase: 'calculating', progress: Math.max(10, Math.min(85, p)) }),
+        setStatus({ phase: 'calculating', progress: Math.max(10, Math.min(85, p)) })
       )
 
       const valuationId =
@@ -535,18 +530,18 @@ export function ExpressStudioPage({ locale }: Props) {
             {locale === 'nl' ? (
               <>
                 Eén scherm. Kies een template, bevestig je inputs, druk op{' '}
-                <span className="font-medium text-foreground">Genereer rapport</span>.
-                Aangedreven door <span className="font-medium text-foreground">ValuationIQ</span> —
-                Berkus + Scorecard + VC + SaaS Forward + founder-pedigree multiplier, Q1 2026
-                Benelux benchmarks.
+                <span className="font-medium text-foreground">Genereer rapport</span>. Aangedreven
+                door <span className="font-medium text-foreground">ValuationIQ</span> — Berkus +
+                Scorecard + VC + SaaS Forward + founder-pedigree multiplier, Q1 2026 Benelux
+                benchmarks.
               </>
             ) : (
               <>
                 One screen. Pick a template, confirm your inputs, press{' '}
-                <span className="font-medium text-foreground">Generate report</span>.
-                Powered by <span className="font-medium text-foreground">ValuationIQ</span> —
-                Berkus + Scorecard + VC + SaaS Forward + founder-pedigree multiplier, Q1 2026
-                Benelux benchmarks.
+                <span className="font-medium text-foreground">Generate report</span>. Powered by{' '}
+                <span className="font-medium text-foreground">ValuationIQ</span> — Berkus +
+                Scorecard + VC + SaaS Forward + founder-pedigree multiplier, Q1 2026 Benelux
+                benchmarks.
               </>
             )}
           </p>
@@ -575,9 +570,7 @@ export function ExpressStudioPage({ locale }: Props) {
                 <CompanyNameInput
                   label={locale === 'nl' ? 'Bedrijfsnaam' : 'Company name'}
                   value={companyName}
-                  onChange={(next) =>
-                    updateFormData({ company_name: next.slice(0, 120) })
-                  }
+                  onChange={(next) => updateFormData({ company_name: next.slice(0, 120) })}
                   countryCode={country}
                   selectedCompany={selectedCompany}
                   onCompanyChange={handleCompanySelected}
@@ -587,8 +580,7 @@ export function ExpressStudioPage({ locale }: Props) {
                   autoComplete="organization"
                 />
                 {selectedCompany && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-300">
-                    <Sparkles className="h-3 w-3" />
+                  <p className="mt-1.5 text-[11px] text-emerald-700 dark:text-emerald-300">
                     {locale === 'nl'
                       ? `Auto-prefill via ${country === 'NL' ? 'KVK' : 'KBO'}: sector, NACE-code, rechtsvorm en bedrijfstype zijn ingevuld.`
                       : `Auto-prefilled via ${country === 'NL' ? 'KVK' : 'KBO'}: sector, NACE code, legal form and business type are set.`}
@@ -608,9 +600,7 @@ export function ExpressStudioPage({ locale }: Props) {
                   type="email"
                   value={founderEmail}
                   onChange={(e) => setFounderEmail(e.target.value)}
-                  placeholder={
-                    locale === 'nl' ? 'jij@bedrijf.com' : 'you@company.com'
-                  }
+                  placeholder={locale === 'nl' ? 'jij@bedrijf.com' : 'you@company.com'}
                   autoComplete="email"
                   inputMode="email"
                 />
@@ -623,7 +613,9 @@ export function ExpressStudioPage({ locale }: Props) {
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground/70">
-                  {locale === 'nl' ? 'Beschrijf je bedrijf in 1–2 zinnen' : 'Describe your company in 1–2 sentences'}
+                  {locale === 'nl'
+                    ? 'Beschrijf je bedrijf in 1–2 zinnen'
+                    : 'Describe your company in 1–2 sentences'}
                 </label>
                 <AuroraTextarea
                   value={description ?? ''}
@@ -749,8 +741,7 @@ export function ExpressStudioPage({ locale }: Props) {
                 accessibility out of the box. */}
             <details className="group rounded-2xl border border-foreground/10 bg-background/40">
               <summary className="flex cursor-pointer items-center justify-between gap-2 px-6 py-4 text-sm font-medium text-foreground/70 hover:text-foreground">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-foreground/45" />
+                <span>
                   {locale === 'nl'
                     ? 'Geavanceerd — voor adviseurs (optioneel, sla over)'
                     : 'Advanced — for advisors (optional, skip)'}
@@ -782,7 +773,7 @@ export function ExpressStudioPage({ locale }: Props) {
                               ? isPenalty
                                 ? 'border-amber-400 bg-amber-500/5'
                                 : 'border-primary bg-primary/5'
-                              : 'border-foreground/10 bg-background/40 hover:border-primary/40',
+                              : 'border-foreground/10 bg-background/40 hover:border-primary/40'
                           )}
                         >
                           <div className="flex items-start gap-2.5">
@@ -801,7 +792,7 @@ export function ExpressStudioPage({ locale }: Props) {
                               'shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums',
                               isPenalty
                                 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                             )}
                           >
                             {formatPedigreeDelta(delta)}
@@ -856,8 +847,7 @@ export function ExpressStudioPage({ locale }: Props) {
 
             {/* Footer link to detailed wizard --------------------- */}
             <div className="rounded-xl border border-foreground/10 bg-foreground/[0.02] p-4">
-              <p className="flex items-start gap-2 text-xs text-foreground/55">
-                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <p className="text-xs text-foreground/55">
                 <span>
                   {locale === 'nl' ? (
                     <>
@@ -872,7 +862,7 @@ export function ExpressStudioPage({ locale }: Props) {
                     </>
                   ) : (
                     <>
-                      Want to fine-tune each leg individually?  Open the{' '}
+                      Want to fine-tune each leg individually? Open the{' '}
                       <a
                         href={`/${locale}/startup-valuation`}
                         className="font-medium text-primary underline-offset-2 hover:underline"
@@ -905,7 +895,9 @@ export function ExpressStudioPage({ locale }: Props) {
             {blendedMid != null && (
               <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-5">
                 <p className="text-[10px] font-medium uppercase tracking-wide text-primary">
-                  {locale === 'nl' ? 'Live-preview · klaar voor je deck' : 'Live preview · ready for your deck'}
+                  {locale === 'nl'
+                    ? 'Live-preview · klaar voor je deck'
+                    : 'Live preview · ready for your deck'}
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div>
