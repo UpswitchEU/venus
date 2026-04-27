@@ -46,7 +46,7 @@ export const FEATURE_FLAGS = {
    */
   STARTUP_STUDIO_V2_ROLLOUT_PCT: Number.parseInt(
     process.env.NEXT_PUBLIC_STARTUP_STUDIO_V2_ROLLOUT_PCT ?? '0',
-    10,
+    10
   ),
 }
 
@@ -98,20 +98,27 @@ function getStudioVisitorBucket(): number | null {
  * only a deterministic, render-stable answer is allowed during SSR.
  */
 /**
- * Studio v2 is now the canonical pre-revenue path — the rollout flag
- * was retired once Express + the AmbitionPicker + the TeamPicker landed
- * (early-2026).  These helpers stay as `() => true` so:
- *   - the legacy `StartupAwareInputPanel` redirect to Studio v2 keeps
- *     firing without forcing every call-site to delete the gate,
- *   - any deeplink with `?source=studio_v2` or `?studio=legacy` still
- *     escapes the redirect for QA / partner integrations,
+ * Studio v2 is now the canonical pre-revenue path — and the standalone
+ * `/[locale]/startup-valuation` wizard has been folded into
+ * `ManualLayout`'s left rail (see `StartupValuationPanel`) so DCF /
+ * SaaS / NAV / Adaptive / Startup all share one shell.  The original
+ * rollout flags (Express + AmbitionPicker + TeamPicker era) are
+ * retired.
+ *
+ * These helpers stay as `() => true` so:
+ *   - any external caller (older bundle, QA harness, partner SDK)
+ *     that still imports them keeps compiling,
  *   - the env vars (`NEXT_PUBLIC_STARTUP_STUDIO_V2*`) become no-ops
- *     instead of breaking on stale Vercel configurations.
+ *     instead of breaking on stale Vercel configurations,
+ *   - a grep for `FEATURE_FLAGS.STARTUP_STUDIO_V2` still leads here so
+ *     a future rollback can re-introduce gradient bucketing without
+ *     hunting through git blame.
  *
  * Reference to the underlying flag values is preserved (`void`-cast
- * below) so a grep for `FEATURE_FLAGS.STARTUP_STUDIO_V2` still leads
- * here, and so the linter doesn't flag unused fields if a future
- * rollback wants to re-introduce gradient bucketing.
+ * below) so the linter doesn't flag the now-unused fields.
+ *
+ * @deprecated Studio v2 is the only path now; all consumers have been
+ * removed.  Target removal: 2026-Q3.
  */
 export const isStartupStudioV2Enabled = (): boolean => {
   void FEATURE_FLAGS.STARTUP_STUDIO_V2
@@ -120,8 +127,7 @@ export const isStartupStudioV2Enabled = (): boolean => {
   return true
 }
 
-/** Always-true counterpart of {@link isStartupStudioV2Enabled} for SSR
- * route gates.  See the docblock above for retirement rationale. */
+/** @deprecated See {@link isStartupStudioV2Enabled}. */
 export const isStartupStudioV2RouteEnabled = (): boolean => true
 
 // Environment-specific configurations

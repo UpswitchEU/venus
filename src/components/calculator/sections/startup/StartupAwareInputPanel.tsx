@@ -33,6 +33,7 @@ import { type ComponentProps, useCallback, useEffect, useRef } from 'react'
 import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
 import { AuroraButton } from '@/design-system'
 import { useAuth } from '@/hooks/useAuth'
+import { trackStudioRunComplete } from '@/lib/analytics'
 import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
@@ -133,25 +134,24 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
 }
 
 /**
- * Sticky CTA footer rendered below the legacy ``StartupValuationPanel``.
+ * Sticky CTA footer rendered below the unified `StartupValuationPanel`
+ * inside `ManualLayout`'s left rail.  The panel itself is a pure input
+ * surface (no inline submit button); this footer is the canonical
+ * trigger for `valuationService.calculateValuation` — same path the
+ * SME methods use.
  *
- * The legacy panel was authored as a pure input surface (no submit
- * button — calculation used to be auto-fired via the SME panel).
- * Without this footer founders coming out of Studio v2 cannot trigger
- * the engine at all; they simply land on the report page with a filled
- * form and no obvious "go" affordance.
+ * Submit is explicit and reactive-gated:
+ *   - disabled while a calculation is in flight,
+ *   - disabled when the company name is empty (the engine refuses an
+ *     empty identity envelope),
+ *   - disabled until the founder picks at least one Berkus / Scorecard
+ *     milestone (the engine would otherwise produce a meaningless €0
+ *     pre-money against the all-zero default state, polluting the
+ *     session history and the per-account result store).
  *
- * Submit is explicit: the user clicks Generate after filling in the
- * sections.  We refuse to fire when no milestone has been picked yet
- * so the engine never silently produces a meaningless €0 pre-money
- * against the all-zero default state (which would pollute the user's
- * session history and the per-account result store).
+ * The disabled state mirrors every gate the click handler enforces —
+ * we never want a button that looks enabled but silently no-ops.
  */
-function studioStoreHasAnyMilestonePick(): boolean {
-  const maturity = useStartupValuationStore.getState().maturity
-  return Object.values(maturity).some((v) => v !== 'none')
-}
-
 export function StartupSubmitFooter({
   onSubmit,
   isCalculating,
@@ -159,18 +159,52 @@ export function StartupSubmitFooter({
   onSubmit?: (data: any) => void | Promise<void>
   isCalculating: boolean
 }) {
-  const params = useParams<{ locale?: string }>()
+  const params = useParams<{ locale?: string; id?: string }>()
   const locale = params?.locale === 'nl' ? 'nl' : 'en'
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
+  // Reactive milestone-pick gate.  We subscribe to `maturity` so the
+  // submit button flips from disabled → enabled the moment the founder
+  // picks their first Berkus / Scorecard option, without waiting for
+  // an unrelated render to flush the cached function-call result.
+  const hasAnyMilestone = useStartupValuationStore((s) =>
+    Object.values(s.maturity).some((v) => v !== 'none')
+  )
+  const stage = useStartupValuationStore((s) => s.stage)
 
   const handleClick = useCallback(() => {
     if (!onSubmit) return
     if (isCalculating) return
-    if (!studioStoreHasAnyMilestonePick()) return
+    if (!hasAnyMilestone) return
+    // Fire `venus_studio_run_complete` exactly when the user explicitly
+    // triggers the calculation.  The downstream Titan response carries
+    // the canonical report id; this event marks the submit moment from
+    // the founder's perspective so the funnel dashboards keep reading
+    // the same shape they did under the old auto-fire wizard.
+    trackStudioRunComplete(params?.id ?? '', stage)
     void onSubmit(buildStartupSubmitPayload())
-  }, [onSubmit, isCalculating])
+  }, [onSubmit, isCalculating, hasAnyMilestone, params?.id, stage])
 
-  const disabled = isCalculating || !companyName.trim()
+  const missingCompanyName = !companyName.trim()
+  const missingMilestone = !hasAnyMilestone
+  // Disabled state mirrors every gate the click handler enforces — so
+  // a disabled button never silently no-ops on click (the silent no-op
+  // pattern feels broken to the user).
+  const disabled = isCalculating || missingCompanyName || missingMilestone
+
+  // The helper text is mutually exclusive: company-name takes priority
+  // because the founder typically lands at the top of the panel and
+  // hasn't scrolled down to the milestones yet.  Once they fill in the
+  // identity, the milestone hint takes over.
+  const helperText = missingCompanyName
+    ? locale === 'nl'
+      ? 'Vul eerst de bedrijfsnaam bovenaan in om je rapport te genereren.'
+      : 'Add the company name above to unlock report generation.'
+    : missingMilestone
+      ? locale === 'nl'
+        ? 'Kies minstens één mijlpaal in “Risico-reductie” voor een verdedigbare waardering.'
+        : 'Pick at least one milestone in “Risk reduction” for a defensible valuation.'
+      : null
+
   return (
     <div className="sticky bottom-0 z-20 shrink-0 -mx-4 px-4 py-3 border-t border-foreground/[0.06] bg-background/95 backdrop-blur">
       <AuroraButton
@@ -190,12 +224,8 @@ export function StartupSubmitFooter({
             ? 'Genereer startup waardering'
             : 'Generate startup valuation'}
       </AuroraButton>
-      {!companyName.trim() && (
-        <p className="mt-2 text-center text-[11px] text-foreground/60">
-          {locale === 'nl'
-            ? 'Vul eerst de bedrijfsnaam bovenaan in om je rapport te genereren.'
-            : 'Add the company name above to unlock report generation.'}
-        </p>
+      {helperText && (
+        <p className="mt-2 text-center text-[11px] text-foreground/60">{helperText}</p>
       )}
     </div>
   )

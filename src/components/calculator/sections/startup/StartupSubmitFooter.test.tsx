@@ -1,35 +1,36 @@
 /**
- * StartupSubmitFooter — auto-fire + manual submit contract.
+ * StartupSubmitFooter — manual-submit contract.
  *
- * The legacy `StartupValuationPanel` has no submit affordance of its
- * own; this footer is the only path founders have for triggering the
- * engine.  Three guarantees we MUST keep:
+ * The unified `StartupValuationPanel` has no submit affordance of its
+ * own; this footer is the canonical path founders + advisors use to
+ * trigger ValuationIQ.  Three guarantees:
  *
- *   1. **Manual click** always fires `onSubmit` with a payload that
- *      satisfies the SME-style validators (companyName / businessType /
+ *   1. **Manual click** fires `onSubmit` with a payload that satisfies
+ *      the SME-style validators (companyName / businessType /
  *      yearlyFinancials present), even though the validators bypass
  *      them for the venture path.
- *   2. **Auto-fire** runs exactly once on mount when the URL carries
- *      `?source=studio_v2` AND the founder has actually picked at
- *      least one milestone.  Re-renders or repeated mounts must NOT
- *      re-fire.
- *   3. **Auto-fire bails** when the Studio store is at default state
- *      (no maturity picked) — protects shared deep-links from
- *      computing meaningless €0 valuations against zeros.
+ *   2. **Disabled** when the company name is missing — protects the
+ *      report page from landing on `/reports/{id}` with an empty
+ *      identity envelope.
+ *   3. **Submit gated on milestone pick**: clicking before any Berkus
+ *      milestone is selected is a no-op.  This protects the per-account
+ *      result store from a meaningless €0 pre-money against the
+ *      all-zero defaults a fresh wizard state produces.
+ *
+ * The prior auto-fire-on-`?source=studio_v2` contract is gone — the
+ * separate Studio v2 wizard is gone too, so there's no round-trip URL
+ * signal left to honour.  Submit is always explicit.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  StartupSubmitFooter,
-  buildStartupSubmitPayload,
-} from './StartupAwareInputPanel'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
   MATURITY_TO_SCORE,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { getCurrentFilingYear } from '@/utils/fiscalYear'
+import { buildStartupSubmitPayload, StartupSubmitFooter } from './StartupAwareInputPanel'
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ locale: 'en' }),
@@ -67,7 +68,7 @@ describe('StartupSubmitFooter', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('fires onSubmit on manual click with the synthetic payload shape', () => {
+  it('fires onSubmit on manual click once a milestone is picked', () => {
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
@@ -77,7 +78,17 @@ describe('StartupSubmitFooter', () => {
           country_code: 'NL',
         },
       },
-      true,
+      true
+    )
+    // The submit gate refuses to fire against the all-zero default
+    // Studio store; pick a milestone so the gate releases.
+    useStartupValuationStore.setState(
+      {
+        ...initialStudioSnapshot,
+        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
+        sound_idea: MATURITY_TO_SCORE.strong,
+      },
+      true
     )
 
     const onSubmit = vi.fn()
@@ -86,7 +97,8 @@ describe('StartupSubmitFooter', () => {
     fireEvent.click(screen.getByRole('button', { name: /generate startup valuation/i }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
-    const payload = onSubmit.mock.calls[0]![0]
+    const payload = onSubmit.mock.calls[0]?.[0]
+    expect(payload).toBeDefined()
     expect(payload.companyName).toBe('Acme Robotics')
     expect(payload.country).toBe('NL')
     // The synthetic shape MUST include keys the report UI consumes
@@ -97,114 +109,32 @@ describe('StartupSubmitFooter', () => {
     expect(Array.isArray(payload.yearlyFinancials)).toBe(true)
   })
 
-  it('auto-fires once when arriving from Studio v2 with a milestone picked', () => {
+  it('does NOT fire on manual click when no milestone has been picked yet', () => {
+    // Founder filled in identity but never touched a Berkus milestone —
+    // computing now would produce a meaningless €0 pre-money against
+    // the all-zero defaults and pollute the per-account result store.
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
         formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
       },
-      true,
+      true
     )
-    useStartupValuationStore.setState(
-      {
-        ...initialStudioSnapshot,
-        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
-        sound_idea: MATURITY_TO_SCORE.strong,
-      },
-      true,
-    )
-    setLocation('?source=studio_v2')
-
-    const onSubmit = vi.fn()
-    const { rerender } = render(
-      <StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />,
-    )
-
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-
-    // Re-renders must not re-fire (autoFiredRef latches true).
-    rerender(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-  })
-
-  it('auto-fires once when an advisor returns via source=mercury+studio_completed=1', () => {
-    // Mercury → Studio v2 → report round-trip: `source=mercury` is
-    // preserved verbatim so the bootstrap fallback can restore the
-    // accountant-for-client identity, and `studio_completed=1` is the
-    // separate "just finished the wizard" signal that fires the calc.
-    useManualFormStore.setState(
-      {
-        ...initialFormSnapshot,
-        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
-      },
-      true,
-    )
-    useStartupValuationStore.setState(
-      {
-        ...initialStudioSnapshot,
-        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
-        sound_idea: MATURITY_TO_SCORE.strong,
-      },
-      true,
-    )
-    setLocation('?source=mercury&mode=accountant&studio_completed=1')
 
     const onSubmit = vi.fn()
     render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
-
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-  })
-
-  it('does NOT auto-fire when neither studio source signal is present', () => {
-    useManualFormStore.setState(
-      {
-        ...initialFormSnapshot,
-        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
-      },
-      true,
-    )
-    useStartupValuationStore.setState(
-      {
-        ...initialStudioSnapshot,
-        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
-        sound_idea: MATURITY_TO_SCORE.strong,
-      },
-      true,
-    )
-    setLocation('?source=mercury')
-
-    const onSubmit = vi.fn()
-    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /generate startup valuation/i }))
 
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('does NOT auto-fire when the Studio store has no milestone picked (default state)', () => {
+  it('does NOT fire when a calculation is already in flight', () => {
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
         formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
       },
-      true,
-    )
-    setLocation('?source=studio_v2')
-
-    const onSubmit = vi.fn()
-    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
-
-    // Founder hit the deep-link without going through the wizard
-    // (cleared localStorage / shared link).  Auto-fire must bail so we
-    // don't compute a €0 pre-money against the all-zero defaults.
-    expect(onSubmit).not.toHaveBeenCalled()
-  })
-
-  it('does NOT auto-fire while a calculation is already in flight', () => {
-    useManualFormStore.setState(
-      {
-        ...initialFormSnapshot,
-        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
-      },
-      true,
+      true
     )
     useStartupValuationStore.setState(
       {
@@ -212,12 +142,17 @@ describe('StartupSubmitFooter', () => {
         maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
         sound_idea: MATURITY_TO_SCORE.strong,
       },
-      true,
+      true
     )
-    setLocation('?source=studio_v2')
 
     const onSubmit = vi.fn()
     render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={true} />)
+    // AuroraButton's `loading` prop swaps the label for a spinner, so
+    // we can't query the button by text — grab the only button on screen.
+    const buttons = screen.getAllByRole('button')
+    expect(buttons.length).toBeGreaterThan(0)
+    const firstButton = buttons[0]
+    if (firstButton) fireEvent.click(firstButton)
 
     expect(onSubmit).not.toHaveBeenCalled()
   })
@@ -249,7 +184,7 @@ describe('buildStartupSubmitPayload', () => {
           founding_year: 2018,
         },
       },
-      true,
+      true
     )
     expect(buildStartupSubmitPayload().yearFounded).toBe(2018)
   })
@@ -266,10 +201,10 @@ describe('buildStartupSubmitPayload', () => {
           founding_year: undefined as unknown as number,
         },
       },
-      true,
+      true
     )
     expect(buildStartupSubmitPayload().yearFounded).toBe(
-      getCurrentFilingYear(new Date('2026-06-15T12:00:00Z')),
+      getCurrentFilingYear(new Date('2026-06-15T12:00:00Z'))
     )
     vi.useRealTimers()
   })
@@ -286,34 +221,28 @@ describe('buildStartupSubmitPayload', () => {
           founding_year: 0,
         },
       },
-      true,
+      true
     )
     expect(buildStartupSubmitPayload().yearFounded).toBe(
-      getCurrentFilingYear(new Date('2026-06-15T12:00:00Z')),
+      getCurrentFilingYear(new Date('2026-06-15T12:00:00Z'))
     )
     vi.useRealTimers()
   })
 
   it('uses the Studio store country when the form store country is empty', () => {
-    useStartupValuationStore.setState(
-      { ...initialStudioSnapshot, country_code: 'LU' },
-      true,
-    )
+    useStartupValuationStore.setState({ ...initialStudioSnapshot, country_code: 'LU' }, true)
     const payload = buildStartupSubmitPayload()
     expect(payload.country).toBe('LU')
   })
 
   it('prefers the form-store country when both stores have one', () => {
-    useStartupValuationStore.setState(
-      { ...initialStudioSnapshot, country_code: 'LU' },
-      true,
-    )
+    useStartupValuationStore.setState({ ...initialStudioSnapshot, country_code: 'LU' }, true)
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
         formData: { ...initialFormSnapshot.formData, country_code: 'NL' },
       },
-      true,
+      true
     )
     const payload = buildStartupSubmitPayload()
     expect(payload.country).toBe('NL')

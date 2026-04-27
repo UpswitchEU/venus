@@ -301,6 +301,14 @@ export type StudioStep =
   | 'round_simulator'
   | 'report'
 
+/**
+ * @deprecated The Studio is now a single scroll-through panel inside
+ * `ManualLayout`'s left rail — there is no Next/Back button, so this
+ * "step completed by Next click" event no longer fires.  Kept so older
+ * dashboards do not break on a missing import; remove once funnels
+ * have been migrated to use `venus_studio_step_viewed` + the panel's
+ * status derivation as the equivalent signal.  Target removal: 2026-Q3.
+ */
 export function trackStudioStepCompleted(
   step: StudioStep,
   stage?: 'pre_seed' | 'seed' | 'series_a',
@@ -316,11 +324,12 @@ export function trackStudioEvidenceAdded(milestone: string): void {
 }
 
 /**
- * Fires every time the founder hits "Next" on a step that still has
- * unmet validation. Powers the abandonment funnel — if 60% of founders
- * get blocked on `profile` (no company name), the wizard copy needs a
- * rewrite.  The `reason` is the human-readable blocker sentence already
- * shown next to the disabled button.
+ * @deprecated Same retirement as `trackStudioStepCompleted` — there is
+ * no "blocked Next click" surface in the unified panel; the canonical
+ * `StartupSubmitFooter` reflects gating via its disabled state and a
+ * helper sentence under the button.  Kept as a no-op stable export so
+ * older dashboards do not break on a missing import.  Target removal:
+ * 2026-Q3.
  */
 export function trackStudioStepBlocked(step: StudioStep, reason: string): void {
   trackEvent('venus_studio_step_blocked', { step, reason })

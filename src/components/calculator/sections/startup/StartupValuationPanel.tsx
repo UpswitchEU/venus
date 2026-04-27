@@ -51,10 +51,7 @@ import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSi
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
-import {
-  type StudioStepId,
-  useStudioIssues,
-} from '@/features/startup-studio/hooks/useStudioIssues'
+import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
@@ -149,13 +146,7 @@ function useSectionStatuses(): Record<StudioStep, Status> {
   const investment = useStartupValuationStore((s) => s.investment_amount_sought)
 
   return useMemo<Record<StudioStep, Status>>(() => {
-    const profileComplete = !!(
-      companyName.trim() &&
-      stage &&
-      sector &&
-      country &&
-      businessTypeId
-    )
+    const profileComplete = !!(companyName.trim() && stage && sector && country && businessTypeId)
 
     const berkusKeys = [
       'sound_idea',
@@ -181,10 +172,8 @@ function useSectionStatuses(): Record<StudioStep, Status> {
 
     return {
       profile: profileComplete ? 'complete' : companyName.trim() ? 'partial' : 'empty',
-      berkus:
-        berkusPicked === 0 ? 'empty' : berkusPicked >= 4 ? 'complete' : 'partial',
-      scorecard:
-        scorecardPicked === 0 ? 'empty' : scorecardPicked >= 3 ? 'complete' : 'partial',
+      berkus: berkusPicked === 0 ? 'empty' : berkusPicked >= 4 ? 'complete' : 'partial',
+      scorecard: scorecardPicked === 0 ? 'empty' : scorecardPicked >= 3 ? 'complete' : 'partial',
       founder_pedigree: Object.values(founderPedigree).some(Boolean) ? 'complete' : 'empty',
       traction: (mrr ?? 0) > 0 || (arr ?? 0) > 0 ? 'complete' : 'partial',
       exit_story:
@@ -230,10 +219,7 @@ export interface StartupValuationPanelProps {
   mode?: StartupValuationPanelMode
 }
 
-export function StartupValuationPanel({
-  className,
-  mode = 'advisor',
-}: StartupValuationPanelProps) {
+export function StartupValuationPanel({ className, mode = 'advisor' }: StartupValuationPanelProps) {
   const locale = useStartupValuationStore.getState().country_code === 'NL' ? 'nl' : 'en'
   // Kept on the surface for parity with the prior implementation; the
   // section components are mode-agnostic for now and `mode` is reserved
@@ -263,24 +249,37 @@ export function StartupValuationPanel({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // The active-section highlight is a progressive enhancement.
+    //   - jsdom (vitest) ships a stubbed `IntersectionObserver` that's
+    //     a `vi.fn()` (callable, not constructable with `new`).
+    //   - A small tail of older browsers ships nothing at all.
+    // Either way, bail silently rather than crash the render.
+    const Ctor = (window as unknown as { IntersectionObserver?: typeof IntersectionObserver })
+      .IntersectionObserver
+    if (typeof Ctor !== 'function') return
     const observed = SECTIONS.map((s) => sectionRefs.current[s.id]).filter(
       (el): el is HTMLElement => !!el
     )
     if (observed.length === 0) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-        const target = visible[0]?.target as HTMLElement | undefined
-        const id = target?.dataset.studioStep as StudioStep | undefined
-        if (id) setActiveId(id)
-      },
-      { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
-    )
+    let observer: IntersectionObserver
+    try {
+      observer = new Ctor(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+          const target = visible[0]?.target as HTMLElement | undefined
+          const id = target?.dataset.studioStep as StudioStep | undefined
+          if (id) setActiveId(id)
+        },
+        { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
+      )
+    } catch {
+      // Mocked in test runner — skip the enhancement.
+      return
+    }
     for (const el of observed) observer.observe(el)
     return () => observer.disconnect()
-    // The section list is static, so length-keyed re-bind is enough.
   }, [])
 
   useEffect(() => {
@@ -298,7 +297,7 @@ export function StartupValuationPanel({
   }
 
   return (
-    <div className={['aurora-theme space-y-8 p-4 pb-32', className].filter(Boolean).join(' ')}>
+    <div className={['aurora-theme space-y-6 p-6', className].filter(Boolean).join(' ')}>
       {SECTIONS.map((section, idx) => {
         const status = statuses[section.id]
         return (
@@ -311,8 +310,9 @@ export function StartupValuationPanel({
             id={section.anchor}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut', delay: idx * 0.02 }}
-            className="scroll-mt-6 space-y-4"
+            className="scroll-mt-6 space-y-5 pt-2"
             aria-label={section.label[locale]}
           >
             <ValuationSectionHeader

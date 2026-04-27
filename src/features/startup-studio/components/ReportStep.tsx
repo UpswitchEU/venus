@@ -20,7 +20,7 @@
  * Co-pilot rail rather than blocking inline.
  */
 
-import { Check, Copy } from 'lucide-react'
+import { AlertCircle, Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
@@ -268,11 +268,7 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
           Compact summary above the canonical submit footer. Blockers and
           warnings are routed to the StudioCoPilot for resolution; gating
           the submit is the footer's job, not this preview surface. */}
-      <HealthCheck
-        blockerCount={blockers.length}
-        warningCount={warnings.length}
-        locale={locale}
-      />
+      <HealthCheck blockerCount={blockers.length} warningCount={warnings.length} locale={locale} />
     </div>
   )
 }
