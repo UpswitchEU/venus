@@ -168,6 +168,47 @@ describe('useManualResultsStore', () => {
       expect(result.current.htmlReport).toBeNull()
     })
 
+    it('falls back to nested details html when top-level html is a safety-net summary', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      const mockResult = {
+        valuation_id: 'val-details-fallback',
+        html_report:
+          '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>',
+        details: {
+          html_report: '<article>Full details report</article>',
+        },
+      } as any
+
+      act(() => {
+        result.current.setResult(mockResult)
+      })
+
+      expect(result.current.htmlReport).toBe('<article>Full details report</article>')
+    })
+
+    it('clears previous report html when the current payload explicitly contains safety-net html', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setResult({
+          valuation_id: 'val-ready',
+          html_report: '<article>Previous full report</article>',
+        } as any)
+      })
+      expect(result.current.htmlReport).toBe('<article>Previous full report</article>')
+
+      act(() => {
+        result.current.setResult({
+          valuation_id: 'val-safety-current',
+          html_report:
+            '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>',
+        } as any)
+      })
+
+      expect(result.current.htmlReport).toBeNull()
+    })
+
     it('should derive the active valuation from nested valuation_result payloads', () => {
       const { result } = renderHook(() => useManualResultsStore())
 

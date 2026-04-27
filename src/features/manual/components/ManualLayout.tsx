@@ -177,7 +177,11 @@ import {
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
-import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
+import {
+  getFirstRenderableReportHtml,
+  getRenderableReportHtml,
+  getRenderableReportHtmlFromCurrentOrFallback,
+} from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import {
   hasExistingValuationVersion,
@@ -1056,7 +1060,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     !!session &&
     (() => {
       const sd = (session.sessionData || session) as any
-      return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
+      const hasRenderableHtml = !!getFirstRenderableReportHtml(
+        session.htmlReport,
+        sd._htmlReport,
+        sd.htmlReport,
+        sd.html_report
+      )
+      return !!(
+        sd.valuationResult ||
+        sd.valuation_result ||
+        hasRenderableHtml
+      )
     })()
   // Unblock UI as soon as SessionRestorationService signals completion.
   // Keep a 5s safety timeout as a last resort in case the signal is never set.
@@ -1135,7 +1149,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const mergedResult: ValuationResponse = {
         ...(latestExistingResult || {}),
         ...r,
-        html_report: r.html_report || latestExistingResult?.html_report,
+        html_report: getRenderableReportHtmlFromCurrentOrFallback(
+          [r.html_report],
+          [latestExistingResult?.html_report]
+        ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
         multiple_adjustment_summary:
@@ -2118,8 +2135,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (version?.valuationResult) {
         const enrichedResult = {
           ...version.valuationResult,
-          html_report: getRenderableReportHtml(
-            version.valuationResult.html_report || version.htmlReport
+          html_report: getFirstRenderableReportHtml(
+            version.valuationResult.html_report,
+            version.htmlReport
           ),
         }
         setResult(enrichedResult)
@@ -2156,7 +2174,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
         const askingPrice =
           askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
-        const htmlReport = getRenderableReportHtml(r.html_report ?? r.details?.html_report)
+        const htmlReport = getFirstRenderableReportHtml(r.html_report, r.details?.html_report)
         const dcfHistoricalFcfReadiness =
           r.dcf_valuation?.historical_fcf_readiness ??
           r.details?.dcf_valuation?.historical_fcf_readiness ??
@@ -2280,7 +2298,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const mergedResult: ValuationResponse = {
           ...(latestExistingResult || {}),
           ...fresh,
-          html_report: htmlFromPatch || fresh.html_report || latestExistingResult?.html_report,
+          html_report: getRenderableReportHtmlFromCurrentOrFallback(
+            [htmlFromPatch, fresh.html_report],
+            [latestExistingResult?.html_report]
+          ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
             fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
@@ -2288,9 +2309,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
         }
         setResult(mergedResult)
-        const htmlForPreview = getRenderableReportHtml(htmlFromPatch || fresh.html_report)
+        const htmlForPreview = getFirstRenderableReportHtml(htmlFromPatch, fresh.html_report)
         setReport((prev) => {
           if (!prev) return prev
+          const nextHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
+            [htmlFromPatch, fresh.html_report],
+            [prev.htmlReport]
+          )
           const pdfMeta: Pick<
             ValuationReportData,
             'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'
@@ -2304,9 +2329,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 : null,
             pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
-          return htmlForPreview
-            ? { ...prev, htmlReport: htmlForPreview, ...pdfMeta }
-            : { ...prev, ...pdfMeta }
+          return { ...prev, htmlReport: nextHtmlReport, ...pdfMeta }
         })
         if (htmlForPreview && planFeatures?.valuation_download !== false) {
           generatePdf?.().catch((err) => {
@@ -2370,7 +2393,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const mergedResult: ValuationResponse = {
           ...(latestExistingResult || {}),
           ...fresh,
-          html_report: fresh.html_report || latestExistingResult?.html_report,
+          html_report: getRenderableReportHtmlFromCurrentOrFallback(
+            [fresh.html_report],
+            [latestExistingResult?.html_report]
+          ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
             fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
@@ -2427,7 +2453,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const mergedResult: ValuationResponse = {
         ...(latestExistingResult || {}),
         ...fresh,
-        html_report: fresh.html_report || latestExistingResult?.html_report,
+        html_report: getRenderableReportHtmlFromCurrentOrFallback(
+          [fresh.html_report],
+          [latestExistingResult?.html_report]
+        ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
         multiple_adjustment_summary:
@@ -4978,8 +5007,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (version.valuationResult) {
           const enrichedResult = {
             ...version.valuationResult,
-            html_report: getRenderableReportHtml(
-              version.valuationResult.html_report || version.htmlReport
+            html_report: getFirstRenderableReportHtml(
+              version.valuationResult.html_report,
+              version.htmlReport
             ),
           }
           setResult(enrichedResult)

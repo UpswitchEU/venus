@@ -27,6 +27,7 @@ import { ScorecardStep } from '@/features/startup-studio/components/ScorecardSte
 import { StudioShell } from '@/features/startup-studio/components/StudioShell'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { buildAdvisorReturnUrl, buildFounderReturnUrl } from './studioReturnUrls'
 
 interface Props {
   locale: 'en' | 'nl'
@@ -134,17 +135,7 @@ export function StartupStudioPage({ locale }: Props) {
     //     and redirect-bypass signals.
     try {
       if (advisorHandoff?.reportId) {
-        const qs = new URLSearchParams()
-        qs.set('selected_method', 'startup_valuation')
-        qs.set('studio_completed', '1')
-        if (advisorHandoff.mode) qs.set('mode', advisorHandoff.mode)
-        if (advisorHandoff.clientId) qs.set('clientId', advisorHandoff.clientId)
-        if (advisorHandoff.returnUrl) qs.set('return_url', advisorHandoff.returnUrl)
-        if (advisorHandoff.source) qs.set('source', advisorHandoff.source)
-        const targetLocale = advisorHandoff.locale === 'nl' ? 'nl' : 'en'
-        router.push(
-          `/${targetLocale}/reports/${advisorHandoff.reportId}?${qs.toString()}${partnerSuffix}`
-        )
+        router.push(buildAdvisorReturnUrl(advisorHandoff, partnerSuffix))
         // Clear AFTER navigation dispatches so a thrown push doesn't
         // strand the retry on the founder fallback path.  `router.push`
         // in app-router doesn't throw synchronously, but the catch
@@ -158,9 +149,7 @@ export function StartupStudioPage({ locale }: Props) {
           // gates consumption regardless.
         }
       } else {
-        router.push(
-          `/${locale}/reports/new?selected_method=startup_valuation&source=studio_v2${partnerSuffix}`
-        )
+        router.push(buildFounderReturnUrl(locale, partnerSuffix))
       }
     } catch (err) {
       // Reset so the user can retry — `ReportStep`'s `handleSubmit`

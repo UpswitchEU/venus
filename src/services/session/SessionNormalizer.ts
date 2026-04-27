@@ -22,6 +22,7 @@ import {
 } from '../../utils/fiscalYear'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import {
   SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
@@ -420,7 +421,15 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
     if (valuationResultsCandidate) {
       score += 8
     }
-    if (candidate.html_report || candidate.htmlReport || candidate.details?.html_report) score += 4
+    if (
+      getFirstRenderableReportHtml(
+        candidate.html_report,
+        candidate.htmlReport,
+        candidate.details?.html_report
+      )
+    ) {
+      score += 4
+    }
     if (
       candidate.equity_value_mid != null ||
       candidate.valuation_midpoint != null ||
@@ -447,20 +456,25 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 function extractHtmlReport(sessionData: any, topLevelSession: any): string | null {
   // Get valuation result first (may contain html_report)
   const valuationResult = extractValuationResult(sessionData, topLevelSession)
+  const valuationDetails =
+    valuationResult?.details && typeof valuationResult.details === 'object'
+      ? (valuationResult.details as Record<string, unknown>)
+      : null
 
   return (
-    // Direct top-level fields
-    topLevelSession?.htmlReport ||
-    sessionData?.htmlReport ||
-    sessionData?.html_report ||
-    topLevelSession?.html_report ||
-    // Titan-injected field (prefixed with _)
-    sessionData?._htmlReport ||
-    // Inside valuation result
-    valuationResult?.html_report ||
-    valuationResult?.htmlReport ||
-    valuationResult?.details?.html_report ||
-    null
+    getFirstRenderableReportHtml(
+      // Direct top-level fields
+      topLevelSession?.htmlReport,
+      typeof sessionData?.htmlReport === 'string' ? sessionData.htmlReport : null,
+      typeof sessionData?.html_report === 'string' ? sessionData.html_report : null,
+      topLevelSession?.html_report,
+      // Titan-injected field (prefixed with _)
+      typeof sessionData?._htmlReport === 'string' ? sessionData._htmlReport : null,
+      // Inside valuation result
+      valuationResult?.html_report,
+      valuationResult?.htmlReport,
+      typeof valuationDetails?.html_report === 'string' ? valuationDetails.html_report : null
+    ) || null
   )
 }
 

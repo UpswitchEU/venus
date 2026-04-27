@@ -13,3 +13,26 @@ export function getRenderableReportHtml(html: string | null | undefined): string
   if (!html || isSafetyNetReportHtml(html)) return undefined
   return html
 }
+
+export function getFirstRenderableReportHtml(
+  ...htmlReports: Array<string | null | undefined>
+): string | undefined {
+  for (const html of htmlReports) {
+    const renderableHtml = getRenderableReportHtml(html)
+    if (renderableHtml) return renderableHtml
+  }
+  return undefined
+}
+
+export function getRenderableReportHtmlFromCurrentOrFallback(
+  currentHtmlReports: Array<string | null | undefined>,
+  fallbackHtmlReports: Array<string | null | undefined>
+): string | undefined {
+  const currentRenderableHtml = getFirstRenderableReportHtml(...currentHtmlReports)
+  if (currentRenderableHtml) return currentRenderableHtml
+
+  const currentHasSafetyNetHtml = currentHtmlReports.some(isSafetyNetReportHtml)
+  if (currentHasSafetyNetHtml) return undefined
+
+  return getFirstRenderableReportHtml(...fallbackHtmlReports)
+}

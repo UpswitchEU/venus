@@ -18,6 +18,7 @@ import type {
 } from '../../../types/ValuationVersion'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { createContextLogger } from '../../../utils/logger'
+import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 
 export interface APIRequestConfig {
   signal?: AbortSignal
@@ -563,12 +564,13 @@ export class VersionAPI {
         null,
       // Extract HTML reports from multiple possible locations
       htmlReport:
-        backendVersion.htmlReport ||
-        versionData.htmlReport ||
-        versionData.outputs?.html_report ||
-        versionData.outputs?.details?.html_report ||
-        backendVersion.html_report ||
-        null,
+        getFirstRenderableReportHtml(
+          backendVersion.htmlReport,
+          versionData.htmlReport,
+          versionData.outputs?.html_report,
+          versionData.outputs?.details?.html_report,
+          backendVersion.html_report
+        ) || null,
       changesSummary: backendVersion.changesSummary ||
         backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
       isActive: backendVersion.isActive || backendVersion.is_active || false,

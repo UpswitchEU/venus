@@ -10,6 +10,7 @@
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { fetchWithBySession404Retry } from '../../../utils/fetchWithBySession404Retry'
 import { isUuid } from '../../../utils/identifiers'
+import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -349,7 +350,13 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       return true
     }
 
-    if (sessionData._htmlReport || sessionData.htmlReport || sessionData.html_report) {
+    if (
+      getFirstRenderableReportHtml(
+        typeof sessionData._htmlReport === 'string' ? sessionData._htmlReport : null,
+        typeof sessionData.htmlReport === 'string' ? sessionData.htmlReport : null,
+        typeof sessionData.html_report === 'string' ? sessionData.html_report : null
+      )
+    ) {
       return true
     }
 

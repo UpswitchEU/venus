@@ -320,4 +320,25 @@ describe('SessionRestorationService', () => {
     const state = useManualFormStore.getState()
     expect(state.formData.shares_for_sale).toBe(100)
   })
+
+  it('does not hydrate manual results from ValuationIQ safety-net summary in package', () => {
+    const safetyNetHtml =
+      '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>'
+
+    SessionRestorationService.hydrateFromPackage(
+      'val_safety_pkg',
+      {
+        htmlReport: safetyNetHtml,
+        pricingRange: { min: 200000, mid: 277000, max: 320000, currency: 'EUR' },
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {},
+      },
+      'manual'
+    )
+
+    const state = useManualResultsStore.getState()
+    expect(state.result?.html_report).toBeUndefined()
+    expect(state.htmlReport).toBeNull()
+  })
 })

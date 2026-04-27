@@ -19,6 +19,7 @@
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { generalLogger } from '../../utils/logger'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 
@@ -44,7 +45,7 @@ function areAssetsAlreadyLoaded(flowType: 'manual' | 'conversational'): boolean 
   if (!result) return false
 
   // Check if HTML report is already present
-  const hasHtmlReport = !!(result.html_report || result.htmlReport)
+  const hasHtmlReport = !!getFirstRenderableReportHtml(result.html_report, result.htmlReport)
 
   return hasHtmlReport
 }
@@ -206,11 +207,12 @@ class AssetPreloadServiceImpl {
       // Extract assets from session data
       const sessionData = session.session_data || {}
       const htmlReport =
-        sessionData.htmlReport ||
-        sessionData.html_report ||
-        sessionData._htmlReport ||
-        session.htmlReport ||
-        null
+        getFirstRenderableReportHtml(
+          sessionData.htmlReport,
+          sessionData.html_report,
+          sessionData._htmlReport,
+          session.htmlReport
+        ) || null
       const valuationResult =
         sessionData.valuationResult ||
         sessionData.valuation_result ||
@@ -226,9 +228,28 @@ class AssetPreloadServiceImpl {
 
       // Update the appropriate store with loaded assets
       if (valuationResult || htmlReport) {
-        const result = {
-          ...valuationResult,
-          html_report: htmlReport || valuationResult?.html_report,
+        const vr = (valuationResult || {}) as Record<string, any>
+        const { html_report: _vrTopHtml, details: vrd, ...vrRest } = vr
+        const safeTop = getFirstRenderableReportHtml(
+          htmlReport,
+          _vrTopHtml,
+          vrd && typeof vrd === 'object' ? (vrd as { html_report?: string }).html_report : null
+        )
+        const result: Record<string, any> = {
+          ...vrRest,
+          html_report: safeTop,
+        }
+        if (vrd !== undefined) {
+          result.details =
+            vrd && typeof vrd === 'object'
+              ? {
+                  ...(vrd as Record<string, unknown>),
+                  html_report: getFirstRenderableReportHtml(
+                    safeTop,
+                    (vrd as { html_report?: string }).html_report
+                  ),
+                }
+              : vrd
         }
 
         if (flowType === 'conversational') {

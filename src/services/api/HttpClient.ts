@@ -23,6 +23,7 @@ import {
 } from '../../utils/errorRecovery'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
+import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
@@ -511,10 +512,8 @@ export class HttpClient {
         const extractedData = responseData
 
         // CRITICAL: Warn if html_report is missing from calculation response
-        if (
-          !(extractedData as any)?.html_report ||
-          (extractedData as any).html_report.trim().length === 0
-        ) {
+        const renderableHtmlReport = getRenderableReportHtml((extractedData as any)?.html_report)
+        if (!renderableHtmlReport) {
           apiLogger.error('CRITICAL: html_report missing or empty in valuation response', {
             url: config.url,
             hasExtractedData: !!extractedData,
@@ -525,8 +524,8 @@ export class HttpClient {
         } else {
           apiLogger.info('SUCCESS: html_report found in valuation response', {
             url: config.url,
-            htmlReportLength: (extractedData as any)?.html_report?.length || 0,
-            htmlReportPreview: (extractedData as any)?.html_report?.substring(0, 200),
+            htmlReportLength: renderableHtmlReport.length,
+            htmlReportPreview: renderableHtmlReport.substring(0, 200),
           })
         }
       }

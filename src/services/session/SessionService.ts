@@ -26,6 +26,7 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
   mergePrefilledQuery,
@@ -623,13 +624,16 @@ export class SessionService {
 
         const session = sessionResponse.session as any
         const sessionData = session?.sessionData || session?.session_data || {}
+        const hasRenderableHtmlReport = !!getFirstRenderableReportHtml(
+          sessionData?._htmlReport,
+          sessionData?.html_report,
+          session?.htmlReport
+        )
         const hasValuationResult = !!(
           session?.valuationResult ||
           sessionData?.valuation_result ||
           sessionData?.valuationResult ||
-          sessionData?._htmlReport ||
-          sessionData?.html_report ||
-          session?.htmlReport
+          hasRenderableHtmlReport
         )
         const hasReportId = !!(session?.report_id || session?.reportId)
         const looksCompleted = hasReportId || session?.status === 'completed'
@@ -1875,29 +1879,42 @@ export class SessionService {
 
           // Only update if the store still has the same reportId
           if (currentStoreSession?.reportId === reportId) {
+            const { useManualResultsStore } = await import(
+              '../../store/manual/useManualResultsStore'
+            )
+            const existingResult = useManualResultsStore.getState().result
+            const revalidatedScreenHtml = getFirstRenderableReportHtml(
+              mergedSession.htmlReport,
+              (mergedSession.valuationResult as { html_report?: string } | null | undefined)?.html_report,
+              (mergedSession.valuationResult as { details?: { html_report?: string } } | null | undefined)
+                ?.details?.html_report
+            )
+            const safeHtmlForStores =
+              revalidatedScreenHtml ||
+              getFirstRenderableReportHtml(
+                (existingResult as { html_report?: string } | null | undefined)?.html_report,
+                (existingResult as { details?: { html_report?: string } } | null | undefined)?.details
+                  ?.html_report
+              )
             // Update the session with the revalidated HTML reports
             useSessionStore.getState().hydrateSession({
-              htmlReport: mergedSession.htmlReport,
+              htmlReport: safeHtmlForStores,
               valuationResult: mergedSession.valuationResult,
               // Also update sessionData with merged fields
               sessionData: mergedSession.sessionData,
             })
 
             // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
-            if (mergedSession.htmlReport || mergedSession.valuationResult) {
+            if (safeHtmlForStores || mergedSession.valuationResult) {
               try {
-                const { useManualResultsStore } = await import(
-                  '../../store/manual/useManualResultsStore'
-                )
-                const existingResult = useManualResultsStore.getState().result
                 const fullResult = {
                   ...(existingResult || {}),
                   ...(mergedSession.valuationResult || {}),
-                  html_report: mergedSession.htmlReport || (existingResult as any)?.html_report,
+                  html_report: safeHtmlForStores,
                 }
                 useManualResultsStore.getState().setResult(fullResult as any)
-                if (mergedSession.htmlReport) {
-                  useManualResultsStore.getState().setHtmlReport(mergedSession.htmlReport)
+                if (safeHtmlForStores) {
+                  useManualResultsStore.getState().setHtmlReport(safeHtmlForStores)
                 }
               } catch (resultsStoreError) {
                 logger.warn('Failed to hydrate results store after revalidation', {
@@ -1912,7 +1929,7 @@ export class SessionService {
 
             logger.info('Session store updated with revalidated HTML reports', {
               reportId,
-              hasHtmlReport: !!mergedSession.htmlReport,
+              hasHtmlReport: !!safeHtmlForStores,
             })
           } else {
             logger.debug('Skipping store update - reportId changed during revalidation', {

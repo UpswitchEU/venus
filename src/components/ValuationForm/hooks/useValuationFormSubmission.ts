@@ -29,6 +29,7 @@ import {
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
+import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
   areChangesSignificant,
@@ -388,9 +389,11 @@ export const useValuationFormSubmission = (
             resultKeys: Object.keys(result).join(','),
           })
 
-          // Warn if html_report is missing
-          if (!result.html_report || result.html_report.trim().length === 0) {
-            generalLogger.error('CRITICAL: html_report missing or empty in valuation result', {
+          const renderableHtmlReport = getRenderableReportHtml(result.html_report)
+
+          // Warn if renderable html_report is missing
+          if (!renderableHtmlReport) {
+            generalLogger.error('CRITICAL: renderable html_report missing or empty in valuation result', {
               valuationId: result.valuation_id,
               hasHtmlReport: !!result.html_report,
               htmlReportLength: result.html_report?.length || 0,
@@ -419,7 +422,7 @@ export const useValuationFormSubmission = (
                   useTaxLatencyStore.getState().items
                 ),
                 valuationResult: result,
-                htmlReport: result.html_report,
+                htmlReport: renderableHtmlReport,
                 name: sessionName,
               })
 
@@ -471,7 +474,7 @@ export const useValuationFormSubmission = (
                   reportId,
                   formData: request,
                   valuationResult: result,
-                  htmlReport: result.html_report || undefined,
+                  htmlReport: renderableHtmlReport,
                   changesSummary: effectiveChanges,
                   versionLabel: generateAutoLabel(
                     effectivePrevious.versionNumber + 1,
@@ -504,7 +507,7 @@ export const useValuationFormSubmission = (
                   reportId,
                   formData: request,
                   valuationResult: result,
-                  htmlReport: result.html_report || undefined,
+                  htmlReport: renderableHtmlReport,
                   changesSummary: { totalChanges: 0, significantChanges: [] },
                   versionLabel: 'v1 - Initial valuation',
                 })

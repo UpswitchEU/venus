@@ -40,6 +40,7 @@ import type { ValuationSession } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
+import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 import {
   canRenderReportSession,
@@ -430,9 +431,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 result.success &&
                 !result.restoredHtmlReport
               ) {
-                const hasHtml =
-                  useManualResultsStore.getState().htmlReport ||
-                  useManualResultsStore.getState().result?.html_report
+                const ms = useManualResultsStore.getState()
+                const hasHtml = !!getFirstRenderableReportHtml(
+                  ms.htmlReport,
+                  (ms.result as { html_report?: string } | null)?.html_report,
+                  (ms.result as { details?: { html_report?: string } } | null)?.details?.html_report
+                )
                 if (!hasHtml) {
                   generalLogger.debug(
                     '[SessionManager] Assets missing after restore - revalidating in background',

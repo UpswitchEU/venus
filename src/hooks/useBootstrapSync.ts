@@ -32,6 +32,7 @@ import {
   buildIdentityFingerprint,
   readNewValuationPrefill,
 } from '../utils/newValuationPrefillStorage'
+import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 const logger = createContextLogger('BootstrapSync')
 
@@ -443,13 +444,14 @@ function syncSession(state: SessionBootstrapState): void {
       // valuationPackage enables instant report display on refresh (htmlReport, versions, pdf).
       const hasPrefill = prefillData.confidence >= 0.05
       const pkg = state.valuationPackage
-      const hasPackage = pkg && (pkg.htmlReport || pkg.pricingRange)
+      const packageRenderableHtml = getFirstRenderableReportHtml(pkg?.htmlReport)
+      const hasPackage = pkg && (packageRenderableHtml || pkg.pricingRange)
       const now = new Date()
       const sessionData: Record<string, any> = {
         _bootstrapPrefill: hasPrefill,
       }
       if (hasPackage) {
-        sessionData._htmlReport = pkg.htmlReport
+        sessionData._htmlReport = packageRenderableHtml
         sessionData._pricingRange = pkg.pricingRange
         if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url
         // Merge formData for restore() when loadSession is skipped (hasAssetsInSession path)

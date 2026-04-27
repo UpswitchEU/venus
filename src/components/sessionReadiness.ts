@@ -1,4 +1,5 @@
 import type { ValuationSession } from '../types/valuation'
+import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 type SessionLike = Pick<ValuationSession, 'reportId' | 'sessionData' | 'valuationResult' | 'htmlReport'> & {
   reportReady?: boolean
@@ -9,12 +10,15 @@ export function hasAssetsInSession(session: SessionLike | null | undefined): boo
   if (!session) return false
 
   const sd = (session.sessionData || {}) as Record<string, unknown>
+  const htmlReport = getFirstRenderableReportHtml(
+    session.htmlReport,
+    typeof sd._htmlReport === 'string' ? sd._htmlReport : null,
+    typeof sd.htmlReport === 'string' ? sd.htmlReport : null,
+    typeof sd.html_report === 'string' ? sd.html_report : null
+  )
   return !!(
-    session.htmlReport?.trim() ||
+    htmlReport ||
     session.valuationResult ||
-    sd._htmlReport ||
-    sd.htmlReport ||
-    sd.html_report ||
     sd.valuation_result ||
     sd.valuationResult
   )

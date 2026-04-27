@@ -15,6 +15,7 @@ import { isRetryable } from './errors/errorGuards'
 import { createContextLogger } from './logger'
 import { markReportExists } from './reportExistenceCache'
 import { retryWithBackoff } from './retryWithBackoff'
+import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
 import { globalSessionCache } from './sessionCacheManager'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
@@ -113,11 +114,12 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
   // _htmlReport is bootstrap-injected for instant restoration
-  const htmlReport =
-    session.htmlReport ||
-    (existingSessionData as any).htmlReport ||
-    (existingSessionData as any).html_report ||
+  const htmlReport = getFirstRenderableReportHtml(
+    session.htmlReport,
+    (existingSessionData as any).htmlReport,
+    (existingSessionData as any).html_report,
     (existingSessionData as any)._htmlReport
+  )
   const valuationCandidates = [
     session.valuationResult,
     (existingSessionData as any).valuationResult,
@@ -131,7 +133,15 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     if (valuationResultsCandidate) {
       score += 8
     }
-    if (candidate.html_report || candidate.htmlReport || candidate.details?.html_report) score += 4
+    if (
+      getFirstRenderableReportHtml(
+        candidate.html_report,
+        candidate.htmlReport,
+        candidate.details?.html_report
+      )
+    ) {
+      score += 4
+    }
     if (
       candidate.equity_value_mid != null ||
       candidate.valuation_midpoint != null ||

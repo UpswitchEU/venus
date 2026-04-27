@@ -10,6 +10,7 @@ import type { ValuationRequest, ValuationSession } from '../../types/valuation'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
+import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { backendAPI } from '../backendApi'
 
 // AUTH-FIRST: guestSessionService removed - authentication is required
@@ -153,7 +154,7 @@ class ReportServiceImpl implements ReportService {
           sessionData: enrichedSessionData,
           // CRITICAL: Include valuation result fields from backend
           valuationResult: report.valuation_result || null,
-          htmlReport: report.html_report || null,
+          htmlReport: getRenderableReportHtml(report.html_report) || null,
           calculatedAt: report.calculated_at ? new Date(report.calculated_at) : undefined,
         } as ValuationSession
       })

@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl'
 import React from 'react'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 interface HTMLViewProps {
   result: ValuationResponse | null
@@ -22,7 +23,7 @@ export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
 
   // BANK-GRADE: Use server-generated html_report as single source of truth
   // No fallback HTML generation - if html_report is missing, show error
-  const htmlContent = result.html_report || null
+  const htmlContent = getRenderableReportHtml(result.html_report) || null
 
   const handleCopyHTML = async () => {
     if (!htmlContent) {

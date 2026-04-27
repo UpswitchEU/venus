@@ -25,6 +25,7 @@ import {
 } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
+import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
 import { useNormalizationStore, mapFrontendCategoryToBackend } from './useNormalizationStore'
@@ -566,7 +567,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 createdBy: null,
                 formData: enrichedRequest.formData,
                 valuationResult: enrichedRequest.valuationResult || null,
-                htmlReport: enrichedRequest.htmlReport || null,
+                htmlReport: getRenderableReportHtml(enrichedRequest.htmlReport) || null,
                 changesSummary: enrichedRequest.changesSummary || {
                   totalChanges: 0,
                   significantChanges: [],

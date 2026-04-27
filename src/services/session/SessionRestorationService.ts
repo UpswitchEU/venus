@@ -43,6 +43,7 @@ import {
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -535,7 +536,12 @@ class SessionRestorationServiceImpl {
     // 2. Hydrate results store
     // CRITICAL: Restore valuation result AND output assets (htmlReport)
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only
-    const hasOutputAssets = !!data.htmlReport?.trim()
+    const hasOutputAssets = !!getFirstRenderableReportHtml(
+      data.htmlReport,
+      (data.valuationResult as { html_report?: string } | null | undefined)?.html_report,
+      (data.valuationResult as { details?: { html_report?: string } } | null | undefined)?.details
+        ?.html_report
+    )
     const hasResult = !!data.valuationResult
 
     if (hasResult || hasOutputAssets) {
@@ -548,11 +554,17 @@ class SessionRestorationServiceImpl {
         const normalizedValuationResults =
           extractValuationResultsMap(vr, valuationExtractCtx) ??
           extractValuationResultsMap(existingResult, valuationExtractCtx)
+        const renderableMergeHtml = getFirstRenderableReportHtml(
+          data.htmlReport,
+          (data.valuationResult as { html_report?: string } | undefined)?.html_report,
+          (data.valuationResult as { details?: { html_report?: string } } | undefined)?.details
+            ?.html_report
+        )
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
           valuation_id: (data.valuationResult as any)?.valuation_id || data.reportId,
-          html_report: data.htmlReport || (data.valuationResult as any)?.html_report,
+          html_report: renderableMergeHtml,
           valuation_results: normalizedValuationResults ?? undefined,
           ...(data.pricingRange && {
             equity_value_low: data.pricingRange.min,
@@ -574,11 +586,15 @@ class SessionRestorationServiceImpl {
           const manualStore = useManualResultsStore.getState()
           manualStore.setResult(fullResult as any)
           // Explicitly set HTML assets so components reading htmlReport directly get them
-          if (data.htmlReport) manualStore.setHtmlReport(data.htmlReport)
+          const renderableHtmlReport = getFirstRenderableReportHtml(
+            fullResult.html_report,
+            data.htmlReport
+          )
+          if (renderableHtmlReport) manualStore.setHtmlReport(renderableHtmlReport)
         }
 
         restoredValuationResult = !!data.valuationResult
-        restoredHtmlReport = !!fullResult.html_report || !!data.htmlReport
+        restoredHtmlReport = !!getFirstRenderableReportHtml(fullResult.html_report, data.htmlReport)
         restoredPricingRange = !!data.pricingRange
 
         generalLogger.debug('[SessionRestoration] Results hydrated', {
@@ -776,7 +792,10 @@ class SessionRestorationServiceImpl {
       } else {
         const resultsStore = useManualResultsStore.getState()
         const hasResult = !!resultsStore.result
-        const hasHtmlReport = !!(resultsStore.result?.html_report || resultsStore.htmlReport)
+        const hasHtmlReport = !!getFirstRenderableReportHtml(
+          resultsStore.result?.html_report,
+          resultsStore.htmlReport
+        )
 
         if (manifest.valuationResult && !hasResult) {
           warnings.push('Valuation result missing from store')
@@ -1041,10 +1060,11 @@ class SessionRestorationServiceImpl {
       if (flow === 'manual') {
         const manualStore = useManualResultsStore.getState()
         const existingResult = manualStore.result || {}
+        const pkgRenderableHtml = getFirstRenderableReportHtml(pkg.htmlReport)
         const fullResult = {
           valuation_id: reportId,
           ...pricingResult,
-          html_report: pkg.htmlReport || undefined,
+          html_report: pkgRenderableHtml,
           valuation_results:
             extractValuationResultsMap(existingResult as Record<string, any> | null, {
               selectedValuationMethod: (existingResult as Record<string, any>)?.selected_valuation_method,
@@ -1055,7 +1075,7 @@ class SessionRestorationServiceImpl {
           ...fullResult,
         } as any)
         // Explicitly set HTML assets for components that read them directly
-        if (pkg.htmlReport) manualStore.setHtmlReport(pkg.htmlReport)
+        if (pkgRenderableHtml) manualStore.setHtmlReport(pkgRenderableHtml)
 
         const mergedAfterSet = useManualResultsStore.getState().result as Record<string, unknown> | null
         if (
@@ -1089,7 +1109,7 @@ class SessionRestorationServiceImpl {
             const session = useSessionStore.getState().session
             if (session) {
               useSessionStore.getState().hydrateSession({
-                htmlReport: pkg.htmlReport || undefined,
+                htmlReport: getFirstRenderableReportHtml(pkg.htmlReport) || undefined,
                 valuationResult: { ...existingResult, ...fullResult },
                 sessionData: {
                   ...(session.sessionData || {}),
@@ -1105,7 +1125,7 @@ class SessionRestorationServiceImpl {
         const fullResult = {
           valuation_id: reportId,
           ...pricingResult,
-          html_report: pkg.htmlReport || undefined,
+          html_report: getFirstRenderableReportHtml(pkg.htmlReport),
         }
         generalLogger.debug(
           '[SessionRestoration] Skipping conversational hydration - stores removed',

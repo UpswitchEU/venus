@@ -58,4 +58,26 @@ describe('Results', () => {
     expect(screen.queryByText(/Waardeschatting/)).not.toBeInTheDocument()
     expect(screen.getByText('reportNotAvailable')).toBeInTheDocument()
   })
+
+  it('falls back to result html when session html is a legacy safety-net summary', () => {
+    useSessionStore.setState({
+      status: 'loaded',
+      errorMessage: null,
+      session: {
+        reportId: 'val_fallback',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        partialData: {},
+        htmlReport:
+          '<section class="legacy valuation-summary compact"><h1>Waardeschatting — samenvatting</h1></section>',
+      } as any,
+    })
+
+    render(<Results result={{ html_report: '<article>Full ValuationIQ report</article>' } as any} />)
+
+    expect(screen.queryByText(/Waardeschatting/)).not.toBeInTheDocument()
+    expect(screen.getByText('Full ValuationIQ report')).toBeInTheDocument()
+  })
 })

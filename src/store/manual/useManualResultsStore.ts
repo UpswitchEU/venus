@@ -25,7 +25,11 @@ import {
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { storeLogger } from '../../utils/logger'
-import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import {
+  getFirstRenderableReportHtml,
+  getRenderableReportHtml,
+  getRenderableReportHtmlFromCurrentOrFallback,
+} from '../../utils/safetyNetReportHtml'
 import { useSessionStore } from '../useSessionStore'
 
 /**
@@ -264,7 +268,18 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
                   ? Object.keys(hydratedValuationResults)[0]
                   : state.selectedMethod
 
-        const renderableHtmlReport = getRenderableReportHtml(result.html_report)
+        const resultWithLegacyAliases = result as ValuationResponse & {
+          htmlReport?: string | null
+          details?: { html_report?: string | null }
+        }
+        const renderableHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
+          [
+            resultWithLegacyAliases.html_report,
+            resultWithLegacyAliases.htmlReport,
+            resultWithLegacyAliases.details?.html_report,
+          ],
+          [state.htmlReport]
+        )
 
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: result.valuation_id,
@@ -274,8 +289,8 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         })
 
         // Warn if html_report is missing
-        if (!result.html_report || result.html_report.trim().length === 0) {
-          storeLogger.error('[Manual] CRITICAL: html_report missing or empty', {
+        if (!renderableHtmlReport) {
+          storeLogger.error('[Manual] CRITICAL: renderable html_report missing or empty', {
             valuationId: result.valuation_id,
             resultKeys: Object.keys(result),
           })
@@ -338,7 +353,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         return {
           ...state,
           result,
-          htmlReport: renderableHtmlReport || state.htmlReport,
+          htmlReport: renderableHtmlReport || null,
           selectedMethod: nextSelectedMethod,
           preSelectedMethod: nextPreSelectedMethodSlot,
           preSelectedMethods: nextPreSelectedMethods,

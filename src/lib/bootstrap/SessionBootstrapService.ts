@@ -14,6 +14,7 @@
 
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { getInitTraceId } from '../auth'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
@@ -971,7 +972,7 @@ export class SessionBootstrapService {
         // WORLD-CLASS: Extract valuationPackage for instant UI hydration
         valuationPackage: valuationPackage
           ? {
-              htmlReport: valuationPackage.htmlReport || null,
+              htmlReport: getFirstRenderableReportHtml(valuationPackage.htmlReport) ?? null,
               pricingRange: valuationPackage.pricingRange || null,
               versions: valuationPackage.versions || { current: 1, total: 1 },
               pdf: valuationPackage.pdf || { url: null, status: 'none' },

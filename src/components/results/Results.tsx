@@ -5,7 +5,7 @@ import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
-import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { ErrorState } from '../ErrorState'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
@@ -36,9 +36,8 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     extractEvEquityWaterfallSteps(state.session?.valuationResult as ValuationResponse | undefined)
   )
 
-  // Use session htmlReport if available, fallback to result prop
-  const rawHtmlReport = sessionHtmlReport || result?.html_report
-  const htmlReport = getRenderableReportHtml(rawHtmlReport)
+  // Prefer session HTML, but do not let legacy safety-net HTML mask a real result report.
+  const htmlReport = getFirstRenderableReportHtml(sessionHtmlReport, result?.html_report)
   const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
 
   // Verification logging: Track when result changes

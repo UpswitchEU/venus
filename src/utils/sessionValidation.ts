@@ -10,6 +10,7 @@
 import type { ValuationSession } from '../types/valuation'
 import { ValidationError } from './errors/ApplicationErrors'
 import { createContextLogger } from './logger'
+import { getRenderableReportHtml } from './safetyNetReportHtml'
 
 const validationLogger = createContextLogger('SessionValidation')
 
@@ -198,7 +199,7 @@ export function sanitizeSessionData(session: any): ValuationSession {
     // ✅ BANK-GRADE FIX: Preserve top-level valuation fields for restoration detection
     // These fields are used by cache completeness checks and restoration logic
     valuationResult: session.valuationResult || undefined,
-    htmlReport: session.htmlReport || undefined,
+    htmlReport: getRenderableReportHtml(session.htmlReport) || undefined,
   }
 
   // Validate sanitized data

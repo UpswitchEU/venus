@@ -22,6 +22,7 @@ import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
+import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 /**
  * Explicit session states (bank-grade state machine)
@@ -209,18 +210,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
         const sessionData = (session.sessionData || {}) as any
         const sessionAny = session as any
+        const hasExistingHtmlReport = !!getFirstRenderableReportHtml(
+          sessionAny.htmlReport,
+          sessionData.htmlReport,
+          sessionData.html_report,
+          sessionData._htmlReport
+        )
         const hasExistingValuationResult = !!(
           // Top-level fields (from mergeSessionFields)
           (
             sessionAny.valuationResult ||
-            sessionAny.htmlReport ||
+            hasExistingHtmlReport ||
             // sessionData fields (snake_case and camelCase)
             sessionData.valuationResult ||
             sessionData.valuation_result ||
-            sessionData.htmlReport ||
-            sessionData.html_report ||
             sessionData._valuationResult ||
-            sessionData._htmlReport ||
             // Legacy fields
             sessionAny.latestValuation ||
             sessionAny.latest_valuation
