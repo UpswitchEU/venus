@@ -4,7 +4,7 @@
  * PresetPicker
  * ------------
  *
- * One-click preset application surfaced at the top of the Profile step.
+ * One-click preset application surfaced at the top of the company-card step.
  *
  * The "blank canvas" problem is the single biggest source of friction in
  * the wizard: a founder lands on Step 0, faces 8 steps and ~30 inputs,
@@ -74,7 +74,7 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
     (preset: StudioPreset) => {
       applyPreset(preset)
       // The Studio store ↔ Manual form-store bridge: company name is
-      // owned by the Manual store (cf. ProfileStep:65) so the preset's
+      // owned by the Manual store (cf. CompanyCardStep) so the preset's
       // company_name is mirrored across the bridge here, not inside the
       // Studio applyPreset.
       if (preset.company_name) {
@@ -194,7 +194,6 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
           ? 'Een template overschrijft alleen de preset-velden — je vrije tekst blijft staan. Je kan altijd handmatig verder finetunen.'
           : 'Picking a template only overwrites preset-managed fields — your free text stays. Tune everything afterwards.'}
       </p>
-
     </section>
   )
 }

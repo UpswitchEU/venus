@@ -1,33 +1,33 @@
 import type { Metadata } from 'next'
-import { StartupStudioPage } from './StartupStudioPage'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 interface Props {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 const META_BY_LOCALE = {
   en: {
-    title: 'Startup Valuation Studio — Upswitch · Free pre-revenue valuation',
+    title: 'Startup Valuation — Upswitch · Free pre-revenue valuation',
     description:
-      'Get an investor-ready startup valuation in 7 minutes. Berkus + Scorecard + VC method, Q1 2026 Benelux benchmarks, no historical financials required.',
+      'Get an investor-ready startup valuation. Berkus + Scorecard + VC method, Q1 2026 Benelux benchmarks, no historical financials required.',
     locale: 'en_BE',
   },
   nl: {
-    title: 'Startup Waarderingsmotor — Upswitch · Gratis pre-revenue valuation',
+    title: 'Startup Waardering — Upswitch · Gratis pre-revenue valuation',
     description:
-      'Een investor-ready startup waardering in 7 minuten. Berkus + Scorecard + VC-methode, Q1 2026 Benelux benchmarks, geen historische cijfers nodig.',
+      'Een investor-ready startup waardering. Berkus + Scorecard + VC-methode, Q1 2026 Benelux benchmarks, geen historische cijfers nodig.',
     locale: 'nl_BE',
   },
 } as const
 
 /**
- * SEO metadata for the Studio surface.  This route is bookmark-/share-
- * friendly (founders deep-link in from accelerator portals, the
- * `/nl/waarderen` marketing page and the `?partner=<slug>` Mercury
- * cross-link), so a clean canonical + locale-specific title/description
- * is worth the extra ten lines.
+ * SEO metadata for the (now-redirecting) startup entry point.  Kept so
+ * partner deep-links and the marketing site at `/nl/waarderen` continue
+ * to land here, get a clean canonical, and then bounce into the unified
+ * `/reports/{id}` surface where ValuationIQ runs the valuation.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let locale: 'en' | 'nl' = 'en'
@@ -61,9 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: meta.title,
       description: meta.description,
     },
-    // The Studio is opinionated UX, not a content page — discourage
-    // search engines from competing with the marketing page at
-    // `/nl/waarderen` for "startup waardering" queries.
+    // The Studio is opinionated UX, not a content page.
     robots: { index: false, follow: false },
   }
 }
@@ -71,18 +69,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * /[locale]/startup-valuation
  *
- * Full-screen Startup Valuation Studio (Studio v2 wizard).  Replaces
- * the cramped left-rail in `ManualLayout` for founders running the
- * pre-revenue 9th method.
+ * Thin redirect to the canonical valuation surface
+ * `/[locale]/reports/new?selected_method=startup_valuation`.  ValuationIQ
+ * generates the report + PDF on that surface — same pipeline the
+ * SME methods (DCF, SaaS, NAV, Adaptive) use — so we keep a single
+ * shell, a single submit path, and a single set of right-rail
+ * affordances (PDF download, share link, version history).
  *
- * Always live — the rollout flag (`STARTUP_STUDIO_V2_ROLLOUT_PCT`) was
- * removed once Express + the AmbitionPicker + the TeamPicker landed.
- * The legacy slider panel still auto-redirects here via
- * `StartupAwareInputPanel` for any cross-app deeplink that lands on
- * `?method=startup_valuation` so the engine path is uniform across
- * Mercury / Venus / partner integrations.
+ * Query parameters that the cross-app contract honours
+ * (`?prefilledQuery=…`, `?startup_stage=…`, `?partner=…`,
+ * `?clientToken=…`, `?source=…`, etc.) are passed through verbatim and
+ * preserved by `/reports/new`'s param allowlist for the downstream
+ * report client to read.
  */
-export default async function StartupValuationRoute({ params }: Props) {
+export default async function StartupValuationRoute({ params, searchParams }: Props) {
   let locale: 'en' | 'nl' = 'en'
   try {
     const resolved = await params
@@ -91,5 +91,19 @@ export default async function StartupValuationRoute({ params }: Props) {
     // fall back to en
   }
 
-  return <StartupStudioPage locale={locale} />
+  const sp = searchParams ? await searchParams : {}
+  const qs = new URLSearchParams()
+  qs.set('selected_method', 'startup_valuation')
+  for (const [k, v] of Object.entries(sp)) {
+    if (v == null) continue
+    const value = Array.isArray(v) ? v[0] : v
+    if (typeof value === 'string' && value.length > 0) {
+      qs.set(k, value)
+    }
+  }
+  // Always preserve the canonical method routing — even if the inbound
+  // URL already carried `selected_method`, the param above wins.
+  qs.set('selected_method', 'startup_valuation')
+
+  redirect(`/${locale}/reports/new?${qs.toString()}`)
 }

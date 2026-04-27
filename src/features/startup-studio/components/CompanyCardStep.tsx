@@ -32,6 +32,7 @@
 import { Building2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
+import { TARGET_COUNTRIES } from '@/config/countries'
 import {
   type BusinessType,
   BusinessTypeSearchInput,
@@ -40,9 +41,8 @@ import {
   KBOSearchInput,
 } from '@/design-system'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
-import { AuroraSelect } from '@/design-system/components/Select'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { TARGET_COUNTRIES } from '@/config/countries'
+import { AuroraSelect } from '@/design-system/components/Select'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import { registryService } from '@/services/registry/registryService'
 import type { CompanySearchResult } from '@/services/registry/types'
@@ -78,9 +78,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   const raise = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
   const setField = useStartupValuationStore((s) => s.setField)
-  const seedSectorFromNaceIfDefault = useStartupValuationStore(
-    (s) => s.seedSectorFromNaceIfDefault
-  )
+  const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
 
   // Identity bridge — every field here writes to the Manual store so
   // `buildStartupValuationRequest` (called server-side by the report
@@ -180,12 +178,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   const kboSearchFn = useCallback(
     async (query: string, signal?: AbortSignal): Promise<KBOCompany[]> => {
       if (!query || query.trim().length < 2) return []
-      const response = await registryService.searchCompanies(
-        query.trim(),
-        country,
-        15,
-        signal
-      )
+      const response = await registryService.searchCompanies(query.trim(), country, 15, signal)
       if (!response.success) {
         throw new Error(response.error || 'Registry unavailable')
       }
@@ -364,10 +357,10 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           description={
             country === 'NL'
               ? locale === 'nl'
-                ? "Zoek in het Handelsregister van de KvK."
+                ? 'Zoek in het Handelsregister van de KvK.'
                 : 'Search the KvK trade registry.'
               : locale === 'nl'
-                ? "Zoek in het KBO."
+                ? 'Zoek in het KBO.'
                 : 'Search the KBO registry.'
           }
         />
@@ -402,9 +395,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           loadError={businessTypesError}
           onRetryLoad={refetchBusinessTypes}
           naceMatchedTypeId={
-            selectedCompany?.naceCode && businessTypeId
-              ? businessTypeId
-              : undefined
+            selectedCompany?.naceCode && businessTypeId ? businessTypeId : undefined
           }
           countryCode={country}
           size="sm"

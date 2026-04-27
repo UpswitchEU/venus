@@ -9,7 +9,7 @@
  *      "—" or NaN before the network resolves.
  *   2. **Network failure is invisible** — when `/api/startup-benchmarks`
  *      throws or returns an empty payload, the hook keeps the offline
- *      baseline and flips `isFallback` so the LiveReceipt can show an
+ *      baseline and flips `isFallback` so the LiveReportPanel can show an
  *      "Offline numbers" badge.
  *   3. **A successful network response upgrades the row** in place and
  *      flips `isFallback` back to false.

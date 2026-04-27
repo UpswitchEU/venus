@@ -4,191 +4,219 @@
  * StartupValuationPanel
  * ---------------------
  *
- * Self-contained left-panel for the 9th valuation method
- * (`startup_valuation`).
+ * Self-contained left-rail panel for the 9th valuation method
+ * (`startup_valuation`).  Renders the canonical eight Studio sections
+ * stacked top-to-bottom inside `ManualLayout`'s ManualInputPanel slot,
+ * matching the rhythm of every other method (DCF, SaaS, NAV, Adaptive):
+ * a numbered Aurora-Teal section header per block, no Next/Back wizard,
+ * no separate page, scroll-and-edit.
  *
- * **Stacked sections layout** — mirrors how DCF (`DcfGlobalAssumptions`),
- * NAV (`NavAssetScheduleSection`), SaaS (`SaasMetricsSection`) etc.
- * stack one beneath the other in the SME `ManualInputPanel`.  Founders
- * scroll through three numbered sections instead of clicking
- * Back / Next on a wizard:
+ *   1. Profile        — canonical company card (KBO/KVK + business types)
+ *   2. Risk reduction — Berkus 2.0 milestone cards
+ *   3. Defensibility  — Scorecard 2.0 weighted factor cards
+ *   4. Team           — Founder pedigree multiplier
+ *   5. Traction       — Forward-looking SaaS metrics (skippable)
+ *   6. Exit story     — VC method / TAM-SAM-SOM / exit multiple
+ *   7. Round          — SAFE vs priced-round simulator
+ *   8. Report         — Investor-ready preview (no submit; the
+ *                       canonical `StartupSubmitFooter` rendered by
+ *                       `StartupAwareInputPanel` owns the submit and
+ *                       the round-trip to `valuationService`).
  *
- *   Setup bar (always visible) — Stage segmented + Sector dropdown
+ * The panel writes through to `useStartupValuationStore` and to
+ * `useManualFormStore` (via `CompanyCardStep`).  `buildManualValuationRequest`
+ * → `buildStartupValuationRequest` reads both stores and produces the
+ * canonical `ValuationRequest` payload that `valuationService.calculateValuation`
+ * sends to ValuationIQ.  The HTML/PDF report comes back into
+ * `ManualLayout`'s right rail (same surface DCF / SaaS reports use).
  *
- *     1. Risk-Reduction Scorecard (Berkus) — 5 sliders, each unlocking
- *        up to {max_per_milestone} EUR of the regional baseline.
- *
- *     2. Forward-Looking SaaS Metrics — MRR, MoM growth, churn, CAC.
- *        Skippable when pre-revenue (engine drops the SaaS Forward
- *        leg and re-normalises Berkus + VC).
- *
- *     3. Exit Scenario (VC Method) — Year-5 revenue, exit EV/Revenue
- *        multiple, target ROI (default 15×), investment amount sought.
- *
- *     Advanced (collapsible) — Scorecard fine-tuning (advisor only) +
- *     Cap-table & SAFE notes editor.
- *
- * Each numbered section is a *standalone component* under
- * `./RiskReductionScorecardSection`, `./ForwardLookingSaasSection`,
- * `./ExitScenarioSection` so they can be unit-tested in isolation
- * and reused (e.g. inside Mercury's intake flow if we ever flip the
- * dashboard to render the Berkus surface inline).
- *
- * Reads / writes `useStartupValuationStore` and emits the
- * `startup_inputs` payload via `toRequestPayload` on submit.
+ * The `mode` prop is preserved for the founder vs. advisor surface
+ * distinction:
+ *   - `advisor` — the StudioCoPilot floats over the whole layout and
+ *     the panel exposes the same advanced controls advisors expect.
+ *   - `founder` — same surface, mode-aware copy on the Studio sections
+ *     that already accept a locale/mode prop.  The submit footer below
+ *     the panel routes the calculation back to the founder dashboard.
  */
 
 import { motion } from 'framer-motion'
-import { useLocale, useTranslations } from 'next-intl'
-import { useLayoutEffect, useMemo, useState } from 'react'
-import { AuroraButton, AuroraInput, SegmentedControl, Slider } from '@/design-system'
-import { AuroraSelect } from '@/design-system/components/Select'
-import { CurrencyInput } from '../../CurrencyInput'
-import { AdaptivePercentInput } from '../AdaptivePercentInput'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
+import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
+import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
+import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
+import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
+import { ReportStep } from '@/features/startup-studio/components/ReportStep'
+import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
+import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
+import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
+import { TractionStep } from '@/features/startup-studio/components/TractionStep'
+import {
+  type StudioStepId,
+  useStudioIssues,
+} from '@/features/startup-studio/hooks/useStudioIssues'
+import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import {
-  STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
-  STARTUP_SECTOR_EXIT_MULTIPLES,
-  STARTUP_STAGE_DEFAULT_RAISE,
-  useStartupValuationStore,
-  type StartupSafeNote,
-  type StartupSector,
-  type StartupStage,
-} from '@/store/manual/useStartupValuationStore'
-import {
-  BERKUS_MILESTONE_KEYS,
-  RiskReductionScorecardSection,
-  type BerkusMilestoneKey,
-} from './RiskReductionScorecardSection'
-import { ForwardLookingSaasSection } from './ForwardLookingSaasSection'
-import { ExitScenarioSection } from './ExitScenarioSection'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 // ---------------------------------------------------------------------------
-// Setup-bar options
+// Section model — single source of truth for the order + labels.  Mirrors
+// the analytics `StudioStep` enum so funnel dashboards keep reading the
+// same shape they did under the timeline UX.
 // ---------------------------------------------------------------------------
 
-const STAGE_OPTIONS: Array<{ value: StartupStage; labelKey: string }> = [
-  { value: 'pre_seed', labelKey: 'stagePreSeed' },
-  { value: 'seed', labelKey: 'stageSeed' },
-  { value: 'series_a', labelKey: 'stageSeriesA' },
-]
-
-const SECTOR_OPTIONS: Array<{ value: StartupSector; labelKey: string }> = [
-  { value: 'saas', labelKey: 'sectorSaas' },
-  { value: 'marketplace', labelKey: 'sectorMarketplace' },
-  { value: 'fintech', labelKey: 'sectorFintech' },
-  { value: 'biotech_healthtech', labelKey: 'sectorBiotech' },
-  { value: 'deeptech_ai', labelKey: 'sectorDeeptech' },
-  { value: 'consumer', labelKey: 'sectorConsumer' },
-  { value: 'hardware', labelKey: 'sectorHardware' },
-  { value: 'other', labelKey: 'sectorOther' },
-]
-
-// ---------------------------------------------------------------------------
-// Advanced drawer — Scorecard fine-tuning (advisor only)
-// ---------------------------------------------------------------------------
-
-function AdvancedScorecardSlider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: number
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-medium text-foreground" aria-hidden>
-          {label}
-        </span>
-        <span className="text-xs font-semibold tabular-nums text-primary" aria-hidden>
-          {value}
-        </span>
-      </div>
-      <Slider
-        value={value}
-        min={0}
-        max={100}
-        step={5}
-        onChange={onChange}
-        variant="default"
-        aria-label={label}
-      />
-    </div>
-  )
+interface SectionDef {
+  id: StudioStep
+  anchor: string
+  label: { en: string; nl: string }
+  render: (locale: 'en' | 'nl') => React.ReactNode
 }
 
-function SafeNoteRow({
-  index,
-  note,
-  onChange,
-  onRemove,
-}: {
-  index: number
-  note: StartupSafeNote
-  onChange: (patch: Partial<StartupSafeNote>) => void
-  onRemove: () => void
-}) {
-  const t = useTranslations('manualInput.startupValuation')
-  return (
-    <div className="rounded-lg border border-foreground/[0.06] bg-background/60 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground/80">
-          {t('safeNoteRowTitle', { index: index + 1 })}
-        </span>
-        <AuroraButton type="button" variant="ghost" size="sm" onClick={onRemove}>
-          {t('removeSafeNote')}
-        </AuroraButton>
-      </div>
-      <div className="flex flex-col gap-4">
-        <CurrencyInput
-          size="sm"
-          label={t('safeAmount')}
-          value={note.amount ?? undefined}
-          onChange={(v) => onChange({ amount: v ?? null })}
-        />
-        <CurrencyInput
-          size="sm"
-          label={t('safeValuationCap')}
-          value={note.valuation_cap ?? undefined}
-          onChange={(v) => onChange({ valuation_cap: v ?? null })}
-        />
-        <AdaptivePercentInput
-          label={t('safeDiscountPct')}
-          value={note.discount_pct ?? undefined}
-          onChange={(v) => onChange({ discount_pct: v ?? null })}
-        />
-        <AuroraInput
-          size="sm"
-          label={t('safeHolderLabel')}
-          value={note.holder_label}
-          onChange={(e) => onChange({ holder_label: e.target.value })}
-        />
-      </div>
-    </div>
-  )
+const SECTIONS: SectionDef[] = [
+  {
+    id: 'profile',
+    anchor: 'startup-section-profile',
+    label: { en: 'Profile', nl: 'Profiel' },
+    render: (locale) => <CompanyCardStep locale={locale} />,
+  },
+  {
+    id: 'berkus',
+    anchor: 'startup-section-berkus',
+    label: { en: 'Risk reduction', nl: 'Risico-reductie' },
+    render: (locale) => <BerkusStep locale={locale} />,
+  },
+  {
+    id: 'scorecard',
+    anchor: 'startup-section-scorecard',
+    label: { en: 'Defensibility', nl: 'Defensibility' },
+    render: (locale) => <ScorecardStep locale={locale} />,
+  },
+  {
+    id: 'founder_pedigree',
+    anchor: 'startup-section-pedigree',
+    label: { en: 'Team pedigree', nl: 'Team' },
+    render: (locale) => <FounderPedigreeStep locale={locale} />,
+  },
+  {
+    id: 'traction',
+    anchor: 'startup-section-traction',
+    label: { en: 'Traction', nl: 'Tractie' },
+    render: (locale) => <TractionStep locale={locale} />,
+  },
+  {
+    id: 'exit_story',
+    anchor: 'startup-section-exit',
+    label: { en: 'Exit story', nl: 'Exit-verhaal' },
+    render: (locale) => <ExitStoryStep locale={locale} />,
+  },
+  {
+    id: 'round_simulator',
+    anchor: 'startup-section-round',
+    label: { en: 'Round', nl: 'Ronde' },
+    render: (locale) => <RoundSimulatorStep locale={locale} />,
+  },
+  {
+    id: 'report',
+    anchor: 'startup-section-report',
+    label: { en: 'Report', nl: 'Rapport' },
+    render: (locale) => <ReportStep locale={locale} />,
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Per-section completion derivation — drives the `complete` state on the
+// Aurora-Teal step circles (ring + stronger fill when done).  Mirrors the
+// gating logic the StudioShell used to apply, but never blocks navigation
+// — the sections are scroll-through, not gated.
+// ---------------------------------------------------------------------------
+
+type Status = 'empty' | 'partial' | 'complete'
+
+function useSectionStatuses(): Record<StudioStep, Status> {
+  const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
+  const businessTypeId = useManualFormStore((s) => s.formData.business_type_id ?? '')
+  const stage = useStartupValuationStore((s) => s.stage)
+  const sector = useStartupValuationStore((s) => s.sector)
+  const country = useStartupValuationStore((s) => s.country_code) || 'BE'
+  const maturity = useStartupValuationStore((s) => s.maturity)
+  const evidenceNotes = useStartupValuationStore((s) => s.evidence_notes)
+  const founderPedigree = useStartupValuationStore((s) => s.founder_pedigree)
+  const mrr = useStartupValuationStore((s) => s.mrr)
+  const arr = useStartupValuationStore((s) => s.arr)
+  const y5 = useStartupValuationStore((s) => s.year5_revenue_projection)
+  const exitMultiple = useStartupValuationStore((s) => s.exit_revenue_multiple)
+  const investment = useStartupValuationStore((s) => s.investment_amount_sought)
+
+  return useMemo<Record<StudioStep, Status>>(() => {
+    const profileComplete = !!(
+      companyName.trim() &&
+      stage &&
+      sector &&
+      country &&
+      businessTypeId
+    )
+
+    const berkusKeys = [
+      'sound_idea',
+      'prototype_status',
+      'management_strength',
+      'strategic_relationships',
+      'product_rollout',
+    ] as const
+    const berkusPicked = berkusKeys.filter((k) => maturity[k] !== 'none').length
+
+    const scorecardKeys = [
+      'opportunity_size',
+      'competitive_environment',
+      'sales_marketing_channels',
+      'need_for_additional_funding',
+      'other_factors',
+    ] as const
+    const scorecardPicked = scorecardKeys.filter((k) => maturity[k] !== 'none').length
+
+    const evidenceCount = Object.values(evidenceNotes).filter(
+      (v) => typeof v === 'string' && v.trim().length > 0
+    ).length
+
+    return {
+      profile: profileComplete ? 'complete' : companyName.trim() ? 'partial' : 'empty',
+      berkus:
+        berkusPicked === 0 ? 'empty' : berkusPicked >= 4 ? 'complete' : 'partial',
+      scorecard:
+        scorecardPicked === 0 ? 'empty' : scorecardPicked >= 3 ? 'complete' : 'partial',
+      founder_pedigree: Object.values(founderPedigree).some(Boolean) ? 'complete' : 'empty',
+      traction: (mrr ?? 0) > 0 || (arr ?? 0) > 0 ? 'complete' : 'partial',
+      exit_story:
+        y5 != null && exitMultiple != null
+          ? 'complete'
+          : y5 != null || exitMultiple != null
+            ? 'partial'
+            : 'empty',
+      round_simulator: investment != null && investment > 0 ? 'complete' : 'empty',
+      report: evidenceCount > 0 ? 'partial' : 'empty',
+    }
+  }, [
+    companyName,
+    stage,
+    sector,
+    country,
+    businessTypeId,
+    maturity,
+    evidenceNotes,
+    founderPedigree,
+    mrr,
+    arr,
+    y5,
+    exitMultiple,
+    investment,
+  ])
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Wizard surface mode.
- *
- * - ``advisor`` (default — keeps backward compat with every existing
- *   caller): exposes the full advanced drawer (Scorecard fine-tuning
- *   *and* cap-table & SAFE notes editor).  Drives the 4-leg synthesis
- *   blend on the report side.
- * - ``founder``: collapses the panel to the consortium founder
- *   experience.  Hides the Scorecard fine-tuning section (the founder
- *   triangulation drops Scorecard from the headline blend), keeps the
- *   cap-table editor inside the advanced drawer because the live
- *   simulator depends on it, and swaps the panel intro for
- *   founder-targeted copy.
- */
 export type StartupValuationPanelMode = 'founder' | 'advisor'
 
 export interface StartupValuationPanelProps {
@@ -197,7 +225,7 @@ export interface StartupValuationPanelProps {
   /**
    * Wizard surface mode — see :type:`StartupValuationPanelMode`.
    * Defaults to ``'advisor'`` so existing accountant call-sites keep
-   * the full feature surface they had before this prop existed.
+   * the same feature surface they had before.
    */
   mode?: StartupValuationPanelMode
 }
@@ -206,333 +234,109 @@ export function StartupValuationPanel({
   className,
   mode = 'advisor',
 }: StartupValuationPanelProps) {
-  const isFounderMode = mode === 'founder'
-  const t = useTranslations('manualInput.startupValuation')
-  const locale = useLocale()
-  const state = useStartupValuationStore()
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const locale = useStartupValuationStore.getState().country_code === 'NL' ? 'nl' : 'en'
+  // Kept on the surface for parity with the prior implementation; the
+  // section components are mode-agnostic for now and `mode` is reserved
+  // for the StudioCoPilot scoping (advisor vs founder grounding).
+  void mode
 
-  const totalSafe = useMemo(
-    () =>
-      state.cap_table.safe_notes.reduce(
-        (sum, n) => sum + (typeof n.amount === 'number' ? n.amount : 0),
-        0,
-      ),
-    [state.cap_table.safe_notes],
-  )
+  const statuses = useSectionStatuses()
+  const country = useStartupValuationStore((s) => s.country_code) || 'BE'
+  const stage = useStartupValuationStore((s) => s.stage)
+  const sector = useStartupValuationStore((s) => s.sector)
+  const { benchmark } = useStartupBenchmark(country, stage, sector)
+  const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
 
-  // PLG smart-default: when Mercury's KBO prefill carries a NACE code,
-  // infer a sector once on mount.  The store guards against overriding
-  // a deliberate user choice (`_sectorWasUserSet`).
-  const naceCode = useManualFormStore(
-    (s) => (s.formData as { nace_code?: string }).nace_code ?? null,
-  )
-  const seedSectorFromNaceIfDefault = useStartupValuationStore(
-    (s) => s.seedSectorFromNaceIfDefault,
-  )
-  useLayoutEffect(() => {
-    seedSectorFromNaceIfDefault(naceCode)
-  }, [naceCode, seedSectorFromNaceIfDefault])
+  // Health-check feed for the floating Co-pilot.  The same hook drives
+  // the `ReportStep` summary block and the Co-pilot rail, keeping the
+  // single source of truth for "things to fix before PDF".
+  const { issues } = useStudioIssues(benchmark)
 
-  // Match CurrencyInput's locale resolution so the SAFE-notes total
-  // formats consistently with the inputs above it.
-  const safeTotalLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  // -----------------------------------------------------------------
+  // Active-section tracking — drives a `step_viewed` analytics event
+  // each time the founder scrolls a new section into view.  Single
+  // IntersectionObserver for cheap accuracy.
+  // -----------------------------------------------------------------
+  const [activeId, setActiveId] = useState<StudioStep>('profile')
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+  const trackedRef = useRef<Set<StudioStep>>(new Set())
 
-  const stageSegmentOptions = useMemo(
-    () => STAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.labelKey) })),
-    [t],
-  )
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const observed = SECTIONS.map((s) => sectionRefs.current[s.id]).filter(
+      (el): el is HTMLElement => !!el
+    )
+    if (observed.length === 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+        const target = visible[0]?.target as HTMLElement | undefined
+        const id = target?.dataset.studioStep as StudioStep | undefined
+        if (id) setActiveId(id)
+      },
+      { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
+    )
+    for (const el of observed) observer.observe(el)
+    return () => observer.disconnect()
+    // The section list is static, so length-keyed re-bind is enough.
+  }, [])
 
-  const sectorSelectOptions = useMemo(
-    () =>
-      SECTOR_OPTIONS.map((opt) => ({
-        value: opt.value,
-        label: t(opt.labelKey),
-        description: t('setupSectorOptionMultiple', {
-          multiple: STARTUP_SECTOR_EXIT_MULTIPLES[opt.value],
-        }),
-      })),
-    [t],
-  )
+  useEffect(() => {
+    if (trackedRef.current.has(activeId)) return
+    trackedRef.current.add(activeId)
+    trackStudioStepViewed(activeId, stage)
+  }, [activeId, stage])
 
-  // Sector dropdown also primes the VC Method's exit multiple + Y5 baseline.
-  // Re-seed strategy: a value is "untouched" not only when null, but also
-  // when it still equals the previous sector's default (i.e. the founder
-  // accepted our suggestion).  Explicit user numbers always win.
-  const handleSectorChange = (next: StartupSector) => {
-    const prevSector = state.sector
-    const prevMultipleDefault = STARTUP_SECTOR_EXIT_MULTIPLES[prevSector]
-    const prevY5Default = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[prevSector]
-    state.setField('sector', next)
-    if (
-      state.exit_revenue_multiple == null ||
-      state.exit_revenue_multiple === prevMultipleDefault
-    ) {
-      state.setField('exit_revenue_multiple', STARTUP_SECTOR_EXIT_MULTIPLES[next])
-    }
-    if (
-      state.year5_revenue_projection == null ||
-      state.year5_revenue_projection === prevY5Default
-    ) {
-      state.setField('year5_revenue_projection', STARTUP_SECTOR_DEFAULT_Y5_REVENUE[next])
-    }
-  }
-
-  // Stage change re-seeds the suggested raise size IFF the founder hasn't
-  // actively touched it. Keeps the cap-table simulator showing a credible
-  // number when the founder switches between pre-seed → seed → series A,
-  // without ever overwriting a deliberate input.
-  const handleStageChange = (next: StartupStage) => {
-    const previousDefault = STARTUP_STAGE_DEFAULT_RAISE[state.stage]
-    state.setField('stage', next)
-    if (
-      state.investment_amount_sought == null ||
-      state.investment_amount_sought === previousDefault
-    ) {
-      state.setField('investment_amount_sought', STARTUP_STAGE_DEFAULT_RAISE[next])
-    }
-  }
-
-  // Strongly-typed Berkus scores, gathered into a single record so the
-  // section component receives a clean `Record<key, score>` shape.
-  const berkusScores = useMemo(
-    () =>
-      BERKUS_MILESTONE_KEYS.reduce(
-        (acc, key) => {
-          acc[key] = state[key] as number
-          return acc
-        },
-        {} as Record<BerkusMilestoneKey, number>,
-      ),
-    // Spread the dependency list so React re-computes on each
-    // individual slider change (Zustand state is referentially stable).
-    [
-      state.sound_idea,
-      state.prototype_status,
-      state.management_strength,
-      state.strategic_relationships,
-      state.product_rollout,
-      state,
-    ],
-  )
-
-  // Single, generic field setter — mirrors the SME `ManualInputPanel`
-  // pattern (`onFieldChange(field, value)`).  Sub-sections never touch
-  // the store directly.
-  const handleFieldChange = (field: string, value: number | null) => {
-    state.setField(field as Parameters<typeof state.setField>[0], value as never)
+  const handleJumpToStep = (id: StudioStepId) => {
+    if (typeof window === 'undefined') return
+    const def = SECTIONS.find((s) => s.id === id)
+    if (!def) return
+    const el = document.getElementById(def.anchor)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
-    <div className={['aurora-theme space-y-5 p-4 pb-32', className].filter(Boolean).join(' ')}>
-      <header className="space-y-1">
-        <h2 className="text-sm font-semibold text-foreground">
-          {isFounderMode ? t('panelTitleFounder') : t('panelTitle')}
-        </h2>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {isFounderMode ? t('panelIntroFounder') : t('panelIntro')}
-        </p>
-      </header>
-
-      {/* Setup bar — always visible context */}
-      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-5">
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {t('setupStageLabel')}
-          </label>
-          <SegmentedControl<StartupStage>
-            value={state.stage}
-            onChange={handleStageChange}
-            options={stageSegmentOptions}
-            size="sm"
-            fullWidth
-            aria-label={t('setupStageLabel')}
-          />
-        </div>
-
-        <AuroraSelect
-          label={t('setupSectorLabel')}
-          options={sectorSelectOptions}
-          value={state.sector}
-          onChange={(value) => handleSectorChange(value as StartupSector)}
-          helpText={t('setupSectorHelper')}
-          helpTextPlacement="below"
-          size="sm"
-        />
-      </section>
-
-      {/* Component 1 — Risk-Reduction Scorecard (Berkus) */}
-      <RiskReductionScorecardSection
-        step={1}
-        countryCode={state.country_code}
-        stage={state.stage}
-        scores={berkusScores}
-        onScoreChange={(key, value) => state.setField(key, value)}
-      />
-
-      {/* Component 2 — Forward-Looking SaaS Metrics (skippable) */}
-      <ForwardLookingSaasSection
-        step={2}
-        mrr={state.mrr}
-        arr={state.arr}
-        mrrGrowthPct={state.mrr_growth_rate_pct}
-        monthlyChurnPct={state.monthly_churn_pct}
-        cac={state.cac}
-        burnRateMonthly={state.burn_rate_monthly}
-        runwayMonths={state.runway_months}
-        onFieldChange={handleFieldChange}
-      />
-
-      {/* Component 3 — Exit Scenario (VC Method) */}
-      <ExitScenarioSection
-        step={3}
-        sector={state.sector}
-        stage={state.stage}
-        countryCode={state.country_code}
-        year5Revenue={state.year5_revenue_projection}
-        exitMultiple={state.exit_revenue_multiple}
-        targetRoi={state.target_roi_x}
-        investmentSought={state.investment_amount_sought}
-        dilutionPct={state.dilution_assumption_pct}
-        onFieldChange={handleFieldChange}
-      />
-
-      {/* Advanced drawer — Scorecard fine-tuning + Cap-table & SAFEs */}
-      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-5">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="flex w-full items-center justify-between text-xs font-semibold text-foreground/80 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md"
-          aria-expanded={showAdvanced}
-        >
-          <span>{t('advancedToggleTitle')}</span>
-          <span className="text-[11px] text-muted-foreground">
-            {showAdvanced ? t('advancedHide') : t('advancedShow')}
-          </span>
-        </button>
-        {showAdvanced && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
+    <div className={['aurora-theme space-y-8 p-4 pb-32', className].filter(Boolean).join(' ')}>
+      {SECTIONS.map((section, idx) => {
+        const status = statuses[section.id]
+        return (
+          <motion.section
+            key={section.id}
+            ref={(el) => {
+              sectionRefs.current[section.id] = el
+            }}
+            data-studio-step={section.id}
+            id={section.anchor}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="space-y-4 pt-2"
+            transition={{ duration: 0.25, ease: 'easeOut', delay: idx * 0.02 }}
+            className="scroll-mt-6 space-y-4"
+            aria-label={section.label[locale]}
           >
-            {/* Scorecard fine-tuning is **advisor-only**: the founder
-                triangulation deliberately drops Scorecard from the
-                headline 3-leg blend (consortium spec). */}
-            {!isFounderMode && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-foreground/80">
-                  {t('advancedScorecardTitle')}
-                </h3>
-                <AdvancedScorecardSlider
-                  label={t('opportunitySize')}
-                  value={state.opportunity_size}
-                  onChange={(v) => state.setField('opportunity_size', v)}
-                />
-                <AdvancedScorecardSlider
-                  label={t('competitiveEnvironment')}
-                  value={state.competitive_environment}
-                  onChange={(v) => state.setField('competitive_environment', v)}
-                />
-                <AdvancedScorecardSlider
-                  label={t('salesChannels')}
-                  value={state.sales_marketing_channels}
-                  onChange={(v) => state.setField('sales_marketing_channels', v)}
-                />
-                <AdvancedScorecardSlider
-                  label={t('needForFunding')}
-                  value={state.need_for_additional_funding}
-                  onChange={(v) => state.setField('need_for_additional_funding', v)}
-                />
-                <AdvancedScorecardSlider
-                  label={t('otherFactors')}
-                  value={state.other_factors}
-                  onChange={(v) => state.setField('other_factors', v)}
-                />
-              </div>
-            )}
+            <ValuationSectionHeader
+              step={idx + 1}
+              title={section.label[locale]}
+              complete={status === 'complete'}
+            />
+            {section.render(locale)}
+          </motion.section>
+        )
+      })}
 
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-foreground/80">
-                {t('advancedCapTableTitle')}
-              </h3>
-              <p className="text-[11px] leading-tight text-muted-foreground">
-                {t('advancedCapTableGdprNote')}
-              </p>
-              <div className="flex flex-col gap-4">
-                <CurrencyInput
-                  size="sm"
-                  label={t('preMoneyTarget')}
-                  value={state.cap_table.pre_money_target ?? undefined}
-                  onChange={(v) => state.setCapField('pre_money_target', v ?? null)}
-                />
-                <AdaptivePercentInput
-                  label={t('optionPoolPct')}
-                  value={state.cap_table.option_pool_pct}
-                  onChange={(v) => state.setCapField('option_pool_pct', v ?? 0)}
-                />
-                <CurrencyInput
-                  size="sm"
-                  label={t('lastRoundAmount')}
-                  value={state.cap_table.last_round_amount ?? undefined}
-                  onChange={(v) => state.setCapField('last_round_amount', v ?? null)}
-                />
-                <CurrencyInput
-                  size="sm"
-                  label={t('lastRoundPostMoney')}
-                  value={state.cap_table.last_round_post_money ?? undefined}
-                  onChange={(v) => state.setCapField('last_round_post_money', v ?? null)}
-                />
-                <AuroraInput
-                  size="sm"
-                  type="date"
-                  label={t('lastRoundDate')}
-                  value={state.cap_table.last_round_date}
-                  onChange={(e) => state.setCapField('last_round_date', e.target.value)}
-                />
-                <AuroraInput
-                  size="sm"
-                  type="number"
-                  inputMode="numeric"
-                  label={t('teamSize')}
-                  value={state.team_size ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    state.setField('team_size', v === '' ? null : Number(v))
-                  }}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-foreground">{t('safeNotesTitle')}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {t('safeNotesTotal', { total: totalSafe.toLocaleString(safeTotalLocale) })}
-                  </span>
-                </div>
-                {state.cap_table.safe_notes.map((note, idx) => (
-                  <SafeNoteRow
-                    key={note.id}
-                    index={idx}
-                    note={note}
-                    onChange={(patch) => state.updateSafeNote(note.id, patch)}
-                    onRemove={() => state.removeSafeNote(note.id)}
-                  />
-                ))}
-                <AuroraButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={state.addSafeNote}
-                >
-                  {t('addSafeNote')}
-                </AuroraButton>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </section>
+      {/* Studio Co-pilot — proactive remediation surface.  Mounted from
+          the panel itself so it renders inside `ManualLayout` (the
+          unified surface) and follows the founder/advisor across every
+          section.  FAB lives at bottom-right; slide-over hosts the
+          structured issue list + free-form chat. */}
+      <StudioCoPilot
+        issues={issues}
+        scopeId={companyName ? `studio-${companyName}` : 'studio-default'}
+        locale={locale}
+        companyName={companyName || undefined}
+        onJumpToStep={handleJumpToStep}
+      />
     </div>
   )
 }

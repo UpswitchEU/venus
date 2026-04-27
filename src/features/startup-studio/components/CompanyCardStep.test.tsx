@@ -45,7 +45,9 @@ vi.mock('@/hooks/useBusinessTypes', () => ({
     businessTypes: [],
     loading: false,
     error: null,
-    refetch: () => {},
+    refetch: () => {
+      /* no-op for tests */
+    },
   }),
 }))
 

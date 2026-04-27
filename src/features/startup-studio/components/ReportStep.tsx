@@ -1,29 +1,30 @@
 'use client'
 
 /**
- * Step 6 — Investor-ready report (review + submit).
+ * Step 8 — Investor-ready preview.
  *
- * Rendered in two halves:
- *   1. A live "pre-result" summary using `useLiveValuation` so the
- *      founder sees the same blended range that the engine will return
- *      (Berkus + SaaS Forward + VC) plus a football-field bar chart.
- *   2. The evidence sentences the founder typed for each milestone —
- *      these are the "why" lines that surface in the PDF.
+ * Live "pre-result" summary the founder sees inside the unified
+ * `StartupValuationPanel` before clicking the canonical submit footer
+ * below the panel.  Three blocks:
+ *   1. Deck-ready one-liner with the blended pre-money / post-money /
+ *      dilution rollup (uses `useLiveValuation`).
+ *   2. Football-field bar chart per leg.
+ *   3. Evidence sentences the founder typed for each milestone — the
+ *      "why" lines that surface in the PDF investor narrative.
  *
- * The actual full HTML/PDF report is rendered by the legacy
- * `StartupFounderDashboard` after the parent route triggers the
- * Titan calculate call (via the `onComplete` callback supplied to
- * `StudioShell`).  This step is deliberately *not* a network call —
- * it's the founder's final preview before submitting.
+ * The full HTML/PDF report is rendered server-side by ValuationIQ once
+ * `StartupSubmitFooter` (sibling component below the panel) fires the
+ * canonical `valuationService.calculateValuation` call.  This step is
+ * deliberately preview-only — no network, no submit button.  Health
+ * issues that would gate a credible PDF are routed to the Studio
+ * Co-pilot rail rather than blocking inline.
  */
 
-import { AlertCircle, Check, Copy, Send } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
-import { AuroraButton } from '@/design-system/components/Button'
 import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
-import { trackStudioRunComplete } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
   STUDIO_BERKUS_KEYS,
@@ -33,11 +34,9 @@ import {
 
 interface ReportStepProps {
   locale?: 'en' | 'nl'
-  onSubmit?: () => void | Promise<void>
-  isSubmitting?: boolean
 }
 
-export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: ReportStepProps) {
+export function ReportStep({ locale = 'en' }: ReportStepProps) {
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code)
@@ -47,16 +46,12 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
   const maturity = useStartupValuationStore((s) => s.maturity)
   const { benchmark } = useStartupBenchmark(country || 'BE', stage, sector)
   const valuation = useLiveValuation(benchmark)
-  // Health-check feed — drives the gate on "Generate report" so blockers
-  // get resolved by the co-pilot before the PDF is ever produced.
+  // Health-check feed — drives the gate on the canonical submit footer
+  // so blockers get resolved by the co-pilot before the PDF is ever
+  // produced.  We only surface the count here; gating is the footer's job.
   const { blockers, warnings } = useStudioIssues(benchmark)
 
-  const [submitError, setSubmitError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  // Acknowledgement state for the "generate anyway" override. Local-only
-  // so the user has to re-tick on every visit to this step (intentional
-  // friction — the whole point is they pause and consider).
-  const [ackBlockers, setAckBlockers] = useState(false)
 
   // Build the deck-ready one-liner: pre-money + raise → post-money + dilution.
   // Numbers come straight from the live preview (the engine returns the
@@ -95,28 +90,6 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
       // silently no-op; the sentence is already visible on-screen.
     }
   }, [deckSentence])
-
-  const handleSubmit = async () => {
-    setSubmitError(null)
-    // Report id isn't yet available at this point — the parent route
-    // creates it after submit.  Pass an empty string so analytics still
-    // fires; the downstream `studio_run_complete` event from the
-    // results page carries the canonical report id.
-    trackStudioRunComplete('', stage)
-    try {
-      await onSubmit?.()
-    } catch (err) {
-      // Surface the error to the founder rather than silently swallow.
-      // The parent owns the loading state, so we just need a local
-      // message; resetting `isSubmitting` is the parent's job.
-      const message = err instanceof Error ? err.message : String(err ?? 'Unknown error')
-      setSubmitError(
-        locale === 'nl'
-          ? `Iets ging mis bij het indienen: ${message}. Probeer het opnieuw.`
-          : `Something went wrong while submitting: ${message}. Please try again.`
-      )
-    }
-  }
 
   const filledEvidence = [...STUDIO_BERKUS_KEYS, ...STUDIO_SCORECARD_KEYS].filter(
     (key) => (evidenceNotes[key] ?? '').trim().length > 0
@@ -292,60 +265,14 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
       )}
 
       {/* Health check ---------------------------------------------------
-          Single proactive panel that replaces the practice of leaking
-          warnings into the rendered PDF. Blockers gate the submit;
-          warnings are recommendations; the co-pilot owns the dialogue. */}
+          Compact summary above the canonical submit footer. Blockers and
+          warnings are routed to the StudioCoPilot for resolution; gating
+          the submit is the footer's job, not this preview surface. */}
       <HealthCheck
         blockerCount={blockers.length}
         warningCount={warnings.length}
-        ackBlockers={ackBlockers}
-        onAckBlockersChange={setAckBlockers}
         locale={locale}
       />
-
-      {/* Action bar — PDF / share live on the report page after the
-          engine returns; surfacing them here would tempt founders to
-          export the wizard preview as if it were the investor PDF. */}
-      <div className="sticky bottom-0 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-3 border-t border-foreground/10 bg-background/90 px-6 py-4 backdrop-blur">
-        <p className="max-w-md text-xs text-foreground/55">
-          {locale === 'nl'
-            ? 'PDF en deelbare link verschijnen op het rapport zodra de engine je eindwaardering heeft berekend.'
-            : 'PDF and shareable link appear on the report once the engine has computed your final valuation.'}
-        </p>
-
-        <AuroraButton
-          variant="primary"
-          size="sm"
-          onClick={handleSubmit}
-          // Gate the submit when blockers exist and the user hasn't
-          // explicitly acknowledged the override. Two levels of intent:
-          //   1) `blockers.length === 0` → enabled by default
-          //   2) `ackBlockers === true`  → user opted to ship anyway
-          // The co-pilot is the path of least resistance for fixing.
-          disabled={isSubmitting || (blockers.length > 0 && !ackBlockers)}
-          aria-busy={isSubmitting}
-          className="gap-1.5"
-        >
-          <Send className="h-3.5 w-3.5" />
-          {isSubmitting
-            ? locale === 'nl'
-              ? 'Berekenen…'
-              : 'Calculating…'
-            : locale === 'nl'
-              ? 'Genereer eindrapport'
-              : 'Generate full report'}
-        </AuroraButton>
-      </div>
-
-      {submitError && (
-        <p
-          role="alert"
-          className="flex items-start gap-1.5 rounded-lg border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-700/40 dark:bg-rose-950/40 dark:text-rose-300"
-        >
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          {submitError}
-        </p>
-      )}
     </div>
   )
 }
@@ -363,18 +290,10 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
 interface HealthCheckProps {
   blockerCount: number
   warningCount: number
-  ackBlockers: boolean
-  onAckBlockersChange: (next: boolean) => void
   locale: 'en' | 'nl'
 }
 
-function HealthCheck({
-  blockerCount,
-  warningCount,
-  ackBlockers,
-  onAckBlockersChange,
-  locale,
-}: HealthCheckProps) {
+function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
   const totalIssues = blockerCount + warningCount
 
   if (totalIssues === 0) {
@@ -442,22 +361,6 @@ function HealthCheck({
               ? 'De Studio Co-pilot kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.'
               : 'The Studio Co-pilot can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.'}
           </p>
-
-          {blockerCount > 0 && (
-            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-300/40 bg-background/70 px-3 py-2 text-[11px] leading-snug text-rose-800 dark:text-rose-200">
-              <input
-                type="checkbox"
-                checked={ackBlockers}
-                onChange={(e) => onAckBlockersChange(e.target.checked)}
-                className="mt-0.5 accent-rose-600"
-              />
-              <span>
-                {locale === 'nl'
-                  ? 'Ik begrijp dat het rapport minder verdedigbaar is en wil het toch genereren.'
-                  : 'I understand the report will be less defensible and want to generate it anyway.'}
-              </span>
-            </label>
-          )}
         </div>
       </div>
     </div>
