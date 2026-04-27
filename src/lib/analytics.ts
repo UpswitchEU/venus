@@ -65,7 +65,7 @@ function trackEvent(name: string, params?: Record<string, string | number | bool
  */
 export function identifyUser(
   userId: string,
-  options?: { role?: string; plan?: string; email?: string },
+  options?: { role?: string; plan?: string; email?: string }
 ): void {
   // Always update the sticky cache so subsequent `trackEvent` calls have
   // the latest enrichment, even before gtag has loaded or consent is granted.
@@ -256,7 +256,7 @@ export type FounderStartupWizardStep = 'milestones' | 'traction' | 'exit' | 'rev
 /** Founder advanced to a wizard step (impression of the step). */
 export function trackFounderStartupWizardStep(
   step: FounderStartupWizardStep,
-  stage?: 'pre_seed' | 'seed' | 'series_a',
+  stage?: 'pre_seed' | 'seed' | 'series_a'
 ): void {
   trackEvent('venus_founder_startup_wizard_step', {
     step,
@@ -267,7 +267,7 @@ export function trackFounderStartupWizardStep(
 /** Founder completed the wizard and the engine returned a result. */
 export function trackFounderStartupWizardComplete(
   reportId: string,
-  stage?: 'pre_seed' | 'seed' | 'series_a',
+  stage?: 'pre_seed' | 'seed' | 'series_a'
 ): void {
   trackEvent('venus_founder_startup_wizard_complete', {
     report_id: reportId,
@@ -311,7 +311,7 @@ export type StudioStep =
  */
 export function trackStudioStepCompleted(
   step: StudioStep,
-  stage?: 'pre_seed' | 'seed' | 'series_a',
+  stage?: 'pre_seed' | 'seed' | 'series_a'
 ): void {
   trackEvent('venus_studio_step_completed', {
     step,
@@ -343,7 +343,7 @@ export function trackStudioStepBlocked(step: StudioStep, reason: string): void {
  */
 export function trackStudioStepViewed(
   step: StudioStep,
-  stage?: 'pre_seed' | 'seed' | 'series_a',
+  stage?: 'pre_seed' | 'seed' | 'series_a'
 ): void {
   trackEvent('venus_studio_step_viewed', {
     step,
@@ -357,7 +357,7 @@ export function trackStudioReportShared(method: 'pdf' | 'link' | 'email'): void 
 
 export function trackStudioRunComplete(
   reportId: string,
-  stage?: 'pre_seed' | 'seed' | 'series_a',
+  stage?: 'pre_seed' | 'seed' | 'series_a'
 ): void {
   trackEvent('venus_studio_run_complete', {
     report_id: reportId,
