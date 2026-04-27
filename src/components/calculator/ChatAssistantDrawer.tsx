@@ -11,6 +11,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  AlertTriangle,
   Bot,
   Check,
   CheckCheck,
@@ -329,6 +330,26 @@ export interface SuggestionContext {
   pendingNormalizationsCount?: number
 }
 
+/**
+ * High-severity data-quality warning surfaced from the engine.
+ *
+ * Shape mirrors `response.data_quality_warnings[i]` produced by ValuationIQ
+ * (Pass-3 aggregation). The drawer renders these as actionable cards so
+ * advisors resolve issues IN the assistant — not on the final report. The
+ * goal is a clean, defensible PDF; the assistant catches the problems first.
+ */
+export interface QualityWarning {
+  type: string
+  severity: 'high' | 'medium' | 'low' | string
+  message?: string
+  recommendation?: string
+  step_number?: number
+  /** Locale-prepared CTA label (e.g. "Fix sector"). */
+  cta_label?: string
+  /** Optional command the CTA sends to the assistant verbatim. */
+  cta_prompt?: string
+}
+
 interface ChatAssistantDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -346,6 +367,17 @@ interface ChatAssistantDrawerProps {
   hasReport?: boolean
   hasEbitda?: boolean
   pendingNormalizationsCount?: number
+  /**
+   * High-severity warnings from the latest valuation result. The drawer shows
+   * each as an actionable card; clicking the CTA sends a prefilled message to
+   * the assistant. Resolved/dismissed state is owned by the parent (so it can
+   * persist with the session). Pass an empty array (or omit) to hide the rail.
+   */
+  qualityWarnings?: QualityWarning[]
+  /** Called when the advisor dismisses a warning (acknowledged without acting). */
+  onDismissQualityWarning?: (warningType: string) => void
+  /** Called when the advisor clicks the CTA. Sends `prompt` into the chat. */
+  onResolveQualityWarning?: (warningType: string, prompt: string) => void
   // Bi-directional sync: when AI suggests field updates
   onApplyFieldUpdate?: (field: string, value: any) => void
   pendingUpdates?: { field: string; value: any; label: string }[]
@@ -439,6 +471,9 @@ export function ChatAssistantDrawer({
   pendingUpdates = [],
   onAcceptUpdate,
   onRejectUpdate,
+  qualityWarnings = [],
+  onDismissQualityWarning,
+  onResolveQualityWarning,
   onAcceptNormalisation,
   onRejectNormalisation,
   showQuickNormalizations = false,
@@ -680,6 +715,77 @@ export function ChatAssistantDrawer({
               className="hidden"
               onChange={handleFileChange}
             />
+
+            {/*
+              Quality Warning Rail (Pass-7) — proactive resolution surface.
+
+              Each high-severity warning produced by the engine appears as an
+              actionable card here. The advisor either:
+                - Clicks the CTA → sends a prefilled prompt to the assistant
+                  (e.g. "Help me reclassify this company's sector"). The
+                  assistant then walks them through the fix.
+                - Dismisses → acknowledges the warning without acting (the
+                  parent persists this so the rail does not nag on every
+                  open).
+
+              This replaces the previous "warnings on Page 1 of the report"
+              pattern, which made finished PDFs look indefensible. The
+              report ships clean once the rail is empty.
+            */}
+            {qualityWarnings.length > 0 && (
+              <div className="shrink-0 px-4 sm:px-5 py-3 sm:py-4 border-b border-foreground/[0.06] bg-amber-500/[0.04]">
+                <div className="flex items-center gap-2 mb-2.5 sm:mb-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <p className="text-sm sm:text-xs font-medium text-amber-800 dark:text-amber-200">
+                    {ca('qualityWarningsTitle', {
+                      default: 'Resolve before sharing the report',
+                    })}
+                  </p>
+                </div>
+                <div className="space-y-2.5 sm:space-y-2">
+                  {qualityWarnings.map((w) => (
+                    <div
+                      key={w.type}
+                      className="flex items-start justify-between gap-3 p-3 sm:p-2.5 rounded-xl sm:rounded-lg bg-background border border-amber-300/30 dark:border-amber-700/30"
+                    >
+                      <div className="min-w-0 flex-1">
+                        {w.message ? (
+                          <p className="text-sm sm:text-xs font-medium text-foreground leading-snug">
+                            {w.message}
+                          </p>
+                        ) : null}
+                        {w.recommendation ? (
+                          <p className="text-sm sm:text-xs text-foreground/55 mt-1 leading-snug">
+                            {w.recommendation}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 sm:gap-1 shrink-0">
+                        {w.cta_label && w.cta_prompt ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onResolveQualityWarning?.(w.type, w.cta_prompt!)
+                            }
+                            className="px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-md text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-100 border border-amber-500/20 active:scale-95 transition-transform whitespace-nowrap touch-manipulation"
+                          >
+                            {w.cta_label}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => onDismissQualityWarning?.(w.type)}
+                          aria-label={ca('dismissWarning', { default: 'Dismiss' })}
+                          className="p-1.5 sm:p-1 rounded-md hover:bg-foreground/[0.06] text-foreground/40 active:scale-95 transition-transform touch-manipulation"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Pending Field Updates - Bi-directional sync UI */}
             {pendingUpdates.length > 0 && (

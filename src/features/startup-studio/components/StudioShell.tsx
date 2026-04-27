@@ -20,20 +20,22 @@
 
 import { motion } from 'framer-motion'
 import { AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react'
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
 import { StepProgress } from '@/design-system/components/Progress'
-import { LiveReceipt } from './LiveReceipt'
-import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
-import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
+  type StudioStep,
   trackStudioStepBlocked,
   trackStudioStepCompleted,
   trackStudioStepViewed,
-  type StudioStep,
 } from '@/lib/analytics'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { LiveReceipt } from './LiveReceipt'
+import { StudioCoPilot } from './StudioCoPilot'
 
 export interface StudioStepDef {
   id: StudioStep
@@ -75,6 +77,11 @@ export function StudioShell({
   const { benchmark, isFallback, publishedAt } = useStartupBenchmark(country, stage, sector)
   const valuation = useLiveValuation(benchmark)
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
+  // Centralised "things to fix before PDF" list — drives the co-pilot
+  // FAB badge and (in the Report step) the inline health-check panel.
+  // Replaces the previous practice of leaking warnings into the report
+  // itself. See `useStudioIssues` for severity contract.
+  const { issues } = useStudioIssues(benchmark)
 
   const stepDef = STUDIO_STEPS[currentStep]
   const isFirst = currentStep === 0
@@ -248,6 +255,22 @@ export function StudioShell({
           </details>
         </div>
       </div>
+
+      {/* Studio Co-pilot — proactive remediation surface for the issues
+          we'd previously have leaked into the rendered report. The FAB
+          floats bottom-right; the slide-over panel hosts both the
+          structured issue list and a free-form chat. Mounted here (not
+          per-step) so the founder can open the assistant on any step. */}
+      <StudioCoPilot
+        issues={issues}
+        scopeId={companyName ? `studio-${companyName}` : 'studio-default'}
+        locale={locale}
+        companyName={companyName || undefined}
+        onJumpToStep={(stepId: StudioStepId) => {
+          const idx = STUDIO_STEPS.findIndex((s) => s.id === stepId)
+          if (idx >= 0) onStepChange(idx)
+        }}
+      />
     </div>
   )
 }

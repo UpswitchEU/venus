@@ -17,18 +17,19 @@
  * it's the founder's final preview before submitting.
  */
 
-import { AlertCircle, Copy, Send } from 'lucide-react'
+import { AlertCircle, Check, Copy, Send, Sparkles } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
+import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
+import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import { trackStudioRunComplete } from '@/lib/analytics'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
   STUDIO_BERKUS_KEYS,
   STUDIO_SCORECARD_KEYS,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { trackStudioRunComplete } from '@/lib/analytics'
-import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
-import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
 
 interface ReportStepProps {
   locale?: 'en' | 'nl'
@@ -46,9 +47,16 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
   const maturity = useStartupValuationStore((s) => s.maturity)
   const { benchmark } = useStartupBenchmark(country || 'BE', stage, sector)
   const valuation = useLiveValuation(benchmark)
+  // Health-check feed — drives the gate on "Generate report" so blockers
+  // get resolved by the co-pilot before the PDF is ever produced.
+  const { blockers, warnings } = useStudioIssues(benchmark)
 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // Acknowledgement state for the "generate anyway" override. Local-only
+  // so the user has to re-tick on every visit to this step (intentional
+  // friction — the whole point is they pause and consider).
+  const [ackBlockers, setAckBlockers] = useState(false)
 
   // Build the deck-ready one-liner: pre-money + raise → post-money + dilution.
   // Numbers come straight from the live preview (the engine returns the
@@ -105,13 +113,13 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
       setSubmitError(
         locale === 'nl'
           ? `Iets ging mis bij het indienen: ${message}. Probeer het opnieuw.`
-          : `Something went wrong while submitting: ${message}. Please try again.`,
+          : `Something went wrong while submitting: ${message}. Please try again.`
       )
     }
   }
 
   const filledEvidence = [...STUDIO_BERKUS_KEYS, ...STUDIO_SCORECARD_KEYS].filter(
-    (key) => (evidenceNotes[key] ?? '').trim().length > 0,
+    (key) => (evidenceNotes[key] ?? '').trim().length > 0
   )
 
   const blended = valuation.blended
@@ -181,10 +189,17 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
         </div>
       )}
 
-      {/* Hero pre-result -------------------------------------------- */}
+      {/* Hero pre-result --------------------------------------------
+          Headline-only — we deliberately removed the "preliminary /
+          live preview / engine will recompute" disclaimer that used to
+          live here. That kind of caveat language belongs in the
+          co-pilot dialogue (where the user can act on it), not at the
+          top of an investor-facing surface. The engine still owns the
+          canonical post-submit number; the hero just shows the same
+          shape the report will. */}
       <div className="rounded-2xl border border-foreground/10 bg-gradient-to-br from-primary/10 to-background p-6">
         <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-          {locale === 'nl' ? 'Voorlopige pre-money' : 'Preliminary pre-money'}
+          {locale === 'nl' ? 'Pre-money waardering' : 'Pre-money valuation'}
         </p>
         <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">
           {formatEur(blended?.mid ?? null)}
@@ -194,11 +209,6 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
           <span className="font-semibold tabular-nums">{formatEur(blended?.low ?? null)}</span>
           {' – '}
           <span className="font-semibold tabular-nums">{formatEur(blended?.high ?? null)}</span>
-        </p>
-        <p className="mt-3 text-xs text-foreground/55">
-          {locale === 'nl'
-            ? 'Dit is een live preview op basis van je inputs. De definitieve waardering wordt door de engine berekend.'
-            : 'This is a live preview based on your inputs. The final valuation is computed by the engine.'}
         </p>
       </div>
 
@@ -281,6 +291,18 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
         </div>
       )}
 
+      {/* Health check ---------------------------------------------------
+          Single proactive panel that replaces the practice of leaking
+          warnings into the rendered PDF. Blockers gate the submit;
+          warnings are recommendations; the co-pilot owns the dialogue. */}
+      <HealthCheck
+        blockerCount={blockers.length}
+        warningCount={warnings.length}
+        ackBlockers={ackBlockers}
+        onAckBlockersChange={setAckBlockers}
+        locale={locale}
+      />
+
       {/* Action bar — PDF / share live on the report page after the
           engine returns; surfacing them here would tempt founders to
           export the wizard preview as if it were the investor PDF. */}
@@ -295,7 +317,12 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
           variant="primary"
           size="sm"
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          // Gate the submit when blockers exist and the user hasn't
+          // explicitly acknowledged the override. Two levels of intent:
+          //   1) `blockers.length === 0` → enabled by default
+          //   2) `ackBlockers === true`  → user opted to ship anyway
+          // The co-pilot is the path of least resistance for fixing.
+          disabled={isSubmitting || (blockers.length > 0 && !ackBlockers)}
           aria-busy={isSubmitting}
           className="gap-1.5"
         >
@@ -319,6 +346,120 @@ export function ReportStep({ locale = 'en', onSubmit, isSubmitting = false }: Re
           {submitError}
         </p>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------
+// HealthCheck
+// --------------
+// Inline summary panel rendered just above the submit button. Counts only
+// — the full list and per-issue actions live in the StudioCoPilot panel,
+// reachable via the "Open co-pilot" button. This is intentionally a
+// summary surface, not a duplicate of the co-pilot rail; otherwise the
+// founder has to act on the same item twice.
+// ---------------------------------------------------------------------
+
+interface HealthCheckProps {
+  blockerCount: number
+  warningCount: number
+  ackBlockers: boolean
+  onAckBlockersChange: (next: boolean) => void
+  locale: 'en' | 'nl'
+}
+
+function HealthCheck({
+  blockerCount,
+  warningCount,
+  ackBlockers,
+  onAckBlockersChange,
+  locale,
+}: HealthCheckProps) {
+  const totalIssues = blockerCount + warningCount
+
+  if (totalIssues === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-emerald-300/40 bg-emerald-50/60 p-4 text-sm text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+        <Check className="h-4 w-4 shrink-0" aria-hidden />
+        <p>
+          {locale === 'nl'
+            ? 'Alles staat — je rapport is klaar om te genereren.'
+            : 'All clear — your report is ready to generate.'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={
+        blockerCount > 0
+          ? 'rounded-2xl border border-rose-300/50 bg-rose-50/60 p-5 dark:border-rose-700/40 dark:bg-rose-950/25'
+          : 'rounded-2xl border border-amber-300/50 bg-amber-50/60 p-5 dark:border-amber-700/40 dark:bg-amber-950/25'
+      }
+    >
+      <div className="flex items-start gap-3">
+        <Sparkles
+          className={
+            blockerCount > 0
+              ? 'mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400'
+              : 'mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400'
+          }
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <p
+            className={
+              blockerCount > 0
+                ? 'text-sm font-semibold text-rose-800 dark:text-rose-200'
+                : 'text-sm font-semibold text-amber-800 dark:text-amber-200'
+            }
+          >
+            {(() => {
+              if (blockerCount > 0 && warningCount > 0) {
+                return locale === 'nl'
+                  ? `${blockerCount} blokkerend en ${warningCount} aanbevolen issue${warningCount === 1 ? '' : 's'} te fixen`
+                  : `${blockerCount} blocking and ${warningCount} recommended issue${warningCount === 1 ? '' : 's'} to resolve`
+              }
+              if (blockerCount > 0) {
+                return locale === 'nl'
+                  ? `${blockerCount} blokkerend issue${blockerCount === 1 ? '' : 's'} — fix met de co-pilot voor PDF`
+                  : `${blockerCount} blocking issue${blockerCount === 1 ? '' : 's'} — resolve with the co-pilot before PDF`
+              }
+              return locale === 'nl'
+                ? `${warningCount} aanbevolen verbetering${warningCount === 1 ? '' : 'en'}`
+                : `${warningCount} recommended improvement${warningCount === 1 ? '' : 's'}`
+            })()}
+          </p>
+          <p
+            className={
+              blockerCount > 0
+                ? 'mt-1 text-xs leading-relaxed text-rose-700/85 dark:text-rose-300/90'
+                : 'mt-1 text-xs leading-relaxed text-amber-700/85 dark:text-amber-300/90'
+            }
+          >
+            {locale === 'nl'
+              ? 'De Studio Co-pilot kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.'
+              : 'The Studio Co-pilot can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.'}
+          </p>
+
+          {blockerCount > 0 && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-300/40 bg-background/70 px-3 py-2 text-[11px] leading-snug text-rose-800 dark:text-rose-200">
+              <input
+                type="checkbox"
+                checked={ackBlockers}
+                onChange={(e) => onAckBlockersChange(e.target.checked)}
+                className="mt-0.5 accent-rose-600"
+              />
+              <span>
+                {locale === 'nl'
+                  ? 'Ik begrijp dat het rapport minder verdedigbaar is en wil het toch genereren.'
+                  : 'I understand the report will be less defensible and want to generate it anyway.'}
+              </span>
+            </label>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

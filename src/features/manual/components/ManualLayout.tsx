@@ -1235,6 +1235,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const conversationStore = useConversationStore()
   const streamCleanupRef = useRef<(() => void) | null>(null)
+  const tCa = useTranslations('chatAssistant')
+
+  // Pass-7: track which engine-emitted high-severity warnings the advisor
+  // has already addressed (clicked CTA → assistant) or dismissed. Local-only
+  // state — a fresh result clears stale entries below. Persisting to the
+  // session/store is a future improvement; for launch this is sufficient
+  // because the advisor resolves warnings within a single session.
+  const [acknowledgedQualityWarnings, setAcknowledgedQualityWarnings] = useState<Set<string>>(
+    () => new Set()
+  )
+  // Auto-open the assistant the first time a result lands carrying any
+  // high-severity warning. We do this exactly once per result-id so we
+  // don't re-pop the drawer every render.
+  const lastAutoOpenedResultRef = useRef<string | null>(null)
 
   // Load conversation history from server and sync to local chat state.
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
@@ -2591,6 +2605,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     lastPersistedPreparerRef.current = serializePreparerPayload(
       buildPersistedPreparerMultiplePayload(result)
     )
+  }, [result])
+
+  // Pass-7: when a NEW result arrives, clear stale acknowledgements and (if
+  // any high-severity warnings are present) auto-open the assistant exactly
+  // once. This is the proactive surface — the advisor sees the issues
+  // immediately and is guided to resolve them in the chat, not buried on
+  // page 1 of the PDF.
+  useEffect(() => {
+    if (!result) return
+    const resultId =
+      ((result as any)?.valuation_id as string | undefined) ||
+      ((result as any)?.id as string | undefined) ||
+      null
+    const warnings = ((result as any)?.data_quality_warnings ?? []) as Array<{
+      severity?: string
+    }>
+    const hasHigh = warnings.some(
+      (w) => String(w.severity ?? '').toLowerCase() === 'high'
+    )
+    // New result → drop stale acknowledgements (different run, different facts).
+    if (resultId !== lastAutoOpenedResultRef.current) {
+      setAcknowledgedQualityWarnings(new Set())
+      if (hasHigh) {
+        setChatDrawerOpen(true)
+      }
+      lastAutoOpenedResultRef.current = resultId
+    }
   }, [result])
 
   useEffect(() => {
@@ -5275,6 +5316,94 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     hasImportQuality ||
     suggestedNormalisations.length > 0 ||
     normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
+
+  // ─── Quality Warning Rail (Pass-7) ───────────────────────────────────────
+  // Surface engine-emitted high-severity warnings inside the assistant so
+  // advisors fix them BEFORE generating the report. The report ships clean
+  // once warnings are resolved or acknowledged. See engine-side Pass-3
+  // aggregation that produces `result.data_quality_warnings`.
+  const rawQualityWarnings = (result as any)?.data_quality_warnings as
+    | Array<{
+        type?: string
+        severity?: string
+        message?: string
+        recommendation?: string
+        step_number?: number
+      }>
+    | undefined
+  const qualityWarnings = useMemo(() => {
+    if (!rawQualityWarnings || rawQualityWarnings.length === 0) return []
+    // Per warning type: a localized CTA label and a prefilled assistant prompt.
+    // The advisor clicks the CTA → message goes into the chat → assistant
+    // walks them through the fix using its existing tool-use repertoire.
+    const ctaCatalog: Record<string, { labelKey: string; promptKey: string }> = {
+      thin_comparables_proxy: {
+        labelKey: 'qualityCtaThinComparablesLabel',
+        promptKey: 'qualityCtaThinComparablesPrompt',
+      },
+      owner_concentration_skipped_missing_inputs: {
+        labelKey: 'qualityCtaOwnerConcentrationLabel',
+        promptKey: 'qualityCtaOwnerConcentrationPrompt',
+      },
+      ebitda_divergence: {
+        labelKey: 'qualityCtaEbitdaDivergenceLabel',
+        promptKey: 'qualityCtaEbitdaDivergencePrompt',
+      },
+    }
+    return rawQualityWarnings
+      .filter((w) => String(w.severity ?? '').toLowerCase() === 'high')
+      .filter((w) => !!w.type && !acknowledgedQualityWarnings.has(w.type!))
+      .map((w) => {
+        const cta = ctaCatalog[w.type!]
+        // Fall back gracefully when a new engine warning type ships before
+        // the catalog is updated — show the warning, no CTA.
+        const labelDefault = 'Open in chat'
+        const promptDefault =
+          (w.message ?? '') +
+          (w.recommendation ? ` ${w.recommendation}` : '')
+        return {
+          type: w.type!,
+          severity: w.severity ?? 'high',
+          message: w.message,
+          recommendation: w.recommendation,
+          step_number: w.step_number,
+          cta_label: cta
+            ? tCa(cta.labelKey as never, { default: labelDefault } as never)
+            : labelDefault,
+          cta_prompt: cta
+            ? tCa(cta.promptKey as never, {
+                default: promptDefault,
+              } as never)
+            : promptDefault,
+        }
+      })
+  }, [rawQualityWarnings, acknowledgedQualityWarnings, tCa])
+
+  const handleResolveQualityWarning = useCallback(
+    (warningType: string, prompt: string) => {
+      // Open the assistant if not already open and forward the prefilled
+      // prompt. We mark the warning acknowledged here too: the advisor has
+      // explicitly engaged with it. If the underlying issue persists, a
+      // re-run will surface the warning again.
+      setChatDrawerOpen(true)
+      handleChatMessage(prompt)
+      setAcknowledgedQualityWarnings((prev) => {
+        const next = new Set(prev)
+        next.add(warningType)
+        return next
+      })
+    },
+    [handleChatMessage, setChatDrawerOpen]
+  )
+
+  const handleDismissQualityWarning = useCallback((warningType: string) => {
+    setAcknowledgedQualityWarnings((prev) => {
+      const next = new Set(prev)
+      next.add(warningType)
+      return next
+    })
+  }, [])
+
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -5290,6 +5419,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,
     onRejectUpdate: handleRejectUpdate,
+    qualityWarnings,
+    onResolveQualityWarning: handleResolveQualityWarning,
+    onDismissQualityWarning: handleDismissQualityWarning,
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,
     hasUploadedData: hasImportedNormalizationData,
