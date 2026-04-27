@@ -1,35 +1,52 @@
 /**
- * ProfileStep — identity-bridge contract.
+ * CompanyCardStep — identity-bridge contract.
  *
- * The Studio v2 wizard never re-asks identity fields on the report
- * page; it persists them up-front into `useManualFormStore` so the
- * downstream `buildStartupValuationRequest` has everything it needs.
+ * The Studio v2 wizard's first section is the canonical "Company
+ * Identification" card shared with every other valuation method.  It
+ * never re-asks identity fields on the report page; instead it
+ * persists them up-front into `useManualFormStore` so the downstream
+ * `buildStartupValuationRequest` has everything it needs to fire the
+ * canonical ValuationIQ pipeline on /reports/{id}.
  *
- * This test pins down the two-way bridge:
- *   1. Typing into the company-name input must write through to the
- *      shared `useManualFormStore.formData.company_name`.
- *   2. Switching country in the Studio must mirror the new ISO code
- *      into `useManualFormStore.formData.country_code` (the field the
- *      Python engine reads via the regional baseline lookup), but ONLY
- *      when the founder explicitly changes it — never as a side-effect
- *      of mounting the component on top of an existing form state.
+ * This test pins down the load-bearing contracts:
+ *   1. Typing a free-text company name writes through to
+ *      `useManualFormStore.formData.company_name` — even before the
+ *      founder picks a registry hit.
+ *   2. Mounting on top of an existing form-store country never
+ *      silently overwrites it (a founder who picked NL elsewhere must
+ *      not be reset to the Studio default of BE).
+ *   3. Mercury's `?prefilledQuery=` deep link seeds the company name
+ *      once on mount, never clobbers an existing name, and clamps the
+ *      result at 120 characters.
  *
  * Break either contract and the founder lands on `/reports/[id]` with
  * an empty company name, or with their previously-set country silently
- * overwritten by the Studio default.
+ * overwritten by the Studio default — and ValuationIQ refuses to run.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ProfileStep } from './ProfileStep'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { CompanyCardStep } from './CompanyCardStep'
 
 // `next-intl` and the design-system Select pull in heavy modules that
 // aren't relevant here; the store-level assertions are framework-free.
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
   useLocale: () => 'en',
+}))
+
+// `useBusinessTypes` hits a network endpoint we don't want to exercise
+// from a unit test.  Returning an empty list keeps the dropdown
+// rendered (no preview) without changing the bridge contract.
+vi.mock('@/hooks/useBusinessTypes', () => ({
+  useBusinessTypes: () => ({
+    businessTypes: [],
+    loading: false,
+    error: null,
+    refetch: () => {},
+  }),
 }))
 
 const initialFormSnapshot = useManualFormStore.getState()
@@ -39,7 +56,7 @@ function setLocation(search: string) {
   window.history.replaceState({}, '', `/en/startup-valuation${search}`)
 }
 
-describe('ProfileStep — identity bridge', () => {
+describe('CompanyCardStep — identity bridge', () => {
   beforeEach(() => {
     useManualFormStore.setState(initialFormSnapshot, true)
     useStartupValuationStore.setState(initialStudioSnapshot, true)
@@ -53,7 +70,7 @@ describe('ProfileStep — identity bridge', () => {
   })
 
   it('writes the company name into useManualFormStore as the founder types', () => {
-    render(<ProfileStep locale="en" />)
+    render(<CompanyCardStep locale="en" />)
 
     const input = screen.getByPlaceholderText(/Henchman/i) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Acme Robotics' } })
@@ -61,8 +78,8 @@ describe('ProfileStep — identity bridge', () => {
     expect(useManualFormStore.getState().formData.company_name).toBe('Acme Robotics')
   })
 
-  it('clamps very long company names to 120 characters to protect downstream stores', () => {
-    render(<ProfileStep locale="en" />)
+  it('clamps very long company names to 120 characters', () => {
+    render(<CompanyCardStep locale="en" />)
     const input = screen.getByPlaceholderText(/Henchman/i) as HTMLInputElement
 
     const huge = 'A'.repeat(500)
@@ -82,14 +99,14 @@ describe('ProfileStep — identity bridge', () => {
           country_code: 'NL',
         },
       },
-      true,
+      true
     )
     // Studio store still defaults to 'BE' (the wizard's initial value).
     expect(useStartupValuationStore.getState().country_code).toBe('BE')
 
-    render(<ProfileStep locale="en" />)
+    render(<CompanyCardStep locale="en" />)
 
-    // The mount should not silently mirror the Studio default into the
+    // The mount must not silently mirror the Studio default into the
     // form store — the previously-set NL must survive.
     expect(useManualFormStore.getState().formData.country_code).toBe('NL')
   })
@@ -97,7 +114,7 @@ describe('ProfileStep — identity bridge', () => {
   it('prefills the company name from ?prefilledQuery= on first mount', () => {
     setLocation('?prefilledQuery=Acme%20Robotics')
 
-    render(<ProfileStep locale="en" />)
+    render(<CompanyCardStep locale="en" />)
 
     expect(useManualFormStore.getState().formData.company_name).toBe('Acme Robotics')
   })
@@ -111,21 +128,19 @@ describe('ProfileStep — identity bridge', () => {
           company_name: 'Existing BV',
         },
       },
-      true,
+      true
     )
     setLocation('?prefilledQuery=Other%20Co')
 
-    render(<ProfileStep locale="en" />)
+    render(<CompanyCardStep locale="en" />)
 
-    // Founder previously typed something — Mercury's prefill must not
-    // silently overwrite it on revisit.
     expect(useManualFormStore.getState().formData.company_name).toBe('Existing BV')
   })
 
   it('clamps an oversized ?prefilledQuery= value to 120 characters', () => {
     setLocation(`?prefilledQuery=${'A'.repeat(500)}`)
 
-    render(<ProfileStep locale="en" />)
+    render(<CompanyCardStep locale="en" />)
 
     const stored = useManualFormStore.getState().formData.company_name ?? ''
     expect(stored.length).toBeLessThanOrEqual(120)

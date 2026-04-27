@@ -195,24 +195,6 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
           : 'Picking a template only overwrites preset-managed fields — your free text stays. Tune everything afterwards.'}
       </p>
 
-      {/* Express path shortcut — for founders who want PDF in 90s, not the
-          guided 8-step learning UX.  Renders only when the consumer is the
-          wizard (Express page already IS the express UX, so we hide the
-          link there to avoid a self-loop). */}
-      {typeof window !== 'undefined' &&
-        !window.location.pathname.includes('/startup-valuation/express') && (
-          <p className="mt-3 text-xs">
-            <a
-              href={`/${locale === 'nl' ? 'nl' : 'en'}/startup-valuation/express`}
-              className="font-medium text-primary hover:text-primary/80"
-            >
-              {locale === 'nl'
-                ? 'Of: ga direct naar de Express-flow (PDF in 90 seconden)'
-                : 'Or: jump to the Express flow (PDF in 90 seconds)'}
-              {' →'}
-            </a>
-          </p>
-        )}
     </section>
   )
 }

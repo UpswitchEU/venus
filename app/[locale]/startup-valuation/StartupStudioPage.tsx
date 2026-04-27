@@ -22,9 +22,9 @@ import {
   type AdvisorHandoff,
 } from '@/components/calculator/sections/startup/StartupAwareInputPanel'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
+import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
-import { ProfileStep } from '@/features/startup-studio/components/ProfileStep'
 import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
@@ -163,7 +163,7 @@ export function StartupStudioPage({ locale }: Props) {
   }
 
   const sections: StudioSection[] = [
-    { id: 'profile', content: <ProfileStep locale={locale} /> },
+    { id: 'profile', content: <CompanyCardStep locale={locale} /> },
     { id: 'berkus', content: <BerkusStep locale={locale} /> },
     { id: 'scorecard', content: <ScorecardStep locale={locale} /> },
     { id: 'founder_pedigree', content: <FounderPedigreeStep locale={locale} /> },

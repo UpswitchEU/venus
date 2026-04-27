@@ -28,6 +28,7 @@ import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
 import { useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
@@ -326,8 +327,10 @@ export function StudioShell({
             </nav>
           </aside>
 
-          {/* Centre — stacked sections */}
-          <main className="min-w-0 space-y-8">
+          {/* Centre — stacked sections.  Each section uses the canonical
+              `ValuationSectionHeader` (Aurora Teal step numerals + ring on
+              complete) so the visual contract matches DCF / SaaS / NAV. */}
+          <main className="min-w-0 space-y-10">
             {sections.map((section, idx) => {
               const def = STUDIO_STEPS.find((s) => s.id === section.id)
               if (!def) return null
@@ -340,24 +343,16 @@ export function StudioShell({
                   }}
                   data-studio-step={section.id}
                   id={sectionAnchorId(section.id)}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: idx * 0.02 }}
-                  className="scroll-mt-6"
+                  transition={{ duration: 0.25, ease: 'easeOut', delay: idx * 0.02 }}
+                  className="scroll-mt-6 space-y-4"
                 >
-                  <header className="mb-4 flex items-center gap-3">
-                    <span
-                      className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold tabular-nums',
-                        status === 'complete'
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-primary/10 text-primary'
-                      )}
-                    >
-                      {status === 'complete' ? <Check className="h-4 w-4" /> : idx + 1}
-                    </span>
-                    <h2 className="text-lg font-semibold text-foreground">{def.label[locale]}</h2>
-                  </header>
+                  <ValuationSectionHeader
+                    step={idx + 1}
+                    title={def.label[locale]}
+                    complete={status === 'complete'}
+                  />
                   <div>{section.content}</div>
                 </motion.section>
               )
