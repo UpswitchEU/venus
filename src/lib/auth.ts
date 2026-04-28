@@ -27,6 +27,7 @@ import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
+import { MERCURY_ADVISOR_URL_MODE } from '../utils/reportMode'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
 
@@ -1163,7 +1164,11 @@ async function initializeAuth(): Promise<void> {
           // `?mode=accountant&clientId=X` was silently skipped here, landed on
           // AuthGate without client context, and bounced to the generic
           // "Failed to establish client context" error.
-          if (mode === 'accountant' && clientIdParam && isAccountantTierRole(user.role)) {
+          if (
+            mode === MERCURY_ADVISOR_URL_MODE &&
+            clientIdParam &&
+            isAccountantTierRole(user.role)
+          ) {
             generalLogger.info(
               `[Auth:${traceId}] Advisor-tier mode with clientId - fetching client context`
             )

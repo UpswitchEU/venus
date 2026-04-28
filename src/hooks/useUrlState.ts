@@ -11,6 +11,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
 import { useCallback, useEffect, useRef } from 'react'
+import { isMercuryAdvisorModeParam, parseReportModeSearchParam } from '@/utils/reportMode'
 
 interface UrlState {
   mode?: 'edit' | 'view'
@@ -54,9 +55,10 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   // Read initial state from URL
   // SECURITY: prefilledQuery is read-only from URL (backward compatibility)
   // It should not be synced back to URL - it's stored in session data instead
+  const versionParam = searchParams?.get('version') ?? undefined
   const urlState: UrlState = {
-    mode: (searchParams?.get('mode') as 'edit' | 'view') || undefined,
-    version: searchParams?.get('version') ? parseInt(searchParams.get('version')!) : undefined,
+    mode: parseReportModeSearchParam(searchParams?.get('mode')),
+    version: versionParam !== undefined ? parseInt(versionParam, 10) : undefined,
     flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
     prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
     autoSend: searchParams?.get('autoSend') === 'true',
@@ -74,9 +76,15 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         const newState = { ...lastStateRef.current, ...updates }
 
         // Update query parameters
+        // UI `edit` normally omits `mode` — but Mercury uses `mode=accountant` for advisor context
+        // (cross-app contract). Stripping `mode` would remove that signal on sync; preserve it.
         if (updates.mode !== undefined) {
           if (updates.mode === 'edit') {
-            currentUrl.searchParams.delete('mode') // Edit is default, don't need in URL
+            // Strip redundant UI `mode` — keep Mercury advisor flag `mode=accountant` (see reportMode.ts)
+            const rawMode = currentUrl.searchParams.get('mode')
+            if (!isMercuryAdvisorModeParam(rawMode)) {
+              currentUrl.searchParams.delete('mode')
+            }
           } else {
             currentUrl.searchParams.set('mode', updates.mode)
           }
@@ -163,9 +171,10 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   useEffect(() => {
     const handlePopState = () => {
       // URL changed via browser navigation - read new state
+      const pv = searchParams?.get('version') ?? undefined
       const newState: UrlState = {
-        mode: (searchParams?.get('mode') as 'edit' | 'view') || undefined,
-        version: searchParams?.get('version') ? parseInt(searchParams.get('version')!) : undefined,
+        mode: parseReportModeSearchParam(searchParams?.get('mode')),
+        version: pv !== undefined ? parseInt(pv, 10) : undefined,
         flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
         prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
         autoSend: searchParams?.get('autoSend') === 'true',
@@ -184,10 +193,11 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
     return () => window.removeEventListener('popstate', handlePopState)
   }, [searchParams, onStateChange])
 
-  // Initialize lastStateRef
+  // Initialize lastStateRef snapshot (run once; URL-derived state recreated each render elsewhere)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount baseline only — adding urlState reruns unnecessarily
   useEffect(() => {
     lastStateRef.current = urlState
-  }, []) // Only on mount
+  }, [])
 
   // EARLY RESET: When searchParams update and match target, reset immediately (no need to wait for timeout)
   useEffect(() => {

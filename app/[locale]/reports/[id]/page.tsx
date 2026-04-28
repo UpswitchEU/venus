@@ -1,4 +1,5 @@
 import nextDynamic from 'next/dynamic'
+import { parseReportModeForInitialUi } from '@/utils/reportMode'
 import { generalLogger } from '@/utils/logger'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ReportNotFoundMessage } from './ReportNotFoundMessage'
@@ -60,7 +61,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       }
     }
 
-    mode = (urlParams.mode as 'edit' | 'view') || 'edit'
+    mode = parseReportModeForInitialUi(urlParams.mode)
     version = urlParams.version ? parseInt(urlParams.version) : undefined
   } catch (e) {
     generalLogger.error('[Page] searchParams error:', e)

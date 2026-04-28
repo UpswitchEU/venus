@@ -13,6 +13,7 @@ import {
 } from '../../../../src/lib/bootstrap'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
+import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
 
 /**
  * Token refresh runs INSIDE AuthGate so it only starts after auth is
@@ -125,6 +126,12 @@ export default function ValuationReportClient({
   const returnUrl = urlParams.return_url
   const source = urlParams.source
 
+  /** Never trust raw `mode` alone (Mercury sends `accountant`). Reconcile from URL for client navigations. */
+  const uiMode = useMemo(
+    () => parseReportModeForInitialUi(urlParams.mode ?? initialMode),
+    [urlParams.mode, initialMode]
+  )
+
   // LOOP FIX: Derive url from reportId+locale instead of window.location.href to avoid
   // context churn when router.replace updates the URL (mode, version, etc.)
   const bootstrapContext = useMemo<BootstrapContext>(() => {
@@ -139,7 +146,7 @@ export default function ValuationReportClient({
       clientId,
       prefilledQuery,
       flow: (flow as FlowType) || undefined,
-      mode: initialMode,
+      mode: uiMode,
       version: initialVersion,
       locale,
       embedded: embedded === 'true',
@@ -150,7 +157,7 @@ export default function ValuationReportClient({
   }, [
     reportId,
     locale,
-    initialMode,
+    uiMode,
     initialVersion,
     clientToken,
     clientId,
@@ -177,7 +184,7 @@ export default function ValuationReportClient({
         <BootstrapProvider context={bootstrapContext} autoBootstrap={true}>
           <ValuationReport
             reportId={reportId}
-            initialMode={initialMode}
+            initialMode={uiMode}
             initialVersion={initialVersion}
             urlParams={urlParams}
           />
