@@ -26,6 +26,7 @@ import {
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
+import { dateLikeToUnixMs } from '../utils/date-like'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
 import { useNormalizationStore, mapFrontendCategoryToBackend } from './useNormalizationStore'
@@ -883,7 +884,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         const reportIds = Object.entries(state.versions)
           .map(([id, vs]) => ({
             id,
-            latest: Math.max(...vs.map((v) => new Date(v.createdAt).getTime()), 0),
+            latest: Math.max(
+              0,
+              ...vs.map((v) => dateLikeToUnixMs(v.createdAt) ?? 0)
+            ),
           }))
           .sort((a, b) => b.latest - a.latest)
           .slice(0, MAX_REPORTS)

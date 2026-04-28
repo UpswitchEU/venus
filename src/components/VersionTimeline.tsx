@@ -28,6 +28,7 @@ import { useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
+import { dateLikeToUnixMs } from '../utils/date-like'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
 
 /** Number of versions to show initially and per "Load More" click */
@@ -107,8 +108,12 @@ export function VersionTimeline({
     if (!existing) {
       versionMap.set(version.versionNumber, version)
     } else {
-      const versionCreatedAt = version.createdAt ? new Date(version.createdAt).getTime() : 0
-      const existingCreatedAt = existing.createdAt ? new Date(existing.createdAt).getTime() : 0
+      const versionCreatedAt = version.createdAt
+        ? dateLikeToUnixMs(version.createdAt) ?? 0
+        : 0
+      const existingCreatedAt = existing.createdAt
+        ? dateLikeToUnixMs(existing.createdAt) ?? 0
+        : 0
 
       if (versionCreatedAt > existingCreatedAt) {
         versionMap.set(version.versionNumber, version)

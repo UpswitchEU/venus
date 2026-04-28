@@ -26,6 +26,7 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
+import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
@@ -513,9 +514,11 @@ export class SessionService {
         const loadTime = performance.now() - startTime
 
         // Calculate cache age for stale-while-revalidate
-        const cacheAge_minutes = cachedSession.updatedAt
-          ? Math.floor((Date.now() - new Date(cachedSession.updatedAt).getTime()) / (60 * 1000))
-          : 0
+        const updatedMs = dateLikeToUnixMs(cachedSession.updatedAt)
+        const cacheAge_minutes =
+          updatedMs !== null
+            ? Math.floor((Date.now() - updatedMs) / (60 * 1000))
+            : 0
 
         // ✅ VERIFY: Log form data presence in cache for restoration
         const hasSessionData = !!cachedSession.sessionData

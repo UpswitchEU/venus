@@ -7,6 +7,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 
 interface NormalizedEBITDAFieldProps {
   label: string
@@ -45,8 +46,9 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
   }
 
   const formatRelativeTime = (date: Date) => {
-    const now = new Date()
-    const diffMs = now.getTime() - new Date(date).getTime()
+    const updatedMs = dateLikeToUnixMs(date)
+    if (updatedMs === null) return tTime('justNow')
+    const diffMs = Math.max(0, Date.now() - updatedMs)
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)

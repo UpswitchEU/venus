@@ -9,6 +9,7 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationSession } from '../types/valuation'
+import { dateLikeToUnixMs } from './date-like'
 import { createContextLogger } from '../utils/logger'
 import { globalSessionCache } from './sessionCacheManager'
 import { normalizeSessionDates } from './sessionHelpers'
@@ -34,12 +35,12 @@ const verificationInProgress = new Set<string>()
  * @returns true if verification is needed
  */
 export function shouldVerifyCache(cachedSession: ValuationSession): boolean {
-  // Always verify if we don't have a timestamp
-  if (!cachedSession.updatedAt) {
+  const updatedMs = dateLikeToUnixMs(cachedSession.updatedAt)
+  if (updatedMs === null) {
     return true
   }
 
-  const cacheAge = Date.now() - new Date(cachedSession.updatedAt).getTime()
+  const cacheAge = Date.now() - updatedMs
   return cacheAge > VERIFICATION_THRESHOLD_MS
 }
 
@@ -68,7 +69,8 @@ export function verifySessionInBackground(reportId: string, cachedSession: Valua
     VERIFICATION_LOGGER.debug('Cache is fresh, skipping verification', {
       reportId,
       cacheAge_minutes: Math.floor(
-        (Date.now() - new Date(cachedSession.updatedAt || Date.now()).getTime()) / (60 * 1000)
+        (Date.now() - (dateLikeToUnixMs(cachedSession.updatedAt) ?? Date.now())) /
+          (60 * 1000)
       ),
     })
     return
@@ -110,12 +112,8 @@ export function verifySessionInBackground(reportId: string, cachedSession: Valua
         const backendSession = normalizeSessionDates(backendResponse.session)
 
         // Compare timestamps to determine if backend has newer data
-        const cacheTimestamp = cachedSession.updatedAt
-          ? new Date(cachedSession.updatedAt).getTime()
-          : 0
-        const backendTimestamp = backendSession.updatedAt
-          ? new Date(backendSession.updatedAt).getTime()
-          : 0
+        const cacheTimestamp = dateLikeToUnixMs(cachedSession.updatedAt) ?? 0
+        const backendTimestamp = dateLikeToUnixMs(backendSession.updatedAt) ?? 0
 
         if (backendTimestamp > cacheTimestamp) {
           // Backend has newer data - update cache

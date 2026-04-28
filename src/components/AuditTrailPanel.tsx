@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
+import { dateLikeToUnixMs } from '../utils/date-like'
 import { formatVersionAuthor } from '../utils/formatters'
 import { generalLogger } from '../utils/logger'
 import { VersionTimeline } from './VersionTimeline'
@@ -66,8 +67,12 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     if (!existing) {
       versionMap.set(version.versionNumber, version)
     } else {
-      const versionCreatedAt = version.createdAt ? new Date(version.createdAt).getTime() : 0
-      const existingCreatedAt = existing.createdAt ? new Date(existing.createdAt).getTime() : 0
+      const versionCreatedAt = version.createdAt
+        ? dateLikeToUnixMs(version.createdAt) ?? 0
+        : 0
+      const existingCreatedAt = existing.createdAt
+        ? dateLikeToUnixMs(existing.createdAt) ?? 0
+        : 0
 
       // Keep the version with the latest createdAt
       if (versionCreatedAt > existingCreatedAt) {
