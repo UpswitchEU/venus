@@ -18,7 +18,7 @@
 import { AlertCircle, Check, Loader2, Save } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useEffect, useState } from 'react'
-import { dateLikeAgeMs, dateLikeToUnixMs } from '@/utils/date-like'
+import { dateLikeAgeMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 
 export interface SaveStatusIndicatorProps {
   /** Whether save is in progress */
@@ -50,14 +50,12 @@ function getRelativeTime(
   if (diffMin < 60) return t('minutesAgo', { count: diffMin })
   if (diffHour < 24) return t('hoursAgo', { count: diffHour })
 
-  const pastMs = dateLikeToUnixMs(date)
-  if (pastMs === null) return t('justNow')
-  return new Date(pastMs).toLocaleDateString(undefined, {
+  return formatDateLikeToLocaleString(date, undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  })
+  }, t('justNow'))
 }
 
 /**

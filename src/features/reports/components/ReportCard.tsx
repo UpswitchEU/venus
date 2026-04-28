@@ -10,7 +10,7 @@
 import { Calendar, Clock, Trash2, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useState } from 'react'
-import { dateLikeToUnixMs } from '@/utils/date-like'
+import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date-like'
 import { formatCurrency } from '../../../config/countries'
 import type { ValuationSession } from '../../../types/valuation'
 
@@ -63,7 +63,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
       if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
       if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
 
-      return new Date(pastMs).toLocaleDateString('en-US', {
+      return formatDateLikeToLocaleDateString(date, 'en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',

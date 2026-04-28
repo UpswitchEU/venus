@@ -13,7 +13,7 @@ import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide
 import { useTranslations } from 'next-intl'
 import { useAuth } from '../hooks/useAuth'
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { dateLikeToUnixMs } from '@/utils/date-like'
+import { formatDateLikeToLocaleString } from '@/utils/date-like'
 import { formatCurrency, formatShareholdingPercentage, formatVersionAuthor } from '../utils/formatters'
 
 export interface AuditDetailsViewProps {
@@ -176,9 +176,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
  * Format timestamp for display
  */
 function formatDate(date: Date | string | number): string {
-  const ms = dateLikeToUnixMs(date)
-  if (ms === null) return '\u2014'
-  return new Date(ms).toLocaleDateString('en-US', {
+  return formatDateLikeToLocaleString(date, 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

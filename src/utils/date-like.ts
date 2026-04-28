@@ -20,3 +20,39 @@ export function dateLikeAgeMs(value: unknown, nowMs = Date.now()): number | null
   if (t === null) return null
   return Math.max(0, nowMs - t)
 }
+
+/** `toLocaleDateString` after parsing; unparseable → `fallback` (default em dash). */
+export function formatDateLikeToLocaleDateString(
+  value: unknown,
+  locales?: Intl.LocalesArgument,
+  options?: Intl.DateTimeFormatOptions,
+  fallback = '\u2014'
+): string {
+  const ms = dateLikeToUnixMs(value)
+  if (ms === null) return fallback
+  return new Date(ms).toLocaleDateString(locales, options)
+}
+
+/** `toLocaleString` after parsing; unparseable → `fallback`. */
+export function formatDateLikeToLocaleString(
+  value: unknown,
+  locales?: Intl.LocalesArgument,
+  options?: Intl.DateTimeFormatOptions,
+  fallback = '\u2014'
+): string {
+  const ms = dateLikeToUnixMs(value)
+  if (ms === null) return fallback
+  return new Date(ms).toLocaleString(locales, options)
+}
+
+/** `toLocaleTimeString` after parsing; unparseable → `fallback`. */
+export function formatDateLikeToLocaleTimeString(
+  value: unknown,
+  locales?: Intl.LocalesArgument,
+  options?: Intl.DateTimeFormatOptions,
+  fallback = '\u2014'
+): string {
+  const ms = dateLikeToUnixMs(value)
+  if (ms === null) return fallback
+  return new Date(ms).toLocaleTimeString(locales, options)
+}

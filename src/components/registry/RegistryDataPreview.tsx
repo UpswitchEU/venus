@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
-import { dateLikeToUnixMs } from '@/utils/date-like'
+import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date-like'
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { useManualFormStore } from '../../store/manual'
 import type { CompanyFinancialData, FinancialFilingYear } from '../../types/registry'
@@ -239,13 +239,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
               </h3>
               {latestYear.filing_date && (
                 <span className="text-sm text-muted-foreground">
-                  Filed:{' '}
-                  {(() => {
-                    const fd = dateLikeToUnixMs(latestYear.filing_date)
-                    return fd !== null
-                      ? new Date(fd).toLocaleDateString()
-                      : '\u2014'
-                  })()}
+                  Filed: {formatDateLikeToLocaleDateString(latestYear.filing_date)}
                 </span>
               )}
             </div>

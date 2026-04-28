@@ -32,7 +32,7 @@ import { toast } from 'sonner'
 import { AuroraButton as Button, Checkbox } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
-import { dateLikeToUnixMs } from '@/utils/date-like'
+import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
 import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
@@ -107,7 +107,7 @@ const formatCurrency = (amount: number, locale: 'nl' | 'en') => {
 }
 
 const formatTime = (
-  date: Date,
+  date: Date | string | number,
   hp: (key: string, values?: Record<string, number>) => string,
   locale: 'nl' | 'en'
 ) => {
@@ -122,7 +122,7 @@ const formatTime = (
   if (diff < 1000 * 60 * 60 * 24 * 7)
     return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) })
   if (pastMs === null) return hp('timeJustNow')
-  return new Date(pastMs).toLocaleDateString(loc, {
+  return formatDateLikeToLocaleString(date, loc, {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
@@ -130,8 +130,8 @@ const formatTime = (
   })
 }
 
-const formatDate = (date: Date, locale: 'nl' | 'en') => {
-  return date.toLocaleDateString(currencyLocaleFor(locale), {
+const formatDate = (date: Date | string | number, locale: 'nl' | 'en') => {
+  return formatDateLikeToLocaleString(date, currencyLocaleFor(locale), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
