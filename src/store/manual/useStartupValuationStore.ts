@@ -13,8 +13,8 @@
  */
 
 import { create } from 'zustand'
-import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 import { persist } from 'zustand/middleware'
+import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 
 export type StartupStage = 'pre_seed' | 'seed' | 'series_a'
 
@@ -372,7 +372,10 @@ export interface StartupValuationState {
 
 interface StartupValuationStore extends StartupValuationState {
   setField: <K extends keyof StartupValuationState>(key: K, value: StartupValuationState[K]) => void
-  setCapField: <K extends keyof StartupCapTableState>(key: K, value: StartupCapTableState[K]) => void
+  setCapField: <K extends keyof StartupCapTableState>(
+    key: K,
+    value: StartupCapTableState[K]
+  ) => void
   /**
    * Studio v2 setter — picks a maturity level for a milestone and
    * derives the 0–100 score the Python engine consumes.  This is the
@@ -405,7 +408,7 @@ interface StartupValuationStore extends StartupValuationState {
   setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
   /** Studio v2 — Step 4 TAM/SAM/SOM trio setter. */
   setTamSamSom: (
-    next: Partial<{ tam: number | null; sam: number | null; som: number | null }>,
+    next: Partial<{ tam: number | null; sam: number | null; som: number | null }>
   ) => void
   addSafeNote: () => void
   updateSafeNote: (id: string, patch: Partial<StartupSafeNote>) => void
@@ -422,6 +425,19 @@ interface StartupValuationStore extends StartupValuationState {
   reset: () => void
   /** Build the `startup_inputs` payload accepted by Titan / ValuationIQ. */
   toRequestPayload: () => Record<string, unknown>
+  /**
+   * Apply a snapshot from a backend session payload back into the store.
+   * Mirrors the SME canonical flow where `SessionRestorationService`
+   * rehydrates `useManualFormStore` from the saved session.  Studio v2
+   * lives outside that pipeline (no normalizer extracts `startup_inputs`),
+   * so we do the work explicitly here on a per-report mount.
+   *
+   * Defensive: silently ignores fields not present in the snapshot, so
+   * partial payloads (older Titan schemas, in-flight migrations) never
+   * blow up the founder's session.  Existing fields not in the snapshot
+   * are preserved.
+   */
+  applyFromSnapshot: (snapshot: Record<string, unknown> | null | undefined) => void
 }
 
 const INITIAL_CAP_TABLE: StartupCapTableState = {
@@ -540,14 +556,17 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         }),
 
       setMaturity: (key, level) =>
-        set((state) => ({
-          ...state,
-          maturity: { ...state.maturity, [key]: level },
-          // Keep the legacy 0–100 field in lock-step so the engine
-          // payload built by `toRequestPayload` is byte-identical to
-          // what the legacy slider panel would have produced.
-          [key]: MATURITY_TO_SCORE[level],
-        }) as StartupValuationState),
+        set(
+          (state) =>
+            ({
+              ...state,
+              maturity: { ...state.maturity, [key]: level },
+              // Keep the legacy 0–100 field in lock-step so the engine
+              // payload built by `toRequestPayload` is byte-identical to
+              // what the legacy slider panel would have produced.
+              [key]: MATURITY_TO_SCORE[level],
+            }) as StartupValuationState
+        ),
 
       setPedigreeFlag: (key, applied) =>
         set((state) => {
@@ -561,54 +580,38 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           return { ...state, founder_pedigree: next }
         }),
 
-      applyPreset: (preset) =>
-        set((state) => {
-          // Derive 0-100 scores from the preset's maturity picks so the
-          // engine consumes the same shape it would if a founder had
-          // clicked through the wizard.  Mirrors `setMaturity`.
-          const maturityFields: Partial<StartupValuationState> = {}
-          for (const [key, level] of Object.entries(preset.maturity) as Array<
-            [StudioMilestoneKey, MaturityLevel]
-          >) {
-            ;(maturityFields as Record<string, unknown>)[key] = MATURITY_TO_SCORE[level]
-          }
-
-          // Merge evidence notes — preset overrides only those it
-          // explicitly sets; founder's own sentences for other milestones
-          // survive.
-          const nextEvidence = { ...state.evidence_notes }
-          if (preset.evidence_notes) {
-            for (const [key, note] of Object.entries(preset.evidence_notes)) {
-              if (note != null) {
-                nextEvidence[key as StudioMilestoneKey] = note
-              }
-            }
-          }
-
-          return {
-            ...state,
-            ...maturityFields,
-            stage: preset.stage,
-            sector: preset.sector,
-            country_code: preset.country_code,
-            investment_amount_sought: preset.investment_amount_sought,
-            description: preset.description ?? state.description,
-            maturity: { ...state.maturity, ...preset.maturity },
-            evidence_notes: nextEvidence,
-            founder_pedigree: { ...preset.founder_pedigree },
-            ...(preset.year5_revenue_projection != null
-              ? { year5_revenue_projection: preset.year5_revenue_projection }
-              : {}),
-            ...(preset.exit_revenue_multiple != null
-              ? { exit_revenue_multiple: preset.exit_revenue_multiple }
-              : {}),
-            ...(preset.target_roi_x != null ? { target_roi_x: preset.target_roi_x } : {}),
-            ...(preset.tam_sam_som ? { tam_sam_som: preset.tam_sam_som } : {}),
-            // Mark sector as user-set so the NACE auto-seed never silently
-            // overrides what the preset picked.
-            _sectorWasUserSet: true,
-          } as StartupValuationState
-        }),
+      applyPreset: (preset) => {
+        // Build a snapshot in the same shape `toRequestPayload` produces,
+        // then delegate to `applyFromSnapshot` so the bulk-apply logic
+        // (validation, merging, _sectorWasUserSet flag) lives in exactly
+        // one place.  Preset-specific work — only the `MaturityLevel` →
+        // 0–100 score derivation — happens here, before delegation.
+        const scores: Record<string, number> = {}
+        for (const [key, level] of Object.entries(preset.maturity) as Array<
+          [StudioMilestoneKey, MaturityLevel]
+        >) {
+          scores[key] = MATURITY_TO_SCORE[level]
+        }
+        get().applyFromSnapshot({
+          stage: preset.stage,
+          sector: preset.sector,
+          country_code: preset.country_code,
+          investment_amount_sought: preset.investment_amount_sought,
+          ...scores,
+          maturity: preset.maturity,
+          founder_pedigree: preset.founder_pedigree,
+          ...(preset.description != null ? { description: preset.description } : {}),
+          ...(preset.evidence_notes ? { evidence_notes: preset.evidence_notes } : {}),
+          ...(preset.year5_revenue_projection != null
+            ? { year5_revenue_projection: preset.year5_revenue_projection }
+            : {}),
+          ...(preset.exit_revenue_multiple != null
+            ? { exit_revenue_multiple: preset.exit_revenue_multiple }
+            : {}),
+          ...(preset.target_roi_x != null ? { target_roi_x: preset.target_roi_x } : {}),
+          ...(preset.tam_sam_som ? { tam_sam_som: preset.tam_sam_som } : {}),
+        })
+      },
 
       setEvidenceNote: (key, note) =>
         set((state) => ({
@@ -679,6 +682,192 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
 
       reset: () => set(() => ({ ...INITIAL_STATE })),
 
+      applyFromSnapshot: (snapshot) => {
+        if (!snapshot || typeof snapshot !== 'object') return
+        const s = snapshot as Record<string, unknown>
+        set((state) => {
+          const next = { ...state }
+          // Identity / framing fields ----------------------------------
+          if (
+            typeof s.stage === 'string' &&
+            (['pre_seed', 'seed', 'series_a'] as const).includes(s.stage as StartupStage)
+          ) {
+            next.stage = s.stage as StartupStage
+          }
+          if (typeof s.country_code === 'string' && s.country_code.trim()) {
+            next.country_code = s.country_code.trim().toUpperCase()
+          }
+          if (typeof s.sector === 'string') {
+            const valid: StartupSector[] = [
+              'saas',
+              'marketplace',
+              'fintech',
+              'biotech_healthtech',
+              'deeptech_ai',
+              'consumer',
+              'hardware',
+              'other',
+            ]
+            if (valid.includes(s.sector as StartupSector)) {
+              next.sector = s.sector as StartupSector
+              // Treat a server-restored sector as user-set so the NACE
+              // smart-default never silently overrides it on rehydrate.
+              next._sectorWasUserSet = true
+            }
+          }
+          // Berkus + Scorecard 0–100 fields ----------------------------
+          for (const key of [
+            'sound_idea',
+            'prototype_status',
+            'management_strength',
+            'strategic_relationships',
+            'product_rollout',
+            'opportunity_size',
+            'competitive_environment',
+            'sales_marketing_channels',
+            'need_for_additional_funding',
+            'other_factors',
+          ] as const) {
+            const v = s[key]
+            if (typeof v === 'number' && Number.isFinite(v)) {
+              next[key] = v
+            }
+          }
+          // Forward-looking SaaS metrics + VC inputs (nullable) --------
+          for (const key of [
+            'mrr',
+            'arr',
+            'mrr_growth_rate_pct',
+            'monthly_churn_pct',
+            'cac',
+            'ltv',
+            'burn_rate_monthly',
+            'runway_months',
+            'team_size',
+            'year5_revenue_projection',
+            'exit_revenue_multiple',
+            'target_roi_x',
+            'dilution_assumption_pct',
+            'investment_amount_sought',
+          ] as const) {
+            const v = s[key]
+            if (typeof v === 'number' && Number.isFinite(v)) {
+              next[key] = v
+            } else if (v === null) {
+              next[key] = null
+            }
+          }
+          // Cap table + SAFE notes ------------------------------------
+          if (s.cap_table && typeof s.cap_table === 'object') {
+            const ct = s.cap_table as Record<string, unknown>
+            next.cap_table = {
+              ...next.cap_table,
+              ...(typeof ct.pre_money_target === 'number' || ct.pre_money_target === null
+                ? { pre_money_target: ct.pre_money_target as number | null }
+                : {}),
+              ...(typeof ct.option_pool_pct === 'number'
+                ? { option_pool_pct: ct.option_pool_pct }
+                : {}),
+              ...(typeof ct.last_round_amount === 'number' || ct.last_round_amount === null
+                ? { last_round_amount: ct.last_round_amount as number | null }
+                : {}),
+              ...(typeof ct.last_round_post_money === 'number' || ct.last_round_post_money === null
+                ? { last_round_post_money: ct.last_round_post_money as number | null }
+                : {}),
+              ...(typeof ct.last_round_date === 'string'
+                ? { last_round_date: ct.last_round_date }
+                : {}),
+              ...(Array.isArray(ct.safe_notes)
+                ? {
+                    safe_notes: (ct.safe_notes as Array<Record<string, unknown>>).map(
+                      (note, idx) => ({
+                        id:
+                          typeof note.id === 'string' && note.id
+                            ? note.id
+                            : `safe-${Date.now()}-${idx}`,
+                        amount:
+                          typeof note.amount === 'number' && Number.isFinite(note.amount)
+                            ? note.amount
+                            : null,
+                        valuation_cap:
+                          typeof note.valuation_cap === 'number' &&
+                          Number.isFinite(note.valuation_cap)
+                            ? note.valuation_cap
+                            : null,
+                        discount_pct:
+                          typeof note.discount_pct === 'number' &&
+                          Number.isFinite(note.discount_pct)
+                            ? note.discount_pct
+                            : null,
+                        holder_label:
+                          typeof note.holder_label === 'string' ? note.holder_label : '',
+                      })
+                    ),
+                  }
+                : {}),
+            }
+          }
+          // Founder pedigree flags -------------------------------------
+          if (s.founder_pedigree && typeof s.founder_pedigree === 'object') {
+            const fp = s.founder_pedigree as Record<string, unknown>
+            const merged: Record<string, boolean> = { ...next.founder_pedigree }
+            for (const k of Object.keys(merged)) {
+              if (typeof fp[k] === 'boolean') merged[k] = fp[k] as boolean
+            }
+            next.founder_pedigree = merged as typeof next.founder_pedigree
+          }
+          // Studio v2 — maturity buckets + evidence + description ------
+          if (s.maturity && typeof s.maturity === 'object') {
+            const m = s.maturity as Record<string, unknown>
+            const merged: Record<string, MaturityLevel> = { ...next.maturity }
+            for (const k of Object.keys(merged)) {
+              const v = m[k]
+              if (
+                typeof v === 'string' &&
+                (['none', 'basic', 'strong', 'exceptional'] as const).includes(v as MaturityLevel)
+              ) {
+                merged[k] = v as MaturityLevel
+              }
+            }
+            next.maturity = merged as typeof next.maturity
+          }
+          // Studio v2 metadata — `studio_v2` carries description /
+          // evidence_notes / tam_sam_som that the engine doesn't read
+          // today but the report rendering does.  Read both flat keys
+          // and the nested `studio_v2` wrapper for forward-compat.
+          const v2 =
+            s.studio_v2 && typeof s.studio_v2 === 'object'
+              ? (s.studio_v2 as Record<string, unknown>)
+              : ({} as Record<string, unknown>)
+          const description = (s.description ?? v2.description) as unknown
+          if (typeof description === 'string') next.description = description
+          const evidenceNotes = (s.evidence_notes ?? v2.evidence_notes) as unknown
+          if (evidenceNotes && typeof evidenceNotes === 'object') {
+            const merged: Record<string, string> = { ...next.evidence_notes }
+            for (const [k, v] of Object.entries(evidenceNotes as Record<string, unknown>)) {
+              if (k in merged && typeof v === 'string') merged[k] = v
+            }
+            next.evidence_notes = merged as typeof next.evidence_notes
+          }
+          const tamSamSom = (s.tam_sam_som ?? v2.tam_sam_som) as unknown
+          if (tamSamSom && typeof tamSamSom === 'object') {
+            const t = tamSamSom as Record<string, unknown>
+            next.tam_sam_som = {
+              tam:
+                typeof t.tam === 'number' && Number.isFinite(t.tam) ? t.tam : next.tam_sam_som.tam,
+              sam:
+                typeof t.sam === 'number' && Number.isFinite(t.sam) ? t.sam : next.tam_sam_som.sam,
+              som:
+                typeof t.som === 'number' && Number.isFinite(t.som) ? t.som : next.tam_sam_som.som,
+            }
+          }
+          if (typeof s.inception_lens === 'string') {
+            next.inception_lens = s.inception_lens as typeof next.inception_lens
+          }
+          return next
+        })
+      },
+
       toRequestPayload: () => {
         const state = get()
         const capTable = omitNull({
@@ -706,7 +895,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         if (state.description.trim()) studioMetadata.description = state.description.trim()
         if (hasEvidence) {
           studioMetadata.evidence_notes = Object.fromEntries(
-            Object.entries(state.evidence_notes).filter(([, v]) => v.trim().length > 0),
+            Object.entries(state.evidence_notes).filter(([, v]) => v.trim().length > 0)
           )
         }
         if (

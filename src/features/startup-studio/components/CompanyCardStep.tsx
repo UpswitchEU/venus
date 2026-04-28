@@ -311,26 +311,27 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   // -------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------
+  // Show the free-text company-name fallback only when neither the
+  // KBO/KVK registry hit nor a previously-stored name fills the field.
+  // Without the second guard, founders who landed via Mercury prefill
+  // (`?prefilledQuery=`) saw the same name twice — once in the search
+  // box and once in the fallback input.
+  const hasCompanyName = !!selectedCompany || companyName.trim().length > 0
+
   return (
-    <div className="space-y-5">
-      {/* Quick-start preset picker (Studio-specific helper) */}
+    <div className="space-y-4">
+      {/* Quick-start preset picker — compact chip strip, low visual weight */}
       <PresetPicker locale={locale} />
 
-      {/* Canonical company-card section. Visual contract = identical to
+      {/* Canonical company-card section. Visual contract mirrors
           ManualInputPanel's Step 1: country select → KBO/KVK search →
           business-type search → legal form. */}
-      <div className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-6">
+      <div className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-5">
         <AuroraSelect
           label={locale === 'nl' ? 'Land van vestiging' : 'Operating country'}
           options={countryOptions}
           value={country}
           onChange={(val) => handleCountryChange(String(val))}
-          helpText={
-            locale === 'nl'
-              ? 'Bepaalt de KBO/KVK-zoekbron en de regionale benchmark.'
-              : 'Drives the KBO/KVK lookup and the regional benchmark.'
-          }
-          helpTextPlacement="below"
           size="sm"
         />
 
@@ -355,20 +356,25 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           countryCode={country}
           size="sm"
           description={
-            country === 'NL'
-              ? locale === 'nl'
-                ? 'Zoek in het Handelsregister van de KvK.'
-                : 'Search the KvK trade registry.'
+            !hasCompanyName
+              ? country === 'NL'
+                ? locale === 'nl'
+                  ? 'Zoek in het Handelsregister van de KvK.'
+                  : 'Search the KvK trade registry.'
+                : locale === 'nl'
+                  ? 'Zoek in het KBO.'
+                  : 'Search the KBO registry.'
               : locale === 'nl'
-                ? 'Zoek in het KBO.'
-                : 'Search the KBO registry.'
+                ? 'Verschijnt op je investor-ready PDF rapport.'
+                : 'Shows up on your investor-ready PDF report.'
           }
         />
 
-        {/* Founder-only flow without a registry hit: still need a name on
-            the PDF.  Free-text fallback that writes through to the form
-            store directly so `buildStartupValuationRequest` picks it up. */}
-        {!selectedCompany && (
+        {/* Free-text fallback — only when the founder has no company
+            name yet AT ALL.  Once they pick from the registry OR the
+            form store carries a name (Mercury prefill, returning user),
+            we silently hide this so the same name never appears twice. */}
+        {!hasCompanyName && (
           <AuroraInput
             label={locale === 'nl' ? 'Of: typ je bedrijfsnaam' : 'Or: type your company name'}
             value={companyName}
@@ -410,12 +416,16 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
         />
       </div>
 
-      {/* Studio-specific: funding stage + round size. These are the
-          inputs the venture engine consumes that the SME company card
-          doesn't surface. */}
-      <div className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-6">
+      {/* Studio-specific: funding stage + round size + pitch.  These
+          are the venture-engine inputs the SME company card never
+          collects, surfaced as a sibling block so the canonical card
+          stays untouched. */}
+      <div className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-5">
         <div>
-          <label className="mb-2 block text-sm font-medium text-foreground/80">
+          <label
+            htmlFor="startup-stage"
+            className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foreground/55"
+          >
             {locale === 'nl' ? 'Funding stage' : 'Funding stage'}
           </label>
           <SegmentedControl
@@ -423,45 +433,29 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
             value={stage}
             onChange={(value) => setField('stage', value as StartupStage)}
           />
-          <p className="mt-2 text-xs text-foreground/55">
-            {locale === 'nl'
-              ? 'Bepaalt de regionale benchmark + slimme defaults voor exit-multiple en target ROI.'
-              : 'Drives the regional benchmark + smart defaults for exit-multiple and target ROI.'}
-          </p>
         </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-foreground/80">
-            {locale === 'nl' ? 'Op te halen ronde (€)' : 'Round being raised (€)'}
-          </label>
-          <CurrencyInput
-            value={raise ?? undefined}
-            onChange={(value) => setField('investment_amount_sought', value ?? null)}
-            placeholder="500.000"
-          />
-          <p className="mt-2 text-xs text-foreground/55">
-            {locale === 'nl'
-              ? 'Voedt de cap-table simulator en de pre-money calculatie.'
-              : 'Drives the cap-table simulator and the pre-money calculation.'}
-          </p>
-        </div>
+        <CurrencyInput
+          label={locale === 'nl' ? 'Op te halen ronde (€)' : 'Round being raised (€)'}
+          value={raise ?? undefined}
+          onChange={(value) => setField('investment_amount_sought', value ?? null)}
+          placeholder="500.000"
+          size="sm"
+        />
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-foreground/80">
-            {locale === 'nl' ? 'Korte pitch (1 zin)' : 'One-line pitch (optional)'}
-          </label>
-          <AuroraTextarea
-            rows={2}
-            placeholder={
-              locale === 'nl'
-                ? 'Bv. "Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren."'
-                : 'e.g. "We help Belgian law firms analyse contracts 10× faster."'
-            }
-            value={description ?? ''}
-            onChange={(e) => setField('description', e.target.value)}
-            maxLength={240}
-          />
-        </div>
+        <AuroraTextarea
+          label={locale === 'nl' ? 'Korte pitch (1 zin, optioneel)' : 'One-line pitch (optional)'}
+          rows={2}
+          placeholder={
+            locale === 'nl'
+              ? 'Bv. "Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren."'
+              : 'e.g. "We help Belgian law firms analyse contracts 10× faster."'
+          }
+          value={description ?? ''}
+          onChange={(e) => setField('description', e.target.value)}
+          maxLength={240}
+          size="sm"
+        />
       </div>
     </div>
   )

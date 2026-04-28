@@ -4,33 +4,95 @@
  * PresetPicker
  * ------------
  *
- * One-click preset application surfaced at the top of the company-card step.
+ * Compact one-click preset bar at the top of the company-card step.
+ * Replaces the previous full-width-card grid (which dominated the panel
+ * and dwarfed the actual company input).  The new shape is a small
+ * label + horizontal chip strip — Aurora design system, low visual
+ * weight, no headers / paragraphs / verbose subtitles.
  *
- * The "blank canvas" problem is the single biggest source of friction in
- * the wizard: a founder lands on Step 0, faces 8 steps and ~30 inputs,
- * and stalls.  Picking a preset pre-fills a defensible baseline so the
- * founder can:
- *
- *   1. See a defensible pre-money number on first paint (zero cognitive load)
- *   2. Tune the inputs that actually differ from the typical case
- *   3. Skip the steps where the preset is right
- *
- * The Upswitch demo preset is special — it's the headline card and is
- * tagged so a downstream "Demo mode" badge can render across the wizard.
+ * Picking a chip applies the preset diff to `useStartupValuationStore`
+ * (via `applyPreset`) and mirrors `company_name` over to the Manual
+ * form store so the canonical `buildStartupValuationRequest` picks it
+ * up.
  */
 
-import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import {
   type PresetKey,
   STUDIO_PRESET_ORDER,
   STUDIO_PRESETS,
   type StudioPreset,
 } from '@/features/startup-studio/data/presets'
+import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import { cn } from '@/lib/utils'
+import type { BusinessType } from '@/services/businessTypesApi'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import {
+  type StartupSector,
+  useStartupValuationStore,
+} from '@/store/manual/useStartupValuationStore'
+
+/**
+ * Studio sector → DB-business-type-category fallback map.  The DB
+ * categories don't 1:1 mirror the Studio sector enum (the DB uses
+ * generic verticals like `software` / `finance` / `healthcare`; the
+ * Studio uses pre-revenue archetypes like `saas` / `fintech` /
+ * `marketplace`), so we walk a two-step lookup:
+ *
+ *   1. Match by `keywords[]` containing the sector name (most precise).
+ *   2. Fall back to the canonical category here.
+ *
+ * Picked categories are the closest DB equivalent for each pre-revenue
+ * archetype the Studio surfaces.  Re-aim if Athena ships sector-native
+ * categories for `marketplace` / `deeptech_ai` later.
+ */
+const SECTOR_TO_DB_CATEGORY: Record<StartupSector, string[]> = {
+  saas: ['software', 'technology'],
+  marketplace: ['ecommerce', 'retail', 'software'],
+  fintech: ['finance', 'software'],
+  biotech_healthtech: ['healthcare'],
+  deeptech_ai: ['technology', 'software'],
+  consumer: ['retail', 'ecommerce'],
+  hardware: ['manufacturing'],
+  other: ['services', 'other'],
+}
+
+/**
+ * Resolve the best DB business-type id for a Studio sector — used by
+ * the preset picker to seed `useManualFormStore.business_type_id` so
+ * `buildStartupValuationRequest` packs a typed sector into the engine
+ * envelope (not just the loose Studio enum).
+ *
+ * Returns `null` when the catalogue hasn't loaded yet OR no match
+ * exists; the caller is expected to leave `business_type_id`
+ * unchanged in that case (the BusinessTypeSearchInput is still the
+ * authoritative way for the founder to pick / override).
+ */
+function resolveBusinessTypeIdForSector(
+  sector: StartupSector,
+  catalogue: BusinessType[]
+): string | null {
+  if (catalogue.length === 0) return null
+
+  // Strategy 1: keyword match — the most precise.
+  const sectorKeyword = sector.toLowerCase()
+  const byKeyword = catalogue.find((bt) =>
+    (bt.keywords ?? []).some((kw) => kw.toLowerCase().includes(sectorKeyword))
+  )
+  if (byKeyword) return byKeyword.id
+
+  // Strategy 2: category fallback — first business type matching any
+  // canonical category in `SECTOR_TO_DB_CATEGORY[sector]`.
+  for (const candidateCategory of SECTOR_TO_DB_CATEGORY[sector] ?? []) {
+    const byCategory = catalogue.find(
+      (bt) => bt.category?.toLowerCase() === candidateCategory.toLowerCase()
+    )
+    if (byCategory) return byCategory.id
+  }
+
+  return null
+}
 
 const SESSION_KEY = 'upswitch.studio.applied_preset'
 
@@ -69,18 +131,36 @@ function persistActivePreset(key: PresetKey | null): void {
 export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
   const applyPreset = useStartupValuationStore((s) => s.applyPreset)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
+  // Subscribe to the canonical business-types catalogue so picking a
+  // preset can seed `business_type_id` — without this bridge the
+  // canonical engine envelope arrives without a typed sector and the
+  // sector-specific multiples fall back to the Studio enum's coarser
+  // mapping.
+  const { businessTypes } = useBusinessTypes()
+  const [active, setActive] = useState<PresetKey | null>(() => readActivePreset())
 
   const handlePick = useCallback(
     (preset: StudioPreset) => {
       applyPreset(preset)
-      // The Studio store ↔ Manual form-store bridge: company name is
-      // owned by the Manual store (cf. CompanyCardStep) so the preset's
-      // company_name is mirrored across the bridge here, not inside the
-      // Studio applyPreset.
-      if (preset.company_name) {
-        updateFormData({ company_name: preset.company_name })
+      // The Studio store ↔ Manual form-store bridge.  Three updates:
+      //   - `company_name` (Manual store owns the canonical identity)
+      //   - `business_type_id` resolved from the preset's sector via
+      //     keyword + category lookup against the live DB catalogue
+      //   - `industry` derived from the matched business type's
+      //     category, kept in sync for the engine's industry routing
+      const updates: Record<string, unknown> = {}
+      if (preset.company_name) updates.company_name = preset.company_name
+      const resolvedBtId = resolveBusinessTypeIdForSector(preset.sector, businessTypes)
+      if (resolvedBtId) {
+        updates.business_type_id = resolvedBtId
+        const matched = businessTypes.find((bt) => bt.id === resolvedBtId)
+        if (matched?.category) updates.industry = matched.category
+      }
+      if (Object.keys(updates).length > 0) {
+        updateFormData(updates)
       }
       persistActivePreset(preset.key)
+      setActive(preset.key)
       // Fire-and-forget analytics — the picker doesn't await this.
       try {
         window.dispatchEvent(
@@ -90,110 +170,39 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
         // jsdom / older browsers — non-fatal
       }
     },
-    [applyPreset, updateFormData]
+    [applyPreset, updateFormData, businessTypes]
   )
 
-  const active = readActivePreset()
-
   return (
-    <section
+    <div
       aria-label={locale === 'nl' ? 'Snelle start templates' : 'Quick start templates'}
-      className="rounded-2xl border border-foreground/10 bg-gradient-to-br from-primary/[0.04] via-background/60 to-background/60 p-6"
+      className="flex flex-wrap items-center gap-2"
     >
-      <header className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-primary">
-            {locale === 'nl' ? 'Snelle start' : 'Quick start'}
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">
-            {locale === 'nl'
-              ? 'Pre-fill een verdedigbare basis in 1 klik'
-              : 'Pre-fill a defensible baseline in one click'}
-          </h2>
-          <p className="mt-1 text-sm text-foreground/65">
-            {locale === 'nl'
-              ? 'Kies een template — pas daarna alleen aan wat afwijkt van het typische geval.'
-              : 'Pick a template — then tune only what differs from the typical case.'}
-          </p>
-        </div>
-      </header>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {STUDIO_PRESET_ORDER.map((key) => {
-          const preset = STUDIO_PRESETS[key]
-          const isActive = active === key
-          const isDemo = key === 'upswitch_demo'
-
-          return (
-            <motion.button
-              key={key}
-              type="button"
-              onClick={() => handlePick(preset)}
-              layout
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.15 }}
-              className={cn(
-                'group relative rounded-xl border p-4 text-left transition-all',
-                'focus:outline-none focus:ring-2 focus:ring-primary/40',
-                isActive
-                  ? 'border-primary bg-primary/[0.06] shadow-md'
-                  : 'border-foreground/10 bg-background/80 hover:border-primary/40 hover:bg-primary/[0.03]',
-                // Demo card is visually neutral (not primary-tinted) so a
-                // founder valuing their OWN company doesn't accidentally
-                // pick it thinking it's a template for them.
-                isDemo && !isActive && 'opacity-90'
-              )}
-            >
-              {/* Badge — Demo card uses a soft "Example" framing now,
-                  not a primary call-out, so the visual hierarchy reads
-                  "templates for you · plus an example for context". */}
-              {preset.badge && (
-                <span
-                  className={cn(
-                    'absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                    isDemo
-                      ? 'bg-foreground/10 text-foreground/70'
-                      : 'bg-foreground/10 text-foreground/70'
-                  )}
-                >
-                  {preset.badge[locale]}
-                </span>
-              )}
-
-              {/* Active checkmark */}
-              {isActive && (
-                <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Check className="h-3 w-3" />
-                </span>
-              )}
-
-              <h3 className="pr-12 text-sm font-semibold text-foreground">
-                {preset.title[locale]}
-              </h3>
-              <p className="mt-1 text-xs leading-relaxed text-foreground/65">
-                {preset.subtitle[locale]}
-              </p>
-
-              <ul className="mt-3 flex flex-wrap gap-1.5">
-                {preset.highlights[locale].map((tag) => (
-                  <li
-                    key={tag}
-                    className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/70"
-                  >
-                    {tag}
-                  </li>
-                ))}
-              </ul>
-            </motion.button>
-          )
-        })}
-      </div>
-
-      <p className="mt-4 text-[11px] text-foreground/55">
-        {locale === 'nl'
-          ? 'Een template overschrijft alleen de preset-velden — je vrije tekst blijft staan. Je kan altijd handmatig verder finetunen.'
-          : 'Picking a template only overwrites preset-managed fields — your free text stays. Tune everything afterwards.'}
-      </p>
-    </section>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+        {locale === 'nl' ? 'Snelle start' : 'Quick start'}
+      </span>
+      {STUDIO_PRESET_ORDER.map((key) => {
+        const preset = STUDIO_PRESETS[key]
+        const isActive = active === key
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => handlePick(preset)}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              isActive
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-foreground/10 bg-background/60 text-foreground/75 hover:border-primary/40 hover:bg-primary/[0.04]'
+            )}
+            title={preset.subtitle[locale]}
+          >
+            {isActive && <Check className="h-3 w-3" aria-hidden />}
+            {preset.title[locale]}
+          </button>
+        )
+      })}
+    </div>
   )
 }

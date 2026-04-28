@@ -51,6 +51,7 @@ import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSi
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
+import { useStartupSessionSync } from '@/features/startup-studio/hooks/useStartupSessionSync'
 import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
@@ -225,6 +226,12 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
   // section components are mode-agnostic for now and `mode` is reserved
   // for the StudioCoPilot scoping (advisor vs founder grounding).
   void mode
+
+  // Bidirectional bridge between the Studio store and the canonical
+  // `useSessionStore` pipeline — restore on mount, autosave on every
+  // edit (debounced 500ms), `?reset=1` URL handling, flush on unload.
+  // Mirrors the SME `useFormSessionSync` pattern in a single hook.
+  useStartupSessionSync()
 
   const statuses = useSectionStatuses()
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'

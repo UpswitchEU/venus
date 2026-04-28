@@ -36,6 +36,21 @@ interface ReportStepProps {
   locale?: 'en' | 'nl'
 }
 
+/**
+ * Bilingual leg-label dictionary.  `useLiveValuation` returns
+ * `leg.label` as a translation-key string (`studio.legs.berkus`) so
+ * the React layer can either pipe through next-intl or render its own
+ * locale-aware copy.  Studio components opted for the second path so
+ * the panel never depends on the locale provider being mounted.  This
+ * dictionary mirrors the one in `LiveReportPanel`; keep them in sync.
+ */
+const LEG_LABELS: Record<string, { en: string; nl: string }> = {
+  berkus: { en: 'Risk reduction (Berkus)', nl: 'Risico-reductie (Berkus)' },
+  vc: { en: 'VC method (exit story)', nl: 'VC-methode (exit-verhaal)' },
+  saas_forward: { en: 'SaaS forward (ARR)', nl: 'SaaS forward (ARR)' },
+  scorecard: { en: 'Scorecard (regional)', nl: 'Scorecard (regionaal)' },
+}
+
 export function ReportStep({ locale = 'en' }: ReportStepProps) {
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
@@ -162,28 +177,24 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
         </div>
       )}
 
-      {/* Hero pre-result --------------------------------------------
-          Headline-only — we deliberately removed the "preliminary /
-          live preview / engine will recompute" disclaimer that used to
-          live here. That kind of caveat language belongs in the
-          co-pilot dialogue (where the user can act on it), not at the
-          top of an investor-facing surface. The engine still owns the
-          canonical post-submit number; the hero just shows the same
-          shape the report will. */}
-      <div className="rounded-2xl border border-foreground/10 bg-gradient-to-br from-primary/10 to-background p-6">
-        <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-          {locale === 'nl' ? 'Pre-money waardering' : 'Pre-money valuation'}
-        </p>
-        <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">
-          {formatEur(blended?.mid ?? null)}
-        </p>
-        <p className="mt-1 text-sm text-foreground/65">
+      {/* Range chip — single line under the deck-ready block.  We
+          dropped the standalone Pre-money hero card (was duplicating
+          the headline already inside the deck-ready summary) so the
+          report step reads as a clean confirmation, not a wall of
+          numbers.  The football field below carries the per-method
+          breakdown for users who want it. */}
+      {blended && (
+        <p className="text-xs text-foreground/65">
           {locale === 'nl' ? 'Range: ' : 'Range: '}
-          <span className="font-semibold tabular-nums">{formatEur(blended?.low ?? null)}</span>
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatEur(blended.low)}
+          </span>
           {' – '}
-          <span className="font-semibold tabular-nums">{formatEur(blended?.high ?? null)}</span>
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatEur(blended.high)}
+          </span>
         </p>
-      </div>
+      )}
 
       {/* Football field --------------------------------------------- */}
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
@@ -197,10 +208,11 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
             <div className="space-y-3">
               {valuation.legs.map((leg) => {
                 const value = leg.value ?? 0
+                const label = LEG_LABELS[leg.key]?.[locale] ?? leg.label
                 return (
                   <div key={leg.key}>
                     <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-medium text-foreground">{leg.label}</span>
+                      <span className="font-medium text-foreground">{label}</span>
                       <span className="tabular-nums text-foreground/65">
                         {formatEur(leg.value)}{' '}
                         <span className="text-foreground/40">

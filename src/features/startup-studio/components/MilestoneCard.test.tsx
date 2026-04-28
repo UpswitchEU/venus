@@ -15,11 +15,11 @@
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MilestoneCard } from './MilestoneCard'
 import {
   MATURITY_TO_SCORE,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { MilestoneCard } from './MilestoneCard'
 
 const initialSnapshot = useStartupValuationStore.getState()
 
@@ -31,16 +31,16 @@ describe('MilestoneCard', () => {
   it('writes both the maturity bucket and the legacy 0–100 score on pick', () => {
     render(<MilestoneCard milestoneKey="sound_idea" maxPerMilestoneEur={500_000} />)
 
-    // Maturity choices are now a `radiogroup` with `role="radio"`
-    // children (was `aria-pressed` buttons in v0). The "strong" copy
-    // for `sound_idea` ships with "20+ interviews, written demand
-    // signals (LOIs, waitlist, surveys)." — match a distinctive
-    // substring so the test survives minor copy edits.
+    // Maturity choices are a `radiogroup` with `role="radio"` children.
+    // The current "strong" copy for `sound_idea` ships with the
+    // "100–1,000 free users — first paying customers" rung.  Match a
+    // distinctive substring so the test survives minor copy edits but
+    // still binds to the third option (strong) rather than basic.
     const strongOption = screen
       .getAllByRole('radio')
-      .find((btn) => /20\+\s*interviews/i.test(btn.textContent ?? ''))
+      .find((btn) => /100[–-]1,?000\s+free\s+users/i.test(btn.textContent ?? ''))
     expect(strongOption, 'expected to find a "strong" maturity radio').toBeDefined()
-    fireEvent.click(strongOption!)
+    if (strongOption) fireEvent.click(strongOption)
 
     const state = useStartupValuationStore.getState()
     expect(state.maturity.sound_idea).toBe('strong')
@@ -55,9 +55,7 @@ describe('MilestoneCard', () => {
   })
 
   it('renders the weight badge when weightPct is supplied (Scorecard cards)', () => {
-    render(
-      <MilestoneCard milestoneKey="opportunity_size" weightPct={25} maxPerMilestoneEur={0} />,
-    )
+    render(<MilestoneCard milestoneKey="opportunity_size" weightPct={25} maxPerMilestoneEur={0} />)
 
     expect(screen.getByText(/25%/)).toBeInTheDocument()
   })

@@ -21,6 +21,7 @@ import { useEffect, useRef } from 'react'
 
 import { getCookiePreferences, isAnalyticsConsentGranted } from '@/lib/analytics-consent'
 import { classifyTrafficType, detectLocaleFromPath } from '@/lib/analytics-context'
+import { initVenusPostHog, syncPostHogConsent } from '@/lib/posthog-init'
 
 const VENUS_MEASUREMENT_ID = 'G-0RW0LNCVBG'
 
@@ -30,6 +31,11 @@ export function VenusAnalytics() {
   // Suppress duplicate `page_view` from React 18 Strict Mode double-mount,
   // consent flips that re-run the effect, or any non-path re-render.
   const lastFiredPathRef = useRef<string | null>(null)
+
+  // PostHog: early init (idempotent; no-op when token not set).
+  useEffect(() => {
+    initVenusPostHog()
+  }, [])
 
   useEffect(() => {
     if (!pathname) return
@@ -89,6 +95,8 @@ export function VenusAnalytics() {
           /* ignore */
         }
       }
+
+      syncPostHogConsent(!!prefs.analytics)
     }
 
     updateConsent()

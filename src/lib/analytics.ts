@@ -20,6 +20,12 @@
 import { isAnalyticsConsentGranted } from './analytics-consent'
 import { getAnalyticsContext } from './analytics-context'
 import { isInternalEmail } from './is-internal-user'
+import {
+  capturePostHogOrQueue,
+  clearPostHogClientState,
+  identifyPostHogOrQueue,
+  syncPostHogConsent,
+} from './posthog-init'
 
 const VENUS_MEASUREMENT_ID = 'G-0RW0LNCVBG'
 
@@ -53,6 +59,13 @@ function trackEvent(name: string, params?: Record<string, string | number | bool
   } catch {
     // analytics must never throw into product code
   }
+  // Mirror to PostHog (consent-queued; no-op when token not set).
+  capturePostHogOrQueue(name, {
+    ...(params ?? {}),
+    ...(stickyUserRole ? { user_role: stickyUserRole } : {}),
+    ...(stickyCurrentPlan ? { current_plan: stickyCurrentPlan } : {}),
+    ...(stickyIsInternal ? { is_internal: 'true' } : {}),
+  })
 }
 
 // ── Identity ─────────────────────────────────────────────────────────
@@ -86,6 +99,7 @@ export function identifyUser(
   } catch {
     /* never block UI */
   }
+  identifyPostHogOrQueue(userId, options?.role)
 }
 
 /** Clear the per-session user identity on sign-out. */
@@ -104,6 +118,7 @@ export function clearUserIdentity(): void {
   } catch {
     /* ignore */
   }
+  clearPostHogClientState()
 }
 
 // ── Session & Navigation ─────────────────────────────────────────────

@@ -16,17 +16,14 @@ import { useEffect, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface TractionStepProps {
   locale?: 'en' | 'nl'
 }
 
-function hasRevenueSignal(
-  mrr: number | null | undefined,
-  arr: number | null | undefined,
-): boolean {
+function hasRevenueSignal(mrr: number | null | undefined, arr: number | null | undefined): boolean {
   return (typeof mrr === 'number' && mrr > 0) || (typeof arr === 'number' && arr > 0)
 }
 
@@ -40,7 +37,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
   const setField = useStartupValuationStore((s) => s.setField)
 
   const [hasRevenue, setHasRevenue] = useState<'yes' | 'no'>(() =>
-    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no',
+    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no'
   )
 
   // Session hydrate: MRR or ARR can arrive after first paint — open the traction form.
@@ -62,13 +59,10 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
 
   // Live unit economics preview --------------------------------------
   const ltvCacRatio = cac && cac > 0 && ltv && ltv > 0 ? ltv / cac : null
-  const currentArrPreview =
-    storedArr ?? (mrr != null && mrr > 0 ? mrr * 12 : null)
+  const currentArrPreview = storedArr ?? (mrr != null && mrr > 0 ? mrr * 12 : null)
   // Forward 12-month ARR using compounding monthly growth (simple model).
   const forwardArr =
-    mrr && growth != null
-      ? Math.round(mrr * Math.pow(1 + growth / 100, 12) * 12)
-      : null
+    mrr && growth != null ? Math.round(mrr * Math.pow(1 + growth / 100, 12) * 12) : null
   const paybackMonths = cac && mrr && mrr > 0 ? Math.round(cac / (mrr / 12 || 1)) : null
 
   return (
@@ -104,50 +98,39 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                MRR (€)
-              </label>
-              <CurrencyInput
-                value={mrr ?? undefined}
-                onChange={(value) => setField('mrr', value ?? null)}
-                placeholder="5.000"
-              />
-            </div>
-            <div>
-              <AdaptivePercentInput
-                label={locale === 'nl' ? 'Maandelijkse groei (%)' : 'Monthly growth (%)'}
-                value={growth ?? undefined}
-                onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
-                placeholder="10"
-              />
-            </div>
-            <div>
-              <AdaptivePercentInput
-                label={locale === 'nl' ? 'Maandelijkse churn (%)' : 'Monthly churn (%)'}
-                value={churn ?? undefined}
-                onChange={(value) => setField('monthly_churn_pct', value ?? null)}
-                placeholder="3"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                CAC (€)
-              </label>
-              <CurrencyInput
-                value={cac ?? undefined}
-                onChange={(value) => setField('cac', value ?? null)}
-                placeholder="500"
-              />
-            </div>
+            <CurrencyInput
+              label="MRR (€)"
+              value={mrr ?? undefined}
+              onChange={(value) => setField('mrr', value ?? null)}
+              placeholder="5.000"
+              size="sm"
+            />
+            <AdaptivePercentInput
+              label={locale === 'nl' ? 'Maandelijkse groei (%)' : 'Monthly growth (%)'}
+              value={growth ?? undefined}
+              onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
+              placeholder="10"
+            />
+            <AdaptivePercentInput
+              label={locale === 'nl' ? 'Maandelijkse churn (%)' : 'Monthly churn (%)'}
+              value={churn ?? undefined}
+              onChange={(value) => setField('monthly_churn_pct', value ?? null)}
+              placeholder="3"
+            />
+            <CurrencyInput
+              label="CAC (€)"
+              value={cac ?? undefined}
+              onChange={(value) => setField('cac', value ?? null)}
+              placeholder="500"
+              size="sm"
+            />
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                LTV (€) {locale === 'nl' ? '— optioneel' : '— optional'}
-              </label>
               <CurrencyInput
+                label={locale === 'nl' ? 'LTV (€) — optioneel' : 'LTV (€) — optional'}
                 value={ltv ?? undefined}
                 onChange={(value) => setField('ltv', value ?? null)}
                 placeholder="3.000"
+                size="sm"
               />
             </div>
           </div>

@@ -19,9 +19,9 @@ import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { AuroraInput } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
-import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface RoundSimulatorStepProps {
   locale?: 'en' | 'nl'
@@ -49,7 +49,7 @@ export function RoundSimulatorStep({
   const removeSafeNote = useStartupValuationStore((s) => s.removeSafeNote)
 
   const [roundType, setRoundType] = useState<RoundType>(
-    capTable.safe_notes.length > 0 ? 'safe' : 'priced',
+    capTable.safe_notes.length > 0 ? 'safe' : 'priced'
   )
 
   // Cap-table math (priced round) ------------------------------------
@@ -86,44 +86,36 @@ export function RoundSimulatorStep({
       {roundType === 'priced' && (
         <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                {locale === 'nl' ? 'Op te halen ronde (€)' : 'Round size to raise (€)'}
-              </label>
-              <CurrencyInput
-                value={investment ?? undefined}
-                onChange={(value) => setField('investment_amount_sought', value ?? null)}
-                placeholder="500.000"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                {locale === 'nl'
+            <CurrencyInput
+              label={locale === 'nl' ? 'Op te halen ronde (€)' : 'Round size to raise (€)'}
+              value={investment ?? undefined}
+              onChange={(value) => setField('investment_amount_sought', value ?? null)}
+              placeholder="500.000"
+              size="sm"
+            />
+            <CurrencyInput
+              label={
+                locale === 'nl'
                   ? 'Pre-money target (€) — optioneel'
-                  : 'Pre-money target (€) — optional'}
-              </label>
-              <CurrencyInput
-                value={capTable.pre_money_target ?? undefined}
-                onChange={(value) => setCapField('pre_money_target', value ?? null)}
-                placeholder={String(Math.round(valuation.blended?.mid ?? 0))}
-              />
-            </div>
-            <div>
-              <AdaptivePercentInput
-                label={locale === 'nl' ? 'Verwatering tot exit (%)' : 'Dilution to exit (%)'}
-                value={dilution ?? undefined}
-                onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
-                placeholder="30"
-              />
-            </div>
-            <div>
-              <AdaptivePercentInput
-                label={locale === 'nl' ? 'Option pool (%)' : 'Option pool (%)'}
-                value={optionPoolPct}
-                onChange={(value) => setCapField('option_pool_pct', value ?? 0)}
-                placeholder="10"
-              />
-            </div>
+                  : 'Pre-money target (€) — optional'
+              }
+              value={capTable.pre_money_target ?? undefined}
+              onChange={(value) => setCapField('pre_money_target', value ?? null)}
+              placeholder={String(Math.round(valuation.blended?.mid ?? 0))}
+              size="sm"
+            />
+            <AdaptivePercentInput
+              label={locale === 'nl' ? 'Verwatering tot exit (%)' : 'Dilution to exit (%)'}
+              value={dilution ?? undefined}
+              onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
+              placeholder="30"
+            />
+            <AdaptivePercentInput
+              label={locale === 'nl' ? 'Option pool (%)' : 'Option pool (%)'}
+              value={optionPoolPct}
+              onChange={(value) => setCapField('option_pool_pct', value ?? 0)}
+              placeholder="10"
+            />
           </div>
 
           {/* Live cap-table bar -------------------------------------- */}
@@ -243,38 +235,26 @@ export function RoundSimulatorStep({
                   </button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground/70">
-                      Amount (€)
-                    </label>
-                    <CurrencyInput
-                      value={note.amount ?? undefined}
-                      onChange={(value) => updateSafeNote(note.id, { amount: value ?? null })}
-                      placeholder="100.000"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground/70">
-                      Valuation cap (€)
-                    </label>
-                    <CurrencyInput
-                      value={note.valuation_cap ?? undefined}
-                      onChange={(value) =>
-                        updateSafeNote(note.id, { valuation_cap: value ?? null })
-                      }
-                      placeholder="5.000.000"
-                    />
-                  </div>
-                  <div>
-                    <AdaptivePercentInput
-                      label={locale === 'nl' ? 'Discount (%)' : 'Discount (%)'}
-                      value={note.discount_pct ?? undefined}
-                      onChange={(value) =>
-                        updateSafeNote(note.id, { discount_pct: value ?? null })
-                      }
-                      placeholder="20"
-                    />
-                  </div>
+                  <CurrencyInput
+                    label="Amount (€)"
+                    value={note.amount ?? undefined}
+                    onChange={(value) => updateSafeNote(note.id, { amount: value ?? null })}
+                    placeholder="100.000"
+                    size="sm"
+                  />
+                  <CurrencyInput
+                    label="Valuation cap (€)"
+                    value={note.valuation_cap ?? undefined}
+                    onChange={(value) => updateSafeNote(note.id, { valuation_cap: value ?? null })}
+                    placeholder="5.000.000"
+                    size="sm"
+                  />
+                  <AdaptivePercentInput
+                    label={locale === 'nl' ? 'Discount (%)' : 'Discount (%)'}
+                    value={note.discount_pct ?? undefined}
+                    onChange={(value) => updateSafeNote(note.id, { discount_pct: value ?? null })}
+                    placeholder="20"
+                  />
                 </div>
               </div>
             ))}

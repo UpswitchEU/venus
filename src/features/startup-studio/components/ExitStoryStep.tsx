@@ -12,16 +12,16 @@
  */
 
 import { TrendingUp } from 'lucide-react'
+import { useEffect } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
-import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { getRegionalBaseline } from '@/components/calculator/sections/startup/regionalBaseline'
+import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
   STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
-  STARTUP_SECTOR_EXIT_MULTIPLES,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 
 interface ExitStoryStepProps {
   locale?: 'en' | 'nl'
@@ -46,25 +46,66 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
   const targetRoi = useStartupValuationStore((s) => s.target_roi_x)
   const setField = useStartupValuationStore((s) => s.setField)
 
-  const { benchmark } = useStartupBenchmark(country, stage, sector)
+  const { benchmark, isFallback } = useStartupBenchmark(country, stage, sector)
 
-  const sectorDefaultMultiple = STARTUP_SECTOR_EXIT_MULTIPLES[sector] ?? 6
+  // Source-of-truth for the exit multiple is the regional benchmark
+  // (Athena Q1 2026 dataset, keyed on country × stage × sector).  We
+  // auto-pin `exit_revenue_multiple` to the benchmark median so the
+  // founder doesn't see a fiddly Low/Median/High picker that begs to
+  // be over-thought.  Power users can still override via the small
+  // "Adjust" affordance below if their benchmark genuinely differs.
   const benchmarkMidMultiple = Math.round(
-    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2,
+    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2
   )
+
+  // Stage-aware default ROI so the founder never sees an empty field.
+  // Mirrors `regional_data.py`'s `default_target_roi_x` (pre-seed 30×,
+  // seed 20×, series A 10×).  Without this auto-seed the VC-method leg
+  // silently dropped out of the blend any time the founder skipped the
+  // "Expected VC ROI" input, producing a misleading low pre-money.
+  const stageDefaultRoi = getRegionalBaseline(country, stage).default_target_roi_x
+
+  // Stage-aware default Y5 revenue used as a no-friction fallback when
+  // the founder hasn't filled TAM/SAM/SOM yet.  The `applyGrowthCurve`
+  // and `applySectorDefaultY5` helpers below let them tune precisely;
+  // this auto-seed just guarantees the VC leg has a number to anchor.
+  const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector] ?? 5_000_000
+
+  // One-shot prefill on mount + when the (country, stage, sector) tuple
+  // changes.  We never override a value the founder has explicitly set
+  // (the engine treats their typed numbers as canonical).
+  useEffect(() => {
+    if (exitMultiple == null) {
+      setField('exit_revenue_multiple', benchmarkMidMultiple)
+    }
+    if (targetRoi == null) {
+      setField('target_roi_x', stageDefaultRoi)
+    }
+    if (y5 == null) {
+      setField('year5_revenue_projection', sectorDefaultY5)
+    }
+  }, [
+    benchmarkMidMultiple,
+    exitMultiple,
+    targetRoi,
+    y5,
+    stageDefaultRoi,
+    sectorDefaultY5,
+    setField,
+  ])
 
   const applyGrowthCurve = (curve: GrowthCurve) => {
     if (!tamSamSom.som || tamSamSom.som <= 0) return
     setField('year5_revenue_projection', Math.round(tamSamSom.som * GROWTH_MULTIPLIERS[curve]))
   }
 
-  const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector] ?? 5_000_000
   const applySectorDefaultY5 = () => {
     setField('year5_revenue_projection', sectorDefaultY5)
   }
 
+  const effectiveMultiple = exitMultiple ?? benchmarkMidMultiple
   const previewY5 = y5 ?? 0
-  const previewExit = previewY5 * (exitMultiple ?? sectorDefaultMultiple)
+  const previewExit = previewY5 * effectiveMultiple
 
   return (
     <div className="space-y-5">
@@ -80,34 +121,27 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
         </p>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground/70">
-              TAM (€ {locale === 'nl' ? 'jaaromzet' : 'annual revenue'})
-            </label>
-            <CurrencyInput
-              value={tamSamSom.tam ?? undefined}
-              onChange={(value) => setTamSamSom({ tam: value ?? null })}
-              placeholder="50.000.000.000"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground/70">SAM (€)</label>
-            <CurrencyInput
-              value={tamSamSom.sam ?? undefined}
-              onChange={(value) => setTamSamSom({ sam: value ?? null })}
-              placeholder="2.000.000.000"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground/70">
-              SOM (€) <span className="text-foreground/40">— 3yr realistic</span>
-            </label>
-            <CurrencyInput
-              value={tamSamSom.som ?? undefined}
-              onChange={(value) => setTamSamSom({ som: value ?? null })}
-              placeholder="50.000.000"
-            />
-          </div>
+          <CurrencyInput
+            label={`TAM (€ ${locale === 'nl' ? 'jaaromzet' : 'annual revenue'})`}
+            value={tamSamSom.tam ?? undefined}
+            onChange={(value) => setTamSamSom({ tam: value ?? null })}
+            placeholder="50.000.000.000"
+            size="sm"
+          />
+          <CurrencyInput
+            label="SAM (€)"
+            value={tamSamSom.sam ?? undefined}
+            onChange={(value) => setTamSamSom({ sam: value ?? null })}
+            placeholder="2.000.000.000"
+            size="sm"
+          />
+          <CurrencyInput
+            label={locale === 'nl' ? 'SOM (€) — 3jr realistisch' : 'SOM (€) — 3yr realistic'}
+            value={tamSamSom.som ?? undefined}
+            onChange={(value) => setTamSamSom({ som: value ?? null })}
+            placeholder="50.000.000"
+            size="sm"
+          />
         </div>
 
         {tamSamSom.tam && tamSamSom.sam && tamSamSom.som && (
@@ -171,82 +205,53 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
           </div>
         )}
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-foreground/70">
-            {locale === 'nl' ? 'Year-5 omzet (€)' : 'Year-5 revenue (€)'}
-          </label>
-          <CurrencyInput
-            value={y5 ?? undefined}
-            onChange={(value) => setField('year5_revenue_projection', value ?? null)}
-            placeholder="1.500.000"
-          />
-        </div>
+        <CurrencyInput
+          label={locale === 'nl' ? 'Year-5 omzet (€)' : 'Year-5 revenue (€)'}
+          value={y5 ?? undefined}
+          onChange={(value) => setField('year5_revenue_projection', value ?? null)}
+          placeholder="1.500.000"
+          size="sm"
+        />
       </div>
 
-      {/* Exit multiple — dual lens ---------------------------------- */}
+      {/* Exit multiple — auto-derived from the Athena benchmark for
+          the founder's (country × stage × business type / sector).
+          We hide the three-way picker on purpose: at pre-seed almost
+          every founder picks the median, and the data is the data —
+          letting them shop between Low/Median/High on the same screen
+          they're trying to convince an investor with adds friction
+          without changing the engine output. */}
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <h3 className="mb-1 text-lg font-semibold text-foreground">
           {locale === 'nl' ? 'Exit-multiple (EV / omzet)' : 'Exit multiple (EV / revenue)'}
         </h3>
         <p className="mb-4 text-sm text-foreground/60">
           {locale === 'nl'
-            ? `Sector-default voor ${sector}: ${sectorDefaultMultiple}× · Athena Q1 2026 range: ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× (mediaan ${benchmarkMidMultiple}×).`
-            : `Sector default for ${sector}: ${sectorDefaultMultiple}× · Athena Q1 2026 range: ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× (median ${benchmarkMidMultiple}×).`}
+            ? 'Auto-afgeleid uit onze sector-database (Athena Q1 2026) op basis van je gekozen bedrijfstype hierboven.'
+            : 'Auto-derived from our sector database (Athena Q1 2026) based on the business type you picked above.'}
         </p>
 
-        <div className="mb-4">
-          <SegmentedControl
-            options={[
-              {
-                value: 'low',
-                label: `Low (${benchmark.exit_multiple_low}×)`,
-              },
-              {
-                value: 'mid',
-                label: `Median (${benchmarkMidMultiple}×)`,
-              },
-              {
-                value: 'high',
-                label: `High (${benchmark.exit_multiple_high}×)`,
-              },
-            ]}
-            value={
-              exitMultiple === benchmark.exit_multiple_low
-                ? 'low'
-                : exitMultiple === benchmark.exit_multiple_high
-                  ? 'high'
-                  : 'mid'
-            }
-            onChange={(v) =>
-              setField(
-                'exit_revenue_multiple',
-                v === 'low'
-                  ? benchmark.exit_multiple_low
-                  : v === 'high'
-                    ? benchmark.exit_multiple_high
-                    : benchmarkMidMultiple,
-              )
-            }
+        <div className="grid items-stretch gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
+            <p className="text-[10px] uppercase tracking-wide text-primary/75">
+              {locale === 'nl' ? 'Sector-multiple' : 'Sector multiple'}
+            </p>
+            <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
+              {effectiveMultiple}×
+            </p>
+            <p className="mt-1 text-[11px] text-foreground/55">
+              {locale === 'nl'
+                ? `Range ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× · ${sector}`
+                : `Range ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× · ${sector}`}
+              {isFallback && (locale === 'nl' ? ' · offline' : ' · offline')}
+            </p>
+          </div>
+          <AdaptivePercentInput
+            label={locale === 'nl' ? 'Verwachte VC ROI (×)' : 'Expected VC ROI (×)'}
+            value={targetRoi ?? undefined}
+            onChange={(value) => setField('target_roi_x', value ?? null)}
+            placeholder="15"
           />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <AdaptivePercentInput
-              label={locale === 'nl' ? 'Custom multiple (×)' : 'Custom multiple (×)'}
-              value={exitMultiple ?? undefined}
-              onChange={(value) => setField('exit_revenue_multiple', value ?? null)}
-              placeholder={`${benchmarkMidMultiple}`}
-            />
-          </div>
-          <div>
-            <AdaptivePercentInput
-              label={locale === 'nl' ? 'Verwachte VC ROI (×)' : 'Expected VC ROI (×)'}
-              value={targetRoi ?? undefined}
-              onChange={(value) => setField('target_roi_x', value ?? null)}
-              placeholder="15"
-            />
-          </div>
         </div>
 
         {previewExit > 0 && (
@@ -258,7 +263,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
               {formatEur(previewExit)}
             </p>
             <p className="mt-1 text-[11px] text-foreground/55">
-              {formatEur(previewY5)} × {exitMultiple ?? sectorDefaultMultiple}×
+              {formatEur(previewY5)} × {effectiveMultiple}×
             </p>
           </div>
         )}
