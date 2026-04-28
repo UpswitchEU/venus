@@ -365,6 +365,11 @@ export function buildValuationRequest(
   // Backward-compatibility: ValuationForm still persists normalization input via the
   // legacy store/modal. If no unified normalization exists for a year, use the legacy
   // year total so accountant-entered form adjustments reach the calculation request.
+  // Orphan-year guard mirrors the unified-store path: a legacy entry keyed by a year
+  // outside the canonical data set would be allocated into normByYear[year] but
+  // never read by either the current_year_data builder or the historical_years_data
+  // builder downstream. Drop + log so the silent-loss is observable.
+  const legacyOrphanYears: Array<{ year: number; totalAdjustment: number }> = []
   for (const [yearKey, legacy] of Object.entries(legacyNormalizations)) {
     const year = Number(yearKey)
     if (!Number.isFinite(year) || normByYear[year]) continue
@@ -374,6 +379,14 @@ export function buildValuationRequest(
     const totalAdjustment = Number(legacy.total_adjustments)
 
     if (adjustmentCount === 0 && !Number.isFinite(totalAdjustment)) continue
+
+    if (!allDataYearsSet.has(year)) {
+      legacyOrphanYears.push({
+        year,
+        totalAdjustment: Number.isFinite(totalAdjustment) ? totalAdjustment : 0,
+      })
+      continue
+    }
 
     normByYear[year] = {
       totalAdjustment: Number.isFinite(totalAdjustment) ? totalAdjustment : 0,
@@ -396,6 +409,27 @@ export function buildValuationRequest(
         })),
       ],
     }
+  }
+
+  if (legacyOrphanYears.length > 0) {
+    const legacyOrphanTotal = legacyOrphanYears.reduce(
+      (s, o) => s + o.totalAdjustment,
+      0
+    )
+    generalLogger.warn(
+      '[buildValuationRequest] Dropped legacy normalization entries with no matching year in the data set',
+      {
+        business_name: companyName,
+        canonical_years: allDataYears,
+        orphan_count: legacyOrphanYears.length,
+        orphan_total_adjustment: legacyOrphanTotal,
+        orphan_years: legacyOrphanYears,
+        note:
+          'These legacy form-store entries were keyed by year(s) outside ' +
+          'current_year_data + historical_years_data and would have been ' +
+          'silently lost downstream.',
+      }
+    )
   }
 
   // Check if the selected current year EBITDA is normalized

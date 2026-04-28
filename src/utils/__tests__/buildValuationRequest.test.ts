@@ -1031,6 +1031,74 @@ describe('buildValuationRequest', () => {
     warnSpy.mockRestore()
   })
 
+  // ─── Orphan-year normalization guard (legacy store path) ─────────────────
+  // ValuationForm still writes to useEbitdaNormalizationStore. A legacy
+  // entry keyed by a year outside the canonical data set used to be
+  // allocated into normByYear[<missing year>] and silently lost when the
+  // current/historical builders ran. The guard now drops + logs them too.
+  it('logs and drops legacy-store normalizations keyed by an orphan year', async () => {
+    const loggerModule = await import('../logger')
+    const ebitdaStoreModule = await import('../../store/useEbitdaNormalizationStore')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+
+    // Inject a legacy entry directly — bypassing the openModal flow because
+    // we just want to test the request builder's read-side handling.
+    ebitdaStoreModule.useEbitdaNormalizationStore.setState({
+      normalizations: {
+        1999: {
+          session_id: 'test',
+          year: 1999,
+          reported_ebitda: 0,
+          adjustments: [
+            {
+              category: 'owner_compensation_adjustment' as any,
+              amount: 280_000,
+              note: 'orphan legacy',
+            },
+          ],
+          custom_adjustments: [],
+          total_adjustments: 280_000,
+          confidence_score: 'medium',
+          updated_at: new Date().toISOString(),
+        } as any,
+      },
+    } as any)
+
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 290_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_950_000,
+          ebitda: 290_000,
+        },
+      }),
+      []
+    )
+
+    // Current-year EBITDA must NOT have absorbed the orphan legacy addback.
+    expect(result.current_year_data.ebitda).toBe(290_000)
+    expect(
+      result.current_year_data.ebitda_normalization_metadata
+    ).toBeUndefined()
+
+    const matched = warnSpy.mock.calls.find(([msg]) =>
+      typeof msg === 'string' &&
+      msg.includes('Dropped legacy normalization entries with no matching year')
+    )
+    expect(matched).toBeDefined()
+    const ctx = matched?.[1] as Record<string, unknown> | undefined
+    expect(ctx?.orphan_count).toBe(1)
+    expect(ctx?.orphan_total_adjustment).toBe(280_000)
+
+    // Cleanup so other tests don't see this fixture.
+    ebitdaStoreModule.useEbitdaNormalizationStore.setState({
+      normalizations: {},
+    } as any)
+    warnSpy.mockRestore()
+  })
+
   // ─── Orphan-year normalization guard ──────────────────────────────────────
   // Second flavor of the Metaalbewerking-class silent drop: an accepted
   // normalization targets a year that doesn't exist in current_year_data
