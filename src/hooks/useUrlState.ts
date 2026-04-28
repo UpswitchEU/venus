@@ -11,7 +11,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
 import { useCallback, useEffect, useRef } from 'react'
-import { isMercuryAdvisorModeParam, parseReportModeSearchParam } from '@/utils/reportMode'
+import { parseReportModeSearchParam, shouldPreserveMercuryEmbedMode } from '@/utils/reportMode'
 
 interface UrlState {
   mode?: 'edit' | 'view'
@@ -80,9 +80,9 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         // (cross-app contract). Stripping `mode` would remove that signal on sync; preserve it.
         if (updates.mode !== undefined) {
           if (updates.mode === 'edit') {
-            // Strip redundant UI `mode` — keep Mercury advisor flag `mode=accountant` (see reportMode.ts)
+            // Strip redundant UI `mode` — keep Mercury persona params (`accountant`, `seller` embed)
             const rawMode = currentUrl.searchParams.get('mode')
-            if (!isMercuryAdvisorModeParam(rawMode)) {
+            if (!shouldPreserveMercuryEmbedMode(rawMode)) {
               currentUrl.searchParams.delete('mode')
             }
           } else {

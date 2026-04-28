@@ -1,26 +1,40 @@
 /**
- * Report route `mode` query param — **two orthogonal concerns overload one key:**
+ * Report route `mode` query param — **orthogonal concerns overload one key:**
  *
- * 1. **Mercury advisor flow** (`MERCURY_ADVISOR_URL_MODE`): Mercury sets `mode=accountant` +
- *    `clientId` so Venus `auth.ts` runs `get-client-context`. This is NOT the calculator edit/view toggle.
+ * 1. **Mercury embedding / persona** (`MERCURY_ADVISOR_URL_MODE`, `MERCURY_SELLER_EMBED_URL_MODE`):
+ *    Calculator redirects and `VenusEmbeddedModal` iframe URLs set `mode=accountant` or `mode=seller`
+ *    plus other params (`clientId`, embedded, …). **Not** the calculator edit/view toggle.
  *
- * 2. **UI editing** (`edit` | `view`): Toolbar / valuation shell read/write vs preview HTML report.
+ * 2. **UI editing** (`edit` | `view`): Toolbar shell read/write vs preview HTML report.
  *
- * Valid UI values are only `edit` and `view`. Any other raw string (including `accountant`) must be
- * parsed for UI separately — use `parseReportModeSearchParam` / `parseReportModeForInitialUi`.
+ * Parse UI separately — use `parseReportModeSearchParam` / `parseReportModeForInitialUi`.
  *
- * **URL preservation:** When `useUrlState` syncs UI default `edit`, it must **not** strip
- * `mode=accountant`; that would break refresh-time advisor detection until metadata fallback runs.
+ * **URL preservation:** When `useUrlState` collapses redundant UI `edit`, it must not strip
+ * Mercury persona modes (`accountant` / `seller`); dropping them breaks iframe / refresh semantics.
  */
 
-/** Cross-app Mercury → Venus advisor-for-client marker (see `CalculatorRedirectClient.tsx` → `searchParams.set('mode', …)`). */
+/** Calculator redirect + standalone links — advisor-for-client marker (paired with `clientId`). */
 export const MERCURY_ADVISOR_URL_MODE = 'accountant' as const
+
+/** Mercury → Venus iframe embed — seller edition vs advisor (`VenusEmbeddedModal`). */
+export const MERCURY_SELLER_EMBED_URL_MODE = 'seller' as const
+
+const NON_UI_EMBED_MODE_VALUES: ReadonlySet<string> = new Set([
+  MERCURY_ADVISOR_URL_MODE,
+  MERCURY_SELLER_EMBED_URL_MODE,
+])
 
 export function isMercuryAdvisorModeParam(raw: string | null | undefined): boolean {
   return raw?.trim() === MERCURY_ADVISOR_URL_MODE
 }
 
-/** UI-only modes read from URL for Radix shell / Titan bootstrap body (never `accountant`). */
+/** Mercury uses `mode` for iframe/cross-app persona; preserve when syncing UI `mode=edit`. */
+export function shouldPreserveMercuryEmbedMode(raw: string | null | undefined): boolean {
+  const v = raw?.trim()
+  return v != null && v !== '' && NON_UI_EMBED_MODE_VALUES.has(v)
+}
+
+/** UI-only modes read from URL for Radix shell / Titan bootstrap body. */
 export function parseReportModeSearchParam(
   raw: string | null | undefined
 ): 'edit' | 'view' | undefined {
