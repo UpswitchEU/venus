@@ -735,8 +735,13 @@ describe('buildValuationRequest', () => {
       makeFormData({
         business_type_id: 'saas',
         dcf_revenue_growth_pct: 12,
+        dcf_ebitda_margin_pct: 18,
+        dcf_capex_pct: 4,
+        dcf_da_pct: 3,
         dcf_nwc_pct: 4,
+        dcf_tax_rate_pct: 25,
         dcf_wacc_pct: 9,
+        dcf_terminal_growth_pct: 2,
         dcf_exit_multiple: 6,
         dcf_risk_free_rate_pct: 3,
         dcf_equity_risk_premium_pct: 5.5,
@@ -757,8 +762,13 @@ describe('buildValuationRequest', () => {
 
     expect(result.business_context).toMatchObject({
       dcf_revenue_growth_pct: 12,
+      dcf_ebitda_margin_pct: 18,
+      dcf_capex_pct: 4,
+      dcf_da_pct: 3,
       dcf_nwc_pct: 4,
+      dcf_tax_rate_pct: 25,
       dcf_wacc_pct: 9,
+      dcf_terminal_growth_pct: 2,
       dcf_exit_multiple: 6,
       dcf_risk_free_rate_pct: 3,
       dcf_equity_risk_premium_pct: 5.5,

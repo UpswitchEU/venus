@@ -562,7 +562,9 @@ function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
       dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct,
     }),
     ...(data.dcf_capex_pct != null && { dcf_capex_pct: data.dcf_capex_pct }),
+    ...(data.dcf_da_pct != null && { dcf_da_pct: data.dcf_da_pct }),
     ...(data.dcf_nwc_pct != null && { dcf_nwc_pct: data.dcf_nwc_pct }),
+    ...(data.dcf_tax_rate_pct != null && { dcf_tax_rate_pct: data.dcf_tax_rate_pct }),
     ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
     ...(data.dcf_terminal_growth_pct != null && {
       dcf_terminal_growth_pct: data.dcf_terminal_growth_pct,
