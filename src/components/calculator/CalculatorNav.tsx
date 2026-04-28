@@ -50,6 +50,7 @@ import {
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
+import { dateLikeAgeMs } from '@/utils/date-like'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -177,8 +178,7 @@ export interface CalculatorNavProps {
 // ─────────────────────────────────────────
 
 const formatTimeAgo = (date: Date, t: (key: string, values?: Record<string, number>) => string) => {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
+  const diff = dateLikeAgeMs(date) ?? 0
   const minutes = Math.floor(diff / (1000 * 60))
   const hours = Math.floor(diff / (1000 * 60 * 60))
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))

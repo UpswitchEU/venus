@@ -7,6 +7,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 import { getCategoryLabel } from '../../config/normalizationCategories'
 import { EbitdaNormalization } from '../../types/ebitdaNormalization'
 
@@ -223,7 +224,10 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
                 {norm.updated_at && (
                   <div>
                     <span className="font-medium">{t('lastUpdated')}</span>{' '}
-                    {new Date(norm.updated_at).toLocaleDateString()}
+                    {(() => {
+                      const u = dateLikeToUnixMs(norm.updated_at)
+                      return u !== null ? new Date(u).toLocaleDateString() : '\u2014'
+                    })()}
                   </div>
                 )}
               </div>

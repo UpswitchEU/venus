@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import { AuroraButton as Button, Checkbox } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
 import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
@@ -110,8 +111,9 @@ const formatTime = (
   hp: (key: string, values?: Record<string, number>) => string,
   locale: 'nl' | 'en'
 ) => {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
+  const nowMs = Date.now()
+  const pastMs = dateLikeToUnixMs(date)
+  const diff = pastMs === null ? 0 : nowMs - pastMs
   const loc = currencyLocaleFor(locale)
   if (diff < 1000 * 60) return hp('timeJustNow')
   if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) })
@@ -119,7 +121,8 @@ const formatTime = (
     return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) })
   if (diff < 1000 * 60 * 60 * 24 * 7)
     return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) })
-  return date.toLocaleDateString(loc, {
+  if (pastMs === null) return hp('timeJustNow')
+  return new Date(pastMs).toLocaleDateString(loc, {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',

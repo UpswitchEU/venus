@@ -9,6 +9,7 @@
 
 import type { ValuationSession } from '../types/valuation'
 import { ValidationError } from './errors/ApplicationErrors'
+import { dateLikeToUnixMs } from './date-like'
 import { createContextLogger } from './logger'
 import { getRenderableReportHtml } from './safetyNetReportHtml'
 
@@ -73,31 +74,18 @@ export function validateSessionData(session: any): asserts session is ValuationS
   }
 
   // Validate timestamps (auto-fix corrupted dates)
-  // ✅ CRITICAL FIX: Ensure dates are always valid Date objects or ISO strings
+  // ✅ CRITICAL FIX: Ensure dates are always valid Date objects (JSON may yield strings).
   if (session.createdAt) {
-    try {
-      // Handle both Date objects and ISO strings
-      const date =
-        session.createdAt instanceof Date ? session.createdAt : new Date(session.createdAt)
-
-      if (isNaN(date.getTime())) {
-        validationLogger.warn('Invalid createdAt timestamp, resetting', {
-          reportId: session.reportId,
-          createdAt: session.createdAt,
-          createdAtType: typeof session.createdAt,
-        })
-        session.createdAt = new Date()
-      } else {
-        // ✅ FIX: Normalize to Date object (not ISO string) for consistency
-        // ISO strings will be serialized correctly when sent to backend
-        session.createdAt = date
-      }
-    } catch {
-      validationLogger.warn('Error parsing createdAt timestamp, resetting', {
+    const createdMs = dateLikeToUnixMs(session.createdAt)
+    if (createdMs === null) {
+      validationLogger.warn('Invalid createdAt timestamp, resetting', {
         reportId: session.reportId,
         createdAt: session.createdAt,
+        createdAtType: typeof session.createdAt,
       })
       session.createdAt = new Date()
+    } else {
+      session.createdAt = new Date(createdMs)
     }
   } else {
     session.createdAt = new Date()
@@ -105,21 +93,15 @@ export function validateSessionData(session: any): asserts session is ValuationS
 
   // ✅ FIX: Also validate updatedAt
   if (session.updatedAt) {
-    try {
-      const date =
-        session.updatedAt instanceof Date ? session.updatedAt : new Date(session.updatedAt)
-
-      if (isNaN(date.getTime())) {
-        validationLogger.warn('Invalid updatedAt timestamp, resetting', {
-          reportId: session.reportId,
-          updatedAt: session.updatedAt,
-        })
-        session.updatedAt = new Date()
-      } else {
-        session.updatedAt = date
-      }
-    } catch {
+    const updatedMs = dateLikeToUnixMs(session.updatedAt)
+    if (updatedMs === null) {
+      validationLogger.warn('Invalid updatedAt timestamp, resetting', {
+        reportId: session.reportId,
+        updatedAt: session.updatedAt,
+      })
       session.updatedAt = new Date()
+    } else {
+      session.updatedAt = new Date(updatedMs)
     }
   } else {
     session.updatedAt = new Date()
@@ -187,15 +169,19 @@ export function isSessionRestorable(session: ValuationSession): boolean {
  * @returns Sanitized session
  */
 export function sanitizeSessionData(session: any): ValuationSession {
+  const createdMs = session.createdAt ? dateLikeToUnixMs(session.createdAt) : null
+  const updatedMs = session.updatedAt ? dateLikeToUnixMs(session.updatedAt) : null
+  const completedMs = session.completedAt ? dateLikeToUnixMs(session.completedAt) : null
+
   const sanitized = {
     reportId: String(session.reportId || ''),
     currentView: session.currentView === 'conversational' ? 'conversational' : 'manual',
     partialData: session.partialData || {},
     sessionData: session.sessionData || {},
     dataSource: session.dataSource || 'manual_entry',
-    createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
-    updatedAt: session.updatedAt ? new Date(session.updatedAt) : new Date(),
-    completedAt: session.completedAt ? new Date(session.completedAt) : undefined,
+    createdAt: createdMs !== null ? new Date(createdMs) : new Date(),
+    updatedAt: updatedMs !== null ? new Date(updatedMs) : new Date(),
+    completedAt: completedMs !== null ? new Date(completedMs) : undefined,
     // ✅ BANK-GRADE FIX: Preserve top-level valuation fields for restoration detection
     // These fields are used by cache completeness checks and restoration logic
     valuationResult: session.valuationResult || undefined,

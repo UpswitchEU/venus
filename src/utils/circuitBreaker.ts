@@ -9,6 +9,7 @@
  * @module utils/circuitBreaker
  */
 
+import { dateLikeToUnixMs } from './date-like'
 import { extractErrorMessage } from './errorDetection'
 import { storeLogger } from './logger'
 
@@ -254,7 +255,10 @@ export class CircuitBreaker {
   private shouldAttemptReset(): boolean {
     if (!this.lastFailureTime) return false
 
-    const timeSinceFailure = Date.now() - this.lastFailureTime.getTime()
+    const failureMs = dateLikeToUnixMs(this.lastFailureTime)
+    if (failureMs === null) return false
+
+    const timeSinceFailure = Date.now() - failureMs
     return timeSinceFailure >= this.resetTimeout
   }
 

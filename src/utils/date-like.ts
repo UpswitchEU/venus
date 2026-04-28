@@ -13,3 +13,10 @@ export function dateLikeToUnixMs(value: unknown): number | null {
   }
   return null
 }
+
+/** Non-negative ms since `value` until `nowMs` (handles JSON-hydrated ISO strings). `null` if unparseable. */
+export function dateLikeAgeMs(value: unknown, nowMs = Date.now()): number | null {
+  const t = dateLikeToUnixMs(value)
+  if (t === null) return null
+  return Math.max(0, nowMs - t)
+}

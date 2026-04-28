@@ -17,6 +17,7 @@ import { useTranslations } from 'next-intl'
 import React from 'react'
 import { toast } from 'sonner'
 import { Tooltip } from '@/design-system'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 import { generalLogger } from '@/utils/logger'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
@@ -114,7 +115,8 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       return <Save className="w-4 h-4 text-secondary" />
     }
     if (lastSaved) {
-      const timeAgo = Math.floor((Date.now() - lastSaved.getTime()) / 1000 / 60)
+      const savedMs = dateLikeToUnixMs(lastSaved)
+      const timeAgo = savedMs === null ? 0 : Math.floor((Date.now() - savedMs) / 1000 / 60)
       if (timeAgo < 1) return <Check className="w-4 h-4 text-primary" />
       return <Check className="w-4 h-4 text-primary opacity-70" />
     }
@@ -129,7 +131,8 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     // ✅ FIX: Only show "Auto-saving soon..." when there are actual unsaved changes
     if (hasUnsavedChanges) return t('report.saveStatus.savingSoon')
     if (lastSaved) {
-      const timeAgo = Math.floor((Date.now() - lastSaved.getTime()) / 1000 / 60)
+      const savedMs = dateLikeToUnixMs(lastSaved)
+      const timeAgo = savedMs === null ? 0 : Math.floor((Date.now() - savedMs) / 1000 / 60)
       if (timeAgo < 1) return t('report.saveStatus.saved')
       if (timeAgo < 60) return t('report.saveStatus.savedAgo', { minutes: timeAgo })
       return t('report.saveStatus.savedHoursAgo', { hours: Math.floor(timeAgo / 60) })

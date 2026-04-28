@@ -154,6 +154,7 @@ import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachS
 import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
+import { dateLikeToUnixMs } from '../../../utils/date-like'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
@@ -1041,10 +1042,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setReport((prev) => {
       if (!prev) return prev
       const syncAt = prev.reportUpdatedAt ?? new Date()
+      const pdfMs = dateLikeToUnixMs(prev.pdfGeneratedAt)
+      const syncMs = dateLikeToUnixMs(syncAt)
       if (
         prev.pdfUrl === url &&
         prev.pdfGeneratedAt != null &&
-        prev.pdfGeneratedAt.getTime() === syncAt.getTime()
+        pdfMs !== null &&
+        syncMs !== null &&
+        pdfMs === syncMs
       ) {
         return prev
       }

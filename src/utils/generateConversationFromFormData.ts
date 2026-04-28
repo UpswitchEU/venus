@@ -8,6 +8,7 @@
 import { getCountryByCode } from '../config/countries'
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
+import { dateLikeToUnixMs } from './date-like'
 import { normalizeCurrentYearForFiling } from './fiscalYear'
 import { resolveFormEbitda, resolveFormRevenue } from './versionDiffDetection'
 
@@ -21,6 +22,7 @@ export function generateConversationFromFormData(
 ): Message[] {
   const messages: Message[] = []
   const baseTimestamp = new Date()
+  const baseMs = dateLikeToUnixMs(baseTimestamp) ?? Date.now()
 
   // Helper to add message pair (AI question + User answer)
   const addMessagePair = (
@@ -36,7 +38,7 @@ export function generateConversationFromFormData(
       type: 'ai',
       role: 'assistant',
       content: question,
-      timestamp: new Date(baseTimestamp.getTime() + messages.length * delay),
+      timestamp: new Date(baseMs + messages.length * delay),
       isComplete: true,
       isStreaming: false,
       metadata: {
@@ -53,7 +55,7 @@ export function generateConversationFromFormData(
       type: 'user',
       role: 'user',
       content: answer,
-      timestamp: new Date(baseTimestamp.getTime() + messages.length * delay),
+      timestamp: new Date(baseMs + messages.length * delay),
       isComplete: true,
       isStreaming: false,
       metadata: {
@@ -188,7 +190,7 @@ export function generateConversationFromFormData(
       type: 'ai',
       role: 'assistant',
       content: `Great! I have all the information from your manual entry. You can now calculate the valuation or continue the conversation to provide additional details.`,
-      timestamp: new Date(baseTimestamp.getTime() + messages.length * 1000),
+      timestamp: new Date(baseMs + messages.length * 1000),
       isComplete: true,
       isStreaming: false,
       metadata: {

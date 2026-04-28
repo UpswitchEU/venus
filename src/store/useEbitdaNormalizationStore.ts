@@ -21,6 +21,7 @@ import {
   NormalizationAdjustment,
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
+import { dateLikeToUnixMs } from '../utils/date-like'
 import { generalLogger } from '../utils/logger'
 
 function safeNum(n: number | undefined | null): number {
@@ -751,8 +752,8 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const normalization = get().normalizations[year]
         const timestamp = normalization?.updated_at || normalization?.created_at
         if (!timestamp) return new Date()
-        const d = new Date(timestamp)
-        return Number.isFinite(d.getTime()) ? d : new Date()
+        const ms = dateLikeToUnixMs(timestamp)
+        return ms !== null ? new Date(ms) : new Date()
       },
     }),
     {

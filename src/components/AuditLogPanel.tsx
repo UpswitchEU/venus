@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 import React, { useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { formatVersionAuthor } from '../utils/formatters'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 import { formatCurrency } from '../config/countries'
 import { valuationAuditService } from '../services/audit/ValuationAuditService'
 import type { SessionAuditEntry } from '../utils/sessionAuditTrail'
@@ -70,7 +71,10 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
 
   // Sort by timestamp (newest first)
   const sortedEntries = useMemo(() => {
-    return [...filteredEntries].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    return [...filteredEntries].sort(
+      (a, b) =>
+        (dateLikeToUnixMs(b.timestamp) ?? 0) - (dateLikeToUnixMs(a.timestamp) ?? 0)
+    )
   }, [filteredEntries])
 
   const handleExport = () => {

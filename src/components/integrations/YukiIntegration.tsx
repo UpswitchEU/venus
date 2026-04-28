@@ -26,6 +26,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
+import { dateLikeToUnixMs } from '@/utils/date-like'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -91,15 +92,17 @@ const formatCurrency = (amount: number) => {
 type FormatImportTimeT = (key: string, values?: Record<string, number | string>) => string
 
 const formatImportTime = (date: Date, t: FormatImportTimeT, locale: 'en' | 'nl' = 'nl') => {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
+  const pastMs = dateLikeToUnixMs(date)
+  const diff = pastMs === null ? 0 : Date.now() - pastMs
   const minutes = Math.floor(diff / 60000)
 
   if (minutes < 1) return t('justNow')
   if (minutes < 60) return t('minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return t('hoursAgo', { count: hours })
-  return date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+  const display =
+    pastMs !== null ? new Date(pastMs) : date instanceof Date ? date : new Date(String(date))
+  return display.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
     day: 'numeric',
     month: 'short',
   })

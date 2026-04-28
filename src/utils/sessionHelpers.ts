@@ -16,6 +16,7 @@ import { createContextLogger } from './logger'
 import { markReportExists } from './reportExistenceCache'
 import { retryWithBackoff } from './retryWithBackoff'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
+import { dateLikeToUnixMs } from './date-like'
 import { globalSessionCache } from './sessionCacheManager'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
@@ -191,15 +192,8 @@ export function normalizeSessionDates(session: any): ValuationSession {
   // ✅ FIX: Robust date parsing with fallback for invalid dates
   const parseDate = (dateValue: any): Date => {
     if (!dateValue) return new Date()
-    if (dateValue instanceof Date) {
-      return isNaN(dateValue.getTime()) ? new Date() : dateValue
-    }
-    try {
-      const parsed = new Date(dateValue)
-      return isNaN(parsed.getTime()) ? new Date() : parsed
-    } catch {
-      return new Date()
-    }
+    const ms = dateLikeToUnixMs(dateValue)
+    return ms !== null ? new Date(ms) : new Date()
   }
 
   const normalized: ValuationSession = {

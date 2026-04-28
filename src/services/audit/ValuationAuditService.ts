@@ -7,6 +7,7 @@
  * @module services/audit/ValuationAuditService
  */
 
+import { dateLikeToUnixMs } from '@/utils/date-like'
 import type { VersionChanges } from '../../types/ValuationVersion'
 import { createContextLogger } from '../../utils/logger'
 import type { SessionAuditEntry } from '../../utils/sessionAuditTrail'
@@ -316,7 +317,8 @@ export class ValuationAuditService {
 
     // Get first and last edit dates
     const sortedByDate = [...fieldChanges].sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      (a, b) =>
+        (dateLikeToUnixMs(a.timestamp) ?? 0) - (dateLikeToUnixMs(b.timestamp) ?? 0)
     )
 
     return {
