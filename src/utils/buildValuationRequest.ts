@@ -285,6 +285,8 @@ export function buildValuationRequest(
     if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
   })
 
+  const allDataYearsSet = new Set(allDataYears)
+  const orphanItems: Array<{ id: string; targetYears: number[]; adjustment: number }> = []
   const normByYear: Record<number, NormYearEntry> = {}
   for (const n of acceptedNorms) {
     const yearsToApply: number[] = n.applyAllYears
@@ -292,7 +294,24 @@ export function buildValuationRequest(
       : n.applyYears && n.applyYears.length > 0
         ? n.applyYears
         : [n.year]
-    for (const y of yearsToApply) {
+    // Orphan-year guard: a normalization that targets a year outside the
+    // canonical data set (current_year_data + historical_years_data) gets
+    // dropped silently downstream — the year is allocated in normByYear but
+    // neither current_year_data nor historical_years_data ever reads it.
+    // This is the second flavor of the Metaalbewerking-class drop: instead
+    // of the basis year being missing from the iteration, the addback
+    // targets a year that isn't there at all (stale form data, typo, fiscal
+    // year mismatch).
+    const validYearsToApply = yearsToApply.filter((y) => allDataYearsSet.has(y))
+    if (validYearsToApply.length === 0 && yearsToApply.length > 0) {
+      orphanItems.push({
+        id: n.id ?? `${n.year}:${n.category ?? 'unknown'}`,
+        targetYears: yearsToApply,
+        adjustment: toFiniteNumber(n.adjustment) ?? 0,
+      })
+      continue
+    }
+    for (const y of validYearsToApply) {
       if (!normByYear[y])
         normByYear[y] = {
           totalAdjustment: 0,
@@ -323,6 +342,24 @@ export function buildValuationRequest(
         ...(n.ledgerCode && { ledger_code: n.ledgerCode }),
       })
     }
+  }
+
+  if (orphanItems.length > 0) {
+    const orphanTotal = orphanItems.reduce((s, o) => s + o.adjustment, 0)
+    generalLogger.warn(
+      '[buildValuationRequest] Dropped accepted normalizations with no matching year in the data set',
+      {
+        business_name: companyName,
+        canonical_years: allDataYears,
+        orphan_count: orphanItems.length,
+        orphan_total_adjustment: orphanTotal,
+        orphans: orphanItems,
+        note:
+          'These items targeted year(s) outside current_year_data + historical_years_data ' +
+          'and would have been silently lost downstream. Either remove them, or extend the ' +
+          'historical years to cover the targeted year before resubmitting.',
+      }
+    )
   }
 
   // Backward-compatibility: ValuationForm still persists normalization input via the

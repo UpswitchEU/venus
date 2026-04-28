@@ -1030,4 +1030,64 @@ describe('buildValuationRequest', () => {
 
     warnSpy.mockRestore()
   })
+
+  // ─── Orphan-year normalization guard ──────────────────────────────────────
+  // Second flavor of the Metaalbewerking-class silent drop: an accepted
+  // normalization targets a year that doesn't exist in current_year_data
+  // OR historical_years_data. Without this guard the addback would be allocated
+  // into normByYear[<missing year>] but never read by either request builder
+  // — €280K would simply vanish from the calculation.
+  it('logs and drops accepted normalizations whose target year is outside the data set', async () => {
+    const loggerModule = await import('../logger')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+
+    const lastFullYear = getCurrentFilingYear()
+    const orphanYear = 1999 // intentionally outside the data set
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 290_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_950_000,
+          ebitda: 290_000,
+        },
+      }),
+      [
+        {
+          id: 'norm-orphan',
+          title: 'Stale orphan addback',
+          rationale: 'Targets a year that no longer exists',
+          category: 'other',
+          type: 'add',
+          value: 280_000,
+          adjustment: 280_000,
+          year: orphanYear,
+          applyAllYears: false,
+          applyYears: [orphanYear],
+          status: 'accepted',
+          source: 'manual',
+          confidence: 'medium',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    )
+
+    // Current-year EBITDA must NOT have absorbed the orphan addback.
+    expect(result.current_year_data.ebitda).toBe(290_000)
+    expect(
+      result.current_year_data.ebitda_normalization_metadata
+    ).toBeUndefined()
+
+    const matched = warnSpy.mock.calls.find(([msg]) =>
+      typeof msg === 'string' &&
+      msg.includes('Dropped accepted normalizations with no matching year')
+    )
+    expect(matched).toBeDefined()
+    const ctx = matched?.[1] as Record<string, unknown> | undefined
+    expect(ctx?.orphan_count).toBe(1)
+    expect(ctx?.orphan_total_adjustment).toBe(280_000)
+    expect(Array.isArray(ctx?.canonical_years)).toBe(true)
+
+    warnSpy.mockRestore()
+  })
 })
