@@ -6075,7 +6075,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       />
 
       {/* Starter paywall — methods, normalization hub, or version history (Free tier teasers).
-          The advisor SaaS Starter plan (€1.490/year) is the wrong upgrade path for
+          The advisor SaaS Starter plan (€1,490/year billed yearly, list €1,788) is the wrong upgrade path for
           business owners — they should be funneled into the C2B2B referral loop
           instead (invite an advisor → advisor pays SaaS → BO unlocks branded PDF).
           See `.cursor/rules/plg-client-invite-loop.mdc` and

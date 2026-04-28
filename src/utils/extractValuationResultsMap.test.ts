@@ -6,6 +6,17 @@ import {
   normalizeValuationResultWithMethodMap,
 } from './extractValuationResultsMap'
 
+describe('normalizeSelectedMethodKey (DCF display labels)', () => {
+  it('normalizes English DCF Analysis headline to the snake_case key persistence checks', () => {
+    expect(normalizeSelectedMethodKey('DCF Analysis')).toBe('dcf_analysis')
+  })
+
+  it('normalizes long-form Discounted Cash Flow labels', () => {
+    expect(normalizeSelectedMethodKey('Discounted Cash Flow')).toBe('discounted_cash_flow')
+    expect(normalizeSelectedMethodKey('Discounted Cash Flow (DCF)')).toBe('discounted_cash_flow_(dcf)')
+  })
+})
+
 describe('extractValuationResultsMap', () => {
   it('normalizes revenue_multiple aliases to canonical omzet_multiple', () => {
     expect(normalizeSelectedMethodKey(' revenue-multiple ')).toBe('omzet_multiple')

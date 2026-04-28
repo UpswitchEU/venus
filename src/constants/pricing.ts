@@ -1,3 +1,4 @@
+/** Advisor list prices — keep `starter.yearly` aligned with Mercury `starterPlan.yearlyTotal` + Titan Starter `pricing.yearly`. */
 export const ACCOUNTANT_PRICING = {
   starter: {
     monthly: 149,
