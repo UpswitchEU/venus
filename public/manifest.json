@@ -9,9 +9,14 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "favicon-dark-square-var1.svg",
+      "src": "logos/upswitch-app-icon.svg",
       "type": "image/svg+xml",
       "sizes": "any"
+    },
+    {
+      "src": "favicon-48x48.png",
+      "type": "image/png",
+      "sizes": "48x48"
     },
     {
       "src": "favicon-16x16.png",
@@ -29,14 +34,14 @@
       "sizes": "180x180"
     },
     {
-      "src": "android-chrome-192x192.svg",
-      "type": "image/svg+xml",
+      "src": "android-chrome-192x192.png",
+      "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "android-chrome-512x512.svg",
-      "type": "image/svg+xml",
+      "src": "android-chrome-512x512.png",
+      "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }

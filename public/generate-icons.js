@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicDir = path.join(__dirname, 'public');
+const publicDir = __dirname;
 
 // Check if puppeteer is available
 let puppeteer;
@@ -25,7 +25,7 @@ try {
   process.exit(0);
 }
 
-const faviconSvg = path.join(publicDir, 'favicon-dark-square-var1.svg');
+const faviconSvg = path.join(publicDir, 'logos/upswitch-app-icon.svg');
 const svgContent = fs.readFileSync(faviconSvg, 'utf-8');
 
 // Icon sizes needed
