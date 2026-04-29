@@ -74,6 +74,26 @@ export function buildPostDeleteNewValuationUrl({
   return query ? `/${locale}/reports/new?${query}` : `/${locale}/reports/new`
 }
 
+/**
+ * When a session/report URL is stale (e.g. deleted report), recover by opening a new
+ * valuation with the same Mercury/accountant query params — no form snapshot.
+ */
+export function buildStaleReportRecoveryUrl(locale: string, search?: string): string {
+  const params = new URLSearchParams()
+  const current = normalizeSearchParams(
+    search ?? (typeof window !== 'undefined' ? window.location.search : '')
+  )
+  const passthrough = [...POST_DELETE_PASSTHROUGH_PARAMS, 'clientId', 'prefilledQuery'] as const
+  for (const key of passthrough) {
+    const value = current.get(key)
+    if (value && !params.has(key) && isSafePassthroughParam(key, value)) {
+      params.set(key, value)
+    }
+  }
+  const query = params.toString()
+  return query ? `/${locale}/reports/new?${query}` : `/${locale}/reports/new`
+}
+
 export async function deleteValuationEntry({
   valuation,
   deleteDraftSession,

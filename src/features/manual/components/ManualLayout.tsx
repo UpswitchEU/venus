@@ -165,7 +165,12 @@ import {
 } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
-import { isSessionKey, isUuid } from '../../../utils/identifiers'
+import {
+  isSessionKey,
+  isUuid,
+  isValuationIdSameAsActiveReport,
+  valuationIdsReferToSameReport,
+} from '../../../utils/identifiers'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
@@ -184,6 +189,7 @@ import {
   getRenderableReportHtmlFromCurrentOrFallback,
 } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
+import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -1073,11 +1079,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         sd.htmlReport,
         sd.html_report
       )
-      return !!(
-        sd.valuationResult ||
-        sd.valuation_result ||
-        hasRenderableHtml
-      )
+      return !!(sd.valuationResult || sd.valuation_result || hasRenderableHtml)
     })()
   // Unblock UI as soon as SessionRestorationService signals completion.
   // Keep a 5s safety timeout as a last resort in case the signal is never set.
@@ -1674,7 +1676,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...(data as Partial<CollectedData>),
       }
       // Keep form store in sync for session autosave (demo resilience, automation-ready)
-      updateFormData(mapClarityFormToVenusStore(latestFormDataRef.current as any))
+      const mapped = mapClarityFormToVenusStore(latestFormDataRef.current as any)
+      const currentForm = useManualFormStore.getState().formData
+      if (!storeReflectsBridgeMapped(mapped, currentForm)) {
+        updateFormData(mapped)
+      }
       // Mark dirty when report exists and user changed financial inputs
       if (!result) return
       const yf = (data.yearlyFinancials || []) as Array<{
@@ -2628,9 +2634,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const warnings = ((result as any)?.data_quality_warnings ?? []) as Array<{
       severity?: string
     }>
-    const hasHigh = warnings.some(
-      (w) => String(w.severity ?? '').toLowerCase() === 'high'
-    )
+    const hasHigh = warnings.some((w) => String(w.severity ?? '').toLowerCase() === 'high')
     // New result → drop stale acknowledgements (different run, different facts).
     if (resultId !== lastAutoOpenedResultRef.current) {
       setAcknowledgedQualityWarnings(new Set())
@@ -4245,11 +4249,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       deleteInProgressRef.current = id
       setDeletingValuationId(id)
       try {
-        const isCurrentReport =
-          id === reportId ||
-          id === resolvedReportId ||
-          id === session?.reportId ||
-          id === (session as any)?.key
+        const sessionKey = (session as any)?.key as string | undefined
+        const isCurrentReport = isValuationIdSameAsActiveReport(id, {
+          reportId,
+          resolvedReportId,
+          sessionReportId: session?.reportId,
+          sessionKey,
+        })
         let postDeleteNewValuationUrl: string | null = null
         if (isCurrentReport) {
           try {
@@ -4297,7 +4303,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
         if (isCurrentReport) {
           useSessionStore.getState().clearSession()
-          const remaining = rawRecentValuations.filter((v) => v.id !== id)
+          const idLink = {
+            sessionReportId: session?.reportId,
+            sessionKey,
+          }
+          const remaining = rawRecentValuations.filter(
+            (v) => !valuationIdsReferToSameReport(v.id, id, idLink)
+          )
           const isEmbedded =
             isAccountantMode &&
             typeof window !== 'undefined' &&
@@ -5365,9 +5377,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Fall back gracefully when a new engine warning type ships before
         // the catalog is updated — show the warning, no CTA.
         const labelDefault = 'Open in chat'
-        const promptDefault =
-          (w.message ?? '') +
-          (w.recommendation ? ` ${w.recommendation}` : '')
+        const promptDefault = (w.message ?? '') + (w.recommendation ? ` ${w.recommendation}` : '')
         return {
           type: w.type!,
           severity: w.severity ?? 'high',
@@ -5378,9 +5388,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             ? tCa(cta.labelKey as never, { default: labelDefault } as never)
             : labelDefault,
           cta_prompt: cta
-            ? tCa(cta.promptKey as never, {
-                default: promptDefault,
-              } as never)
+            ? tCa(
+                cta.promptKey as never,
+                {
+                  default: promptDefault,
+                } as never
+              )
             : promptDefault,
         }
       })

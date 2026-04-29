@@ -149,3 +149,54 @@ export function detectExistingReportFromUrl(): boolean {
 
   return false
 }
+
+/**
+ * True when two identifiers refer to the same valuation row given optional
+ * session linkage (Mercury UUID vs Venus `val_*` session_key on the same session).
+ */
+export function valuationIdsReferToSameReport(
+  idA: string,
+  idB: string,
+  link?: { sessionReportId?: string | null; sessionKey?: string | null }
+): boolean {
+  if (!idA || !idB) return false
+  if (idA === idB) return true
+  const sr = link?.sessionReportId?.trim()
+  const sk = link?.sessionKey?.trim()
+  if (sr && sk && sr !== sk) {
+    if ((idA === sr && idB === sk) || (idA === sk && idB === sr)) return true
+  }
+  return false
+}
+
+/**
+ * Whether a sidebar / API valuation id is the report currently shown on this route.
+ * Centralizes UUID ↔ val_* equivalence used by recent valuations and the URL segment.
+ */
+export function isValuationIdSameAsActiveReport(
+  valuationId: string,
+  ctx: {
+    reportId?: string | null
+    resolvedReportId?: string | null
+    sessionReportId?: string | null
+    sessionKey?: string | null
+  }
+): boolean {
+  const link = {
+    sessionReportId: ctx.sessionReportId,
+    sessionKey: ctx.sessionKey,
+  }
+  const candidates = [
+    ctx.reportId,
+    ctx.resolvedReportId,
+    ctx.sessionReportId,
+    ctx.sessionKey,
+  ].filter((x): x is string => typeof x === 'string' && x.length > 0)
+
+  for (const cid of candidates) {
+    if (valuationId === cid || valuationIdsReferToSameReport(valuationId, cid, link)) {
+      return true
+    }
+  }
+  return false
+}

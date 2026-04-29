@@ -24,14 +24,15 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { showAdvisorCalculatorSurface } from '../constants/accountantPlanMethods'
+import { buildStaleReportRecoveryUrl } from '../features/manual/utils/deleteValuationEntry'
 import { trackPaywallShown, trackPaywallUpgradeClick } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
 import {
-	isAccountantBillingUpgradePath,
-	isClientPremiumUpgradePath,
-	useBootstrapSafe,
+  isAccountantBillingUpgradePath,
+  isClientPremiumUpgradePath,
+  useBootstrapSafe,
 } from '../lib/bootstrap'
-import { showAdvisorCalculatorSurface } from '../constants/accountantPlanMethods'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -41,12 +42,12 @@ import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
-import { ValuationPaywallModal } from './ValuationPaywallModal'
 import {
   canRenderReportSession,
   hasAssetsInSession,
   shouldAllowOptimisticMercuryRender,
 } from './sessionReadiness'
+import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
@@ -195,6 +196,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ✅ LOOP FIX: Track restoration completion to prevent repeated restore() calls
     // when the effect re-runs due to bootstrap/context updates
     const restorationCompletedForReportIdRef = useRef<string | null>(null)
+    /** One-shot: redirect off stale deleted-report URLs after load failure */
+    const staleRecoveryAttemptedRef = useRef(false)
 
     // Reset refs when reportId changes (component reused for different report)
     useEffect(() => {
@@ -202,6 +205,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrapRetryRef.current = false
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
+      staleRecoveryAttemptedRef.current = false
     }, [reportId])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
@@ -695,6 +699,37 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const effectiveError =
       error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
 
+    // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
+    // load still fails, recover to /reports/new with Mercury query params preserved.
+    useEffect(() => {
+      if (typeof window === 'undefined') return
+      if (isBootstrapping || !bootstrapComplete) return
+      if (!bootstrapMismatch || !effectiveError) return
+      if (status !== 'error') return
+      if (showCreditError || paywallData) return
+      if (staleRecoveryAttemptedRef.current) return
+
+      staleRecoveryAttemptedRef.current = true
+      const locale = pathname?.match(/^\/(en|nl|fr|de)/)?.[1] || 'en'
+      const url = buildStaleReportRecoveryUrl(locale)
+      generalLogger.info('[SessionManager] Redirecting stale report URL after load error', {
+        reportId: reportId?.substring(0, 30),
+        target: url,
+      })
+      router.replace(url)
+    }, [
+      isBootstrapping,
+      bootstrapComplete,
+      bootstrapMismatch,
+      effectiveError,
+      status,
+      pathname,
+      reportId,
+      router,
+      showCreditError,
+      paywallData,
+    ])
+
     // ✅ FIX: Pass isLoading to children so they can prevent UI from rendering during initial load
     return (
       <>
@@ -751,7 +786,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                   trackPaywallUpgradeClick('bootstrap_credit')
                   const base = getMercuryUrl()
                   const upgradePath = isAccountantBillingUpgradePath(
-                    bootstrapCreditStatus.upgrade_path,
+                    bootstrapCreditStatus.upgrade_path
                   )
                     ? `${base}/${locale}/advisor/settings?tab=billing`
                     : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)

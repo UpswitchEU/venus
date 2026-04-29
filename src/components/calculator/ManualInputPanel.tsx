@@ -2638,14 +2638,18 @@ export function ManualInputPanel({
       return
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      yearlyFinancials: prev.yearlyFinancials.map((row) =>
-        row.isForecast && (row.capex == null || row.capex === 0)
-          ? { ...row, capex: suggestedCapex }
-          : row
-      ),
-    }))
+    setFormData((prev) => {
+      let changed = false
+      const next = prev.yearlyFinancials.map((row) => {
+        if (row.isForecast && (row.capex == null || row.capex === 0)) {
+          changed = true
+          return { ...row, capex: suggestedCapex }
+        }
+        return row
+      })
+      if (!changed) return prev
+      return { ...prev, yearlyFinancials: next }
+    })
   }, [
     dcfForecastRows.length,
     hasDcfSelected,

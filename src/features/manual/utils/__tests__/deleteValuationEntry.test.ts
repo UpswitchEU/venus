@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../deleteValuationEntry'
+import {
+  buildPostDeleteNewValuationUrl,
+  buildStaleReportRecoveryUrl,
+  deleteValuationEntry,
+} from '../deleteValuationEntry'
 
 describe('deleteValuationEntry', () => {
   it('deletes draft valuations via the session cleanup path', async () => {
@@ -92,5 +96,27 @@ describe('buildPostDeleteNewValuationUrl', () => {
     ).toBe(
       '/en/reports/new?prefilledQuery=Safe+Co&return_url=%2Fen%2Fadvisor%2Fclients%2Fclient-123'
     )
+  })
+})
+
+describe('buildStaleReportRecoveryUrl', () => {
+  it('copies safe passthrough params from current search (explicit)', () => {
+    const url = buildStaleReportRecoveryUrl(
+      'nl',
+      '?clientId=c1&prefilledQuery=Acme&source=mercury&flow=manual&mode=accountant&clientToken=tok&return_url=https%3A%2F%2Fwww.upswitch.app%2Fnl%2Fadvisor'
+    )
+    expect(url.startsWith('/nl/reports/new?')).toBe(true)
+    const qs = new URLSearchParams(url.split('?')[1])
+    expect(qs.get('clientId')).toBe('c1')
+    expect(qs.get('prefilledQuery')).toBe('Acme')
+    expect(qs.get('source')).toBe('mercury')
+    expect(qs.get('flow')).toBe('manual')
+    expect(qs.get('mode')).toBe('accountant')
+    expect(qs.get('clientToken')).toBe('tok')
+    expect(qs.get('return_url')).toBe('https://www.upswitch.app/nl/advisor')
+  })
+
+  it('returns bare new report path when search empty', () => {
+    expect(buildStaleReportRecoveryUrl('en', '')).toBe('/en/reports/new')
   })
 })
