@@ -158,6 +158,65 @@ describe('extractValuationResultsMap', () => {
     })
   })
 
+  it('drops stale dcf entries when the selected method is a non-DCF single method', () => {
+    const payload = {
+      selected_valuation_method: 'ebitda_multiple',
+      valuation_results: {
+        ebitda_multiple: {
+          available: true,
+          value: 420000,
+          label: 'EBITDA Multiple',
+        },
+        dcf: {
+          available: true,
+          value: 999999,
+          label: 'Stale DCF',
+          details: {},
+        },
+      },
+      dcf_valuation: {
+        enterprise_value: 999999,
+        wacc: 0.123,
+      },
+    }
+
+    const out = extractValuationResultsMap(payload, { selectedValuationMethod: 'ebitda_multiple' })
+
+    expect(out?.ebitda_multiple?.value).toBe(420000)
+    expect(out?.dcf).toBeUndefined()
+  })
+
+  it('keeps dcf entries for weighted synthesis payloads', () => {
+    const payload = {
+      selected_valuation_method: 'ebitda_multiple',
+      has_weighted_synthesis: true,
+      valuation_results: {
+        ebitda_multiple: {
+          available: true,
+          value: 420000,
+          label: 'EBITDA Multiple',
+        },
+        dcf: {
+          available: true,
+          value: 410000,
+          label: 'DCF',
+          details: {},
+        },
+      },
+      dcf_valuation: {
+        enterprise_value: 525000,
+        wacc: 0.113,
+      },
+    }
+
+    const out = extractValuationResultsMap(payload, { selectedValuationMethod: 'ebitda_multiple' })
+
+    expect(out?.dcf).toMatchObject({
+      value: 410000,
+      wacc: 0.113,
+    })
+  })
+
   it('synthesizes from report_context when valuation_results paths are empty', () => {
     const payload = {
       valuation_results: {},

@@ -25,6 +25,21 @@ export function normalizeSelectedMethodKey(methodKey: unknown): string {
   return METHOD_KEY_ALIASES[normalized] || normalized
 }
 
+function isDcfMethodKey(methodKey: unknown): boolean {
+  const normalized = normalizeSelectedMethodKey(methodKey)
+  return (
+    normalized === 'dcf' ||
+    normalized === 'dcf_analysis' ||
+    normalized === 'discounted_cash_flow' ||
+    /^discounted_cash_flow_?\(?dcf\)?$/.test(normalized)
+  )
+}
+
+function isHybridMethodKey(methodKey: unknown): boolean {
+  const normalized = normalizeSelectedMethodKey(methodKey)
+  return normalized === 'hybrid' || normalized === 'hybrid_dcf' || normalized === 'hybrid_valuation'
+}
+
 function withMethodAliases(map: Record<string, any> | null): Record<string, any> | null {
   if (!map || typeof map !== 'object' || Array.isArray(map)) {
     return map
@@ -217,6 +232,65 @@ function resolveSelectedMethodForSynthesis(
     if (normalized) return normalized
   }
   return 'upswitch_adaptive'
+}
+
+function resolveExplicitSelectedMethod(
+  valuationResult: Record<string, any>,
+  context?: ExtractValuationResultsContext | null
+): string {
+  const fromContext = normalizeSelectedMethodKey(context?.selectedValuationMethod)
+  if (fromContext) return fromContext
+
+  const rc = getCanonicalReportContext(valuationResult)
+  const candidates = [
+    rc?.selected_valuation_method,
+    valuationResult?.selected_valuation_method,
+    valuationResult?.details?.selected_valuation_method,
+    valuationResult?.valuation_result?.selected_valuation_method,
+  ]
+  for (const c of candidates) {
+    const normalized = normalizeSelectedMethodKey(c)
+    if (normalized) return normalized
+  }
+  return ''
+}
+
+function hasWeightedSynthesisPayload(valuationResult: Record<string, any>): boolean {
+  const candidates = [
+    valuationResult,
+    valuationResult.weighted_valuation,
+    valuationResult.details,
+    valuationResult.report_context,
+    valuationResult.details?.report_context,
+    valuationResult.valuation_result,
+    valuationResult.valuation_result?.details,
+    valuationResult.valuation_result?.report_context,
+    valuationResult.valuation_result?.details?.report_context,
+  ]
+
+  return candidates.some((candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+    return candidate.has_weighted_synthesis === true || candidate.blended_equity_value != null
+  })
+}
+
+function pruneStaleDcfMethod(
+  map: Record<string, any>,
+  valuationResult: Record<string, any>,
+  context?: ExtractValuationResultsContext | null
+): Record<string, any> | null {
+  if (!map.dcf) return map
+
+  const selectedMethod = resolveExplicitSelectedMethod(valuationResult, context)
+  if (!selectedMethod || isDcfMethodKey(selectedMethod) || isHybridMethodKey(selectedMethod)) {
+    return map
+  }
+  if (hasWeightedSynthesisPayload(valuationResult)) {
+    return map
+  }
+
+  const { dcf: _staleDcf, ...withoutDcf } = map
+  return Object.keys(withoutDcf).length > 0 ? withoutDcf : null
 }
 
 function getFallbackMethodLabel(methodKey: string): string {
@@ -499,9 +573,17 @@ export function extractValuationResultsMap(
       !Array.isArray(candidate) &&
       Object.keys(candidate).length > 0
     ) {
+      const pruned = pruneStaleDcfMethod(
+        normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
+        valuationResult,
+        context
+      )
+      if (!pruned) {
+        continue
+      }
       return withMethodAliases(
         enrichDcfMethod(
-          normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
+          pruned,
           valuationResult
         )
       )
