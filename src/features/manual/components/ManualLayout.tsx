@@ -2890,8 +2890,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           validLocale as 'nl' | 'en'
         )
         ;(request as any).dataSource = 'manual'
-        if (preSelectedMethod) {
-          request.selected_method = preSelectedMethod
+        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
+        if (selectedMethodForRequest) {
+          request.selected_method = selectedMethodForRequest
         }
 
         attachSynthesisWeightsToValuationRequest(request)
@@ -3268,6 +3269,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       tPreparer,
       result,
       preSelectedMethod,
+      selectedMethod,
     ]
   )
 
@@ -3344,8 +3346,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         )
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForVersions
-        if (preSelectedMethod) {
-          request.selected_method = preSelectedMethod
+        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
+        if (selectedMethodForRequest) {
+          request.selected_method = selectedMethodForRequest
         }
 
         attachSynthesisWeightsToValuationRequest(request)
@@ -3401,6 +3404,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       hasAnyNormalization,
       tHistory,
       preSelectedMethod,
+      selectedMethod,
     ]
   )
 
@@ -4654,8 +4658,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           recalcLocale as 'nl' | 'en'
         )
         ;(request as any).dataSource = 'manual'
-        if (preSelectedMethod) {
-          request.selected_method = preSelectedMethod
+        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
+        if (selectedMethodForRequest) {
+          request.selected_method = selectedMethodForRequest
         }
 
         attachSynthesisWeightsToValuationRequest(request)
@@ -4746,6 +4751,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       currentLocale,
       t,
       preSelectedMethod,
+      selectedMethod,
     ]
   )
 

@@ -94,6 +94,24 @@ function extractAllowedMethodsFromTitan(source: string, planLiteral: string): st
   return methods
 }
 
+function extractBooleanFeatureFromTitan(
+  source: string,
+  planLiteral: string,
+  featureName: string
+): boolean {
+  const blockPattern = new RegExp(
+    `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?features:\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
+    'm'
+  )
+  const match = source.match(blockPattern)
+  if (!match) {
+    throw new Error(
+      `Could not find PlanType.${planLiteral}.features.${featureName} in Titan pricing config`
+    )
+  }
+  return match[1] === 'true'
+}
+
 describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
   const titanSource = readFileSync(TITAN_PRICING_CONFIG_PATH, 'utf-8')
 
@@ -103,6 +121,14 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     // membership AND order — anything else is silent UX drift.
     const titanFreeMethods = extractAllowedMethodsFromTitan(titanSource, 'FREE')
     expect(titanFreeMethods).toEqual([...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS])
+  })
+
+  it('Free keeps DCF available while PDF download remains Starter-gated', () => {
+    const titanFreeMethods = extractAllowedMethodsFromTitan(titanSource, 'FREE')
+
+    expect(titanFreeMethods).toContain('dcf')
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_download')).toBe(false)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_download')).toBe(true)
   })
 
   it.each([

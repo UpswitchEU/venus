@@ -110,6 +110,51 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.cash).toBe(0)
   })
 
+  it('serializes Three Towers DCF inputs without adaptive/multiples contamination', () => {
+    const filingYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        company_name: 'Three Towers Capital',
+        country_code: 'BE',
+        industry: 'services',
+        business_model: 'services',
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        current_year_data: {
+          year: filingYear,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+          cash: 20_000,
+          total_debt: 0,
+          total_equity: 400_000,
+        },
+        historical_years_data: [
+          { year: filingYear - 1, revenue: 900_000, ebitda: 90_000 },
+          { year: filingYear + 1, revenue: 1_050_000, ebitda: 120_000, is_forecast: true },
+          { year: filingYear + 2, revenue: 1_100_000, ebitda: 130_000, is_forecast: true },
+        ],
+        dcf_wacc_pct: 10.5,
+        dcf_terminal_growth_pct: 1.5,
+        dcf_input_mode: 'ebitda',
+      }),
+      []
+    )
+
+    expect(result.current_year_data.cash).toBe(20_000)
+    expect(result.current_year_data.total_debt).toBe(0)
+    expect(result.current_year_data.total_equity).toBe(400_000)
+    expect(result.historical_years_data.map((year) => year.year)).toEqual([filingYear - 1])
+    expect(result.forecast_years_data).toHaveLength(2)
+    expect(result.forecast_years_data.every((year) => year.is_forecast)).toBe(true)
+    expect(result.business_context).toMatchObject({
+      dcf_wacc_pct: 10.5,
+      dcf_terminal_growth_pct: 1.5,
+    })
+    expect(result.projection_years).toBe(5)
+    expect(result.use_dcf).toBe(true)
+    expect(result.user_configured_dcf).toBe(true)
+  })
+
   it('uses the default filing year for current_year_data when no explicit year is provided', () => {
     const result = buildValuationRequest(makeFormData(), [])
 
