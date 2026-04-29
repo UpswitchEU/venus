@@ -13,6 +13,8 @@
 export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   'prefilledQuery',
   'clientToken',
+  /** Short-lived Mercury → Venus SSO handoff (`navigateToVenus` token exchange). */
+  'token',
   'clientId',
   /** Query locale hint (Mercury emits alongside path `/nl/...`); forward-safe for `/reports/new` redirect. */
   'locale',

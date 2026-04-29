@@ -94,6 +94,16 @@ describe('/reports/new param preservation', () => {
     expect(u.searchParams.get('session_key')).toBe('val_1700000000000_abc')
   })
 
+  it('preserves Mercury token-exchange handoff on /reports/new redirect', async () => {
+    const url = await callPage({
+      token: 'sso_exchange_abc',
+      source: 'mercury',
+    })
+    const u = new URL(url, 'https://example.com')
+    expect(u.searchParams.get('token')).toBe('sso_exchange_abc')
+    expect(u.searchParams.get('source')).toBe('mercury')
+  })
+
   it('preserves flow=startup and studio=legacy (waarderen classic advisors link)', async () => {
     const url = await callPage({
       flow: 'startup',

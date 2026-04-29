@@ -9,6 +9,17 @@ vi.mock('next/navigation', () => ({
 import CalculatorPage from './page';
 
 describe('venus /calculator redirect', () => {
+  it('preserves token on /calculator → /reports/new', async () => {
+    await CalculatorPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({
+        token: 'handoff_xyz',
+        source: 'mercury',
+      }),
+    })
+    expect(redirectMock).toHaveBeenCalledWith('/en/reports/new?token=handoff_xyz&source=mercury')
+  })
+
   it('preserves guided-resolution params when redirecting to reports/new', async () => {
     await CalculatorPage({
       params: Promise.resolve({ locale: 'en' }),

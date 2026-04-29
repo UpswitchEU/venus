@@ -1,12 +1,19 @@
 import { redirect } from 'next/navigation'
+import { buildPreservedReportBootstrapQueryString } from '@/lib/cross-app/preservedReportBootstrapParams'
 
 export const dynamic = 'force-dynamic'
 
+interface CalculatePageProps {
+  params: Promise<{ locale: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
 /**
- * /calculate — Clarity Aurora parity route
- * Redirects to new report creation (same as /reports/new)
+ * /[locale]/calculate — legacy alias for the valuation entry surface.
+ * Forwards the same bootstrap allowlist as `/calculator` and `/reports/new`
+ * so deep links never lose prefill, auth token handoff, or advisor context.
  */
-export default async function CalculatePage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function CalculatePage({ params, searchParams }: CalculatePageProps) {
   let locale = 'en'
   try {
     const p = await params
@@ -14,5 +21,7 @@ export default async function CalculatePage({ params }: { params: Promise<{ loca
   } catch {
     // fallback
   }
-  redirect(`/${locale}/reports/new`)
+  const sp = searchParams ? await searchParams : {}
+  const suffix = buildPreservedReportBootstrapQueryString(sp)
+  redirect(`/${locale}/reports/new${suffix}`)
 }
