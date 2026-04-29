@@ -125,13 +125,25 @@ function parseDetails(result: ValuationMethodResult | undefined | null): ParsedD
       }
     : null
 
-  // Headline anchor — prefer the founder triangulation, fall back to the
-  // engine's advisor blend so older payloads (no founder_view) still
-  // render a sensible dashboard.
+  // Headline anchor — April 2026 hardening: read the canonical block
+  // (single source of truth across the advisor 4-leg + founder 3-leg
+  // blends).  Fall back to MethodResult.value (which IS the canonical
+  // mid for new responses) and finally the legacy founder_view for
+  // older engine responses that pre-date the canonical block.
+  const canonical = details.canonical as Record<string, unknown> | undefined
   const blendedMid =
-    founder?.equity_value_mid ?? toNumber(result?.value) ?? null
-  const blendedLow = founder?.equity_value_low ?? toNumber(details.equity_value_low)
-  const blendedHigh = founder?.equity_value_high ?? toNumber(details.equity_value_high)
+    toNumber(canonical?.pre_money_mid) ??
+    toNumber(result?.value) ??
+    founder?.equity_value_mid ??
+    null
+  const blendedLow =
+    toNumber(canonical?.pre_money_low) ??
+    founder?.equity_value_low ??
+    toNumber(details.equity_value_low)
+  const blendedHigh =
+    toNumber(canonical?.pre_money_high) ??
+    founder?.equity_value_high ??
+    toNumber(details.equity_value_high)
 
   const berkus = details.berkus as Record<string, unknown> | undefined
   const vc = details.vc as Record<string, unknown> | undefined

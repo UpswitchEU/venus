@@ -178,6 +178,19 @@ export type FounderPedigreeKey =
 export type FounderPedigreeFlags = Record<FounderPedigreeKey, boolean>
 
 /**
+ * Free-text evidence per pedigree claim — LinkedIn URL, KBO incorporation
+ * reference, named employer + tenure, etc.  The Python engine zeroes
+ * any positive pedigree delta whose evidence string is empty
+ * (`founder_pedigree.calculate_founder_pedigree`), so this map is the
+ * frontend half of that contract.  ``solo_founder`` is intentionally
+ * not in the gate (negative delta — costs the founder, no evidence
+ * required to apply).
+ */
+export type FounderPedigreeEvidence = Partial<
+  Record<Exclude<FounderPedigreeKey, 'solo_founder'>, string>
+>
+
+/**
  * Per-qualification multiplier deltas used by the live receipt to render
  * "+X.XX×" / "-X.XX×" chips next to each option.  Source of truth lives
  * in the Python engine (`founder_pedigree.PEDIGREE_DELTAS`) — this table
@@ -327,6 +340,16 @@ export interface StartupValuationState {
   founder_pedigree: FounderPedigreeFlags
 
   /**
+   * Per-claim evidence string (LinkedIn URL / KBO ref / named employer +
+   * tenure).  The Python engine's evidence gate zeroes any positive
+   * pedigree delta whose evidence string is empty — so without this
+   * field every founder pedigree claim would silently collapse to 1.0×.
+   * Defaults to an empty object; the FounderPedigreeStep wizard surface
+   * collects strings as the founder ticks each claim.
+   */
+  pedigree_evidence: FounderPedigreeEvidence
+
+  /**
    * Inception lens — opt-in overlay applied AFTER the pedigree multiplier.
    * Acknowledges three pre-seed realities milestone methods miss
    * (moat-blindness, TAM-unknowability, edge-founder premium).  Default
@@ -404,6 +427,17 @@ interface StartupValuationStore extends StartupValuationState {
    * the founder claim a discount-AND-lift combo the engine doesn't grant.
    */
   setPedigreeFlag: (key: FounderPedigreeKey, applied: boolean) => void
+  /**
+   * Set the per-claim evidence string (LinkedIn URL / KBO ref / named
+   * employer + tenure).  Only positive pedigree claims accept evidence —
+   * the type narrows ``key`` to exclude ``solo_founder``.  Passing an
+   * empty / whitespace-only string removes the key from the persisted
+   * dict so the engine sees "no evidence" rather than an empty string.
+   */
+  setPedigreeEvidence: (
+    key: Exclude<FounderPedigreeKey, 'solo_founder'>,
+    evidence: string
+  ) => void
   /** Studio v2 — evidence note setter (free-text per milestone). */
   setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
   /** Studio v2 — Step 4 TAM/SAM/SOM trio setter. */
@@ -488,6 +522,7 @@ const INITIAL_STATE: StartupValuationState = {
   cap_table: INITIAL_CAP_TABLE,
 
   founder_pedigree: { ...INITIAL_PEDIGREE },
+  pedigree_evidence: {},
 
   inception_lens: 'milestones_driven',
 
@@ -577,7 +612,35 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // I'm solo"). Auto-clear the partner flag when one is picked.
           if (applied && key === 'solo_founder') next.has_technical_cofounder = false
           if (applied && key === 'has_technical_cofounder') next.solo_founder = false
-          return { ...state, founder_pedigree: next }
+          // Clear evidence when the founder un-ticks a claim.  Keeping a
+          // stale evidence string would silently re-apply the multiplier
+          // if the founder later re-ticks the same claim — that would
+          // surprise the defensibility-score "evidence not provided"
+          // signal.  ``solo_founder`` is excluded from the evidence dict
+          // by the type contract, so we only clear the positive keys.
+          let evidence = state.pedigree_evidence
+          if (!applied && key !== 'solo_founder') {
+            const { [key]: _removed, ...rest } = state.pedigree_evidence
+            evidence = rest
+          }
+          return { ...state, founder_pedigree: next, pedigree_evidence: evidence }
+        }),
+
+      setPedigreeEvidence: (key, evidence) =>
+        set((state) => {
+          // Strip empty strings so the persisted shape stays minimal —
+          // the engine treats absent keys and empty strings identically
+          // (both fail the gate), but a smaller dict means a smaller
+          // payload over the wire and a cleaner data-room footprint.
+          const trimmed = evidence.trim()
+          if (!trimmed) {
+            const { [key]: _removed, ...rest } = state.pedigree_evidence
+            return { ...state, pedigree_evidence: rest }
+          }
+          return {
+            ...state,
+            pedigree_evidence: { ...state.pedigree_evidence, [key]: trimmed },
+          }
         }),
 
       applyPreset: (preset) => {
@@ -815,6 +878,30 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
               if (typeof fp[k] === 'boolean') merged[k] = fp[k] as boolean
             }
             next.founder_pedigree = merged as typeof next.founder_pedigree
+
+            // Pedigree evidence dict — accepted in two shapes:
+            //   1. Top-level ``pedigree_evidence`` (current frontend store)
+            //   2. Nested under ``founder_pedigree.pedigree_evidence``
+            //      (the engine's payload contract — what the request
+            //      sends to the backend).  Restore from either so a
+            //      session round-tripped through the API doesn't lose
+            //      the evidence strings.
+            const pickEvidence = (raw: unknown): FounderPedigreeEvidence => {
+              if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+              const out: FounderPedigreeEvidence = {}
+              for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+                if (typeof v === 'string' && v.trim() && k !== 'solo_founder') {
+                  out[k as keyof FounderPedigreeEvidence] = v.trim()
+                }
+              }
+              return out
+            }
+            const fromTop = pickEvidence(s.pedigree_evidence)
+            const fromNested = pickEvidence(fp.pedigree_evidence)
+            const restored = { ...fromNested, ...fromTop }
+            if (Object.keys(restored).length > 0) {
+              next.pedigree_evidence = restored
+            }
           }
           // Studio v2 — maturity buckets + evidence + description ------
           if (s.maturity && typeof s.maturity === 'object') {
@@ -947,9 +1034,18 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // Include the pedigree object only when at least one flag is set.
           // The engine treats the absence of the field as "no overlay"
           // (default multiplier 1.0), so an all-false payload would be a
-          // wasteful round-trip with the same outcome.
+          // wasteful round-trip with the same outcome.  When the pedigree
+          // object IS sent, also send the evidence dict (even if empty)
+          // so the engine's evidence gate has something to evaluate
+          // against — this is the contract that prevents silent multiplier
+          // collapse when the founder ticks a claim without evidence.
           ...(Object.values(state.founder_pedigree).some(Boolean)
-            ? { founder_pedigree: state.founder_pedigree }
+            ? {
+                founder_pedigree: {
+                  ...state.founder_pedigree,
+                  pedigree_evidence: state.pedigree_evidence,
+                },
+              }
             : {}),
           ...(Object.keys(studioMetadata).length > 0 ? { studio_v2: studioMetadata } : {}),
         }
@@ -957,7 +1053,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 6,
+      version: 7,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -1047,6 +1143,20 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             s.inception_lens = 'milestones_driven'
           }
         }
+        if (version < 7) {
+          // April 2026 hardening: pedigree_evidence dict carries the
+          // per-claim evidence string the engine's evidence gate now
+          // requires.  Default to empty so the multiplier stays at 1.0
+          // for previously-persisted founders until they revisit the
+          // FounderPedigreeStep and add evidence (or un-tick the
+          // unevidenced claim).  Preserves the old behaviour: positive
+          // claims that were getting the lift before now get neutralised
+          // — matches the consortium-spec reviewer's recommendation
+          // ("default 1.00× without evidence").
+          if (!s.pedigree_evidence) {
+            s.pedigree_evidence = {}
+          }
+        }
         return s as StartupValuationState
       },
       partialize: (state) => {
@@ -1055,6 +1165,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           setCapField,
           setMaturity,
           setPedigreeFlag,
+          setPedigreeEvidence,
           applyPreset,
           setEvidenceNote,
           setTamSamSom,
@@ -1070,6 +1181,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         void setCapField
         void setMaturity
         void setPedigreeFlag
+        void setPedigreeEvidence
         void applyPreset
         void setEvidenceNote
         void setTamSamSom
