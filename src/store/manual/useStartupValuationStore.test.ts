@@ -297,6 +297,69 @@ describe('useStartupValuationStore', () => {
       expect(flipped.solo_founder).toBe(false)
     })
 
+    // -----------------------------------------------------------------
+    // Evidence gate (April 2026 hardening) — frontend half of the
+    // engine's `pedigree_evidence` contract.
+    // -----------------------------------------------------------------
+
+    it('defaults pedigree_evidence to an empty dict', () => {
+      const s = useStartupValuationStore.getState()
+      expect(s.pedigree_evidence).toEqual({})
+    })
+
+    it('threads pedigree_evidence into the request payload alongside the flags', () => {
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('prior_exit', true)
+      s.setPedigreeEvidence('prior_exit', 'https://crunchbase.com/exits/example')
+
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: Record<string, unknown> & {
+          pedigree_evidence?: Record<string, string>
+        }
+      }
+      expect(payload.founder_pedigree).toBeDefined()
+      expect(payload.founder_pedigree!.prior_exit).toBe(true)
+      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+        prior_exit: 'https://crunchbase.com/exits/example',
+      })
+    })
+
+    it('strips empty/whitespace-only evidence strings from the persisted dict', () => {
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('domain_expert_10y', true)
+      s.setPedigreeEvidence('domain_expert_10y', '12y at IBM')
+      s.setPedigreeEvidence('domain_expert_10y', '   ')
+      const after = useStartupValuationStore.getState().pedigree_evidence
+      expect(after).toEqual({})
+    })
+
+    it('clears the evidence string when the founder un-ticks the claim', () => {
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('top_unicorn_alumnus', true)
+      s.setPedigreeEvidence('top_unicorn_alumnus', 'Senior PM @ Adyen 2018-2021')
+      expect(useStartupValuationStore.getState().pedigree_evidence).toEqual({
+        top_unicorn_alumnus: 'Senior PM @ Adyen 2018-2021',
+      })
+
+      s.setPedigreeFlag('top_unicorn_alumnus', false)
+      expect(useStartupValuationStore.getState().pedigree_evidence).toEqual({})
+    })
+
+    it('keeps an empty pedigree_evidence dict in the payload when at least one flag is set', () => {
+      // Engine needs to see the contract even when empty — that's how
+      // the gate signals "this UI knows about evidence, the founder
+      // chose not to provide any" vs "this UI is older and doesn't
+      // gate at all".
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('prior_exit', true)
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: Record<string, unknown> & {
+          pedigree_evidence?: Record<string, string>
+        }
+      }
+      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({})
+    })
+
     it('calculatePedigreeMultiplier sums active deltas with clamp', () => {
       // 1.0 + 0.30 = 1.30 — single qualification.
       expect(
