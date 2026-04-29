@@ -9,6 +9,64 @@
 
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 
+function normalizeMethodSignal(value: unknown): string {
+  if (value == null) return ''
+  return String(value).trim().toLowerCase().replace(/-/g, '_').split(/\s+/).join('_')
+}
+
+function isDcfMethodSignal(value: unknown): boolean {
+  const normalized = normalizeMethodSignal(value)
+  return (
+    normalized === 'dcf' ||
+    normalized === 'dcf_analysis' ||
+    normalized === 'discounted_cash_flow' ||
+    /^discounted_cash_flow_?\(?dcf\)?$/.test(normalized)
+  )
+}
+
+function isHybridMethodSignal(value: unknown): boolean {
+  const normalized = normalizeMethodSignal(value)
+  return normalized === 'hybrid' || normalized === 'hybrid_dcf' || normalized === 'hybrid_valuation'
+}
+
+function hasWeightedSynthesisSignal(apiResponse: Record<string, unknown>): boolean {
+  const candidates = [
+    apiResponse,
+    apiResponse.weighted_valuation,
+    apiResponse.details,
+    apiResponse.report_context,
+    (apiResponse.details as Record<string, unknown> | undefined)?.report_context,
+    apiResponse.valuation_result,
+    (apiResponse.valuation_result as Record<string, unknown> | undefined)?.details,
+    (apiResponse.valuation_result as Record<string, unknown> | undefined)?.report_context,
+  ]
+
+  return candidates.some((candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+    const obj = candidate as Record<string, unknown>
+    return obj.has_weighted_synthesis === true || obj.blended_equity_value != null
+  })
+}
+
+function shouldExposeDcfReadiness(apiResponse: Record<string, unknown>): boolean {
+  const details = apiResponse.details as Record<string, unknown> | undefined
+  const reportContext = apiResponse.report_context as Record<string, unknown> | undefined
+  const valuationResult = apiResponse.valuation_result as Record<string, unknown> | undefined
+  const signals = [
+    apiResponse.selected_valuation_method,
+    reportContext?.selected_valuation_method,
+    details?.selected_valuation_method,
+    valuationResult?.selected_valuation_method,
+    apiResponse.methodology,
+    valuationResult?.methodology,
+  ]
+
+  return (
+    signals.some((signal) => isDcfMethodSignal(signal) || isHybridMethodSignal(signal)) ||
+    hasWeightedSynthesisSignal(apiResponse)
+  )
+}
+
 export interface ValuationMetric {
   label: string
   value: string
@@ -24,14 +82,7 @@ export interface EBITDAAdjustment {
   category: 'owner' | 'nonRecurring' | 'accounting' | 'normalization' | 'base' | 'result'
   description?: string
   // Grootboek source tracking for accountant audit trail
-  source?:
-    | 'yuki'
-    | 'exact'
-    | 'odoo'
-    | 'octopus'
-    | 'accountable'
-    | 'manual'
-    | 'suggestion'
+  source?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'manual' | 'suggestion'
   sourceRef?: string // e.g., "Yuki 613xxx", "Exact 4000-4999"
   status?: 'approved' | 'pending' | 'rejected'
   approvedBy?: string // Accountant name who approved
@@ -139,8 +190,6 @@ export function convertApiResponseToReportData(
 ): ValuationReportData {
   const multiples = apiResponse.multiples_valuation as Record<string, unknown> | undefined
   const currentYear = apiResponse.current_year_data as Record<string, unknown> | undefined
-  const financialMetrics = apiResponse.financial_metrics as Record<string, unknown> | undefined
-
   const ebitda = coalesceFiniteNumber(currentYear?.ebitda)
   const revenueOptional =
     currentYear?.revenue != null && Number.isFinite(Number(currentYear.revenue))
@@ -236,8 +285,9 @@ export function convertApiResponseToReportData(
       apiResponse.recommended_asking_price != null
         ? Number(apiResponse.recommended_asking_price)
         : undefined,
-    dcfHistoricalFcfReadiness:
-      (apiResponse.dcf_valuation as Record<string, unknown> | undefined)
-        ?.historical_fcf_readiness as ValuationReportData['dcfHistoricalFcfReadiness'],
+    dcfHistoricalFcfReadiness: shouldExposeDcfReadiness(apiResponse)
+      ? ((apiResponse.dcf_valuation as Record<string, unknown> | undefined)
+          ?.historical_fcf_readiness as ValuationReportData['dcfHistoricalFcfReadiness'])
+      : undefined,
   } as ValuationReportData
 }

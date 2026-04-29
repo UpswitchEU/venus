@@ -246,6 +246,42 @@ function isRetryableReportHydrationError(err: unknown): boolean {
 const PDF_STALE_POLL_INTERVAL_MS = 2500
 const PDF_STALE_POLL_MAX_MS = 120_000
 
+function isDcfOrHybridMethodSignal(value: unknown): boolean {
+  if (value == null) return false
+  const normalized = String(value).trim().toLowerCase().replace(/-/g, '_').split(/\s+/).join('_')
+  return (
+    normalized === 'dcf' ||
+    normalized === 'dcf_analysis' ||
+    normalized === 'discounted_cash_flow' ||
+    /^discounted_cash_flow_?\(?dcf\)?$/.test(normalized) ||
+    normalized === 'hybrid' ||
+    normalized === 'hybrid_dcf' ||
+    normalized === 'hybrid_valuation'
+  )
+}
+
+function resultHasWeightedSynthesisSignal(result: Record<string, unknown>): boolean {
+  const details = result.details as Record<string, unknown> | undefined
+  const valuationResult = result.valuation_result as Record<string, unknown> | undefined
+  const valuationResultDetails = valuationResult?.details as Record<string, unknown> | undefined
+  const candidates = [
+    result,
+    result.weighted_valuation,
+    details,
+    result.report_context,
+    details?.report_context,
+    valuationResult,
+    valuationResultDetails,
+    valuationResult?.report_context,
+  ]
+
+  return candidates.some((candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+    const obj = candidate as Record<string, unknown>
+    return obj.has_weighted_synthesis === true || obj.blended_equity_value != null
+  })
+}
+
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
@@ -2202,10 +2238,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const askingPrice =
           askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
         const htmlReport = getFirstRenderableReportHtml(r.html_report, r.details?.html_report)
-        const dcfHistoricalFcfReadiness =
-          r.dcf_valuation?.historical_fcf_readiness ??
-          r.details?.dcf_valuation?.historical_fcf_readiness ??
-          null
+        const shouldExposeDcfReadiness =
+          isDcfOrHybridMethodSignal(selectedMethod) ||
+          isDcfOrHybridMethodSignal(r.selected_valuation_method) ||
+          isDcfOrHybridMethodSignal(r.report_context?.selected_valuation_method) ||
+          resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
+        const dcfHistoricalFcfReadiness = shouldExposeDcfReadiness
+          ? (r.dcf_valuation?.historical_fcf_readiness ??
+            r.details?.dcf_valuation?.historical_fcf_readiness ??
+            null)
+          : null
 
         setReport({
           id: reportId || r.valuation_id || r.id || 'draft',
