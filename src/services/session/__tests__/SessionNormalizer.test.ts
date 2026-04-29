@@ -252,7 +252,9 @@ describe('normalizeSessionData', () => {
       },
     })
 
-    expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(analysis)
+    expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(
+      analysis
+    )
   })
 
   describe('preSelectedValuationMethod (_pre_selected_valuation_method)', () => {
@@ -388,7 +390,9 @@ describe('normalizeSessionData', () => {
         saas_nrr_pct: 110,
         rev_recurring_amount: 400_000,
         rev_top_client_concentration_pct: 22,
-        tax_latencies: [{ type: 'passive', description: 'x', temporary_difference: 1, tax_rate: 25 }],
+        tax_latencies: [
+          { type: 'passive', description: 'x', temporary_difference: 1, tax_rate: 25 },
+        ],
       },
     })
     expect(normalized.formData.subIndustry).toBe('SaaS vertical')
@@ -446,5 +450,23 @@ describe('normalizeSessionData', () => {
     })
     expect(normalized.formData.saas_arr).toBe(500_000)
     expect(normalized.formData.dcf_wacc_pct).toBe(12)
+  })
+
+  it('preserves pending-invitation client context when client_user_id is null', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_ctx_pending_invite',
+      session_data: {
+        _client_context: {
+          client_user_id: null,
+          accountant_user_id: 'acct-1',
+          relationship_id: 'rel-1',
+        },
+      },
+    })
+    expect(normalized.clientContext).toEqual({
+      accountantUserId: 'acct-1',
+      clientUserId: null,
+      relationshipId: 'rel-1',
+    })
   })
 })

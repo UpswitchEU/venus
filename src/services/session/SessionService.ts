@@ -17,16 +17,16 @@
  * @module services/session/SessionService
  */
 
-import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationSessionResponse } from '../../types/api-responses'
+import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
-import { isUuid } from '../../utils/identifiers'
 import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
+import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
+import { isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
-import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
@@ -516,9 +516,7 @@ export class SessionService {
         // Calculate cache age for stale-while-revalidate
         const updatedMs = dateLikeToUnixMs(cachedSession.updatedAt)
         const cacheAge_minutes =
-          updatedMs !== null
-            ? Math.floor((Date.now() - updatedMs) / (60 * 1000))
-            : 0
+          updatedMs !== null ? Math.floor((Date.now() - updatedMs) / (60 * 1000)) : 0
 
         // ✅ VERIFY: Log form data presence in cache for restoration
         const hasSessionData = !!cachedSession.sessionData
@@ -1036,16 +1034,22 @@ export class SessionService {
             // ✅ FIX: Log _client_context presence for debugging
             // Backend access check should work without headers if session has _client_context
             const clientContext = (mergedSession.sessionData as any)?._client_context
-            if (
+            const hasFullDelegatedContext =
               clientContext?.client_user_id &&
               clientContext?.accountant_user_id &&
               clientContext?.relationship_id
-            ) {
+            const hasPendingInviteContext =
+              clientContext?.client_user_id == null &&
+              clientContext?.accountant_user_id &&
+              clientContext?.relationship_id
+            if (hasFullDelegatedContext || hasPendingInviteContext) {
               logger.debug(
                 'Session contains client context - backend should allow access via _client_context',
                 {
                   reportId,
-                  clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
+                  clientUserId: clientContext.client_user_id
+                    ? clientContext.client_user_id.substring(0, 8) + '...'
+                    : 'null (pending)',
                   accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
                   relationshipId: clientContext.relationship_id.substring(0, 8) + '...',
                   note: 'Backend access check should work even if headers are not sent',
@@ -1198,8 +1202,7 @@ export class SessionService {
    */
   async saveSession(
     reportId: string,
-    updates: Partial<ValuationRequest> &
-      Partial<Pick<ValuationSession, 'currentView' | 'name'>>
+    updates: Partial<ValuationRequest> & Partial<Pick<ValuationSession, 'currentView' | 'name'>>
   ): Promise<ValuationSession> {
     const startTime = performance.now()
 
@@ -1237,7 +1240,7 @@ export class SessionService {
 
       // Extract top-level mutable fields separately so autosave can persist them too.
       const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
-      const hasExplicitName = Object.prototype.hasOwnProperty.call(updatesAny, 'name')
+      const hasExplicitName = Object.hasOwn(updatesAny, 'name')
       const name = hasExplicitName ? updatesAny.name : currentSession?.name
 
       // sessionData should contain the actual form data, not top-level session metadata.
@@ -1729,9 +1732,7 @@ export class SessionService {
   private valuationSnapshotHasRange(vr: unknown): boolean {
     if (!vr || typeof vr !== 'object') return false
     const o = vr as Record<string, unknown>
-    return (
-      o.equity_value_mid != null || o.equity_value_low != null || o.equity_value_high != null
-    )
+    return o.equity_value_mid != null || o.equity_value_low != null || o.equity_value_high != null
   }
 
   private sessionUsableHtmlMissing(s: ValuationSession): boolean {
@@ -1774,9 +1775,12 @@ export class SessionService {
     }
     const uuid = this.pickTitanReportUuidForEnsure(reportId, mergedSession)
     if (!uuid) {
-      logger.debug('HTML self-heal skipped: no Titan report UUID (need URL UUID or valuationResult.valuation_id)', {
-        reportId: reportId?.substring(0, 24),
-      })
+      logger.debug(
+        'HTML self-heal skipped: no Titan report UUID (need URL UUID or valuationResult.valuation_id)',
+        {
+          reportId: reportId?.substring(0, 24),
+        }
+      )
       return null
     }
     if (ensureHtmlInFlight.has(uuid)) {
@@ -1786,9 +1790,12 @@ export class SessionService {
     try {
       const res = await backendAPI.ensureReportHtml(uuid, { sync: true })
       if (res == null) {
-        logger.debug('ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching', {
-          reportId: reportId?.substring(0, 24),
-        })
+        logger.debug(
+          'ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching',
+          {
+            reportId: reportId?.substring(0, 24),
+          }
+        )
         return null
       }
       if ((res as { success?: boolean }).success === false) {
@@ -1888,16 +1895,21 @@ export class SessionService {
             const existingResult = useManualResultsStore.getState().result
             const revalidatedScreenHtml = getFirstRenderableReportHtml(
               mergedSession.htmlReport,
-              (mergedSession.valuationResult as { html_report?: string } | null | undefined)?.html_report,
-              (mergedSession.valuationResult as { details?: { html_report?: string } } | null | undefined)
-                ?.details?.html_report
+              (mergedSession.valuationResult as { html_report?: string } | null | undefined)
+                ?.html_report,
+              (
+                mergedSession.valuationResult as
+                  | { details?: { html_report?: string } }
+                  | null
+                  | undefined
+              )?.details?.html_report
             )
             const safeHtmlForStores =
               revalidatedScreenHtml ||
               getFirstRenderableReportHtml(
                 (existingResult as { html_report?: string } | null | undefined)?.html_report,
-                (existingResult as { details?: { html_report?: string } } | null | undefined)?.details
-                  ?.html_report
+                (existingResult as { details?: { html_report?: string } } | null | undefined)
+                  ?.details?.html_report
               )
             // Update the session with the revalidated HTML reports
             useSessionStore.getState().hydrateSession({

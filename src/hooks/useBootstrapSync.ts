@@ -21,12 +21,12 @@ import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
-import { createContextLogger } from '../utils/logger'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
+import { createContextLogger } from '../utils/logger'
 import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
 import {
   buildIdentityFingerprint,
@@ -45,9 +45,7 @@ function normalizeCountryCode(countryCode?: string | null): string | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
-function resolveCountryCode(
-  ...candidates: Array<string | null | undefined>
-): string | undefined {
+function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
   for (const candidate of candidates) {
     const normalized = normalizeCountryCode(candidate)
     if (normalized) return normalized
@@ -79,8 +77,10 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   if (prefillData.companyInfo?.naceCode) fields.nace_code = prefillData.companyInfo.naceCode
   if (prefillData.companyInfo?.naceDescription)
     fields.nace_description = prefillData.companyInfo.naceDescription
-  if (prefillData.companyInfo?.activityCode) fields.activity_code = prefillData.companyInfo.activityCode
-  if (prefillData.companyInfo?.activityLabel) fields.activity_label = prefillData.companyInfo.activityLabel
+  if (prefillData.companyInfo?.activityCode)
+    fields.activity_code = prefillData.companyInfo.activityCode
+  if (prefillData.companyInfo?.activityLabel)
+    fields.activity_label = prefillData.companyInfo.activityLabel
   if (prefillData.businessType?.id) fields.business_type_id = prefillData.businessType.id
   if (prefillData.businessType?.industry) fields.industry = prefillData.businessType.industry
   if (prefillData.financials?.revenue !== undefined) fields.revenue = prefillData.financials.revenue
@@ -120,7 +120,7 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
 /** Country-only prefill can score below 0.05 confidence — still hydrate form store for new reports */
 function applyCountryPrefillIfNewReport(
   report: SessionBootstrapState['report'],
-  prefillData: PrefillDataParam,
+  prefillData: PrefillDataParam
 ): void {
   if (report.mode !== 'new') return
   const cc = resolveCountryCode(prefillData.companyInfo?.countryCode)
@@ -559,10 +559,11 @@ function syncClientContext(state: SessionBootstrapState): void {
     const clientContextStore = useClientContext.getState()
     const currentClient = clientContextStore.client
 
-    // Check if context is already set correctly
+    // Check if context is already set correctly (relationship matters when client user is null)
     if (
       (currentClient?.id ?? null) === (identity.clientContext.clientUserId ?? null) &&
-      clientContextStore.accountant?.id === identity.clientContext.accountantUserId
+      clientContextStore.accountant?.id === identity.clientContext.accountantUserId &&
+      clientContextStore.relationshipId === identity.clientContext.relationshipId
     ) {
       logger.debug('Client context already synced')
       syncStatusRef.current.clientContext = true

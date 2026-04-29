@@ -167,7 +167,9 @@ export async function POST(request: NextRequest) {
 
       // ✅ CRITICAL: Forward client context headers using canonical format
       if (clientContext) {
-        headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+        if (clientContext.clientUserId) {
+          headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+        }
         headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId
         if (clientContext.relationshipId) {
           headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId

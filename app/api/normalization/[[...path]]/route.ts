@@ -19,10 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  CLIENT_CONTEXT_HEADERS,
-  extractClientContextFromHeaders,
-} from '@/constants/headers'
+import { CLIENT_CONTEXT_HEADERS, extractClientContextFromHeaders } from '@/constants/headers'
 
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -53,18 +50,19 @@ function buildTitanHeaders(request: NextRequest): Record<string, string> {
     ...(cookieHeader && { Cookie: cookieHeader }),
   }
 
-  const clientContext = extractClientContextFromHeaders((name: string) =>
-    request.headers.get(name)
-  )
+  const clientContext = extractClientContextFromHeaders((name: string) => request.headers.get(name))
   if (clientContext) {
-    headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+    if (clientContext.clientUserId) {
+      headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+    }
     headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId
     if (clientContext.relationshipId) {
       headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId
     }
   }
 
-  const correlationId = request.headers.get('x-correlation-id') || request.headers.get('x-request-id')
+  const correlationId =
+    request.headers.get('x-correlation-id') || request.headers.get('x-request-id')
   if (correlationId) {
     headers['X-Correlation-ID'] = correlationId
   }

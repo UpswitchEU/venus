@@ -14,26 +14,26 @@
  * @module services/session/SessionNormalizer
  */
 
+import {
+  SESSION_PRE_SELECTED_METHODS_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
+  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
+  SESSION_USER_WEIGHTS_KEY,
+} from '../../constants/sessionUiKeys'
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
+import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
-import {
-  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
-  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
-  SESSION_PRE_SELECTED_METHODS_KEY,
-  SESSION_USER_WEIGHTS_KEY,
-  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
-} from '../../constants/sessionUiKeys'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../../utils/mergeOptionalSessionPrefillFields'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 /**
  * Pricing range structure for valuation results
@@ -72,7 +72,7 @@ export interface NormalizedSessionData {
   // Client context (for accountant flow)
   clientContext: {
     accountantUserId: string
-    clientUserId: string
+    clientUserId: string | null
     relationshipId: string
   } | null
 
@@ -355,8 +355,7 @@ function promoteAdaptiveFieldsFromBusinessContext(
   fd: Record<string, unknown>,
   sessionData: Record<string, unknown>
 ): void {
-  const rawBc =
-    fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
+  const rawBc = fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
   if (!rawBc || typeof rawBc !== 'object' || Array.isArray(rawBc)) return
   const bc = rawBc as Record<string, unknown>
 
@@ -541,15 +540,22 @@ function extractClientContext(sessionData: any): NormalizedSessionData['clientCo
 
   // Normalize field names
   const accountantUserId = context.accountant_user_id || context.accountantUserId
-  const clientUserId = context.client_user_id || context.clientUserId
+  const clientUserIdSnake = context.client_user_id
+  const clientUserIdCamel = context.clientUserId
+  const clientUserId: string | null =
+    clientUserIdSnake !== undefined
+      ? clientUserIdSnake
+      : clientUserIdCamel !== undefined
+        ? clientUserIdCamel
+        : null
   const relationshipId = context.relationship_id || context.relationshipId
 
-  if (!accountantUserId || !clientUserId) return null
+  if (!accountantUserId || !relationshipId) return null
 
   return {
     accountantUserId,
     clientUserId,
-    relationshipId: relationshipId || '',
+    relationshipId,
   }
 }
 
@@ -639,7 +645,9 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     typeof sessionData === 'object' &&
     (preKey in sessionData || altKey in sessionData)
   const rawPre = hasPreKey
-    ? (preKey in sessionData! ? (sessionData as any)[preKey] : (sessionData as any)[altKey])
+    ? preKey in sessionData!
+      ? (sessionData as any)[preKey]
+      : (sessionData as any)[altKey]
     : undefined
 
   let preSelectedValuationMethod: string | null | undefined

@@ -161,6 +161,7 @@ import {
   DcfGlobalAssumptions,
   BelgianSmeAuditPanel,
   DealStructureCompareSection,
+  EngineReviewSection,
   NavAssetScheduleSection,
   NavEquipmentLifespanSection,
   NavRealEstateAppraisalSection,
@@ -3915,6 +3916,14 @@ export function ManualInputPanel({
                 </div>
               </motion.section>
             )}
+
+            {/* Engine review: surfaces normalisations + tax latencies inline so
+                the work the engine did is visible without opening the chat
+                drawer. Self-suppresses when both stores are empty (owners with
+                no imported data don't see a hollow section). Sits between Step
+                3 financials and the real-estate carve-out so the advisor sees
+                the engine's output before continuing into method specifics. */}
+            <EngineReviewSection onOpenDetailedReview={onViewAllNormalizations} />
 
             {/* Real estate carve-out: sibling section after Financiële historie so DCF forecast/WACC content does not bury it */}
             {selectedCompany && hasBusinessType && hasFinancials && (

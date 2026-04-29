@@ -1,5 +1,6 @@
 export { AdaptivePercentInput } from './AdaptivePercentInput'
 export { DcfForecastWorkspace } from './DcfForecastWorkspace'
+export { EngineReviewSection } from './EngineReviewSection'
 export {
   DcfGlobalAssumptions,
   type DcfGlobalAssumptionsVariant,

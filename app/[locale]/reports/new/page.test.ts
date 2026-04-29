@@ -10,8 +10,8 @@
  * pre-selected method, …) and the user falls through to the generic
  * SME flow.
  *
- * This regression test pins the exact list so a future refactor can't
- * accidentally remove a param without an explicit test failure.
+ * The allowlist lives in `src/lib/cross-app/preservedReportBootstrapParams.ts`.
+ * This regression test pins behavior so a future refactor can't drop a param.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -82,6 +82,38 @@ describe('/reports/new param preservation', () => {
     expect(u.searchParams.get('prefilledQuery')).toBe('Acme Robotics BV')
     expect(u.searchParams.get('clientToken')).toBe('tok_abc')
     expect(u.searchParams.get('clientId')).toBe('rel_123')
+  })
+
+  it('preserves import-review session_key (val_*) for Titan session linkage', async () => {
+    const url = await callPage({
+      clientId: 'rel_456',
+      session_key: 'val_1700000000000_abc',
+    })
+    const u = new URL(url, 'https://example.com')
+    expect(u.searchParams.get('clientId')).toBe('rel_456')
+    expect(u.searchParams.get('session_key')).toBe('val_1700000000000_abc')
+  })
+
+  it('preserves flow=startup and studio=legacy (waarderen classic advisors link)', async () => {
+    const url = await callPage({
+      flow: 'startup',
+      studio: 'legacy',
+    })
+    const u = new URL(url, 'https://example.com')
+    expect(u.searchParams.get('flow')).toBe('startup')
+    expect(u.searchParams.get('studio')).toBe('legacy')
+  })
+
+  it('preserves locale, version query hints when present', async () => {
+    const url = await callPage({
+      locale: 'nl',
+      clientId: 'rel_9',
+      version: '3',
+    })
+    const u = new URL(url, 'https://example.com')
+    expect(u.searchParams.get('locale')).toBe('nl')
+    expect(u.searchParams.get('clientId')).toBe('rel_9')
+    expect(u.searchParams.get('version')).toBe('3')
   })
 
   it('preserves guided-resolution drawer params (drawer, spotlight, focusField, flagYear)', async () => {
