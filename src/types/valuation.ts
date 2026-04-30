@@ -1094,7 +1094,12 @@ export interface ValuationResponse {
   academic_sources?: AcademicSource[]
   professional_review_ready?: ProfessionalReviewReady
 
-  // Owner Dependency Assessment (Phase 4: 12-factor analysis)
+  // Owner Dependency Assessment (Phase 4: 12-factor analysis).
+  // OWNER-PROFILING-1 / OP-6 — `raw_adjustment` field added so the cover-page
+  // chip can render "MVP cap applied — full risk -X%" when the engine
+  // emitted more than -15% but the synthesizer clamped. Per SPIKE-1 §5.4 the
+  // raw figure must NEVER be displayed without the "cap applied" framing —
+  // see the `OwnerProfilingChip` component contract for the enforcement.
   owner_dependency_result?: {
     factors: {
       client_concentration: string
@@ -1113,6 +1118,8 @@ export interface ValuationResponse {
     overall_score: number
     risk_level: string
     valuation_adjustment: number
+    /** Engine-emitted (uncapped) figure preserved for cap-applied messaging. */
+    raw_adjustment?: number | null
     explanation: string
     key_risks: string[]
     recommendations: string[]
