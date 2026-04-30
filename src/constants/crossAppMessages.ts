@@ -15,6 +15,8 @@
  *     success toast.
  *   - `reportCreated` → Mercury swaps the iframe `reportId` to the engine-
  *     issued one and refreshes derived queries.
+ *   - `navigateToMercury` → Mercury closes the embedded iframe and navigates
+ *     its parent router to a trusted Mercury URL.
  *
  * The legacy `venus-*` literals are retained as the actual wire values so
  * deploys can roll out independently. If you rename one of these values,
@@ -35,6 +37,8 @@ export const ENGINE_TO_MERCURY_MESSAGE_TYPES = {
   valuationComplete: 'venus-valuation-complete',
   /** A new report ID was minted server-side; Mercury should swap to it. */
   reportCreated: 'upswitch-report-created',
+  /** Engine needs the parent Mercury shell to navigate outside the iframe. */
+  navigateToMercury: 'venus-navigate-mercury',
 } as const
 
 export type EngineToMercuryMessageType =

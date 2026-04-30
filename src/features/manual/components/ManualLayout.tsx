@@ -246,6 +246,9 @@ function isRetryableReportHydrationError(err: unknown): boolean {
 const PDF_STALE_POLL_INTERVAL_MS = 2500
 const PDF_STALE_POLL_MAX_MS = 120_000
 
+/** Titan import-review handoff keys; keep aligned with Mercury `sanitizeImportReviewSessionKeyFromUrl`. */
+const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
+
 function isDcfOrHybridMethodSignal(value: unknown): boolean {
   if (value == null) return false
   const normalized = String(value).trim().toLowerCase().replace(/-/g, '_').split(/\s+/).join('_')
@@ -4049,6 +4052,68 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [clientContextId, currentLocale, report, session])
 
+  const handleContinueImportReview = useCallback(() => {
+    const relId =
+      clientContextId ??
+      ctxRelationshipId ??
+      useClientContext.getState()?.relationshipId
+    if (!relId || typeof window === 'undefined') {
+      handleExitClientView()
+      return
+    }
+    const loc =
+      currentLocale && (currentLocale === 'en' || currentLocale === 'nl')
+        ? currentLocale
+        : 'en'
+    const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
+    const pendingImportReviewKey =
+      typeof resolvedReportId === 'string' &&
+      MERCURY_IMPORT_REVIEW_SESSION_KEY_RE.test(resolvedReportId.trim())
+        ? resolvedReportId.trim()
+        : null
+    const qs = new URLSearchParams({ import_review: '1' })
+    if (pendingImportReviewKey) {
+      qs.set('session_key', pendingImportReviewKey)
+    }
+    const targetPath = `/${loc}/advisor/clients/${encodeURIComponent(relId)}?${qs}`
+    const targetUrl = `${mercuryBaseUrl}${targetPath}`
+    let isEmbedded = false
+    try {
+      isEmbedded =
+        sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
+    } catch {
+      // Cross-origin access to `window.top` can throw; in that case we are in an iframe.
+      isEmbedded = true
+    }
+
+    if (isEmbedded) {
+      window.parent.postMessage(
+        {
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
+          source: 'venus',
+          data: { url: targetPath },
+        },
+        '*'
+      )
+      // Rolling-deploy fallback: if an older Mercury shell does not yet
+      // understand `venus-navigate-mercury`, at least move the iframe to the
+      // recovery URL instead of leaving the CTA as a no-op. When Mercury handles
+      // the message, it closes/unmounts this iframe before the fallback fires.
+      window.setTimeout(() => {
+        window.location.href = targetUrl
+      }, 750)
+      return
+    }
+
+    window.location.href = targetUrl
+  }, [
+    clientContextId,
+    ctxRelationshipId,
+    currentLocale,
+    handleExitClientView,
+    resolvedReportId,
+  ])
+
   /**
    * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.
    * Prefer explicit navigation to Mercury — `router.back()` is unreliable when
@@ -6113,6 +6178,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         isHydratingMethods={isHydratingEditModalData}
         methodDataLoadError={reportMethodHydrationError}
         onRetryMethodDataLoad={() => setReportHydrationRetryNonce((n) => n + 1)}
+        onContinueImportReview={
+          reportMethodHydrationError === 'report_pending' && (clientContextId || ctxRelationshipId)
+            ? handleContinueImportReview
+            : undefined
+        }
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}

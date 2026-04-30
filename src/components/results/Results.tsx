@@ -1,14 +1,16 @@
 import { useTranslations } from 'next-intl'
-import React, { memo, useEffect } from 'react'
+import React, { memo, useEffect, useMemo } from 'react'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { deriveOwnerProfilingChipPreferSessionThenResult } from '../../utils/ownerProfiling/coverChip'
 import { ErrorState } from '../ErrorState'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
+import { OwnerProfilingReportChip } from './OwnerProfilingReportChip'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -34,6 +36,21 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
   const sessionWaterfall = useSessionStore((state) =>
     extractEvEquityWaterfallSteps(state.session?.valuationResult as ValuationResponse | undefined)
+  )
+
+  const sessionValuationResult = useSessionStore((state) =>
+    state.session?.valuationResult ? (state.session.valuationResult as ValuationResponse) : undefined,
+  )
+
+  const ownerProfilingChip = useMemo(
+    () =>
+      deriveOwnerProfilingChipPreferSessionThenResult(sessionValuationResult, result ?? undefined),
+    [
+      sessionValuationResult?.owner_dependency_adjustment,
+      sessionValuationResult?.owner_dependency_result,
+      result?.owner_dependency_adjustment,
+      result?.owner_dependency_result,
+    ],
   )
 
   // Prefer session HTML, but do not let legacy safety-net HTML mask a real result report.
@@ -77,12 +94,23 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   }
 
   // No HTML but we may still have EV→equity steps (e.g. report_context from Titan)
+  // or owner-profiling-only payloads (session.valuationResult without HTML yet).
   if (!htmlReport) {
-    if (evEquitySteps && evEquitySteps.length > 0) {
+    const hasBand = !!(
+      ownerProfilingChip ||
+      (evEquitySteps && evEquitySteps.length > 0)
+    )
+
+    if (hasBand) {
       return (
         <div className="valuation-report-container h-full overflow-y-auto bg-background">
-          <div className="px-4 pt-4 max-w-4xl mx-auto">
-            <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+          <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+            {ownerProfilingChip ? (
+              <OwnerProfilingReportChip chip={ownerProfilingChip} />
+            ) : null}
+            {evEquitySteps && evEquitySteps.length > 0 ? (
+              <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+            ) : null}
           </div>
           <div className="flex items-center justify-center min-h-[200px] px-4 pb-8">
             <div className="text-center text-foreground/50">
@@ -122,9 +150,12 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
 
   return (
     <div className="valuation-report-container h-full overflow-y-auto bg-background">
-      {evEquitySteps && evEquitySteps.length > 0 && (
-        <div className="px-4 pt-4 max-w-4xl mx-auto">
-          <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+      {(ownerProfilingChip || (evEquitySteps && evEquitySteps.length > 0)) && (
+        <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+          {ownerProfilingChip ? <OwnerProfilingReportChip chip={ownerProfilingChip} /> : null}
+          {evEquitySteps && evEquitySteps.length > 0 ? (
+            <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+          ) : null}
         </div>
       )}
       <div className="valuation-report">

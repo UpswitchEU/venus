@@ -2711,6 +2711,17 @@
 			"title": "Ondernemingswaarde → aandelenwaarde",
 			"subtitle": "Kas, schuld en werkkapitaal gebruiken dezelfde balansinputs als uw import of handmatige invoer.",
 			"ariaLabel": "Watervalgrafiek van ondernemingswaarde naar aandelenwaarde"
+		},
+		"ownerProfiling": {
+			"summary": "Eigenaarsprofiel — overdraagbaarheid {tri}/100 · {riskLevel} · multiple-impact {adjPct}% t.o.v. benchmark",
+			"cappedHint": "Afgetopt effect op equity — volledig risico zou {rawPct}% zijn geweest.",
+			"riskLevels": {
+				"MINIMAL": "Minimale afhankelijkheid",
+				"LOW": "Lage afhankelijkheid",
+				"MEDIUM": "Gemiddelde afhankelijkheid",
+				"HIGH": "Hoge afhankelijkheid",
+				"CRITICAL": "Kritieke afhankelijkheid"
+			}
 		}
 	},
 	"invite": {
@@ -2864,6 +2875,7 @@
 		"loadingTitle": "Methodedata wordt geladen",
 		"loadingBlurb": "We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.",
 		"retryMethodDataLoad": "Opnieuw laden",
+		"continueImportReview": "Ga verder met gegevens controleren",
 		"editValuation": "Waardering bewerken",
 		"methodSection": "Waarderingsmethode",
 		"multipleSection": "EV/EBITDA-multiple aanpassen",

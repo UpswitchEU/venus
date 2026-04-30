@@ -769,6 +769,8 @@ export interface ValuationEditModalProps {
   methodDataLoadError?: 'transient' | 'report_pending' | null
   /** Re-fetch report method data (parent bumps hydration nonce); shown for transient errors */
   onRetryMethodDataLoad?: () => void
+  /** Accountant recovery path: return to Mercury and open "Controleer & vul aan". */
+  onContinueImportReview?: () => void
   selectedMethod: string
   onSelectMethod: (method: string, reason?: string, note?: string) => void
   fiscalAnchor?: number | null
@@ -801,6 +803,7 @@ export function ValuationEditModal({
   isHydratingMethods = false,
   methodDataLoadError = null,
   onRetryMethodDataLoad,
+  onContinueImportReview,
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
@@ -1075,8 +1078,33 @@ export function ValuationEditModal({
             <p className="text-[11px] leading-snug text-foreground/50">
               {blurb}
             </p>
-            {(methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
-            onRetryMethodDataLoad ? (
+            {methodDataLoadError === 'report_pending' && onContinueImportReview ? (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <AuroraButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="text-xs"
+                  disabled={isHydratingMethods}
+                  onClick={onContinueImportReview}
+                >
+                  {tModal('continueImportReview')}
+                </AuroraButton>
+                {onRetryMethodDataLoad ? (
+                  <AuroraButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="text-xs"
+                    disabled={isHydratingMethods}
+                    onClick={onRetryMethodDataLoad}
+                  >
+                    {tModal('retryMethodDataLoad')}
+                  </AuroraButton>
+                ) : null}
+              </div>
+            ) : (methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
+              onRetryMethodDataLoad ? (
               <AuroraButton
                 type="button"
                 variant="primary"

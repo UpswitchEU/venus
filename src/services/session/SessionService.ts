@@ -1240,7 +1240,7 @@ export class SessionService {
 
       // Extract top-level mutable fields separately so autosave can persist them too.
       const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
-      const hasExplicitName = Object.hasOwn(updatesAny, 'name')
+      const hasExplicitName = Object.prototype.hasOwnProperty.call(updatesAny, 'name')
       const name = hasExplicitName ? updatesAny.name : currentSession?.name
 
       // sessionData should contain the actual form data, not top-level session metadata.

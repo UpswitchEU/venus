@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { deriveOwnerProfilingChip } from './coverChip'
+import { deriveOwnerProfilingChip, deriveOwnerProfilingChipPreferSessionThenResult } from './coverChip'
 
 const baseResult = {
   factors: {
@@ -129,6 +129,63 @@ describe('deriveOwnerProfilingChip', () => {
     expect(critical!.colorBand).toBe('warn')
   })
 
+  it('returns null when adjustment is explicitly null', () => {
+    expect(
+      deriveOwnerProfilingChip({
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: null as unknown as number,
+      }),
+    ).toBeNull()
+  })
+
+  it('accepts JSON-numeric strings for overall_score', () => {
+    const chip = deriveOwnerProfilingChip({
+      owner_dependency_result: {
+        ...baseResult,
+        overall_score: '65' as unknown as number,
+      },
+      owner_dependency_adjustment: -0.1,
+    })
+    expect(chip!.transferabilityRiskIndex).toBe(35)
+  })
+
+  it('clamps extreme overall_score into [0, 100] before TRI', () => {
+    const saturated = deriveOwnerProfilingChip({
+      owner_dependency_result: { ...baseResult, overall_score: 150 },
+      owner_dependency_adjustment: -0.05,
+    })
+    const negative = deriveOwnerProfilingChip({
+      owner_dependency_result: { ...baseResult, overall_score: -40 },
+      owner_dependency_adjustment: -0.05,
+    })
+    expect(saturated!.transferabilityRiskIndex).toBe(0)
+    expect(negative!.transferabilityRiskIndex).toBe(100)
+  })
+
+  it('normalizes lowercase risk_level for color band', () => {
+    const chip = deriveOwnerProfilingChip({
+      owner_dependency_result: { ...baseResult, risk_level: 'high' },
+      owner_dependency_adjustment: -0.1,
+    })
+    expect(chip!.colorBand).toBe('caution')
+    expect(chip!.riskLevel).toBe('high')
+  })
+
+  it('capped mode accepts raw_adjustment as numeric string', () => {
+    const chip = deriveOwnerProfilingChip({
+      owner_dependency_result: {
+        ...baseResult,
+        risk_level: 'HIGH',
+        raw_adjustment: '-0.35' as unknown as number,
+      },
+      owner_dependency_adjustment: -0.15,
+    })
+    expect(chip!.mode).toBe('capped')
+    if (chip!.mode === 'capped') {
+      expect(chip!.rawAdjustment).toBeCloseTo(-0.35, 5)
+    }
+  })
+
   it('handles ApiNumeric string adjustment via toNumber coercion', () => {
     const chip = deriveOwnerProfilingChip({
       owner_dependency_result: { ...baseResult, raw_adjustment: -0.1 },
@@ -136,5 +193,98 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_adjustment: '-0.10' as unknown as number,
     })
     expect(chip!.mode).toBe('pass-through')
+  })
+
+  it('rejects owner_dependency_result that is not a plain object', () => {
+    expect(
+      deriveOwnerProfilingChip({
+        owner_dependency_result: [] as unknown as typeof baseResult,
+        owner_dependency_adjustment: -0.1,
+      }),
+    ).toBeNull()
+  })
+
+  it('rejects non-primitive risk_level values', () => {
+    expect(
+      deriveOwnerProfilingChip({
+        owner_dependency_result: {
+          ...baseResult,
+          risk_level: { bogus: true } as unknown as string,
+        },
+        owner_dependency_adjustment: -0.1,
+      }),
+    ).toBeNull()
+  })
+
+  it('accepts bigint overall_score from JSON edge transports', () => {
+    const chip = deriveOwnerProfilingChip({
+      owner_dependency_result: {
+        ...baseResult,
+        overall_score: BigInt(65) as unknown as number,
+      },
+      owner_dependency_adjustment: -0.1,
+    })
+    expect(chip!.transferabilityRiskIndex).toBe(35)
+  })
+})
+
+describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
+  it('prefers session when both sources have complete pairs', () => {
+    const chip = deriveOwnerProfilingChipPreferSessionThenResult(
+      {
+        owner_dependency_result: { ...baseResult, overall_score: 90 },
+        owner_dependency_adjustment: -0.05,
+      },
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: -0.1,
+      },
+    )
+    expect(chip).not.toBeNull()
+    expect(chip!.transferabilityRiskIndex).toBe(10)
+  })
+
+  it('uses result when session pair is incomplete', () => {
+    const chip = deriveOwnerProfilingChipPreferSessionThenResult(
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: undefined as unknown as number,
+      },
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: -0.1,
+      },
+    )
+    expect(chip).not.toBeNull()
+    expect(chip!.transferabilityRiskIndex).toBe(35)
+  })
+
+  it('falls through to result when session has a pair but derivation fails', () => {
+    const chip = deriveOwnerProfilingChipPreferSessionThenResult(
+      {
+        owner_dependency_result: { ...baseResult, risk_level: '' },
+        owner_dependency_adjustment: -0.1,
+      },
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: -0.1,
+      },
+    )
+    expect(chip).not.toBeNull()
+    expect(chip!.transferabilityRiskIndex).toBe(35)
+  })
+
+  it('skips session when owner_dependency_result is an array', () => {
+    const chip = deriveOwnerProfilingChipPreferSessionThenResult(
+      {
+        owner_dependency_result: [] as unknown as typeof baseResult,
+        owner_dependency_adjustment: -0.1,
+      },
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: -0.1,
+      },
+    )
+    expect(chip!.transferabilityRiskIndex).toBe(35)
   })
 })

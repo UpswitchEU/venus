@@ -47,6 +47,27 @@ export type OwnerProfilingChip =
 
 const CAP_FLOOR = -0.15
 
+function clampTransferabilityRiskIndex(overallDependencyScore: number): number {
+  const bounded = Math.min(100, Math.max(0, overallDependencyScore))
+  const tri = Math.round(100 - bounded)
+  return Math.min(100, Math.max(0, tri))
+}
+
+function parseOverallScore(value: unknown): number | null {
+  if (typeof value === 'bigint') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
 /**
  * 5-tier color band keyed off `risk_level`. Matches Aurora's chip palette
  * convention; the mapping intentionally collapses MEDIUM and LOW into the
@@ -54,7 +75,7 @@ const CAP_FLOOR = -0.15
  * meaningful on a report cover.
  */
 function colorBand(riskLevel: string): OwnerProfilingChipColorBand {
-  switch (riskLevel) {
+  switch (riskLevel.trim().toUpperCase()) {
     case 'MINIMAL':
       return 'good'
     case 'LOW':
@@ -67,6 +88,40 @@ function colorBand(riskLevel: string): OwnerProfilingChipColorBand {
     default:
       return 'neutral'
   }
+}
+
+function parseAdjustmentFactor(value: unknown): number | null {
+  if (typeof value === 'bigint') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+/** Aligns FE with Python aggregator — never accept objects/arrays as labels/scores. */
+function normalizeRiskLevel(raw: unknown): string | null {
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    return trimmed !== '' ? trimmed : null
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return String(raw)
+  }
+  return null
+}
+
+function isStructuredOwnerDependencyPayload(
+  v: unknown,
+): v is NonNullable<ValuationResponse['owner_dependency_result']> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 /**
@@ -84,34 +139,39 @@ export function deriveOwnerProfilingChip(
   >,
 ): OwnerProfilingChip | null {
   const result = response.owner_dependency_result
-  if (!result) return null
-  if (response.owner_dependency_adjustment === undefined) return null
+  if (!isStructuredOwnerDependencyPayload(result)) return null
+  if (response.owner_dependency_adjustment === undefined || response.owner_dependency_adjustment === null) {
+    return null
+  }
 
   const applied = toNumber(response.owner_dependency_adjustment)
   if (!Number.isFinite(applied)) return null
 
-  const riskLevel = result.risk_level
-  const overallScore = result.overall_score
-  if (typeof overallScore !== 'number') return null
+  const riskLevel = normalizeRiskLevel(result.risk_level)
+  if (!riskLevel) return null
+
+  const overallParsed = parseOverallScore(result.overall_score)
+  if (overallParsed === null) return null
 
   // Engine score 0-100 inverts to "transferability index" — see SPIKE-1 §2.2.
   // We round here (not in the engine) so the displayed integer is the same
   // across all surfaces (PDF, HTML, hover panel).
-  const transferabilityRiskIndex = Math.round(100 - overallScore)
+  const transferabilityRiskIndex = clampTransferabilityRiskIndex(overallParsed)
   const band = colorBand(riskLevel)
 
   // Cap is binding when the raw figure is more negative than the floor.
   // The `result.raw_adjustment` field was added in OP-4b; treat absence as
   // "synthesizer ran pre-OP-4 and we don't know" → render pass-through to
   // avoid lying about a cap that may not have been applied.
-  const raw = result.raw_adjustment
-  if (typeof raw === 'number' && raw < CAP_FLOOR - 1e-9) {
+  const rawParsed = parseAdjustmentFactor(result.raw_adjustment)
+
+  if (rawParsed !== null && rawParsed < CAP_FLOOR - 1e-9) {
     return {
       mode: 'capped',
       transferabilityRiskIndex,
       riskLevel,
       appliedAdjustment: applied,
-      rawAdjustment: raw,
+      rawAdjustment: rawParsed,
       colorBand: band,
     }
   }
@@ -123,4 +183,45 @@ export function deriveOwnerProfilingChip(
     adjustment: applied,
     colorBand: band,
   }
+}
+
+function hasCompleteOwnerProfilingPair(
+  slice: Pick<
+    ValuationResponse,
+    'owner_dependency_result' | 'owner_dependency_adjustment'
+  > | null | undefined,
+): boolean {
+  return (
+    isStructuredOwnerDependencyPayload(slice?.owner_dependency_result) &&
+    slice.owner_dependency_adjustment !== undefined &&
+    slice.owner_dependency_adjustment !== null
+  )
+}
+
+/**
+ * Prefer a **complete** owner-profiling tuple from session, then from `result`.
+ *
+ * Important: never mix `owner_dependency_result` from one payload with
+ * `owner_dependency_adjustment` from another — that pairing is undefined and
+ * can surface phantom chips after partial hydration or optimistic updates.
+ */
+export function deriveOwnerProfilingChipPreferSessionThenResult(
+  session: Pick<
+    ValuationResponse,
+    'owner_dependency_result' | 'owner_dependency_adjustment'
+  > | null | undefined,
+  result: Pick<
+    ValuationResponse,
+    'owner_dependency_result' | 'owner_dependency_adjustment'
+  > | null | undefined,
+): OwnerProfilingChip | null {
+  if (hasCompleteOwnerProfilingPair(session)) {
+    const fromSession = deriveOwnerProfilingChip(session!)
+    if (fromSession) return fromSession
+  }
+  if (hasCompleteOwnerProfilingPair(result)) {
+    const fromResult = deriveOwnerProfilingChip(result!)
+    if (fromResult) return fromResult
+  }
+  return null
 }

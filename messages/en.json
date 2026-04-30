@@ -2711,6 +2711,17 @@
 			"title": "Enterprise value → equity bridge",
 			"subtitle": "Cash, debt, and working capital adjustments use the same balance-sheet inputs as your accounting import or manual entry.",
 			"ariaLabel": "Enterprise value to equity waterfall chart"
+		},
+		"ownerProfiling": {
+			"summary": "Owner profiling — transferability index {tri}/100 · {riskLevel} · multiple impact {adjPct}% vs benchmark",
+			"cappedHint": "Capped equity impact — full risk would have been {rawPct}%.",
+			"riskLevels": {
+				"MINIMAL": "Minimal dependency",
+				"LOW": "Low dependency",
+				"MEDIUM": "Medium dependency",
+				"HIGH": "High dependency",
+				"CRITICAL": "Critical dependency"
+			}
 		}
 	},
 	"invite": {
@@ -2864,6 +2875,7 @@
 		"loadingTitle": "Loading valuation methods",
 		"loadingBlurb": "We are restoring the saved method data for this report. This should only take a moment.",
 		"retryMethodDataLoad": "Try again",
+		"continueImportReview": "Continue reviewing imported data",
 		"editValuation": "Edit Valuation",
 		"methodSection": "Valuation Method",
 		"multipleSection": "EV/EBITDA Multiple Override",
