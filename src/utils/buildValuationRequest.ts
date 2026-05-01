@@ -13,7 +13,7 @@ import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/us
 import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
-import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import type { SafeNoteInput, ValuationFormData, ValuationRequest } from '../types/valuation'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
@@ -936,7 +936,9 @@ export function buildValuationRequest(
     request.investment_amount_sought = capRoundAmount
   }
 
-  const capSafeNotes = Array.isArray(fd.capital_safe_notes) ? fd.capital_safe_notes : []
+  const capSafeNotes: SafeNoteInput[] = Array.isArray(fd.capital_safe_notes)
+    ? (fd.capital_safe_notes as SafeNoteInput[])
+    : []
   const cleanedSafeNotes = capSafeNotes
     .filter((n) => n && typeof n === 'object' && toFiniteNumber(n.amount) != null)
     .map((n) => {
