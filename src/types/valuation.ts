@@ -221,6 +221,23 @@ export interface ValuationRequest {
    */
   metadata?: Record<string, unknown>
 
+  /**
+   * Optional capital history forwarded to the SaaS / non-startup methods'
+   * cap-table simulator.  Mirrors the Pydantic ``CapTableSummary`` on the
+   * Python side and the Zod ``capTableSummarySchema`` on the Titan side
+   * (`apps/titan-api/src/valuations/dto/valuation-request.dto.ts`).
+   * Untouched by the startup flow — the startup wizard writes its copy
+   * into ``startup_inputs.cap_table``.
+   */
+  cap_table?: CapTableSummaryInput
+
+  /**
+   * Round size the founder is currently raising (EUR).  Drives the
+   * cap-table simulator on the SaaS / non-startup result.  Mirrors
+   * ``startup_inputs.investment_amount_sought`` for the venture path.
+   */
+  investment_amount_sought?: number
+
   // Optional comparable companies
   comparables?: Array<{
     name: string
@@ -253,6 +270,35 @@ export interface TaxLatencyInput {
   temporary_difference: number
   tax_rate: number
   account_code?: string
+}
+
+/**
+ * Single SAFE / convertible note on the founder's cap table.  Shape
+ * mirrors the Pydantic ``SafeNote`` model.  ``id`` is a frontend-only
+ * stable handle so the React editor can key list rows; the engine
+ * ignores it (and Zod strips it at the boundary).
+ */
+export interface SafeNoteInput {
+  id: string
+  amount: number | null
+  valuation_cap?: number | null
+  discount_pct?: number | null
+  holder_label?: string
+}
+
+/**
+ * Cap-table summary forwarded to the engine alongside the SaaS / non-startup
+ * methods.  Field shape mirrors the Pydantic ``CapTableSummary`` model and
+ * the Titan Zod ``capTableSummarySchema`` exactly so the payload crosses
+ * Venus → Titan → ValuationIQ unchanged.
+ */
+export interface CapTableSummaryInput {
+  pre_money_target?: number
+  option_pool_pct?: number
+  safe_notes?: Array<Omit<SafeNoteInput, 'id'>>
+  last_round_amount?: number
+  last_round_post_money?: number
+  last_round_date?: string
 }
 
 export interface BalanceSheetAdjustmentInput {
@@ -416,6 +462,21 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   rev_contract_backlog?: number
   rev_gross_churn_pct?: number
   rev_capitalized_rd_amount?: number
+
+  /**
+   * Capital history — drives the cap-table simulator on the SaaS / non-startup
+   * methods.  Persisted on the form-store as an opt-in collapsible block; the
+   * builder maps these into top-level ``cap_table`` + ``investment_amount_sought``
+   * fields on the canonical request.  Empty / absent ⇒ no simulator on the report
+   * (backwards-compat preserved).
+   */
+  capital_history_enabled?: boolean
+  capital_round_amount?: number
+  capital_option_pool_pct?: number
+  capital_safe_notes?: SafeNoteInput[]
+  capital_last_round_amount?: number
+  capital_last_round_post_money?: number
+  capital_last_round_date?: string
 }
 
 // -----------------------------------------------------------------------------

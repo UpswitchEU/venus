@@ -1629,15 +1629,15 @@
 				"warning": "Matig",
 				"poor": "Zwak"
 			},
-				"navPanels": {
-					"startLeadTitle": "Snel starten",
-					"startHereTitle": "Start met deze correcties",
-					"startHereDescription": "Begin met de balanscorrecties die je het best kent. Die hebben meestal de grootste impact op de NAV-vloerwaarde.",
-					"assetsTitle": "Aanvullende activa-aanpassingen",
-					"assetsDescription": "Vul hier de overige herwaarderingen in als ze relevant zijn voor deze vennootschap.",
-					"deductionsTitle": "Aftrekposten en belasting",
-					"deductionsDescription": "Gebruik deze velden om belastinglatenties op meerwaarden en verplichtingen buiten de balans mee te nemen."
-				},
+			"navPanels": {
+				"startLeadTitle": "Snel starten",
+				"startHereTitle": "Start met deze correcties",
+				"startHereDescription": "Begin met de balanscorrecties die je het best kent. Die hebben meestal de grootste impact op de NAV-vloerwaarde.",
+				"assetsTitle": "Aanvullende activa-aanpassingen",
+				"assetsDescription": "Vul hier de overige herwaarderingen in als ze relevant zijn voor deze vennootschap.",
+				"deductionsTitle": "Aftrekposten en belasting",
+				"deductionsDescription": "Gebruik deze velden om belastinglatenties op meerwaarden en verplichtingen buiten de balans mee te nemen."
+			},
 			"fields": {
 				"dcfRevenueGrowthPct": "Omzetgroei (%)",
 				"dcfEbitdaMarginPct": "EBITDA-marge (%)",
@@ -1671,8 +1671,8 @@
 				"navTaxLatencyPctDesc": "Vennootschapsbelasting op gerealiseerde meerwaarden. In België standaard 25%. Op aandelen vaak 0% (meerwaarde-vrijstelling).",
 				"navOffBalanceItems": "Off-balance sheet items",
 				"navOffBalanceItemsDesc": "Verplichtingen die niet op de balans staan: hangende juridische claims, milieuverplichtingen, afvloeiingsregelingen, etc.",
-					"navLead": "Herwaardeer de balans naar een realistischer marktbeeld. Zo schat je een verdedigbare vloerwaarde voor de onderneming.",
-					"navQuickStart": "Een sterke eerste inschatting bestaat uit herwaardering vastgoed, stille reserves, vorderingen en eventuele verplichtingen buiten de balans.",
+				"navLead": "Herwaardeer de balans naar een realistischer marktbeeld. Zo schat je een verdedigbare vloerwaarde voor de onderneming.",
+				"navQuickStart": "Een sterke eerste inschatting bestaat uit herwaardering vastgoed, stille reserves, vorderingen en eventuele verplichtingen buiten de balans.",
 				"excludeRealEstate": "Vastgoed uitsluiten uit transactie?",
 				"realEstateBookValue": "Boekwaarde vastgoed",
 				"estimatedMarketRent": "Fictieve huur",
@@ -1757,6 +1757,11 @@
 			"saasImported": {
 				"title": "Geïmporteerde SaaS-snapshot",
 				"description": "Vooraf ingevuld vanuit {provider} voor boekjaar {year} met {confidence}% betrouwbaarheid. Waarden zijn afgeleid uit terugkerende omzet in je geïmporteerde grootboek—niet uit live subscription-analytics. Je kunt elk veld nog handmatig aanpassen vóór de waardering."
+			},
+			"saasBenchmark": {
+				"title": "Vooraf ingevuld met sector-benchmarks",
+				"description": "We hebben {count} velden (brutomarge, churn, NRR, groei) ingevuld met typische cijfers voor jouw sector. Vervang elk veld door je eigen cijfer terwijl je verder werkt.",
+				"clearCta": "Wissen"
 			},
 			"waccBreakdown": {
 				"expand": "Toon aannames",
@@ -2721,7 +2726,35 @@
 				"MEDIUM": "Gemiddelde afhankelijkheid",
 				"HIGH": "Hoge afhankelijkheid",
 				"CRITICAL": "Kritieke afhankelijkheid"
+			},
+			"skipped": {
+				"title": "Eigenaarsprofiel niet ingevuld",
+				"body": "De 9-vragen vragenlijst is niet voltooid. De waardering bevat nog geen correctie voor eigenaarafhankelijkheid — vul de vragenlijst in om dit cijfer te verfijnen.",
+				"cta": "Profiel invullen"
 			}
+		},
+		"ownerProfilingPeer": {
+			"heading": "Sectorbenchmark",
+			"cohortSize": "Gebaseerd op {n, plural, one {# anonieme peer} other {# anonieme peers}}",
+			"p25": "Onderste kwartiel",
+			"median": "Sectormediaan",
+			"p75": "Bovenste kwartiel",
+			"comparison": {
+				"below_p25": "Jouw score van {you} ligt onder het onderste kwartiel van de sector (mediaan {median}). De aanbevelingen op de vorige stap brengen je dichter bij de mediaan.",
+				"between_p25_p50": "Jouw score van {you} ligt onder de sectormediaan van {median}. Gericht werk aan de aanbevelingen sluit het gat.",
+				"between_p50_p75": "Jouw score van {you} ligt boven de sectormediaan van {median} — solide overdraagbaarheid voor deze sector.",
+				"above_p75": "Jouw score van {you} zit in het bovenste kwartiel van de sector (mediaan {median}). Kopers zien dit als een laag-risico overdrachtsprofiel."
+			},
+			"privacyNote": "Geanonimiseerde samenvatting. Cellen met minder dan 5 bijdragers worden niet getoond.",
+			"withdrawCta": "Mijn anonieme bijdrage intrekken",
+			"withdrawConfirmPrompt": "De data van dit rapport uit de sectorbenchmark verwijderen?",
+			"withdrawConfirm": "Ja, intrekken",
+			"withdrawCancel": "Annuleren",
+			"withdrawSubmitting": "Bezig met intrekken…",
+			"withdrawDone": "Je bijdrage is verwijderd. Bij de volgende sectorrefresh wordt deze uitgesloten.",
+			"withdrawAlreadyDone": "Deze bijdrage was al eerder ingetrokken.",
+			"withdrawErrorAuth": "Log in om je anonieme bijdrage te beheren.",
+			"withdrawErrorGeneric": "Het verzoek kon niet voltooid worden. Probeer het opnieuw."
 		}
 	},
 	"invite": {

@@ -44,6 +44,7 @@ export {
   type DealStructureInputs,
 } from './DealStructureCompareSection'
 export { SaasMetricsSection } from './SaasMetricsSection'
+export { CapitalHistorySection } from './CapitalHistorySection'
 export { SynthesisWeightingSection } from './SynthesisWeightingSection'
 
 export {

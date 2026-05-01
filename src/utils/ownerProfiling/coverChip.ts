@@ -199,6 +199,48 @@ function hasCompleteOwnerProfilingPair(
 }
 
 /**
+ * Owner-profiling state for the report cover band: chip OR skipped watermark
+ * OR null (pre-flight, no result yet).
+ *
+ * The skipped-watermark surface fires when:
+ *   - the response is real (has a `valuation_id`), AND
+ *   - the wizard hasn't been completed (no `owner_dependency_result`).
+ *
+ * Pre-flight responses (no `valuation_id`) intentionally render nothing —
+ * the wizard CTA on a not-yet-saved valuation would be confusing.
+ */
+export type OwnerProfilingState =
+  | { mode: 'chip'; chip: OwnerProfilingChip }
+  | { mode: 'skipped' }
+
+function hasValuationIdentity(
+  slice: { valuation_id?: unknown } | null | undefined,
+): boolean {
+  if (!slice) return false
+  const id = slice.valuation_id
+  return typeof id === 'string' && id.trim() !== ''
+}
+
+export function deriveOwnerProfilingState(
+  session: (Pick<
+    ValuationResponse,
+    'owner_dependency_result' | 'owner_dependency_adjustment'
+  > & { valuation_id?: string }) | null | undefined,
+  result: (Pick<
+    ValuationResponse,
+    'owner_dependency_result' | 'owner_dependency_adjustment'
+  > & { valuation_id?: string }) | null | undefined,
+): OwnerProfilingState | null {
+  const chip = deriveOwnerProfilingChipPreferSessionThenResult(session, result)
+  if (chip) return { mode: 'chip', chip }
+  // No chip — was the response real? If yes, surface the skipped watermark.
+  if (hasValuationIdentity(session) || hasValuationIdentity(result)) {
+    return { mode: 'skipped' }
+  }
+  return null
+}
+
+/**
  * Prefer a **complete** owner-profiling tuple from session, then from `result`.
  *
  * Important: never mix `owner_dependency_result` from one payload with

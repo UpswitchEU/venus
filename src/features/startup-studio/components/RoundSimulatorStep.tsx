@@ -13,11 +13,10 @@
  *     - blended pre-money (from `useLiveValuation`)
  */
 
-import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
-import { AuroraInput } from '@/design-system/components/Input'
+import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
@@ -103,18 +102,37 @@ export function RoundSimulatorStep({
               onChange={(value) => setCapField('pre_money_target', value ?? null)}
               placeholder={String(Math.round(valuation.blended?.mid ?? 0))}
               size="sm"
+              description={
+                locale === 'nl'
+                  ? 'Leeg laten = onze blended waardering gebruiken. Alleen invullen als je al een pre-money met een lead investor hebt afgesproken.'
+                  : "Leave blank to use our blended valuation. Only fill in if you've already agreed a pre-money with a lead investor."
+              }
             />
             <AdaptivePercentInput
-              label={locale === 'nl' ? 'Verwatering tot exit (%)' : 'Dilution to exit (%)'}
+              label={
+                locale === 'nl'
+                  ? 'Totale verwatering tot exit (%)'
+                  : 'Total dilution from now to exit (%)'
+              }
               value={dilution ?? undefined}
               onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
-              placeholder="30"
+              placeholder="70"
+              description={
+                locale === 'nl'
+                  ? 'Som van alle toekomstige rondes (deze + Seed + A + B + …). Typisch 70% voor Pre-seed → exit; 50% als je al bij Series A start.'
+                  : 'Sum of every future round (this one + Seed + A + B + …). Typical: 70% from pre-seed → exit; 50% if you start at Series A.'
+              }
             />
             <AdaptivePercentInput
               label={locale === 'nl' ? 'Option pool (%)' : 'Option pool (%)'}
               value={optionPoolPct}
               onChange={(value) => setCapField('option_pool_pct', value ?? 0)}
               placeholder="10"
+              description={
+                locale === 'nl'
+                  ? 'Aandelen gereserveerd voor toekomstige hires — investeerders eisen meestal 10–15%.'
+                  : 'Equity reserved for future hires — investors typically require 10–15%.'
+              }
             />
           </div>
 
@@ -182,92 +200,14 @@ export function RoundSimulatorStep({
 
       {/* SAFE notes editor ------------------------------------------ */}
       {roundType === 'safe' && (
-        <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">SAFE / Convertible notes</h3>
-              <p className="text-sm text-foreground/60">
-                {locale === 'nl'
-                  ? 'Voeg openstaande SAFEs toe — ze converteren bij de volgende prijsronde.'
-                  : 'Add outstanding SAFEs — they convert at the next priced round.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={addSafeNote}
-              className="flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background px-3 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary hover:bg-primary/5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              SAFE
-            </button>
-          </div>
-
-          {capTable.safe_notes.length === 0 && (
-            <p className="rounded-lg border border-dashed border-foreground/15 p-6 text-center text-xs text-foreground/55">
-              {locale === 'nl' ? 'Nog geen SAFEs toegevoegd.' : 'No SAFEs added yet.'}
-            </p>
-          )}
-
-          <div className="space-y-3">
-            {capTable.safe_notes.map((note) => (
-              <div
-                key={note.id}
-                className="rounded-xl border border-foreground/10 bg-background p-4"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <AuroraInput
-                    label={locale === 'nl' ? 'Houder' : 'Holder'}
-                    value={note.holder_label}
-                    onChange={(e) =>
-                      updateSafeNote(note.id, { holder_label: e.target.value.slice(0, 120) })
-                    }
-                    placeholder="Angel #1"
-                    size="sm"
-                    maxLength={120}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeSafeNote(note.id)}
-                    className="ml-3 rounded-lg p-2 text-foreground/55 transition hover:bg-red-500/10 hover:text-red-600"
-                    aria-label="Remove SAFE"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <CurrencyInput
-                    label="Amount (€)"
-                    value={note.amount ?? undefined}
-                    onChange={(value) => updateSafeNote(note.id, { amount: value ?? null })}
-                    placeholder="100.000"
-                    size="sm"
-                  />
-                  <CurrencyInput
-                    label="Valuation cap (€)"
-                    value={note.valuation_cap ?? undefined}
-                    onChange={(value) => updateSafeNote(note.id, { valuation_cap: value ?? null })}
-                    placeholder="5.000.000"
-                    size="sm"
-                  />
-                  <AdaptivePercentInput
-                    label={locale === 'nl' ? 'Discount (%)' : 'Discount (%)'}
-                    value={note.discount_pct ?? undefined}
-                    onChange={(value) => updateSafeNote(note.id, { discount_pct: value ?? null })}
-                    placeholder="20"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {advisorMode && (
-            <p className="mt-4 rounded-lg bg-primary/5 p-3 text-[11px] text-foreground/70">
-              {locale === 'nl'
-                ? 'Advisor mode: bij conversie naar priced round wordt de meest gunstige clausule (cap of discount) per SAFE toegepast.'
-                : 'Advisor mode: at priced-round conversion, the most-favorable clause (cap or discount) is applied per SAFE.'}
-            </p>
-          )}
-        </div>
+        <SafeNotesEditor
+          notes={capTable.safe_notes}
+          onAdd={addSafeNote}
+          onUpdate={updateSafeNote}
+          onRemove={removeSafeNote}
+          locale={locale}
+          advisorMode={advisorMode}
+        />
       )}
     </div>
   )

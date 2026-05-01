@@ -7,7 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { deriveOwnerProfilingChip, deriveOwnerProfilingChipPreferSessionThenResult } from './coverChip'
+import {
+  deriveOwnerProfilingChip,
+  deriveOwnerProfilingChipPreferSessionThenResult,
+  deriveOwnerProfilingState,
+} from './coverChip'
 
 const baseResult = {
   factors: {
@@ -286,5 +290,61 @@ describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
       },
     )
     expect(chip!.transferabilityRiskIndex).toBe(35)
+  })
+})
+
+describe('deriveOwnerProfilingState', () => {
+  it('returns null when nothing has been loaded yet', () => {
+    expect(deriveOwnerProfilingState(undefined, undefined)).toBeNull()
+  })
+
+  it('returns chip mode when assessment is present', () => {
+    const state = deriveOwnerProfilingState(
+      undefined,
+      {
+        owner_dependency_result: baseResult,
+        owner_dependency_adjustment: -0.1,
+        valuation_id: 'val_123',
+      },
+    )
+    expect(state).not.toBeNull()
+    expect(state!.mode).toBe('chip')
+    if (state!.mode === 'chip') {
+      expect(state.chip.transferabilityRiskIndex).toBe(35)
+    }
+  })
+
+  it('returns skipped mode for a real result with no assessment', () => {
+    const state = deriveOwnerProfilingState(
+      undefined,
+      { valuation_id: 'val_123' },
+    )
+    expect(state).not.toBeNull()
+    expect(state!.mode).toBe('skipped')
+  })
+
+  it('returns null for a pre-flight (no valuation_id) with no assessment', () => {
+    // Pre-save / pre-flight: showing a "skipped" CTA before the result
+    // is even saved would be confusing, so we suppress.
+    expect(deriveOwnerProfilingState({}, {})).toBeNull()
+  })
+
+  it('prefers session over result when session has the assessment', () => {
+    const state = deriveOwnerProfilingState(
+      {
+        owner_dependency_result: { ...baseResult, overall_score: 80 },
+        owner_dependency_adjustment: -0.05,
+        valuation_id: 'val_session',
+      },
+      {
+        owner_dependency_result: { ...baseResult, overall_score: 30 },
+        owner_dependency_adjustment: -0.20,
+        valuation_id: 'val_result',
+      },
+    )
+    expect(state!.mode).toBe('chip')
+    if (state!.mode === 'chip') {
+      expect(state.chip.transferabilityRiskIndex).toBe(20)
+    }
   })
 })

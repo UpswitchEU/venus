@@ -207,6 +207,7 @@ import {
 } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { selectCapTableSimulatorResult } from '../utils/selectCapTableSimulatorResult'
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
@@ -2178,16 +2179,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return vr ?? null
   }, [result?.valuation_results])
 
-  // Founder dashboard mount — show the React founder one-pager (football
-  // field + live cap-table simulator) ABOVE the HTML report whenever a
-  // founder runs the 9th startup_valuation method. Advisors keep the
-  // pure HTML report and never see the dashboard so their workflow is
-  // untouched (KISS / SRP, no regression in the accountant flow).
-  const founderStartupResult = useMemo<ValuationMethodResult | null>(() => {
-    if (showFullAdvisorMethodNav) return null
-    if (selectedMethod !== 'startup_valuation') return null
-    return synthesisValuationResults?.['startup_valuation'] ?? null
-  }, [showFullAdvisorMethodNav, selectedMethod, synthesisValuationResults])
+  // Cap-table simulator mount — show the live React slider ABOVE the
+  // HTML report whenever the selected method's response carries a
+  // ``details.cap_table_simulator`` payload.  Method-agnostic by
+  // design (see ``selectCapTableSimulatorResult`` for the gate
+  // contract); advisors keep the pure HTML report and never see the
+  // slider so their workflow is untouched.
+  const capTableSimulatorResult = useMemo<ValuationMethodResult | null>(
+    () =>
+      selectCapTableSimulatorResult({
+        showFullAdvisorMethodNav,
+        selectedMethod,
+        valuationResults: synthesisValuationResults,
+      }),
+    [showFullAdvisorMethodNav, selectedMethod, synthesisValuationResults],
+  )
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
@@ -5968,8 +5974,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
-                          {founderStartupResult && (
-                            <StartupFounderDashboard result={founderStartupResult} />
+                          {capTableSimulatorResult && (
+                            <StartupFounderDashboard result={capTableSimulatorResult} />
                           )}
                           <div className="valuation-report">
                             <div
@@ -6053,8 +6059,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                         </div>
                       )}
-                      {founderStartupResult && (
-                        <StartupFounderDashboard result={founderStartupResult} />
+                      {capTableSimulatorResult && (
+                        <StartupFounderDashboard result={capTableSimulatorResult} />
                       )}
                       <div className="valuation-report">
                         <div

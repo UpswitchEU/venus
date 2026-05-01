@@ -64,6 +64,21 @@ const STAGE_OPTIONS: { value: StartupStage; label: { en: string; nl: string } }[
   { value: 'series_a', label: { en: 'Series A', nl: 'Series A' } },
 ]
 
+const STAGE_SUBTITLE: Record<StartupStage, { en: string; nl: string }> = {
+  pre_seed: {
+    en: 'Idea → first hires, no revenue yet — Berkus-heavy blend.',
+    nl: 'Idee → eerste hires, nog geen omzet — Berkus-zware blend.',
+  },
+  seed: {
+    en: 'MRR live, hunting product-market fit — balanced 4-leg blend.',
+    nl: 'MRR live, op zoek naar product-market fit — gebalanceerde 4-leg blend.',
+  },
+  series_a: {
+    en: '~€1M+ ARR, raising to scale — VC + SaaS-forward dominate.',
+    nl: '~€1M+ ARR, kapitaal voor schaal — VC + SaaS-forward domineren.',
+  },
+}
+
 const LEGAL_FORM_OPTIONS = [
   { value: 'bv', label: 'BV' },
   { value: 'nv', label: 'NV' },
@@ -433,6 +448,38 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
             value={stage}
             onChange={(value) => setField('stage', value as StartupStage)}
           />
+          <p className="mt-2 text-[11px] leading-relaxed text-foreground/55">
+            {STAGE_SUBTITLE[stage][locale]}
+          </p>
+          {stage === 'series_a' && (
+            <div className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50/60 p-3 text-[11px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200">
+              {locale === 'nl' ? (
+                <>
+                  Bij Series A heb je meestal 2+ jaar audited financials. Voor een
+                  comp-based getal is{' '}
+                  <a
+                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+                  >
+                    de standaard SaaS-waardering
+                  </a>{' '}
+                  vaak preciezer. Kom hier terug voor de cap-tabel-simulatie.
+                </>
+              ) : (
+                <>
+                  At Series A you typically have 2+ years of audited financials. For a
+                  comp-based number, the{' '}
+                  <a
+                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+                  >
+                    standard SaaS valuation
+                  </a>{' '}
+                  is often more precise. Come back here for the cap-table simulation.
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <CurrencyInput

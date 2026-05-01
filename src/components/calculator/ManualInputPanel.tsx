@@ -157,6 +157,7 @@ import {
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import {
+  CapitalHistorySection,
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
   BelgianSmeAuditPanel,
@@ -4530,6 +4531,9 @@ export function AdaptiveSections({
           />
         )}
         {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
+          <CapitalHistorySection key="capital_history" />
+        )}
+        {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
           <SaasMetricsSection
             key="saas_metrics"
             step={sectionHeaderSteps.saas}
@@ -4551,6 +4555,7 @@ export function AdaptiveSections({
             disabled={disabled}
             arrProjectionPreview={saasArrProjectionPreview}
             importedSaasProvenance={importedSaasProvenance}
+            naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
           />
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (

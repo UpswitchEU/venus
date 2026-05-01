@@ -1629,15 +1629,15 @@
 				"warning": "Moderate",
 				"poor": "Weak"
 			},
-				"navPanels": {
-					"startLeadTitle": "Quick start",
-					"startHereTitle": "Start with these adjustments",
-					"startHereDescription": "Begin with the balance-sheet corrections you know best. These usually have the biggest impact on the NAV floor value.",
-					"assetsTitle": "Additional asset adjustments",
-					"assetsDescription": "Add the remaining balance-sheet revaluations when they are relevant for this company.",
-					"deductionsTitle": "Deductions and tax",
-					"deductionsDescription": "Use these inputs to reflect tax leakage on gains and obligations that sit outside the balance sheet."
-				},
+			"navPanels": {
+				"startLeadTitle": "Quick start",
+				"startHereTitle": "Start with these adjustments",
+				"startHereDescription": "Begin with the balance-sheet corrections you know best. These usually have the biggest impact on the NAV floor value.",
+				"assetsTitle": "Additional asset adjustments",
+				"assetsDescription": "Add the remaining balance-sheet revaluations when they are relevant for this company.",
+				"deductionsTitle": "Deductions and tax",
+				"deductionsDescription": "Use these inputs to reflect tax leakage on gains and obligations that sit outside the balance sheet."
+			},
 			"fields": {
 				"dcfRevenueGrowthPct": "Revenue growth (%)",
 				"dcfEbitdaMarginPct": "EBITDA margin (%)",
@@ -1671,8 +1671,8 @@
 				"navTaxLatencyPctDesc": "Corporate tax on realised capital gains. Belgian default is 25%. On shares often 0% (participation exemption).",
 				"navOffBalanceItems": "Off-balance sheet items",
 				"navOffBalanceItemsDesc": "Obligations not on the balance sheet: pending legal claims, environmental liabilities, severance arrangements, etc.",
-					"navLead": "Revalue the balance sheet to a more realistic market view. This helps estimate a defendable floor value for the business.",
-					"navQuickStart": "A strong first pass is real estate revaluation, hidden reserves, receivables, and any off-balance obligations.",
+				"navLead": "Revalue the balance sheet to a more realistic market view. This helps estimate a defendable floor value for the business.",
+				"navQuickStart": "A strong first pass is real estate revaluation, hidden reserves, receivables, and any off-balance obligations.",
 				"excludeRealEstate": "Exclude real estate from transaction?",
 				"realEstateBookValue": "Real estate book value",
 				"estimatedMarketRent": "Estimated market rent",
@@ -1757,6 +1757,11 @@
 			"saasImported": {
 				"title": "Imported SaaS snapshot",
 				"description": "Pre-filled from {provider} for fiscal year {year} with {confidence}% confidence. Values are derived from recurring-looking revenue in your imported ledger—not subscription-system analytics. You can still adjust any field manually before running the valuation."
+			},
+			"saasBenchmark": {
+				"title": "Pre-filled with sector benchmarks",
+				"description": "We've filled {count} fields (gross margin, churn, NRR, growth) with the typical numbers for your sector. Replace each with your own as you go.",
+				"clearCta": "Clear"
 			},
 			"waccBreakdown": {
 				"expand": "Show inputs",
@@ -2721,7 +2726,35 @@
 				"MEDIUM": "Medium dependency",
 				"HIGH": "High dependency",
 				"CRITICAL": "Critical dependency"
+			},
+			"skipped": {
+				"title": "Owner profiling skipped",
+				"body": "The 9-question profile was not completed. The valuation does not yet include an owner-dependency adjustment — complete the profile to refine this number.",
+				"cta": "Complete owner profile"
 			}
+		},
+		"ownerProfilingPeer": {
+			"heading": "Sector peer benchmark",
+			"cohortSize": "Based on {n, plural, one {# anonymized peer} other {# anonymized peers}}",
+			"p25": "Lower quartile",
+			"median": "Sector median",
+			"p75": "Upper quartile",
+			"comparison": {
+				"below_p25": "Your score of {you} is below the sector's lower quartile (median {median}). The recommendations on the previous step can move you toward the median.",
+				"between_p25_p50": "Your score of {you} is below the sector median of {median}. Targeted work on the recommendations closes that gap.",
+				"between_p50_p75": "Your score of {you} sits above the sector median of {median} — solid transferability for this sector.",
+				"above_p75": "Your score of {you} is in the top quartile for this sector (median {median}). Buyers see this as a low-risk transition profile."
+			},
+			"privacyNote": "Anonymized aggregate. Cells with fewer than 5 contributors are not displayed.",
+			"withdrawCta": "Withdraw my anonymized contribution",
+			"withdrawConfirmPrompt": "Remove this report's data from the sector benchmark?",
+			"withdrawConfirm": "Yes, withdraw",
+			"withdrawCancel": "Cancel",
+			"withdrawSubmitting": "Withdrawing…",
+			"withdrawDone": "Your contribution has been removed. The next sector refresh will exclude it.",
+			"withdrawAlreadyDone": "This contribution was already withdrawn previously.",
+			"withdrawErrorAuth": "Sign in to manage your anonymized contribution.",
+			"withdrawErrorGeneric": "Couldn't complete the request. Please try again."
 		}
 	},
 	"invite": {

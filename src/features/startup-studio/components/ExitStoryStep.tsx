@@ -127,6 +127,11 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ tam: value ?? null })}
             placeholder="50.000.000.000"
             size="sm"
+            description={
+              locale === 'nl'
+                ? 'Totale jaaromzet die alle bedrijven in jouw categorie wereldwijd genereren — typisch een Gartner / Statista cijfer.'
+                : 'Total annual revenue every company in your category generates worldwide — typically a Gartner / Statista figure.'
+            }
           />
           <CurrencyInput
             label="SAM (€)"
@@ -134,6 +139,11 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ sam: value ?? null })}
             placeholder="2.000.000.000"
             size="sm"
+            description={
+              locale === 'nl'
+                ? 'Het stuk van TAM dat je realistisch kunt bedienen vanuit je huidige geografie en kanaal.'
+                : 'The slice of TAM you can realistically reach with your current geography and channel.'
+            }
           />
           <CurrencyInput
             label={locale === 'nl' ? 'SOM (€) — 3jr realistisch' : 'SOM (€) — 3yr realistic'}
@@ -141,6 +151,11 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ som: value ?? null })}
             placeholder="50.000.000"
             size="sm"
+            description={
+              locale === 'nl'
+                ? 'Wat je in 3 jaar realistisch kunt veroveren — typisch 1–5% van SAM.'
+                : "What you can realistically capture in 3 years — typically 1–5% of SAM."
+            }
           />
         </div>
 
@@ -214,45 +229,37 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
         />
       </div>
 
-      {/* Exit multiple — auto-derived from the Athena benchmark for
-          the founder's (country × stage × business type / sector).
-          We hide the three-way picker on purpose: at pre-seed almost
-          every founder picks the median, and the data is the data —
-          letting them shop between Low/Median/High on the same screen
-          they're trying to convince an investor with adds friction
-          without changing the engine output. */}
+      {/* VC's target return — the only input on this card.  At pre-seed
+          founders consistently misread "Expected VC ROI" as their own
+          ROI; we rename to make the subject explicit and give a stage-
+          aware default in the help text.  The sector multiple now lives
+          at the bottom of the card as a read-only footnote, not a peer
+          tile, so the input is unambiguously the only thing to fill. */}
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <h3 className="mb-1 text-lg font-semibold text-foreground">
-          {locale === 'nl' ? 'Exit-multiple (EV / omzet)' : 'Exit multiple (EV / revenue)'}
+          {locale === 'nl' ? 'Wat zoekt de investeerder?' : "The investor's required return"}
         </h3>
         <p className="mb-4 text-sm text-foreground/60">
           {locale === 'nl'
-            ? 'Auto-afgeleid uit onze sector-database (Athena Q1 2026) op basis van je gekozen bedrijfstype hierboven.'
-            : 'Auto-derived from our sector database (Athena Q1 2026) based on the business type you picked above.'}
+            ? "Welke return-multiple moet de fund zien om de check te schrijven? Dit is de fund-side hurdle, niet jouw ROI."
+            : "What return multiple does the fund need to justify the check? This is the fund-side hurdle, not your own ROI."}
         </p>
 
-        <div className="grid items-stretch gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
-            <p className="text-[10px] uppercase tracking-wide text-primary/75">
-              {locale === 'nl' ? 'Sector-multiple' : 'Sector multiple'}
-            </p>
-            <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
-              {effectiveMultiple}×
-            </p>
-            <p className="mt-1 text-[11px] text-foreground/55">
-              {locale === 'nl'
-                ? `Range ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× · ${sector}`
-                : `Range ${benchmark.exit_multiple_low}–${benchmark.exit_multiple_high}× · ${sector}`}
-              {isFallback && (locale === 'nl' ? ' · offline' : ' · offline')}
-            </p>
-          </div>
-          <AdaptivePercentInput
-            label={locale === 'nl' ? 'Verwachte VC ROI (×)' : 'Expected VC ROI (×)'}
-            value={targetRoi ?? undefined}
-            onChange={(value) => setField('target_roi_x', value ?? null)}
-            placeholder="15"
-          />
-        </div>
+        <AdaptivePercentInput
+          label={
+            locale === 'nl'
+              ? 'Doelrendement van de investeerder (×)'
+              : "VC's target return multiple (×)"
+          }
+          value={targetRoi ?? undefined}
+          onChange={(value) => setField('target_roi_x', value ?? null)}
+          placeholder={String(stageDefaultRoi)}
+          description={
+            locale === 'nl'
+              ? `Pre-seed fondsen mikken op ~30×, seed ~20×, Series A ~10×. We hebben ${stageDefaultRoi}× ingevuld voor ${stage.replace('_', ' ')}.`
+              : `Pre-seed funds aim for ~30×, seed ~20×, Series A ~10×. We pre-filled ${stageDefaultRoi}× for ${stage.replace('_', ' ')}.`
+          }
+        />
 
         {previewExit > 0 && (
           <div className="mt-4 rounded-xl bg-primary/5 p-4">
@@ -267,6 +274,19 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             </p>
           </div>
         )}
+
+        {/* Sector multiple footnote — read-only, dropped to the bottom
+            so it reads as audit context, not an additional input. */}
+        <p className="mt-4 border-t border-foreground/10 pt-3 text-[11px] text-foreground/55">
+          {locale === 'nl' ? 'Sector exit-multiple: ' : 'Sector exit multiple: '}
+          <span className="font-medium tabular-nums text-foreground">{effectiveMultiple}×</span>
+          {' · '}
+          {locale === 'nl' ? 'range ' : 'range '}
+          {benchmark.exit_multiple_low}–{benchmark.exit_multiple_high}× · {sector}
+          {' · '}
+          {locale === 'nl' ? 'Athena Q1 2026' : 'Athena Q1 2026'}
+          {isFallback && (locale === 'nl' ? ' · offline' : ' · offline')}
+        </p>
       </div>
     </div>
   )

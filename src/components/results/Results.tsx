@@ -1,16 +1,19 @@
 import { useTranslations } from 'next-intl'
-import React, { memo, useEffect, useMemo } from 'react'
+import React, { memo, useEffect, useMemo, useRef } from 'react'
+import { trackOwnerProfilingCapBindRendered } from '../../lib/analytics'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
-import { deriveOwnerProfilingChipPreferSessionThenResult } from '../../utils/ownerProfiling/coverChip'
+import { deriveOwnerProfilingState } from '../../utils/ownerProfiling/coverChip'
 import { ErrorState } from '../ErrorState'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
+import { OwnerProfilingPeerPanel } from './OwnerProfilingPeerPanel'
 import { OwnerProfilingReportChip } from './OwnerProfilingReportChip'
+import { OwnerProfilingSkippedWatermark } from './OwnerProfilingSkippedWatermark'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -42,16 +45,60 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     state.session?.valuationResult ? (state.session.valuationResult as ValuationResponse) : undefined,
   )
 
-  const ownerProfilingChip = useMemo(
+  const ownerProfilingState = useMemo(
     () =>
-      deriveOwnerProfilingChipPreferSessionThenResult(sessionValuationResult, result ?? undefined),
+      deriveOwnerProfilingState(sessionValuationResult, result ?? undefined),
     [
       sessionValuationResult?.owner_dependency_adjustment,
       sessionValuationResult?.owner_dependency_result,
+      sessionValuationResult?.valuation_id,
       result?.owner_dependency_adjustment,
       result?.owner_dependency_result,
+      result?.valuation_id,
     ],
   )
+
+  // DATA-1 — peer panel inputs. Source order: session result → response,
+  // matching the chip's own session-preferred resolution. A stale `result`
+  // never wins over a fresh session payload; that prevents rendering a
+  // peer comparison from one valuation alongside a chip from another.
+  const peerPanelInputs = useMemo(() => {
+    const source = sessionValuationResult ?? result ?? undefined
+    if (!source) {
+      return {
+        businessTypeId: null as string | null,
+        countryCode: null as string | null,
+        userTri: null as number | null,
+        valuationId: null as string | null,
+      }
+    }
+    const businessTypeId =
+      typeof source.business_type === 'string' && source.business_type.length > 0
+        ? source.business_type
+        : typeof source.industry === 'string' && source.industry.length > 0
+          ? source.industry
+          : null
+    // `country_code` is not on the typed ValuationResponse contract but
+    // the Python engine emits it when the request carries it; cast and
+    // narrow safely here (mirrors submitAnonymizedBenchmarkContribution).
+    const ccRaw = (source as unknown as Record<string, unknown>).country_code
+    const cc =
+      typeof ccRaw === 'string' && ccRaw.trim().length === 2
+        ? ccRaw.trim().toUpperCase()
+        : ''
+    const countryCode = cc.length === 2 ? cc : null
+    const userTri =
+      ownerProfilingState?.mode === 'chip'
+        ? ownerProfilingState.chip.transferabilityRiskIndex
+        : null
+    // Withdraw flow needs the originating valuation_id (Venus pins
+    // `contributor_reference = valuation_id` at submit time).
+    const valuationId =
+      typeof source.valuation_id === 'string' && source.valuation_id.length > 0
+        ? source.valuation_id
+        : null
+    return { businessTypeId, countryCode, userTri, valuationId }
+  }, [ownerProfilingState, result, sessionValuationResult])
 
   // Prefer session HTML, but do not let legacy safety-net HTML mask a real result report.
   const htmlReport = getFirstRenderableReportHtml(sessionHtmlReport, result?.html_report)
@@ -72,6 +119,42 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
       })
     }
   }, [result, htmlReport])
+
+  // Owner Profiling cap-bind telemetry (OWNER-PROFILING-1 / OP-6).
+  // Fires once per (report_id, capped chip) — re-renders, tab switches and
+  // session updates that don't change the underlying chip should NOT
+  // double-fire the funnel event. The dedup ref tracks the last keyed
+  // emission rather than the chip identity so a true state transition
+  // (chip → no chip → chip) re-fires cleanly.
+  const lastCapBindKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (ownerProfilingState?.mode !== 'chip') {
+      lastCapBindKeyRef.current = null
+      return
+    }
+    const chip = ownerProfilingState.chip
+    if (chip.mode !== 'capped') {
+      lastCapBindKeyRef.current = null
+      return
+    }
+    const reportId =
+      result?.valuation_id || sessionValuationResult?.valuation_id || ''
+    if (!reportId) return
+    const key = `${reportId}::${chip.appliedAdjustment}::${chip.rawAdjustment}`
+    if (lastCapBindKeyRef.current === key) return
+    lastCapBindKeyRef.current = key
+    trackOwnerProfilingCapBindRendered({
+      reportId,
+      mode: 'cover_chip',
+      riskLevel: chip.riskLevel,
+      appliedPct: Math.round(chip.appliedAdjustment * 100),
+      rawPct: Math.round(chip.rawAdjustment * 100),
+    })
+  }, [
+    ownerProfilingState,
+    result?.valuation_id,
+    sessionValuationResult?.valuation_id,
+  ])
 
   // Show loading skeleton while loading
   if (isLoading && !htmlReport) {
@@ -97,7 +180,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // or owner-profiling-only payloads (session.valuationResult without HTML yet).
   if (!htmlReport) {
     const hasBand = !!(
-      ownerProfilingChip ||
+      ownerProfilingState ||
       (evEquitySteps && evEquitySteps.length > 0)
     )
 
@@ -105,9 +188,18 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
       return (
         <div className="valuation-report-container h-full overflow-y-auto bg-background">
           <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
-            {ownerProfilingChip ? (
-              <OwnerProfilingReportChip chip={ownerProfilingChip} />
+            {ownerProfilingState?.mode === 'chip' ? (
+              <OwnerProfilingReportChip chip={ownerProfilingState.chip} />
             ) : null}
+            {ownerProfilingState?.mode === 'skipped' ? (
+              <OwnerProfilingSkippedWatermark />
+            ) : null}
+            <OwnerProfilingPeerPanel
+              businessTypeId={peerPanelInputs.businessTypeId}
+              countryCode={peerPanelInputs.countryCode}
+              userTri={peerPanelInputs.userTri}
+              valuationId={peerPanelInputs.valuationId}
+            />
             {evEquitySteps && evEquitySteps.length > 0 ? (
               <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
             ) : null}
@@ -150,9 +242,19 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
 
   return (
     <div className="valuation-report-container h-full overflow-y-auto bg-background">
-      {(ownerProfilingChip || (evEquitySteps && evEquitySteps.length > 0)) && (
+      {(ownerProfilingState || (evEquitySteps && evEquitySteps.length > 0)) && (
         <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
-          {ownerProfilingChip ? <OwnerProfilingReportChip chip={ownerProfilingChip} /> : null}
+          {ownerProfilingState?.mode === 'chip' ? (
+            <OwnerProfilingReportChip chip={ownerProfilingState.chip} />
+          ) : null}
+          {ownerProfilingState?.mode === 'skipped' ? (
+            <OwnerProfilingSkippedWatermark />
+          ) : null}
+          <OwnerProfilingPeerPanel
+            businessTypeId={peerPanelInputs.businessTypeId}
+            countryCode={peerPanelInputs.countryCode}
+            userTri={peerPanelInputs.userTri}
+          />
           {evEquitySteps && evEquitySteps.length > 0 ? (
             <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
           ) : null}

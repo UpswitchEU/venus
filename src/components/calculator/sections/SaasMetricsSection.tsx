@@ -1,13 +1,15 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { cn } from '@/design-system/utils'
+import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFromNace'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
+import { SAAS_SECTOR_DEFAULTS } from './saasBenchmarks'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type HealthStatus = 'excellent' | 'good' | 'warning' | 'poor'
@@ -88,6 +90,10 @@ interface SaasMetricsSectionProps {
     derivation_method?: string
     fiscal_year?: number
   } | null
+  /** NACE-BEL or generic NACE Rev. 2 code from KBO/KVK lookup. Drives
+   *  the one-shot benchmark prefill of gross margin, churn, NRR, growth.
+   *  Optional — when absent, no prefill is attempted. */
+  naceCode?: string | null
 }
 
 export function SaasMetricsSection({
@@ -108,10 +114,75 @@ export function SaasMetricsSection({
   disabled,
   arrProjectionPreview = [],
   importedSaasProvenance,
+  naceCode,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const { saasMetric: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
   const [advancedExpanded, setAdvancedExpanded] = useState(false)
+
+  // Sector-benchmark prefill — runs once per mount when KBO/KVK has
+  // surfaced a NACE we can map to a known sector AND the underlying
+  // form values are still empty.  Soft-fills four defensible sector
+  // medians (gross margin, monthly churn, NRR, monthly growth) so a
+  // founder coming in from Wintercircus / a marketing entry point can
+  // hit Calculate immediately and tune from there instead of staring
+  // at four blank percent boxes.  We never overwrite imported values
+  // (CSV / Octopus / Silverfin) or anything the founder has already
+  // typed.  The set of prefilled keys is held in `prefilledKeysRef`
+  // so the banner can clear them in one click.
+  const sector = useMemo(() => inferStartupSectorFromNace(naceCode ?? null), [naceCode])
+  const benchmark = sector ? SAAS_SECTOR_DEFAULTS[sector] : null
+  const prefilledKeysRef = useRef<Set<string>>(new Set())
+  const prefilledRanRef = useRef(false)
+  const [prefilledKeys, setPrefilledKeys] = useState<readonly string[]>([])
+
+  useEffect(() => {
+    if (prefilledRanRef.current) return
+    if (!benchmark) return
+    if (importedSaasProvenance) return
+    prefilledRanRef.current = true
+    const filled: string[] = []
+    if (saasGrossMarginPct == null) {
+      onFieldChange('saas_gross_margin_pct', benchmark.gross_margin_pct)
+      filled.push('saas_gross_margin_pct')
+    }
+    if (saasChurnPct == null) {
+      onFieldChange('saas_churn_pct', benchmark.monthly_churn_pct)
+      filled.push('saas_churn_pct')
+    }
+    if (saasNrrPct == null) {
+      onFieldChange('saas_nrr_pct', benchmark.nrr_pct)
+      filled.push('saas_nrr_pct')
+    }
+    if (saasArrGrowthPct == null) {
+      // saas_arr_growth_pct in the schema is monthly when it pairs
+      // with monthly churn; the existing placeholder ("25") is consistent
+      // with monthly growth at early stage.
+      onFieldChange('saas_arr_growth_pct', benchmark.monthly_growth_pct)
+      filled.push('saas_arr_growth_pct')
+    }
+    if (filled.length === 0) return
+    prefilledKeysRef.current = new Set(filled)
+    setPrefilledKeys(filled)
+  }, [
+    benchmark,
+    importedSaasProvenance,
+    saasGrossMarginPct,
+    saasChurnPct,
+    saasNrrPct,
+    saasArrGrowthPct,
+    onFieldChange,
+  ])
+
+  const clearBenchmarkPrefill = () => {
+    for (const key of prefilledKeysRef.current) {
+      onFieldChange(key, undefined)
+    }
+    prefilledKeysRef.current = new Set()
+    setPrefilledKeys([])
+  }
+
+  const showBenchmarkBanner = prefilledKeys.length > 0 && !importedSaasProvenance
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
@@ -203,6 +274,26 @@ export function SaasMetricsSection({
               year: importedSaasProvenance.fiscal_year ?? '—',
             })}
           </p>
+        </div>
+      )}
+
+      {showBenchmarkBanner && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-300/50 bg-amber-50/60 px-3 py-2.5 dark:border-amber-700/40 dark:bg-amber-950/25">
+          <div className="flex-1">
+            <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+              {t('saasBenchmark.title')}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-800/85 dark:text-amber-300/85">
+              {t('saasBenchmark.description', { count: prefilledKeys.length })}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearBenchmarkPrefill}
+            className="shrink-0 rounded-md border border-amber-400/60 bg-background/60 px-2 py-1 text-[11px] font-medium text-amber-900 transition hover:bg-amber-100/60 dark:text-amber-200 dark:hover:bg-amber-900/30"
+          >
+            {t('saasBenchmark.clearCta')}
+          </button>
         </div>
       )}
 
