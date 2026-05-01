@@ -125,36 +125,36 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             label={`TAM (€ ${locale === 'nl' ? 'jaaromzet' : 'annual revenue'})`}
             value={tamSamSom.tam ?? undefined}
             onChange={(value) => setTamSamSom({ tam: value ?? null })}
-            placeholder="50.000.000.000"
+            placeholder="50000000000"
             size="sm"
             description={
               locale === 'nl'
-                ? 'Totale jaaromzet die alle bedrijven in jouw categorie wereldwijd genereren — typisch een Gartner / Statista cijfer.'
-                : 'Total annual revenue every company in your category generates worldwide — typically a Gartner / Statista figure.'
+                ? 'Totale jaaromzet wereldwijd in jouw categorie — typisch miljarden (Gartner / Statista). Voorbeeld: €50.000.000.000 = €50 miljard.'
+                : 'Total annual revenue worldwide in your category — typically billions (Gartner / Statista). Example: €50,000,000,000 = €50 billion.'
             }
           />
           <CurrencyInput
             label="SAM (€)"
             value={tamSamSom.sam ?? undefined}
             onChange={(value) => setTamSamSom({ sam: value ?? null })}
-            placeholder="2.000.000.000"
+            placeholder="2000000000"
             size="sm"
             description={
               locale === 'nl'
-                ? 'Het stuk van TAM dat je realistisch kunt bedienen vanuit je huidige geografie en kanaal.'
-                : 'The slice of TAM you can realistically reach with your current geography and channel.'
+                ? 'Het stuk van TAM dat je realistisch kunt bedienen vanuit je huidige geografie en kanaal. Voorbeeld: €2.000.000.000 = €2 miljard.'
+                : 'The slice of TAM you can realistically reach with your current geography and channel. Example: €2,000,000,000 = €2 billion.'
             }
           />
           <CurrencyInput
             label={locale === 'nl' ? 'SOM (€) — 3jr realistisch' : 'SOM (€) — 3yr realistic'}
             value={tamSamSom.som ?? undefined}
             onChange={(value) => setTamSamSom({ som: value ?? null })}
-            placeholder="50.000.000"
+            placeholder="50000000"
             size="sm"
             description={
               locale === 'nl'
-                ? 'Wat je in 3 jaar realistisch kunt veroveren — typisch 1–5% van SAM.'
-                : "What you can realistically capture in 3 years — typically 1–5% of SAM."
+                ? 'Wat je in 3 jaar realistisch kunt veroveren — typisch 1–5% van SAM. Voorbeeld: €50.000.000 = €50 miljoen.'
+                : "What you can realistically capture in 3 years — typically 1–5% of SAM. Example: €50,000,000 = €50 million."
             }
           />
         </div>
@@ -256,8 +256,8 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
           placeholder={String(stageDefaultRoi)}
           description={
             locale === 'nl'
-              ? `Pre-seed fondsen mikken op ~30×, seed ~20×, Series A ~10×. We hebben ${stageDefaultRoi}× ingevuld voor ${stage.replace('_', ' ')}.`
-              : `Pre-seed funds aim for ~30×, seed ~20×, Series A ~10×. We pre-filled ${stageDefaultRoi}× for ${stage.replace('_', ' ')}.`
+              ? `Hoe hoger het cijfer, hoe lager jouw pre-money. ${stageDefaultRoi}× betekent: de investeerder wil €${stageDefaultRoi} terug per €1 die ze nu storten — typisch 7–10 jaar later, na meerdere rondes verwatering. Pre-seed ~30×, seed ~20×, Series A ~10×. We hebben ${stageDefaultRoi}× ingevuld voor ${stage.replace('_', ' ')}.`
+              : `The higher the number, the lower your pre-money. ${stageDefaultRoi}× means the investor wants €${stageDefaultRoi} back for every €1 they put in today — typically 7–10 years later, after several rounds of dilution. Pre-seed ~30×, seed ~20×, Series A ~10×. We pre-filled ${stageDefaultRoi}× for ${stage.replace('_', ' ')}.`
           }
         />
 

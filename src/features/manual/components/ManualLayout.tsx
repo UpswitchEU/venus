@@ -63,7 +63,6 @@ import {
   type ValuationReportData,
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
-import { StartupFounderDashboard } from '../../../components/calculator/sections/startup/StartupFounderDashboard'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
@@ -207,7 +206,9 @@ import {
 } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { selectCapTableSimulatorResult } from '../utils/selectCapTableSimulatorResult'
+// `selectCapTableSimulatorResult` import removed alongside the React slider
+// mount — the canonical Jinja report is now the single source of truth.
+// The selector helper itself is intentionally kept on disk for the future.
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
@@ -2179,21 +2180,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return vr ?? null
   }, [result?.valuation_results])
 
-  // Cap-table simulator mount — show the live React slider ABOVE the
-  // HTML report whenever the selected method's response carries a
-  // ``details.cap_table_simulator`` payload.  Method-agnostic by
-  // design (see ``selectCapTableSimulatorResult`` for the gate
-  // contract); advisors keep the pure HTML report and never see the
-  // slider so their workflow is untouched.
-  const capTableSimulatorResult = useMemo<ValuationMethodResult | null>(
-    () =>
-      selectCapTableSimulatorResult({
-        showFullAdvisorMethodNav,
-        selectedMethod,
-        valuationResults: synthesisValuationResults,
-      }),
-    [showFullAdvisorMethodNav, selectedMethod, synthesisValuationResults],
-  )
+  // Cap-table simulator React mount removed: the canonical Jinja report
+  // (`startup_one_pager.html` + `startup_cap_table.html`) is now the
+  // single source of truth for the simulator card. Founders see one
+  // surface for the post-money/dilution rollup instead of three (React
+  // slider + one-pager + cap-table page). The selector + helper file
+  // (`selectCapTableSimulatorResult`) and the Python emitter remain in
+  // case we want to bring back the interactive slider later, gated by
+  // a feature flag, but they are not wired into the right rail.
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
@@ -5974,9 +5968,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
-                          {capTableSimulatorResult && (
-                            <StartupFounderDashboard result={capTableSimulatorResult} />
-                          )}
+                          {/* Cap-table simulator was previously rendered here as a
+                              React slider above the HTML report. The same data is now
+                              the single source of truth in the canonical Jinja report
+                              (`startup_one_pager.html` + `startup_cap_table.html`), so
+                              the duplicate mount has been removed to give founders a
+                              clean, single-source result surface. */}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -6059,9 +6056,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                         </div>
                       )}
-                      {capTableSimulatorResult && (
-                        <StartupFounderDashboard result={capTableSimulatorResult} />
-                      )}
+                      {/* Cap-table simulator deliberately omitted — the canonical
+                          Jinja report (`startup_one_pager.html` + `startup_cap_table.html`)
+                          is the single source of truth for the simulator card. */}
                       <div className="valuation-report">
                         <div
                           dangerouslySetInnerHTML={{

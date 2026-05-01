@@ -5,11 +5,16 @@
  * cap-table inputs on the floor (Wintercircus would never know) is
  * caught at unit-test time:
  *
- *   1. Default state is collapsed when the form-store is empty — a
- *      first-round founder sees a single header line, no clutter.
- *   2. Expanding shows the segmented "raised before?" toggle.
- *   3. Toggling to "Raised before" reveals the SAFE editor and option
- *      pool / last-round inputs.
+ *   1. Default state is **expanded** — the section only mounts on the
+ *      SaaS valuation path, where most founders have prior rounds to
+ *      declare.  Keeping it collapsed-by-default produced "I didn't
+ *      know that existed" feedback during early Wintercircus runs.
+ *   2. The header label reads "Funding so far" (renamed from the more
+ *      paperwork-y "Capital history (optional)" — the wording change
+ *      is part of the contract because copy reviewers look for it).
+ *   3. The "First round / Raised before" toggle renders without a
+ *      click; toggling to "Raised before" reveals the SAFE editor and
+ *      option pool / last-round inputs.
  *   4. The SAFE editor's add button writes a new note (with a stable
  *      generated ID) into the form-store.
  *   5. Removing a SAFE clears it from the form-store.
@@ -52,18 +57,17 @@ describe('CapitalHistorySection', () => {
     useManualFormStore.setState(initialFormSnapshot, true)
   })
 
-  it('starts collapsed when no capital fields are set', () => {
+  it('renders the renamed "Funding so far" header (not the legacy label)', () => {
     render(<CapitalHistorySection locale="en" />)
-    // Header is always visible.
-    expect(screen.getByText('Capital history (optional)')).toBeInTheDocument()
-    // Body controls are NOT yet rendered.
-    expect(screen.queryByText('First round')).toBeNull()
-    expect(screen.queryByText(/Round being raised/i)).toBeNull()
+    // New label is the contract; legacy label must be gone so copy
+    // reviewers don't see two competing strings during QA.
+    expect(screen.getByText('Funding so far')).toBeInTheDocument()
+    expect(screen.queryByText('Capital history (optional)')).toBeNull()
   })
 
-  it('expands on header click and shows the toggle + investment ask', () => {
+  it('starts expanded so first-time founders see the toggle + investment ask without a click', () => {
     render(<CapitalHistorySection locale="en" />)
-    fireEvent.click(screen.getByText('Capital history (optional)'))
+    // No click required — body controls render on first paint.
     expect(screen.getByText('First round')).toBeInTheDocument()
     expect(screen.getByText('Raised before')).toBeInTheDocument()
     expect(screen.getByText(/Round being raised/i)).toBeInTheDocument()
@@ -71,7 +75,6 @@ describe('CapitalHistorySection', () => {
 
   it('toggling "Raised before" enables the SAFE editor + option pool inputs', () => {
     render(<CapitalHistorySection locale="en" />)
-    fireEvent.click(screen.getByText('Capital history (optional)'))
 
     // Sanity: SAFE editor not rendered yet on default "First round" —
     // we identify the editor by its unique heading
@@ -93,7 +96,6 @@ describe('CapitalHistorySection', () => {
 
   it('clicking the SAFE button appends a new note to the form-store', () => {
     render(<CapitalHistorySection locale="en" />)
-    fireEvent.click(screen.getByText('Capital history (optional)'))
     fireEvent.click(screen.getByText('Raised before'))
 
     // Empty state copy visible until a note is added.

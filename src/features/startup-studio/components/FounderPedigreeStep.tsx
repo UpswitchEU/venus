@@ -92,8 +92,8 @@ const PEDIGREE_COPY: Record<FounderPedigreeKey, PedigreeOptionCopy> = {
       nl: 'Senior alumnus topscaleup',
     },
     description: {
-      en: 'Any cofounder spent ≥2 years at IC4+ / senior level inside a Benelux or European top-tier scaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).',
-      nl: '≥2 jaar senior ervaring bij een Beneluxse of Europese topscaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).',
+      en: 'Any cofounder spent ≥2 years at senior level (senior IC, lead, manager, staff or above — not entry-level / intern) inside a Benelux or European top-tier scaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).',
+      nl: '≥2 jaar op senior niveau (senior IC, lead, manager, staff of hoger — geen junior of stage) bij een Beneluxse of Europese topscaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).',
     },
     evidence: {
       en: 'Investors verify: LinkedIn tenure + role band; many funds maintain a "mafia" graph of these networks.',

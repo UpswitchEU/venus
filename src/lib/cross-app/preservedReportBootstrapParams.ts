@@ -39,6 +39,16 @@ export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   'action',
   'tab',
   'partner',
+  /**
+   * Anonymous landing → signup → authenticated Venus handoff marker.
+   * Set by the public ``/[locale]/landing/startup`` page so the
+   * authenticated bootstrap on ``/reports/[id]`` knows to consume the
+   * localStorage handoff snapshot before the calculation auto-fires.
+   * Today only ``"landing"`` is meaningful; reserved as an enum so
+   * future entry surfaces (embedded Mercury calculator, partner site)
+   * can plumb through without grabbing a second param.
+   */
+  'prefill_from',
 ] as const
 
 export type PreservedReportBootstrapParamKey =

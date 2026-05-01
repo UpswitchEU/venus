@@ -44,13 +44,17 @@
 
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useRef } from 'react'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { useSessionStore } from '@/store/useSessionStore'
 import { debounceWithFlush } from '@/utils/debounce'
+import { consumeLandingStudioHandoff } from '@/utils/landingStudioHandoff'
 import { generalLogger } from '@/utils/logger'
 
 const RESET_QUERY_KEY = 'reset'
 const RESET_QUERY_VALUE = '1'
+const PREFILL_FROM_QUERY_KEY = 'prefill_from'
+const PREFILL_FROM_LANDING_VALUE = 'landing'
 const AUTOSAVE_DEBOUNCE_MS = 500
 
 /**
@@ -106,6 +110,67 @@ export function useStartupSessionSync(): void {
   // edit and must be persisted.
   const baselineRef = useRef<{ reportId: string; signature: string } | null>(null)
   const restoredForReportRef = useRef<string | null>(null)
+
+  // ------------------------------------------------------------------
+  // 0. `?prefill_from=landing` — consume the anonymous-landing handoff.
+  //    Runs before `?reset=1` (a deliberately-fresh-start nukes any
+  //    handoff) and before the Titan session-restore (which has nothing
+  //    server-side for a never-seen-before founder).  Strips the URL
+  //    param after consume so a hard refresh doesn't try again with
+  //    the now-empty localStorage entry.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const search = new URLSearchParams(window.location.search)
+    if (search.get(PREFILL_FROM_QUERY_KEY) !== PREFILL_FROM_LANDING_VALUE) return
+    // ``?reset=1`` always wins — a fresh start should never inherit a
+    // stale landing snapshot.  We still strip ``prefill_from`` so the
+    // URL doesn't keep advertising a state we ignored.
+    if (search.get(RESET_QUERY_KEY) === RESET_QUERY_VALUE) {
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete(PREFILL_FROM_QUERY_KEY)
+        window.history.replaceState({}, '', url.toString())
+      } catch {
+        // older browsers — non-fatal
+      }
+      return
+    }
+    const handoff = consumeLandingStudioHandoff()
+    if (handoff) {
+      try {
+        useStartupValuationStore.getState().applyFromSnapshot(handoff.studio)
+      } catch (err) {
+        generalLogger.warn('[StartupSessionSync] Landing handoff: studio apply failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+      try {
+        // ``updateFormData`` is the canonical setter for the manual
+        // identity store; it merges so we only push the keys the
+        // landing actually captured (company_name, country_code,
+        // kbo_number, legal_form, nace_code/description,
+        // business_type_id, industry).  Anything else stays whatever
+        // the bootstrap had populated.
+        useManualFormStore.getState().updateFormData(
+          handoff.formData as Parameters<
+            ReturnType<typeof useManualFormStore.getState>['updateFormData']
+          >[0]
+        )
+      } catch (err) {
+        generalLogger.warn('[StartupSessionSync] Landing handoff: formData apply failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete(PREFILL_FROM_QUERY_KEY)
+      window.history.replaceState({}, '', url.toString())
+    } catch {
+      // older browsers — non-fatal
+    }
+  }, [])
 
   // ------------------------------------------------------------------
   // 1. `?reset=1` — exactly once on mount.

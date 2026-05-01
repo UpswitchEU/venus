@@ -22,13 +22,14 @@
  */
 
 import { ChevronDown } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import type { SafeNoteInput } from '@/types/valuation'
+import { consumeCapitalHistoryPrefill } from '@/utils/capitalHistoryPrefill'
 
 interface CapitalHistorySectionProps {
   locale?: 'en' | 'nl'
@@ -55,9 +56,45 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
   const lastRoundAmount = formData.capital_last_round_amount
   const lastRoundPostMoney = formData.capital_last_round_post_money
 
-  const [expanded, setExpanded] = useState<boolean>(
-    () => enabled || Boolean(roundAmount) || safeNotes.length > 0,
-  )
+  // Default-expanded on the SaaS path: this section only mounts when
+  // the SaaS valuation method is selected, and a Series A founder
+  // running an ARR multiple almost always has prior rounds to declare.
+  // Keeping it collapsed-by-default produced "I didn't know that
+  // existed" feedback during the first Wintercircus founder test runs.
+  const [expanded, setExpanded] = useState<boolean>(true)
+
+  // Studio → SaaS prefill consumption.  When the founder clicked the
+  // amber/sky banner in ``CompanyCardStep`` to land here, their
+  // round-being-raised + dilution assumption was queued in
+  // sessionStorage.  Consume it once on mount and seed the form-store
+  // so they don't have to re-type values they already gave the studio.
+  //
+  // We never overwrite a value the founder already typed: the snapshot
+  // is one-shot (consume = read-and-clear), and we only seed fields
+  // that are still empty.  Refreshing the page after editing therefore
+  // never re-overwrites the typed values.
+  const prefillConsumedRef = useRef(false)
+  useEffect(() => {
+    if (prefillConsumedRef.current) return
+    prefillConsumedRef.current = true
+    const prefill = consumeCapitalHistoryPrefill()
+    if (!prefill) return
+    const current = useManualFormStore.getState().formData
+    const patch: Partial<typeof current> = {}
+    if (
+      prefill.round_amount != null &&
+      (current.capital_round_amount === undefined || current.capital_round_amount === null)
+    ) {
+      patch.capital_round_amount = prefill.round_amount
+    }
+    if (Object.keys(patch).length > 0) {
+      updateFormData(patch as Record<string, unknown>)
+    }
+    // ``dilution_pct`` is not yet wired into the SaaS form-store; the
+    // snapshot keeps the field for forward compatibility (a future
+    // dilution-to-exit hint above the cap-table simulator card will
+    // pull from this same channel without a second migration).
+  }, [updateFormData])
 
   // ── SAFE editor handlers ──────────────────────────────────────────
   const handleAddSafe = useCallback(() => {
@@ -99,12 +136,12 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
       >
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-foreground">
-            {locale === 'nl' ? 'Kapitaalgeschiedenis (optioneel)' : 'Capital history (optional)'}
+            {locale === 'nl' ? 'Funding tot nu toe' : 'Funding so far'}
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-foreground/60">
             {locale === 'nl'
-              ? 'Eerdere rondes, openstaande SAFEs of een optiepool? Voeg ze toe en we tonen een live cap-tabel onder je waardering.'
-              : "Prior rounds, outstanding SAFEs, or an existing option pool? Add them and we'll render a live cap table under your valuation."}
+              ? 'Eerdere rondes, openstaande SAFEs en optiepool. Bepaalt de cap-tabel en verwatering in je rapport. Sla over als je nooit eerder hebt opgehaald.'
+              : "Prior rounds, outstanding SAFEs, and the option pool. Drives the cap table + dilution in your report. Skip it if you've never raised before."}
           </p>
         </div>
         <ChevronDown

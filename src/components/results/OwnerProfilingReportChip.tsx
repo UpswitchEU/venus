@@ -2,31 +2,19 @@
 
 import { useTranslations } from 'next-intl'
 import React, { memo } from 'react'
+import { OP_BAND_TAILWIND } from '../../design-system/owner-profiling-bands'
 import type { OwnerProfilingChip } from '../../utils/ownerProfiling/coverChip'
 
-function bandChrome(band: OwnerProfilingChip['colorBand']): { box: string; text: string } {
-  switch (band) {
-    case 'good':
-      return {
-        box: 'border-emerald-500/45 bg-emerald-500/15',
-        text: 'text-emerald-950',
-      }
-    case 'caution':
-      return {
-        box: 'border-amber-500/50 bg-amber-500/15',
-        text: 'text-amber-950',
-      }
-    case 'warn':
-      return {
-        box: 'border-red-600/45 bg-red-600/15',
-        text: 'text-red-950',
-      }
-    case 'neutral':
-    default:
-      return {
-        box: 'border-muted-foreground/40 bg-muted/40',
-        text: 'text-foreground',
-      }
+function bandChrome(
+  band: OwnerProfilingChip['colorBand'],
+): { box: string; text: string } {
+  // Aurora Clarity OP band tokens. Source of truth + parity contract:
+  // see `apps/venus/src/design-system/owner-profiling-bands.ts` and the
+  // Mercury mirror.
+  const tw = OP_BAND_TAILWIND[band] ?? OP_BAND_TAILWIND.neutral
+  return {
+    box: `${tw.border} ${tw.bg}`,
+    text: tw.text,
   }
 }
 

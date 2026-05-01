@@ -51,6 +51,7 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { writeCapitalHistoryPrefill } from '@/utils/capitalHistoryPrefill'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PresetPicker } from './PresetPicker'
 
@@ -92,8 +93,54 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   const stage = useStartupValuationStore((s) => s.stage)
   const raise = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
+  // Traction signals — used to surface a "you might want SaaS valuation
+  // instead" nudge when a seed-stage founder already has meaningful
+  // recurring revenue.  Pre-seed never trips this (Berkus-heavy is
+  // correct for them); Series A already has its own banner.
+  const mrr = useStartupValuationStore((s) => s.mrr)
+  const arr = useStartupValuationStore((s) => s.arr)
+  // Dilution-to-exit assumption — captured on the studio store and
+  // forwarded to the SaaS path via the Studio→SaaS prefill snapshot
+  // (sessionStorage) so a founder who's already typed it in the studio
+  // doesn't have to re-enter it on the SaaS form's
+  // ``CapitalHistorySection``.
+  const dilution = useStartupValuationStore((s) => s.dilution_assumption_pct)
   const setField = useStartupValuationStore((s) => s.setField)
   const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
+
+  /**
+   * Persist the studio-side round size + dilution assumption so the
+   * SaaS form on the redirect target can prefill its
+   * ``CapitalHistorySection`` without the founder typing the same
+   * numbers twice.  Both the Series A banner and the seed-with-revenue
+   * nudge call this on click — ``CapitalHistorySection`` reads-and-clears
+   * the snapshot on mount.
+   *
+   * Returning ``true`` so the caller can chain it inline on the anchor's
+   * onClick without React fussing over an unused expression.  We never
+   * preventDefault — the navigation must still happen.
+   */
+  const handleSaasRedirectClick = (): true => {
+    writeCapitalHistoryPrefill({
+      round_amount: typeof raise === 'number' && raise > 0 ? raise : null,
+      dilution_pct: typeof dilution === 'number' && dilution > 0 ? dilution : null,
+      source: 'studio',
+    })
+    return true
+  }
+
+  // Materially recurring revenue threshold for the seed nudge.
+  //   - €10k MRR ≈ €120k ARR — the empirical pivot point where ARR
+  //     multiples start producing tighter, more defensible numbers
+  //     than the Berkus / VC-method blend.
+  //   - We accept either MRR or ARR so that founders who only filled
+  //     one of the two still get the prompt.
+  const SEED_NUDGE_MRR_THRESHOLD = 10_000
+  const SEED_NUDGE_ARR_THRESHOLD = 120_000
+  const seedHasMaterialRevenue =
+    stage === 'seed' &&
+    ((typeof mrr === 'number' && mrr >= SEED_NUDGE_MRR_THRESHOLD) ||
+      (typeof arr === 'number' && arr >= SEED_NUDGE_ARR_THRESHOLD))
 
   // Identity bridge — every field here writes to the Manual store so
   // `buildStartupValuationRequest` (called server-side by the report
@@ -459,6 +506,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
                   comp-based getal is{' '}
                   <a
                     href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    onClick={handleSaasRedirectClick}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
                   >
                     de standaard SaaS-waardering
@@ -471,11 +519,49 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
                   comp-based number, the{' '}
                   <a
                     href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    onClick={handleSaasRedirectClick}
                     className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
                   >
                     standard SaaS valuation
                   </a>{' '}
                   is often more precise. Come back here for the cap-table simulation.
+                </>
+              )}
+            </div>
+          )}
+          {seedHasMaterialRevenue && (
+            <div className="mt-3 rounded-lg border border-sky-300/50 bg-sky-50/60 p-3 text-[11px] leading-relaxed text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200">
+              {locale === 'nl' ? (
+                <>
+                  Met €
+                  {Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10}
+                  k MRR zit je al in het post-revenue seed-segment. Veel investeerders
+                  vragen op dit niveau om een{' '}
+                  <a
+                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    onClick={handleSaasRedirectClick}
+                    className="font-semibold underline underline-offset-2 hover:text-sky-900 dark:hover:text-sky-100"
+                  >
+                    standaard SaaS-waardering
+                  </a>{' '}
+                  als cross-check op het Berkus + VC blend. Studio v2 blijft de juiste
+                  keuze als je narratief wilt onderbouwen — gebruik beide.
+                </>
+              ) : (
+                <>
+                  At €
+                  {Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10}
+                  k MRR you're already in the post-revenue seed segment. Most
+                  investors at this level expect the{' '}
+                  <a
+                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
+                    onClick={handleSaasRedirectClick}
+                    className="font-semibold underline underline-offset-2 hover:text-sky-900 dark:hover:text-sky-100"
+                  >
+                    standard SaaS valuation
+                  </a>{' '}
+                  as a cross-check on the Berkus + VC blend. Studio v2 stays the
+                  right call for narrative defensibility — run both.
                 </>
               )}
             </div>

@@ -13,14 +13,29 @@
  *     - blended pre-money (from `useLiveValuation`)
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import {
+  type StartupStage,
+  useStartupValuationStore,
+} from '@/store/manual/useStartupValuationStore'
+
+// Stage-aware total dilution from now → exit.  Anchored on the
+// canonical Atomico SoEU 2024 / Dealroom Benelux 2024 ranges:
+// pre-seed → exit typically eats ~70%, seed → exit ~60%, Series A
+// → exit ~50% (depends on how many priced rounds remain).  These are
+// the "founder shouldn't have to predict the future" defaults — the
+// number is exposed in case advisors want to tighten it.
+const DILUTION_DEFAULT_PCT: Record<StartupStage, number> = {
+  pre_seed: 70,
+  seed: 60,
+  series_a: 50,
+}
 
 interface RoundSimulatorStepProps {
   locale?: 'en' | 'nl'
@@ -46,6 +61,17 @@ export function RoundSimulatorStep({
   const addSafeNote = useStartupValuationStore((s) => s.addSafeNote)
   const updateSafeNote = useStartupValuationStore((s) => s.updateSafeNote)
   const removeSafeNote = useStartupValuationStore((s) => s.removeSafeNote)
+
+  // Stage-aware dilution prefill — founders coming in fresh shouldn't
+  // have to predict Seed + A + B + C dilution math from a blank field.
+  // We seed the canonical default for the picked stage on mount + when
+  // the founder switches stage; their typed override is preserved.
+  const stageDefaultDilution = DILUTION_DEFAULT_PCT[stage]
+  useEffect(() => {
+    if (dilution == null) {
+      setField('dilution_assumption_pct', stageDefaultDilution)
+    }
+  }, [dilution, stageDefaultDilution, setField])
 
   const [roundType, setRoundType] = useState<RoundType>(
     capTable.safe_notes.length > 0 ? 'safe' : 'priced'
@@ -108,21 +134,34 @@ export function RoundSimulatorStep({
                   : "Leave blank to use our blended valuation. Only fill in if you've already agreed a pre-money with a lead investor."
               }
             />
-            <AdaptivePercentInput
-              label={
-                locale === 'nl'
-                  ? 'Totale verwatering tot exit (%)'
-                  : 'Total dilution from now to exit (%)'
-              }
-              value={dilution ?? undefined}
-              onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
-              placeholder="70"
-              description={
-                locale === 'nl'
-                  ? 'Som van alle toekomstige rondes (deze + Seed + A + B + …). Typisch 70% voor Pre-seed → exit; 50% als je al bij Series A start.'
-                  : 'Sum of every future round (this one + Seed + A + B + …). Typical: 70% from pre-seed → exit; 50% if you start at Series A.'
-              }
-            />
+            <div>
+              <AdaptivePercentInput
+                label={
+                  locale === 'nl'
+                    ? 'Totale verwatering tot exit (%) — optioneel'
+                    : 'Total dilution from now to exit (%) — optional'
+                }
+                value={dilution ?? undefined}
+                onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
+                placeholder={String(stageDefaultDilution)}
+                description={
+                  locale === 'nl'
+                    ? `Niet zeker? Laat ${stageDefaultDilution}% staan — dat is de mediaan voor ${stage.replace('_', ' ')} → exit (Atomico SoEU 2024 · Dealroom Benelux 2024). Wijzig alleen als je een specifieke fundraising-roadmap hebt.`
+                    : `Not sure? Leave ${stageDefaultDilution}% — it's the median for ${stage.replace('_', ' ')} → exit (Atomico SoEU 2024 · Dealroom Benelux 2024). Only change this if you have a specific fundraising roadmap.`
+                }
+              />
+              {dilution != null && Math.abs(dilution - stageDefaultDilution) > 0.5 && (
+                <button
+                  type="button"
+                  onClick={() => setField('dilution_assumption_pct', stageDefaultDilution)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-background px-2.5 py-1 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary"
+                >
+                  {locale === 'nl'
+                    ? `Gebruik stage default · ${stageDefaultDilution}%`
+                    : `Use stage default · ${stageDefaultDilution}%`}
+                </button>
+              )}
+            </div>
             <AdaptivePercentInput
               label={locale === 'nl' ? 'Option pool (%)' : 'Option pool (%)'}
               value={optionPoolPct}

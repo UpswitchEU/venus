@@ -27,4 +27,17 @@ describe('buildPreservedReportBootstrapQueryString', () => {
     })
     expect(q).toBe('?flow=startup&studio=legacy')
   })
+
+  it('preserves prefill_from=landing alongside selected_method=startup_valuation', () => {
+    // The anonymous landing → authenticated handoff hinges on this
+    // exact param surviving the /[locale]/reports/new redirect.  Drop
+    // ``prefill_from`` from the allowlist by accident and the auth
+    // bootstrap will never know to consume the localStorage handoff,
+    // and the founder lands in a blank wizard.
+    const q = buildPreservedReportBootstrapQueryString({
+      selected_method: 'startup_valuation',
+      prefill_from: 'landing',
+    })
+    expect(q).toBe('?selected_method=startup_valuation&prefill_from=landing')
+  })
 })
