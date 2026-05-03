@@ -54,7 +54,8 @@ const MAX_DURATION_RE =
 /** Default ceiling — most Venus BFF proxies stay at or below this. */
 const MAX_DURATION_CEILING = 120;
 
-const MAX_DURATION_HARD_CEILING = 900;
+/** Matches Vercel Pro/Enterprise Node max (fluid compute); higher literals fail deployment. */
+const MAX_DURATION_HARD_CEILING = 800;
 
 /**
  * Routes intentionally above {@link MAX_DURATION_CEILING}.
@@ -62,7 +63,7 @@ const MAX_DURATION_HARD_CEILING = 900;
  * - Normalization catch-all: Titan + ValuationIQ can exceed 120s on heavy saves.
  */
 const MAX_DURATION_EXCEPTIONS: ReadonlyMap<string, number> = new Map([
-	['app/api/normalization/[[...path]]/route.ts', 900],
+	['app/api/normalization/[[...path]]/route.ts', 800],
 ]);
 
 /** Venus keeps all API routes on Node until an Edge-only pathway is justified. */
