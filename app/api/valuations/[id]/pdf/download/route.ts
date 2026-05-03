@@ -10,6 +10,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 120
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

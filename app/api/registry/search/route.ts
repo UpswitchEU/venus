@@ -14,6 +14,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { REGISTRY_SEARCH_PROXY_TIMEOUT_MS } from '@/services/registry/types'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 25
+
 export async function POST(request: NextRequest) {
   const parentSignal = request.signal
 

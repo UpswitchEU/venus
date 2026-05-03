@@ -73,6 +73,8 @@ function staticRows(region: string | null, stage: string | null, sector: string 
 }
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 15
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)

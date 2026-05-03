@@ -20,6 +20,10 @@ import {
   extractClientContextFromHeaders,
 } from '../../../src/constants/headers'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30
+
 const TIMEOUT_MS = 15_000 // 15s per request (includes potential token refresh)
 
 /**

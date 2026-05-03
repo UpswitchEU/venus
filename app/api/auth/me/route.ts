@@ -22,6 +22,7 @@ import { generalLogger } from '@/utils/logger'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 /** Room for refresh + GET /me BFF→Titan when only refresh cookie is present. */
 export const maxDuration = 30
 

@@ -71,26 +71,27 @@ export function hydratedRevenueMethodKeysAreSameRef(
  * Order: top-level → `report_context` → `details` → `details.report_context`.
  */
 export function resolveSelectedValuationMethodForExtraction(
-  valuationResult: Record<string, unknown> | null | undefined
+  valuationResult: unknown
 ): string | null {
   if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
     return null
   }
+  const root = valuationResult as Record<string, unknown>
   const pick = (v: unknown): string | null => {
     if (typeof v === 'string' && v.trim()) return v.trim()
     return null
   }
 
-  const direct = pick(valuationResult['selected_valuation_method'])
+  const direct = pick(root['selected_valuation_method'])
   if (direct) return direct
 
-  const rc = valuationResult['report_context']
+  const rc = root['report_context']
   if (rc && typeof rc === 'object' && !Array.isArray(rc)) {
     const fromRc = pick((rc as Record<string, unknown>)['selected_valuation_method'])
     if (fromRc) return fromRc
   }
 
-  const details = valuationResult['details']
+  const details = root['details']
   if (details && typeof details === 'object' && !Array.isArray(details)) {
     const d = details as Record<string, unknown>
     const fromDetails = pick(d['selected_valuation_method'])
@@ -694,17 +695,18 @@ export function extractValuationResultsMap(
  * Prefer this over ad-hoc context objects so Manual layout, stores, sessions, and benchmarks stay aligned.
  */
 export function hydrateClientValuationResultsMap(
-  valuationResult: Record<string, any> | null | undefined,
+  valuationResult: unknown,
   options?: HydrateClientValuationResultsOptions | null
 ): Record<string, ValuationMethodResult> | null {
   if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
     return null
   }
+  const vr = valuationResult as Record<string, any>
   const selectedValuationMethod =
     options?.selectedValuationMethodOverride ??
-    resolveSelectedValuationMethodForExtraction(valuationResult as Record<string, unknown>) ??
-    valuationResult.selected_valuation_method
-  const map = extractValuationResultsMap(valuationResult, {
+    resolveSelectedValuationMethodForExtraction(valuationResult) ??
+    vr.selected_valuation_method
+  const map = extractValuationResultsMap(vr, {
     selectedValuationMethod: selectedValuationMethod,
   })
   return (map as Record<string, ValuationMethodResult> | null) ?? null

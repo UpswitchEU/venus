@@ -147,9 +147,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
-    const valuationResults = result
-      ? hydrateClientValuationResultsMap(result as unknown as Record<string, any>)
-      : null
+    const valuationResults = result ? hydrateClientValuationResultsMap(result) : null
     if (!valuationResults) return null
     return getValuationMethodResultForKey(valuationResults, selectedMethod) ?? null
   },
@@ -250,11 +248,8 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
     set((state) => {
       if (result) {
         const selectedForCtx =
-          resolveSelectedValuationMethodForExtraction(result as unknown as Record<string, unknown>) ??
-          result.selected_valuation_method
-        const hydratedValuationResults = hydrateClientValuationResultsMap(
-          result as unknown as Record<string, any>
-        )
+          resolveSelectedValuationMethodForExtraction(result) ?? result.selected_valuation_method
+        const hydratedValuationResults = hydrateClientValuationResultsMap(result)
         const hydratedMethodFromPayload =
           typeof selectedForCtx === 'string' && selectedForCtx.trim() ? selectedForCtx.trim() : null
         const hydratedSelectedMethod =

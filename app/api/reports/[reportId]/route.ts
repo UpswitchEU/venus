@@ -4,6 +4,8 @@ import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 30
 
 export async function DELETE(request: NextRequest, { params }: { params: { reportId: string } }) {
   try {

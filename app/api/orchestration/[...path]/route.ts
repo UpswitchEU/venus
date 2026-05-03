@@ -22,6 +22,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30
+
 const TITAN_API_URL = (() => {
   const url = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
   if (!url) {

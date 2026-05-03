@@ -16,6 +16,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 120
+
 function getClientContextHeadersForTitan(request: NextRequest): Record<string, string> {
   const headers: Record<string, string> = {}
   const clientUserId =

@@ -379,7 +379,7 @@ function getHydratedValuationResults(
     | null
     | undefined
 ) {
-  return hydrateClientValuationResultsMap(result as Record<string, any> | null | undefined)
+  return hydrateClientValuationResultsMap(result)
 }
 
 function serializePreparerPayload(
@@ -2692,7 +2692,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // once per run key.
   useEffect(() => {
     if (!result) return
-    const runKey = valuationResultRunKey(result as unknown as Record<string, unknown>)
+    const runKey = valuationResultRunKey(result)
     const warnings = getDataQualityWarningsFromResult(result)
     const hasActionableHigh = warnings.some(
       (w) =>
@@ -2739,7 +2739,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     if (!blocker) return
 
-    const runKey = valuationResultRunKey(result as unknown as Record<string, unknown>)
+    const runKey = valuationResultRunKey(result)
     if (runKey === lastSynthesisBlendSkippedRunKeyRef.current) return
     lastSynthesisBlendSkippedRunKeyRef.current = runKey
 

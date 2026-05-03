@@ -22,6 +22,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { CLIENT_CONTEXT_HEADERS, extractClientContextFromHeaders } from '@/constants/headers'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -32,9 +35,9 @@ const TITAN_API_URL =
  * Reads stay shorter so the edge pool is not wedged by slow GETs.
  *
  * Override without code changes:
- * - NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS — Next.js `maxDuration` for this route (default 120, clamped 10–900).
- * - NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS (default 120_000) — automatically capped to segment max × 1000 ms.
- * - NORMALIZATION_PROXY_READ_TIMEOUT_MS (default 30_000) — capped to segment max × 1000 ms
+ * - NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS — clamps proxy timeouts below (default 120s, 10–900). Source `maxDuration` must remain a numeric literal for Next.js.
+ * - NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS (default 120_000) — capped to ROUTE_SEGMENT_MAX_SECONDS × 1000 ms.
+ * - NORMALIZATION_PROXY_READ_TIMEOUT_MS (default 30_000) — capped to ROUTE_SEGMENT_MAX_SECONDS × 1000 ms
  */
 function parseTimeoutMs(envKey: string, fallback: number): number {
   const raw = process.env[envKey]
@@ -56,7 +59,7 @@ const ROUTE_SEGMENT_MAX_SECONDS = Math.min(
   Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120)),
 )
 
-/** Next.js route `maxDuration` must be a static literal. Match upper clamp below so proxy timeouts cannot exceed declared wall-clock. */
+/** Next.js segment `maxDuration` must be a static literal ≤ this value (aligned with ROUTE_SEGMENT_MAX_SECONDS upper clamp). */
 export const maxDuration = 900
 
 const NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS = Math.min(
