@@ -502,6 +502,28 @@ export const getSeedBaseFilingYear = (
 }
 
 /**
+ * A session is "stale-seeded" when it carries a confirmed `current_year_data.year`
+ * older than the live filing year *and no real numbers have been entered yet*.
+ * This happens to sessions started in Jan–Mar (when {@link getCurrentFilingYear}
+ * returns `year − 2`) that were never edited before the April rollover: their
+ * persisted year sticks at e.g. 2024 even though by May it should be 2025.
+ *
+ * On detection, the seed wrappers regenerate `yearlyFinancials`, bump
+ * `current_year_data.year`, and clear `filingYearConfirmed` so the
+ * {@link FilingYearPrompt} re-appears and the user can re-confirm (or pick
+ * "Other" to keep the older year deliberately).
+ */
+export const isSessionSeedYearStale = (
+  initialData: Partial<ValuationFormData>,
+  now: Date = new Date()
+): boolean => {
+  if (sessionHasNonPlaceholderFinancials(initialData)) return false
+  const explicitYear = Number(initialData.current_year_data?.year)
+  if (!Number.isFinite(explicitYear) || explicitYear < 2000) return false
+  return explicitYear < getCurrentFilingYear(now)
+}
+
+/**
  * Merge `current_year_data` and `historical_years_data` (the bootstrap-prefill /
  * Mercury-sync surface) into a `yearlyFinancials` array (what the panel and the
  * normalization modal's Origineel/Genormaliseerd tiles read from). Defense-in-depth
@@ -575,6 +597,12 @@ export const getSeedYearlyFinancials = (
   initialData: Partial<ValuationFormData>,
   now: Date = new Date()
 ): YearlyFinancials[] => {
+  // Stale Jan–Mar seed (confirmed older year, no real numbers yet) — regenerate
+  // from the live filing year so the panel's "Basis" matches the calendar.
+  if (isSessionSeedYearStale(initialData, now)) {
+    return generateDefaultYearlyFinancials(getCurrentFilingYear(now))
+  }
+
   const initialYearlyFinancials = initialData.yearlyFinancials
   const initialIsArray =
     Array.isArray(initialYearlyFinancials) && initialYearlyFinancials.length > 0
@@ -601,15 +629,26 @@ export const getSeedYearlyFinancials = (
 }
 
 const getSeedCurrentYearData = (
-  initialData: Partial<ValuationFormData>
+  initialData: Partial<ValuationFormData>,
+  now: Date = new Date()
 ): YearDataInput | undefined => {
   if (!initialData.current_year_data) {
     return undefined
   }
 
+  // Stale Jan–Mar seed (see isSessionSeedYearStale) — bump to the live filing
+  // year so the "current year" base label matches the freshly regenerated
+  // yearlyFinancials rows.
+  if (isSessionSeedYearStale(initialData, now)) {
+    return {
+      ...initialData.current_year_data,
+      year: getCurrentFilingYear(now),
+    }
+  }
+
   return {
     ...initialData.current_year_data,
-    year: getSeedBaseFilingYear(initialData),
+    year: getSeedBaseFilingYear(initialData, now),
   }
 }
 
@@ -617,6 +656,11 @@ export const shouldAutoConfirmPrefilledFilingYear = (
   initialData: Partial<ValuationFormData>,
   currentFilingYear: number
 ): boolean => {
+  // Stale Jan–Mar seed must NOT auto-confirm — the panel resets
+  // `filingYearConfirmed` to false on mount so the prompt re-appears, and this
+  // effect would otherwise immediately flip it back to true and re-hide it.
+  if (isSessionSeedYearStale(initialData)) return false
+
   const explicitInitialYear = Number(initialData.current_year_data?.year)
 
   return (
@@ -697,7 +741,11 @@ export function ManualInputPanel({
       initialData.filingYearConfirmed
     ),
     forecast_years_data: initialData.forecast_years_data,
-    filingYearConfirmed: isFilingYearConfirmedValue(initialData.filingYearConfirmed),
+    // Stale Jan–Mar seed → drop persisted confirmation so FilingYearPrompt
+    // re-appears with the bumped (live) filing year as the new default.
+    filingYearConfirmed: isSessionSeedYearStale(initialData)
+      ? false
+      : isFilingYearConfirmedValue(initialData.filingYearConfirmed),
     dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)

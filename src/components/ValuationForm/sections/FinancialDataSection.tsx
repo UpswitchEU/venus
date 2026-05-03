@@ -200,11 +200,13 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           return { normalizations: remainingLegacy }
         })
         await persistUnifiedToSession(sessionId)
-        await Promise.all(
-          availableYears.map((persistYear) =>
-            persistUnifiedToTitan(sessionId, persistYear, reportedEbitdaByYear[persistYear] ?? 0)
+        for (const persistYear of availableYears) {
+          await persistUnifiedToTitan(
+            sessionId,
+            persistYear,
+            reportedEbitdaByYear[persistYear] ?? 0
           )
-        )
+        }
         return
       }
       await removeNormalization(sessionId, year)

@@ -5,6 +5,8 @@ import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
   getSelectedBelgianAuditEntries,
+  isSessionSeedYearStale,
+  shouldAutoConfirmPrefilledFilingYear,
   shouldShowImportedAccountingSummary,
 } from '../ManualInputPanel'
 
@@ -39,12 +41,12 @@ describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)
     expect(base).toBe(2024)
   })
 
-  it('keeps an explicit year when filing year is confirmed (even if all-zero)', () => {
+  it('keeps a confirmed older year when real revenue is present (intentional choice)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-22T12:00:00.000Z'))
     const base = getSeedBaseFilingYear(
       {
-        current_year_data: { year: 2024, revenue: 0, ebitda: 0 },
+        current_year_data: { year: 2024, revenue: 100_000, ebitda: 0 },
         filingYearConfirmed: true,
       },
       new Date()
@@ -68,6 +70,111 @@ describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)
     )
     const fy = getCurrentFilingYear(now)
     expect(yf.map((r) => r.year)).toEqual([String(fy), String(fy - 1), String(fy - 2)])
+  })
+})
+
+describe('isSessionSeedYearStale (Jan–Mar 2026 → April rollover heal)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('flags a confirmed prior year with no real numbers as stale', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    expect(
+      isSessionSeedYearStale(
+        {
+          current_year_data: { year: 2024, revenue: 0, ebitda: 0 },
+          filingYearConfirmed: true,
+        },
+        now
+      )
+    ).toBe(true)
+  })
+
+  it('does NOT flag stale when real revenue has been entered', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    expect(
+      isSessionSeedYearStale(
+        {
+          current_year_data: { year: 2024, revenue: 100_000, ebitda: 0 },
+          filingYearConfirmed: true,
+        },
+        now
+      )
+    ).toBe(false)
+  })
+
+  it('does NOT flag stale when saved year matches live filing year', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    expect(
+      isSessionSeedYearStale(
+        {
+          current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+          filingYearConfirmed: true,
+        },
+        now
+      )
+    ).toBe(false)
+  })
+
+  it('does NOT flag stale when no current_year_data is persisted', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    expect(
+      isSessionSeedYearStale({ filingYearConfirmed: true }, now)
+    ).toBe(false)
+  })
+})
+
+describe('getSeedYearlyFinancials heals stale Jan–Mar seed', () => {
+  it('regenerates rows around the live filing year when persisted year is stale', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    const yf = getSeedYearlyFinancials(
+      {
+        current_year_data: { year: 2024, revenue: 0, ebitda: 0 },
+        yearlyFinancials: [
+          { year: '2024', revenue: 0, ebitda: 0 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+          { year: '2022', revenue: 0, ebitda: 0 },
+        ],
+        filingYearConfirmed: true,
+      },
+      now
+    )
+    const fy = getCurrentFilingYear(now)
+    // Heals to live filing year even though session had filingYearConfirmed=true
+    expect(yf.map((r) => r.year)).toEqual([String(fy), String(fy - 1), String(fy - 2)])
+  })
+})
+
+describe('shouldAutoConfirmPrefilledFilingYear refuses to re-confirm stale seed', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns false for a stale (confirmed but data-less older year) initialData', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-03T12:00:00.000Z'))
+    const result = shouldAutoConfirmPrefilledFilingYear(
+      {
+        current_year_data: { year: 2024, revenue: 0, ebitda: 0 },
+        filingYearConfirmed: true,
+      },
+      getCurrentFilingYear()
+    )
+    expect(result).toBe(false)
+  })
+
+  it('still returns true when real revenue exists', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-03T12:00:00.000Z'))
+    const result = shouldAutoConfirmPrefilledFilingYear(
+      {
+        current_year_data: { year: 2024, revenue: 100_000, ebitda: 0 },
+        filingYearConfirmed: true,
+      },
+      getCurrentFilingYear()
+    )
+    expect(result).toBe(true)
   })
 })
 

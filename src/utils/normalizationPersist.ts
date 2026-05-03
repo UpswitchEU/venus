@@ -11,8 +11,8 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { getCurrentFilingYear } from './fiscalYear'
-import { isValidSessionId } from './sessionIdValidation'
 import { appliesToYear } from './normalizationMath'
+import { isValidSessionId } from './sessionIdValidation'
 
 /** Request shape with financial years (from buildValuationRequest output) */
 interface RequestWithYears {
@@ -58,8 +58,10 @@ export async function persistNormalizationsBeforeCalculate(
   // using that would double-apply adjustments when persisting to Titan.
   const originalEBITDAByYear: Record<number, number> = {}
   const safeEbitda = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
-  const getReportedEbitda = (yd: { ebitda?: number; ebitda_normalization_metadata?: { reported_ebitda?: number } }) =>
-    safeEbitda(yd?.ebitda_normalization_metadata?.reported_ebitda ?? yd?.ebitda)
+  const getReportedEbitda = (yd: {
+    ebitda?: number
+    ebitda_normalization_metadata?: { reported_ebitda?: number }
+  }) => safeEbitda(yd?.ebitda_normalization_metadata?.reported_ebitda ?? yd?.ebitda)
   if (cyd?.year != null) originalEBITDAByYear[cyd.year] = getReportedEbitda(cyd)
   for (const h of hy) {
     if (h?.year != null) originalEBITDAByYear[h.year] = getReportedEbitda(h)
@@ -104,17 +106,19 @@ export async function persistOrDeleteNormalizationsForYears(
   const { normalizationService } = await import('../services/ebitdaNormalizationService')
   const { persistToTitan } = useNormalizationStore.getState()
 
-  await Promise.all(
-    years.map((year) => {
-      const hasAcceptedForYear = norms.some((n) => appliesToYear(n, year))
-      if (hasAcceptedForYear) {
-        return persistToTitan(
-          reportId,
-          year,
-          Number.isFinite(originalEBITDAByYear[year]) ? originalEBITDAByYear[year]! : 0
-        )
+  // Serialize per-year calls: Titan advisory-locks normalization by sessionKey;
+  // parallel requests still hold DB pool connections while waiting → pool starvation / 500s.
+  for (const year of years) {
+    const hasAcceptedForYear = norms.some((n) => appliesToYear(n, year))
+    if (hasAcceptedForYear) {
+      const rawReported = originalEBITDAByYear[year]
+      await persistToTitan(reportId, year, Number.isFinite(rawReported) ? rawReported : 0)
+    } else {
+      try {
+        await normalizationService.deleteNormalization(reportId, year)
+      } catch {
+        // best-effort delete (e.g. no row yet)
       }
-      return normalizationService.deleteNormalization(reportId, year).catch(() => undefined)
-    })
-  )
+    }
+  }
 }

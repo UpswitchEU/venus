@@ -19,6 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+
 import { CLIENT_CONTEXT_HEADERS, extractClientContextFromHeaders } from '@/constants/headers'
 
 const TITAN_API_URL =
@@ -26,7 +27,52 @@ const TITAN_API_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api.upswitch.app'
 
-const TIMEOUT_MS = 10_000 // 10s
+/**
+ * Saves/deletes can block on Titan → ValuationIQ re-render (~60s+ on the PDF/HTML path).
+ * Reads stay shorter so the edge pool is not wedged by slow GETs.
+ *
+ * Override without code changes:
+ * - NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS — Next.js `maxDuration` for this route (default 120, clamped 10–900).
+ * - NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS (default 120_000) — automatically capped to segment max × 1000 ms.
+ * - NORMALIZATION_PROXY_READ_TIMEOUT_MS (default 30_000) — capped to segment max × 1000 ms
+ */
+function parseTimeoutMs(envKey: string, fallback: number): number {
+  const raw = process.env[envKey]
+  if (raw == null || raw === '') return fallback
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+function parsePositiveSeconds(envKey: string, fallbackSeconds: number): number {
+  const raw = process.env[envKey]
+  if (raw == null || raw === '') return fallbackSeconds
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : fallbackSeconds
+}
+
+/** Aligns with Next.js / Vercel serverless wall-clock for this route segment. */
+const ROUTE_SEGMENT_MAX_SECONDS = Math.min(
+  900,
+  Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120)),
+)
+
+export const maxDuration = ROUTE_SEGMENT_MAX_SECONDS
+
+const NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS = Math.min(
+  parseTimeoutMs('NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS', 120_000),
+  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+)
+const NORMALIZATION_PROXY_READ_TIMEOUT_MS = Math.min(
+  parseTimeoutMs('NORMALIZATION_PROXY_READ_TIMEOUT_MS', 30_000),
+  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+)
+
+function proxyTimeoutMsForMethod(method: string): number {
+  if (method === 'POST' || method === 'DELETE' || method === 'PUT' || method === 'PATCH') {
+    return NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS
+  }
+  return NORMALIZATION_PROXY_READ_TIMEOUT_MS
+}
 
 /**
  * Build Titan URL from the catch-all path segments.
@@ -79,7 +125,8 @@ async function proxyToTitan(
   method: string
 ): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timeoutMs = proxyTimeoutMsForMethod(method)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const path = params.path ?? []

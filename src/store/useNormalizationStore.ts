@@ -7,7 +7,7 @@
  *
  * Persistence:
  * - Auto-syncs to session JSONB (debounced 300ms)
- * - Persists to Titan API on accept/reject (serialized per year)
+ * - Persists to Titan API on accept/reject (sequential multi-year persists; mutations serialized per session in the API client)
  * - Loads from Titan API on session restoration
  * - Flushes on beforeunload (localStorage fallback) and visibilitychange (tab hidden)
  *
@@ -167,7 +167,8 @@ function getToastMessage(key: ToastMessageKey, error?: unknown): string {
 
 // ─────────────────────────────────────────
 // PERSISTENCE GUARDS
-// Prevent concurrent persist operations and data loss.
+// Session-jsonb autosave (debounced) only. Titan normalization POST/DELETE serialization
+// lives in ../utils/normalizationTitanMutationGate (via EbitdaNormalizationService).
 // ─────────────────────────────────────────
 
 let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
@@ -175,38 +176,6 @@ let isSessionPersistInFlight = false
 let pendingSessionReportId: string | null = null
 /** When visibilitychange flush hits an in-flight persist, we defer to run again after it completes */
 let pendingVisibilityFlushReportId: string | null = null
-
-const titanPersistQueue = new Map<string, Promise<void>>()
-
-function getTitanQueueKey(reportId: string, year: number) {
-  return `${reportId}:${year}`
-}
-
-/**
- * Serialize Titan persist calls per reportId+year.
- * If a persist is already in-flight for this key, the new call waits for it to finish
- * then runs with the latest state (preventing stale-state overwrites).
- *
- * NOTE: Session persist (debounced) and Titan persist (on accept/reject) are independent
- * and can run concurrently — both write to different backends.
- */
-async function serializedPersistToTitan(
-  reportId: string,
-  year: number,
-  fn: () => Promise<void>
-): Promise<void> {
-  const key = getTitanQueueKey(reportId, year)
-  const prev = titanPersistQueue.get(key) ?? Promise.resolve()
-  const next = prev.then(fn, fn)
-  titanPersistQueue.set(key, next)
-  try {
-    await next
-  } finally {
-    if (titanPersistQueue.get(key) === next) {
-      titanPersistQueue.delete(key)
-    }
-  }
-}
 
 // ─────────────────────────────────────────
 // STORE
@@ -310,8 +279,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       persistToTitan: async (reportId, year, reportedEbitda) => {
         if (!reportId || !isValidSessionId(reportId)) return
-        await serializedPersistToTitan(reportId, year, async () => {
-          try {
+        try {
           const { items } = get()
           set({ isSaving: true, lastFailedPersist: null })
           const doPersist = async (): Promise<void> => {
@@ -417,15 +385,14 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 error: err instanceof Error ? err.message : String(err),
               })
             })
-          } finally {
-            set({ isSaving: false })
-            if (pendingVisibilityFlushReportId) {
-              const next = pendingVisibilityFlushReportId
-              pendingVisibilityFlushReportId = null
-              void runSessionPersist(next)
-            }
+        } finally {
+          set({ isSaving: false })
+          if (pendingVisibilityFlushReportId) {
+            const next = pendingVisibilityFlushReportId
+            pendingVisibilityFlushReportId = null
+            void runSessionPersist(next)
           }
-        })
+        }
       },
 
       retryPersist: async () => {
@@ -447,15 +414,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         )
         if (yearsToPersist.length === 0) return
 
-        await Promise.all(
-          yearsToPersist.map((year) =>
-            persistYear(reportId, year, originalEBITDAByYear[year] ?? 0)
-          )
-        )
+        for (const year of yearsToPersist) {
+          await persistYear(reportId, year, originalEBITDAByYear[year] ?? 0)
+        }
       },
 
       loadFromTitan: async (sessionId) => {
-        if (!sessionId) return
+        if (!sessionId || !isValidSessionId(sessionId)) return
         set({ isLoading: true })
         try {
           const { normalizationService } = await import('../services/ebitdaNormalizationService')

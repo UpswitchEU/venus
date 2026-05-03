@@ -5,6 +5,9 @@
  * This store is retained for backward compatibility with ValuationForm components.
  * The primary normalization flow (ManualLayout, NormalizationHub, UnifiedNormalizationModal)
  * now uses the unified `useNormalizationStore` in `store/useNormalizationStore.ts`.
+ * This store mirrors the same Titan id contract: skip server load/save/delete when
+ * `!isValidSessionId(sessionId)` so ValuationForm and integrations behave like
+ * `normalizationPersist` / `normalizationSnapshot` until a durable report id exists.
  *
  * Manages state for EBITDA normalization feature
  * Supports optimistic updates, market rate suggestions, and session persistence
@@ -23,6 +26,7 @@ import {
 } from '../types/ebitdaNormalization'
 import { dateLikeToUnixMs } from '../utils/date-like'
 import { generalLogger } from '../utils/logger'
+import { isValidSessionId } from '../utils/sessionIdValidation'
 
 function safeNum(n: number | undefined | null): number {
   return Number.isFinite(n) ? (n as number) : 0
@@ -123,14 +127,16 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             activeYear: year, // Open modal immediately
           })
 
-          // Async: Try to load actual data from backend (serialized, won't overwrite user edits)
-          loadNormalization(sessionId, year)
-            .then(() => {
-              // Data loaded - loadNormalization only applies if template still virgin
-            })
-            .catch(() => {
-              generalLogger.debug(`No existing normalization for ${year}, using template`)
-            })
+          // Async: load from Titan only when session/report id is durable (same rule as unified store + persist)
+          if (isValidSessionId(sessionId)) {
+            loadNormalization(sessionId, year)
+              .then(() => {
+                // Data loaded - loadNormalization only applies if template still virgin
+              })
+              .catch(() => {
+                generalLogger.debug(`No existing normalization for ${year}, using template`)
+              })
+          }
         } else {
           set({ activeYear: year })
         }
@@ -312,6 +318,12 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         if (!norm) {
           throw new Error(`No normalization found for year ${year}`)
         }
+        if (!isValidSessionId(sessionId)) {
+          throw new NormalizationAPIError(
+            400,
+            'session_id must be 8–128 characters'
+          )
+        }
 
         set({ isSaving: true })
 
@@ -430,6 +442,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const key = `load:${sessionId}:${year}`
         const prev = loadQueue.get(key) ?? Promise.resolve()
         const run = async () => {
+          if (!isValidSessionId(sessionId)) {
+            set({ isLoading: false })
+            return
+          }
           set({ isLoading: true })
           try {
             const response = await normalizationService.getNormalization(sessionId, year)
@@ -506,6 +522,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const key = `loadAll:${sessionId}`
         const prev = loadQueue.get(key) ?? Promise.resolve()
         const run = async () => {
+          if (!isValidSessionId(sessionId)) {
+            set({ isLoading: false })
+            return
+          }
           set({ isLoading: true })
           try {
             const responses = await normalizationService.getAllNormalizations(sessionId)
@@ -593,7 +613,9 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         }
 
         try {
-          await deleteWithRetry()
+          if (isValidSessionId(sessionId)) {
+            await deleteWithRetry()
+          }
           generalLogger.debug('Normalization removed successfully', { year })
         } catch (error) {
           generalLogger.error('Error removing normalization', { error })
