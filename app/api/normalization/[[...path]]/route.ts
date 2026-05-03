@@ -50,13 +50,14 @@ function parsePositiveSeconds(envKey: string, fallbackSeconds: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallbackSeconds
 }
 
-/** Aligns with Next.js / Vercel serverless wall-clock for this route segment. */
+/** Effective segment cap — env override (used for proxy timeouts below). */
 const ROUTE_SEGMENT_MAX_SECONDS = Math.min(
   900,
   Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120)),
 )
 
-export const maxDuration = ROUTE_SEGMENT_MAX_SECONDS
+/** Next.js route `maxDuration` must be a static literal. Match upper clamp below so proxy timeouts cannot exceed declared wall-clock. */
+export const maxDuration = 900
 
 const NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS = Math.min(
   parseTimeoutMs('NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS', 120_000),
