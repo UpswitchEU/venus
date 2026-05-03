@@ -1845,6 +1845,8 @@
 		"pdfStalledBlurb": "The server has not finished updating the downloadable file. You can try generating again or — if available — open the previous PDF.",
 		"pdfRetry": "Generate again",
 		"pdfOpenLastVersion": "Open previous PDF",
+		"synthesisBlendSkippedTitle": "Weighted blend not in this result",
+		"synthesisBlendSkippedDesc": "The engine did not return a blended equity value. One selected method may be unavailable—check Waarderingssynthese or recalculate.",
 		"pdfPollDegradedHint": "Sync with the server failed temporarily. Retrying usually fixes it.",
 		"downloadPdfStaleHint": "Wait until the PDF has finished updating to download the latest version.",
 		"modalEditInputsMissing": "Saved valuation inputs for this report were not found. Run a full calculation in the workspace, or contact support if this persists.",

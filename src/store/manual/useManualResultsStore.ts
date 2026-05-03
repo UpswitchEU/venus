@@ -23,7 +23,11 @@ import {
   sanitizeMethodSelection,
 } from '../../constants/methodFieldConfig'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import {
+  getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+  resolveSelectedValuationMethodForExtraction,
+} from '../../utils/extractValuationResultsMap'
 import { storeLogger } from '../../utils/logger'
 import {
   getFirstRenderableReportHtml,
@@ -144,12 +148,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
     const valuationResults = result
-      ? extractValuationResultsMap(result as Record<string, any>, {
-          selectedValuationMethod: result.selected_valuation_method,
-        })
+      ? hydrateClientValuationResultsMap(result as Record<string, any>)
       : null
     if (!valuationResults) return null
-    return valuationResults[selectedMethod] ?? null
+    return getValuationMethodResultForKey(valuationResults, selectedMethod) ?? null
   },
 
   getEffectiveMethod: () => {
@@ -247,22 +249,24 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
-        const hydratedValuationResults = extractValuationResultsMap(result as Record<string, any>, {
-          selectedValuationMethod: result.selected_valuation_method,
-        })
+        const selectedForCtx =
+          resolveSelectedValuationMethodForExtraction(result as Record<string, unknown>) ??
+          result.selected_valuation_method
+        const hydratedValuationResults = hydrateClientValuationResultsMap(
+          result as Record<string, any>
+        )
         const hydratedMethodFromPayload =
-          typeof result.selected_valuation_method === 'string' &&
-          result.selected_valuation_method.trim()
-            ? result.selected_valuation_method
-            : null
+          typeof selectedForCtx === 'string' && selectedForCtx.trim() ? selectedForCtx.trim() : null
         const hydratedSelectedMethod =
           hydratedMethodFromPayload &&
           hydratedValuationResults &&
-          hydratedMethodFromPayload in hydratedValuationResults
+          getValuationMethodResultForKey(hydratedValuationResults, hydratedMethodFromPayload)
             ? hydratedMethodFromPayload
-            : hydratedValuationResults && state.selectedMethod in hydratedValuationResults
+              : hydratedValuationResults &&
+                getValuationMethodResultForKey(hydratedValuationResults, state.selectedMethod)
               ? state.selectedMethod
-              : hydratedValuationResults && 'upswitch_adaptive' in hydratedValuationResults
+              : hydratedValuationResults &&
+                  getValuationMethodResultForKey(hydratedValuationResults, 'upswitch_adaptive')
                 ? 'upswitch_adaptive'
                 : hydratedValuationResults
                   ? Object.keys(hydratedValuationResults)[0]

@@ -23,7 +23,7 @@ import {
 } from '../../constants/sessionUiKeys'
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -414,9 +414,7 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 
   const scoreCandidate = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
-      selectedValuationMethod: candidate.selected_valuation_method,
-    })
+    const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
     if (valuationResultsCandidate) {
       score += 8
     }

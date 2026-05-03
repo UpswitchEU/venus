@@ -73,7 +73,13 @@ import {
   showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
-import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
+import {
+  isActionableQualityWarningType,
+  isUpfrontMethodAllowedForNav,
+  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
+  type QualityWarningAssistantCtaKey,
+  resolveSynthesisPercentWeightsForMethods,
+} from '../../../constants/methodFieldConfig'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
@@ -156,7 +162,11 @@ import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
-import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
+import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
+import {
+  getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+} from '../../../utils/extractValuationResultsMap'
 import {
   getCurrentFilingYear,
   isFilingYearConfirmedValue,
@@ -174,6 +184,7 @@ import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../ut
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
+import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -368,9 +379,7 @@ function getHydratedValuationResults(
     | null
     | undefined
 ) {
-  return extractValuationResultsMap(result as Record<string, any> | null | undefined, {
-    selectedValuationMethod: result?.selected_valuation_method,
-  })
+  return hydrateClientValuationResultsMap(result as Record<string, any> | null | undefined)
 }
 
 function serializePreparerPayload(
@@ -1295,10 +1304,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [acknowledgedQualityWarnings, setAcknowledgedQualityWarnings] = useState<Set<string>>(
     () => new Set()
   )
-  // Auto-open the assistant the first time a result lands carrying any
-  // high-severity warning. We do this exactly once per result-id so we
-  // don't re-pop the drawer every render.
+  // Auto-open the assistant the first time a result lands carrying a
+  // high-severity **actionable** warning (guided CTA). Generic engine warnings
+  // do not steal focus. Dedupe by `valuationResultRunKey` (not raw id-only)
+  // so fingerprinted runs still behave when `valuation_id` is absent.
   const lastAutoOpenedResultRef = useRef<string | null>(null)
+  const lastSynthesisBlendSkippedRunKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    lastAutoOpenedResultRef.current = null
+    lastSynthesisBlendSkippedRunKeyRef.current = null
+  }, [reportId])
 
   // Load conversation history from server and sync to local chat state.
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
@@ -2132,29 +2148,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const navValuationSummary = React.useMemo(() => {
     if (!report) return undefined
-    const vr = result?.valuation_results as
-      | Record<string, { available: boolean; value?: number | string | null }>
+    const hydrated = getHydratedValuationResults(result) as
+      | Record<string, ValuationMethodResult>
       | undefined
+
     const isMultiMethod =
       preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
 
     let liveBlended: number | null = null
-    if (isMultiMethod && vr && Object.keys(userWeights).length > 0) {
-      const weightTotal = Object.values(userWeights).reduce((s, v) => s + v, 0)
-      if (Math.abs(weightTotal - 100) <= 2) {
-        let sum = 0
-        let ok = true
-        for (const [mk, mw] of Object.entries(userWeights)) {
-          if (mw <= 0) continue
-          const mr = vr[mk]
-          if (!mr?.available || mr.value == null) {
-            ok = false
-            break
-          }
-          sum += Number(mr.value) * (mw / 100)
+    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
+    if (isMultiMethod && hydrated && blendPct && Object.keys(blendPct).length >= 2) {
+      let sum = 0
+      let ok = true
+      for (const m of preSelectedMethods) {
+        const mw = blendPct[m] ?? 0
+        if (mw <= 0) continue
+        const mr = getValuationMethodResultForKey(hydrated, m)
+        const rawVal = mr?.value
+        const n = rawVal == null ? NaN : Number(rawVal)
+        if (!mr?.available || !Number.isFinite(n)) {
+          ok = false
+          break
         }
-        if (ok && sum > 0) liveBlended = Math.round(sum)
+        sum += n * (mw / 100)
       }
+      if (ok && sum > 0 && Number.isFinite(sum)) liveBlended = Math.round(sum)
     }
 
     const serverBlended =
@@ -2176,9 +2194,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [report, result, userWeights, preSelectedMethods])
 
   const synthesisValuationResults = useMemo(() => {
-    const vr = result?.valuation_results as Record<string, ValuationMethodResult> | undefined
-    return vr ?? null
-  }, [result?.valuation_results])
+    return getHydratedValuationResults(result) ?? null
+  }, [result])
 
   // Cap-table simulator React mount removed: the canonical Jinja report
   // (`startup_one_pager.html` + `startup_cap_table.html`) is now the
@@ -2335,8 +2352,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (selectedMethod === prevSelectedMethodRef.current) return
     prevSelectedMethodRef.current = selectedMethod
 
-    const methodData = hydrated[selectedMethod]
-    if (!methodData?.available || methodData.value == null) return
+    const methodData = getValuationMethodResultForKey(
+      hydrated as Record<string, ValuationMethodResult>,
+      selectedMethod
+    )
+    const rawVal = methodData?.value
+    const n = rawVal == null ? NaN : Number(rawVal)
+    if (!methodData?.available || !Number.isFinite(n)) return
     const presentation = deriveManualReportPresentation(result, selectedMethod)
 
     setReport((prev) =>
@@ -2666,29 +2688,65 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [result])
 
   // Pass-7: when a NEW result arrives, clear stale acknowledgements and (if
-  // any high-severity warnings are present) auto-open the assistant exactly
-  // once. This is the proactive surface — the advisor sees the issues
-  // immediately and is guided to resolve them in the chat, not buried on
-  // page 1 of the PDF.
+  // any high-severity **actionable** warnings are present) auto-open the assistant
+  // once per run key.
   useEffect(() => {
     if (!result) return
-    const resultId =
-      ((result as any)?.valuation_id as string | undefined) ||
-      ((result as any)?.id as string | undefined) ||
-      null
-    const warnings = ((result as any)?.data_quality_warnings ?? []) as Array<{
-      severity?: string
-    }>
-    const hasHigh = warnings.some((w) => String(w.severity ?? '').toLowerCase() === 'high')
-    // New result → drop stale acknowledgements (different run, different facts).
-    if (resultId !== lastAutoOpenedResultRef.current) {
+    const runKey = valuationResultRunKey(result as Record<string, unknown>)
+    const warnings = getDataQualityWarningsFromResult(result)
+    const hasActionableHigh = warnings.some(
+      (w) =>
+        String(w.severity ?? '').toLowerCase() === 'high' &&
+        isActionableQualityWarningType(w.type)
+    )
+    if (runKey !== lastAutoOpenedResultRef.current) {
       setAcknowledgedQualityWarnings(new Set())
-      if (hasHigh) {
+      if (hasActionableHigh) {
         setChatDrawerOpen(true)
       }
-      lastAutoOpenedResultRef.current = resultId
+      lastAutoOpenedResultRef.current = runKey
     }
   }, [result])
+
+  useEffect(() => {
+    if (!result) return
+    const isMulti =
+      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
+    if (!isMulti) return
+    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
+    if (!blendPct) return
+    const wv = (result as ValuationResponse)?.weighted_valuation?.blended_equity_value
+    const hasWeighted = wv != null && Number.isFinite(Number(wv))
+    if (hasWeighted) return
+
+    const hydrated = getHydratedValuationResults(result)
+    if (!hydrated || Object.keys(hydrated).length === 0) return
+
+    let blocker: string | null = null
+    for (const m of preSelectedMethods) {
+      const pct = blendPct[m] ?? 0
+      if (pct <= 0) continue
+      const mr = getValuationMethodResultForKey(
+        hydrated as Record<string, ValuationMethodResult>,
+        m
+      )
+      const rawVal = mr?.value
+      const n = rawVal == null ? NaN : Number(rawVal)
+      if (!mr?.available || !Number.isFinite(n)) {
+        blocker = m
+        break
+      }
+    }
+    if (!blocker) return
+
+    const runKey = valuationResultRunKey(result as Record<string, unknown>)
+    if (runKey === lastSynthesisBlendSkippedRunKeyRef.current) return
+    lastSynthesisBlendSkippedRunKeyRef.current = runKey
+
+    toast.warning(t('synthesisBlendSkippedTitle'), {
+      description: t('synthesisBlendSkippedDesc'),
+    })
+  }, [result, preSelectedMethods, userWeights, t])
 
   useEffect(() => {
     if (isFirstMethodRender.current) {
@@ -5449,44 +5507,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     suggestedNormalisations.length > 0 ||
     normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
 
+  const rawQualityWarnings = useMemo(() => getDataQualityWarningsFromResult(result), [result])
+
   // ─── Quality Warning Rail (Pass-7) ───────────────────────────────────────
   // Surface engine-emitted high-severity warnings inside the assistant so
   // advisors fix them BEFORE generating the report. The report ships clean
   // once warnings are resolved or acknowledged. See engine-side Pass-3
   // aggregation that produces `result.data_quality_warnings`.
-  const rawQualityWarnings = (result as any)?.data_quality_warnings as
-    | Array<{
-        type?: string
-        severity?: string
-        message?: string
-        recommendation?: string
-        step_number?: number
-      }>
-    | undefined
   const qualityWarnings = useMemo(() => {
     if (!rawQualityWarnings || rawQualityWarnings.length === 0) return []
     // Per warning type: a localized CTA label and a prefilled assistant prompt.
     // The advisor clicks the CTA → message goes into the chat → assistant
     // walks them through the fix using its existing tool-use repertoire.
-    const ctaCatalog: Record<string, { labelKey: string; promptKey: string }> = {
-      thin_comparables_proxy: {
-        labelKey: 'qualityCtaThinComparablesLabel',
-        promptKey: 'qualityCtaThinComparablesPrompt',
-      },
-      owner_concentration_skipped_missing_inputs: {
-        labelKey: 'qualityCtaOwnerConcentrationLabel',
-        promptKey: 'qualityCtaOwnerConcentrationPrompt',
-      },
-      ebitda_divergence: {
-        labelKey: 'qualityCtaEbitdaDivergenceLabel',
-        promptKey: 'qualityCtaEbitdaDivergencePrompt',
-      },
-    }
     return rawQualityWarnings
       .filter((w) => String(w.severity ?? '').toLowerCase() === 'high')
       .filter((w) => !!w.type && !acknowledgedQualityWarnings.has(w.type!))
       .map((w) => {
-        const cta = ctaCatalog[w.type!]
+        const cta =
+          w.type && w.type in QUALITY_WARNING_ASSISTANT_CTA_CONFIG
+            ? QUALITY_WARNING_ASSISTANT_CTA_CONFIG[w.type as QualityWarningAssistantCtaKey]
+            : undefined
         // Fall back gracefully when a new engine warning type ships before
         // the catalog is updated — show the warning, no CTA.
         const labelDefault = 'Open in chat'

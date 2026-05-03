@@ -2,9 +2,90 @@ import { describe, expect, it } from 'vitest'
 
 import {
   extractValuationResultsMap,
+  getValuationMethodResultForKey,
+  hydratedRevenueMethodKeysAreSameRef,
+  hydrateClientValuationResultsMap,
+  isDuplicateHydratedRevenueAliasEntry,
   normalizeSelectedMethodKey,
   normalizeValuationResultWithMethodMap,
+  resolveSelectedValuationMethodForExtraction,
+  revenueMethodologySiblingKey,
 } from './extractValuationResultsMap'
+
+describe('resolveSelectedValuationMethodForExtraction', () => {
+  it('reads from report_context when top-level is missing', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        report_context: { selected_valuation_method: 'dcf' },
+      })
+    ).toBe('dcf')
+  })
+
+  it('reads from details.report_context as last resort', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        details: { report_context: { selected_valuation_method: '  ebitda_multiple  ' } },
+      })
+    ).toBe('ebitda_multiple')
+  })
+
+  it('prefers top-level over nested', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        selected_valuation_method: 'omzet_multiple',
+        report_context: { selected_valuation_method: 'dcf' },
+      })
+    ).toBe('omzet_multiple')
+  })
+})
+
+describe('getValuationMethodResultForKey', () => {
+  it('resolves omzet_multiple from revenue_multiple alias on the map', () => {
+    const map = {
+      revenue_multiple: { available: true, value: 99_000 },
+    } as any
+    expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(99_000)
+  })
+
+  it('prefers the direct key when both aliases exist', () => {
+    const map = {
+      omzet_multiple: { available: true, value: 1 },
+      revenue_multiple: { available: true, value: 2 },
+    } as any
+    expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(1)
+  })
+})
+
+describe('revenue methodology alias helpers', () => {
+  it('revenueMethodologySiblingKey', () => {
+    expect(revenueMethodologySiblingKey('omzet_multiple')).toBe('revenue_multiple')
+    expect(revenueMethodologySiblingKey('revenue_multiple')).toBe('omzet_multiple')
+    expect(revenueMethodologySiblingKey('dcf')).toBeNull()
+  })
+
+  it('isDuplicateHydratedRevenueAliasEntry detects same-ref EN key', () => {
+    const shared = { available: true, value: 1 } as any
+    const base = { omzet_multiple: shared, revenue_multiple: shared } as any
+    expect(isDuplicateHydratedRevenueAliasEntry(base, 'revenue_multiple', shared)).toBe(true)
+    expect(isDuplicateHydratedRevenueAliasEntry(base, 'omzet_multiple', shared)).toBe(false)
+  })
+
+  it('hydratedRevenueMethodKeysAreSameRef', () => {
+    const shared = { value: 1 } as any
+    expect(
+      hydratedRevenueMethodKeysAreSameRef({
+        omzet_multiple: shared,
+        revenue_multiple: shared,
+      })
+    ).toBe(true)
+    expect(
+      hydratedRevenueMethodKeysAreSameRef({
+        omzet_multiple: { value: 1 },
+        revenue_multiple: { value: 1 },
+      })
+    ).toBe(false)
+  })
+})
 
 describe('normalizeSelectedMethodKey (DCF display labels)', () => {
   it('normalizes English DCF Analysis headline to the snake_case key persistence checks', () => {
@@ -318,6 +399,51 @@ describe('extractValuationResultsMap', () => {
         report_context: { applied_multiple: 4.5 },
       }),
     ).toBeNull()
+  })
+})
+
+describe('hydrateClientValuationResultsMap', () => {
+  it('matches extract with resolved selected + top-level selected_valuation_method', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.5,
+        revenue: 500_000,
+        selected_valuation_method: 'omzet_multiple',
+      },
+    }
+    const viaHydrate = hydrateClientValuationResultsMap(payload)
+    const viaExtract = extractValuationResultsMap(payload, {
+      selectedValuationMethod:
+        resolveSelectedValuationMethodForExtraction(payload) ?? payload.selected_valuation_method,
+    })
+    expect(viaHydrate).toEqual(viaExtract)
+    expect(viaHydrate).toMatchObject({
+      omzet_multiple: { value: 120_000, multiple_used: 1.5 },
+    })
+  })
+
+  it('uses selectedValuationMethodOverride for synthesis context', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.5,
+        ebitda: 50_000,
+        revenue: 500_000,
+      },
+    }
+    const revenue = hydrateClientValuationResultsMap({
+      ...payload,
+      selected_valuation_method: 'omzet_multiple',
+    })
+    const ebitdaForced = hydrateClientValuationResultsMap(
+      { ...payload, selected_valuation_method: 'omzet_multiple' },
+      { selectedValuationMethodOverride: 'ebitda_multiple' },
+    )
+    expect(revenue).toMatchObject({ omzet_multiple: expect.any(Object) })
+    expect(ebitdaForced).toMatchObject({ ebitda_multiple: expect.any(Object) })
   })
 })
 

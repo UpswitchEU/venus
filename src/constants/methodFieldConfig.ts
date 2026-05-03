@@ -223,6 +223,45 @@ export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
 ]
 
 /**
+ * Engine `data_quality_warnings.type` values that have a guided assistant CTA (label + prefilled prompt).
+ * Keep in sync with `chatAssistant` message keys via {@link QUALITY_WARNING_ASSISTANT_CTA_CONFIG}.
+ */
+export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = [
+  'thin_comparables_proxy',
+  'owner_concentration_skipped_missing_inputs',
+  'ebitda_divergence',
+] as const
+
+export type QualityWarningAssistantCtaKey = (typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS)[number]
+
+/**
+ * i18n keys under `chatAssistant` for each guided CTA — single source for {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS}.
+ */
+export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
+  thin_comparables_proxy: {
+    labelKey: 'qualityCtaThinComparablesLabel',
+    promptKey: 'qualityCtaThinComparablesPrompt',
+  },
+  owner_concentration_skipped_missing_inputs: {
+    labelKey: 'qualityCtaOwnerConcentrationLabel',
+    promptKey: 'qualityCtaOwnerConcentrationPrompt',
+  },
+  ebitda_divergence: {
+    labelKey: 'qualityCtaEbitdaDivergenceLabel',
+    promptKey: 'qualityCtaEbitdaDivergencePrompt',
+  },
+} as const satisfies Record<
+  QualityWarningAssistantCtaKey,
+  { labelKey: string; promptKey: string }
+>
+
+export function isActionableQualityWarningType(type: string | null | undefined): boolean {
+  return (
+    !!type && Object.prototype.hasOwnProperty.call(QUALITY_WARNING_ASSISTANT_CTA_CONFIG, type)
+  )
+}
+
+/**
  * Returns the method that conflicts with the given method, or null.
  */
 export function getConflictingMethod(method: string): string | null {
@@ -406,6 +445,23 @@ export function equalWeightsFor(methods: string[]): Record<string, number> {
  * - Aligns `omzet_multiple` / `revenue_multiple` when one side is missing (ValuationIQ may echo EN key).
  * - If any selected method has no weight or the sum is not ~100% (±2pp), uses {@link equalWeightsFor}.
  */
+export function pickSynthesisPercentWeightForMethod(
+  methodKey: string,
+  userWeights: Record<string, number>
+): number | undefined {
+  const v = userWeights[methodKey]
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (methodKey === 'omzet_multiple') {
+    const r = userWeights['revenue_multiple']
+    if (typeof r === 'number' && Number.isFinite(r)) return r
+  }
+  if (methodKey === 'revenue_multiple') {
+    const o = userWeights['omzet_multiple']
+    if (typeof o === 'number' && Number.isFinite(o)) return o
+  }
+  return undefined
+}
+
 export function resolveSynthesisPercentWeightsForMethods(
   methods: string[],
   userWeights: Record<string, number>
@@ -413,23 +469,9 @@ export function resolveSynthesisPercentWeightsForMethods(
   if (methods.length < 2) return null
   if (methods.includes('upswitch_adaptive')) return null
 
-  const pick = (m: string): number | undefined => {
-    const v = userWeights[m]
-    if (typeof v === 'number' && Number.isFinite(v)) return v
-    if (m === 'omzet_multiple') {
-      const r = userWeights['revenue_multiple']
-      if (typeof r === 'number' && Number.isFinite(r)) return r
-    }
-    if (m === 'revenue_multiple') {
-      const o = userWeights['omzet_multiple']
-      if (typeof o === 'number' && Number.isFinite(o)) return o
-    }
-    return undefined
-  }
-
   const filtered: Record<string, number> = {}
   for (const m of methods) {
-    const v = pick(m)
+    const v = pickSynthesisPercentWeightForMethod(m, userWeights)
     if (v != null) filtered[m] = v
   }
   const sum = Object.values(filtered).reduce((s, x) => s + x, 0)

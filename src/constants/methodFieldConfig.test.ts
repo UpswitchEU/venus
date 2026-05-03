@@ -21,6 +21,10 @@ import {
   resolveSynthesisPercentWeightsForMethods,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
+  QUALITY_WARNING_ASSISTANT_CTA_KEYS,
+  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
+  pickSynthesisPercentWeightForMethod,
+  isActionableQualityWarningType,
 } from './methodFieldConfig'
 
 describe('methodFieldConfig', () => {
@@ -343,6 +347,31 @@ describe('methodFieldConfig', () => {
       const last = methods[methods.length - 1]
       const sumFree = methods.slice(0, -1).reduce((s, m) => s + (w1[m] ?? 0), 0)
       expect(w1[last]).toBe(100 - sumFree)
+    })
+  })
+
+  describe('QUALITY_WARNING_ASSISTANT_CTA_CONFIG', () => {
+    it('defines chatAssistant keys for every guided warning type', () => {
+      for (const k of QUALITY_WARNING_ASSISTANT_CTA_KEYS) {
+        const cfg = QUALITY_WARNING_ASSISTANT_CTA_CONFIG[k]
+        expect(cfg?.labelKey).toMatch(/^qualityCta/)
+        expect(cfg?.promptKey).toMatch(/^qualityCta/)
+      }
+    })
+  })
+
+  describe('pickSynthesisPercentWeightForMethod', () => {
+    it('aliases revenue_multiple onto omzet_multiple and vice versa', () => {
+      expect(pickSynthesisPercentWeightForMethod('omzet_multiple', { revenue_multiple: 40 })).toBe(40)
+      expect(pickSynthesisPercentWeightForMethod('revenue_multiple', { omzet_multiple: 60 })).toBe(60)
+    })
+  })
+
+  describe('isActionableQualityWarningType', () => {
+    it('returns true only for guided-CTA warning types', () => {
+      expect(isActionableQualityWarningType('ebitda_divergence')).toBe(true)
+      expect(isActionableQualityWarningType('some_generic_engine_warning')).toBe(false)
+      expect(isActionableQualityWarningType(null)).toBe(false)
     })
   })
 })

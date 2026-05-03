@@ -40,7 +40,10 @@ import {
   normalizeSessionData,
   validateNormalizedData,
 } from './SessionNormalizer'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import {
+  hydrateClientValuationResultsMap,
+  resolveSelectedValuationMethodForExtraction,
+} from '../../utils/extractValuationResultsMap'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
@@ -548,12 +551,16 @@ class SessionRestorationServiceImpl {
       try {
         const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
         const vr = data.valuationResult as Record<string, any> | null | undefined
-        const valuationExtractCtx = {
-          selectedValuationMethod: vr?.selected_valuation_method ?? existingResult?.selected_valuation_method,
+        const mergeHydrateOpts = {
+          selectedValuationMethodOverride:
+            resolveSelectedValuationMethodForExtraction(vr) ??
+            resolveSelectedValuationMethodForExtraction(existingResult) ??
+            vr?.selected_valuation_method ??
+            existingResult?.selected_valuation_method,
         }
         const normalizedValuationResults =
-          extractValuationResultsMap(vr, valuationExtractCtx) ??
-          extractValuationResultsMap(existingResult, valuationExtractCtx)
+          hydrateClientValuationResultsMap(vr, mergeHydrateOpts) ??
+          hydrateClientValuationResultsMap(existingResult, mergeHydrateOpts)
         const renderableMergeHtml = getFirstRenderableReportHtml(
           data.htmlReport,
           (data.valuationResult as { html_report?: string } | undefined)?.html_report,
@@ -1066,9 +1073,8 @@ class SessionRestorationServiceImpl {
           ...pricingResult,
           html_report: pkgRenderableHtml,
           valuation_results:
-            extractValuationResultsMap(existingResult as Record<string, any> | null, {
-              selectedValuationMethod: (existingResult as Record<string, any>)?.selected_valuation_method,
-            }) ?? undefined,
+            hydrateClientValuationResultsMap(existingResult as Record<string, any> | null) ??
+            undefined,
         }
         manualStore.setResult({
           ...existingResult,

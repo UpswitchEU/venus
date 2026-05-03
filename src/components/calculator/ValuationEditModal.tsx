@@ -30,6 +30,7 @@ import type {
   WaterfallStep,
 } from '../../types/valuation'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
+import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import {
@@ -897,13 +898,17 @@ export function ValuationEditModal({
   const entries = Object.entries(valuationResults)
   const panoramaEntries = Object.entries(panoramaValuationResults)
   const activeMethodKey = pendingMethod ?? selectedMethod
-  const activeMethod = valuationResults[activeMethodKey] ?? null
+  const activeMethod = getValuationMethodResultForKey(valuationResults, activeMethodKey) ?? null
+  const pendingOverrideRow =
+    pendingMethod && pendingMethod !== 'upswitch_adaptive'
+      ? getValuationMethodResultForKey(valuationResults, pendingMethod)
+      : null
 
   // Method selection helpers
   const getSelectedMethodLabel = (method: string) =>
     method === 'upswitch_adaptive'
       ? adaptiveLabel
-      : valuationResults[method]?.label || adaptiveLabel
+      : getValuationMethodResultForKey(valuationResults, method)?.label || adaptiveLabel
 
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
@@ -1223,10 +1228,10 @@ export function ValuationEditModal({
 
           {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
             <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-3 space-y-2">
-              {valuationResults[pendingMethod]?.label && (
+              {pendingOverrideRow?.label && (
                 <p className="text-[10px] font-medium text-foreground/55">
                   {t('overrideConfirmingFor', {
-                    method: valuationResults[pendingMethod]!.label,
+                    method: pendingOverrideRow.label,
                   })}
                 </p>
               )}
@@ -1281,7 +1286,9 @@ export function ValuationEditModal({
             </div>
           )}
 
-          {showFiscalAnchorRow && fiscalAnchor != null && !valuationResults['fiscal_4x'] && (
+          {showFiscalAnchorRow &&
+            fiscalAnchor != null &&
+            !getValuationMethodResultForKey(valuationResults, 'fiscal_4x') && (
             <div className="space-y-1">
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
                 <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">

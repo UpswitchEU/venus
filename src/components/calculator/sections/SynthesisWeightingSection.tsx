@@ -16,19 +16,7 @@ import {
 } from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import type { ValuationMethodResult } from '@/types/valuation'
-
-/** Resolve API valuation result for a method key; `omzet_multiple` / `revenue_multiple` are aliases. */
-function valuationResultForMethod(
-  map: Record<string, ValuationMethodResult> | null | undefined,
-  methodKey: string
-): ValuationMethodResult | undefined {
-  if (!map) return undefined
-  const direct = map[methodKey]
-  if (direct) return direct
-  if (methodKey === 'omzet_multiple') return map['revenue_multiple']
-  if (methodKey === 'revenue_multiple') return map['omzet_multiple']
-  return undefined
-}
+import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 
 function formatCompactCurrency(amount: number): string {
   const sign = amount < 0 ? '-' : ''
@@ -117,24 +105,31 @@ export function SynthesisWeightingSection({
     let sum = 0
     let allAvailable = true
     for (const m of methods) {
-      const mr = valuationResultForMethod(valuationResults, m)
+      const mr = getValuationMethodResultForKey(valuationResults, m)
       const w = displayWeights[m] ?? 0
       if (w <= 0) continue
       if (!mr?.available || mr.value == null) {
         allAvailable = false
         continue
       }
-      sum += Number(mr.value) * (w / 100)
+      const add = Number(mr.value)
+      if (!Number.isFinite(add)) {
+        allAvailable = false
+        continue
+      }
+      sum += add * (w / 100)
     }
-    return allAvailable ? Math.round(sum) : null
+    if (!allAvailable) return null
+    return Number.isFinite(sum) && sum > 0 ? Math.round(sum) : null
   }, [hasResults, valuationResults, methods, displayWeights, total])
 
   const contributions = useMemo(() => {
     if (!hasResults) return null
     return methods.map((m) => {
-      const mr = valuationResultForMethod(valuationResults, m)
+      const mr = getValuationMethodResultForKey(valuationResults, m)
       const w = displayWeights[m] ?? 0
-      const equity = mr?.available && mr.value != null ? Number(mr.value) : null
+      const raw = mr?.available && mr.value != null ? Number(mr.value) : NaN
+      const equity = Number.isFinite(raw) ? raw : null
       return {
         method: m,
         label: t(METHOD_LABEL_KEYS[m] ?? m),

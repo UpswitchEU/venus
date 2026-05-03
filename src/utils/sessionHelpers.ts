@@ -9,7 +9,7 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import { extractValuationResultsMap } from './extractValuationResultsMap'
+import { hydrateClientValuationResultsMap } from './extractValuationResultsMap'
 import { is409Conflict } from './errorDetection'
 import { isRetryable } from './errors/errorGuards'
 import { createContextLogger } from './logger'
@@ -128,9 +128,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   ].filter((candidate) => candidate && typeof candidate === 'object') as Array<Record<string, any>>
   const candidateScore = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
-      selectedValuationMethod: candidate.selected_valuation_method,
-    })
+    const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
     if (valuationResultsCandidate) {
       score += 8
     }

@@ -6,6 +6,27 @@ import {
 } from './manualReportPresentation'
 
 describe('deriveManualReportPresentation', () => {
+  it('resolves omzet_multiple from revenue_multiple-only map in presentation', () => {
+    const result: any = {
+      selected_valuation_method: 'omzet_multiple',
+      valuation_results: {
+        revenue_multiple: {
+          available: true,
+          value: 150_000,
+          multiple_used: 1.2,
+          details: { equity_range_low: 120_000, equity_range_high: 180_000 },
+        },
+      },
+    }
+
+    const presentation = deriveManualReportPresentation(result, 'omzet_multiple')
+
+    expect(presentation.valuation).toBe(150_000)
+    expect(presentation.valuationLow).toBe(120_000)
+    expect(presentation.valuationHigh).toBe(180_000)
+    expect(presentation.multiple).toBe(1.2)
+  })
+
   it('prefers selected method multiple over raw multiples valuation', () => {
     const result: any = {
       selected_valuation_method: 'upswitch_adaptive',

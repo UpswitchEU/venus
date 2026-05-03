@@ -9,8 +9,99 @@
  * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
  * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
+import type { ValuationMethodResult } from '@/types/valuation'
+
 export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
+}
+
+/** Optional override when merging two payloads (e.g. session restore + in-memory result). */
+export type HydrateClientValuationResultsOptions = {
+  selectedValuationMethodOverride?: string | null
+}
+
+/** Read method row from a hydrated map; `omzet_multiple` / `revenue_multiple` are aliases. */
+export function getValuationMethodResultForKey(
+  map: Record<string, ValuationMethodResult> | null | undefined,
+  methodKey: string
+): ValuationMethodResult | undefined {
+  if (!map) return undefined
+  const direct = map[methodKey]
+  if (direct) return direct
+  if (methodKey === 'omzet_multiple') return map['revenue_multiple']
+  if (methodKey === 'revenue_multiple') return map['omzet_multiple']
+  return undefined
+}
+
+/** The other NL/EN key for the same revenue-multiple methodology. */
+export function revenueMethodologySiblingKey(
+  key: string
+): 'omzet_multiple' | 'revenue_multiple' | null {
+  if (key === 'omzet_multiple') return 'revenue_multiple'
+  if (key === 'revenue_multiple') return 'omzet_multiple'
+  return null
+}
+
+/**
+ * After {@link withMethodAliases}, `revenue_multiple` may duplicate `omzet_multiple` by reference.
+ * Skip copying/enumerating the EN key when merging UI rows.
+ */
+export function isDuplicateHydratedRevenueAliasEntry(
+  map: Record<string, ValuationMethodResult | undefined>,
+  key: string,
+  method: ValuationMethodResult | undefined
+): boolean {
+  if (key !== 'revenue_multiple' || method == null) return false
+  const omzet = map.omzet_multiple
+  return omzet != null && omzet === method
+}
+
+/** True when both keys exist and reference the same hydrated row. */
+export function hydratedRevenueMethodKeysAreSameRef(
+  map: Record<string, ValuationMethodResult | undefined> | null | undefined
+): boolean {
+  if (!map || typeof map !== 'object') return false
+  const omzet = map.omzet_multiple
+  const revenue = map.revenue_multiple
+  return omzet != null && revenue != null && omzet === revenue
+}
+
+/**
+ * Selected method for {@link extractValuationResultsMap} context when only nested fields are set.
+ * Order: top-level → `report_context` → `details` → `details.report_context`.
+ */
+export function resolveSelectedValuationMethodForExtraction(
+  valuationResult: Record<string, unknown> | null | undefined
+): string | null {
+  if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
+    return null
+  }
+  const pick = (v: unknown): string | null => {
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    return null
+  }
+
+  const direct = pick(valuationResult['selected_valuation_method'])
+  if (direct) return direct
+
+  const rc = valuationResult['report_context']
+  if (rc && typeof rc === 'object' && !Array.isArray(rc)) {
+    const fromRc = pick((rc as Record<string, unknown>)['selected_valuation_method'])
+    if (fromRc) return fromRc
+  }
+
+  const details = valuationResult['details']
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const d = details as Record<string, unknown>
+    const fromDetails = pick(d['selected_valuation_method'])
+    if (fromDetails) return fromDetails
+    const drc = d['report_context']
+    if (drc && typeof drc === 'object' && !Array.isArray(drc)) {
+      return pick((drc as Record<string, unknown>)['selected_valuation_method'])
+    }
+  }
+
+  return null
 }
 
 const METHOD_KEY_ALIASES: Record<string, string> = {
@@ -591,6 +682,28 @@ export function extractValuationResultsMap(
   }
 
   return withMethodAliases(synthesizeMinimalValuationResultsMap(valuationResult, context))
+}
+
+/**
+ * Single Venus entry point: {@link extractValuationResultsMap} with
+ * {@link resolveSelectedValuationMethodForExtraction} + top-level `selected_valuation_method`.
+ * Prefer this over ad-hoc context objects so Manual layout, stores, sessions, and benchmarks stay aligned.
+ */
+export function hydrateClientValuationResultsMap(
+  valuationResult: Record<string, any> | null | undefined,
+  options?: HydrateClientValuationResultsOptions | null
+): Record<string, ValuationMethodResult> | null {
+  if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
+    return null
+  }
+  const selectedValuationMethod =
+    options?.selectedValuationMethodOverride ??
+    resolveSelectedValuationMethodForExtraction(valuationResult as Record<string, unknown>) ??
+    valuationResult.selected_valuation_method
+  const map = extractValuationResultsMap(valuationResult, {
+    selectedValuationMethod: selectedValuationMethod,
+  })
+  return (map as Record<string, ValuationMethodResult> | null) ?? null
 }
 
 function hasNonEmptyValuationResults(value: Record<string, any>): boolean {

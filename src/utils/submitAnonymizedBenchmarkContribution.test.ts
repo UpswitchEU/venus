@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { __testing__ } from './submitAnonymizedBenchmarkContribution'
+import {
+  __testing__,
+  extractBenchmarkMultipleRatios,
+} from './submitAnonymizedBenchmarkContribution'
 import type { ValuationResponse } from '../types/valuation'
 
 const { extractOwnerProfileFields } = __testing__
@@ -21,6 +24,38 @@ function baseResponse(extra: Partial<Record<string, unknown>> = {}): ValuationRe
     ...extra,
   } as unknown as ValuationResponse
 }
+
+describe('extractBenchmarkMultipleRatios', () => {
+  it('reads revenue_multiple row by key', () => {
+    const r = baseResponse({
+      valuation_results: {
+        revenue_multiple: { enterprise_value: 400, revenue: 200 },
+      },
+    })
+    expect(extractBenchmarkMultipleRatios(r).evRevenue).toBe(2)
+  })
+
+  it('resolves omzet_multiple alias for EV/Revenue (EN/NL map mismatch)', () => {
+    const r = baseResponse({
+      report_context: { selected_valuation_method: 'omzet_multiple' },
+      valuation_results: {
+        omzet_multiple: { enterprise_value: 500, revenue: 250 },
+      },
+    })
+    expect(extractBenchmarkMultipleRatios(r).evRevenue).toBe(2)
+  })
+
+  it('hydrates nested valuation_results when top-level is empty', () => {
+    const r = baseResponse({
+      details: {
+        valuation_results: {
+          ebitda_multiple: { enterprise_value: 300, ebitda: 100 },
+        },
+      },
+    })
+    expect(extractBenchmarkMultipleRatios(r).evEbitda).toBe(3)
+  })
+})
 
 describe('extractOwnerProfileFields', () => {
   it('returns null when no owner_dependency_result is present', () => {

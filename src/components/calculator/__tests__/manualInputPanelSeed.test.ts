@@ -139,4 +139,45 @@ describe('getSelectedBelgianAuditEntries', () => {
 
     expect(entries.map(([methodKey]) => methodKey)).toEqual(['upswitch_adaptive'])
   })
+
+  it('resolves omzet selection to revenue_multiple row when details live under the EN key', () => {
+    const row: ValuationMethodResult = {
+      available: true,
+      label: 'Revenue multiple',
+      value: 500_000,
+      details: { foo: true } as ValuationMethodResult['details'],
+    }
+    const entries = getSelectedBelgianAuditEntries({
+      effectiveMethod: 'omzet_multiple',
+      effectiveMethods: ['omzet_multiple'],
+      valuationResults: { revenue_multiple: row },
+    })
+    expect(entries).toHaveLength(1)
+    expect(entries[0]![0]).toBe('omzet_multiple')
+    expect(entries[0]![1]).toBe(row)
+  })
+
+  it('dedupes one audit panel when blend lists both omzet and revenue aliases of the same row', () => {
+    const shared: ValuationMethodResult = {
+      available: true,
+      label: 'Omzet',
+      value: 1,
+      details: { bar: true } as ValuationMethodResult['details'],
+    }
+    const entries = getSelectedBelgianAuditEntries({
+      effectiveMethod: 'omzet_multiple',
+      effectiveMethods: ['ebitda_multiple', 'omzet_multiple', 'revenue_multiple'],
+      valuationResults: {
+        ebitda_multiple: {
+          available: true,
+          label: 'E',
+          value: 2,
+          details: { e: true } as ValuationMethodResult['details'],
+        },
+        omzet_multiple: shared,
+        revenue_multiple: shared,
+      },
+    })
+    expect(entries.map(([k]) => k)).toEqual(['ebitda_multiple', 'omzet_multiple'])
+  })
 })

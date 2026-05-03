@@ -263,6 +263,27 @@ describe('useManualResultsStore', () => {
       })
     })
 
+    it('resolves getActiveValuation for omzet_multiple when map only has revenue_multiple', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setSelectedMethod('omzet_multiple')
+        result.current.setResult({
+          valuation_id: 'val-omzet',
+          html_report: '<html>Report</html>',
+          report_context: { selected_valuation_method: 'omzet_multiple' },
+          valuation_results: {
+            revenue_multiple: { available: true, value: 175000, label: 'Revenue multiple' },
+          },
+        } as any)
+      })
+
+      expect(result.current.getActiveValuation()).toMatchObject({
+        available: true,
+        value: 175000,
+      })
+    })
+
     it('should clear result when null is passed', () => {
       const { result } = renderHook(() => useManualResultsStore())
 

@@ -61,4 +61,33 @@ describe('mergePlanGatedOmniPanoramaResults', () => {
     })
     expect(out.fiscal_4x).toBeUndefined()
   })
+
+  it('drops duplicate revenue_multiple key when same ref as omzet_multiple and skips sibling placeholder', () => {
+    const shared: ValuationMethodResult = { value: 100, label: 'Omzet', available: true }
+    const base: Record<string, ValuationMethodResult> = {
+      ebitda_multiple: { value: 90, label: 'E', available: true },
+      omzet_multiple: shared,
+      revenue_multiple: shared,
+    }
+    const out = mergePlanGatedOmniPanoramaResults(base, ['ebitda_multiple'], {
+      hideFiscalForNl: false,
+      getLabel: label,
+    })
+    expect(out.revenue_multiple).toBeUndefined()
+    expect(out.omzet_multiple?.plan_teaser).toBe(true)
+    expect(out.dcf?.label).toBe('L-dcf')
+  })
+
+  it('does not add omzet teaser when only revenue_multiple is present for the revenue methodology', () => {
+    const base: Record<string, ValuationMethodResult> = {
+      ebitda_multiple: { value: 1, label: 'E', available: true },
+      revenue_multiple: { value: 100, label: 'Rev', available: true },
+    }
+    const out = mergePlanGatedOmniPanoramaResults(base, ['ebitda_multiple'], {
+      hideFiscalForNl: false,
+      getLabel: label,
+    })
+    expect(out.omzet_multiple).toBeUndefined()
+    expect(out.revenue_multiple?.plan_teaser).toBe(true)
+  })
 })
