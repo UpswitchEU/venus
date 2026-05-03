@@ -1,4 +1,5 @@
 import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
+import { revenueMethodologySiblingKey } from '@/utils/extractValuationResultsMap'
 
 /**
  * Method Field Configuration Registry
@@ -451,13 +452,10 @@ export function pickSynthesisPercentWeightForMethod(
 ): number | undefined {
   const v = userWeights[methodKey]
   if (typeof v === 'number' && Number.isFinite(v)) return v
-  if (methodKey === 'omzet_multiple') {
-    const r = userWeights['revenue_multiple']
-    if (typeof r === 'number' && Number.isFinite(r)) return r
-  }
-  if (methodKey === 'revenue_multiple') {
-    const o = userWeights['omzet_multiple']
-    if (typeof o === 'number' && Number.isFinite(o)) return o
+  const sibling = revenueMethodologySiblingKey(methodKey)
+  if (sibling) {
+    const alt = userWeights[sibling]
+    if (typeof alt === 'number' && Number.isFinite(alt)) return alt
   }
   return undefined
 }

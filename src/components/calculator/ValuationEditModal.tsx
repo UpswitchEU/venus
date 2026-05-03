@@ -30,7 +30,7 @@ import type {
   WaterfallStep,
 } from '../../types/valuation'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
-import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
+import { getValuationMethodResultForKey, isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import {
@@ -544,7 +544,7 @@ function MethodBreakdownSection({
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            {methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple' ? (
+            {isRevenueMethodologyKey(methodKey) ? (
               revenueValue != null && (
                 <BreakdownMetricCard
                   label={tBreakdown('revenue')}
@@ -675,7 +675,7 @@ function MethodBreakdownSection({
                 ? tBreakdown('formulaSde')
                 : methodKey === 'arr_multiple'
                   ? tBreakdown('formulaArr')
-                : methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple'
+                : isRevenueMethodologyKey(methodKey)
                   ? tBreakdown('formulaRevenue')
                 : tBreakdown('formulaMultiple')}
         </p>

@@ -3,10 +3,12 @@
  * Treats `revenue_multiple` like `omzet_multiple` (English / API alias).
  */
 
+import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
+
 export type RevenueQualityBadgeVariant = 'ebitda' | 'omzet' | 'both'
 
 function hasRevenueMultipleLens(methods: string[]): boolean {
-  return methods.includes('omzet_multiple') || methods.includes('revenue_multiple')
+  return methods.some(isRevenueMethodologyKey)
 }
 
 export function resolveRevenueQualityBadgeVariant(methods: string[]): RevenueQualityBadgeVariant {

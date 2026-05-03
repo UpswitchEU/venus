@@ -6,6 +6,7 @@ import {
   hydratedRevenueMethodKeysAreSameRef,
   hydrateClientValuationResultsMap,
   isDuplicateHydratedRevenueAliasEntry,
+  isRevenueMethodologyKey,
   normalizeSelectedMethodKey,
   normalizeValuationResultWithMethodMap,
   resolveSelectedValuationMethodForExtraction,
@@ -57,6 +58,12 @@ describe('getValuationMethodResultForKey', () => {
 })
 
 describe('revenue methodology alias helpers', () => {
+  it('isRevenueMethodologyKey', () => {
+    expect(isRevenueMethodologyKey('omzet_multiple')).toBe(true)
+    expect(isRevenueMethodologyKey('revenue_multiple')).toBe(true)
+    expect(isRevenueMethodologyKey('ebitda_multiple')).toBe(false)
+  })
+
   it('revenueMethodologySiblingKey', () => {
     expect(revenueMethodologySiblingKey('omzet_multiple')).toBe('revenue_multiple')
     expect(revenueMethodologySiblingKey('revenue_multiple')).toBe('omzet_multiple')

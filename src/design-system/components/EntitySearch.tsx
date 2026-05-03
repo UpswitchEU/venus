@@ -53,6 +53,7 @@ import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { looksLikeNaceCode, naceBusinessTypeService } from '@/services/naceBusinessTypeService'
+import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { cn, safeString } from '../utils'
 
@@ -327,8 +328,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       }
     }, [shouldShowDropdown, canSearch])
 
-    // Debounced search with request cancellation and 8s timeout
-    const REQUEST_TIMEOUT_MS = 8000
+    // Debounced search with request cancellation; align with BFF/Titan budget
+    const REQUEST_TIMEOUT_MS = REGISTRY_SEARCH_CLIENT_TIMEOUT_MS
     React.useEffect(() => {
       if (selectedCompany) {
         setResults([])

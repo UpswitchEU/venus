@@ -3,15 +3,27 @@
  *
  * Proxies KBO (Belgian Company Registry) search requests to the Titan backend API.
  * Uses canonical /api/v2/registry/search (same as Mercury), with v1 fallback on 404.
- * Includes 10s timeout to prevent hanging requests (production traffic).
+ *
+ * Venus `REGISTRY_SEARCH_PROXY_TIMEOUT_MS` is kept equal to Mercury
+ * `REGISTRY_PROXY_TOTAL_BUDGET_MS` (14.5s) — strictly below the 15s browser
+ * `REGISTRY_SEARCH_CLIENT_TIMEOUT_MS`. Forwards `request.signal` so client
+ * disconnect cancels the Titan round-trip.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { REGISTRY_SEARCH_PROXY_TIMEOUT_MS } from '@/services/registry/types'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
-const REGISTRY_SEARCH_TIMEOUT_MS = 10_000
-
 export async function POST(request: NextRequest) {
+  const parentSignal = request.signal
+
+  if (parentSignal.aborted) {
+    return NextResponse.json(
+      { success: false, results: [], error: 'Client cancelled' },
+      { status: 499 }
+    )
+  }
+
   try {
     const body = await request.json()
 
@@ -34,61 +46,107 @@ export async function POST(request: NextRequest) {
       limit: body.limit || 10,
     }
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), REGISTRY_SEARCH_TIMEOUT_MS)
-
-    const fetchOptions = {
+    const payloadJson = JSON.stringify(payload)
+    const baseFetchInit = {
       method: 'POST' as const,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+      body: payloadJson,
+    }
+
+    const runProxiedFetch = async (path: string): Promise<Response> => {
+      const controller = new AbortController()
+      let timedOut = false
+      let parentAborted = false
+      const timer = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, REGISTRY_SEARCH_PROXY_TIMEOUT_MS)
+      const onParentAbort = () => {
+        parentAborted = true
+        controller.abort()
+      }
+      parentSignal.addEventListener('abort', onParentAbort, { once: true })
+
+      try {
+        return await fetch(`${titanUrl}${path}`, {
+          ...baseFetchInit,
+          signal: controller.signal,
+        })
+      } catch (fetchError) {
+        const isAbort = fetchError instanceof Error && fetchError.name === 'AbortError'
+        if (isAbort && parentAborted) {
+          throw Object.assign(new Error('CLIENT_CANCELLED'), { code: 'CLIENT_CANCELLED' as const })
+        }
+        const errorMsg = timedOut
+          ? `Backend request timed out after ${REGISTRY_SEARCH_PROXY_TIMEOUT_MS / 1000}s`
+          : `Cannot reach backend at ${titanUrl}`
+
+        console.error('[Venus Registry API] Connection error:', {
+          backendUrl: titanUrl,
+          path,
+          error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+          timedOut,
+        })
+
+        throw Object.assign(new Error(errorMsg), {
+          code: 'UPSTREAM_FETCH' as const,
+          status: 503,
+        })
+      } finally {
+        clearTimeout(timer)
+        parentSignal.removeEventListener('abort', onParentAbort)
+      }
     }
 
     let backendResponse: Response
     try {
-      backendResponse = await fetch(`${titanUrl}/api/v2/registry/search`, fetchOptions)
-    } catch (fetchError) {
-      clearTimeout(timeout)
-      const isTimeout = fetchError instanceof Error && fetchError.name === 'AbortError'
-      const errorMsg = isTimeout
-        ? `Backend request timed out after ${REGISTRY_SEARCH_TIMEOUT_MS / 1000}s`
-        : `Cannot reach backend at ${titanUrl}`
-
-      console.error('[Venus Registry API] Connection error:', {
-        backendUrl: titanUrl,
-        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
-        isTimeout,
-      })
-
-      return NextResponse.json({ success: false, results: [], error: errorMsg }, { status: 503 })
+      backendResponse = await runProxiedFetch('/api/v2/registry/search')
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        'code' in e &&
+        (e as Error & { code?: string }).code === 'CLIENT_CANCELLED'
+      ) {
+        return NextResponse.json(
+          { success: false, results: [], error: 'Client cancelled' },
+          { status: 499 }
+        )
+      }
+      if (
+        e instanceof Error &&
+        'code' in e &&
+        (e as Error & { code?: string }).code === 'UPSTREAM_FETCH'
+      ) {
+        const status = (e as Error & { status?: number }).status ?? 503
+        return NextResponse.json({ success: false, results: [], error: e.message }, { status })
+      }
+      throw e
     }
 
     // 404 fallback: try v1 endpoint (defensive, same as Mercury)
     if (backendResponse.status === 404) {
-      clearTimeout(timeout)
       try {
-        const fallbackController = new AbortController()
-        const fallbackTimeout = setTimeout(
-          () => fallbackController.abort(),
-          REGISTRY_SEARCH_TIMEOUT_MS
-        )
-        const fallbackRes = await fetch(`${titanUrl}/api/v1/registry/search`, {
-          ...fetchOptions,
-          signal: fallbackController.signal,
-        })
-        clearTimeout(fallbackTimeout)
+        const fallbackRes = await runProxiedFetch('/api/v1/registry/search')
         if (fallbackRes.ok) {
           const data = await fallbackRes.json()
           return NextResponse.json(data)
         }
-      } catch {
-        // Ignore fallback errors
+      } catch (e) {
+        if (
+          e instanceof Error &&
+          'code' in e &&
+          (e as Error & { code?: string }).code === 'CLIENT_CANCELLED'
+        ) {
+          return NextResponse.json(
+            { success: false, results: [], error: 'Client cancelled' },
+            { status: 499 }
+          )
+        }
+        // Ignore other fallback errors (parity with previous silent catch)
       }
-    } else {
-      clearTimeout(timeout)
     }
 
     if (!backendResponse.ok) {

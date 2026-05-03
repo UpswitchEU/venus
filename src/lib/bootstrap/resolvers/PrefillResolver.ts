@@ -10,8 +10,9 @@
  * @module lib/bootstrap/resolvers/PrefillResolver
  */
 
-import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { getApiUrl } from '../../../utils/getMercuryUrl'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -494,7 +495,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     // Belgian KBO/VAT — use the dedicated exact-match lookup endpoint.
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
       const body: Record<string, string> = {}
       if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
       if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
@@ -541,7 +542,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     if (!name || name.trim().length < 2) return null
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
       const response = await fetch(`${API_URL}/api/v2/registry/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

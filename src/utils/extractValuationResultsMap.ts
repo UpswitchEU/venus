@@ -20,6 +20,15 @@ export type HydrateClientValuationResultsOptions = {
   selectedValuationMethodOverride?: string | null
 }
 
+/** The other NL/EN key for the same revenue-multiple methodology. */
+export function revenueMethodologySiblingKey(
+  key: string
+): 'omzet_multiple' | 'revenue_multiple' | null {
+  if (key === 'omzet_multiple') return 'revenue_multiple'
+  if (key === 'revenue_multiple') return 'omzet_multiple'
+  return null
+}
+
 /** Read method row from a hydrated map; `omzet_multiple` / `revenue_multiple` are aliases. */
 export function getValuationMethodResultForKey(
   map: Record<string, ValuationMethodResult> | null | undefined,
@@ -28,18 +37,9 @@ export function getValuationMethodResultForKey(
   if (!map) return undefined
   const direct = map[methodKey]
   if (direct) return direct
-  if (methodKey === 'omzet_multiple') return map['revenue_multiple']
-  if (methodKey === 'revenue_multiple') return map['omzet_multiple']
+  const sibling = revenueMethodologySiblingKey(methodKey)
+  if (sibling) return map[sibling]
   return undefined
-}
-
-/** The other NL/EN key for the same revenue-multiple methodology. */
-export function revenueMethodologySiblingKey(
-  key: string
-): 'omzet_multiple' | 'revenue_multiple' | null {
-  if (key === 'omzet_multiple') return 'revenue_multiple'
-  if (key === 'revenue_multiple') return 'omzet_multiple'
-  return null
 }
 
 /**
@@ -108,6 +108,10 @@ const METHOD_KEY_ALIASES: Record<string, string> = {
   revenue_multiple: 'omzet_multiple',
 }
 const REVENUE_METHOD_KEYS = new Set(['omzet_multiple', 'revenue_multiple'])
+
+export function isRevenueMethodologyKey(methodKey: string): boolean {
+  return REVENUE_METHOD_KEYS.has(methodKey)
+}
 
 export function normalizeSelectedMethodKey(methodKey: unknown): string {
   if (methodKey == null) return ''
@@ -388,7 +392,7 @@ function getFallbackMethodLabel(methodKey: string): string {
   if (methodKey === 'arr_multiple') {
     return 'ARR multiple'
   }
-  if (methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple') {
+  if (isRevenueMethodologyKey(methodKey)) {
     return 'Omzetmultiple'
   }
   if (methodKey === 'ebitda_multiple') {
@@ -604,7 +608,7 @@ function synthesizeMinimalValuationResultsMap(
 
   const value = equityMid ?? enterpriseMid ?? 0
 
-  if (REVENUE_METHOD_KEYS.has(methodKey) && currentRevenue != null && currentRevenue <= 0) {
+  if (isRevenueMethodologyKey(methodKey) && currentRevenue != null && currentRevenue <= 0) {
     return {
       [methodKey]: {
         available: false,

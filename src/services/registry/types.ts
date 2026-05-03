@@ -94,3 +94,18 @@ export interface RegistryServiceConfig {
   maxCacheSize: number
   timeout: number
 }
+
+/**
+ * Browser-side max wait for `/api/registry/search` (Venus BFF → Titan).
+ * Align with Mercury (`REGISTRY_SEARCH_CLIENT_TIMEOUT_MS`): Titan KBO cold DB
+ * paths can approach ~12s; aborting at 6–8s surfaces false failures.
+ */
+export const REGISTRY_SEARCH_CLIENT_TIMEOUT_MS = 15_000
+
+/**
+ * Server-side Titan fetch budget in `app/api/registry/search/route.ts`.
+ * **Keep equal to** Mercury `REGISTRY_PROXY_TOTAL_BUDGET_MS` (14.5s). Must stay
+ * strictly **below** `REGISTRY_SEARCH_CLIENT_TIMEOUT_MS` so the BFF returns JSON
+ * before the browser aborts.
+ */
+export const REGISTRY_SEARCH_PROXY_TIMEOUT_MS = 14_500
