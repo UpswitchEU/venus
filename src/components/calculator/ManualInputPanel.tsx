@@ -2969,7 +2969,7 @@ export function ManualInputPanel({
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex flex-col">
             {shouldShowImportedBatchSummary && (
               <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -4032,7 +4032,7 @@ export function ManualInputPanel({
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
-            <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 -mx-6 -mb-6 border-t border-foreground/[0.06] bg-background mt-auto">
+            <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 -mx-6 -mb-6 border-t border-foreground/[0.06] bg-background">
               <AuroraButton
                 type="submit"
                 variant="primary"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ACTIONABLE_QUALITY_WARNING_TYPES,
   applyRemainderRebalance,
   equalWeightsFor,
   getBonusSections,
@@ -8,9 +9,12 @@ import {
   getConflictingMethod,
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
+  isActionableQualityWarningType,
   isCombinableMethod,
   isUpfrontMethodAllowedForNav,
   normalizeRemainderWeights,
+  pickSynthesisPercentWeightForMethod,
+  QUALITY_WARNING_ASSISTANT_CTA_KEYS,
   rebalanceMethodWeights,
   usesRemainderWeightModel,
   resolveBusinessTypeIdForBonusSections,
@@ -24,6 +28,35 @@ import {
 } from './methodFieldConfig'
 
 describe('methodFieldConfig', () => {
+  it('keeps actionable quality warning Set aligned with assistant CTA key catalog', () => {
+    const catalogKeys = Object.keys(QUALITY_WARNING_ASSISTANT_CTA_KEYS)
+    expect(ACTIONABLE_QUALITY_WARNING_TYPES.size).toBe(catalogKeys.length)
+    for (const k of catalogKeys) {
+      expect(ACTIONABLE_QUALITY_WARNING_TYPES.has(k)).toBe(true)
+    }
+  })
+
+  it('isActionableQualityWarningType narrows known engine warning types', () => {
+    expect(isActionableQualityWarningType('ebitda_divergence')).toBe(true)
+    expect(isActionableQualityWarningType('unknown_engine_warning')).toBe(false)
+    expect(isActionableQualityWarningType(null)).toBe(false)
+  })
+
+  it('pickSynthesisPercentWeightForMethod mirrors omzet/revenue pairing in resolveSynthesis', () => {
+    expect(
+      pickSynthesisPercentWeightForMethod('omzet_multiple', {
+        ebitda_multiple: 60,
+        revenue_multiple: 40,
+      })
+    ).toBe(40)
+    expect(
+      pickSynthesisPercentWeightForMethod('revenue_multiple', {
+        omzet_multiple: 55,
+        dcf: 45,
+      })
+    ).toBe(55)
+  })
+
   it('covers every pre-selectable method in the registry', () => {
     expect(
       PRE_SELECTABLE_METHODS.every((method) => Object.prototype.hasOwnProperty.call(METHOD_FIELD_CONFIG, method))

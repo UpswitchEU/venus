@@ -223,6 +223,38 @@ export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
 ]
 
 /**
+ * Engine `data_quality_warnings.type` → `chatAssistant.*` keys for guided CTAs.
+ * Assistant auto-open on new results uses {@link ACTIONABLE_QUALITY_WARNING_TYPES} derived from these keys.
+ */
+export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = {
+  thin_comparables_proxy: {
+    labelKey: 'qualityCtaThinComparablesLabel',
+    promptKey: 'qualityCtaThinComparablesPrompt',
+  },
+  owner_concentration_skipped_missing_inputs: {
+    labelKey: 'qualityCtaOwnerConcentrationLabel',
+    promptKey: 'qualityCtaOwnerConcentrationPrompt',
+  },
+  ebitda_divergence: {
+    labelKey: 'qualityCtaEbitdaDivergenceLabel',
+    promptKey: 'qualityCtaEbitdaDivergencePrompt',
+  },
+} as const
+
+export type ActionableQualityWarningType = keyof typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS
+
+/** Same keys as {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS} — use for Set membership / auto-open. */
+export const ACTIONABLE_QUALITY_WARNING_TYPES = new Set<string>(
+  Object.keys(QUALITY_WARNING_ASSISTANT_CTA_KEYS)
+)
+
+export function isActionableQualityWarningType(
+  type: string | undefined | null
+): type is ActionableQualityWarningType {
+  return typeof type === 'string' && type in QUALITY_WARNING_ASSISTANT_CTA_KEYS
+}
+
+/**
  * Returns the method that conflicts with the given method, or null.
  */
 export function getConflictingMethod(method: string): string | null {
@@ -402,6 +434,26 @@ export function equalWeightsFor(methods: string[]): Record<string, number> {
 }
 
 /**
+ * Effective integer % weight for one method (0–100), honoring `omzet_multiple` ↔ `revenue_multiple` pairing.
+ */
+export function pickSynthesisPercentWeightForMethod(
+  methodKey: string,
+  userWeights: Record<string, number>
+): number | undefined {
+  const v = userWeights[methodKey]
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (methodKey === 'omzet_multiple') {
+    const r = userWeights['revenue_multiple']
+    if (typeof r === 'number' && Number.isFinite(r)) return r
+  }
+  if (methodKey === 'revenue_multiple') {
+    const o = userWeights['omzet_multiple']
+    if (typeof o === 'number' && Number.isFinite(o)) return o
+  }
+  return undefined
+}
+
+/**
  * Integer % weights (sum 100) for Waarderingssynthese → Titan `user_weights` (÷100).
  * - Aligns `omzet_multiple` / `revenue_multiple` when one side is missing (ValuationIQ may echo EN key).
  * - If any selected method has no weight or the sum is not ~100% (±2pp), uses {@link equalWeightsFor}.
@@ -413,23 +465,9 @@ export function resolveSynthesisPercentWeightsForMethods(
   if (methods.length < 2) return null
   if (methods.includes('upswitch_adaptive')) return null
 
-  const pick = (m: string): number | undefined => {
-    const v = userWeights[m]
-    if (typeof v === 'number' && Number.isFinite(v)) return v
-    if (m === 'omzet_multiple') {
-      const r = userWeights['revenue_multiple']
-      if (typeof r === 'number' && Number.isFinite(r)) return r
-    }
-    if (m === 'revenue_multiple') {
-      const o = userWeights['omzet_multiple']
-      if (typeof o === 'number' && Number.isFinite(o)) return o
-    }
-    return undefined
-  }
-
   const filtered: Record<string, number> = {}
   for (const m of methods) {
-    const v = pick(m)
+    const v = pickSynthesisPercentWeightForMethod(m, userWeights)
     if (v != null) filtered[m] = v
   }
   const sum = Object.values(filtered).reduce((s, x) => s + x, 0)

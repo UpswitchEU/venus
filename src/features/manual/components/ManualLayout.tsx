@@ -74,7 +74,13 @@ import {
   showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
-import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
+import {
+  isActionableQualityWarningType,
+  isUpfrontMethodAllowedForNav,
+  QUALITY_WARNING_ASSISTANT_CTA_KEYS,
+  resolveSynthesisPercentWeightsForMethods,
+} from '../../../constants/methodFieldConfig'
+import { METHOD_LABEL_KEYS } from '../../../constants/methodLabels'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
@@ -155,9 +161,12 @@ import { buildManualValuationRequest } from '../../../utils/buildManualValuation
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
+import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
+import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
-import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
+import { extractValuationResultsMap, getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
+import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
   getCurrentFilingYear,
   isFilingYearConfirmedValue,
@@ -751,6 +760,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
+  const tMethodSelector = useTranslations('manualInput.methodSelector')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -1294,6 +1304,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // high-severity warning. We do this exactly once per result-id so we
   // don't re-pop the drawer every render.
   const lastAutoOpenedResultRef = useRef<string | null>(null)
+  /** One toast per valuation run when weighted synthesis was expected but missing (blend engine skip). */
+  const lastSynthesisBlendSkippedRunKeyRef = useRef<string | null>(null)
 
   // Load conversation history from server and sync to local chat state.
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
@@ -2127,28 +2139,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const navValuationSummary = React.useMemo(() => {
     if (!report) return undefined
-    const vr = result?.valuation_results as
-      | Record<string, { available: boolean; value?: number | string | null }>
-      | undefined
+    const vr = getHydratedValuationResults(result) ?? undefined
     const isMultiMethod =
       preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
 
     let liveBlended: number | null = null
-    if (isMultiMethod && vr && Object.keys(userWeights).length > 0) {
-      const weightTotal = Object.values(userWeights).reduce((s, v) => s + v, 0)
-      if (Math.abs(weightTotal - 100) <= 2) {
-        let sum = 0
-        let ok = true
-        for (const [mk, mw] of Object.entries(userWeights)) {
-          if (mw <= 0) continue
-          const mr = vr[mk]
-          if (!mr?.available || mr.value == null) {
-            ok = false
-            break
+    if (isMultiMethod && vr && Object.keys(vr).length > 0) {
+      const pctMap = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
+      if (pctMap) {
+        const weightTotal = Object.values(pctMap).reduce((s, v) => s + v, 0)
+        if (Math.abs(weightTotal - 100) <= 2) {
+          let sum = 0
+          let ok = true
+          for (const mk of preSelectedMethods) {
+            const w = pctMap[mk] ?? 0
+            if (w <= 0) continue
+            const mr = getValuationMethodResultForKey(vr, mk)
+            if (!mr?.available || mr.value == null) {
+              ok = false
+              break
+            }
+            sum += Number(mr.value) * (w / 100)
           }
-          sum += Number(mr.value) * (mw / 100)
+          if (ok && sum > 0) liveBlended = Math.round(sum)
         }
-        if (ok && sum > 0) liveBlended = Math.round(sum)
       }
     }
 
@@ -2171,9 +2185,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [report, result, userWeights, preSelectedMethods])
 
   const synthesisValuationResults = useMemo(() => {
-    const vr = result?.valuation_results as Record<string, ValuationMethodResult> | undefined
-    return vr ?? null
-  }, [result?.valuation_results])
+    return getHydratedValuationResults(result) ?? null
+  }, [result])
 
   // Founder dashboard mount — show the React founder one-pager (football
   // field + live cap-table simulator) ABOVE the HTML report whenever a
@@ -2663,27 +2676,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [result])
 
   // Pass-7: when a NEW result arrives, clear stale acknowledgements and (if
-  // any high-severity warnings are present) auto-open the assistant exactly
-  // once. This is the proactive surface — the advisor sees the issues
-  // immediately and is guided to resolve them in the chat, not buried on
-  // page 1 of the PDF.
+  // any high-severity warnings with a guided CTA catalog entry are present)
+  // auto-open the assistant exactly once.
   useEffect(() => {
     if (!result) return
-    const resultId =
-      ((result as any)?.valuation_id as string | undefined) ||
-      ((result as any)?.id as string | undefined) ||
-      null
-    const warnings = ((result as any)?.data_quality_warnings ?? []) as Array<{
-      severity?: string
-    }>
-    const hasHigh = warnings.some((w) => String(w.severity ?? '').toLowerCase() === 'high')
+    const runKey = valuationResultRunKey(result)
+    if (!runKey) return
+    const warnings = getDataQualityWarningsFromResult(result)
+    const hasActionableHigh = warnings.some(
+      (w) =>
+        String(w.severity ?? '').toLowerCase() === 'high' && isActionableQualityWarningType(w.type)
+    )
     // New result → drop stale acknowledgements (different run, different facts).
-    if (resultId !== lastAutoOpenedResultRef.current) {
+    if (runKey !== lastAutoOpenedResultRef.current) {
       setAcknowledgedQualityWarnings(new Set())
-      if (hasHigh) {
+      if (hasActionableHigh) {
         setChatDrawerOpen(true)
       }
-      lastAutoOpenedResultRef.current = resultId
+      lastAutoOpenedResultRef.current = runKey
     }
   }, [result])
 
@@ -3037,6 +3047,57 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           return
         }
 
+        const storeForBlend = useManualResultsStore.getState()
+        const blendMethods = storeForBlend.preSelectedMethods
+        const blendPct = resolveSynthesisPercentWeightsForMethods(
+          blendMethods,
+          storeForBlend.userWeights
+        )
+        const expectedWeightedSynthesis =
+          blendMethods.length >= 2 &&
+          !blendMethods.includes('upswitch_adaptive') &&
+          blendPct != null &&
+          !calcResult.weighted_valuation
+
+        const blendRunKey = valuationResultRunKey(calcResult)
+        if (
+          expectedWeightedSynthesis &&
+          blendRunKey &&
+          lastSynthesisBlendSkippedRunKeyRef.current !== blendRunKey
+        ) {
+          const vrBlend = getHydratedValuationResults(calcResult) ?? {}
+          let blocker: { key: string; reason?: string | null } | null = null
+          if (blendPct) {
+            for (const mk of blendMethods) {
+              const w = blendPct[mk] ?? 0
+              if (w <= 0) continue
+              const mr = getValuationMethodResultForKey(vrBlend, mk)
+              if (!mr?.available || mr.value == null) {
+                blocker = { key: mk, reason: mr?.unavailable_reason ?? null }
+                break
+              }
+            }
+          }
+          if (blocker) {
+            lastSynthesisBlendSkippedRunKeyRef.current = blendRunKey
+            const labelTail = METHOD_LABEL_KEYS[blocker.key]?.replace(
+              'manualInput.methodSelector.',
+              ''
+            )
+            const methodLabel = labelTail
+              ? tMethodSelector(labelTail as 'dcf')
+              : blocker.key.replace(/_/g, ' ')
+            toast.warning(t('synthesisBlendSkippedTitle'), {
+              description: t('synthesisBlendSkippedDesc', {
+                method: methodLabel,
+                reason:
+                  (blocker.reason && String(blocker.reason).trim()) ||
+                  t('synthesisBlendSkippedReasonFallback'),
+              }),
+            })
+          }
+        }
+
         // Step 5: Store result (triggers useEffect bridge → report state)
         setResult(calcResult)
         setCalculating(false)
@@ -3309,6 +3370,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       t,
       tErrors,
       tPreparer,
+      tMethodSelector,
       result,
       preSelectedMethod,
       selectedMethod,
@@ -5389,39 +5451,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // advisors fix them BEFORE generating the report. The report ships clean
   // once warnings are resolved or acknowledged. See engine-side Pass-3
   // aggregation that produces `result.data_quality_warnings`.
-  const rawQualityWarnings = (result as any)?.data_quality_warnings as
-    | Array<{
-        type?: string
-        severity?: string
-        message?: string
-        recommendation?: string
-        step_number?: number
-      }>
-    | undefined
   const qualityWarnings = useMemo(() => {
-    if (!rawQualityWarnings || rawQualityWarnings.length === 0) return []
-    // Per warning type: a localized CTA label and a prefilled assistant prompt.
-    // The advisor clicks the CTA → message goes into the chat → assistant
-    // walks them through the fix using its existing tool-use repertoire.
-    const ctaCatalog: Record<string, { labelKey: string; promptKey: string }> = {
-      thin_comparables_proxy: {
-        labelKey: 'qualityCtaThinComparablesLabel',
-        promptKey: 'qualityCtaThinComparablesPrompt',
-      },
-      owner_concentration_skipped_missing_inputs: {
-        labelKey: 'qualityCtaOwnerConcentrationLabel',
-        promptKey: 'qualityCtaOwnerConcentrationPrompt',
-      },
-      ebitda_divergence: {
-        labelKey: 'qualityCtaEbitdaDivergenceLabel',
-        promptKey: 'qualityCtaEbitdaDivergencePrompt',
-      },
-    }
+    const rawQualityWarnings = getDataQualityWarningsFromResult(result)
+    if (rawQualityWarnings.length === 0) return []
+    // CTA copy: single source in `QUALITY_WARNING_ASSISTANT_CTA_KEYS` (methodFieldConfig).
     return rawQualityWarnings
       .filter((w) => String(w.severity ?? '').toLowerCase() === 'high')
       .filter((w) => !!w.type && !acknowledgedQualityWarnings.has(w.type!))
       .map((w) => {
-        const cta = ctaCatalog[w.type!]
+        const cta =
+          w.type && isActionableQualityWarningType(w.type)
+            ? QUALITY_WARNING_ASSISTANT_CTA_KEYS[w.type]
+            : undefined
         // Fall back gracefully when a new engine warning type ships before
         // the catalog is updated — show the warning, no CTA.
         const labelDefault = 'Open in chat'
@@ -5445,7 +5486,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             : promptDefault,
         }
       })
-  }, [rawQualityWarnings, acknowledgedQualityWarnings, tCa])
+  }, [result, acknowledgedQualityWarnings, tCa])
 
   const handleResolveQualityWarning = useCallback(
     (warningType: string, prompt: string) => {

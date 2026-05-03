@@ -2,9 +2,32 @@ import { describe, expect, it } from 'vitest'
 
 import {
   extractValuationResultsMap,
+  getValuationMethodResultForKey,
   normalizeSelectedMethodKey,
   normalizeValuationResultWithMethodMap,
 } from './extractValuationResultsMap'
+
+describe('getValuationMethodResultForKey', () => {
+  it('resolves omzet_multiple from revenue_multiple alias', () => {
+    const map = {
+      revenue_multiple: { available: true, value: 50_000, label: 'Rev' },
+    }
+    expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(50_000)
+  })
+
+  it('resolves revenue_multiple from omzet_multiple alias', () => {
+    const map = {
+      omzet_multiple: { available: false, value: null, label: 'Omzet', unavailable_reason: 'x' },
+    }
+    const r = getValuationMethodResultForKey(map, 'revenue_multiple')
+    expect(r?.available).toBe(false)
+    expect(r?.unavailable_reason).toBe('x')
+  })
+
+  it('returns undefined when method missing', () => {
+    expect(getValuationMethodResultForKey({ dcf: { available: true, value: 1, label: 'DCF' } }, 'sde_multiple')).toBeUndefined()
+  })
+})
 
 describe('normalizeSelectedMethodKey (DCF display labels)', () => {
   it('normalizes English DCF Analysis headline to the snake_case key persistence checks', () => {

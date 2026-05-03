@@ -9,6 +9,8 @@
  * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
  * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
+import type { ValuationMethodResult } from '../types/valuation'
+
 export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
 }
@@ -616,4 +618,19 @@ export function normalizeValuationResultWithMethodMap(
   }
 
   return { ...value, valuation_results: map }
+}
+
+/**
+ * Resolve API valuation result for a method key; `omzet_multiple` / `revenue_multiple` are aliases.
+ */
+export function getValuationMethodResultForKey(
+  map: Record<string, ValuationMethodResult> | null | undefined,
+  methodKey: string
+): ValuationMethodResult | undefined {
+  if (!map) return undefined
+  const direct = map[methodKey]
+  if (direct) return direct
+  if (methodKey === 'omzet_multiple') return map['revenue_multiple']
+  if (methodKey === 'revenue_multiple') return map['omzet_multiple']
+  return undefined
 }
