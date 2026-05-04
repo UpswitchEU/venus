@@ -32,8 +32,9 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, ArrowRight, Check, Loader2, MessageCircle, Send, X } from 'lucide-react'
+import { ArrowRight, Check, Loader2, MessageCircle, Send, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FindingPeek } from '@/features/startup-studio/components/FindingPeek'
 import type {
   StudioIssue,
   StudioIssueSeverity,
@@ -50,6 +51,8 @@ interface CoPilotMessage {
 }
 
 const SESSION_KEY_PREFIX = 'upswitch.studio.copilot.'
+const PEEK_SNOOZE_KEY_PREFIX = 'upswitch.studio.copilot.peeksnooze.'
+const PEEK_AUTO_OPEN_DELAY_MS = 1500
 const MAX_PERSISTED_MESSAGES = 30
 
 const STEP_LABELS: Record<StudioStepId, { en: string; nl: string }> = {
@@ -97,6 +100,37 @@ interface StudioCoPilotProps {
   onOpenChange?: (open: boolean) => void
   /** Optional company name to ground the assistant context. */
   companyName?: string
+}
+
+/**
+ * Wraps a per-issue prompt with a fixed structure so the assistant
+ * always answers in actionable form: numbered steps, the why, and an
+ * exact value to enter. This is what turns "errors" into "next moves".
+ *
+ * The directive is intentionally short and locale-aligned with the
+ * advisor's UI — Claude follows the bolded section headers reliably.
+ */
+function wrapAsActionablePrompt(prompt: string, locale: 'en' | 'nl'): string {
+  if (locale === 'nl') {
+    return [
+      'Antwoord in dit exacte format (Nederlands), met deze drie kopjes vetgedrukt:',
+      '',
+      '**Actiepunten:** 1–3 genummerde, concrete stappen die ik nu in de wizard kan uitvoeren.',
+      '**Waarom dit telt:** één zin over de impact op de waardering of het rapport.',
+      '**Wat in te vullen:** een concrete waarde of voorbeeld (bedrag, percentage, multiple, of zin).',
+      '',
+      `Vraag van de gebruiker: ${prompt}`,
+    ].join('\n')
+  }
+  return [
+    'Reply in this exact format, with these three section headers in bold:',
+    '',
+    '**Action points:** 1–3 numbered, concrete things to do in the wizard right now.',
+    '**Why this matters:** one sentence on the impact on the valuation or report.',
+    '**What to enter:** a concrete value or example (amount, percentage, multiple, or sentence).',
+    '',
+    `User question: ${prompt}`,
+  ].join('\n')
 }
 
 function loadPersistedMessages(scopeId: string): CoPilotMessage[] {
@@ -147,6 +181,12 @@ export function StudioCoPilot({
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [resolvedIssueIds, setResolvedIssueIds] = useState<Set<string>>(new Set())
+  // Apollo-style suggestion peek: visible at most as a single floating
+  // card above the FAB. Auto-opens once per session after a settle
+  // delay, then respects "Later" (×) for the rest of the session — the
+  // FAB always carries the count badge as a quiet re-entry point.
+  const [peekOpen, setPeekOpen] = useState(false)
+  const [peekSnoozed, setPeekSnoozed] = useState(false)
 
   const streamCleanupRef = useRef<(() => void) | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -156,6 +196,18 @@ export function StudioCoPilot({
   // in useState because Next.js SSR would mismatch.
   useEffect(() => {
     setMessages(loadPersistedMessages(scopeId))
+  }, [scopeId])
+
+  // Hydrate the per-scope peek snooze flag. Persisting at scope level
+  // means each wizard run gets its own first-peek nudge.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.sessionStorage.getItem(PEEK_SNOOZE_KEY_PREFIX + scopeId)
+      setPeekSnoozed(raw === '1')
+    } catch {
+      // sessionStorage unavailable — peek will simply auto-open every mount.
+    }
   }, [scopeId])
 
   // Persist on every change (cap at MAX_PERSISTED_MESSAGES).
@@ -198,14 +250,18 @@ export function StudioCoPilot({
   }, [open, setOpen])
 
   const sendMessage = useCallback(
-    (content: string, originatingIssueId?: string) => {
+    (content: string, originatingIssueId?: string, displayContent?: string) => {
       const trimmed = content.trim()
       if (!trimmed || isStreaming) return
 
+      // `displayContent` lets issue-triggered sends show the friendly
+      // prompt in the chat bubble while sending the AI a wrapped,
+      // action-point-formatted version. Free-form composer messages
+      // pass no override and behave identically to before.
       const userMsg: CoPilotMessage = {
         id: `u-${Date.now()}`,
         role: 'user',
-        content: trimmed,
+        content: (displayContent ?? trimmed).trim() || trimmed,
       }
       const streamingId = `a-${Date.now()}`
       setMessages((prev) => [...prev, userMsg, { id: streamingId, role: 'assistant', content: '' }])
@@ -271,11 +327,26 @@ export function StudioCoPilot({
 
   const handleResolveIssue = useCallback(
     (issue: StudioIssue) => {
+      // Peek hands off to the panel — closing the peek avoids two
+      // surfaces talking about the same finding at once.
+      setPeekOpen(false)
       setOpen(true)
-      sendMessage(issue.assistantPrompt[locale], issue.id)
+      const friendly = issue.assistantPrompt[locale]
+      sendMessage(wrapAsActionablePrompt(friendly, locale), issue.id, friendly)
     },
     [locale, sendMessage, setOpen]
   )
+
+  const handleSnoozePeek = useCallback(() => {
+    setPeekOpen(false)
+    setPeekSnoozed(true)
+    if (typeof window === 'undefined') return
+    try {
+      window.sessionStorage.setItem(PEEK_SNOOZE_KEY_PREFIX + scopeId, '1')
+    } catch {
+      // sessionStorage disabled (incognito) — fall back to in-memory only.
+    }
+  }, [scopeId])
 
   const handleJumpToStep = useCallback(
     (step: StudioStepId) => {
@@ -292,6 +363,24 @@ export function StudioCoPilot({
   const blockerCount = visibleIssues.filter((i) => i.severity === 'block').length
   const warnCount = visibleIssues.filter((i) => i.severity === 'warn').length
   const fabBadgeCount = blockerCount + warnCount
+
+  // Auto-peek once per session: settle the wizard for ~1.5s, then
+  // gently nudge if findings exist and the user hasn't already said
+  // "Later". The panel-open and peek-open paths are mutually exclusive
+  // — when the panel is open we never auto-show the peek.
+  useEffect(() => {
+    if (peekSnoozed || peekOpen || open) return
+    if (visibleIssues.length === 0) return
+    const t = setTimeout(() => setPeekOpen(true), PEEK_AUTO_OPEN_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [peekSnoozed, peekOpen, open, visibleIssues.length])
+
+  // Close the peek if the user resolves every finding (e.g. fixes them
+  // in the wizard directly) — no point keeping a card around with
+  // nothing to nudge about.
+  useEffect(() => {
+    if (peekOpen && visibleIssues.length === 0) setPeekOpen(false)
+  }, [peekOpen, visibleIssues.length])
 
   const fabLabel =
     locale === 'nl'
@@ -552,23 +641,18 @@ export function StudioCoPilot({
         )}
       </AnimatePresence>
 
-      {/* Inline alert badge for the first blocker — surfaces even when
-          the panel is closed, so the founder doesn't miss a hard issue. */}
-      {!open && blockerCount > 0 && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-24 right-6 z-30 max-w-xs rounded-lg border border-rose-300/40 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 shadow-md dark:bg-rose-950/40 dark:text-rose-300"
-        >
-          <p className="flex items-start gap-1.5">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              {locale === 'nl'
-                ? `${blockerCount} blokkerende issue${blockerCount === 1 ? '' : 's'} — open de co-pilot om te fixen voor PDF.`
-                : `${blockerCount} blocking issue${blockerCount === 1 ? '' : 's'} — open the co-pilot to resolve before PDF.`}
-            </span>
-          </p>
-        </div>
+      {/* Apollo-style suggestion peek — single compact card above the
+          FAB. Auto-opens once per session, snoozes on ×, and hands off
+          to the panel on "Ask co-pilot". Hidden whenever the panel
+          itself is open so the founder is never nudged twice. */}
+      {!open && (
+        <FindingPeek
+          issues={visibleIssues}
+          locale={locale}
+          open={peekOpen && !peekSnoozed}
+          onAskAi={handleResolveIssue}
+          onSnooze={handleSnoozePeek}
+        />
       )}
     </>
   )

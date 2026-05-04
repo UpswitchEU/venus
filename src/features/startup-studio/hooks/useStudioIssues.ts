@@ -62,6 +62,12 @@ export interface StudioIssue {
   title: StudioIssueCopy
   body: StudioIssueCopy
   /**
+   * One-line "do this" remedy surfaced in the floating tooltip stack.
+   * Kept tighter than `body` — it is the single sentence that, if read in
+   * isolation, tells the founder/advisor exactly what to change next.
+   */
+  action: StudioIssueCopy
+  /**
    * Pre-written prompt the AI co-pilot opens with when the advisor taps
    * "Fix with AI". Kept first-person + specific so the assistant doesn't
    * have to re-derive context.
@@ -100,6 +106,10 @@ function pickIssues(
         en: 'The report cover, deck-ready sentence, and PDF filename all reference the company name.',
         nl: 'De rapportcover, deck-zin en PDF-bestandsnaam verwijzen allemaal naar de bedrijfsnaam.',
       },
+      action: {
+        en: 'Open Profile and enter the legal company name.',
+        nl: 'Open Profiel en vul de juridische bedrijfsnaam in.',
+      },
       assistantPrompt: {
         en: 'Help me set the right legal company name for this valuation. What do I need and where will it appear?',
         nl: 'Help me de juiste juridische bedrijfsnaam voor deze waardering te kiezen. Wat heb ik nodig en waar verschijnt die?',
@@ -122,6 +132,10 @@ function pickIssues(
         en: 'The Berkus leg is the foundation of every pre-seed valuation. Without at least one milestone the engine cannot produce a defensible range.',
         nl: 'De Berkus-leg is de basis van elke pre-seed waardering. Zonder minstens één mijlpaal kan de engine geen verdedigbaar bereik produceren.',
       },
+      action: {
+        en: 'In Risk reduction, mark at least one milestone above "none".',
+        nl: 'Markeer in Risico-reductie minstens één mijlpaal hoger dan "geen".',
+      },
       assistantPrompt: {
         en: 'Walk me through the five Berkus milestones (sound idea, prototype, team, partnerships, rollout) and help me pick the right maturity level for each based on what we have today.',
         nl: 'Loop met me door de vijf Berkus-mijlpalen (idee, prototype, team, partnerships, rollout) en help me het juiste niveau te kiezen op basis van wat we vandaag hebben.',
@@ -142,6 +156,10 @@ function pickIssues(
       body: {
         en: 'Without a target raise we cannot show post-money or dilution, and the VC method falls back to a generic formula.',
         nl: 'Zonder een gewenste raise kunnen we post-money of dilutie niet tonen, en valt de VC-methode terug op een generieke formule.',
+      },
+      action: {
+        en: 'In Round, set a target raise (€) so post-money and dilution can be shown.',
+        nl: 'Vul in Ronde een gewenste raise (€) in zodat post-money en dilutie tonen.',
       },
       assistantPrompt: {
         en: 'I am not sure how much to raise. Given my stage and current burn, what round size do similar founders raise and what does that imply for dilution?',
@@ -175,6 +193,10 @@ function pickIssues(
         en: 'Investors at this stage expect a forward-looking lens (exit story, current ARR). Add a year-5 projection + exit multiple, or current MRR/ARR, so the blend triangulates.',
         nl: 'Investeerders op dit niveau verwachten een forward-looking lens (exit-verhaal, huidige ARR). Voeg een jaar-5 prognose + exit-multiple of huidige MRR/ARR toe zodat de blend triangulareert.',
       },
+      action: {
+        en: 'Open Exit story and add year-5 revenue + exit multiple, or enter MRR/ARR in Traction.',
+        nl: 'Open Exit-verhaal en voeg jaar-5 omzet + exit-multiple toe, of vul MRR/ARR in onder Tractie.',
+      },
       assistantPrompt: {
         en: 'My valuation is firing only the Berkus leg even though my stage is post pre-seed. Help me build out the exit story (year-5 revenue, exit multiple, target ROI) so the VC leg engages too.',
         nl: 'Mijn waardering activeert alleen de Berkus-leg terwijl mijn stage post pre-seed is. Help me het exit-verhaal uit te bouwen (jaar-5 omzet, exit-multiple, target ROI) zodat de VC-leg ook meedoet.',
@@ -200,6 +222,10 @@ function pickIssues(
         en: 'For SaaS / marketplace / fintech, comparable multiples are anchored to ARR. Without it, the SaaS-forward leg is dropped and the blend collapses to milestone-only.',
         nl: 'Voor SaaS / marketplace / fintech worden vergelijkbare multiples geijkt op ARR. Zonder die input wordt de SaaS-forward leg gedropt en valt de blend terug op enkel mijlpalen.',
       },
+      action: {
+        en: 'In Traction, enter current MRR or ARR — even an early figure activates the SaaS leg.',
+        nl: 'Vul in Tractie huidige MRR of ARR in — zelfs een vroege schatting activeert de SaaS-leg.',
+      },
       assistantPrompt: {
         en: 'My sector typically prices on ARR but I have not entered MRR/ARR yet. Help me figure out what to put — or whether pre-revenue is genuinely the right framing for the report.',
         nl: 'Mijn sector wordt meestal geprijsd op ARR maar ik heb nog geen MRR/ARR ingevuld. Help me bepalen wat ik invoer — of dat pre-revenue echt de juiste framing voor het rapport is.',
@@ -221,6 +247,10 @@ function pickIssues(
       body: {
         en: 'Year-5 revenue, exit multiple or target ROI is missing. Without the VC leg the blend leans heavily on the SaaS-forward / Berkus legs.',
         nl: 'Jaar-5 omzet, exit-multiple of target ROI ontbreekt. Zonder de VC-leg leunt de blend zwaar op de SaaS-forward / Berkus-legs.',
+      },
+      action: {
+        en: 'Fill year-5 revenue, exit multiple, and target ROI in Exit story.',
+        nl: 'Vul jaar-5 omzet, exit-multiple en target ROI in onder Exit-verhaal.',
       },
       assistantPrompt: {
         en: 'The VC method leg is greyed out. Walk me through what year-5 revenue, exit multiple, and target ROI to use — sector benchmarks if possible.',
@@ -247,6 +277,10 @@ function pickIssues(
         en: 'Each milestone card prints its evidence sentence in the investor PDF. Less than two filled means the report reads like a slider exercise rather than a defended position.',
         nl: 'Elke mijlpaal-kaart drukt zijn onderbouwing af in de investor-PDF. Minder dan twee ingevuld doet het rapport lezen als een schuifoefening in plaats van een verdedigde stelling.',
       },
+      action: {
+        en: 'Add evidence notes to at least two milestone cards in Risk reduction.',
+        nl: 'Voeg onderbouwing toe aan minstens twee mijlpaal-kaarten in Risico-reductie.',
+      },
       assistantPrompt: {
         en: 'Help me draft tight, evidence-based one-liners for the milestones I have selected. Use what is already in the wizard plus reasonable defaults — I will edit afterwards.',
         nl: 'Help me korte, onderbouwde zinnen op te stellen voor de mijlpalen die ik gekozen heb. Gebruik wat er al in de wizard staat en redelijke defaults — ik bewerk daarna.',
@@ -268,6 +302,10 @@ function pickIssues(
       body: {
         en: 'The inception-bet overlay assumes a spike founder profile (prior exit, top-tier scaleup alumnus, deep domain). Without any pedigree flag the multiplier is hard to defend in front of investors.',
         nl: 'De inception-bet overlay veronderstelt een spike-founder-profiel (eerdere exit, top-scaleup alumnus, diepe domein-expertise). Zonder pedigree-vlag is de multiplier moeilijk te verdedigen tegenover investeerders.',
+      },
+      action: {
+        en: 'Open Team pedigree and tick at least one signal — or change lens.',
+        nl: 'Open Team en vink minstens één signaal aan — of wissel van lens.',
       },
       assistantPrompt: {
         en: 'I picked the inception-bet lens but my pedigree flags are all empty. Help me decide — should I pick a different lens, or is there a pedigree claim I forgot to mark?',
@@ -292,6 +330,10 @@ function pickIssues(
       body: {
         en: 'The live Athena feed is unreachable; the wizard is using its static Q1-2026 baseline. Numbers are still defensible but will not reflect the latest quarterly refresh.',
         nl: 'De live Athena-feed is onbereikbaar; de wizard gebruikt zijn statische Q1-2026 baseline. Cijfers blijven verdedigbaar maar weerspiegelen niet de laatste kwartaal-update.',
+      },
+      action: {
+        en: 'No action required — proceed, or wait if you want the latest quarterly refresh.',
+        nl: 'Geen actie nodig — ga verder, of wacht op de laatste kwartaal-update.',
       },
       assistantPrompt: {
         en: 'The benchmark fell back to the offline cache. Is this a known outage, and should I pause the report until the live feed is back?',

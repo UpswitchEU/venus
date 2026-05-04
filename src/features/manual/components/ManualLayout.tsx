@@ -2687,23 +2687,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     )
   }, [result])
 
-  // Pass-7: when a NEW result arrives, clear stale acknowledgements and (if
-  // any high-severity **actionable** warnings are present) auto-open the assistant
-  // once per run key.
+  // Pass-9: when a NEW result arrives, clear stale acknowledgements but
+  // **never auto-open** the assistant. Forcing the drawer open broke flow —
+  // owners just wanted to see the report. The unread count surfaces on the
+  // closed assistant trigger (notification badge) so high-severity warnings
+  // are still discoverable; the user opens the drawer when ready.
   useEffect(() => {
     if (!result) return
     const runKey = valuationResultRunKey(result)
-    const warnings = getDataQualityWarningsFromResult(result)
-    const hasActionableHigh = warnings.some(
-      (w) =>
-        String(w.severity ?? '').toLowerCase() === 'high' &&
-        isActionableQualityWarningType(w.type)
-    )
     if (runKey !== lastAutoOpenedResultRef.current) {
       setAcknowledgedQualityWarnings(new Set())
-      if (hasActionableHigh) {
-        setChatDrawerOpen(true)
-      }
       lastAutoOpenedResultRef.current = runKey
     }
   }, [result])
@@ -5649,14 +5642,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // accepted count is still derivable inside the Hub panel itself
           // (where progress feedback belongs).
           normalizationCount={pendingNormalizationCount}
-          // Badge ONLY counts items visible inside the assistant drawer
-          // when opened (the pending field-update cards rendered above the
-          // messages list). Including `pendingNormalizationCount` here used
-          // to promise content the drawer didn't deliver — clicking the
-          // badged button opened an empty conversation, since pending
-          // normalizations live in the Normalization Hub button next door
-          // and only drive a suggestion-text hint here, not a card.
-          openTasksCount={pendingUpdates.length}
+          // Pass-9: badge counts items the user can act on inside the
+          // drawer — pending field-update cards (existing) PLUS
+          // unacknowledged engine quality warnings (rendered as chat
+          // bubbles after launch). Both surfaces live in the same drawer,
+          // so the badge gives one consolidated unread count. The report
+          // body no longer carries a duplicate AANDACHTSPUNTEN block, so
+          // this badge is the only signal that a high-severity warning
+          // needs review.
+          openTasksCount={pendingUpdates.length + qualityWarnings.length}
           isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
@@ -5833,7 +5827,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // See sibling site for full rationale on why Hub badge is `pending`,
         // not `accepted`, and Assistant badge is `pendingUpdates` only.
         normalizationCount={pendingNormalizationCount}
-        openTasksCount={pendingUpdates.length}
+        // Pass-9: badge surfaces unread items in the drawer — pending
+        // field-update cards + unacknowledged engine warnings (chat
+        // bubbles). Single counter, single source of friction-free signal.
+        openTasksCount={pendingUpdates.length + qualityWarnings.length}
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {

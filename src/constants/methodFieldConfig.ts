@@ -231,6 +231,7 @@ export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = [
   'thin_comparables_proxy',
   'owner_concentration_skipped_missing_inputs',
   'ebitda_divergence',
+  'net_debt_unavailable',
 ] as const
 
 export type QualityWarningAssistantCtaKey = (typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS)[number]
@@ -250,6 +251,14 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   ebitda_divergence: {
     labelKey: 'qualityCtaEbitdaDivergenceLabel',
     promptKey: 'qualityCtaEbitdaDivergencePrompt',
+  },
+  // Surfaced when Step 7 had to assume net debt = 0 because no balance
+  // sheet was supplied. Owner-managed micro-SMEs hit this constantly because
+  // they don't volunteer balance data on a 5-minute valuation; the CTA opens
+  // a guided fix in the assistant rather than blocking submit.
+  net_debt_unavailable: {
+    labelKey: 'qualityCtaNetDebtLabel',
+    promptKey: 'qualityCtaNetDebtPrompt',
   },
 } as const satisfies Record<
   QualityWarningAssistantCtaKey,
