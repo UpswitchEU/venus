@@ -1121,6 +1121,13 @@
 			"saved": "Opgeslagen",
 			"saving": "Opslaan...",
 			"draft": "Concept"
+		},
+		"advisorLifecycle": {
+			"ariaLabel": "Klanttraject — eerdere stappen openen in Mercury",
+			"basis": "Basis",
+			"profile": "Profiel",
+			"valuation": "Waardering",
+			"live": "Live"
 		}
 	},
 	"manualInput": {

@@ -44,6 +44,7 @@ import {
 } from '@/lib/analytics'
 // Calculator Components (full Clarity parity)
 import {
+  AdvisorLifecycleStrip,
   CalculatorNav,
   CalculatorShellSkeleton,
   ChatAssistantDrawer,
@@ -159,10 +160,10 @@ import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachS
 import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
+import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
-import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import {
   getValuationMethodResultForKey,
   hydrateClientValuationResultsMap,
@@ -184,7 +185,6 @@ import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../ut
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
-import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -200,6 +200,7 @@ import {
 } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
+import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -4107,17 +4108,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleContinueImportReview = useCallback(() => {
     const relId =
-      clientContextId ??
-      ctxRelationshipId ??
-      useClientContext.getState()?.relationshipId
+      clientContextId ?? ctxRelationshipId ?? useClientContext.getState()?.relationshipId
     if (!relId || typeof window === 'undefined') {
       handleExitClientView()
       return
     }
     const loc =
-      currentLocale && (currentLocale === 'en' || currentLocale === 'nl')
-        ? currentLocale
-        : 'en'
+      currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
     const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
     const pendingImportReviewKey =
       typeof resolvedReportId === 'string' &&
@@ -4159,13 +4156,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
 
     window.location.href = targetUrl
-  }, [
-    clientContextId,
-    ctxRelationshipId,
-    currentLocale,
-    handleExitClientView,
-    resolvedReportId,
-  ])
+  }, [clientContextId, ctxRelationshipId, currentLocale, handleExitClientView, resolvedReportId])
 
   /**
    * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.
@@ -5720,6 +5711,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             onShowNormalisationReview={handleShowNormalisationReview}
           />
         )}
+        {isAccountantMode && clientContextId && (
+          <AdvisorLifecycleStrip mercuryLocale={mercuryLocale} clientId={clientContextId} />
+        )}
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -5932,6 +5926,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           pendingNormalisations={pendingNormalizationCount}
           onShowNormalisationReview={handleShowNormalisationReview}
         />
+      )}
+      {isAccountantMode && clientContextId && (
+        <AdvisorLifecycleStrip mercuryLocale={mercuryLocale} clientId={clientContextId} />
       )}
 
       {/* Main Content: Resizable Panels */}

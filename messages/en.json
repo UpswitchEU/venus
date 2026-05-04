@@ -1121,6 +1121,13 @@
 			"saved": "Saved",
 			"saving": "Saving...",
 			"draft": "Draft"
+		},
+		"advisorLifecycle": {
+			"ariaLabel": "Client journey — open previous steps in Mercury",
+			"basis": "Basis",
+			"profile": "Profile",
+			"valuation": "Valuation",
+			"live": "Live"
 		}
 	},
 	"manualInput": {
