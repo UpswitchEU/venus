@@ -2,13 +2,13 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/utils/getTitanApiUrl', () => ({
-  getTitanApiUrl: () => 'http://titan.test',
+  getTitanApiUrl: () => 'https://api.upswitch.app',
 }))
 
 import { POST } from './route'
 
 function makeRequest(body: unknown, init?: { signal?: AbortSignal }): NextRequest {
-  return new NextRequest('http://venus.test/api/registry/search', {
+  return new NextRequest('https://valuation.upswitch.app/api/registry/search', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +49,7 @@ describe('POST /api/registry/search', () => {
     const res = await POST(makeRequest({ company_name: 'Acme', country_code: 'BE', limit: 5 }))
     expect(res.status).toBe(200)
     expect(fetch).toHaveBeenCalledWith(
-      'http://titan.test/api/v2/registry/search',
+      'https://api.upswitch.app/api/v2/registry/search',
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('Acme'),
@@ -84,7 +84,7 @@ describe('POST /api/registry/search', () => {
     const res = await POST(makeRequest({ company_name: 'Beta' }))
     expect(res.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://titan.test/api/v2/registry/search')
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://titan.test/api/v1/registry/search')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.upswitch.app/api/v2/registry/search')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.upswitch.app/api/v1/registry/search')
   })
 })

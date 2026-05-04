@@ -9,6 +9,10 @@ import { NextResponse } from 'next/server'
 import { getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import {
+	MERCURY_SITE_WWW_CANONICAL,
+	tryNormalizeToOrigin,
+} from '@/utils/normalizeExplicitUrl'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -110,14 +114,11 @@ function parseSafePostLogoutRedirect(request: Request): URL | null {
   const trusted = new Set<string>()
   for (const env of [process.env.NEXT_PUBLIC_MERCURY_URL, process.env.NEXT_PUBLIC_PARENT_DOMAIN]) {
     if (!env?.trim()) continue
-    try {
-      trusted.add(new URL(env).origin)
-    } catch {
-      // skip
-    }
+    const o = tryNormalizeToOrigin(env)
+    if (o) trusted.add(o)
   }
   trusted.add('https://upswitch.app')
-  trusted.add('https://www.upswitch.app')
+  trusted.add(MERCURY_SITE_WWW_CANONICAL)
   trusted.add('https://staging.upswitch.app')
   trusted.add('https://preview.upswitch.app')
   trusted.add('http://localhost:3000')

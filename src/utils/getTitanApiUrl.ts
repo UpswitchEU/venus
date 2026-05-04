@@ -14,6 +14,8 @@
 
 import type { NextRequest } from 'next/server'
 
+import { tryNormalizeApiBaseUrl } from '@/utils/normalizeExplicitUrl'
+
 const API_STAGING = 'https://api-staging.upswitch.app'
 const API_PRODUCTION = 'https://api.upswitch.app'
 
@@ -21,8 +23,17 @@ const API_PRODUCTION = 'https://api.upswitch.app'
 type RequestWithHeaders = { headers: Headers }
 
 export function getTitanApiUrl(request?: RequestWithHeaders | NextRequest): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL
+  const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim()
+  if (backend) {
+    const n = tryNormalizeApiBaseUrl(backend)
+    if (n) return n
+  }
+
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
+  if (apiBase) {
+    const n = tryNormalizeApiBaseUrl(apiBase)
+    if (n) return n
+  }
 
   const host = request?.headers.get('host')?.split(':')[0] ?? ''
   if (host.includes('preview.') || host.includes('staging.')) {

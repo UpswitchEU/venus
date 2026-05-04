@@ -8,6 +8,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
+import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
 import { defaultLocale, locales } from './i18n'
 
 /**
@@ -15,8 +16,11 @@ import { defaultLocale, locales } from './i18n'
  * Mirrors getMercuryUrl() logic but uses request headers instead of window.location.
  */
 function deriveMercuryUrl(request: NextRequest): string {
-  const envUrl = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
-  if (envUrl) return envUrl
+  const envRaw = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
+  if (envRaw?.trim()) {
+    const origin = tryNormalizeToOrigin(envRaw)
+    if (origin) return origin
+  }
 
   const host = request.headers.get('host') || ''
   if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
@@ -29,9 +33,12 @@ function deriveMercuryUrl(request: NextRequest): string {
     return `https://staging.${host.replace('staging.valuation.', '')}`
   }
   if (host.startsWith('valuation.')) {
-    return `https://${host.replace('valuation.', '')}`
+    const hostOnly = host.split(':')[0]
+    const apex = hostOnly.replace(/^valuation\./, '')
+    if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
+    return `https://${apex}`
   }
-  return 'https://upswitch.app'
+  return MERCURY_SITE_WWW_CANONICAL
 }
 
 /**
