@@ -5545,6 +5545,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     () => new Map(startupLauncherIssues.map((issue) => [issue.id, issue])),
     [startupLauncherIssues]
   )
+  const startupLauncherScopeId = useMemo(() => {
+    const sessionIdCandidate =
+      ((session as unknown as { id?: string; key?: string; session_key?: string })?.id ??
+        (session as unknown as { id?: string; key?: string; session_key?: string })?.key ??
+        (session as unknown as { id?: string; key?: string; session_key?: string })
+          ?.session_key) ||
+      ''
+    return resolvedReportId || sessionIdCandidate || reportId || 'studio-launcher'
+  }, [reportId, resolvedReportId, session])
 
   useEffect(() => {
     if (isStartupAssistantRoute) return
@@ -5604,7 +5613,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
     },
     startupLauncherIssues,
-    startupLauncherScopeId: resolvedReportId || reportId || 'studio-launcher',
+    startupLauncherScopeId,
   }
 
   const rawQualityWarnings = useMemo(() => getDataQualityWarningsFromResult(result), [result])
