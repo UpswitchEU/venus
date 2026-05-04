@@ -3609,7 +3609,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       detectedValues?: any[],
       parsedCommands?: any[]
     ) => {
-      if (isLoadingHistory) return
+      // Allow non-empty user messages (e.g. quality-warning CTAs) while
+      // history hydrates; only block empty triggers during load.
+      if (isLoadingHistory && !content.trim()) return
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
