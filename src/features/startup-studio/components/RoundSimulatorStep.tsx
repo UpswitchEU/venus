@@ -117,6 +117,7 @@ export function RoundSimulatorStep({
               onChange={(value) => setField('investment_amount_sought', value ?? null)}
               placeholder="500.000"
               size="sm"
+              truncateLabel={false}
             />
             <CurrencyInput
               label={
@@ -128,6 +129,7 @@ export function RoundSimulatorStep({
               onChange={(value) => setCapField('pre_money_target', value ?? null)}
               placeholder={String(Math.round(valuation.blended?.mid ?? 0))}
               size="sm"
+              truncateLabel={false}
               description={
                 locale === 'nl'
                   ? 'Leeg laten = onze blended waardering gebruiken. Alleen invullen als je al een pre-money met een lead investor hebt afgesproken.'
@@ -144,6 +146,8 @@ export function RoundSimulatorStep({
                 value={dilution ?? undefined}
                 onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
                 placeholder={String(stageDefaultDilution)}
+                size="sm"
+                truncateLabel={false}
                 description={
                   locale === 'nl'
                     ? `Niet zeker? Laat ${stageDefaultDilution}% staan — dat is de mediaan voor ${stage.replace('_', ' ')} → exit (Atomico SoEU 2024 · Dealroom Benelux 2024). Wijzig alleen als je een specifieke fundraising-roadmap hebt.`
@@ -167,6 +171,8 @@ export function RoundSimulatorStep({
               value={optionPoolPct}
               onChange={(value) => setCapField('option_pool_pct', value ?? 0)}
               placeholder="10"
+              size="sm"
+              truncateLabel={false}
               description={
                 locale === 'nl'
                   ? 'Aandelen gereserveerd voor toekomstige hires — investeerders eisen meestal 10–15%.'

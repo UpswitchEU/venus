@@ -127,6 +127,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ tam: value ?? null })}
             placeholder="50000000000"
             size="sm"
+            truncateLabel={false}
             description={
               locale === 'nl'
                 ? 'Totale jaaromzet wereldwijd in jouw categorie — typisch miljarden (Gartner / Statista). Voorbeeld: €50.000.000.000 = €50 miljard.'
@@ -139,6 +140,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ sam: value ?? null })}
             placeholder="2000000000"
             size="sm"
+            truncateLabel={false}
             description={
               locale === 'nl'
                 ? 'Het stuk van TAM dat je realistisch kunt bedienen vanuit je huidige geografie en kanaal. Voorbeeld: €2.000.000.000 = €2 miljard.'
@@ -151,6 +153,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
             onChange={(value) => setTamSamSom({ som: value ?? null })}
             placeholder="50000000"
             size="sm"
+            truncateLabel={false}
             description={
               locale === 'nl'
                 ? 'Wat je in 3 jaar realistisch kunt veroveren — typisch 1–5% van SAM. Voorbeeld: €50.000.000 = €50 miljoen.'
@@ -226,6 +229,7 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
           onChange={(value) => setField('year5_revenue_projection', value ?? null)}
           placeholder="1.500.000"
           size="sm"
+          truncateLabel={false}
         />
       </div>
 
@@ -254,6 +258,8 @@ export function ExitStoryStep({ locale = 'en' }: ExitStoryStepProps) {
           value={targetRoi ?? undefined}
           onChange={(value) => setField('target_roi_x', value ?? null)}
           placeholder={String(stageDefaultRoi)}
+          size="sm"
+          truncateLabel={false}
           description={
             locale === 'nl'
               ? `Hoe hoger het cijfer, hoe lager jouw pre-money. ${stageDefaultRoi}× betekent: de investeerder wil €${stageDefaultRoi} terug per €1 die ze nu storten — typisch 7–10 jaar later, na meerdere rondes verwatering. Pre-seed ~30×, seed ~20×, Series A ~10×. We hebben ${stageDefaultRoi}× ingevuld voor ${stage.replace('_', ' ')}.`

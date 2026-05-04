@@ -109,6 +109,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 placeholder="Angel #1"
                 size="sm"
                 maxLength={120}
+                truncateLabel={false}
               />
               <button
                 type="button"
@@ -128,6 +129,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 }
                 placeholder="100.000"
                 size="sm"
+                truncateLabel={false}
               />
               <CurrencyInput
                 label="Valuation cap (€)"
@@ -137,6 +139,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 }
                 placeholder="5.000.000"
                 size="sm"
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={locale === 'nl' ? 'Discount (%)' : 'Discount (%)'}
@@ -145,6 +148,8 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                   onUpdate(note.id, { discount_pct: value ?? null } as Partial<T>)
                 }
                 placeholder="20"
+                size="sm"
+                truncateLabel={false}
               />
             </div>
           </div>

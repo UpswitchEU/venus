@@ -32,6 +32,8 @@ export type {
   NormalisationSuggestion as ChatNormalisationSuggestion,
   ParsedCommand,
   ParsedValue,
+  QualityWarning,
+  StartupAssistantIssue,
 } from './ChatAssistantDrawer'
 // ─────────────────────────────────────────
 // CHAT & AI

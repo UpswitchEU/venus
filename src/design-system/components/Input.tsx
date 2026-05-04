@@ -112,7 +112,7 @@ const floatingLabelVariants = cva(
   {
     variants: {
       state: {
-        default: 'text-foreground/50',
+        default: 'text-foreground/70',
         focus: 'text-primary',
         error: 'text-destructive',
         success: 'text-primary',
@@ -132,7 +132,7 @@ const floatingLabelVariants = cva(
       // Small - not floated (vertically centered in h-14)
       { floated: false, size: 'sm', className: 'top-4 text-sm' },
       // Small - floated
-      { floated: true, size: 'sm', className: 'top-2 text-[11px] font-medium' },
+      { floated: true, size: 'sm', className: 'top-2 text-xs font-medium' },
       // Medium - not floated (vertically centered in h-16)
       { floated: false, size: 'md', className: 'top-5 text-base' },
       // Medium - floated

@@ -350,8 +350,8 @@ function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
               }
               if (blockerCount > 0) {
                 return locale === 'nl'
-                  ? `${blockerCount} blokkerend issue${blockerCount === 1 ? '' : 's'} — fix met de co-pilot voor PDF`
-                  : `${blockerCount} blocking issue${blockerCount === 1 ? '' : 's'} — resolve with the co-pilot before PDF`
+                  ? `${blockerCount} blokkerend issue${blockerCount === 1 ? '' : 's'} — fix met de assistent voor PDF`
+                  : `${blockerCount} blocking issue${blockerCount === 1 ? '' : 's'} — resolve with the assistant before PDF`
               }
               return locale === 'nl'
                 ? `${warningCount} aanbevolen verbetering${warningCount === 1 ? '' : 'en'}`
@@ -366,8 +366,8 @@ function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
             }
           >
             {locale === 'nl'
-              ? 'De Studio Co-pilot kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.'
-              : 'The Studio Co-pilot can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.'}
+              ? 'De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.'
+              : 'The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.'}
           </p>
         </div>
       </div>

@@ -60,6 +60,7 @@ import {
   type NormalizationItem,
   type RecentValuation,
   type RightPanelView,
+  type StartupAssistantIssue,
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
@@ -104,6 +105,7 @@ import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOption
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
+import { useStartupBenchmark } from '../../../lib/benchmarks/useStartupBenchmark'
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import {
   fallbackDashboardForSource,
@@ -115,6 +117,7 @@ import { valuationAuditService } from '../../../services/audit/ValuationAuditSer
 import { backendAPI } from '../../../services/backendApi'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
@@ -142,6 +145,7 @@ import {
 } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
+import { type StudioIssue, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
   APIError,
   AuthenticationError,
@@ -1305,6 +1309,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [acknowledgedQualityWarnings, setAcknowledgedQualityWarnings] = useState<Set<string>>(
     () => new Set()
   )
+  // Startup-specific issue acknowledgement for assistant cards.
+  const [acknowledgedStartupIssues, setAcknowledgedStartupIssues] = useState<Set<string>>(
+    () => new Set()
+  )
   // Auto-open the assistant the first time a result lands carrying a
   // high-severity **actionable** warning (guided CTA). Generic engine warnings
   // do not steal focus. Dedupe by `valuationResultRunKey` (not raw id-only)
@@ -1315,6 +1323,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     lastAutoOpenedResultRef.current = null
     lastSynthesisBlendSkippedRunKeyRef.current = null
+  }, [reportId])
+
+  useEffect(() => {
+    setAcknowledgedStartupIssues(new Set())
   }, [reportId])
 
   // Load conversation history from server and sync to local chat state.
@@ -5440,6 +5452,105 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     toast.info(t('suggestionRejected'))
   }, [t])
 
+  // ─── Shared Chat Drawer Props ───
+  const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
+  const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
+  const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
+  const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
+  const hasImportedNormalizationData =
+    hasImportQuality ||
+    suggestedNormalisations.length > 0 ||
+    normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
+  const assistantLocale: 'en' | 'nl' = currentLocale === 'nl' ? 'nl' : 'en'
+  const formatStartupAssistantPrompt = useCallback(
+    (prompt: string) => {
+      if (assistantLocale === 'nl') {
+        return [
+          'Antwoord in dit exacte format (Nederlands), met deze drie kopjes vetgedrukt:',
+          '',
+          '**Actiepunten:** 1–3 genummerde, concrete stappen die ik nu in de wizard kan uitvoeren.',
+          '**Waarom dit telt:** één zin over de impact op de waardering of het rapport.',
+          '**Wat in te vullen:** een concrete waarde of voorbeeld (bedrag, percentage, multiple, of zin).',
+          '',
+          `Vraag van de gebruiker: ${prompt}`,
+        ].join('\n')
+      }
+      return [
+        'Reply in this exact format, with these three section headers in bold:',
+        '',
+        '**Action points:** 1–3 numbered, concrete things to do in the wizard right now.',
+        '**Why this matters:** one sentence on the impact on the valuation or report.',
+        '**What to enter:** a concrete value or example (amount, percentage, multiple, or sentence).',
+        '',
+        `User question: ${prompt}`,
+      ].join('\n')
+    },
+    [assistantLocale]
+  )
+
+  const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
+  const isStartupAssistantRoute = effectiveAssistantMethod === 'startup_valuation'
+  const startupCountry = useStartupValuationStore((s) => s.country_code) || 'BE'
+  const startupStage = useStartupValuationStore((s) => s.stage)
+  const startupSector = useStartupValuationStore((s) => s.sector)
+  const { benchmark: startupBenchmark } = useStartupBenchmark(
+    startupCountry,
+    startupStage,
+    startupSector,
+    isStartupAssistantRoute
+  )
+  const { issues: startupRawIssues } = useStudioIssues(startupBenchmark)
+
+  const startupIssues = useMemo<StartupAssistantIssue[]>(() => {
+    if (!isStartupAssistantRoute) return []
+    const stepLabels: Record<StudioIssue['step'], { en: string; nl: string }> = {
+      profile: { en: 'Profile', nl: 'Profiel' },
+      berkus: { en: 'Risk reduction', nl: 'Risico-reductie' },
+      scorecard: { en: 'Defensibility', nl: 'Defensibility' },
+      founder_pedigree: { en: 'Team pedigree', nl: 'Team' },
+      traction: { en: 'Traction', nl: 'Tractie' },
+      exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },
+      round_simulator: { en: 'Round', nl: 'Ronde' },
+      report: { en: 'Report', nl: 'Rapport' },
+    }
+    return startupRawIssues
+      .filter((issue) => issue.severity !== 'info')
+      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
+      .map((issue) => ({
+        id: issue.id,
+        severity: issue.severity,
+        title: issue.title[assistantLocale],
+        body: issue.body[assistantLocale],
+        action: issue.action[assistantLocale],
+        ctaLabel: assistantLocale === 'nl' ? 'Fix met AI' : 'Fix with AI',
+        ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
+        jumpLabel: `${assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'} ${
+          stepLabels[issue.step][assistantLocale]
+        }`,
+      }))
+  }, [
+    acknowledgedStartupIssues,
+    assistantLocale,
+    formatStartupAssistantPrompt,
+    isStartupAssistantRoute,
+    startupRawIssues,
+  ])
+  const startupLauncherIssues = useMemo<StudioIssue[]>(() => {
+    if (!isStartupAssistantRoute) return []
+    return startupRawIssues
+      .filter((issue) => issue.severity !== 'info')
+      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
+  }, [acknowledgedStartupIssues, isStartupAssistantRoute, startupRawIssues])
+  const startupIssueById = useMemo(
+    () => new Map(startupLauncherIssues.map((issue) => [issue.id, issue])),
+    [startupLauncherIssues]
+  )
+
+  useEffect(() => {
+    if (isStartupAssistantRoute) return
+    setAcknowledgedStartupIssues(new Set())
+  }, [isStartupAssistantRoute])
+
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {
     onSubmit: wrappedOnSubmit,
@@ -5481,17 +5592,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       filingYearConfirmed: formStoreData.filing_year_confirmed,
       yearlyFinancials: restoredYearlyFinancials,
     },
+    isAssistantOpen: chatDrawerOpen,
+    onOpenAssistant: () => setChatDrawerOpen(true),
+    onResolveIssueWithAssistant: (issue: StudioIssue) => {
+      setChatDrawerOpen(true)
+      handleChatMessage(formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]))
+      setAcknowledgedStartupIssues((prev) => {
+        const next = new Set(prev)
+        next.add(issue.id)
+        return next
+      })
+    },
+    startupLauncherIssues,
+    startupLauncherScopeId: resolvedReportId || reportId || 'studio-launcher',
   }
-
-  // ─── Shared Chat Drawer Props ───
-  const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
-  const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
-  const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
-  const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
-  const hasImportedNormalizationData =
-    hasImportQuality ||
-    suggestedNormalisations.length > 0 ||
-    normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
 
   const rawQualityWarnings = useMemo(() => getDataQualityWarningsFromResult(result), [result])
 
@@ -5563,6 +5677,49 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [])
 
+  const handleResolveStartupIssue = useCallback(
+    (issueId: string, prompt: string) => {
+      setChatDrawerOpen(true)
+      handleChatMessage(prompt)
+      setAcknowledgedStartupIssues((prev) => {
+        const next = new Set(prev)
+        next.add(issueId)
+        return next
+      })
+    },
+    [handleChatMessage]
+  )
+
+  const handleDismissStartupIssue = useCallback((issueId: string) => {
+    setAcknowledgedStartupIssues((prev) => {
+      const next = new Set(prev)
+      next.add(issueId)
+      return next
+    })
+  }, [])
+
+  const handleJumpToStartupIssue = useCallback(
+    (issueId: string) => {
+      const issue = startupIssueById.get(issueId)
+      if (!issue || typeof window === 'undefined') return
+      const anchorByStep: Record<StudioIssue['step'], string> = {
+        profile: 'startup-section-profile',
+        berkus: 'startup-section-berkus',
+        scorecard: 'startup-section-scorecard',
+        founder_pedigree: 'startup-section-pedigree',
+        traction: 'startup-section-traction',
+        exit_story: 'startup-section-exit',
+        round_simulator: 'startup-section-round',
+        report: 'startup-section-report',
+      }
+      const anchor = anchorByStep[issue.step]
+      if (!anchor) return
+      const el = document.getElementById(anchor)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    },
+    [startupIssueById]
+  )
+
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -5578,6 +5735,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,
     onRejectUpdate: handleRejectUpdate,
+    startupIssues,
+    onResolveStartupIssue: handleResolveStartupIssue,
+    onDismissStartupIssue: handleDismissStartupIssue,
+    onJumpToStartupIssue: handleJumpToStartupIssue,
     qualityWarnings,
     onResolveQualityWarning: handleResolveQualityWarning,
     onDismissQualityWarning: handleDismissQualityWarning,
@@ -5591,6 +5752,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,
   }
+  const assistantOpenTasksCount = pendingUpdates.length + qualityWarnings.length + startupIssues.length
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
@@ -5635,15 +5797,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // accepted count is still derivable inside the Hub panel itself
           // (where progress feedback belongs).
           normalizationCount={pendingNormalizationCount}
-          // Pass-9: badge counts items the user can act on inside the
-          // drawer — pending field-update cards (existing) PLUS
-          // unacknowledged engine quality warnings (rendered as chat
-          // bubbles after launch). Both surfaces live in the same drawer,
-          // so the badge gives one consolidated unread count. The report
-          // body no longer carries a duplicate AANDACHTSPUNTEN block, so
-          // this badge is the only signal that a high-severity warning
-          // needs review.
-          openTasksCount={pendingUpdates.length + qualityWarnings.length}
+          // Badge counts actionables across the unified assistant surface:
+          // pending field updates + engine quality warnings + startup
+          // studio issues (for startup_valuation routes).
+          openTasksCount={assistantOpenTasksCount}
           isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
@@ -5826,7 +5983,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Pass-9: badge surfaces unread items in the drawer — pending
         // field-update cards + unacknowledged engine warnings (chat
         // bubbles). Single counter, single source of friction-free signal.
-        openTasksCount={pendingUpdates.length + qualityWarnings.length}
+        // Same unified assistant task count on desktop nav.
+        openTasksCount={assistantOpenTasksCount}
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {

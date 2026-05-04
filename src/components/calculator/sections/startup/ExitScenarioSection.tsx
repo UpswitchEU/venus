@@ -231,6 +231,7 @@ export function ExitScenarioSection({
         <CurrencyInput
           size="sm"
           required
+          truncateLabel={false}
           label={t('y5Revenue')}
           description={t('y5RevenueDescription', {
             sectorLabel,
@@ -243,6 +244,7 @@ export function ExitScenarioSection({
         <AuroraInput
           size="sm"
           required
+          truncateLabel={false}
           type="number"
           inputMode="decimal"
           step="0.5"
@@ -269,6 +271,7 @@ export function ExitScenarioSection({
         <AuroraInput
           size="sm"
           required
+          truncateLabel={false}
           type="number"
           inputMode="decimal"
           step="1"
@@ -297,6 +300,7 @@ export function ExitScenarioSection({
         <CurrencyInput
           size="sm"
           required
+          truncateLabel={false}
           label={t('investmentAmountSought')}
           description={t('investmentAmountSoughtHelper')}
           value={investmentSought ?? undefined}
@@ -308,6 +312,8 @@ export function ExitScenarioSection({
           description={t('dilutionDescription')}
           value={dilutionPct ?? undefined}
           onChange={(v) => onFieldChange('dilution_assumption_pct', v ?? null)}
+          size="sm"
+          truncateLabel={false}
         />
       </div>
 

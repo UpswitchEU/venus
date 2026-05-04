@@ -203,7 +203,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
     }
 
     const labelSizeClasses = {
-      sm: isFloated ? 'top-2 text-[11px]' : 'top-4 text-sm',
+      sm: isFloated ? 'top-2 text-xs' : 'top-4 text-sm',
       md: isFloated ? 'top-2 text-xs' : 'top-5 text-base',
       lg: isFloated ? 'top-2.5 text-xs' : 'top-6 text-lg',
     }
@@ -260,7 +260,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
               'absolute transition-all duration-200 ease-in-out pointer-events-none origin-left font-medium',
               prefix ? 'left-10' : 'left-4',
               labelSizeClasses[size],
-              hasError ? 'text-destructive' : isFocused ? 'text-primary' : 'text-foreground/50'
+              hasError ? 'text-destructive' : isFocused ? 'text-primary' : 'text-foreground/70'
             )}
           >
             {label}

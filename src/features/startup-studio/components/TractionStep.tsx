@@ -104,18 +104,23 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               onChange={(value) => setField('mrr', value ?? null)}
               placeholder="5.000"
               size="sm"
+              truncateLabel={false}
             />
             <AdaptivePercentInput
               label={locale === 'nl' ? 'Maandelijkse groei (%)' : 'Monthly growth (%)'}
               value={growth ?? undefined}
               onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
               placeholder="10"
+              size="sm"
+              truncateLabel={false}
             />
             <AdaptivePercentInput
               label={locale === 'nl' ? 'Maandelijkse churn (%)' : 'Monthly churn (%)'}
               value={churn ?? undefined}
               onChange={(value) => setField('monthly_churn_pct', value ?? null)}
               placeholder="3"
+              size="sm"
+              truncateLabel={false}
             />
             <CurrencyInput
               label="CAC (€)"
@@ -123,6 +128,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               onChange={(value) => setField('cac', value ?? null)}
               placeholder="500"
               size="sm"
+              truncateLabel={false}
             />
             <div className="sm:col-span-2">
               <CurrencyInput
@@ -131,6 +137,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
                 onChange={(value) => setField('ltv', value ?? null)}
                 placeholder="3.000"
                 size="sm"
+                truncateLabel={false}
               />
             </div>
           </div>

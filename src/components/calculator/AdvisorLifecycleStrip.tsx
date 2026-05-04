@@ -1,8 +1,9 @@
 'use client'
 
 /**
- * Advisor-only journey rail: deep-link to Mercury client detail with
- * `?focus=` while the valuation step stays in Venus.
+ * Advisor-only journey rail: deep-links to Mercury — business and listing
+ * use `?focus=` on the dossier; profile opens the owner overview subroute —
+ * while the valuation step stays in Venus.
  */
 
 import { motion } from 'framer-motion'
@@ -39,7 +40,7 @@ export function AdvisorLifecycleStrip({
     current?: boolean
   }> = [
     { key: 'business', label: t('basis'), href: `${baseMercury}?focus=business` },
-    { key: 'profile', label: t('profile'), href: `${baseMercury}?focus=profile` },
+    { key: 'profile', label: t('profile'), href: `${baseMercury}/owner` },
     { key: 'valuation', label: t('valuation'), current: true },
     { key: 'listing', label: t('live'), href: `${baseMercury}?focus=listing` },
   ]

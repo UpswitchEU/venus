@@ -350,6 +350,17 @@ export interface QualityWarning {
   cta_prompt?: string
 }
 
+export interface StartupAssistantIssue {
+  id: string
+  severity: 'block' | 'warn' | 'info'
+  title: string
+  body: string
+  action: string
+  ctaLabel: string
+  ctaPrompt: string
+  jumpLabel?: string
+}
+
 interface ChatAssistantDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -374,10 +385,17 @@ interface ChatAssistantDrawerProps {
    * persist with the session). Pass an empty array (or omit) to hide the rail.
    */
   qualityWarnings?: QualityWarning[]
+  startupIssues?: StartupAssistantIssue[]
   /** Called when the advisor dismisses a warning (acknowledged without acting). */
   onDismissQualityWarning?: (warningType: string) => void
   /** Called when the advisor clicks the CTA. Sends `prompt` into the chat. */
   onResolveQualityWarning?: (warningType: string, prompt: string) => void
+  /** Called when the advisor dismisses a startup issue card. */
+  onDismissStartupIssue?: (issueId: string) => void
+  /** Called when CTA is clicked for startup issue remediation. */
+  onResolveStartupIssue?: (issueId: string, prompt: string) => void
+  /** Optional jump helper (e.g. scroll to startup step). */
+  onJumpToStartupIssue?: (issueId: string) => void
   // Bi-directional sync: when AI suggests field updates
   onApplyFieldUpdate?: (field: string, value: any) => void
   pendingUpdates?: { field: string; value: any; label: string }[]
@@ -472,8 +490,12 @@ export function ChatAssistantDrawer({
   onAcceptUpdate,
   onRejectUpdate,
   qualityWarnings = [],
+  startupIssues = [],
   onDismissQualityWarning,
   onResolveQualityWarning,
+  onDismissStartupIssue,
+  onResolveStartupIssue,
+  onJumpToStartupIssue,
   onAcceptNormalisation,
   onRejectNormalisation,
   showQuickNormalizations = false,
@@ -715,6 +737,100 @@ export function ChatAssistantDrawer({
               className="hidden"
               onChange={handleFileChange}
             />
+
+            {startupIssues.length > 0 && (
+              <div
+                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-3"
+                data-testid="assistant-startup-issues"
+              >
+                {startupIssues.map((issue) => {
+                  const severityLabel =
+                    issue.severity === 'block'
+                      ? locale === 'nl'
+                        ? 'Te fixen'
+                        : 'Must fix'
+                      : issue.severity === 'warn'
+                        ? locale === 'nl'
+                          ? 'Aanbevolen'
+                          : 'Recommended'
+                        : locale === 'nl'
+                          ? 'Let op'
+                          : 'Insight'
+                  const severityDotClass =
+                    issue.severity === 'block'
+                      ? 'bg-rose-500'
+                      : issue.severity === 'warn'
+                        ? 'bg-amber-500'
+                        : 'bg-sky-500'
+                  return (
+                    <motion.div
+                      key={issue.id}
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                      className="flex gap-3"
+                    >
+                      <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
+                        <Bot className="w-4 h-4 text-primary" />
+                      </div>
+                      <div
+                        className={cn(
+                          'max-w-[85%] sm:max-w-[82%] flex-1 min-w-0',
+                          'rounded-2xl rounded-tl-md',
+                          'px-4 py-3',
+                          'bg-card/60 backdrop-blur-sm',
+                          'border border-border/40',
+                          'shadow-sm'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/75">
+                            <span
+                              className={cn('h-1.5 w-1.5 rounded-full', severityDotClass)}
+                              aria-hidden
+                            />
+                            {severityLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-foreground leading-snug">
+                          {issue.title}
+                        </p>
+                        <p className="text-sm text-foreground/65 mt-1 leading-snug">{issue.body}</p>
+                        <p className="text-xs text-foreground/55 mt-1.5">{issue.action}</p>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onResolveStartupIssue?.(issue.id, issue.ctaPrompt)
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+                          >
+                            {issue.ctaLabel}
+                          </button>
+                          {issue.jumpLabel && (
+                            <button
+                              type="button"
+                              onClick={() => onJumpToStartupIssue?.(issue.id)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
+                            >
+                              {issue.jumpLabel}
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onDismissStartupIssue?.(issue.id)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
+                          >
+                            {ca('dismissWarning', { default: 'Dismiss' })}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            )}
 
             {/*
               Engine Insights — Pass-9.

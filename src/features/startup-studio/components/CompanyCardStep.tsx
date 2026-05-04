@@ -51,7 +51,6 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { writeCapitalHistoryPrefill } from '@/utils/capitalHistoryPrefill'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PresetPicker } from './PresetPicker'
 
@@ -99,35 +98,8 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   // correct for them); Series A already has its own banner.
   const mrr = useStartupValuationStore((s) => s.mrr)
   const arr = useStartupValuationStore((s) => s.arr)
-  // Dilution-to-exit assumption — captured on the studio store and
-  // forwarded to the SaaS path via the Studio→SaaS prefill snapshot
-  // (sessionStorage) so a founder who's already typed it in the studio
-  // doesn't have to re-enter it on the SaaS form's
-  // ``CapitalHistorySection``.
-  const dilution = useStartupValuationStore((s) => s.dilution_assumption_pct)
   const setField = useStartupValuationStore((s) => s.setField)
   const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
-
-  /**
-   * Persist the studio-side round size + dilution assumption so the
-   * SaaS form on the redirect target can prefill its
-   * ``CapitalHistorySection`` without the founder typing the same
-   * numbers twice.  Both the Series A banner and the seed-with-revenue
-   * nudge call this on click — ``CapitalHistorySection`` reads-and-clears
-   * the snapshot on mount.
-   *
-   * Returning ``true`` so the caller can chain it inline on the anchor's
-   * onClick without React fussing over an unused expression.  We never
-   * preventDefault — the navigation must still happen.
-   */
-  const handleSaasRedirectClick = (): true => {
-    writeCapitalHistoryPrefill({
-      round_amount: typeof raise === 'number' && raise > 0 ? raise : null,
-      dilution_pct: typeof dilution === 'number' && dilution > 0 ? dilution : null,
-      source: 'studio',
-    })
-    return true
-  }
 
   // Materially recurring revenue threshold for the seed nudge.
   //   - €10k MRR ≈ €120k ARR — the empirical pivot point where ARR
@@ -445,6 +417,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
             maxLength={120}
             autoComplete="organization"
             size="sm"
+            truncateLabel={false}
             helpText={
               locale === 'nl'
                 ? 'Verschijnt op je investor-ready PDF rapport.'
@@ -501,68 +474,43 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           {stage === 'series_a' && (
             <div className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50/60 p-3 text-[11px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200">
               {locale === 'nl' ? (
-                <>
-                  Bij Series A heb je meestal 2+ jaar audited financials. Voor een
-                  comp-based getal is{' '}
-                  <a
-                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
-                    onClick={handleSaasRedirectClick}
-                    className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
-                  >
-                    de standaard SaaS-waardering
-                  </a>{' '}
-                  vaak preciezer. Kom hier terug voor de cap-tabel-simulatie.
-                </>
+                <p>
+                  Bij Series A heb je meestal 2+ jaar geauditte cijfers. Voor een
+                  comp-based getal: kies in de methodekiezer de SaaS-waardering (ARR
+                  multiple)—die is meestal preciezer. Gebruik deze studio-flow wanneer je
+                  het cap-tabel- en fundraising-narratief hier wilt houden.
+                </p>
               ) : (
-                <>
+                <p>
                   At Series A you typically have 2+ years of audited financials. For a
-                  comp-based number, the{' '}
-                  <a
-                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
-                    onClick={handleSaasRedirectClick}
-                    className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
-                  >
-                    standard SaaS valuation
-                  </a>{' '}
-                  is often more precise. Come back here for the cap-table simulation.
-                </>
+                  comp-based number, select the SaaS valuation (ARR multiple) from the
+                  method selector instead—it is usually more precise. Stay on this
+                  startup flow if you want the cap-table simulation and fundraising
+                  narrative in one place.
+                </p>
               )}
             </div>
           )}
           {seedHasMaterialRevenue && (
             <div className="mt-3 rounded-lg border border-sky-300/50 bg-sky-50/60 p-3 text-[11px] leading-relaxed text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200">
               {locale === 'nl' ? (
-                <>
+                <p>
                   Met €
                   {Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10}
-                  k MRR zit je al in het post-revenue seed-segment. Veel investeerders
-                  vragen op dit niveau om een{' '}
-                  <a
-                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
-                    onClick={handleSaasRedirectClick}
-                    className="font-semibold underline underline-offset-2 hover:text-sky-900 dark:hover:text-sky-100"
-                  >
-                    standaard SaaS-waardering
-                  </a>{' '}
-                  als cross-check op het Berkus + VC blend. Studio v2 blijft de juiste
-                  keuze als je narratief wilt onderbouwen — gebruik beide.
-                </>
+                  k MRR zit je in het post-revenue seed-segment. Voor een
+                  multiples-gebaseerde cross-check: kies de SaaS-waardering (ARR
+                  multiple) in de methodekiezer. Je kunt deze startup-flow blijven
+                  gebruiken voor cap-tabel en narratief.
+                </p>
               ) : (
-                <>
+                <p>
                   At €
                   {Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10}
-                  k MRR you're already in the post-revenue seed segment. Most
-                  investors at this level expect the{' '}
-                  <a
-                    href={`/${locale}/reports/new?selected_method=arr_multiple`}
-                    onClick={handleSaasRedirectClick}
-                    className="font-semibold underline underline-offset-2 hover:text-sky-900 dark:hover:text-sky-100"
-                  >
-                    standard SaaS valuation
-                  </a>{' '}
-                  as a cross-check on the Berkus + VC blend. Studio v2 stays the
-                  right call for narrative defensibility — run both.
-                </>
+                  k MRR you are in the post-revenue seed segment. For a
+                  multiples-based cross-check, select the SaaS valuation (ARR
+                  multiple) from the method selector. You can keep using this
+                  startup flow for the cap-table simulation and narrative.
+                </p>
               )}
             </div>
           )}
@@ -574,6 +522,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           onChange={(value) => setField('investment_amount_sought', value ?? null)}
           placeholder="500.000"
           size="sm"
+          truncateLabel={false}
         />
 
         <AuroraTextarea

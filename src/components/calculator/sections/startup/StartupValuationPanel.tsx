@@ -52,7 +52,11 @@ import { ScorecardStep } from '@/features/startup-studio/components/ScorecardSte
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { useStartupSessionSync } from '@/features/startup-studio/hooks/useStartupSessionSync'
-import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import {
+  type StudioIssue,
+  type StudioStepId,
+  useStudioIssues,
+} from '@/features/startup-studio/hooks/useStudioIssues'
 import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
@@ -218,9 +222,30 @@ export interface StartupValuationPanelProps {
    * the same feature surface they had before.
    */
   mode?: StartupValuationPanelMode
+  /** Shared assistant open state from ManualLayout. */
+  isAssistantOpen?: boolean
+  /** Opens the shared assistant drawer. */
+  onOpenAssistant?: () => void
+  /** Resolves a startup issue through the shared assistant pipeline. */
+  onResolveIssueWithAssistant?: (issue: StudioIssue) => void
+  /** Stable launcher scope id for snooze/session keys. */
+  launcherScopeId?: string
+  /**
+   * Optional externally-filtered issue list for the launcher (e.g. after
+   * assistant acknowledgements). Falls back to local `useStudioIssues`.
+   */
+  launcherIssues?: StudioIssue[]
 }
 
-export function StartupValuationPanel({ className, mode = 'advisor' }: StartupValuationPanelProps) {
+export function StartupValuationPanel({
+  className,
+  mode = 'advisor',
+  isAssistantOpen = false,
+  onOpenAssistant,
+  onResolveIssueWithAssistant,
+  launcherScopeId = 'studio-launcher',
+  launcherIssues,
+}: StartupValuationPanelProps) {
   const locale = useStartupValuationStore.getState().country_code === 'NL' ? 'nl' : 'en'
   // Kept on the surface for parity with the prior implementation; the
   // section components are mode-agnostic for now and `mode` is reserved
@@ -238,12 +263,11 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const { benchmark } = useStartupBenchmark(country, stage, sector)
-  const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
-
   // Health-check feed for the floating Co-pilot.  The same hook drives
   // the `ReportStep` summary block and the Co-pilot rail, keeping the
   // single source of truth for "things to fix before PDF".
   const { issues } = useStudioIssues(benchmark)
+  const activeLauncherIssues = launcherIssues ?? issues
 
   // -----------------------------------------------------------------
   // Active-section tracking — drives a `step_viewed` analytics event
@@ -338,11 +362,15 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
           section.  FAB lives at bottom-right; slide-over hosts the
           structured issue list + free-form chat. */}
       <StudioCoPilot
-        issues={issues}
-        scopeId={companyName ? `studio-${companyName}` : 'studio-default'}
+        issues={activeLauncherIssues}
+        scopeId={launcherScopeId}
         locale={locale}
-        companyName={companyName || undefined}
-        onJumpToStep={handleJumpToStep}
+        isAssistantOpen={isAssistantOpen}
+        onOpenAssistant={onOpenAssistant}
+        onResolveIssueWithAssistant={(issue) => {
+          onResolveIssueWithAssistant?.(issue)
+          handleJumpToStep(issue.step)
+        }}
       />
     </div>
   )

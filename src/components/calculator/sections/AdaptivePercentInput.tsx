@@ -21,6 +21,8 @@ interface AdaptivePercentInputProps {
   /** When false, long floating labels wrap instead of ellipsis */
   truncateLabel?: boolean
   required?: boolean
+  /** Matches AuroraInput / CurrencyInput density in the same form row */
+  size?: 'sm' | 'md' | 'lg'
 }
 
 export function AdaptivePercentInput({
@@ -33,6 +35,7 @@ export function AdaptivePercentInput({
   description,
   truncateLabel,
   required,
+  size = 'sm',
   step: _step,
 }: AdaptivePercentInputProps) {
   const {
@@ -48,7 +51,7 @@ export function AdaptivePercentInput({
       type="text"
       inputMode="decimal"
       autoComplete="off"
-      size="sm"
+      size={size}
       value={display}
       onChange={onDecChange}
       onFocus={onFocus}

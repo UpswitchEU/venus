@@ -63,17 +63,9 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
   // existed" feedback during the first Wintercircus founder test runs.
   const [expanded, setExpanded] = useState<boolean>(true)
 
-  // Studio → SaaS prefill consumption.  When the founder clicked the
-  // amber/sky banner in ``CompanyCardStep`` to land here, their
-  // round-being-raised + dilution assumption was queued in
-  // sessionStorage.  Consume it once on mount and seed the form-store
-  // so they don't have to re-type values they already gave the studio.
-  //
-  // We never overwrite a value the founder already typed: the snapshot
-  // is one-shot (consume = read-and-clear), and we only seed fields
-  // that are still empty.  Refreshing the page after editing therefore
-  // never re-overwrites the typed values.
   const prefillConsumedRef = useRef(false)
+  // Optional one-shot SaaS prefill (sessionStorage).  If nothing writes
+  // the snapshot before mount, this silently no-ops.
   useEffect(() => {
     if (prefillConsumedRef.current) return
     prefillConsumedRef.current = true
@@ -175,6 +167,7 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
             onChange={(value) => updateFormData({ capital_round_amount: value ?? undefined })}
             placeholder="500.000"
             size="sm"
+            truncateLabel={false}
             description={
               locale === 'nl'
                 ? 'Drijft de "als ik €X ophaal, hoeveel verwater ik?" simulator op je rapport.'
@@ -208,6 +201,8 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                     updateFormData({ capital_option_pool_pct: value ?? undefined })
                   }
                   placeholder="10"
+                  size="sm"
+                  truncateLabel={false}
                   description={
                     locale === 'nl'
                       ? 'Reeds gereserveerd voor toekomstige hires.'
@@ -224,6 +219,7 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                   }
                   placeholder="250.000"
                   size="sm"
+                  truncateLabel={false}
                   description={
                     locale === 'nl' ? 'Optioneel — historische context.' : 'Optional — historical context.'
                   }
@@ -240,6 +236,7 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                   }
                   placeholder="2.500.000"
                   size="sm"
+                  truncateLabel={false}
                 />
                 <input
                   type="date"

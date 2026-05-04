@@ -1,19 +1,19 @@
 /**
  * Studio → SaaS hand-off for the capital-history block.
  *
- * The Studio v2 wizard collects the founder's intended round size and
- * total dilution-to-exit assumption.  When a Series A founder (or a
- * seed-with-revenue founder) clicks the amber/sky banner in
- * ``CompanyCardStep`` to redirect to the standard SaaS valuation method
- * (`/{locale}/reports/new?selected_method=arr_multiple`), they shouldn't
- * have to re-type those numbers on the SaaS form's
- * ``CapitalHistorySection``.
+ * When a founder leaves the startup studio for the standard SaaS valuation
+ * (ARR multiple) in another flow, they should not have to re-type round size
+ * and dilution on the SaaS form's ``CapitalHistorySection``.
  *
- * Mechanism: the banner's onClick writes a small JSON snapshot into
- * sessionStorage right before the navigation.  ``CapitalHistorySection``
- * consumes-and-clears the snapshot once on mount so the prefill is
- * one-shot — refreshing the SaaS page after editing fields never
- * re-overwrites the founder's typed values.
+ * Mechanism: call ``writeCapitalHistoryPrefill`` right before navigating to
+ * `/{locale}/reports/new?selected_method=arr_multiple`.  The snapshot is a
+ * small JSON payload in sessionStorage; ``CapitalHistorySection`` consumes
+ * and clears it once on mount (one-shot; refresh never re-overwrites typed
+ * values).
+ *
+ * Note: in-app banners in ``CompanyCardStep`` no longer link to that URL
+ * (full navigation was fragile); founders switch method via the selector.
+ * This utility remains for any deliberate hand-off you add later.
  *
  * Why sessionStorage and not the URL query string?
  *   - Round size and dilution percentage in a URL invite copy/paste
@@ -33,8 +33,7 @@
 const STORAGE_KEY = 'venus_studio_to_saas_capital_prefill'
 
 /**
- * Snapshot written by the Studio banners and read by
- * ``CapitalHistorySection``.  Numbers are stored as ``number | null``
+ * Snapshot for ``CapitalHistorySection``.  Numbers are stored as ``number | null``
  * so a missing field doesn't mistakenly overwrite a typed value.
  */
 export interface CapitalHistoryPrefill {
