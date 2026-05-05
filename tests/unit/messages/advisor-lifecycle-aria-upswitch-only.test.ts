@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 const FORBIDDEN = /\b(mercury|venus)\b/i;
 
 type CalculatorMessages = {
-	calculator?: { advisorLifecycle?: { ariaLabel?: string } };
+	calculator?: {
+		advisorLifecycle?: { ariaLabel?: string; basis?: string };
+	};
 };
 
 describe('calculator.advisorLifecycle.ariaLabel (client-facing)', () => {
@@ -32,5 +34,10 @@ describe('calculator.advisorLifecycle.ariaLabel (client-facing)', () => {
 			?.ariaLabel;
 		expect(enLabel!.toLowerCase()).toContain('upswitch');
 		expect(nlLabel!.toLowerCase()).toContain('upswitch');
+	});
+
+	it('EN basis label matches dossier Basic (not Dutch Basis)', () => {
+		const basis = (en as CalculatorMessages).calculator?.advisorLifecycle?.basis;
+		expect(basis).toBe('Basic');
 	});
 });

@@ -3,14 +3,22 @@
  * manual form store when slots are still empty.
  *
  * Runs when `useSessionDataPrefill` is skipped (bootstrap prefilled, or form already
- * has identity rows) but Mercury/Titan still attach method fields to the session blob.
- * Same merge rules as {@link mergeOptionalSessionPrefillFields}.
+ * has identity rows) but Mercury/Titan still attach method fields to the session blob
+ * (manual reports, client invites, and Hermes/integration payloads use the same merge).
  *
- * Skips when {@link shouldSuppressMercurySessionPrefill} — authoritative restoration
- * already hydrated the form for this report.
+ * Uses {@link mergeOptionalSessionPrefillFields}, which also:
+ * - expands `year_data` / `yearData` into `historical_years_data` (integration shape),
+ * - applies session `filing_year_confirmed` when normalizing history,
+ * - promotes nested `current_year_data` revenue/EBITDA to top-level scalars,
+ * - rebuilds `yearlyFinancials` when the grid is still placeholder-only.
  *
- * Uses `queueMicrotask` so this runs after bootstrap/layout updates in the same tick,
- * reducing duplicate `updateFormData` churn.
+ * Runs only after `restorationComplete` so `SessionRestorationService` hydration wins the race.
+ * Does not use the Mercury prefill suppression flag: this path only fills empty slots via
+ * `mergeOptionalSessionPrefillFields`, so it cannot overwrite a full restore.
+ *
+ * Re-runs when {@link getSessionOptionalPrefillSignature} changes — value-level
+ * fingerprints (not only object identity) so chunk-loaded or merged session JSON
+ * still triggers gap-fill once figures arrive.
  *
  * @module hooks/useSessionOptionalMethodPrefill
  */
@@ -19,26 +27,35 @@ import { useEffect } from 'react'
 
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
-import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import {
+  getSessionOptionalPrefillSignature,
+  mergeOptionalSessionPrefillFields,
+  mergeSessionSurfaceForOptionalPrefill,
+} from '../utils/mergeOptionalSessionPrefillFields'
 
 export function useSessionOptionalMethodPrefill(): void {
   const reportId = useSessionStore((s) => s.session?.reportId)
-  const sessionData = useSessionStore((s) => s.session?.sessionData) as Record<string, unknown> | undefined
+  const restorationComplete = useSessionStore((s) => s.restorationComplete)
+  const optionalPrefillSignature = useSessionStore((s) =>
+    getSessionOptionalPrefillSignature(s.session?.sessionData)
+  )
+
   useEffect(() => {
     if (!reportId || reportId === 'new') return
-    if (shouldSuppressMercurySessionPrefill(reportId)) return
-    if (!sessionData || typeof sessionData !== 'object') return
+    if (!restorationComplete) return
+    if (!optionalPrefillSignature) return
 
     let cancelled = false
     queueMicrotask(() => {
       if (cancelled) return
-      if (shouldSuppressMercurySessionPrefill(reportId)) return
+      if (!useSessionStore.getState().restorationComplete) return
 
-      const bi = (sessionData as { _businessInfo?: Record<string, unknown> })._businessInfo || {}
-      const merged = { ...bi, ...sessionData }
+      const raw = useSessionStore.getState().session?.sessionData
+      if (!raw || typeof raw !== 'object') return
+
+      const merged = mergeSessionSurfaceForOptionalPrefill(raw)
       const patch = mergeOptionalSessionPrefillFields(
-        merged as Record<string, unknown>,
+        merged,
         useManualFormStore.getState().formData
       )
       if (Object.keys(patch).length === 0) return
@@ -48,5 +65,5 @@ export function useSessionOptionalMethodPrefill(): void {
     return () => {
       cancelled = true
     }
-  }, [reportId, sessionData])
+  }, [reportId, optionalPrefillSignature, restorationComplete])
 }

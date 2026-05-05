@@ -1124,7 +1124,7 @@
 		},
 		"advisorLifecycle": {
 			"ariaLabel": "Client journey — open previous steps in Upswitch",
-			"basis": "Basis",
+			"basis": "Basic",
 			"profile": "Profile",
 			"valuation": "Valuation",
 			"live": "Live"

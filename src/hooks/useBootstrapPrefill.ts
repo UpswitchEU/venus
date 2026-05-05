@@ -35,7 +35,10 @@ import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/impo
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import {
+  mergeOptionalSessionPrefillFields,
+  mergeSessionSurfaceForOptionalPrefill,
+} from '../utils/mergeOptionalSessionPrefillFields'
 import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
@@ -761,8 +764,10 @@ function applyPrefillToForm(
     | Record<string, unknown>
     | undefined
   if (sessionRaw && typeof sessionRaw === 'object') {
-    const bi = (sessionRaw as { _businessInfo?: Record<string, unknown> })._businessInfo || {}
-    const mergedSession = { ...bi, ...sessionRaw }
+    const mergedSession = mergeSessionSurfaceForOptionalPrefill(sessionRaw) as Record<
+      string,
+      unknown
+    >
     const optional = mergeOptionalSessionPrefillFields(mergedSession as Record<string, unknown>, {
       ...useManualFormStore.getState().formData,
       ...allData,

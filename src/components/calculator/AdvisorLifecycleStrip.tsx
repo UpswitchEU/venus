@@ -1,17 +1,20 @@
 'use client'
 
 /**
- * Advisor-only journey rail: deep-links to Mercury — business and listing
- * use `?focus=` on the dossier; profile opens the owner overview subroute —
- * while the valuation step stays in Venus.
+ * Advisor workspace rail inside the valuation app. Basis, Profile, and Live
+ * link back to the advisor dossier on the main Upswitch app; Valuation
+ * highlights that the advisor is working in this report/calculator surface
+ * — not “milestone 3 done” on the client journey.
  */
 
 import { motion } from 'framer-motion'
-import { Check, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { isValuationActiveWorkspacePath } from './advisorLifecycleWorkspace'
 
 export interface AdvisorLifecycleStripProps {
   mercuryLocale: string
@@ -25,6 +28,7 @@ export function AdvisorLifecycleStrip({
   className,
 }: AdvisorLifecycleStripProps) {
   const t = useTranslations('calculator.advisorLifecycle')
+  const pathname = usePathname() ?? ''
   const trimmed = clientId?.trim()
   const baseMercury =
     trimmed != null && trimmed.length > 0
@@ -32,6 +36,8 @@ export function AdvisorLifecycleStrip({
       : null
 
   if (!baseMercury) return null
+
+  const valuationIsActiveWorkspace = isValuationActiveWorkspacePath(pathname)
 
   const segments: Array<{
     key: string
@@ -41,7 +47,11 @@ export function AdvisorLifecycleStrip({
   }> = [
     { key: 'business', label: t('basis'), href: `${baseMercury}?focus=business` },
     { key: 'profile', label: t('profile'), href: `${baseMercury}/owner` },
-    { key: 'valuation', label: t('valuation'), current: true },
+    {
+      key: 'valuation',
+      label: t('valuation'),
+      current: valuationIsActiveWorkspace,
+    },
     { key: 'listing', label: t('live'), href: `${baseMercury}?focus=listing` },
   ]
 
@@ -71,7 +81,6 @@ export function AdvisorLifecycleStrip({
                 'bg-primary/12 text-primary ring-1 ring-primary/20'
               )}
             >
-              <Check className="h-3 w-3 shrink-0" aria-hidden />
               {seg.label}
             </span>
           ) : seg.href ? (

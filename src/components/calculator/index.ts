@@ -8,6 +8,7 @@
 
 export type { AdvisorLifecycleStripProps } from './AdvisorLifecycleStrip'
 export { AdvisorLifecycleStrip } from './AdvisorLifecycleStrip'
+export { isValuationActiveWorkspacePath } from './advisorLifecycleWorkspace'
 export type { CalculationBreakdownModalProps } from './CalculationBreakdownModal'
 export { CalculationBreakdownModal } from './CalculationBreakdownModal'
 export type { CalculationBreakdownPanelProps } from './CalculationBreakdownPanel'

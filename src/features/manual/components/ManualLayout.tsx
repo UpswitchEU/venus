@@ -18,6 +18,11 @@
  *   + FullscreenReportModal, NormalisationSuggestionModal, UnifiedNormalizationModal
  *
  * @module features/manual/components/ManualLayout
+ *
+ * Phase B (advisor UX): normalisations and tax latencies should converge in
+ * this valuation experience with Titan/Postgres as the source of truth;
+ * the Mercury import wizard should slim to dossier essentials or deep-link
+ * here — see the roadmap comment on ImportReviewContent (Mercury).
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
@@ -188,7 +193,7 @@ import {
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
-import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
+import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -1960,10 +1965,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Hydrate collectedData and form store from session when form store is empty or missing NACE/business_type
   // Ensures initialData is populated on first render so ManualInputPanel can set selectedCompany from prefill
   // Relaxed: also run when session has nace_code or business_type_id but form does not (even if form has company_name)
+  // Identity + collectedData only — method gap-fill is `useSessionOptionalMethodPrefill` after restore.
   useEffect(() => {
-    const sessionData = (session?.sessionData || {}) as Record<string, unknown>
-    const businessInfo = (sessionData._businessInfo || {}) as Record<string, unknown>
-    const merged = { ...businessInfo, ...sessionData }
+    if (!restorationComplete) return
+    const merged = mergeSessionSurfaceForOptionalPrefill(session?.sessionData) as Record<
+      string,
+      unknown
+    >
     const hasSessionPrefill =
       (merged.company_name as string)?.trim() ||
       (merged.companyName as string)?.trim() ||
@@ -2041,13 +2049,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim())
       formUpdates.business_type_id = sessionBusinessType
     if (sessionIndustry && !formIndustry?.trim()) formUpdates.industry = sessionIndustry
-    Object.assign(
-      formUpdates,
-      mergeOptionalSessionPrefillFields(merged as Record<string, unknown>, {
-        ...useManualFormStore.getState().formData,
-        ...formUpdates,
-      })
-    )
     if (Object.keys(formUpdates).length > 0) {
       updateFormData(formUpdates)
     }
@@ -2072,6 +2073,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return next
     })
   }, [
+    restorationComplete,
     session?.sessionData,
     formCompanyName,
     formKboNumber,
