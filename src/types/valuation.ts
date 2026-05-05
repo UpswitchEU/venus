@@ -1438,6 +1438,8 @@ export interface ValuationResponse {
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
+  /** Render snapshot fingerprint from Titan (guards stale HTML fallback). */
+  render_fingerprint?: string
 
   /** EV → equity bridge steps (aligned with report valuation_waterfall_steps) */
   ev_equity_waterfall_steps?: EvEquityWaterfallStep[]

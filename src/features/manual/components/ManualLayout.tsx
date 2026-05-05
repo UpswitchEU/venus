@@ -1215,7 +1215,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...r,
         html_report: getRenderableReportHtmlFromCurrentOrFallback(
           [r.html_report],
-          [latestExistingResult?.html_report]
+          [latestExistingResult?.html_report],
+          {
+            currentRenderFingerprint: r.render_fingerprint,
+            fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+          }
         ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
@@ -2407,7 +2411,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: getRenderableReportHtmlFromCurrentOrFallback(
             [htmlFromPatch, fresh.html_report],
-            [latestExistingResult?.html_report]
+            [latestExistingResult?.html_report],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
@@ -2421,7 +2429,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           if (!prev) return prev
           const nextHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
             [htmlFromPatch, fresh.html_report],
-            [prev.htmlReport]
+            [prev.htmlReport],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           )
           const pdfMeta: Pick<
             ValuationReportData,
@@ -2502,7 +2514,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: getRenderableReportHtmlFromCurrentOrFallback(
             [fresh.html_report],
-            [latestExistingResult?.html_report]
+            [latestExistingResult?.html_report],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
@@ -2562,7 +2578,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...fresh,
         html_report: getRenderableReportHtmlFromCurrentOrFallback(
           [fresh.html_report],
-          [latestExistingResult?.html_report]
+          [latestExistingResult?.html_report],
+          {
+            currentRenderFingerprint: fresh.render_fingerprint,
+            fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+          }
         ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,

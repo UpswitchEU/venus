@@ -277,7 +277,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
             resultWithLegacyAliases.htmlReport,
             resultWithLegacyAliases.details?.html_report,
           ],
-          [state.htmlReport]
+          [state.htmlReport],
+          {
+            currentRenderFingerprint: resultWithLegacyAliases.render_fingerprint,
+            fallbackRenderFingerprint: state.result?.render_fingerprint,
+          }
         )
 
         storeLogger.info('[Manual] Valuation result set', {
