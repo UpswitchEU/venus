@@ -3,6 +3,7 @@ import type { NormalizationItem } from '../../components/calculator/UnifiedNorma
 import {
   appliesToYear,
   countNormalizationsBoundToFiscalYear,
+  findAcceptedAutoNormalizationCapBreaches,
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   removeNormalizationsForRemovedFiscalYear,
@@ -172,5 +173,95 @@ describe('normalizationMath', () => {
       { ...base, id: '2', applyAllYears: true, year: 2023 },
     ]
     expect(countNormalizationsBoundToFiscalYear(items, 2023)).toBe(1)
+  })
+
+  it('flags accepted auto addbacks above 50% EBITDA cap', () => {
+    const base = {
+      id: 'imported_sde_2025_610000_0',
+      ledgerCode: '610000',
+      ledgerName: 'Services and other goods',
+      category: 'other' as const,
+      type: 'add' as const,
+      reason: 'Auto-suggested',
+      source: 'auto' as const,
+      status: 'accepted' as const,
+      applyAllYears: false,
+    }
+    const items: NormalizationItem[] = [
+      { ...base, year: 2025, value: 280_000, adjustment: 280_000 },
+      { ...base, id: 'imported_sde_2023_610000_0', year: 2023, value: 90_000, adjustment: 90_000 },
+    ]
+
+    const out = findAcceptedAutoNormalizationCapBreaches({
+      items,
+      availableYears: [2025, 2024, 2023],
+      reportedEbitdaByYear: { 2025: 290_000, 2023: 230_000 },
+      fallbackYear: 2025,
+    })
+
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      year: 2025,
+      reportedEbitda: 290_000,
+      autoAddback: 280_000,
+      capAmount: 145_000,
+    })
+    expect(out[0].addbackPctOfEbitda).toBeCloseTo((280_000 / 290_000) * 100, 4)
+  })
+
+  it('ignores pending/manual items and non-positive EBITDA years for cap detection', () => {
+    const items: NormalizationItem[] = [
+      {
+        id: 'manual_row',
+        ledgerCode: '620000',
+        ledgerName: 'Directors and managers',
+        category: 'salary',
+        type: 'add',
+        value: 160_000,
+        adjustment: 160_000,
+        reason: 'Manual',
+        source: 'manual',
+        status: 'accepted',
+        applyAllYears: false,
+        year: 2025,
+      },
+      {
+        id: 'imported_sde_pending',
+        ledgerCode: '610000',
+        ledgerName: 'Services',
+        category: 'other',
+        type: 'add',
+        value: 200_000,
+        adjustment: 200_000,
+        reason: 'Pending auto',
+        source: 'auto',
+        status: 'pending',
+        applyAllYears: false,
+        year: 2024,
+      },
+      {
+        id: 'imported_sde_negative_ebitda',
+        ledgerCode: '610000',
+        ledgerName: 'Services',
+        category: 'other',
+        type: 'add',
+        value: 200_000,
+        adjustment: 200_000,
+        reason: 'Auto',
+        source: 'auto',
+        status: 'accepted',
+        applyAllYears: false,
+        year: 2023,
+      },
+    ]
+
+    const out = findAcceptedAutoNormalizationCapBreaches({
+      items,
+      availableYears: [2025, 2024, 2023],
+      reportedEbitdaByYear: { 2025: 300_000, 2024: 250_000, 2023: -50_000 },
+      fallbackYear: 2025,
+    })
+
+    expect(out).toEqual([])
   })
 })

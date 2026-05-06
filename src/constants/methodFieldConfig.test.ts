@@ -370,6 +370,10 @@ describe('methodFieldConfig', () => {
   describe('isActionableQualityWarningType', () => {
     it('returns true only for guided-CTA warning types', () => {
       expect(isActionableQualityWarningType('ebitda_divergence')).toBe(true)
+      expect(isActionableQualityWarningType('method_substitution')).toBe(true)
+      expect(isActionableQualityWarningType('ebitda_benchmark_deviation')).toBe(true)
+      expect(isActionableQualityWarningType('owner_compensation_estimated')).toBe(true)
+      expect(isActionableQualityWarningType('book_equity_unavailable')).toBe(true)
       expect(isActionableQualityWarningType('some_generic_engine_warning')).toBe(false)
       expect(isActionableQualityWarningType(null)).toBe(false)
     })

@@ -24,16 +24,9 @@ export function getReportedEbitdaBaseline(options: {
   fallbackCandidates?: unknown[]
   defaultValue?: number
 }): number {
-  const {
-    year,
-    originalEBITDAByYear,
-    fallbackCandidates = [],
-    defaultValue = 0,
-  } = options
+  const { year, originalEBITDAByYear, fallbackCandidates = [], defaultValue = 0 } = options
 
-  return (
-    getFirstFiniteNumber(originalEBITDAByYear?.[year], ...fallbackCandidates) ?? defaultValue
-  )
+  return getFirstFiniteNumber(originalEBITDAByYear?.[year], ...fallbackCandidates) ?? defaultValue
 }
 
 export function getNormalizationAmountForBase(
@@ -249,4 +242,94 @@ export function countNormalizationsBoundToFiscalYear(
     if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(y)
     return n.year === y
   }).length
+}
+
+export interface AutoNormalizationCapBreach {
+  year: number
+  reportedEbitda: number
+  autoAddback: number
+  capAmount: number
+  addbackPctOfEbitda: number
+}
+
+/**
+ * Detect years where accepted auto/imported SDE addbacks exceed a defensibility cap.
+ *
+ * The cap mirrors Hermes guidance used in the Monard flow: cumulative accepted
+ * auto addbacks above 50% of reported EBITDA need explicit reviewer substantiation.
+ */
+export function findAcceptedAutoNormalizationCapBreaches(options: {
+  items: Array<
+    Pick<
+      NormalizationItem,
+      | 'id'
+      | 'status'
+      | 'source'
+      | 'type'
+      | 'value'
+      | 'adjustment'
+      | 'applyAllYears'
+      | 'applyYears'
+      | 'year'
+    >
+  >
+  availableYears: number[]
+  reportedEbitdaByYear?: Record<number, number>
+  fallbackYear: number
+  fallbackReportedEbitda?: number
+  capRatio?: number
+}): AutoNormalizationCapBreach[] {
+  const {
+    items,
+    availableYears,
+    reportedEbitdaByYear,
+    fallbackYear,
+    fallbackReportedEbitda = 0,
+    capRatio = 0.5,
+  } = options
+
+  const reportedByYear = new Map<number, number>()
+  const addbackByYear = new Map<number, number>()
+
+  const getReported = (year: number): number =>
+    getFirstFiniteNumber(reportedEbitdaByYear?.[year], fallbackReportedEbitda) ?? 0
+
+  for (const item of items) {
+    if (item.status !== 'accepted') continue
+    const isAutoImported = item.source === 'auto' || item.id.startsWith('imported_sde_')
+    if (!isAutoImported) continue
+
+    const years = item.applyAllYears
+      ? availableYears
+      : item.applyYears && item.applyYears.length > 0
+        ? item.applyYears
+        : [item.year]
+
+    for (const year of years) {
+      if (!Number.isFinite(year)) continue
+      const reported = getReported(year)
+      // Ratio cap is only meaningful when reported EBITDA is positive.
+      if (!(reported > 0)) continue
+      reportedByYear.set(year, reported)
+
+      const amount = getNormalizationAmountForBase(item, reported)
+      if (amount <= 0) continue
+      addbackByYear.set(year, (addbackByYear.get(year) ?? 0) + amount)
+    }
+  }
+
+  if (!reportedByYear.size && Number.isFinite(fallbackYear)) {
+    const fallbackReported = getReported(fallbackYear)
+    if (fallbackReported > 0) reportedByYear.set(fallbackYear, fallbackReported)
+  }
+
+  return Array.from(reportedByYear.entries())
+    .map(([year, reportedEbitda]) => {
+      const autoAddback = addbackByYear.get(year) ?? 0
+      const capAmount = reportedEbitda * capRatio
+      const addbackPctOfEbitda = reportedEbitda > 0 ? (autoAddback / reportedEbitda) * 100 : 0
+      return { year, reportedEbitda, autoAddback, capAmount, addbackPctOfEbitda }
+    })
+    .filter((row) => row.autoAddback > row.capAmount)
+    .sort((a, b) => b.year - a.year)
 }

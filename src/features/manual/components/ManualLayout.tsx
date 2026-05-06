@@ -209,6 +209,7 @@ import {
 } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
+import { buildQualityWarningResetKey } from '../../../utils/qualityWarningResetKey'
 import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
   hasExistingValuationVersion,
@@ -1332,15 +1333,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [acknowledgedStartupIssues, setAcknowledgedStartupIssues] = useState<Set<string>>(
     () => new Set()
   )
-  // Auto-open the assistant the first time a result lands carrying a
-  // high-severity **actionable** warning (guided CTA). Generic engine warnings
-  // do not steal focus. Dedupe by `valuationResultRunKey` (not raw id-only)
-  // so fingerprinted runs still behave when `valuation_id` is absent.
-  const lastAutoOpenedResultRef = useRef<string | null>(null)
+  // Track reset signatures for warning-card acknowledgement state.
+  const lastQualityWarningResetKeyRef = useRef<string | null>(null)
   const lastSynthesisBlendSkippedRunKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    lastAutoOpenedResultRef.current = null
+    lastQualityWarningResetKeyRef.current = null
     lastSynthesisBlendSkippedRunKeyRef.current = null
   }, [reportId])
 
@@ -2759,17 +2757,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     )
   }, [result])
 
-  // Pass-9: when a NEW result arrives, clear stale acknowledgements but
+  // Pass-9: when a materially NEW result arrives, clear stale acknowledgements but
   // **never auto-open** the assistant. Forcing the drawer open broke flow —
   // owners just wanted to see the report. The unread count surfaces on the
   // closed assistant trigger (notification badge) so high-severity warnings
   // are still discoverable; the user opens the drawer when ready.
   useEffect(() => {
     if (!result) return
-    const runKey = valuationResultRunKey(result)
-    if (runKey !== lastAutoOpenedResultRef.current) {
+    const resetKey = buildQualityWarningResetKey(result)
+    if (resetKey !== lastQualityWarningResetKeyRef.current) {
       setAcknowledgedQualityWarnings(new Set())
-      lastAutoOpenedResultRef.current = runKey
+      lastQualityWarningResetKeyRef.current = resetKey
     }
   }, [result])
 

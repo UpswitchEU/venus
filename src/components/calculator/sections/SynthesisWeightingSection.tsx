@@ -416,14 +416,14 @@ export function SynthesisWeightingSection({
 
       {/* Live blended valuation preview */}
       {liveBlended != null && total === 100 && (
-        <div className="rounded-xl bg-gradient-to-r from-primary to-primary/90 p-4 text-center text-primary-foreground">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Scale className="w-3.5 h-3.5 text-primary-foreground/80" />
-            <p className="text-[10px] text-primary-foreground/80 uppercase tracking-wider font-medium">
+        <div className="rounded-xl border border-foreground/[0.08] bg-card/[0.6] backdrop-blur-lg px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-1.5">
+            <Scale className="w-3.5 h-3.5 text-foreground/55" />
+            <p className="text-[10px] text-foreground/55 uppercase tracking-wider font-medium">
               {synth('blendedValue')}
             </p>
           </div>
-          <p className="text-2xl font-bold font-mono tabular-nums">
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground/90">
             {formatCompactCurrency(liveBlended)}
           </p>
         </div>

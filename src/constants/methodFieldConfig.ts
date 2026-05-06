@@ -232,7 +232,11 @@ export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = [
   'thin_comparables_proxy',
   'owner_concentration_skipped_missing_inputs',
   'ebitda_divergence',
+  'method_substitution',
+  'ebitda_benchmark_deviation',
   'net_debt_unavailable',
+  'owner_compensation_estimated',
+  'book_equity_unavailable',
 ] as const
 
 export type QualityWarningAssistantCtaKey = (typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS)[number]
@@ -253,6 +257,14 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
     labelKey: 'qualityCtaEbitdaDivergenceLabel',
     promptKey: 'qualityCtaEbitdaDivergencePrompt',
   },
+  method_substitution: {
+    labelKey: 'qualityCtaMethodSubstitutionLabel',
+    promptKey: 'qualityCtaMethodSubstitutionPrompt',
+  },
+  ebitda_benchmark_deviation: {
+    labelKey: 'qualityCtaEbitdaBenchmarkDeviationLabel',
+    promptKey: 'qualityCtaEbitdaBenchmarkDeviationPrompt',
+  },
   // Surfaced when Step 7 had to assume net debt = 0 because no balance
   // sheet was supplied. Owner-managed micro-SMEs hit this constantly because
   // they don't volunteer balance data on a 5-minute valuation; the CTA opens
@@ -260,6 +272,14 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   net_debt_unavailable: {
     labelKey: 'qualityCtaNetDebtLabel',
     promptKey: 'qualityCtaNetDebtPrompt',
+  },
+  owner_compensation_estimated: {
+    labelKey: 'qualityCtaOwnerCompEstimatedLabel',
+    promptKey: 'qualityCtaOwnerCompEstimatedPrompt',
+  },
+  book_equity_unavailable: {
+    labelKey: 'qualityCtaBookEquityLabel',
+    promptKey: 'qualityCtaBookEquityPrompt',
   },
 } as const satisfies Record<
   QualityWarningAssistantCtaKey,
