@@ -101,6 +101,21 @@ describe('sessionHelpers', () => {
 
       expect(result.completedAt).toBeUndefined()
     })
+
+    it('fills sessionData from session_data when sessionData is an empty object', () => {
+      const session = {
+        sessionId: 'test',
+        reportId: 'val_123',
+        createdAt: '2025-12-13T10:00:00Z',
+        updatedAt: '2025-12-13T11:00:00Z',
+        sessionData: {},
+        session_data: { company_name: 'Nested Co' },
+      }
+
+      const result = normalizeSessionDates(session)
+
+      expect((result.sessionData as Record<string, unknown>).company_name).toBe('Nested Co')
+    })
   })
 
   describe('mergeSessionFields', () => {
@@ -138,6 +153,39 @@ describe('sessionHelpers', () => {
         },
       })
       expect((result.sessionData as any)?.valuation_result?.details?.valuation_results).toMatchObject({
+        ebitda_multiple: {
+          available: true,
+          value: 250000,
+        },
+      })
+    })
+
+    it('merges valuation_result from session_data when sessionData is an empty object', () => {
+      const result = mergeSessionFields({
+        reportId: 'val_merge_fields',
+        sessionId: 'session_456',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        partialData: {},
+        sessionData: {},
+        session_data: {
+          valuation_result: {
+            equity_value_mid: 250000,
+            details: {
+              valuation_results: {
+                ebitda_multiple: {
+                  available: true,
+                  value: 250000,
+                },
+              },
+            },
+          },
+        },
+      } as any)
+
+      expect((result.valuationResult as any)?.details?.valuation_results).toMatchObject({
         ebitda_multiple: {
           available: true,
           value: 250000,
@@ -186,6 +234,32 @@ describe('sessionHelpers', () => {
           ...createBaseSession(sessionKey, 'manual'),
           reportId: staleUuid as any,
           session_key: sessionKey,
+        } as any,
+        ensureTargetId: staleUuid,
+      })
+      expect(k).toBe(sessionKey)
+    })
+
+    it('reads sessionKey (camelCase) when snake_case session_key is absent', () => {
+      const k = resolveEnsureHtmlSessionKey({
+        urlReportId: staleUuid,
+        mergedSession: {
+          ...createBaseSession(sessionKey, 'manual'),
+          reportId: staleUuid as any,
+          sessionKey,
+        } as any,
+        ensureTargetId: staleUuid,
+      })
+      expect(k).toBe(sessionKey)
+    })
+
+    it('reads nested session_data.session_key when top-level keys disagree with stale path', () => {
+      const k = resolveEnsureHtmlSessionKey({
+        urlReportId: staleUuid,
+        mergedSession: {
+          ...createBaseSession(staleUuid, 'manual'),
+          reportId: staleUuid as any,
+          session_data: { session_key: sessionKey },
         } as any,
         ensureTargetId: staleUuid,
       })

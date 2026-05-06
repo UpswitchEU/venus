@@ -2142,6 +2142,8 @@
 		"section1Subheader": "Profit adjustments (multiplied by the valuation multiple).",
 		"editorToggleTitle": "Add or edit normalization",
 		"editorToggleSubtitle": "Open only when you need to search, add, or adjust ledger normalizations.",
+		"autoCapBreachLine": "{year}: +{addback} ({pct}% of reported EBITDA) · 50% cap = {cap}",
+		"autoCapBreachMoreYears": "+{count} additional year(s) over cap",
 		"section2Header": "Balance Sheet Adjustments & Latencies",
 		"section2Subheader": "One-off adjustments to equity value (applied 1-to-1).",
 		"primaryTabEbitda": "EBITDA Normalizations",

@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
   isImportedLedgerNormalizationItem,
   type NormalizationItem,
@@ -216,7 +217,7 @@ export function NormalizationTableView({
     <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-card [-webkit-overflow-scrolling:touch]">
       <table
         className="text-sm border-collapse"
-        style={{ minWidth: `${400 + years.length * 120}px` }}
+        style={{ minWidth: `${520 + years.length * 120}px` }}
       >
         {/* Header */}
         <thead>
@@ -228,7 +229,7 @@ export function NormalizationTableView({
             <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 w-24 whitespace-nowrap">
               {t('table.code')}
             </th>
-            <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 min-w-[240px] align-top border-r border-foreground/[0.08]">
+            <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 min-w-[min(28rem,85vw)] align-top border-r border-foreground/[0.08]">
               {t('table.grootboekrekening')}
             </th>
             {/* Year columns - one column per year showing the adjustment */}
@@ -292,15 +293,24 @@ export function NormalizationTableView({
                     </span>
                   </td>
 
-                  {/* Grootboekrekening */}
-                  <td className="px-4 py-4 align-top border-r border-foreground/[0.08]">
-                    <div className="flex min-w-[200px] max-w-[min(440px,60vw)] flex-col gap-1">
-                      <span className="font-medium text-foreground break-words">
+                  {/* Grootboekrekening — wide min-width + no max-width cap so long ledger labels stay fully readable */}
+                  <td className="px-4 py-4 align-top border-r border-foreground/[0.08] min-w-[min(28rem,85vw)]">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span
+                        className={cn(
+                          'font-medium text-foreground',
+                          LEDGER_LABEL_TEXT_CLASSES
+                        )}
+                        title={item.ledgerName}
+                      >
                         {item.ledgerName}
                       </span>
                       {item.reason && (
                         <span
-                          className="text-[11px] text-foreground/50 line-clamp-4 break-words"
+                          className={cn(
+                            'text-[11px] text-foreground/50',
+                            LEDGER_LABEL_TEXT_CLASSES
+                          )}
                           title={item.reason}
                         >
                           {item.reason}
@@ -663,7 +673,13 @@ export function NormalizationBentoView({
                             {source.label}
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-foreground/80 mt-1 line-clamp-2 break-words">
+                        <p
+                          className={cn(
+                            'text-sm font-medium text-foreground/80 mt-1',
+                            LEDGER_LABEL_TEXT_CLASSES
+                          )}
+                          title={item.ledgerName}
+                        >
                           {item.ledgerName}
                         </p>
                       </div>
@@ -780,7 +796,10 @@ export function NormalizationBentoView({
                   {/* Reason */}
                   {item.reason && (
                     <p
-                      className="text-xs text-foreground/40 mt-2 line-clamp-4 break-words"
+                      className={cn(
+                        'text-xs text-foreground/40 mt-2',
+                        LEDGER_LABEL_TEXT_CLASSES
+                      )}
                       title={item.reason}
                     >
                       {item.reason}

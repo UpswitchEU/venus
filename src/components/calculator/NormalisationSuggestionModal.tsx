@@ -19,6 +19,7 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/design-system'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { cn } from '@/design-system/utils'
 
 export interface NormalisationSuggestion {
@@ -121,13 +122,16 @@ export function NormalisationSuggestionModal({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent className="sm:max-w-lg">
         <ModalHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
               {categoryIcons[suggestion.category]}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <ModalTitle className="text-base">{t('title')}</ModalTitle>
-              <p className="text-xs text-foreground/50 mt-0.5">
+              <p
+                className={cn('text-xs text-foreground/50 mt-0.5', LEDGER_LABEL_TEXT_CLASSES)}
+                title={`${categoryLabels[suggestion.category]} · ${suggestion.label}`}
+              >
                 {categoryLabels[suggestion.category]} · {suggestion.label}
               </p>
             </div>
@@ -215,7 +219,9 @@ export function NormalisationSuggestionModal({
               <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-medium text-foreground mb-0.5">{t('reasonTitle')}</p>
-                <p className="text-xs text-foreground/60">{suggestion.reason}</p>
+                <p className={cn('text-xs text-foreground/60', LEDGER_LABEL_TEXT_CLASSES)}>
+                  {suggestion.reason}
+                </p>
               </div>
             </div>
           </div>

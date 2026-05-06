@@ -25,6 +25,7 @@ import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../../utils/identifiers'
+import { mergeSessionDataEnvelopesFromRoot } from '../../utils/sessionReportIdentity'
 import { createContextLogger } from '../../utils/logger'
 import {
   mergeSessionSurfaceForOptionalPrefill,
@@ -43,6 +44,7 @@ import {
   resolveEnsureHtmlAlternateReportId,
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
+import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
 import { validateSessionData } from '../../utils/sessionValidation'
 import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
 import { backendAPI } from '../backendApi'
@@ -859,7 +861,7 @@ export class SessionService {
         if (!sessionResponse?.session) return sessionResponse
 
         const session = sessionResponse.session as any
-        const sessionData = session?.sessionData || session?.session_data || {}
+        const sessionData = mergeSessionDataEnvelopesFromRoot(session as Record<string, any>)
         const hasRenderableHtmlReport = !!getFirstRenderableReportHtml(
           sessionData?._htmlReport,
           sessionData?.html_report,
@@ -1982,11 +1984,7 @@ export class SessionService {
   }
 
   private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
-    const sessionKeyRaw = (s as { session_key?: string }).session_key
-    const sessionKey =
-      typeof sessionKeyRaw === 'string' && isSessionKey(sessionKeyRaw.trim())
-        ? sessionKeyRaw.trim()
-        : undefined
+    const sessionKey = extractStableSessionKeyFromMergedSession(s as Record<string, unknown>)
 
     const mergedReport =
       typeof s.reportId === 'string' && (isUuid(s.reportId) || isSessionKey(s.reportId))
@@ -1999,8 +1997,6 @@ export class SessionService {
     if (isSessionKey(urlId)) return urlId
     if (mergedReport) return mergedReport
     if (isUuid(urlId)) return urlId
-    const vid = (s.valuationResult as { valuation_id?: string } | undefined)?.valuation_id
-    if (typeof vid === 'string' && isUuid(vid)) return vid
     return null
   }
 
@@ -2024,7 +2020,7 @@ export class SessionService {
     const ensureTargetId = this.pickTitanReportIdForEnsure(reportId, mergedSession)
     if (!ensureTargetId) {
       logger.debug(
-        'HTML self-heal skipped: no Titan report identifier (need session key/UUID or valuationResult.valuation_id)',
+        'HTML self-heal skipped: no Titan report identifier (need session key or report UUID)',
         {
           reportId: reportId?.substring(0, 24),
         }

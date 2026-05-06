@@ -29,6 +29,11 @@ import {
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
+import { isSessionKey } from '../../utils/identifiers'
+import {
+  extractStableSessionKeyFromMergedSession,
+  mergeSessionDataEnvelopesFromRoot,
+} from '../../utils/sessionReportIdentity'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
@@ -730,11 +735,21 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     return createEmptyNormalizedData('')
   }
 
-  // Extract the nested session_data/sessionData
-  const sessionData = backendSession.sessionData || backendSession.session_data || {}
+  const sessionData = mergeSessionDataEnvelopesFromRoot(backendSession)
 
-  // Extract reportId from multiple possible sources
-  const reportId = backendSession.reportId || backendSession.session_key || backendSession.id || ''
+  // Prefer stable val_* session_key over UUID reportId (Mercury / stale FK) so downstream
+  // ensure-html + PDF flows resolve the same row Titan uses for GET session.
+  const preferredSessionKey = extractStableSessionKeyFromMergedSession(backendSession)
+
+  const explicitReportId =
+    typeof backendSession.reportId === 'string' ? backendSession.reportId.trim() : ''
+
+  const reportId =
+    preferredSessionKey ??
+    explicitReportId ??
+    (typeof backendSession.id === 'string' && isSessionKey(backendSession.id.trim())
+      ? backendSession.id.trim()
+      : '')
 
   // Extract and normalize all data
   const formData = extractFormData(sessionData)

@@ -18,6 +18,7 @@ import { retryWithBackoff } from './retryWithBackoff'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
 import { dateLikeToUnixMs } from './date-like'
 import { isSessionKey, isUuid } from './identifiers'
+import { extractStableSessionKeyFromMergedSession, mergeSessionDataEnvelopesFromRoot } from './sessionReportIdentity'
 import { globalSessionCache } from './sessionCacheManager'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
@@ -111,7 +112,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   // Only add/override the special fields (valuation_result, html_report)
   // Cast to any to access session_data (backend may return snake_case)
   const sessionAny = session as any
-  const existingSessionData = session.sessionData || sessionAny.session_data || {}
+  const existingSessionData = mergeSessionDataEnvelopesFromRoot(sessionAny as Record<string, any>)
 
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
@@ -197,8 +198,16 @@ export function resolveEnsureHtmlSessionKey(params: {
     typeof (mergedSession as { session_key?: unknown }).session_key === 'string'
       ? ((mergedSession as { session_key?: string }).session_key as string)
       : undefined
+  const camelSk =
+    typeof (mergedSession as { sessionKey?: unknown }).sessionKey === 'string'
+      ? ((mergedSession as { sessionKey?: string }).sessionKey as string)
+      : undefined
 
-  const candidates = [mergedReportId, snake, urlReportId]
+  const nestedStable = extractStableSessionKeyFromMergedSession(
+    mergedSession as Record<string, unknown>,
+  )
+
+  const candidates = [mergedReportId, snake, camelSk, nestedStable, urlReportId]
   for (const c of candidates) {
     if (typeof c === 'string' && isSessionKey(c) && c !== ensureTargetId) {
       return c
@@ -276,9 +285,15 @@ export function normalizeSessionDates(session: any): ValuationSession {
     createdAt: parseDate(session.createdAt),
     updatedAt: parseDate(session.updatedAt),
     completedAt: session.completedAt ? parseDate(session.completedAt) : undefined,
-    // ✅ FIX: Preserve sessionData and partialData if they exist
-    sessionData: session.sessionData || session.session_data || {},
-    partialData: session.partialData || session.session_data || {},
+    sessionData: mergeSessionDataEnvelopesFromRoot(session),
+    partialData: (() => {
+      const fromPartial = mergeSessionDataEnvelopesFromRoot({
+        sessionData: session.partialData,
+        session_data: session.partial_data,
+      })
+      if (Object.keys(fromPartial).length > 0) return fromPartial
+      return mergeSessionDataEnvelopesFromRoot(session)
+    })(),
   }
 
   return normalized

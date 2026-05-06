@@ -94,6 +94,7 @@ export type NormalizationSource =
   | 'auto'
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
   applyGrootboekCountryOverrides,
   DEFAULT_LEDGER_ACCOUNTS,
@@ -1166,12 +1167,12 @@ export function UnifiedNormalizationModal({
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
-        className="sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] flex flex-col p-0"
+        className="sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] min-h-0 flex flex-col p-0"
         size="full"
         description={nh('modalTitle')}
       >
         {/* Header - Compact with EBITDA summary inline */}
-        <div className="px-6 py-3 border-b border-foreground/[0.06] flex items-center justify-between pr-14">
+        <div className="px-6 py-3 border-b border-foreground/[0.06] flex items-center justify-between pr-14 shrink-0">
           <div className="flex items-center gap-3">
             {/* Back: explicit affordance — the modal feels like a sub-page (92vh) so users
                 instinctively reach for a left-arrow. The X close in the corner is too easy
@@ -1317,7 +1318,7 @@ export function UnifiedNormalizationModal({
 
         {/* Tab Bar */}
         <div
-          className="px-6 py-2 border-b border-foreground/[0.06]"
+          className="px-6 py-2 border-b border-foreground/[0.06] shrink-0"
           role="tablist"
           aria-label={`${nh('primaryTabEbitda')} / ${nh('primaryTabTaxLatencies')}`}
         >
@@ -1365,87 +1366,83 @@ export function UnifiedNormalizationModal({
           </div>
         </div>
 
-        {(hasAutoNormalizationCapBreaches || requiresTaxLatencyReview) && (
-          <div className="px-6 pt-3 space-y-2">
-            {primaryTab === 'ebitda' && hasAutoNormalizationCapBreaches && (
-              <div className="rounded-xl border border-warning/25 bg-warning/[0.04] p-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {isDutch
-                        ? 'Review vereist: auto-normalisaties overschrijden verdedigbaarheidslimiet'
-                        : 'Review required: auto normalizations exceed defensibility cap'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-foreground/70">
-                      {isDutch
-                        ? 'Deze jaren overschrijden 50% van de gerapporteerde EBITDA met auto-toegepaste addbacks. Onderbouw of corrigeer vóór externe deling.'
-                        : 'These years exceed 50% of reported EBITDA via auto-applied addbacks. Substantiate or correct before external sharing.'}
-                    </p>
-                    <ul className="mt-2 space-y-1">
-                      {autoNormalizationCapBreaches.slice(0, 3).map((breach) => (
-                        <li
-                          key={breach.year}
-                          className="text-xs font-mono text-foreground/75 tabular-nums"
-                        >
-                          {`${breach.year}: +${formatCurrency(breach.autoAddback)} (${breach.addbackPctOfEbitda.toFixed(1)}%) > ${formatCurrency(breach.capAmount)}`}
-                        </li>
-                      ))}
-                      {autoNormalizationCapBreaches.length > 3 && (
-                        <li className="text-xs text-foreground/60">
+        <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+          {primaryTab === 'ebitda' ? (
+            <div
+              ref={listContainerRef}
+              id="ebitda-tab-content"
+              role="tabpanel"
+              className="flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain outline-none"
+            >
+              {hasAutoNormalizationCapBreaches && (
+                <div className="px-6 pt-3 pb-1 shrink-0">
+                  <div className="rounded-xl border border-warning/25 bg-warning/[0.04] p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">
                           {isDutch
-                            ? `+${autoNormalizationCapBreaches.length - 3} extra jaar/jaren met overschrijding`
-                            : `+${autoNormalizationCapBreaches.length - 3} additional year(s) over cap`}
-                        </li>
-                      )}
-                    </ul>
+                            ? 'Review vereist: auto-normalisaties overschrijden verdedigbaarheidslimiet'
+                            : 'Review required: auto normalizations exceed defensibility cap'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-foreground/70">
+                          {isDutch
+                            ? 'Deze jaren overschrijden 50% van de gerapporteerde EBITDA met auto-toegepaste addbacks. Onderbouw of corrigeer vóór externe deling.'
+                            : 'These years exceed 50% of reported EBITDA via auto-applied addbacks. Substantiate or correct before external sharing.'}
+                        </p>
+                        <ul className="mt-2 space-y-1">
+                          {autoNormalizationCapBreaches.slice(0, 3).map((breach) => (
+                            <li
+                              key={breach.year}
+                              className="text-xs font-mono text-foreground/75 tabular-nums"
+                            >
+                              {nh('autoCapBreachLine', {
+                                year: breach.year,
+                                addback: formatCurrency(breach.autoAddback),
+                                pct: breach.addbackPctOfEbitda.toFixed(1),
+                                cap: formatCurrency(breach.capAmount),
+                              })}
+                            </li>
+                          ))}
+                          {autoNormalizationCapBreaches.length > 3 && (
+                            <li className="text-xs text-foreground/60">
+                              {nh('autoCapBreachMoreYears', {
+                                count: autoNormalizationCapBreaches.length - 3,
+                              })}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {primaryTab === 'balans' && requiresTaxLatencyReview && (
-              <div className="rounded-xl border border-warning/25 bg-warning/[0.04] p-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {isDutch
-                        ? 'Review vereist: belastinglatenties ontbreken'
-                        : 'Review required: tax latencies missing'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-foreground/70">
-                      {isDutch
-                        ? 'Er zijn nog geen belastinglatenties toegepast terwijl er importsignalen beschikbaar zijn. Beoordeel en voeg de relevante regels toe voor een verdedigbare EV→Equity brug.'
-                        : 'No tax latencies are applied yet while import signals are available. Review and add relevant rows for a defensible EV→Equity bridge.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 1: EBITDA Normalisaties */}
-        {primaryTab === 'ebitda' && (
-          <>
-            <section className="px-6 pt-4 pb-2" role="region" aria-labelledby="section1-header">
+            <section className="px-6 pt-4 pb-2 shrink-0" role="region" aria-labelledby="section1-header">
               <button
                 type="button"
                 onClick={() => setIsEditorExpanded((expanded) => !expanded)}
                 aria-expanded={isEditorExpanded}
                 aria-controls="normalization-editor-panel"
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
+                className="flex w-full items-start justify-between gap-3 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 pr-2">
                   <h3 id="section1-header" className="text-sm font-semibold text-foreground">
                     {nh('editorToggleTitle')}
                   </h3>
-                  <p className="mt-0.5 text-xs text-foreground/50">{nh('editorToggleSubtitle')}</p>
+                  <p
+                    className={cn(
+                      'mt-0.5 text-xs text-foreground/50 leading-snug',
+                      LEDGER_LABEL_TEXT_CLASSES,
+                      isEditorExpanded && 'sr-only'
+                    )}
+                  >
+                    {nh('editorToggleSubtitle')}
+                  </p>
                 </div>
                 <ChevronDown
                   className={cn(
-                    'h-4 w-4 shrink-0 text-foreground/40 transition-transform',
+                    'h-4 w-4 shrink-0 text-foreground/40 transition-transform mt-0.5',
                     isEditorExpanded && 'rotate-180'
                   )}
                 />
@@ -1461,9 +1458,17 @@ export function UnifiedNormalizationModal({
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.18, ease: 'easeInOut' }}
-                  className="overflow-hidden border-b border-foreground/[0.06]"
+                  className="overflow-hidden border-b border-foreground/[0.06] shrink-0"
                 >
-                  <div ref={inputContainerRef} className="px-6 py-4 relative">
+                  <div ref={inputContainerRef} className="px-6 py-4 relative shrink-0">
+                    <p
+                      className={cn(
+                        'text-xs text-foreground/50 leading-snug mb-3',
+                        LEDGER_LABEL_TEXT_CLASSES
+                      )}
+                    >
+                      {nh('editorToggleSubtitle')}
+                    </p>
                     {/* Main Input Container - Enhanced glassmorphism with glow focus */}
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
@@ -1500,6 +1505,7 @@ export function UnifiedNormalizationModal({
                                 : nh('typeCodeOrChoose')
                           }
                           value={searchQuery}
+                          title={searchQuery.trim().length > 0 ? searchQuery : undefined}
                           onChange={(e) => {
                             const newQuery = e.target.value
                             setSearchQuery(newQuery)
@@ -1565,9 +1571,9 @@ export function UnifiedNormalizationModal({
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="px-4 pb-4 pt-2"
+                            className="px-4 pb-3 pt-2"
                           >
-                            <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
                               {normalizationPresets.slice(0, 6).map((preset, index) => (
                                 <motion.button
                                   key={preset.id}
@@ -1595,7 +1601,7 @@ export function UnifiedNormalizationModal({
                                     setShowAddForm(true)
                                   }}
                                   className={cn(
-                                    'inline-flex items-center px-4 py-2.5 rounded-xl',
+                                    'inline-flex shrink-0 items-center px-4 py-2 rounded-xl',
                                     'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
                                     'border border-foreground/[0.08]',
                                     'text-xs text-foreground/70 font-medium',
@@ -1636,7 +1642,7 @@ export function UnifiedNormalizationModal({
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
                               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                              className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[320px] overflow-y-auto"
+                              className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[min(26rem,55vh)] overflow-y-auto"
                               style={{
                                 top: dropdownAnchorRect.bottom + 4,
                                 left: dropdownAnchorRect.left,
@@ -1706,21 +1712,30 @@ export function UnifiedNormalizationModal({
                                         setShowAddForm(true)
                                       }}
                                       className={cn(
-                                        'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-center gap-2.5 transition-colors group',
-                                        'min-h-[48px]' // 48px touch target for mobile
+                                        'w-full px-3 py-2.5 text-left hover:bg-primary/5 flex items-start gap-2.5 transition-colors group'
                                       )}
                                     >
                                       {/* Code badge - compact */}
-                                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center group-hover:bg-primary/15 transition-colors flex-shrink-0">
+                                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center group-hover:bg-primary/15 transition-colors flex-shrink-0 mt-0.5">
                                         {renderHighlightedCode()}
                                       </span>
-                                      {/* Two-line content: name + category */}
+                                      {/* Name + category: wrap fully (no ellipsis) for long ledger labels */}
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-foreground/90 truncate leading-tight">
+                                        <p
+                                          className={cn(
+                                            'text-sm text-foreground/90 leading-snug',
+                                            LEDGER_LABEL_TEXT_CLASSES
+                                          )}
+                                        >
                                           {renderHighlightedName()}
                                         </p>
                                         {account.category && (
-                                          <p className="text-[10px] text-foreground/40 truncate leading-tight mt-0.5">
+                                          <p
+                                            className={cn(
+                                              'text-[10px] text-foreground/40 leading-snug mt-0.5',
+                                              LEDGER_LABEL_TEXT_CLASSES
+                                            )}
+                                          >
                                             {account.category}
                                           </p>
                                         )}
@@ -1799,7 +1814,7 @@ export function UnifiedNormalizationModal({
                   </div>
 
                   {/* Toolbar: Year Filter + View Mode Toggle */}
-                  <div className="px-6 py-3 border-t border-foreground/[0.06] bg-muted/30">
+                  <div className="px-6 py-3 border-t border-foreground/[0.06] bg-muted/30 shrink-0">
                     <div className="flex items-center justify-end gap-4">
                       <div className="flex items-center gap-3">
                         {/* Year Filter Pills - show all available financial years */}
@@ -1910,7 +1925,7 @@ export function UnifiedNormalizationModal({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="px-6 pb-3"
+                  className="px-6 pb-3 shrink-0"
                 >
                   <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-3">
@@ -1960,12 +1975,7 @@ export function UnifiedNormalizationModal({
             </AnimatePresence>
 
             {/* Content */}
-            <div
-              ref={listContainerRef}
-              id="ebitda-tab-content"
-              role="tabpanel"
-              className="flex-1 overflow-y-auto px-6 pb-6"
-            >
+            <div className="px-6 pb-6 shrink-0">
               <>
                 {/* Inline Add Form - Appears FIRST when adding for immediate visibility */}
                 <AnimatePresence>
@@ -2011,16 +2021,21 @@ export function UnifiedNormalizationModal({
                                   searchInputRef.current?.focus()
                                 })
                               }}
-                              className="flex-1 flex items-center gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
+                              className="flex-1 flex items-start gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
                               aria-label={nh('clickToChooseLedger')}
                             >
-                              <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-bold group-hover:bg-primary/15 transition-colors">
+                              <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-bold group-hover:bg-primary/15 transition-colors shrink-0">
                                 {selectedLedger.code}
                               </span>
-                              <span className="text-sm text-foreground flex-1 truncate">
+                              <span
+                                className={cn(
+                                  'text-sm text-foreground flex-1 min-w-0 text-left',
+                                  LEDGER_LABEL_TEXT_CLASSES
+                                )}
+                              >
                                 {selectedLedger.name}
                               </span>
-                              <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1">
+                              <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1 shrink-0 pt-0.5">
                                 <Edit3 className="w-3 h-3" />
                                 {nh('changeLedgerButton')}
                               </span>
@@ -2335,7 +2350,13 @@ export function UnifiedNormalizationModal({
                                     <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/70">
                                       {code}
                                     </span>
-                                    <span className="text-sm font-medium text-foreground break-words min-w-0">
+                                    <span
+                                      className={cn(
+                                        'text-sm font-medium text-foreground min-w-0',
+                                        LEDGER_LABEL_TEXT_CLASSES
+                                      )}
+                                      title={ledgerLabel}
+                                    >
                                       {ledgerLabel}
                                     </span>
                                     <span className="text-[11px] text-foreground/55">
@@ -2344,7 +2365,10 @@ export function UnifiedNormalizationModal({
                                   </div>
                                   {bucket.sample.reason && (
                                     <p
-                                      className="mt-1 text-xs text-foreground/55 line-clamp-4 break-words"
+                                      className={cn(
+                                        'mt-1 text-xs text-foreground/55',
+                                        LEDGER_LABEL_TEXT_CLASSES
+                                      )}
                                       title={bucket.sample.reason}
                                     >
                                       {bucket.sample.reason}
@@ -2570,23 +2594,40 @@ export function UnifiedNormalizationModal({
                   )}
               </>
             </div>
-          </>
-        )}
-
-        {/* Tab 2: Balans & Latenties */}
-        {primaryTab === 'balans' && (
-          <div
-            id="balans-tab-content"
-            role="tabpanel"
-            aria-label={nh('section2Header')}
-            className="flex-1 overflow-y-auto px-6 pt-2 pb-6"
-          >
-            <TaxLatencySection alwaysExpanded />
           </div>
-        )}
+          ) : (
+            <div
+              id="balans-tab-content"
+              role="tabpanel"
+              aria-label={nh('section2Header')}
+              className="flex flex-1 min-h-0 flex-col overflow-y-auto px-6 pt-2 pb-6"
+            >
+              {requiresTaxLatencyReview && (
+                <div className="mb-3 shrink-0 rounded-xl border border-warning/25 bg-warning/[0.04] p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {isDutch
+                          ? 'Review vereist: belastinglatenties ontbreken'
+                          : 'Review required: tax latencies missing'}
+                      </p>
+                      <p className="mt-0.5 text-xs text-foreground/70">
+                        {isDutch
+                          ? 'Er zijn nog geen belastinglatenties toegepast terwijl er importsignalen beschikbaar zijn. Beoordeel en voeg de relevante regels toe voor een verdedigbare EV→Equity brug.'
+                          : 'No tax latencies are applied yet while import signals are available. Review and add relevant rows for a defensible EV→Equity bridge.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <TaxLatencySection alwaysExpanded />
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
-        <ModalFooter className="border-t border-foreground/[0.06] px-6 py-4">
+        <ModalFooter className="border-t border-foreground/[0.06] px-6 py-4 shrink-0">
           <div className="flex items-center justify-between w-full">
             <p className="text-xs text-foreground/50">
               {primaryTab === 'ebitda'
@@ -2723,13 +2764,19 @@ function CompactTableRow({
         </span>
       </div>
 
-      {/* Name + Reason — stack so long auto-suggestion copy stays readable */}
+      {/* Name + Reason — full ledger label visible (wrap); reason still soft-clamped */}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className="text-sm text-foreground/80 break-words line-clamp-3">
+        <span
+          className={cn('text-sm text-foreground/80', LEDGER_LABEL_TEXT_CLASSES)}
+          title={getLedgerDisplayName(item.ledgerCode, item.ledgerName)}
+        >
           {getLedgerDisplayName(item.ledgerCode, item.ledgerName)}
         </span>
         {item.reason ? (
-          <span className="text-xs text-foreground/45 break-words line-clamp-4" title={item.reason}>
+          <span
+            className={cn('text-xs text-foreground/45', LEDGER_LABEL_TEXT_CLASSES)}
+            title={item.reason}
+          >
             {item.reason}
           </span>
         ) : null}

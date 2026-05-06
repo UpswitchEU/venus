@@ -28,6 +28,7 @@ import {
   DEFAULT_LEDGER_ACCOUNTS,
   type LedgerAccount,
 } from '@/constants/grootboek'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { Badge } from '@/design-system/components/Badge'
 import {
   TooltipContent,
@@ -189,14 +190,14 @@ const TaxLatencyRow = forwardRef<HTMLDivElement, TaxLatencyRowProps>(function Ta
       </span>
 
       <span
-        className="min-w-0 text-sm text-foreground/80 break-words line-clamp-3 leading-snug"
+        className={cn('min-w-0 text-sm text-foreground/80', LEDGER_LABEL_TEXT_CLASSES)}
         title={getLedgerDisplayLabel(item.accountCode, item.accountName)}
       >
         {getLedgerDisplayLabel(item.accountCode, item.accountName)}
       </span>
 
       <span
-        className="min-w-0 text-sm text-foreground/80 break-words line-clamp-3 leading-snug"
+        className={cn('min-w-0 text-sm text-foreground/80', LEDGER_LABEL_TEXT_CLASSES)}
         title={
           typeof item.description === 'string' && item.description ? item.description : undefined
         }
@@ -812,6 +813,7 @@ export function TaxLatencySection({
               <input
                 type="text"
                 value={ledgerQuery}
+                title={ledgerQuery.trim().length > 0 ? ledgerQuery : undefined}
                 placeholder={t('accountPlaceholder')}
                 onFocus={() => setShowLedgerDropdown(true)}
                 onChange={(event) => {
@@ -831,25 +833,36 @@ export function TaxLatencySection({
             </div>
             {showLedgerDropdown && (
               <div className="absolute z-20 mt-1 w-full rounded-xl border border-foreground/[0.08] bg-background shadow-xl overflow-hidden">
-                <div className="max-h-64 overflow-y-auto py-1">
+                <div className="max-h-[min(22rem,50vh)] overflow-y-auto py-1">
                   {filteredLedgers.length > 0 ? (
                     filteredLedgers.map((ledger) => (
                       <button
                         key={ledger.code}
                         type="button"
                         onClick={() => handleSelectLedger(ledger)}
-                        className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-foreground/[0.04] transition-colors"
+                        className="w-full flex items-start justify-between gap-3 px-3 py-2 text-left hover:bg-foreground/[0.04] transition-colors"
                       >
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-foreground truncate">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-mono font-semibold text-foreground tabular-nums">
                             {ledger.code}
                           </div>
-                          <div className="text-[11px] text-foreground/55 truncate">
+                          <div
+                            className={cn(
+                              'text-[11px] text-foreground/55 mt-0.5 leading-snug',
+                              LEDGER_LABEL_TEXT_CLASSES
+                            )}
+                            title={ledger.name}
+                          >
                             {ledger.name}
                           </div>
                         </div>
                         {ledger.category ? (
-                          <span className="text-[10px] uppercase tracking-wide text-foreground/35">
+                          <span
+                            className={cn(
+                              'text-[10px] uppercase tracking-wide text-foreground/35 shrink-0 max-w-[40%] text-right leading-snug',
+                              LEDGER_LABEL_TEXT_CLASSES
+                            )}
+                          >
                             {ledger.category}
                           </span>
                         ) : null}

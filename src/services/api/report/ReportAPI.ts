@@ -96,14 +96,25 @@ export class ReportAPI extends HttpClient {
       return null
     }
     try {
+      const trimmedSk =
+        typeof options?.sessionKey === 'string' ? options.sessionKey.trim() : ''
+      const safeSessionKey =
+        trimmedSk && isSessionKey(trimmedSk) && trimmedSk !== reportId ? trimmedSk : undefined
+      const trimmedAlt =
+        typeof options?.alternateReportId === 'string'
+          ? options.alternateReportId.trim()
+          : ''
+      const safeAlternate =
+        trimmedAlt && isUuid(trimmedAlt) && trimmedAlt !== reportId ? trimmedAlt : undefined
+
       return await this.executeRequest<Record<string, unknown>>(
         {
           method: 'POST',
           url: `/api/v2/valuations/reports/${encodeURIComponent(reportId)}/ensure-html`,
           data: {
             sync: options?.sync !== false,
-            ...(options?.sessionKey ? { sessionKey: options.sessionKey } : {}),
-            ...(options?.alternateReportId ? { alternateReportId: options.alternateReportId } : {}),
+            ...(safeSessionKey ? { sessionKey: safeSessionKey } : {}),
+            ...(safeAlternate ? { alternateReportId: safeAlternate } : {}),
           },
           headers: {},
         } as any,

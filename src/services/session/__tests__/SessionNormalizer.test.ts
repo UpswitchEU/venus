@@ -632,4 +632,23 @@ describe('normalizeSessionData', () => {
     })
     expect(normalized.userWeights).toEqual({ dcf: 50, ebitda_multiple: 50 })
   })
+
+  it('merges session_data when sessionData is an empty object', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_merge_env',
+      sessionData: {},
+      session_data: {
+        company_name: 'Merged Co',
+      },
+    })
+    expect(normalized.formData.company_name).toBe('Merged Co')
+  })
+
+  it('prefers val_* from nested session_data over stale UUID reportId', () => {
+    const normalized = normalizeSessionData({
+      reportId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+      session_data: { session_key: 'val_nested_routing' },
+    })
+    expect(normalized.reportId).toBe('val_nested_routing')
+  })
 })

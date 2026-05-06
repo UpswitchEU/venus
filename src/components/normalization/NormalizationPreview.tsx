@@ -7,6 +7,8 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
+import { cn } from '@/design-system/utils'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { CustomAdjustment, NormalizationAdjustment } from '../../types/ebitdaNormalization'
 
@@ -85,14 +87,22 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                 return (
                   <div
                     key={adj.category}
-                    className="flex items-center justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
+                    className="flex items-start justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-ink truncate">
+                      <p
+                        className={cn('text-sm font-medium text-slate-ink', LEDGER_LABEL_TEXT_CLASSES)}
+                        title={category?.label || adj.category}
+                      >
                         {category?.label || adj.category}
                       </p>
                       {adj.note && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{adj.note}</p>
+                        <p
+                          className={cn('text-xs text-muted-foreground mt-0.5', LEDGER_LABEL_TEXT_CLASSES)}
+                          title={adj.note}
+                        >
+                          {adj.note}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -137,12 +147,22 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
               .map((adj) => (
                 <div
                   key={adj.id}
-                  className="flex items-center justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
+                  className="flex items-start justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-ink truncate">{adj.description}</p>
+                    <p
+                      className={cn('text-sm font-medium text-slate-ink', LEDGER_LABEL_TEXT_CLASSES)}
+                      title={adj.description}
+                    >
+                      {adj.description}
+                    </p>
                     {adj.note && (
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{adj.note}</p>
+                      <p
+                        className={cn('text-xs text-muted-foreground mt-0.5', LEDGER_LABEL_TEXT_CLASSES)}
+                        title={adj.note}
+                      >
+                        {adj.note}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

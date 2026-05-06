@@ -24,6 +24,7 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
+import { applyStableReportIdFromSessionKeys } from '../../../utils/sessionReportIdentity'
 import { normalizeSessionData } from '../../session/SessionNormalizer'
 import {
   stripReportBlobsFromSessionPatch,
@@ -35,9 +36,7 @@ export class SessionAPI extends HttpClient {
   private normalizeBackendSessionPayload(sessionData: any): any {
     const payload = { ...sessionData }
 
-    if (!payload.reportId && payload.session_key) {
-      payload.reportId = payload.session_key
-    }
+    applyStableReportIdFromSessionKeys(payload)
 
     if (payload.view_type === 'simple' && !payload.currentView) {
       payload.currentView = 'manual'
@@ -238,10 +237,7 @@ export class SessionAPI extends HttpClient {
         return null
       }
 
-      // Map session_key to reportId if reportId is missing
-      if (!sessionData.reportId && sessionData.session_key) {
-        sessionData.reportId = sessionData.session_key
-      }
+      applyStableReportIdFromSessionKeys(sessionData)
 
       // Map backend view types to frontend view types
       // Backend: 'simple' | 'advanced'

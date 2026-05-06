@@ -2142,6 +2142,8 @@
 		"section1Subheader": "Aanpassingen op de winst (wordt vermenigvuldigd met de multiple).",
 		"editorToggleTitle": "Normalisatie toevoegen of wijzigen",
 		"editorToggleSubtitle": "Open alleen om handmatig normalisaties of grootboekregels te zoeken en aan te passen.",
+		"autoCapBreachLine": "{year}: +{addback} ({pct}% van gerapporteerde EBITDA) · limiet 50% = {cap}",
+		"autoCapBreachMoreYears": "+{count} extra jaar/jaren met overschrijding",
 		"section2Header": "Balanscorrecties & Latenties",
 		"section2Subheader": "Eenmalige correcties op de uiteindelijke ondernemingswaarde (1-op-1 verrekend).",
 		"primaryTabEbitda": "EBITDA Normalisaties",

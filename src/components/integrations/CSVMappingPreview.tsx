@@ -31,6 +31,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import { cn } from '@/design-system/utils'
 import type { ParsedCSVData } from './CSVUploadCard'
@@ -366,7 +367,7 @@ export function CSVMappingPreview({
 
         {/* Table with horizontal scroll on mobile */}
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[760px]">
             <thead>
               <tr className="border-b border-foreground/[0.06]">
                 <th className="px-4 md:px-6 py-3 text-left text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider w-20 md:w-24">
@@ -407,10 +408,13 @@ export function CSVMappingPreview({
                         {account.code}
                       </Mono>
                     </td>
-                    <td className="px-4 md:px-6 py-3">
+                    <td
+                      className="px-4 md:px-6 py-3 align-top min-w-[14rem] max-w-md lg:max-w-xl"
+                      title={account.description}
+                    >
                       <Body
                         size="sm"
-                        className="text-foreground/70 truncate max-w-[120px] md:max-w-xs"
+                        className={cn('text-foreground/70', LEDGER_LABEL_TEXT_CLASSES)}
                       >
                         {account.description}
                       </Body>
