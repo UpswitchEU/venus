@@ -4014,55 +4014,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
     const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
 
+    const idForPdf = resolvedReportId ?? reportId
+    if (
+      !idForPdf ||
+      idForPdf === 'new' ||
+      (typeof idForPdf === 'string' && idForPdf.trim() === '')
+    ) {
+      toast.error(t('pdfExportFailed'), {
+        description: t('pdfExportFailedDesc'),
+      })
+      setIsExporting(false)
+      return
+    }
+
+    toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
+
     try {
-      if (isPdfReady) {
-        await downloadPdf(undefined, filename)
-      } else if (resolvedReportId || reportId) {
-        const idForPdf = resolvedReportId || reportId
-        toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-        const pdfUrl = await generatePdf()
-        if (pdfUrl) {
-          toast.dismiss('pdf-gen')
-          await downloadPdf(undefined, filename)
-        } else {
-          // Async path: PDF is generating in background. Poll until ready or timeout.
-          const maxWaitMs = 120_000
-          const pollIntervalMs = 2_000
-          let elapsed = 0
-          while (elapsed < maxWaitMs && !abortController.signal.aborted) {
-            const res = await fetch(`/api/valuations/${idForPdf}/pdf`, {
-              method: 'GET',
-              credentials: 'include',
-              signal: abortController.signal,
-            })
-            if (res.status === 402) {
-              toast.dismiss('pdf-gen')
-              openStarterPaywall('pdf_download')
-              return
-            }
-            const data = res.ok ? await res.json().catch(() => null) : null
-            if (data?.status === 'ready' && data?.pdfUrl) {
-              toast.dismiss('pdf-gen')
-              await downloadPdf(undefined, filename)
-              break
-            }
-            await new Promise((r) => setTimeout(r, pollIntervalMs))
-            elapsed += pollIntervalMs
-          }
-          if (elapsed >= maxWaitMs) {
-            toast.dismiss('pdf-gen')
-            toast.error(t('pdfExportFailed'), {
-              description: t('pdfExportFailedDesc'),
-            })
-            return
-          }
-        }
-      } else {
-        toast.error(t('pdfExportFailed'), {
-          description: t('pdfExportFailedDesc'),
-        })
-        return
-      }
+      // Single path: BFF `/pdf/download` runs Titan GET + optional POST generate + storage.
+      // Avoids client/UI drift (`isPdfReady` vs server) and duplicate generation hops.
+      await downloadPdf(undefined, filename, abortController.signal)
 
       setDownloadHistory((prev) => [
         {
@@ -4075,9 +4045,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ])
       toast.success(t('pdfDownloaded'))
     } catch (error) {
-      toast.dismiss('pdf-gen')
       if (error instanceof APIError && error.statusCode === 402) {
         openStarterPaywall('pdf_download')
+        return
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
         return
       }
       generalLogger.error('[ManualLayout] PDF export failed', {
@@ -4085,15 +4057,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
       toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
     } finally {
+      toast.dismiss('pdf-gen')
       setIsExporting(false)
     }
   }, [
     report,
     reportId,
     resolvedReportId,
-    isPdfReady,
     downloadPdf,
-    generatePdf,
     tReport,
     t,
     pdfStale,

@@ -12,6 +12,15 @@ import { APIError } from '../types/errors'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 
+/** Titan + VIQ sync paths can exceed 60s; align with Venus pdf/download maxDuration (120s). */
+const PDF_DOWNLOAD_FETCH_MS = 130_000
+
+async function blobStartsWithPdfMagic(blob: Blob): Promise<boolean> {
+  if (blob.size < 8) return false
+  const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer())
+  return head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46
+}
+
 export type PdfStatus = 'none' | 'generating' | 'ready' | 'error'
 
 export interface PdfGenerationState {
@@ -26,8 +35,12 @@ export interface UsePdfGenerationReturn {
   state: PdfGenerationState
   /** Trigger PDF generation — returns the PDF URL if available synchronously */
   generatePdf: () => Promise<string | null>
-  /** Download existing PDF with optional custom filename */
-  downloadPdf: (url?: string, filename?: string) => Promise<void>
+  /** Download existing PDF with optional custom filename and abort signal */
+  downloadPdf: (
+    url?: string,
+    filename?: string,
+    signal?: AbortSignal
+  ) => Promise<void>
   /** Check if PDF is ready */
   isReady: boolean
   /** Check if generating */
@@ -334,18 +347,36 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
    * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
    */
   const downloadPdf = useCallback(
-    async (url?: string, filename?: string) => {
+    async (url?: string, filename?: string, signal?: AbortSignal) => {
+      void url
       if (!reportId) {
-        if (!isGeneratingRef.current) {
-          await generatePdf()
+        const msg =
+          'Cannot download PDF until the valuation report is saved (no report ID).'
+        generalLogger.warn('[PDF] downloadPdf without reportId')
+        if (mountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            error: msg,
+          }))
         }
-        return
+        throw new Error(msg)
       }
 
       try {
-        // Use proxy to avoid CORS/403 when fetching Supabase storage from browser
+        const timeoutSignal =
+          typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+            ? AbortSignal.timeout(PDF_DOWNLOAD_FETCH_MS)
+            : undefined
+        const fetchSignal =
+          signal && timeoutSignal && typeof AbortSignal.any === 'function'
+            ? AbortSignal.any([signal, timeoutSignal])
+            : signal ?? timeoutSignal
+
+        // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
+        // BFF runs Titan GET + optional POST generate + storage stream.
         const response = await fetch(`/api/valuations/${reportId}/pdf/download`, {
           credentials: 'include',
+          signal: fetchSignal,
         })
 
         if (!response.ok) {
@@ -371,6 +402,19 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         }
 
         const blob = await response.blob()
+        if (!(await blobStartsWithPdfMagic(blob))) {
+          const snippet = (await blob.slice(0, 240).text()).trim()
+          let parsed: { error?: string; message?: string } | null = null
+          try {
+            parsed = JSON.parse(snippet) as { error?: string; message?: string }
+          } catch {
+            /* not JSON — probably HTML error page */
+          }
+          const hint =
+            (parsed && (parsed.error || parsed.message)) ||
+            (snippet.startsWith('<!') ? 'Server returned HTML instead of a PDF.' : snippet.slice(0, 120))
+          throw new Error(hint || 'Download did not return a valid PDF file.')
+        }
 
         const blobUrl = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -384,6 +428,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         if (error instanceof APIError && error.statusCode === 402) {
           throw error
         }
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error
+        }
         generalLogger.error('[PDF] Download error', { error })
         if (mountedRef.current) {
           setState((prev) => ({
@@ -394,7 +441,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         throw error
       }
     },
-    [reportId, generatePdf]
+    [reportId]
   )
 
   return {
