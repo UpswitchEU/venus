@@ -6,7 +6,8 @@
  *
  * Single source of truth for "what's wrong with this valuation that the
  * advisor / founder should fix BEFORE generating the PDF". Pure-frontend
- * derivation — no network, no engine round-trip.
+ * derivation from the Studio store + the same pure `useLiveValuation` math
+ * the receipt uses — no Titan round-trip for issue detection.
  *
  * Replaces the practice of letting low-confidence / missing-data signals
  * leak into the rendered report. Instead the wizard surfaces them as
@@ -28,6 +29,12 @@
  */
 
 import { useMemo } from 'react'
+import studioEn from '../../../../messages/startupStudio/en.json'
+import studioNl from '../../../../messages/startupStudio/nl.json'
+import {
+  computeSomSharePercents,
+  type TamSamSomFunnelIssue,
+} from '@/features/startup-studio/utils/tamSamSomFunnel'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
@@ -36,7 +43,26 @@ import {
   type StudioMilestoneKey,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { type LiveValuation, useLiveValuation } from './useLiveValuation'
+import { type LiveValuation, formatEur, useLiveValuation } from './useLiveValuation'
+
+/** Inline EN/NL — kept in sync with `messages/startupStudio/*.json` somFunnelWarn*. */
+const TAM_SAM_SOM_FUNNEL_WARN_COPY: Record<
+  TamSamSomFunnelIssue,
+  { en: string; nl: string }
+> = {
+  sam_gt_tam: {
+    en: 'SAM is larger than TAM — adjust if that wasn’t intentional.',
+    nl: 'SAM is groter dan TAM — pas aan als dit niet de bedoeling was.',
+  },
+  som_gt_sam: {
+    en: 'SOM is larger than SAM — unusual for a 3-year slice; verify before pitching.',
+    nl: 'SOM is groter dan SAM — ongebruikelijk voor een 3-jarige slice; check je cijfers voor je pitcht.',
+  },
+  som_gt_tam: {
+    en: 'SOM is larger than TAM — your 3-year slice can’t exceed the total addressable market.',
+    nl: 'SOM is groter dan TAM — je verkrijgbare markt kan de totale markt niet overstijgen.',
+  },
+}
 
 export type StudioIssueSeverity = 'block' | 'warn' | 'info'
 
@@ -210,13 +236,15 @@ function pickIssues(
     (state.mrr == null || state.mrr <= 0) &&
     (state.arr == null || state.arr <= 0)
   ) {
+    const sectorLabelEn = studioEn.narrative.sectorLabels[state.sector as keyof typeof studioEn.narrative.sectorLabels]
+    const sectorLabelNl = studioNl.narrative.sectorLabels[state.sector as keyof typeof studioNl.narrative.sectorLabels]
     issues.push({
       id: 'recurring_sector_no_arr',
       severity: 'warn',
       step: 'traction',
       title: {
-        en: `No recurring revenue logged for ${state.sector.toUpperCase()}`,
-        nl: `Geen terugkerende omzet ingevoerd voor ${state.sector.toUpperCase()}`,
+        en: `No recurring revenue logged for ${sectorLabelEn}`,
+        nl: `Geen terugkerende omzet ingevoerd voor ${sectorLabelNl}`,
       },
       body: {
         en: 'For SaaS / marketplace / fintech, comparable multiples are anchored to ARR. Without it, the SaaS-forward leg is dropped and the blend collapses to milestone-only.',
@@ -257,6 +285,83 @@ function pickIssues(
         nl: 'De VC-methode leg staat uit. Loop met me door welke jaar-5 omzet, exit-multiple en target ROI ik kan gebruiken — sector-benchmarks indien mogelijk.',
       },
     })
+  }
+
+  // ── 6b. TAM / SAM / SOM funnel ordering (Exit story credibility) ─
+  const { tam: tamF, sam: samF, som: somF } = state.tam_sam_som
+  const somFunnelShare =
+    tamF != null && samF != null && somF != null
+      ? computeSomSharePercents(tamF, samF, somF)
+      : null
+  if (somFunnelShare && somFunnelShare.issues.length > 0) {
+    const bodyEn = somFunnelShare.issues
+      .map((i) => TAM_SAM_SOM_FUNNEL_WARN_COPY[i].en)
+      .join(' ')
+    const bodyNl = somFunnelShare.issues
+      .map((i) => TAM_SAM_SOM_FUNNEL_WARN_COPY[i].nl)
+      .join(' ')
+    issues.push({
+      id: 'tam_sam_som_inconsistent',
+      severity: 'warn',
+      step: 'exit_story',
+      title: {
+        en: 'TAM / SAM / SOM funnel looks inconsistent',
+        nl: 'TAM / SAM / SOM-trechter lijkt inconsistent',
+      },
+      body: { en: bodyEn, nl: bodyNl },
+      action: {
+        en: 'In Exit story, align TAM ≥ SAM ≥ SOM or fix the intentional narrative.',
+        nl: 'Lijn in Exit-verhaal TAM ≥ SAM ≥ SOM uit of herformuleer je verhaal.',
+      },
+      assistantPrompt: {
+        en: 'My TAM, SAM, and SOM numbers may contradict each other. Help me sanity-check the funnel and suggest credible ranges for my pitch.',
+        nl: 'Mijn TAM-, SAM- en SOM-cijfers spreken elkaar misschien tegen. Help me de trechter te controleren en geloofwaardige ranges voor te stellen.',
+      },
+    })
+  }
+
+  // ── 6c. This-round new-investor % (priced cap preview) ────────────
+  // Same math as Round simulator / VC `next_round_dilution_pct`: not the
+  // cumulative-to-exit dilution field. Skip when SAFE notes exist — slice is
+  // undefined until conversion.
+  const invRound = state.investment_amount_sought
+  const preForSlice =
+    state.cap_table.pre_money_target ?? valuation.blended?.mid ?? null
+  if (
+    state.cap_table.safe_notes.length === 0 &&
+    typeof invRound === 'number' &&
+    invRound > 0 &&
+    typeof preForSlice === 'number' &&
+    preForSlice > 0
+  ) {
+    const postSlice = preForSlice + invRound
+    const roundPctSlice = (invRound / postSlice) * 100
+    if (roundPctSlice > 22 && Number.isFinite(roundPctSlice)) {
+      const preHint12 = invRound / 0.12 - invRound
+      const preHintStr =
+        preHint12 > 0 && Number.isFinite(preHint12) ? formatEur(preHint12) : '—'
+      issues.push({
+        id: 'high_priced_round_slice',
+        severity: 'warn',
+        step: 'round_simulator',
+        title: {
+          en: 'Large slice to new investors this round',
+          nl: 'Groot aandeel voor nieuwe investeerders deze ronde',
+        },
+        body: {
+          en: `At ~${roundPctSlice.toFixed(1)}% post-money for this raise, the bar is pricing a big single cheque — often founders aim closer to 10–15%. About 12% at this raise implies pre-money near ${preHintStr} (illustrative). The cumulative “dilution to exit” field does not change this %.`,
+          nl: `Met ~${roundPctSlice.toFixed(1)}% post-money voor deze raise is dat een grote hap — veel founders mikken richting 10–15% per ronde. ~12% zou hier ruwweg pre-money rond ${preHintStr} impliceren (illustratief). Het cumulatieve “verwatering tot exit”-veld wijzigt dit % niet.`,
+        },
+        action: {
+          en: 'In Round, check pre-money vs raise — or confirm an intentional down-round / aggressive ask.',
+          nl: 'Controleer in Ronde pre-money t.o.v. raise — of bevestig een bewuste down-round / zware ask.',
+        },
+        assistantPrompt: {
+          en: 'My cap table shows a high % to new investors for this priced round. Help me sanity-check pre-money and round size vs typical benchmarks for my stage.',
+          nl: 'Mijn cap-tabel toont een hoog % voor nieuwe investeerders. Help me pre-money en rondgrootte te toetsen aan benchmarks voor mijn stage.',
+        },
+      })
+    }
   }
 
   // ── 7. Evidence-note coverage (PDF readability) ─────────────────
@@ -370,6 +475,7 @@ export function useStudioIssues(benchmark: StartupBenchmarkRow): StudioIssuesRes
     state.sector,
     state.country_code,
     state.investment_amount_sought,
+    state.cap_table,
     state.year5_revenue_projection,
     state.exit_revenue_multiple,
     state.target_roi_x,
@@ -377,6 +483,7 @@ export function useStudioIssues(benchmark: StartupBenchmarkRow): StudioIssuesRes
     state.arr,
     state.maturity,
     state.evidence_notes,
+    state.tam_sam_som,
     state.founder_pedigree,
     state.inception_lens,
     valuation.blended?.mid,

@@ -5534,7 +5534,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const stepLabels: Record<StudioIssue['step'], { en: string; nl: string }> = {
       profile: { en: 'Profile', nl: 'Profiel' },
       berkus: { en: 'Risk reduction', nl: 'Risico-reductie' },
-      scorecard: { en: 'Defensibility', nl: 'Defensibility' },
+      scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid' },
       founder_pedigree: { en: 'Team pedigree', nl: 'Team' },
       traction: { en: 'Traction', nl: 'Tractie' },
       exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },

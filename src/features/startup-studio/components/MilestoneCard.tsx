@@ -21,8 +21,10 @@
 import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { type KeyboardEvent, useId, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { getMilestoneCopy, type StudioLocale } from '@/features/startup-studio/data/maturityOptions'
+import { useStudioLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { trackStudioEvidenceAdded } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
@@ -38,6 +40,7 @@ interface MilestoneCardProps {
   /** EUR value the engine attributes per milestone at the founder's
    *  region+stage.  Used to render the live "+€X" chip per option. */
   maxPerMilestoneEur?: number
+  /** @deprecated Route locale from next-intl is used. */
   locale?: StudioLocale
   /** Optional weight badge (Scorecard cards only). */
   weightPct?: number
@@ -46,9 +49,11 @@ interface MilestoneCardProps {
 export function MilestoneCard({
   milestoneKey,
   maxPerMilestoneEur,
-  locale = 'en',
+  locale: _localeProp,
   weightPct,
 }: MilestoneCardProps) {
+  const locale = useStudioLocale()
+  const t = useTranslations('startupStudio.milestone')
   const copy = getMilestoneCopy(milestoneKey, locale)
   const selected = useStartupValuationStore((s) => s.maturity[milestoneKey])
   const evidence = useStartupValuationStore((s) => s.evidence_notes[milestoneKey])
@@ -115,7 +120,7 @@ export function MilestoneCard({
         </div>
         {weightPct != null && (
           <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            {weightPct}% {locale === 'nl' ? 'gewicht' : 'weight'}
+            {weightPct}% {t('weight')}
           </span>
         )}
       </header>
@@ -189,7 +194,7 @@ export function MilestoneCard({
         className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80"
         aria-expanded={open}
       >
-        {locale === 'nl' ? 'Wat investeerders zoeken' : 'What investors look for'}
+        {t('whatInvestorsLookFor')}
         <ChevronDown
           className={cn('h-4 w-4 transition-transform', open ? 'rotate-180' : 'rotate-0')}
         />
@@ -204,7 +209,7 @@ export function MilestoneCard({
           <p className="text-sm leading-relaxed text-foreground/75">{copy.why}</p>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/55">
-              {locale === 'nl' ? 'Benelux-voorbeelden' : 'Benelux examples'}
+              {t('beneluxExamples')}
             </p>
             <ul className="mt-2 space-y-1 text-sm text-foreground/70">
               {copy.examples.map((ex, i) => (
@@ -224,7 +229,7 @@ export function MilestoneCard({
           htmlFor={`evidence-${milestoneKey}`}
           className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foreground/55"
         >
-          {locale === 'nl' ? 'Jouw bewijs (optioneel)' : 'Your evidence (optional)'}
+          {t('yourEvidence')}
         </label>
         <AuroraTextarea
           id={`evidence-${milestoneKey}`}

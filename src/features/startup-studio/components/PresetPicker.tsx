@@ -17,6 +17,7 @@
  */
 
 import { Check } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
 import {
   type PresetKey,
@@ -97,6 +98,7 @@ function resolveBusinessTypeIdForSector(
 const SESSION_KEY = 'upswitch.studio.applied_preset'
 
 interface PresetPickerProps {
+  /** @deprecated Ignored — route locale from next-intl is used. */
   locale?: 'en' | 'nl'
 }
 
@@ -128,7 +130,9 @@ function persistActivePreset(key: PresetKey | null): void {
   }
 }
 
-export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
+export function PresetPicker(_props: PresetPickerProps) {
+  const locale = useLocale() === 'nl' ? 'nl' : 'en'
+  const t = useTranslations('startupStudio.preset')
   const applyPreset = useStartupValuationStore((s) => s.applyPreset)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
   // Subscribe to the canonical business-types catalogue so picking a
@@ -175,11 +179,11 @@ export function PresetPicker({ locale = 'en' }: PresetPickerProps) {
 
   return (
     <div
-      aria-label={locale === 'nl' ? 'Snelle start templates' : 'Quick start templates'}
+      aria-label={t('quickStartAria')}
       className="flex flex-wrap items-center gap-2"
     >
       <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
-        {locale === 'nl' ? 'Snelle start' : 'Quick start'}
+        {t('quickStart')}
       </span>
       {STUDIO_PRESET_ORDER.map((key) => {
         const preset = STUDIO_PRESETS[key]

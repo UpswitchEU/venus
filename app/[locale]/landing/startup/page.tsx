@@ -33,32 +33,32 @@
  */
 
 import type { Metadata } from 'next'
+import type { Locale } from '../../../../i18n'
+import { loadLocaleMessages } from '@/lib/i18n/loadLocaleMessages'
 import { LandingStartupContent } from './LandingStartupContent'
 
 interface PageProps {
   params: Promise<{ locale: string }>
 }
 
-const META_BY_LOCALE = {
-  en: {
-    title: 'Startup Valuation — Free, no signup needed to start | Upswitch',
-    description:
-      'Run the full Berkus + Scorecard + VC-method blend on your startup. Fill it in here, sign up only when you want the investor-ready report.',
-  },
-  nl: {
-    title: 'Startup-waardering — Gratis, geen account nodig om te starten | Upswitch',
-    description:
-      'Run de volledige Berkus + Scorecard + VC-methode blend op je startup. Vul het hier in, registreer pas wanneer je het investor-ready rapport wilt.',
-  },
-} as const
+function pickLocale(raw: string): Locale {
+  return raw === 'nl' ? 'nl' : 'en'
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale: raw } = await params
-  const locale = raw === 'nl' ? 'nl' : 'en'
-  const t = META_BY_LOCALE[locale]
+  const locale = pickLocale(raw)
+  const messages = await loadLocaleMessages(locale)
+  const landing = (messages as { startupStudio?: { landing?: { meta?: { title: string; description: string } } } })
+    .startupStudio?.landing
+  const meta = landing?.meta ?? {
+    title: 'Startup Valuation | Upswitch',
+    description: 'Startup valuation wizard.',
+  }
+
   return {
-    title: t.title,
-    description: t.description,
+    title: meta.title,
+    description: meta.description,
     alternates: {
       canonical: `/${locale}/landing/startup`,
       languages: {
@@ -67,8 +67,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     },
     openGraph: {
-      title: t.title,
-      description: t.description,
+      title: meta.title,
+      description: meta.description,
       type: 'website',
       url: `/${locale}/landing/startup`,
     },
@@ -81,7 +81,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export const dynamic = 'force-dynamic'
 
 export default async function LandingStartupPage({ params }: PageProps) {
-  const { locale: raw } = await params
-  const locale = raw === 'nl' ? 'nl' : 'en'
-  return <LandingStartupContent locale={locale} />
+  await params
+  return <LandingStartupContent />
 }

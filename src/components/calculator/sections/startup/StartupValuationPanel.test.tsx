@@ -18,55 +18,75 @@ import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const intlLocaleMock = vi.hoisted(() => ({ current: 'en' as string }))
+
+vi.mock('next-intl', () => ({
+  useLocale: () => intlLocaleMock.current,
+  useTranslations: () => (key: string) => {
+    const sectionTitles: Record<string, string> = {
+      'sections.profile': 'Profile',
+      'sections.berkus': 'Risk reduction',
+      'sections.scorecard': 'Defensibility',
+      'sections.founder_pedigree': 'Team pedigree',
+      'sections.traction': 'Traction',
+      'sections.exit_story': 'Exit story',
+      'sections.round_simulator': 'Round',
+      'sections.report': 'Report',
+    }
+    return sectionTitles[key] ?? key
+  },
+}))
+
 // Each Studio section component is replaced with a thin probe so the
 // test asserts the orchestration contract (which sections are rendered
 // in which order, with what locale) without pulling in the heavy
 // design-system deps each section relies on.
 vi.mock('@/features/startup-studio/components/CompanyCardStep', () => ({
-  CompanyCardStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-company-card" data-locale={locale} />
+  CompanyCardStep: () => (
+    <div data-testid="section-company-card" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/BerkusStep', () => ({
-  BerkusStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-berkus" data-locale={locale} />
+  BerkusStep: () => (
+    <div data-testid="section-berkus" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/ScorecardStep', () => ({
-  ScorecardStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-scorecard" data-locale={locale} />
+  ScorecardStep: () => (
+    <div data-testid="section-scorecard" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/FounderPedigreeStep', () => ({
-  FounderPedigreeStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-pedigree" data-locale={locale} />
+  FounderPedigreeStep: () => (
+    <div data-testid="section-pedigree" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/TractionStep', () => ({
-  TractionStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-traction" data-locale={locale} />
+  TractionStep: () => (
+    <div data-testid="section-traction" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/ExitStoryStep', () => ({
-  ExitStoryStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-exit" data-locale={locale} />
+  ExitStoryStep: () => (
+    <div data-testid="section-exit" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/RoundSimulatorStep', () => ({
-  RoundSimulatorStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-round" data-locale={locale} />
+  RoundSimulatorStep: () => (
+    <div data-testid="section-round" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/ReportStep', () => ({
-  ReportStep: ({ locale }: { locale?: string }) => (
-    <div data-testid="section-report" data-locale={locale} />
+  ReportStep: () => (
+    <div data-testid="section-report" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/StudioCoPilot', () => ({
   StudioCoPilot: () => <div data-testid="studio-copilot" />,
 }))
 
-// `useStudioIssues` makes a network call we don't want to exercise.
+// `useStudioIssues` is mocked so this layout test stays focused on section
+// order and does not depend on live-valuation + issue list wiring.
 vi.mock('@/features/startup-studio/hooks/useStudioIssues', async () => {
   const actual = await vi.importActual<{
     StudioStepId: unknown
@@ -100,6 +120,7 @@ import { StartupValuationPanel } from './StartupValuationPanel'
 
 describe('StartupValuationPanel — unified shell', () => {
   beforeEach(() => {
+    intlLocaleMock.current = 'en'
     localStorage.removeItem('venus.startup_valuation.v1')
     useStartupValuationStore.getState().reset()
   })
@@ -112,7 +133,7 @@ describe('StartupValuationPanel — unified shell', () => {
     render(<StartupValuationPanel />)
 
     // Order matters — the section numerals + Aurora-Teal step circles
-    // must match `1. Profile → 2. Risk reduction → 3. Defensibility →
+    // must match `1. Profile → 2. Risk reduction → 3. Verdedigbaarheid →
     // 4. Team pedigree → 5. Traction → 6. Exit story → 7. Round → 8. Report`.
     const order = [
       'section-company-card',
@@ -153,10 +174,11 @@ describe('StartupValuationPanel — unified shell', () => {
     expect(screen.getByTestId('section-report').getAttribute('data-locale')).toBe('en')
   })
 
-  it('uses nl locale when the persisted country is NL', () => {
+  it('uses nl locale when the Next.js route locale is nl (not operating country)', () => {
+    intlLocaleMock.current = 'nl'
     useStartupValuationStore.setState({
       ...useStartupValuationStore.getState(),
-      country_code: 'NL',
+      country_code: 'BE',
     })
     render(<StartupValuationPanel />)
     expect(screen.getByTestId('section-company-card').getAttribute('data-locale')).toBe('nl')

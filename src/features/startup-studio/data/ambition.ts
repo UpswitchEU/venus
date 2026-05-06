@@ -26,65 +26,6 @@ import type { StartupSector } from '@/store/manual/useStartupValuationStore'
 
 export type AmbitionLevel = 'conservative' | 'standard' | 'ambitious'
 
-export interface AmbitionCopy {
-  /** Card title — plain language. */
-  title: { en: string; nl: string }
-  /** One-line subtitle — what this means in concrete outcomes. */
-  subtitle: { en: string; nl: string }
-  /** A line founders recognise: "we want to be a €Xm ARR business." */
-  outcome: { en: string; nl: string }
-  /** Tooltip / micro-copy for the side label. */
-  hint: { en: string; nl: string }
-}
-
-export const AMBITION_COPY: Record<AmbitionLevel, AmbitionCopy> = {
-  conservative: {
-    title: { en: 'Solid mid-size', nl: 'Stevige mid-size' },
-    subtitle: {
-      en: 'Profitable, focused, capital-efficient. Acquisition by an industry buyer.',
-      nl: 'Winstgevend, gefocust, kapitaal-efficiënt. Overname door een industriële koper.',
-    },
-    outcome: {
-      en: 'Reasonable mid-size revenue by year 5. Defensible, low risk.',
-      nl: 'Redelijke mid-size omzet tegen jaar 5. Verdedigbaar, laag risico.',
-    },
-    hint: {
-      en: 'Engine reads this as a conservative VC-method anchor.',
-      nl: 'Engine leest dit als een conservatieve VC-methode anker.',
-    },
-  },
-  standard: {
-    title: { en: 'Category leader', nl: 'Categorieleider' },
-    subtitle: {
-      en: 'Strong market share, healthy ARR growth, strategic acquisition or growth round.',
-      nl: 'Sterk marktaandeel, gezonde ARR-groei, strategische overname of groeironde.',
-    },
-    outcome: {
-      en: 'Top-3 in your category by year 5.',
-      nl: 'Top-3 in je categorie tegen jaar 5.',
-    },
-    hint: {
-      en: 'Most pre-seed founders pick this — Atomico SoEU 2024 median.',
-      nl: 'De meeste pre-seed founders kiezen dit — Atomico SoEU 2024 mediaan.',
-    },
-  },
-  ambitious: {
-    title: { en: 'Category-defining', nl: 'Categorie-definiërend' },
-    subtitle: {
-      en: 'Generational outcome — €100M+ exit or IPO path. High variance, high upside.',
-      nl: 'Generationele uitkomst — €100M+ exit of IPO-pad. Hoge variantie, hoge upside.',
-    },
-    outcome: {
-      en: 'Defining the category by year 5 — venture-scale outcome.',
-      nl: 'Categorie-definiërend tegen jaar 5 — venture-scale uitkomst.',
-    },
-    hint: {
-      en: 'Engine reads this as a top-quartile VC-method anchor.',
-      nl: 'Engine leest dit als een top-quartile VC-methode anker.',
-    },
-  },
-}
-
 export const AMBITION_ORDER: readonly AmbitionLevel[] = [
   'conservative',
   'standard',

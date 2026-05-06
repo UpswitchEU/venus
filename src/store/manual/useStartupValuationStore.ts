@@ -14,6 +14,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { normalizeTamSamSomField, mergeTamSamSomField } from '@/features/startup-studio/utils/tamSamSomFunnel'
 import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 
 export type StartupStage = 'pre_seed' | 'seed' | 'series_a'
@@ -191,6 +192,13 @@ export type FounderPedigreeEvidence = Partial<
 >
 
 /**
+ * Max characters per pedigree evidence string — keep in sync with
+ * `apps/valuation-iq/src/domain/startup_valuation/schemas.py`
+ * ``_MAX_PEDIGREE_EVIDENCE_LEN`` and the FounderPedigreeStep textarea.
+ */
+export const PEDIGREE_EVIDENCE_MAX_LEN = 500
+
+/**
  * Per-qualification multiplier deltas used by the live receipt to render
  * "+X.XX×" / "-X.XX×" chips next to each option.  Source of truth lives
  * in the Python engine (`founder_pedigree.PEDIGREE_DELTAS`) — this table
@@ -217,6 +225,36 @@ export const PEDIGREE_KEYS: readonly FounderPedigreeKey[] = [
   'has_technical_cofounder',
   'solo_founder',
 ] as const
+
+/** Keys that may carry gated evidence (excludes ``solo_founder``). */
+export const PEDIGREE_EVIDENCE_FIELD_KEYS: readonly Exclude<
+  FounderPedigreeKey,
+  'solo_founder'
+>[] = PEDIGREE_KEYS.filter(
+  (k): k is Exclude<FounderPedigreeKey, 'solo_founder'> => k !== 'solo_founder',
+)
+
+/**
+ * Evidence strings sent to Titan/ValuationIQ — same contract as Python
+ * ``_bound_pedigree_evidence``: known keys only, trim, truncate, omit empties.
+ * The store keeps raw text while typing (see `setPedigreeEvidence`).
+ */
+function sanitizePedigreeEvidenceMap(
+  raw: Partial<Record<string, unknown>>,
+): FounderPedigreeEvidence {
+  const out: FounderPedigreeEvidence = {}
+  for (const k of PEDIGREE_EVIDENCE_FIELD_KEYS) {
+    const v = raw[k]
+    if (typeof v !== 'string') continue
+    const t = v.trim().slice(0, PEDIGREE_EVIDENCE_MAX_LEN)
+    if (t) out[k] = t
+  }
+  return out
+}
+
+function pedigreeEvidenceForPayload(raw: FounderPedigreeEvidence): FounderPedigreeEvidence {
+  return sanitizePedigreeEvidenceMap(raw)
+}
 
 /**
  * Inception lens — opt-in overlay that fixes the three pre-seed gaps
@@ -433,6 +471,11 @@ interface StartupValuationStore extends StartupValuationState {
    * the type narrows ``key`` to exclude ``solo_founder``.  Passing an
    * empty / whitespace-only string removes the key from the persisted
    * dict so the engine sees "no evidence" rather than an empty string.
+   *
+   * Values are stored **as typed** (no per-keystroke trim) so spaces work
+   * in the textarea.  Strings longer than ``PEDIGREE_EVIDENCE_MAX_LEN``
+   * are truncated to match ValuationIQ bounds.  `toRequestPayload` applies
+   * the same normalization (trim + known keys + cap) before Titan.
    */
   setPedigreeEvidence: (
     key: Exclude<FounderPedigreeKey, 'solo_founder'>,
@@ -628,18 +671,20 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
 
       setPedigreeEvidence: (key, evidence) =>
         set((state) => {
-          // Strip empty strings so the persisted shape stays minimal —
-          // the engine treats absent keys and empty strings identically
-          // (both fail the gate), but a smaller dict means a smaller
-          // payload over the wire and a cleaner data-room footprint.
-          const trimmed = evidence.trim()
-          if (!trimmed) {
+          // Only treat whitespace-only as empty — do not trim() what we
+          // persist: trimming on every onChange would strip the trailing
+          // space after each word and make the textarea impossible to use.
+          if (!evidence.trim()) {
             const { [key]: _removed, ...rest } = state.pedigree_evidence
             return { ...state, pedigree_evidence: rest }
           }
+          const capped =
+            evidence.length > PEDIGREE_EVIDENCE_MAX_LEN
+              ? evidence.slice(0, PEDIGREE_EVIDENCE_MAX_LEN)
+              : evidence
           return {
             ...state,
-            pedigree_evidence: { ...state.pedigree_evidence, [key]: trimmed },
+            pedigree_evidence: { ...state.pedigree_evidence, [key]: capped },
           }
         }),
 
@@ -683,10 +728,14 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         })),
 
       setTamSamSom: (next) =>
-        set((state) => ({
-          ...state,
-          tam_sam_som: { ...state.tam_sam_som, ...next },
-        })),
+        set((state) => {
+          const prev = state.tam_sam_som
+          const merged = { ...prev }
+          if ('tam' in next) merged.tam = normalizeTamSamSomField(next.tam)
+          if ('sam' in next) merged.sam = normalizeTamSamSomField(next.sam)
+          if ('som' in next) merged.som = normalizeTamSamSomField(next.som)
+          return { ...state, tam_sam_som: merged }
+        }),
 
       seedSectorFromNaceIfDefault: (nace) =>
         set((state) => {
@@ -888,13 +937,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             //      the evidence strings.
             const pickEvidence = (raw: unknown): FounderPedigreeEvidence => {
               if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-              const out: FounderPedigreeEvidence = {}
-              for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-                if (typeof v === 'string' && v.trim() && k !== 'solo_founder') {
-                  out[k as keyof FounderPedigreeEvidence] = v.trim()
-                }
-              }
-              return out
+              return sanitizePedigreeEvidenceMap(raw as Record<string, unknown>)
             }
             const fromTop = pickEvidence(s.pedigree_evidence)
             const fromNested = pickEvidence(fp.pedigree_evidence)
@@ -940,12 +983,15 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           if (tamSamSom && typeof tamSamSom === 'object') {
             const t = tamSamSom as Record<string, unknown>
             next.tam_sam_som = {
-              tam:
-                typeof t.tam === 'number' && Number.isFinite(t.tam) ? t.tam : next.tam_sam_som.tam,
-              sam:
-                typeof t.sam === 'number' && Number.isFinite(t.sam) ? t.sam : next.tam_sam_som.sam,
-              som:
-                typeof t.som === 'number' && Number.isFinite(t.som) ? t.som : next.tam_sam_som.som,
+              tam: 'tam' in t
+                ? mergeTamSamSomField(t.tam, next.tam_sam_som.tam)
+                : normalizeTamSamSomField(next.tam_sam_som.tam),
+              sam: 'sam' in t
+                ? mergeTamSamSomField(t.sam, next.tam_sam_som.sam)
+                : normalizeTamSamSomField(next.tam_sam_som.sam),
+              som: 'som' in t
+                ? mergeTamSamSomField(t.som, next.tam_sam_som.som)
+                : normalizeTamSamSomField(next.tam_sam_som.som),
             }
           }
           if (typeof s.inception_lens === 'string') {
@@ -990,7 +1036,12 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           state.tam_sam_som.sam != null ||
           state.tam_sam_som.som != null
         ) {
-          studioMetadata.tam_sam_som = state.tam_sam_som
+          const tamN = normalizeTamSamSomField(state.tam_sam_som.tam)
+          const samN = normalizeTamSamSomField(state.tam_sam_som.sam)
+          const somN = normalizeTamSamSomField(state.tam_sam_som.som)
+          if (tamN != null || samN != null || somN != null) {
+            studioMetadata.tam_sam_som = { tam: tamN, sam: samN, som: somN }
+          }
         }
 
         return {
@@ -1043,7 +1094,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             ? {
                 founder_pedigree: {
                   ...state.founder_pedigree,
-                  pedigree_evidence: state.pedigree_evidence,
+                  pedigree_evidence: pedigreeEvidenceForPayload(state.pedigree_evidence),
                 },
               }
             : {}),
@@ -1053,7 +1104,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 7,
+      version: 8,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -1076,6 +1127,9 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       //            `milestones_driven` (no-op) so returning users see
       //            no change until they actively pick momentum_driven
       //            or inception_bet on the new picker.
+      //   v7 → v8: re-sanitize `pedigree_evidence` (known keys, max length)
+      //            so corrupted or pre-hardening persisted blobs can't
+      //            bloat localStorage or resurrect junk keys.
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as StartupValuationState
@@ -1155,6 +1209,15 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // ("default 1.00× without evidence").
           if (!s.pedigree_evidence) {
             s.pedigree_evidence = {}
+          }
+        }
+        if (version < 8) {
+          // Align persisted blobs with the same contract as the API:
+          // only canonical keys, bounded length, no junk from legacy data.
+          if (s.pedigree_evidence && typeof s.pedigree_evidence === 'object') {
+            s.pedigree_evidence = sanitizePedigreeEvidenceMap(
+              s.pedigree_evidence as Record<string, unknown>,
+            )
           }
         }
         return s as StartupValuationState

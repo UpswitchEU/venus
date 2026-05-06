@@ -23,6 +23,7 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { AuroraInput } from '@/design-system/components/Input'
@@ -40,7 +41,6 @@ export interface SafeNotesEditorProps<T extends SafeNoteEditorRow> {
   onAdd: () => void
   onUpdate: (id: string, patch: Partial<T>) => void
   onRemove: (id: string) => void
-  locale?: 'en' | 'nl'
   /** Optional title rendered in the header.  Falls back to a sensible default. */
   title?: string
   /** Optional sub-text rendered under the title. */
@@ -56,20 +56,15 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
   onAdd,
   onUpdate,
   onRemove,
-  locale = 'en',
   title,
   description,
   emptyHelper,
   advisorMode = false,
 }: SafeNotesEditorProps<T>) {
-  const headerTitle = title ?? 'SAFE / Convertible notes'
-  const headerDescription =
-    description ??
-    (locale === 'nl'
-      ? 'Voeg openstaande SAFEs toe — ze converteren bij de volgende prijsronde.'
-      : 'Add outstanding SAFEs — they convert at the next priced round.')
-  const emptyText =
-    emptyHelper ?? (locale === 'nl' ? 'Nog geen SAFEs toegevoegd.' : 'No SAFEs added yet.')
+  const t = useTranslations('startupStudio.safeNotes')
+  const headerTitle = title ?? t('defaultTitle')
+  const headerDescription = description ?? t('defaultDescription')
+  const emptyText = emptyHelper ?? t('empty')
 
   return (
     <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
@@ -84,7 +79,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
           className="flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background px-3 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary hover:bg-primary/5"
         >
           <Plus className="h-3.5 w-3.5" />
-          SAFE
+          {t('add')}
         </button>
       </div>
 
@@ -99,7 +94,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
           <div key={note.id} className="rounded-xl border border-foreground/10 bg-background p-4">
             <div className="mb-3 flex items-center justify-between">
               <AuroraInput
-                label={locale === 'nl' ? 'Houder' : 'Holder'}
+                label={t('holder')}
                 value={note.holder_label ?? ''}
                 onChange={(e) =>
                   onUpdate(note.id, {
@@ -115,14 +110,14 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 type="button"
                 onClick={() => onRemove(note.id)}
                 className="ml-3 rounded-lg p-2 text-foreground/55 transition hover:bg-red-500/10 hover:text-red-600"
-                aria-label="Remove SAFE"
+                aria-label={t('removeAria')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <CurrencyInput
-                label="Amount (€)"
+                label={t('amount')}
                 value={note.amount ?? undefined}
                 onChange={(value) =>
                   onUpdate(note.id, { amount: value ?? null } as Partial<T>)
@@ -132,7 +127,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 truncateLabel={false}
               />
               <CurrencyInput
-                label="Valuation cap (€)"
+                label={t('cap')}
                 value={note.valuation_cap ?? undefined}
                 onChange={(value) =>
                   onUpdate(note.id, { valuation_cap: value ?? null } as Partial<T>)
@@ -142,7 +137,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
                 truncateLabel={false}
               />
               <AdaptivePercentInput
-                label={locale === 'nl' ? 'Discount (%)' : 'Discount (%)'}
+                label={t('discount')}
                 value={note.discount_pct ?? undefined}
                 onChange={(value) =>
                   onUpdate(note.id, { discount_pct: value ?? null } as Partial<T>)
@@ -158,9 +153,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
 
       {advisorMode && (
         <p className="mt-4 rounded-lg bg-primary/5 p-3 text-[11px] text-foreground/70">
-          {locale === 'nl'
-            ? 'Advisor mode: bij conversie naar priced round wordt de meest gunstige clausule (cap of discount) per SAFE toegepast.'
-            : 'Advisor mode: at priced-round conversion, the most-favorable clause (cap or discount) is applied per SAFE.'}
+          {t('advisorHint')}
         </p>
       )}
     </div>

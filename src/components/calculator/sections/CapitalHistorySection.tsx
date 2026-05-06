@@ -22,6 +22,7 @@
  */
 
 import { ChevronDown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
@@ -43,6 +44,7 @@ function generateSafeId(): string {
 }
 
 export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionProps) {
+  const tSafe = useTranslations('startupStudio.safeNotes')
   const formData = useManualFormStore((s) => s.formData)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
 
@@ -182,15 +184,8 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                 onAdd={handleAddSafe}
                 onUpdate={handleUpdateSafe}
                 onRemove={handleRemoveSafe}
-                locale={locale}
-                title={
-                  locale === 'nl' ? 'Openstaande SAFEs / converteerbare leningen' : 'Outstanding SAFEs / convertibles'
-                }
-                description={
-                  locale === 'nl'
-                    ? 'Converteren bij de volgende prijsronde. Gebruik de meest gunstige clausule (cap of discount).'
-                    : 'Convert at the next priced round. Whichever clause is most favourable (cap or discount) applies.'
-                }
+                title={tSafe('capitalHistoryTitle')}
+                description={tSafe('capitalHistoryDescription')}
               />
 
               <div className="grid gap-4 sm:grid-cols-2">

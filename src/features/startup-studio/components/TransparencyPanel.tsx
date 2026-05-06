@@ -26,6 +26,7 @@
  */
 
 import { ChevronDown, Compass, ExternalLink, Info, Microscope, TrendingUp } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   type AmbitionLevel,
   inferAmbition,
@@ -45,52 +46,16 @@ import {
 } from '@/features/startup-studio/utils/narrativeBuilder'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
-import { cn } from '@/lib/utils'
 
 interface TransparencyPanelProps {
   valuation: LiveValuation
   benchmark: StartupBenchmarkRow
   isFallback: boolean
   publishedAt: string
-  locale?: 'en' | 'nl'
 }
 
-const LEG_LABEL: Record<string, { en: string; nl: string }> = {
-  berkus: {
-    en: 'Berkus — milestone-driven',
-    nl: 'Berkus — milestone-gedreven',
-  },
-  scorecard: {
-    en: 'Bill Payne Scorecard — peer comparison',
-    nl: 'Bill Payne Scorecard — peer-vergelijking',
-  },
-  vc: {
-    en: 'VC Method (Sahlman) — exit-driven',
-    nl: 'VC Method (Sahlman) — exit-gedreven',
-  },
-  saas_forward: {
-    en: 'SaaS Forward Multiple — traction-driven',
-    nl: 'SaaS Forward Multiple — tractie-gedreven',
-  },
-}
-
-const LEG_INPUT_NOTE: Record<string, { en: string; nl: string }> = {
-  berkus: {
-    en: 'Driven by your 5 risk-reduction milestones (idea, prototype, team, partnerships, rollout).',
-    nl: 'Gedreven door je 5 risico-reductie mijlpalen (idee, prototype, team, partnerships, uitrol).',
-  },
-  scorecard: {
-    en: "Driven by 7 weighted factors comparing you to the regional pre-seed average.",
-    nl: 'Gedreven door 7 gewogen factoren vergeleken met het regionale pre-seed gemiddelde.',
-  },
-  vc: {
-    en: 'Driven by your Y5 ARR thesis × exit multiple ÷ target ROI − round size.',
-    nl: 'Gedreven door je Y5 ARR thesis × exit multiple ÷ target ROI − ronde-grootte.',
-  },
-  saas_forward: {
-    en: 'Driven by current MRR projected forward 12 months × risk-adjusted multiple.',
-    nl: 'Gedreven door huidige MRR vooruit-geprojecteerd 12 maanden × risico-aangepaste multiple.',
-  },
+function studioLocale(locale: string): 'en' | 'nl' {
+  return locale === 'nl' ? 'nl' : 'en'
 }
 
 export function TransparencyPanel({
@@ -98,8 +63,13 @@ export function TransparencyPanel({
   benchmark,
   isFallback,
   publishedAt,
-  locale = 'en',
 }: TransparencyPanelProps) {
+  const locale = studioLocale(useLocale())
+  const t = useTranslations('startupStudio.transparency')
+  const tCommon = useTranslations('startupStudio.common')
+  const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
+  const tSectorLabels = useTranslations('startupStudio.narrative.sectorLabels')
+
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
@@ -154,17 +124,14 @@ export function TransparencyPanel({
   // Sensitivity range plot — same axis as benchmark band so the eye can
   // compare both "where peers sit" and "where you'd land if Y5 is ±20%".
   const sensitivityLowPos = sensitivity
-    ? Math.min(
-        100,
-        Math.max(0, ((sensitivity.low - bandLow) / bandRange) * 100),
-      )
+    ? Math.min(100, Math.max(0, ((sensitivity.low - bandLow) / bandRange) * 100))
     : null
   const sensitivityHighPos = sensitivity
-    ? Math.min(
-        100,
-        Math.max(0, ((sensitivity.high - bandLow) / bandRange) * 100),
-      )
+    ? Math.min(100, Math.max(0, ((sensitivity.high - bandLow) / bandRange) * 100))
     : null
+
+  const multStr = valuation.inceptionLensMultiplier.toFixed(2)
+  const bandPct = String(Math.round(valuation.inceptionLensBandWidenPct * 100))
 
   return (
     <details
@@ -174,7 +141,7 @@ export function TransparencyPanel({
       <summary className="flex cursor-pointer items-center justify-between gap-2 px-5 py-4 text-sm font-semibold text-foreground hover:text-primary">
         <span className="flex items-center gap-2">
           <Microscope className="h-4 w-4 text-primary" />
-          {locale === 'nl' ? 'Live-preview: waarom dit cijfer?' : 'Live preview: why this number?'}
+          {t('summaryTitle')}
         </span>
         <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
       </summary>
@@ -191,28 +158,19 @@ export function TransparencyPanel({
         <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-50/60 p-3 text-[11px] text-amber-900/80 dark:border-amber-700/30 dark:bg-amber-950/30 dark:text-amber-200/80">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            {locale === 'nl' ? (
-              <>
-                <span className="font-semibold">Live preview.</span> De canonieke
-                waardering, range en PDF worden door <span className="font-medium">ValuationIQ</span> gerenderd
-                wanneer je op <span className="font-medium">Genereer rapport</span> klikt.
-                Toon investeerders het rapport, niet dit voorbeeld.
-              </>
-            ) : (
-              <>
-                <span className="font-semibold">Live preview.</span> The canonical
-                valuation, range and PDF are rendered by <span className="font-medium">ValuationIQ</span>{' '}
-                when you click <span className="font-medium">Generate report</span>.
-                Show investors the report — not this preview.
-              </>
-            )}
+            <span className="font-semibold">{t('disclaimerBold')}</span>{' '}
+            {t('disclaimerP1')}
+            <span className="font-medium text-foreground">{t('valuationIq')}</span>
+            {t('disclaimerP2')}
+            <span className="font-medium text-foreground">{t('generateCta')}</span>
+            {t('disclaimerP3')}
           </span>
         </div>
 
         {/* 1. Plain-English narrative ------------------------------- */}
         <section>
           <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
-            {locale === 'nl' ? '1. In gewoon Nederlands' : '1. In plain English'}
+            {t('sectionPlain')}
           </h4>
           <div className="space-y-2 text-sm leading-relaxed text-foreground/80">
             {whyParagraphs.map((p, i) => (
@@ -224,12 +182,12 @@ export function TransparencyPanel({
         {/* 2. Methodology breakdown — euros and arrows ------------- */}
         <section>
           <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
-            {locale === 'nl' ? '2. De wiskunde, leg per leg' : '2. The math, leg by leg'}
+            {t('sectionMath')}
           </h4>
           <ul className="space-y-2.5">
             {valuation.legs.map((leg) => {
-              const label = LEG_LABEL[leg.key]?.[locale] ?? leg.key
-              const note = LEG_INPUT_NOTE[leg.key]?.[locale] ?? ''
+              const label = t(`legLabels.${leg.key}` as never)
+              const note = t(`legNotes.${leg.key}` as never)
               const value = leg.value
               if (value == null) {
                 return (
@@ -239,9 +197,7 @@ export function TransparencyPanel({
                   >
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-foreground/65">{label}</span>
-                      <span className="text-foreground/45">
-                        {locale === 'nl' ? 'niet beschikbaar' : 'not available'}
-                      </span>
+                      <span className="text-foreground/45">{t('notAvailable')}</span>
                     </div>
                     <p className="mt-1 text-[11px] text-foreground/45">{note}</p>
                   </li>
@@ -271,9 +227,11 @@ export function TransparencyPanel({
           </ul>
           {valuation.pedigreeMultiplier !== 1.0 && (
             <p className="mt-3 rounded-md bg-primary/[0.06] p-2.5 text-xs text-foreground/75">
-              {locale === 'nl'
-                ? `Daarna een team-pedigree multiplier van ${valuation.pedigreeMultiplier.toFixed(2)}× op de leg-blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blendedPreLens?.mid ?? valuation.blended.mid)}).`
-                : `Then a team-pedigree multiplier of ${valuation.pedigreeMultiplier.toFixed(2)}× on the leg blend (${formatEur(valuation.blendedPrePedigree?.mid ?? null)} → ${formatEur(valuation.blendedPreLens?.mid ?? valuation.blended.mid)}).`}
+              {t('pedigreeMultiplier', {
+                mult: valuation.pedigreeMultiplier.toFixed(2),
+                from: formatEur(valuation.blendedPrePedigree?.mid ?? null),
+                to: formatEur(valuation.blendedPreLens?.mid ?? valuation.blended.mid),
+              })}
             </p>
           )}
         </section>
@@ -287,76 +245,27 @@ export function TransparencyPanel({
           <section className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/[0.05] to-primary/[0.02] p-4">
             <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               <Compass className="h-3 w-3" />
-              {locale === 'nl' ? '2½. Inception lens — toegepast' : '2½. Inception lens — applied'}
+              {t('inceptionSection')}
             </h4>
             <p className="text-xs leading-relaxed text-foreground/80">
-              {valuation.inceptionLens === 'momentum_driven' ? (
-                locale === 'nl' ? (
-                  <>
-                    <span className="font-semibold text-foreground">Momentum-gedreven lens</span> —
-                    pre-seed wordt gewonnen door momentum, niet door moats.{' '}
-                    <span className="tabular-nums font-medium text-foreground">
-                      {valuation.inceptionLensMultiplier.toFixed(2)}×
-                    </span>{' '}
-                    lift op de mid;{' '}
-                    <span className="tabular-nums font-medium text-foreground">
-                      ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
-                    </span>{' '}
-                    bredere variantie band om de werkelijke pre-seed onzekerheid eerlijk te
-                    rapporteren.
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold text-foreground">Momentum-driven lens</span> —
-                    pre-seed is won by momentum, not moats.{' '}
-                    <span className="tabular-nums font-medium text-foreground">
-                      {valuation.inceptionLensMultiplier.toFixed(2)}×
-                    </span>{' '}
-                    lift on the mid;{' '}
-                    <span className="tabular-nums font-medium text-foreground">
-                      ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
-                    </span>{' '}
-                    wider variance band to honestly report real pre-seed uncertainty.
-                  </>
-                )
-              ) : locale === 'nl' ? (
-                <>
-                  <span className="font-semibold text-foreground">Inception bet lens</span> — edge
-                  premium + markt-creatie thesis.{' '}
-                  <span className="tabular-nums font-medium text-foreground">
-                    {valuation.inceptionLensMultiplier.toFixed(2)}×
-                  </span>{' '}
-                  lift op de mid;{' '}
-                  <span className="tabular-nums font-medium text-foreground">
-                    ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
-                  </span>{' '}
-                  bredere band — vloer iets lager (verhoogd downside-risico erkend), plafond
-                  aanzienlijk hoger (asymmetrische upside).  Anthropic / Lovable / Cursor profiel.
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold text-foreground">Inception bet lens</span> — edge
-                  premium + market-creation thesis.{' '}
-                  <span className="tabular-nums font-medium text-foreground">
-                    {valuation.inceptionLensMultiplier.toFixed(2)}×
-                  </span>{' '}
-                  lift on the mid;{' '}
-                  <span className="tabular-nums font-medium text-foreground">
-                    ±{Math.round(valuation.inceptionLensBandWidenPct * 100)}%
-                  </span>{' '}
-                  wider band — floor dips slightly (acknowledging higher downside), ceiling lifts
-                  substantially (asymmetric upside).  Anthropic / Lovable / Cursor profile.
-                </>
-              )}
+              <span className="font-semibold text-foreground">
+                {valuation.inceptionLens === 'momentum_driven'
+                  ? t('lensMomentum')
+                  : t('lensBet')}
+              </span>
+              {' — '}
+              {valuation.inceptionLens === 'momentum_driven'
+                ? t('inceptionMomentumRest', { mult: multStr, band: bandPct })
+                : t('inceptionBetRest', { mult: multStr, band: bandPct })}
             </p>
             {valuation.blendedPreLens && (
               <p className="mt-2 text-[11px] tabular-nums text-foreground/65">
-                {locale === 'nl' ? 'Pre-lens (post-pedigree) mid: ' : 'Pre-lens (post-pedigree) mid: '}
+                {t('preLens')}
                 <span className="font-medium text-foreground">
                   {formatEur(valuation.blendedPreLens.mid)}
                 </span>
                 {' → '}
-                {locale === 'nl' ? 'na lens: ' : 'after lens: '}
+                {t('afterLens')}
                 <span className="font-medium text-foreground">
                   {formatEur(valuation.blended.mid)}
                 </span>
@@ -369,14 +278,14 @@ export function TransparencyPanel({
         <section>
           <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
             <TrendingUp className="h-3 w-3" />
-            {locale === 'nl' ? '3. Benchmark — waar zitten peers?' : '3. Benchmark — where do peers sit?'}
+            {t('benchmark')}
           </h4>
 
           <div className="space-y-2">
             <div className="flex items-baseline justify-between text-[11px] tabular-nums text-foreground/55">
               <span>{formatEur(bandLow)}</span>
               <span className="font-medium text-foreground/75">
-                {country} · {stage.replace('_', ' ')} · {sector}
+                {country} · {tStageLabels(stage)} · {tSectorLabels(sector)}
               </span>
               <span>{formatEur(bandHigh)}</span>
             </div>
@@ -386,13 +295,13 @@ export function TransparencyPanel({
               <div
                 className="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 bg-foreground/30"
                 style={{ left: `${medianPos}%` }}
-                aria-label={`Median ${formatEur(median)}`}
+                aria-label={t('medianAria', { amount: formatEur(median) })}
               />
               {/* Engine output marker */}
               <div
                 className="absolute top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-primary bg-background shadow-md"
                 style={{ left: `${enginePos}%` }}
-                aria-label={`Engine output ${formatEur(valuation.blended.mid)}`}
+                aria-label={t('engineAria', { amount: formatEur(valuation.blended.mid) })}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               </div>
@@ -400,21 +309,17 @@ export function TransparencyPanel({
 
             <div className="flex items-center justify-between text-[11px] text-foreground/55">
               <span>
-                {locale === 'nl' ? 'Mediaan: ' : 'Median: '}
+                {t('medianLabel')}
                 <span className="font-medium tabular-nums text-foreground/75">
                   {formatEur(median)}
                 </span>
               </span>
               <span className="font-medium text-primary">
-                {locale === 'nl' ? 'Jij: ' : 'You: '}
+                {t('youLabel')}
                 <span className="tabular-nums">{formatEur(valuation.blended.mid)}</span>
               </span>
             </div>
-            <p className="text-[10px] text-foreground/45">
-              {locale === 'nl'
-                ? 'Band: 0.5× – 2× regionale mediaan (P25–P75 empirisch bereik).'
-                : 'Band: 0.5× – 2× regional median (empirical P25–P75 range).'}
-            </p>
+            <p className="text-[10px] text-foreground/45">{t('bandCaption')}</p>
           </div>
         </section>
 
@@ -423,31 +328,23 @@ export function TransparencyPanel({
           <section>
             <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
               <Info className="h-3 w-3" />
-              {locale === 'nl'
-                ? `4. Wat als je Y5-thesis ±20% afwijkt?`
-                : `4. What if your Y5 thesis is off by ±20%?`}
+              {t('sensitivityTitle')}
             </h4>
             <div className="space-y-2 rounded-lg bg-foreground/[0.03] p-3">
               <div className="flex items-baseline justify-between text-xs tabular-nums">
-                <span className="text-foreground/55">
-                  {locale === 'nl' ? 'Conservatief' : 'Conservative'}
-                </span>
+                <span className="text-foreground/55">{tCommon('conservative')}</span>
                 <span className="font-medium text-foreground">
                   {formatEur(sensitivity.low)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between text-xs tabular-nums">
-                <span className="text-foreground/55">
-                  {locale === 'nl' ? 'Mid (engine output)' : 'Mid (engine output)'}
-                </span>
+                <span className="text-foreground/55">{tCommon('midEngine')}</span>
                 <span className="font-bold text-primary">
                   {formatEur(sensitivity.mid)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between text-xs tabular-nums">
-                <span className="text-foreground/55">
-                  {locale === 'nl' ? 'Bullish' : 'Bullish'}
-                </span>
+                <span className="text-foreground/55">{tCommon('bullish')}</span>
                 <span className="font-medium text-foreground">
                   {formatEur(sensitivity.high)}
                 </span>
@@ -468,9 +365,7 @@ export function TransparencyPanel({
                 />
               </div>
               <p className="text-[10px] text-foreground/45">
-                {locale === 'nl'
-                  ? `Y5-thesis is de meest gehefboomde input bij pre-seed. ±20% beweging ⇒ ±${sensitivity.spreadPct}% pre-money.`
-                  : `Y5 thesis is the most leveraged pre-seed input. ±20% shift ⇒ ±${sensitivity.spreadPct}% pre-money.`}
+                {t('sensitivityFoot', { spreadPct: sensitivity.spreadPct })}
               </p>
             </div>
           </section>
@@ -479,50 +374,38 @@ export function TransparencyPanel({
         {/* 5. Source provenance ------------------------------------- */}
         <section>
           <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
-            {locale === 'nl' ? '5. Bronnen & methodologie' : '5. Sources & methodology'}
+            {t('sourcesHeading')}
           </h4>
           <ul className="space-y-1 text-[11px] text-foreground/60">
             <li>
-              <span className="font-medium text-foreground/75">Berkus (2024):</span>{' '}
-              {locale === 'nl'
-                ? '5 risico-reductie mijlpalen, geüpdated voor het 2024 venture klimaat.'
-                : '5 risk-reduction milestones, refreshed for the 2024 venture climate.'}
+              <span className="font-medium text-foreground/75">{t('sourceBerkusTitle')}</span>{' '}
+              {t('sourceBerkus')}
             </li>
             <li>
-              <span className="font-medium text-foreground/75">Bill Payne Scorecard (2024):</span>{' '}
-              {locale === 'nl'
-                ? '7 gewogen factoren, peer-comparison band 0.5×–1.5×.'
-                : '7 weighted factors, peer-comparison band 0.5×–1.5×.'}
+              <span className="font-medium text-foreground/75">{t('sourceScorecardTitle')}</span>{' '}
+              {t('sourceScorecard')}
             </li>
             <li>
-              <span className="font-medium text-foreground/75">VC Method (Sahlman):</span>{' '}
-              {locale === 'nl'
-                ? 'Y5 omzet × exit-multiple ÷ target ROI − ronde-grootte.'
-                : 'Y5 revenue × exit multiple ÷ target ROI − round size.'}
+              <span className="font-medium text-foreground/75">{t('sourceVcTitle')}</span>{' '}
+              {t('sourceVc')}
             </li>
             <li>
-              <span className="font-medium text-foreground/75">Pedigree (Strebulaev 2024):</span>{' '}
-              {locale === 'nl'
-                ? 'Multiplicatieve overlay 0.70×–1.80× op leg-blend baseline.'
-                : 'Multiplicative overlay 0.70×–1.80× on leg-blend baseline.'}
+              <span className="font-medium text-foreground/75">{t('sourcePedigreeTitle')}</span>{' '}
+              {t('sourcePedigree')}
             </li>
             <li>
-              <span className="font-medium text-foreground/75">Inception lens (opt-in):</span>{' '}
-              {locale === 'nl'
-                ? 'Multiplier + band-widening overlay voor momentum-driven en inception-bet profielen. Erkent dat moats niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.'
-                : 'Multiplier + band-widening overlay for momentum-driven and inception-bet profiles.  Acknowledges that moats don\'t exist at pre-seed, TAM is unknowable, and the best founders cost more.'}
+              <span className="font-medium text-foreground/75">{t('sourceInceptionTitle')}</span>{' '}
+              {t('sourceInception')}
             </li>
             <li className="pt-1 text-foreground/45">
-              {locale === 'nl' ? 'Benchmarks: ' : 'Benchmarks: '}
+              {t('benchmarksLabel')}{' '}
               <span className="font-medium text-foreground/65">
                 Atomico State of European Tech 2024 + Dealroom Benelux Q1 2026
               </span>
               {' · '}
               {isFallback
-                ? locale === 'nl'
-                  ? 'offline fallback'
-                  : 'offline fallback'
-                : `${locale === 'nl' ? 'bijgewerkt ' : 'updated '}${publishedAt.slice(0, 7)}`}
+                ? t('offlineFallback')
+                : `${t('updatedPrefix')}${publishedAt.slice(0, 7)}`}
               {' · '}
               <span className="text-foreground/45">{benchmark.source}</span>
             </li>
@@ -537,24 +420,11 @@ export function TransparencyPanel({
         <section className="flex items-start gap-2 rounded-lg bg-primary/[0.04] p-3">
           <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
           <p className="text-[11px] leading-relaxed text-foreground/70">
-            {locale === 'nl' ? (
-              <>
-                Audit-ready cijfer komt van <span className="font-medium text-foreground">ValuationIQ</span>{' '}
-                (Python engine, server-side).  Deze preview spiegelt dezelfde wiskunde, maar
-                het canonieke getal — dat in je PDF en op je rapport staat — wordt deterministisch
-                berekend op de server.  Identieke inputs ⇒ identiek getal.  Geen LLM-hallucinatie,
-                geen verborgen regels.
-              </>
-            ) : (
-              <>
-                The audit-ready number comes from{' '}
-                <span className="font-medium text-foreground">ValuationIQ</span> (Python engine,
-                server-side).  This preview mirrors the same math, but the canonical figure —
-                the one on your PDF and your report — is computed deterministically on the
-                server.  Identical inputs ⇒ identical number.  No LLM hallucination, no hidden
-                rules.
-              </>
-            )}
+            {t.rich('repro', {
+              viq: () => (
+                <span className="font-medium text-foreground">{t('valuationIq')}</span>
+              ),
+            })}
           </p>
         </section>
       </div>

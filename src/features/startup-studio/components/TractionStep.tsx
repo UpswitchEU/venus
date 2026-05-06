@@ -12,6 +12,7 @@
  */
 
 import { Calculator } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
@@ -20,6 +21,7 @@ import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface TractionStepProps {
+  /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
 }
 
@@ -27,7 +29,9 @@ function hasRevenueSignal(mrr: number | null | undefined, arr: number | null | u
   return (typeof mrr === 'number' && mrr > 0) || (typeof arr === 'number' && arr > 0)
 }
 
-export function TractionStep({ locale = 'en' }: TractionStepProps) {
+export function TractionStep(_props: TractionStepProps) {
+  const t = useTranslations('startupStudio.traction')
+  const tCommon = useTranslations('startupStudio.common')
   const mrr = useStartupValuationStore((s) => s.mrr)
   const storedArr = useStartupValuationStore((s) => s.arr)
   const growth = useStartupValuationStore((s) => s.mrr_growth_rate_pct)
@@ -37,10 +41,9 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
   const setField = useStartupValuationStore((s) => s.setField)
 
   const [hasRevenue, setHasRevenue] = useState<'yes' | 'no'>(() =>
-    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no'
+    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no',
   )
 
-  // Session hydrate: MRR or ARR can arrive after first paint — open the traction form.
   useEffect(() => {
     if (hasRevenueSignal(mrr, storedArr)) setHasRevenue('yes')
   }, [mrr, storedArr])
@@ -57,10 +60,8 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
     }
   }
 
-  // Live unit economics preview --------------------------------------
   const ltvCacRatio = cac && cac > 0 && ltv && ltv > 0 ? ltv / cac : null
   const currentArrPreview = storedArr ?? (mrr != null && mrr > 0 ? mrr * 12 : null)
-  // Forward 12-month ARR using compounding monthly growth (simple model).
   const forwardArr =
     mrr && growth != null ? Math.round(mrr * Math.pow(1 + growth / 100, 12) * 12) : null
   const paybackMonths = cac && mrr && mrr > 0 ? Math.round(cac / (mrr / 12 || 1)) : null
@@ -68,18 +69,11 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-        <p className="mb-4 text-sm leading-relaxed text-foreground/70">
-          {locale === 'nl'
-            ? 'Genereer je vandaag al omzet? Bij "nee" valt de SaaS-forward leg automatisch weg uit de blend.'
-            : 'Are you generating revenue today? Saying "no" silently drops the SaaS-forward leg from the blend.'}
-        </p>
+        <p className="mb-4 text-sm leading-relaxed text-foreground/70">{t('revenuePrompt')}</p>
         <SegmentedControl
           options={[
-            {
-              value: 'no',
-              label: locale === 'nl' ? 'Nog geen omzet' : 'No revenue yet',
-            },
-            { value: 'yes', label: locale === 'nl' ? 'Ja, MRR live' : 'Yes, MRR live' },
+            { value: 'no', label: t('noRevenue') },
+            { value: 'yes', label: t('yesMrr') },
           ]}
           value={hasRevenue}
           onChange={handleToggle}
@@ -88,14 +82,8 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
 
       {hasRevenue === 'yes' && (
         <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <h3 className="mb-1 text-lg font-semibold text-foreground">
-            {locale === 'nl' ? 'Forward-looking SaaS-cijfers' : 'Forward-looking SaaS metrics'}
-          </h3>
-          <p className="mb-5 text-sm text-foreground/60">
-            {locale === 'nl'
-              ? 'Voed de SaaS-leg van de waardering met je huidige unit economics.'
-              : 'Feeds the SaaS leg of the valuation with your current unit economics.'}
-          </p>
+          <h3 className="mb-1 text-lg font-semibold text-foreground">{t('forwardTitle')}</h3>
+          <p className="mb-5 text-sm text-foreground/60">{t('forwardSub')}</p>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <CurrencyInput
@@ -107,7 +95,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               truncateLabel={false}
             />
             <AdaptivePercentInput
-              label={locale === 'nl' ? 'Maandelijkse groei (%)' : 'Monthly growth (%)'}
+              label={t('monthlyGrowth')}
               value={growth ?? undefined}
               onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
               placeholder="10"
@@ -115,7 +103,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               truncateLabel={false}
             />
             <AdaptivePercentInput
-              label={locale === 'nl' ? 'Maandelijkse churn (%)' : 'Monthly churn (%)'}
+              label={t('monthlyChurn')}
               value={churn ?? undefined}
               onChange={(value) => setField('monthly_churn_pct', value ?? null)}
               placeholder="3"
@@ -132,7 +120,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
             />
             <div className="sm:col-span-2">
               <CurrencyInput
-                label={locale === 'nl' ? 'LTV (€) — optioneel' : 'LTV (€) — optional'}
+                label={t('ltvOptional')}
                 value={ltv ?? undefined}
                 onChange={(value) => setField('ltv', value ?? null)}
                 placeholder="3.000"
@@ -142,12 +130,11 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
             </div>
           </div>
 
-          {/* Live unit-economics preview */}
           {(currentArrPreview || ltvCacRatio || forwardArr || paybackMonths) && (
             <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-primary/5 p-4 sm:grid-cols-4">
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                  {locale === 'nl' ? 'Huidige ARR' : 'Current ARR'}
+                  {t('currentArr')}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
                   {currentArrPreview != null ? formatEur(currentArrPreview) : '—'}
@@ -155,7 +142,7 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                  {locale === 'nl' ? 'Forward 12mo ARR' : 'Forward 12mo ARR'}
+                  {t('forwardArr')}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
                   {forwardArr != null ? formatEur(forwardArr) : '—'}
@@ -169,10 +156,12 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                  {locale === 'nl' ? 'Payback' : 'Payback'}
+                  {t('payback')}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {paybackMonths != null ? `${paybackMonths} mo` : '—'}
+                  {paybackMonths != null
+                    ? `${paybackMonths} ${tCommon('monthsShort')}`
+                    : '—'}
                 </p>
               </div>
             </div>
@@ -180,12 +169,8 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
 
           {ltvCacRatio != null && ltvCacRatio < 3 && (
             <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700">
-              <Calculator className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                {locale === 'nl'
-                  ? 'LTV : CAC ratio onder 3× wordt door investeerders als zorgwekkend gezien — overweeg LTV-verbeteringen of CAC-reductie.'
-                  : 'LTV : CAC below 3× is a yellow flag for investors — explore LTV upside or CAC reduction.'}
-              </span>
+              <Calculator className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{t('ltvCacWarn')}</span>
             </p>
           )}
         </div>

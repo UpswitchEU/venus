@@ -16,6 +16,7 @@
  */
 
 import { MessageCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FindingPeek } from '@/features/startup-studio/components/FindingPeek'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
@@ -27,6 +28,7 @@ const PEEK_AUTO_OPEN_DELAY_MS = 1500
 interface StudioCoPilotProps {
   issues: StudioIssue[]
   scopeId?: string
+  /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
   /**
    * Whether the shared assistant drawer is currently open.
@@ -42,11 +44,11 @@ interface StudioCoPilotProps {
 export function StudioCoPilot({
   issues,
   scopeId = 'default',
-  locale = 'en',
   isAssistantOpen = false,
   onOpenAssistant,
   onResolveIssueWithAssistant,
 }: StudioCoPilotProps) {
+  const t = useTranslations('startupStudio.copilot')
   const [peekOpen, setPeekOpen] = useState(false)
   const [peekSnoozed, setPeekSnoozed] = useState(false)
 
@@ -104,13 +106,7 @@ export function StudioCoPilot({
   }, [peekOpen, visibleIssues.length])
 
   const fabLabel =
-    locale === 'nl'
-      ? fabBadgeCount > 0
-        ? `Co-pilot · ${fabBadgeCount} te fixen`
-        : 'Co-pilot · alles in orde'
-      : fabBadgeCount > 0
-        ? `Co-pilot · ${fabBadgeCount} to fix`
-        : 'Co-pilot · all clear'
+    fabBadgeCount > 0 ? t('fabToFix', { count: fabBadgeCount }) : t('fabAllClear')
 
   return (
     <>
@@ -139,7 +135,6 @@ export function StudioCoPilot({
       {!isAssistantOpen && (
         <FindingPeek
           issues={visibleIssues}
-          locale={locale}
           open={peekOpen && !peekSnoozed}
           onAskAi={handleResolveIssue}
           onSnooze={handleSnoozePeek}

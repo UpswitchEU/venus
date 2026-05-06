@@ -14,12 +14,25 @@
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   MATURITY_TO_SCORE,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { MilestoneCard } from './MilestoneCard'
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => {
+    const map: Record<string, string> = {
+      weight: 'weight',
+      whatInvestorsLookFor: 'What investors look for',
+      beneluxExamples: 'Benelux examples',
+      yourEvidence: 'Your evidence (optional)',
+    }
+    return map[key] ?? key
+  },
+  useLocale: () => 'en',
+}))
 
 const initialSnapshot = useStartupValuationStore.getState()
 

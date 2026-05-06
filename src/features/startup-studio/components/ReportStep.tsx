@@ -6,8 +6,9 @@
  * Live "pre-result" summary the founder sees inside the unified
  * `StartupValuationPanel` before clicking the canonical submit footer
  * below the panel.  Three blocks:
- *   1. Deck-ready one-liner with the blended pre-money / post-money /
- *      dilution rollup (uses `useLiveValuation`).
+ *   1. Deck-ready one-liner with pre-money / post-money / dilution rollup.
+ *      Pre-money matches the Round step: term-sheet target if set, else the
+ *      live leg blend from `useLiveValuation`.
  *   2. Football-field bar chart per leg.
  *   3. Evidence sentences the founder typed for each milestone — the
  *      "why" lines that surface in the PDF investor narrative.
@@ -21,77 +22,103 @@
  */
 
 import { AlertCircle, Check, Copy } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
 import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import { useStudioLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import {
+  isValidPreMoneyTarget,
+  resolveHeadlinePreMoney,
+} from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import {
   STUDIO_BERKUS_KEYS,
   STUDIO_SCORECARD_KEYS,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 
+const REPORT_LEG_KEYS = ['berkus', 'vc', 'saas_forward', 'scorecard'] as const
+
 interface ReportStepProps {
+  /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
 }
 
-/**
- * Bilingual leg-label dictionary.  `useLiveValuation` returns
- * `leg.label` as a translation-key string (`studio.legs.berkus`) so
- * the React layer can either pipe through next-intl or render its own
- * locale-aware copy.  Studio components opted for the second path so
- * the panel never depends on the locale provider being mounted.  This
- * dictionary mirrors the one in `LiveReportPanel`; keep them in sync.
- */
-const LEG_LABELS: Record<string, { en: string; nl: string }> = {
-  berkus: { en: 'Risk reduction (Berkus)', nl: 'Risico-reductie (Berkus)' },
-  vc: { en: 'VC method (exit story)', nl: 'VC-methode (exit-verhaal)' },
-  saas_forward: { en: 'SaaS forward (ARR)', nl: 'SaaS forward (ARR)' },
-  scorecard: { en: 'Scorecard (regional)', nl: 'Scorecard (regionaal)' },
-}
-
-export function ReportStep({ locale = 'en' }: ReportStepProps) {
+export function ReportStep(_props: ReportStepProps) {
+  const locale = useStudioLocale()
+  const t = useTranslations('startupStudio.report')
+  const tRound = useTranslations('startupStudio.round')
+  const tCommon = useTranslations('startupStudio.common')
+  const tMaturity = useTranslations('startupStudio.common.maturityLabels')
+  const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
+  const tSectorLabels = useTranslations('startupStudio.narrative.sectorLabels')
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code)
   const investment = useStartupValuationStore((s) => s.investment_amount_sought)
+  const capTable = useStartupValuationStore((s) => s.cap_table)
   const description = useStartupValuationStore((s) => s.description)
   const evidenceNotes = useStartupValuationStore((s) => s.evidence_notes)
   const maturity = useStartupValuationStore((s) => s.maturity)
   const { benchmark } = useStartupBenchmark(country || 'BE', stage, sector)
   const valuation = useLiveValuation(benchmark)
-  // Health-check feed — drives the gate on the canonical submit footer
-  // so blockers get resolved by the co-pilot before the PDF is ever
-  // produced.  We only surface the count here; gating is the footer's job.
   const { blockers, warnings } = useStudioIssues(benchmark)
 
   const [copied, setCopied] = useState(false)
 
-  // Build the deck-ready one-liner: pre-money + raise → post-money + dilution.
-  // Numbers come straight from the live preview (the engine returns the
-  // canonical figures after submit; this is the "ready to paste" anchor for
-  // the founder's pre-seed deck).
   const blendedMid = valuation.blended?.mid ?? null
-  const postMoney = blendedMid != null && investment ? blendedMid + investment : null
+  const headlinePre = headlinePreMoney(capTable.pre_money_target, blendedMid)
+  const postMoney = headlinePre != null && investment ? headlinePre + investment : null
   const dilutionPct =
-    blendedMid != null && investment && postMoney != null && postMoney > 0
+    headlinePre != null && investment && postMoney != null && postMoney > 0
       ? (investment / postMoney) * 100
       : null
 
+  const usesBlendPreMoney = capTable.pre_money_target == null
+  const preMoneyForTypicalSlice =
+    investment != null && investment > 0 && Number.isFinite(investment)
+      ? (() => {
+          const target = 0.12
+          const pre = investment / target - investment
+          return pre > 0 && Number.isFinite(pre) ? pre : null
+        })()
+      : null
+  const showHighRoundDilutionHint =
+    pricedRoundForCopy &&
+    investment != null &&
+    investment > 0 &&
+    dilutionPct != null &&
+    dilutionPct > 22 &&
+    preMoneyForTypicalSlice != null
+
+  const stageLabel = tStageLabels(stage)
+  const sectorLabel = tSectorLabels(sector)
+  const countryStr = country ?? ''
+
   const deckSentence = (() => {
-    if (blendedMid == null) return null
-    const preF = formatEur(blendedMid)
+    if (headlinePre == null) return null
+    const preF = formatEur(headlinePre)
     if (!investment || !postMoney || dilutionPct == null) {
-      return locale === 'nl'
-        ? `Pre-money waardering: ${preF} (${stage.replace('_', ' ')} · ${sector} · ${country}).`
-        : `Pre-money valuation: ${preF} (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+      return t('deckPreOnly', {
+        preF,
+        stage: stageLabel,
+        sector: sectorLabel,
+        country: countryStr,
+      })
     }
     const askF = formatEur(investment)
     const postF = formatEur(postMoney)
-    return locale === 'nl'
-      ? `${preF} pre-money · op te halen ${askF} · post-money ${postF} · ~${dilutionPct.toFixed(0)}% dilutie (${stage.replace('_', ' ')} · ${sector} · ${country}).`
-      : `${preF} pre-money · raising ${askF} · post-money ${postF} · ~${dilutionPct.toFixed(0)}% dilution (${stage.replace('_', ' ')} · ${sector} · ${country}).`
+    return t('deckFull', {
+      preF,
+      askF,
+      postF,
+      dilution: dilutionPct.toFixed(0),
+      stage: stageLabel,
+      sector: sectorLabel,
+      country: countryStr,
+    })
   })()
 
   const copyDeckSentence = useCallback(async () => {
@@ -101,41 +128,45 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Clipboard API blocked (insecure context, Safari permissions) —
-      // silently no-op; the sentence is already visible on-screen.
+      // Clipboard API blocked — sentence remains visible on-screen.
     }
   }, [deckSentence])
 
   const filledEvidence = [...STUDIO_BERKUS_KEYS, ...STUDIO_SCORECARD_KEYS].filter(
-    (key) => (evidenceNotes[key] ?? '').trim().length > 0
+    (key) => (evidenceNotes[key] ?? '').trim().length > 0,
   )
 
   const blended = valuation.blended
 
+  function legLabel(key: string, fallback: string): string {
+    if ((REPORT_LEG_KEYS as readonly string[]).includes(key)) {
+      return t(`legLabels.${key}` as 'legLabels.berkus')
+    }
+    return fallback
+  }
+
   return (
     <div className="space-y-5">
-      {/* Deck-ready summary ----------------------------------------- */}
       {deckSentence && (
         <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <p className="text-[10px] font-medium uppercase tracking-wide text-primary">
-                {locale === 'nl' ? 'Klaar voor je deck' : 'Ready for your deck'}
+                {t('readyForDeck')}
               </p>
               <p className="mt-1.5 text-sm leading-relaxed text-foreground">{deckSentence}</p>
-              {/* Headline grid: pre / post / dilution */}
               <div className="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-background/60 p-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {locale === 'nl' ? 'Pre-money' : 'Pre-money'}
+                    {tCommon('preMoney')}
                   </p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-                    {formatEur(blendedMid)}
+                    {formatEur(headlinePre)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {locale === 'nl' ? 'Post-money' : 'Post-money'}
+                    {tCommon('postMoney')}
                   </p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
                     {formatEur(postMoney)}
@@ -143,18 +174,33 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {locale === 'nl' ? 'Dilutie' : 'Dilution'}
+                    {tCommon('dilution')}
                   </p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
                     {dilutionPct != null ? `${dilutionPct.toFixed(0)}%` : '—'}
                   </p>
                 </div>
               </div>
+              {investment != null && investment > 0 && postMoney != null && (
+                <p className="mt-3 text-[11px] leading-snug text-foreground/55">{t('dilutionDefinition')}</p>
+              )}
+              <p className="mt-2 text-[11px] leading-snug text-foreground/55">
+                {usesBlendPreMoney ? t('preMoneySourceBlended') : t('preMoneySourceOverride')}
+              </p>
+              {showHighRoundDilutionHint && dilutionPct != null && (
+                <p className="mt-2 rounded-md border border-amber-400/40 bg-amber-50/50 px-3 py-2 text-[11px] leading-snug text-amber-950/90 dark:border-amber-700/35 dark:bg-amber-950/30 dark:text-amber-100/85">
+                  {tRound('roundDilutionHighHint', {
+                    roundPct: dilutionPct.toFixed(1),
+                    preHint: formatEur(preMoneyForTypicalSlice),
+                  })}
+                </p>
+              )}
               {valuation.pedigreeMultiplier !== 1.0 && (
                 <p className="mt-2 text-[11px] text-foreground/55">
-                  {locale === 'nl'
-                    ? `Inclusief founder-pedigree multiplier ${valuation.pedigreeMultiplier.toFixed(2)}× op de leg-blend baseline (${formatEur(valuation.blendedPrePedigree?.mid ?? null)}).`
-                    : `Includes founder-pedigree multiplier ${valuation.pedigreeMultiplier.toFixed(2)}× on the leg-blend baseline (${formatEur(valuation.blendedPrePedigree?.mid ?? null)}).`}
+                  {t('pedigreeIncluded', {
+                    mult: valuation.pedigreeMultiplier.toFixed(2),
+                    mid: formatEur(valuation.blendedPrePedigree?.mid ?? null),
+                  })}
                 </p>
               )}
             </div>
@@ -162,45 +208,26 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
               type="button"
               onClick={copyDeckSentence}
               className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background/80 px-3 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary hover:text-primary"
-              aria-label={locale === 'nl' ? 'Kopieer naar klembord' : 'Copy to clipboard'}
+              aria-label={t('copyAria')}
             >
               <Copy className="h-3.5 w-3.5" />
-              {copied
-                ? locale === 'nl'
-                  ? 'Gekopieerd'
-                  : 'Copied'
-                : locale === 'nl'
-                  ? 'Kopieer'
-                  : 'Copy'}
+              {copied ? t('copied') : t('copy')}
             </button>
           </div>
         </div>
       )}
 
-      {/* Range chip — single line under the deck-ready block.  We
-          dropped the standalone Pre-money hero card (was duplicating
-          the headline already inside the deck-ready summary) so the
-          report step reads as a clean confirmation, not a wall of
-          numbers.  The football field below carries the per-method
-          breakdown for users who want it. */}
       {blended && (
         <p className="text-xs text-foreground/65">
-          {locale === 'nl' ? 'Range: ' : 'Range: '}
-          <span className="font-semibold tabular-nums text-foreground">
-            {formatEur(blended.low)}
-          </span>
+          {t('range')}
+          <span className="font-semibold tabular-nums text-foreground">{formatEur(blended.low)}</span>
           {' – '}
-          <span className="font-semibold tabular-nums text-foreground">
-            {formatEur(blended.high)}
-          </span>
+          <span className="font-semibold tabular-nums text-foreground">{formatEur(blended.high)}</span>
         </p>
       )}
 
-      {/* Football field --------------------------------------------- */}
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">
-          {locale === 'nl' ? 'Football field per methode' : 'Football field per method'}
-        </h3>
+        <h3 className="mb-4 text-sm font-semibold text-foreground">{t('footballFieldTitle')}</h3>
 
         {(() => {
           const max = Math.max(...valuation.legs.map((l) => l.value ?? 0), 1)
@@ -208,7 +235,7 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
             <div className="space-y-3">
               {valuation.legs.map((leg) => {
                 const value = leg.value ?? 0
-                const label = LEG_LABELS[leg.key]?.[locale] ?? leg.label
+                const label = legLabel(leg.key, leg.label)
                 return (
                   <div key={leg.key}>
                     <div className="mb-1 flex items-center justify-between text-xs">
@@ -234,17 +261,10 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
         })()}
       </div>
 
-      {/* Evidence sentences ----------------------------------------- */}
       {filledEvidence.length > 0 && (
         <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <h3 className="mb-1 text-sm font-semibold text-foreground">
-            {locale === 'nl' ? 'Jouw onderbouwing' : 'Your evidence'}
-          </h3>
-          <p className="mb-4 text-xs text-foreground/55">
-            {locale === 'nl'
-              ? 'Deze zinnen verschijnen onder elke kaart in de investor PDF.'
-              : 'These sentences appear under each card in the investor PDF.'}
-          </p>
+          <h3 className="mb-1 text-sm font-semibold text-foreground">{t('yourEvidence')}</h3>
+          <p className="mb-4 text-xs text-foreground/55">{t('evidenceHint')}</p>
           <ul className="space-y-3">
             {filledEvidence.map((key) => {
               const copy = getMilestoneCopy(key, locale)
@@ -253,12 +273,10 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
                   <p className="text-xs font-semibold text-foreground">
                     {copy.title}{' '}
                     <span className="text-foreground/45">
-                      · {locale === 'nl' ? 'niveau' : 'level'} {maturity[key]}
+                      · {tCommon('level')} {maturity[key]}
                     </span>
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-foreground/75">
-                    {evidenceNotes[key]}
-                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-foreground/75">{evidenceNotes[key]}</p>
                 </li>
               )
             })}
@@ -266,56 +284,45 @@ export function ReportStep({ locale = 'en' }: ReportStepProps) {
         </div>
       )}
 
-      {/* Description ------------------------------------------------ */}
       {description && (
         <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">
-            {locale === 'nl' ? 'Pitch' : 'Pitch'}
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold text-foreground">{t('pitch')}</h3>
           <p className="text-sm leading-relaxed text-foreground/75">{description}</p>
         </div>
       )}
 
-      {/* Health check ---------------------------------------------------
-          Compact summary above the canonical submit footer. Blockers and
-          warnings are routed to the StudioCoPilot for resolution; gating
-          the submit is the footer's job, not this preview surface. */}
-      <HealthCheck blockerCount={blockers.length} warningCount={warnings.length} locale={locale} />
+      <HealthCheck blockerCount={blockers.length} warningCount={warnings.length} />
     </div>
   )
 }
 
-// ---------------------------------------------------------------------
-// HealthCheck
-// --------------
-// Inline summary panel rendered just above the submit button. Counts only
-// — the full list and per-issue actions live in the StudioCoPilot panel,
-// reachable via the "Open co-pilot" button. This is intentionally a
-// summary surface, not a duplicate of the co-pilot rail; otherwise the
-// founder has to act on the same item twice.
-// ---------------------------------------------------------------------
-
 interface HealthCheckProps {
   blockerCount: number
   warningCount: number
-  locale: 'en' | 'nl'
 }
 
-function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
+function HealthCheck({ blockerCount, warningCount }: HealthCheckProps) {
+  const t = useTranslations('startupStudio.health')
   const totalIssues = blockerCount + warningCount
 
   if (totalIssues === 0) {
     return (
       <div className="flex items-center gap-2 rounded-2xl border border-emerald-300/40 bg-emerald-50/60 p-4 text-sm text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-300">
         <Check className="h-4 w-4 shrink-0" aria-hidden />
-        <p>
-          {locale === 'nl'
-            ? 'Alles staat — je rapport is klaar om te genereren.'
-            : 'All clear — your report is ready to generate.'}
-        </p>
+        <p>{t('allClear')}</p>
       </div>
     )
   }
+
+  const title = (() => {
+    if (blockerCount > 0 && warningCount > 0) {
+      return t('mixed', { blockerCount, warningCount })
+    }
+    if (blockerCount > 0) {
+      return t('blockersOnly', { count: blockerCount })
+    }
+    return t('warningsOnly', { count: warningCount })
+  })()
 
   return (
     <div
@@ -342,21 +349,7 @@ function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
                 : 'text-sm font-semibold text-amber-800 dark:text-amber-200'
             }
           >
-            {(() => {
-              if (blockerCount > 0 && warningCount > 0) {
-                return locale === 'nl'
-                  ? `${blockerCount} blokkerend en ${warningCount} aanbevolen issue${warningCount === 1 ? '' : 's'} te fixen`
-                  : `${blockerCount} blocking and ${warningCount} recommended issue${warningCount === 1 ? '' : 's'} to resolve`
-              }
-              if (blockerCount > 0) {
-                return locale === 'nl'
-                  ? `${blockerCount} blokkerend issue${blockerCount === 1 ? '' : 's'} — fix met de assistent voor PDF`
-                  : `${blockerCount} blocking issue${blockerCount === 1 ? '' : 's'} — resolve with the assistant before PDF`
-              }
-              return locale === 'nl'
-                ? `${warningCount} aanbevolen verbetering${warningCount === 1 ? '' : 'en'}`
-                : `${warningCount} recommended improvement${warningCount === 1 ? '' : 's'}`
-            })()}
+            {title}
           </p>
           <p
             className={
@@ -365,9 +358,7 @@ function HealthCheck({ blockerCount, warningCount, locale }: HealthCheckProps) {
                 : 'mt-1 text-xs leading-relaxed text-amber-700/85 dark:text-amber-300/90'
             }
           >
-            {locale === 'nl'
-              ? 'De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.'
-              : 'The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.'}
+            {t('assistantHint')}
           </p>
         </div>
       </div>

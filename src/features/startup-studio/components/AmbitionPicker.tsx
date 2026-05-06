@@ -20,9 +20,9 @@
 
 import { motion } from 'framer-motion'
 import { Check, TrendingUp } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import {
-  AMBITION_COPY,
   AMBITION_ORDER,
   type AmbitionLevel,
   getAmbitionAnchors,
@@ -32,11 +32,13 @@ import { useStartupValuationStore } from '@/store/manual/useStartupValuationStor
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { cn } from '@/lib/utils'
 
+/** @deprecated Locale comes from next-intl. */
 interface AmbitionPickerProps {
   locale?: 'en' | 'nl'
 }
 
-export function AmbitionPicker({ locale = 'en' }: AmbitionPickerProps) {
+export function AmbitionPicker(_props: AmbitionPickerProps) {
+  const t = useTranslations('startupStudio.ambition')
   const sector = useStartupValuationStore((s) => s.sector)
   const y5 = useStartupValuationStore((s) => s.year5_revenue_projection)
   const exit = useStartupValuationStore((s) => s.exit_revenue_multiple)
@@ -55,23 +57,20 @@ export function AmbitionPicker({ locale = 'en' }: AmbitionPickerProps) {
     setField('target_roi_x', anchors.target_roi_x)
   }
 
+  const standardTitle = t('levels.standard.title')
+
   return (
     <section className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-6">
       <header>
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <TrendingUp className="h-3.5 w-3.5 text-primary" />
-          {locale === 'nl' ? 'Hoe groot wil je dat dit wordt?' : 'How big do you want this to get?'}
+          {t('heading')}
         </h2>
-        <p className="mt-1 text-xs text-foreground/55">
-          {locale === 'nl'
-            ? 'Eén keuze. We berekenen de bijhorende exit-aannames automatisch op basis van Atomico SoEU 2024 + Dealroom Benelux benchmarks.'
-            : 'One pick. We derive the underlying exit assumptions from Atomico SoEU 2024 + Dealroom Benelux benchmarks.'}
-        </p>
+        <p className="mt-1 text-xs text-foreground/55">{t('subline')}</p>
       </header>
 
       <div className="grid gap-3 md:grid-cols-3">
         {AMBITION_ORDER.map((level) => {
-          const copy = AMBITION_COPY[level]
           const anchors = getAmbitionAnchors(sector, level)
           const isActive = active === level
           const isStandard = level === 'standard'
@@ -93,10 +92,9 @@ export function AmbitionPicker({ locale = 'en' }: AmbitionPickerProps) {
               )}
               aria-pressed={isActive}
             >
-              {/* Default-recommendation hint for the median pick */}
               {isStandard && !isActive && (
                 <span className="absolute -top-2 right-3 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  {locale === 'nl' ? 'Aanbevolen' : 'Recommended'}
+                  {t('recommended')}
                 </span>
               )}
 
@@ -106,14 +104,16 @@ export function AmbitionPicker({ locale = 'en' }: AmbitionPickerProps) {
                 </span>
               )}
 
-              <h3 className="pr-8 text-sm font-semibold text-foreground">{copy.title[locale]}</h3>
+              <h3 className="pr-8 text-sm font-semibold text-foreground">
+                {t(`levels.${level}.title`)}
+              </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-foreground/65">
-                {copy.subtitle[locale]}
+                {t(`levels.${level}.subtitle`)}
               </p>
 
               <div className="mt-3 rounded-lg bg-foreground/[0.04] px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                  {locale === 'nl' ? 'Year-5 omzet anker' : 'Year-5 revenue anchor'}
+                  {t('y5Anchor')}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
                   {formatEur(anchors.year5_revenue)}
@@ -121,18 +121,14 @@ export function AmbitionPicker({ locale = 'en' }: AmbitionPickerProps) {
               </div>
 
               <p className="mt-3 text-[11px] leading-relaxed text-foreground/55">
-                {copy.outcome[locale]}
+                {t(`levels.${level}.outcome`)}
               </p>
             </motion.button>
           )
         })}
       </div>
 
-      <p className="text-[11px] text-foreground/45">
-        {locale === 'nl'
-          ? `Geen idee? Kies "${AMBITION_COPY.standard.title.nl}" — dat is de Atomico mediaan voor pre-seed founders.`
-          : `Not sure? Pick "${AMBITION_COPY.standard.title.en}" — it's the Atomico median for pre-seed founders.`}
-      </p>
+      <p className="text-[11px] text-foreground/45">{t('footer', { title: standardTitle })}</p>
     </section>
   )
 }

@@ -18,9 +18,9 @@
 
 import { motion } from 'framer-motion'
 import { Check, Users } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import {
-  TEAM_LEVEL_COPY,
   TEAM_LEVEL_ORDER,
   type TeamLevel,
   getTeamLevelFlags,
@@ -32,11 +32,13 @@ import {
 } from '@/store/manual/useStartupValuationStore'
 import { cn } from '@/lib/utils'
 
+/** @deprecated Locale comes from next-intl. */
 interface TeamPickerProps {
   locale?: 'en' | 'nl'
 }
 
-export function TeamPicker({ locale = 'en' }: TeamPickerProps) {
+export function TeamPicker(_props: TeamPickerProps) {
+  const t = useTranslations('startupStudio.teamPicker')
   const flags = useStartupValuationStore((s) => s.founder_pedigree)
   const setPedigreeFlag = useStartupValuationStore((s) => s.setPedigreeFlag)
 
@@ -44,31 +46,25 @@ export function TeamPicker({ locale = 'en' }: TeamPickerProps) {
 
   const handlePick = (level: TeamLevel) => {
     const next = getTeamLevelFlags(level)
-    // Apply each flag through the canonical setter so the existing
-    // mutual-exclusion invariant (solo ↔ technical cofounder) keeps
-    // firing.  This is a write-through, not a state replacement.
     for (const key of PEDIGREE_KEYS) {
       setPedigreeFlag(key, next[key])
     }
   }
+
+  const medianTitle = t('levels.experienced.title')
 
   return (
     <section className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-6">
       <header>
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Users className="h-3.5 w-3.5 text-primary" />
-          {locale === 'nl' ? 'Hoe ervaren is je team?' : 'How experienced is your team?'}
+          {t('heading')}
         </h2>
-        <p className="mt-1 text-xs text-foreground/55">
-          {locale === 'nl'
-            ? 'Eén pick. Geen vakjargon. We rekenen de bijhorende founder-pedigree multiplier zelf uit.'
-            : "One pick. No jargon. We compute the founder-pedigree multiplier from this — no checkboxes to read."}
-        </p>
+        <p className="mt-1 text-xs text-foreground/55">{t('subline')}</p>
       </header>
 
       <div className="grid gap-3 md:grid-cols-2">
         {TEAM_LEVEL_ORDER.map((level) => {
-          const copy = TEAM_LEVEL_COPY[level]
           const isActive = active === level
           const isRecommended = level === 'experienced'
 
@@ -91,7 +87,7 @@ export function TeamPicker({ locale = 'en' }: TeamPickerProps) {
             >
               {isRecommended && !isActive && (
                 <span className="absolute -top-2 right-3 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  {locale === 'nl' ? 'Meest gekozen' : 'Most picked'}
+                  {t('mostPicked')}
                 </span>
               )}
               {isActive && (
@@ -100,23 +96,21 @@ export function TeamPicker({ locale = 'en' }: TeamPickerProps) {
                 </span>
               )}
 
-              <h3 className="pr-8 text-sm font-semibold text-foreground">{copy.title[locale]}</h3>
+              <h3 className="pr-8 text-sm font-semibold text-foreground">
+                {t(`levels.${level}.title`)}
+              </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-foreground/65">
-                {copy.subtitle[locale]}
+                {t(`levels.${level}.subtitle`)}
               </p>
               <p className="mt-2 text-[11px] leading-relaxed text-foreground/45">
-                {copy.hint[locale]}
+                {t(`levels.${level}.hint`)}
               </p>
             </motion.button>
           )
         })}
       </div>
 
-      <p className="text-[11px] text-foreground/45">
-        {locale === 'nl'
-          ? 'Niet zeker? Kies "Ervaren operators" — dat is de Atomico Benelux pre-seed mediaan.'
-          : 'Not sure? Pick "Experienced operators" — it\'s the Atomico Benelux pre-seed median.'}
-      </p>
+      <p className="text-[11px] text-foreground/45">{t('footer', { title: medianTitle })}</p>
     </section>
   )
 }
