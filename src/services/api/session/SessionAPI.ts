@@ -8,6 +8,7 @@
  */
 
 import { CreateValuationSessionRequest, UpdateValuationSessionRequest } from '../../../types/api'
+import type { ValuationSession } from '../../../types/valuation'
 import type {
   CreateValuationSessionResponse,
   SaveValuationResultResponse,
@@ -24,6 +25,10 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import { normalizeSessionData } from '../../session/SessionNormalizer'
+import {
+  stripReportBlobsFromSessionPatch,
+  stripReportsFromValuationSessionPatchUpdates,
+} from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
@@ -101,6 +106,49 @@ export class SessionAPI extends HttpClient {
     }
 
     return true
+  }
+
+  /**
+   * Titan expects `ai-guided`; Venus uses `conversational`. Single source of truth for PATCH
+   * bodies + blob stripping (initial request, 429 retries, and any future call sites).
+   */
+  private static mapTitanPatchAndStripReportBlobs(
+    patch: Partial<ValuationSession> | undefined,
+  ): Record<string, unknown> {
+    const p = patch as Record<string, unknown> | undefined
+    if (!p) {
+      return stripReportsFromValuationSessionPatchUpdates({}) as Record<string, unknown>
+    }
+    const mappedCurrentView =
+      patch.currentView === 'conversational' ? 'ai-guided' : patch.currentView
+    const mappedDataSource =
+      p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
+    const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView as any }
+    if (p.dataSource !== undefined) {
+      merged.dataSource = mappedDataSource
+    }
+    return stripReportsFromValuationSessionPatchUpdates(merged) as Record<string, unknown>
+  }
+
+  /**
+   * PATCH 404 → create: merge store `session_data` with `sessionData` / `partialData` only.
+   * Spreading the whole PATCH used to nest a `sessionData` property and hide unstripped HTML.
+   */
+  private static flattenStoreAndPatchIntoSessionDataForCreate(
+    storeSessionData: Record<string, unknown> | undefined,
+    patch: Partial<ValuationSession> | undefined,
+  ): Record<string, unknown> {
+    const u = (patch || {}) as Record<string, unknown>
+    const base: Record<string, unknown> = { ...(storeSessionData || {}) }
+    const sd = u.sessionData
+    const pd = u.partialData
+    if (sd && typeof sd === 'object' && !Array.isArray(sd)) {
+      Object.assign(base, sd as Record<string, unknown>)
+    }
+    if (pd && typeof pd === 'object' && !Array.isArray(pd)) {
+      Object.assign(base, pd as Record<string, unknown>)
+    }
+    return stripReportBlobsFromSessionPatch(base) as Record<string, unknown>
   }
 
   /**
@@ -336,13 +384,13 @@ export class SessionAPI extends HttpClient {
 
       // Build session_data object to send to Titan
       // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
-      const sessionDataPayload = {
+      const sessionDataPayload = stripReportBlobsFromSessionPatch({
         ...(sessionAny.sessionData || {}),
         ...(sessionAny.partialData || {}),
         // Preserve currentView in session_data for restoration
         currentView: currentView,
         ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
-      }
+      }) as Record<string, unknown>
 
       // AUTH-FIRST: Guest session handling removed - authentication is required
       // Backend will extract userId from JWT token (req.user)
@@ -447,33 +495,14 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<UpdateValuationSessionResponse> {
     try {
-      // Map frontend 'conversational' to backend 'ai-guided'
-      const updatesAny = updates.updates as any
-      const mappedCurrentView =
-        updates.updates?.currentView === 'conversational'
-          ? 'ai-guided'
-          : updates.updates?.currentView
-
-      // Map dataSource: 'conversational' → 'ai-guided' (if present in updates)
-      const mappedDataSource =
-        updatesAny?.dataSource === 'conversational' ? 'ai-guided' : updatesAny?.dataSource
-
-      const backendUpdates = {
-        ...updates,
-        updates: {
-          ...updates.updates,
-          currentView: mappedCurrentView,
-          // Include mapped dataSource if it was provided in updates
-          ...(updatesAny?.dataSource !== undefined && { dataSource: mappedDataSource }),
-        },
-      }
+      const patchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
       const response = await this.executeRequest<{ success: boolean; data: any }>(
         {
           method: 'PATCH',
           url: `/api/v2/valuations/sessions/${reportId}`,
-          data: backendUpdates.updates, // Backend expects updates directly, not wrapped
+          data: patchBody,
           headers: {},
         } as any,
         options
@@ -512,22 +541,7 @@ export class SessionAPI extends HttpClient {
         // Use exponential backoff for rate limit retries
         const { retryWithBackoff } = await import('../../../utils/retryWithBackoff')
         try {
-          // Re-define backendUpdates in retry scope
-          const updatesAny = updates.updates as any
-          const mappedCurrentView =
-            updates.updates?.currentView === 'conversational'
-              ? 'ai-guided'
-              : updates.updates?.currentView
-          const mappedDataSource =
-            updatesAny?.dataSource === 'conversational' ? 'ai-guided' : updatesAny?.dataSource
-          const retryBackendUpdates = {
-            ...updates,
-            updates: {
-              ...updates.updates,
-              currentView: mappedCurrentView,
-              ...(updatesAny?.dataSource !== undefined && { dataSource: mappedDataSource }),
-            },
-          }
+          const retryPatchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
 
           const retriedResponse = await retryWithBackoff(
             async () => {
@@ -535,7 +549,7 @@ export class SessionAPI extends HttpClient {
                 {
                   method: 'PATCH',
                   url: `/api/v2/valuations/sessions/${reportId}`,
-                  data: retryBackendUpdates.updates,
+                  data: retryPatchBody,
                   headers: {},
                 } as any,
                 options
@@ -696,12 +710,11 @@ export class SessionAPI extends HttpClient {
                   updates: Object.keys(updates.updates || {}),
                 })
 
-                // Create session with the updates included
-                // Merge updates into sessionData (updates.updates contains the actual field updates)
-                const mergedSessionData = {
-                  ...(currentSession.sessionData || {}),
-                  ...(updates.updates || {}),
-                }
+                // Merge only sessionData/partialData into session_data (never spread full PATCH)
+                const mergedSessionData = SessionAPI.flattenStoreAndPatchIntoSessionDataForCreate(
+                  currentSession.sessionData as Record<string, unknown> | undefined,
+                  updates.updates,
+                )
 
                 const sessionToCreate = {
                   session_key: reportId,

@@ -8,6 +8,17 @@ export function appliesToYear(item: NormalizationItem, year: number): boolean {
   return item.year === year
 }
 
+/**
+ * Item appears under this fiscal year in lists / grouping (any status).
+ * Use with `summarizeAcceptedNormalizations` for valuation anchor KPIs.
+ */
+export function normalizationItemTouchesYear(item: NormalizationItem, year: number): boolean {
+  if (!Number.isFinite(year)) return false
+  if (item.applyAllYears) return true
+  if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(year)
+  return Number.isFinite(item.year) && item.year === year
+}
+
 export function getFirstFiniteNumber(...candidates: unknown[]): number | undefined {
   for (const candidate of candidates) {
     const parsed = Number(candidate)
@@ -77,6 +88,25 @@ export function summarizeAcceptedNormalizations(
     pendingAdjustment,
     pendingCount: pendingItems.length,
   }
+}
+
+/**
+ * EBITDA bridge KPI for the valuation anchor year: excludes rows that don't apply to anchorYear.
+ * Intentionally does not multiply across fiscal years — use for modal/hub headline tiles only.
+ */
+export function summarizeNormalizationsForAnchorYear(
+  items: NormalizationItem[],
+  anchorYear: number,
+  reportedEbitdaForAnchorYear: number
+): {
+  original: number
+  adjustment: number
+  normalized: number
+  pendingAdjustment: number
+  pendingCount: number
+} {
+  const scoped = items.filter((n) => normalizationItemTouchesYear(n, anchorYear))
+  return summarizeAcceptedNormalizations(scoped, reportedEbitdaForAnchorYear)
 }
 
 export function summarizeAcceptedNormalizationsAcrossYears(options: {

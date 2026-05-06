@@ -34,9 +34,9 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import {
+  isImportedLedgerNormalizationItem,
   type NormalizationItem,
   type NormalizationSource,
-  isImportedLedgerNormalizationItem,
 } from './UnifiedNormalizationModal'
 
 // ─────────────────────────────────────────
@@ -177,23 +177,6 @@ export function NormalizationTableView({
       }) as Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }>,
     [t]
   )
-  const sourceConfig = React.useMemo(
-    () =>
-      ({
-        manual: { label: t('sources.manual'), color: sourceColors.manual },
-        yuki: { label: t('sources.yuki'), color: sourceColors.yuki },
-        exact: { label: t('sources.exact'), color: sourceColors.exact },
-        silverfin: { label: t('sources.silverfin'), color: sourceColors.silverfin },
-        bizzcontrol: { label: t('sources.bizzcontrol'), color: sourceColors.bizzcontrol },
-        odoo: { label: t('sources.odoo'), color: sourceColors.odoo },
-        octopus: { label: t('sources.octopus'), color: sourceColors.octopus },
-        accountable: { label: t('sources.accountable'), color: sourceColors.accountable },
-        csv: { label: t('sources.csv'), color: sourceColors.csv },
-        ai: { label: t('sources.ai'), color: sourceColors.ai },
-        auto: { label: t('sources.auto'), color: sourceColors.auto },
-      }) as Record<NormalizationSource, { label: string; color: string }>,
-    [t]
-  )
 
   // Show each normalization as its own row, sorted by ledger code
   const rowItems = React.useMemo(() => {
@@ -245,7 +228,7 @@ export function NormalizationTableView({
             <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 w-24 whitespace-nowrap">
               {t('table.code')}
             </th>
-            <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 min-w-[200px] whitespace-nowrap border-r border-foreground/[0.08]">
+            <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 min-w-[240px] align-top border-r border-foreground/[0.08]">
               {t('table.grootboekrekening')}
             </th>
             {/* Year columns - one column per year showing the adjustment */}
@@ -310,11 +293,16 @@ export function NormalizationTableView({
                   </td>
 
                   {/* Grootboekrekening */}
-                  <td className="px-4 py-4 whitespace-nowrap border-r border-foreground/[0.08]">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-foreground">{item.ledgerName}</span>
+                  <td className="px-4 py-4 align-top border-r border-foreground/[0.08]">
+                    <div className="flex min-w-[200px] max-w-[min(440px,60vw)] flex-col gap-1">
+                      <span className="font-medium text-foreground break-words">
+                        {item.ledgerName}
+                      </span>
                       {item.reason && (
-                        <span className="text-[11px] text-foreground/50 line-clamp-1 max-w-[220px]">
+                        <span
+                          className="text-[11px] text-foreground/50 line-clamp-4 break-words"
+                          title={item.reason}
+                        >
                           {item.reason}
                         </span>
                       )}
@@ -600,7 +588,12 @@ export function NormalizationBentoView({
 
             // Recalculate adjustment for % and absolute types using most recent year
             const displayYear = item.applyYears?.[0] ?? item.year ?? years[0]
-            const displayAdj = adjustmentForYear(item, displayYear, originalEBITDA, originalEBITDAByYear)
+            const displayAdj = adjustmentForYear(
+              item,
+              displayYear,
+              originalEBITDA,
+              originalEBITDAByYear
+            )
             const magnitude = Math.abs(displayAdj)
             const isLarge = magnitude > 50000
             const colSpan = isLarge
@@ -651,8 +644,8 @@ export function NormalizationBentoView({
                       >
                         {cat.icon}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 max-w-full">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/60">
                             {item.ledgerCode}
                           </span>
@@ -670,7 +663,7 @@ export function NormalizationBentoView({
                             {source.label}
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-foreground/80 mt-1 line-clamp-1">
+                        <p className="text-sm font-medium text-foreground/80 mt-1 line-clamp-2 break-words">
                           {item.ledgerName}
                         </p>
                       </div>
@@ -786,7 +779,12 @@ export function NormalizationBentoView({
 
                   {/* Reason */}
                   {item.reason && (
-                    <p className="text-xs text-foreground/40 mt-2 line-clamp-2">{item.reason}</p>
+                    <p
+                      className="text-xs text-foreground/40 mt-2 line-clamp-4 break-words"
+                      title={item.reason}
+                    >
+                      {item.reason}
+                    </p>
                   )}
                 </div>
               </motion.div>

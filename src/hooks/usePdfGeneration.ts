@@ -222,11 +222,17 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     })
 
     try {
+      const ctrl = abortControllerRef.current!
+      const combinedSignal =
+        typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function'
+          ? AbortSignal.any([ctrl.signal, AbortSignal.timeout(130_000)])
+          : ctrl.signal
+
       const response = await fetch(`/api/valuations/${reportId}/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        signal: abortControllerRef.current.signal,
+        signal: combinedSignal,
       })
 
       if (!response.ok) {
@@ -259,6 +265,15 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         return null
       }
 
+      // BFF forwards Titan body; tolerate `{ success: true, ... }` without pdfUrl/jobId.
+      if (data && typeof data === 'object' && data.success === false) {
+        const errMsg =
+          (typeof data.error === 'string' && data.error) ||
+          (typeof data.message === 'string' && data.message) ||
+          'PDF generation failed'
+        throw new Error(errMsg)
+      }
+
       if (data.pdfUrl) {
         isGeneratingRef.current = false
         setState({
@@ -285,10 +300,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       })
       return null
     } catch (error) {
-      isGeneratingRef.current = false
       if ((error as Error).name === 'AbortError') {
+        isGeneratingRef.current = false
+        // Unmount abort leaves `mountedRef` false — skip churning UI state.
+        if (mountedRef.current) {
+          setState({
+            status: 'error',
+            url: null,
+            error: 'PDF generation timed out — please try again.',
+            progress: 0,
+          })
+        }
         return null
       }
+      isGeneratingRef.current = false
       if (error instanceof APIError && error.statusCode === 402) {
         throw error
       }

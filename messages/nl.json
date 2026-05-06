@@ -2136,6 +2136,8 @@
 		"continueToEstimate": "Doorgaan naar Schatting",
 		"ebitdaNormalizations": "EBITDA Normalisaties",
 		"modalTitle": "Normalisaties & Correcties",
+		"anchorYearBridgeHint": "{year}: brug t.o.v. gerapporteerde EBITDA (basisjaar — geen optelsom over alle boekjaren)",
+		"filteredYearTotalsHint": "Totalen voor gefilterd jaar {year} en de huidige lijst (zoekfunctie / selectie)",
 		"section1Header": "Operationele Normalisaties (EBITDA)",
 		"section1Subheader": "Aanpassingen op de winst (wordt vermenigvuldigd met de multiple).",
 		"editorToggleTitle": "Normalisatie toevoegen of wijzigen",

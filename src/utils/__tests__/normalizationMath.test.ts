@@ -6,9 +6,11 @@ import {
   findAcceptedAutoNormalizationCapBreaches,
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
+  normalizationItemTouchesYear,
   removeNormalizationsForRemovedFiscalYear,
   summarizeAcceptedNormalizations,
   summarizeAcceptedNormalizationsAcrossYears,
+  summarizeNormalizationsForAnchorYear,
 } from '../normalizationMath'
 
 describe('normalizationMath', () => {
@@ -94,6 +96,48 @@ describe('normalizationMath', () => {
     expect(appliesToYear({ ...accepted, applyAllYears: true }, 2024)).toBe(true)
     expect(appliesToYear({ ...accepted, applyYears: [2023, 2024] }, 2024)).toBe(true)
     expect(appliesToYear({ ...accepted, applyYears: [2023, 2024] }, 2025)).toBe(false)
+  })
+
+  it('normalizationItemTouchesYear: anchors modal grouping for any status', () => {
+    const row = {
+      id: 'x',
+      ledgerCode: '',
+      ledgerName: '',
+      category: 'salary' as const,
+      type: 'add' as const,
+      value: 50_000,
+      adjustment: 50_000,
+      reason: '',
+      source: 'manual' as const,
+      status: 'pending' as const,
+      year: 2025,
+      applyAllYears: false,
+    }
+    expect(normalizationItemTouchesYear(row, 2025)).toBe(true)
+    expect(normalizationItemTouchesYear(row, 2024)).toBe(false)
+    expect(normalizationItemTouchesYear({ ...row, status: 'accepted' }, 2025)).toBe(true)
+    expect(normalizationItemTouchesYear({ ...row, applyYears: [2024, 2025] }, 2024)).toBe(true)
+    expect(normalizationItemTouchesYear({ ...row, applyAllYears: true, year: 2020 }, 2027)).toBe(
+      true
+    )
+  })
+
+  it('summarizeNormalizationsForAnchorYear filters to anchor only (no summing other years)', () => {
+    const base = {
+      ledgerCode: '',
+      ledgerName: '',
+      category: 'other' as const,
+      source: 'manual' as const,
+      status: 'accepted' as const,
+      type: 'add' as const,
+    }
+    const items: NormalizationItem[] = [
+      { ...base, id: 'a', year: 2025, value: 100_000, adjustment: 100_000, applyAllYears: false },
+      { ...base, id: 'b', year: 2024, value: 20_000, adjustment: 20_000, applyAllYears: false },
+    ]
+    const out = summarizeNormalizationsForAnchorYear(items, 2025, 290_000)
+    expect(out.adjustment).toBe(100_000)
+    expect(out.normalized).toBe(390_000)
   })
 
   it('summarizes accepted multi-year percentage items using each year baseline', () => {

@@ -23,8 +23,8 @@ import {
   ChevronRight,
   Clock,
   FileSpreadsheet,
-  Settings2,
   LayoutGrid,
+  Settings2,
   Upload,
   X,
 } from 'lucide-react'
@@ -35,7 +35,7 @@ import { cn } from '@/design-system/utils'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import {
   getReportedEbitdaBaseline,
-  summarizeAcceptedNormalizationsAcrossYears,
+  summarizeNormalizationsForAnchorYear,
 } from '../../utils/normalizationMath'
 import {
   type NormalizationItem,
@@ -53,14 +53,7 @@ export interface NormalizationHubProps {
   /** Per-year reported EBITDA for multi-year accuracy */
   originalEBITDAByYear?: Record<number, number>
   currentYear?: number
-  sourceIntegration?:
-    | 'yuki'
-    | 'exact'
-    | 'odoo'
-    | 'octopus'
-    | 'accountable'
-    | 'csv'
-    | 'manual'
+  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'csv' | 'manual'
   normalizations: NormalizationItem[]
   onNormalizationsChange: (normalizations: NormalizationItem[]) => void
   onContinue: () => void
@@ -124,26 +117,21 @@ export function NormalizationHub({
   }
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Calculate stats — use per-year EBITDA when available for accurate multi-year summary
+  // KPI tiles: valuation anchor (`currentYear`) bridge — excludes multi-year summation artefacts
   const stats = useMemo(() => {
     const pending = normalizations.filter((n) => n.status === 'pending').length
     const accepted = normalizations.filter((n) => n.status === 'accepted').length
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
-    const availableYears =
-      financialYears && financialYears.length > 0
-        ? financialYears
-        : [currentYear]
-    const summary = summarizeAcceptedNormalizationsAcrossYears({
-      items: normalizations,
-      availableYears,
-      reportedEbitdaByYear: originalEBITDAByYear,
-      fallbackYear: currentYear,
-      fallbackReportedEbitda: getReportedEbitdaBaseline({
-        year: currentYear,
-        originalEBITDAByYear,
-        fallbackCandidates: [originalEbitda],
-      }),
+    const anchorBaseline = getReportedEbitdaBaseline({
+      year: currentYear,
+      originalEBITDAByYear,
+      fallbackCandidates: [originalEbitda],
     })
+    const summary = summarizeNormalizationsForAnchorYear(
+      normalizations,
+      currentYear,
+      anchorBaseline
+    )
 
     return {
       pending,
@@ -154,13 +142,11 @@ export function NormalizationHub({
       totalAdjustment: summary.adjustment,
       normalizedEbitda: summary.normalized,
     }
-  }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear, financialYears])
+  }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])
 
   const sourceKey =
     sourceIntegration &&
-    ['yuki', 'exact', 'odoo', 'octopus', 'accountable', 'csv', 'manual'].includes(
-      sourceIntegration
-    )
+    ['yuki', 'exact', 'odoo', 'octopus', 'accountable', 'csv', 'manual'].includes(sourceIntegration)
       ? sourceIntegration
       : 'manual'
   const source = {

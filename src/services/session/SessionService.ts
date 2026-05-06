@@ -41,6 +41,7 @@ import {
   normalizeSessionDates,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
+import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
@@ -1530,7 +1531,7 @@ export class SessionService {
           reportId,
           currentView,
           ...(name !== undefined && { name }),
-          sessionData: mergedSessionData,
+          sessionData: stripReportBlobsFromSessionPatch(mergedSessionData) as any,
         } as any) // Type assertion needed because session_key is not in ValuationSession type
 
         // ✅ Remove _bootstrapCreated flag from store after successful creation
@@ -1554,7 +1555,7 @@ export class SessionService {
       } else {
         // ✅ UPDATE path: Session already exists in backend
         const sessionUpdates: Partial<ValuationSession> = {
-          sessionData: sessionData as any,
+          sessionData: stripReportBlobsFromSessionPatch(sessionData) as any,
           ...(currentView && { currentView }),
           ...(name !== undefined && { name }),
         }

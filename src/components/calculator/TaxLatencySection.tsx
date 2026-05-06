@@ -188,11 +188,19 @@ const TaxLatencyRow = forwardRef<HTMLDivElement, TaxLatencyRowProps>(function Ta
         {item.type === 'active' ? t('typeActive') : t('typePassive')}
       </span>
 
-      <span className="min-w-0 text-sm text-foreground/80 truncate">
+      <span
+        className="min-w-0 text-sm text-foreground/80 break-words line-clamp-3 leading-snug"
+        title={getLedgerDisplayLabel(item.accountCode, item.accountName)}
+      >
         {getLedgerDisplayLabel(item.accountCode, item.accountName)}
       </span>
 
-      <span className="min-w-0 text-sm text-foreground/80 truncate">
+      <span
+        className="min-w-0 text-sm text-foreground/80 break-words line-clamp-3 leading-snug"
+        title={
+          typeof item.description === 'string' && item.description ? item.description : undefined
+        }
+      >
         {item.description || <span className="text-foreground/30 italic">—</span>}
       </span>
 

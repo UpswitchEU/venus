@@ -12,7 +12,6 @@
  * - Quick Actions panel clicks
  */
 
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
@@ -71,7 +70,7 @@ import {
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizations,
-  summarizeAcceptedNormalizationsAcrossYears,
+  summarizeNormalizationsForAnchorYear,
 } from '../../utils/normalizationMath'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
@@ -96,8 +95,8 @@ export type NormalizationSource =
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
 import {
-  DEFAULT_LEDGER_ACCOUNTS,
   applyGrootboekCountryOverrides,
+  DEFAULT_LEDGER_ACCOUNTS,
   type LedgerAccount,
 } from '../../constants/grootboek'
 import { generalLogger } from '../../utils/logger'
@@ -718,29 +717,28 @@ export function UnifiedNormalizationModal({
     return result
   }, [normalizations, yearFilter, searchQuery, showAddForm, getLedgerDisplayName])
 
-  // Header totals — derived from filtered items and year-specific EBITDA
+  /** Headline EBITDA bridge tiles: anchor year (`currentYear`), full store — unaffected by modal search UX. Filtered fiscal year preserves table-scoped totals. */
   const totals = useMemo(() => {
     if (yearFilter == null) {
-      return summarizeAcceptedNormalizationsAcrossYears({
-        items: filteredNormalizations,
-        availableYears,
-        reportedEbitdaByYear: originalEBITDAByYear,
-        fallbackYear: currentYear,
-        fallbackReportedEbitda: safeOriginalEBITDA,
+      const anchorBaseline = getReportedEbitdaBaseline({
+        year: currentYear,
+        originalEBITDAByYear,
+        fallbackCandidates: [safeOriginalEBITDA],
       })
+      return summarizeNormalizationsForAnchorYear(normalizations, currentYear, anchorBaseline)
     }
     const reportedEbitda = getReportedEbitdaBaseline({
-      year: yearFilter ?? currentYear,
+      year: yearFilter,
       originalEBITDAByYear,
       fallbackCandidates: [safeOriginalEBITDA],
     })
     return summarizeAcceptedNormalizations(filteredNormalizations, reportedEbitda)
   }, [
+    normalizations,
     filteredNormalizations,
     yearFilter,
     originalEBITDAByYear,
     safeOriginalEBITDA,
-    availableYears,
     currentYear,
   ])
 
@@ -1165,14 +1163,6 @@ export function UnifiedNormalizationModal({
     [availableLedgers]
   )
 
-  // Virtualizer for compact mode
-  const rowVirtualizer = useVirtualizer({
-    count: filteredNormalizations.length,
-    getScrollElement: () => listContainerRef.current,
-    estimateSize: () => (viewMode === 'compact' ? 48 : 80),
-    overscan: 10,
-  })
-
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
@@ -1206,65 +1196,77 @@ export function UnifiedNormalizationModal({
 
           {/* Inline Summary - adapts per tab, hidden on small screens */}
           {primaryTab === 'ebitda' ? (
-            <div className="hidden md:flex items-center gap-4 lg:gap-6">
-              <div className="text-right">
-                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
-                  {nh('original')}
-                </p>
-                <p className="text-sm font-mono font-medium text-foreground/50">
-                  {formatCurrency(totals.original)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
-                  {nh('adjustment')}
-                </p>
-                <motion.p
-                  key={totals.adjustment}
-                  initial={{ opacity: 0.5 }}
-                  animate={{ opacity: 1 }}
-                  className={cn(
-                    'text-sm font-mono font-semibold',
-                    totals.adjustment > 0
-                      ? 'text-success'
-                      : totals.adjustment < 0
-                        ? 'text-secondary'
-                        : 'text-foreground/50'
-                  )}
-                >
-                  {totals.adjustment > 0 ? '+' : ''}
-                  {formatCurrency(totals.adjustment)}
-                </motion.p>
-                {/* Pending hint: tells the user WHY Aanpassing is €0 when there are visible
+            <div className="hidden md:flex flex-col items-end gap-0.5 shrink-0">
+              <div className="flex items-center gap-4 lg:gap-6">
+                <div className="text-right">
+                  <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
+                    {nh('original')}
+                  </p>
+                  <p className="text-sm font-mono font-medium text-foreground/50">
+                    {formatCurrency(totals.original)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
+                    {nh('adjustment')}
+                  </p>
+                  <motion.p
+                    key={totals.adjustment}
+                    initial={{ opacity: 0.5 }}
+                    animate={{ opacity: 1 }}
+                    className={cn(
+                      'text-sm font-mono font-semibold',
+                      totals.adjustment > 0
+                        ? 'text-success'
+                        : totals.adjustment < 0
+                          ? 'text-secondary'
+                          : 'text-foreground/50'
+                    )}
+                  >
+                    {totals.adjustment > 0 ? '+' : ''}
+                    {formatCurrency(totals.adjustment)}
+                  </motion.p>
+                  {/* Pending hint: tells the user WHY Aanpassing is €0 when there are visible
                     pending rows. Don't fold pending into the accepted total — it would silently
                     inflate the EBITDA bridge against what the report actually computed. */}
-                {totals.pendingCount > 0 && totals.pendingAdjustment !== 0 && (
-                  <p
-                    className="text-[9px] font-mono font-medium text-warning/80 mt-0.5 tabular-nums"
-                    title={nh('pendingHintTooltip', { count: totals.pendingCount })}
-                  >
-                    {nh('pendingHint', {
-                      sign: totals.pendingAdjustment > 0 ? '+' : '',
-                      amount: formatCurrency(totals.pendingAdjustment),
-                    })}
+                  {totals.pendingCount > 0 && totals.pendingAdjustment !== 0 && (
+                    <p
+                      className="text-[9px] font-mono font-medium text-warning/80 mt-0.5 tabular-nums"
+                      title={nh('pendingHintTooltip', { count: totals.pendingCount })}
+                    >
+                      {nh('pendingHint', {
+                        sign: totals.pendingAdjustment > 0 ? '+' : '',
+                        amount: formatCurrency(totals.pendingAdjustment),
+                      })}
+                    </p>
+                  )}
+                </div>
+                <div className="w-px h-8 bg-foreground/10" />
+                <div className="text-right">
+                  <p className="text-[9px] font-medium text-primary uppercase tracking-wider">
+                    {nh('normalized')}
                   </p>
-                )}
+                  <motion.p
+                    key={totals.normalized}
+                    initial={{ opacity: 0.5, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    className="text-lg font-mono font-bold text-foreground tracking-tight"
+                  >
+                    {formatCurrency(totals.normalized)}
+                  </motion.p>
+                </div>
               </div>
-              <div className="w-px h-8 bg-foreground/10" />
-              <div className="text-right">
-                <p className="text-[9px] font-medium text-primary uppercase tracking-wider">
-                  {nh('normalized')}
+              {yearFilter === null && (
+                <p className="text-[9px] text-foreground/45 text-right max-w-[min(100%,26rem)] leading-snug">
+                  {nh('anchorYearBridgeHint', { year: currentYear })}
                 </p>
-                <motion.p
-                  key={totals.normalized}
-                  initial={{ opacity: 0.5, scale: 0.97 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  className="text-lg font-mono font-bold text-foreground tracking-tight"
-                >
-                  {formatCurrency(totals.normalized)}
-                </motion.p>
-              </div>
+              )}
+              {yearFilter !== null && (
+                <p className="text-[9px] text-foreground/45 text-right">
+                  {nh('filteredYearTotalsHint', { year: yearFilter })}
+                </p>
+              )}
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-4 lg:gap-6">
@@ -2268,29 +2270,37 @@ export function UnifiedNormalizationModal({
                   <>
                     {/* Table Header for compact mode - only show when not using year groups or when a year filter is active */}
                     {filteredNormalizations.length > 0 && yearFilter !== null && (
-                      <div className="flex items-center gap-3 px-3 py-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-b border-foreground/[0.06]">
-                        {/* Checkbox column */}
-                        <div className="w-6 flex-shrink-0">
-                          <button
-                            onClick={() => (isAllSelected ? deselectAll() : selectAll())}
-                            className="p-0.5 rounded hover:bg-foreground/10 transition-colors"
-                          >
-                            {isAllSelected ? (
-                              <CheckSquare className="w-4 h-4 text-primary" />
-                            ) : isSomeSelected ? (
-                              <MinusSquare className="w-4 h-4 text-primary/60" />
-                            ) : (
-                              <Square className="w-4 h-4 text-foreground/30" />
-                            )}
-                          </button>
+                      <div className="mb-1 min-w-0 overflow-x-auto">
+                        <div className="min-w-[920px]">
+                          <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-b border-foreground/[0.06]">
+                            {/* Checkbox column */}
+                            <div className="w-6 flex-shrink-0">
+                              <button
+                                onClick={() => (isAllSelected ? deselectAll() : selectAll())}
+                                className="p-0.5 rounded hover:bg-foreground/10 transition-colors"
+                              >
+                                {isAllSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-primary" />
+                                ) : isSomeSelected ? (
+                                  <MinusSquare className="w-4 h-4 text-primary/60" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-foreground/30" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
+                            <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
+                            <div className="w-20 flex-shrink-0 text-center">{nh('table.jaar')}</div>
+                            <div className="w-36 flex-shrink-0 text-center">{nh('table.bron')}</div>
+                            <div className="w-32 flex-shrink-0 text-center">
+                              {nh('table.status')}
+                            </div>
+                            <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
+                            <div className="w-20 flex-shrink-0 text-right">
+                              {nh('table.acties')}
+                            </div>
+                          </div>
                         </div>
-                        <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
-                        <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
-                        <div className="w-20 flex-shrink-0 text-center">{nh('table.jaar')}</div>
-                        <div className="w-36 flex-shrink-0 text-center">{nh('table.bron')}</div>
-                        <div className="w-32 flex-shrink-0 text-center">{nh('table.status')}</div>
-                        <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                        <div className="w-20 flex-shrink-0 text-right">{nh('table.acties')}</div>
                       </div>
                     )}
 
@@ -2325,7 +2335,7 @@ export function UnifiedNormalizationModal({
                                     <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/70">
                                       {code}
                                     </span>
-                                    <span className="text-sm font-medium text-foreground truncate">
+                                    <span className="text-sm font-medium text-foreground break-words min-w-0">
                                       {ledgerLabel}
                                     </span>
                                     <span className="text-[11px] text-foreground/55">
@@ -2333,7 +2343,10 @@ export function UnifiedNormalizationModal({
                                     </span>
                                   </div>
                                   {bucket.sample.reason && (
-                                    <p className="mt-1 text-xs text-foreground/55 line-clamp-2">
+                                    <p
+                                      className="mt-1 text-xs text-foreground/55 line-clamp-4 break-words"
+                                      title={bucket.sample.reason}
+                                    >
                                       {bucket.sample.reason}
                                     </p>
                                   )}
@@ -2433,49 +2446,53 @@ export function UnifiedNormalizationModal({
                                     exit={{ height: 0, opacity: 0 }}
                                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                                   >
-                                    {/* Table header inside group for compact mode */}
-                                    <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
-                                      <div className="w-6 flex-shrink-0" />
-                                      <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
-                                      <div className="flex-1 min-w-0">
-                                        {nh('table.grootboekrekening')}
-                                      </div>
-                                      <div className="w-36 flex-shrink-0 text-center">
-                                        {nh('table.bron')}
-                                      </div>
-                                      <div className="w-32 flex-shrink-0 text-center">
-                                        {nh('table.status')}
-                                      </div>
-                                      <div className="w-28 flex-shrink-0 text-right">
-                                        {nh('amount')}
-                                      </div>
-                                      <div className="w-20 flex-shrink-0 text-right">
-                                        {nh('table.acties')}
-                                      </div>
-                                    </div>
+                                    <div className="min-w-0 overflow-x-auto">
+                                      <div className="min-w-[920px]">
+                                        <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
+                                          <div className="w-6 flex-shrink-0" />
+                                          <div className="w-16 flex-shrink-0">
+                                            {nh('table.code')}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            {nh('table.grootboekrekening')}
+                                          </div>
+                                          <div className="w-36 flex-shrink-0 text-center">
+                                            {nh('table.bron')}
+                                          </div>
+                                          <div className="w-32 flex-shrink-0 text-center">
+                                            {nh('table.status')}
+                                          </div>
+                                          <div className="w-28 flex-shrink-0 text-right">
+                                            {nh('amount')}
+                                          </div>
+                                          <div className="w-20 flex-shrink-0 text-right">
+                                            {nh('table.acties')}
+                                          </div>
+                                        </div>
 
-                                    {/* Items */}
-                                    <div>
-                                      {items.map((item) => {
-                                        const isSelected = selectedIds.has(item.id)
+                                        <div>
+                                          {items.map((item) => {
+                                            const isSelected = selectedIds.has(item.id)
 
-                                        return (
-                                          <CompactTableRow
-                                            key={item.id}
-                                            item={item}
-                                            isSelected={isSelected}
-                                            getLedgerDisplayName={getLedgerDisplayName}
-                                            onToggleSelect={() => toggleSelect(item.id)}
-                                            onAccept={() => updateStatus(item.id, 'accepted')}
-                                            onReject={() => updateStatus(item.id, 'rejected')}
-                                            onRemove={() => removeWithConfirmation(item.id)}
-                                            onRestore={() => updateStatus(item.id, 'pending')}
-                                            onEdit={() => startEditing(item)}
-                                            hideYear
-                                            yearEbitda={yearEbitda}
-                                          />
-                                        )
-                                      })}
+                                            return (
+                                              <CompactTableRow
+                                                key={item.id}
+                                                item={item}
+                                                isSelected={isSelected}
+                                                getLedgerDisplayName={getLedgerDisplayName}
+                                                onToggleSelect={() => toggleSelect(item.id)}
+                                                onAccept={() => updateStatus(item.id, 'accepted')}
+                                                onReject={() => updateStatus(item.id, 'rejected')}
+                                                onRemove={() => removeWithConfirmation(item.id)}
+                                                onRestore={() => updateStatus(item.id, 'pending')}
+                                                onEdit={() => startEditing(item)}
+                                                hideYear
+                                                yearEbitda={yearEbitda}
+                                              />
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
                                     </div>
                                   </motion.div>
                                 )}
@@ -2638,7 +2655,6 @@ function CompactTableRow({
   const ca = useTranslations('chatAssistant')
   const nh = useTranslations('normalizationHub')
   const tCommon = useTranslations('common.actions')
-  const category = categoryConfig[item.category] || categoryConfig.other
   const sourceBase = sourceConfig[item.source] || sourceConfig.manual
   const isImportedLedger = isImportedLedgerNormalizationItem(item)
   const source = isImportedLedger
@@ -2679,7 +2695,7 @@ function CompactTableRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-3 h-12 rounded-lg transition-colors group',
+        'flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors group',
         'hover:bg-foreground/[0.02]',
         item.status === 'accepted' && 'bg-success/[0.02]',
         item.status === 'rejected' && 'bg-secondary/[0.02] opacity-60',
@@ -2687,7 +2703,7 @@ function CompactTableRow({
       )}
     >
       {/* Checkbox */}
-      <div className="w-6 flex-shrink-0">
+      <div className="w-6 flex-shrink-0 pt-0.5">
         <button
           onClick={onToggleSelect}
           className="p-0.5 rounded hover:bg-foreground/10 transition-colors"
@@ -2701,22 +2717,22 @@ function CompactTableRow({
       </div>
 
       {/* Code */}
-      <div className="w-16 flex-shrink-0">
+      <div className="w-16 flex-shrink-0 pt-0.5">
         <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/60">
           {item.ledgerCode}
         </span>
       </div>
 
-      {/* Name + Reason */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        <span className="text-sm text-foreground/80 truncate">
+      {/* Name + Reason — stack so long auto-suggestion copy stays readable */}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span className="text-sm text-foreground/80 break-words line-clamp-3">
           {getLedgerDisplayName(item.ledgerCode, item.ledgerName)}
         </span>
-        {item.reason && (
-          <span className="text-xs text-foreground/40 truncate hidden lg:inline">
-            · {item.reason}
+        {item.reason ? (
+          <span className="text-xs text-foreground/45 break-words line-clamp-4" title={item.reason}>
+            {item.reason}
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Year - conditionally hidden when grouped by year */}
@@ -2730,11 +2746,11 @@ function CompactTableRow({
       )}
 
       {/* Source */}
-      <div className="w-36 flex-shrink-0 text-center">
+      <div className="w-36 flex-shrink-0 text-center self-center">
         <span
           title={isImportedLedger ? nh('importedLedgerTooltip') : undefined}
           className={cn(
-            'inline-flex max-w-full items-center justify-center truncate rounded-full px-2.5 py-1 text-[10px] font-medium',
+            'inline-flex max-w-full items-center justify-center whitespace-normal text-center leading-tight rounded-full px-2.5 py-1 text-[10px] font-medium',
             source.color
           )}
         >
@@ -2743,7 +2759,7 @@ function CompactTableRow({
       </div>
 
       {/* Status */}
-      <div className="w-32 flex-shrink-0 text-center">
+      <div className="w-32 flex-shrink-0 text-center self-center">
         {item.status === 'pending' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-[10px] font-medium text-warning">
             <Clock className="w-2.5 h-2.5" />
@@ -2765,7 +2781,7 @@ function CompactTableRow({
       </div>
 
       {/* Amount */}
-      <div className="w-28 flex-shrink-0 text-right">
+      <div className="w-28 flex-shrink-0 text-right self-center">
         <span
           className={cn(
             'text-sm font-mono font-semibold tabular-nums',
@@ -2782,7 +2798,7 @@ function CompactTableRow({
       </div>
 
       {/* Actions - gap-2 for clearer separation between Edit and Delete (accountant UX) */}
-      <div className="w-20 flex-shrink-0 flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      <div className="w-20 flex-shrink-0 flex items-center justify-end gap-2 self-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         {item.status === 'pending' && (
           <>
             <TooltipProvider>

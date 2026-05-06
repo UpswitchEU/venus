@@ -2136,6 +2136,8 @@
 		"continueToEstimate": "Continue to Estimate",
 		"ebitdaNormalizations": "EBITDA Normalizations",
 		"modalTitle": "Normalizations & Adjustments",
+		"anchorYearBridgeHint": "{year}: bridge vs reported EBITDA (filing anchor — not a sum across all fiscal years)",
+		"filteredYearTotalsHint": "Totals for filtered year {year} and current list (search / selection)",
 		"section1Header": "Operational Normalizations (EBITDA)",
 		"section1Subheader": "Profit adjustments (multiplied by the valuation multiple).",
 		"editorToggleTitle": "Add or edit normalization",
