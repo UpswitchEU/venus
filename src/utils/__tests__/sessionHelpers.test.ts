@@ -10,6 +10,8 @@ import {
   mergePrefilledQuery,
   mergeSessionFields,
   normalizeSessionDates,
+  orderedValuationSessionLookupIds,
+  resolveEnsureHtmlSessionKey,
 } from '../sessionHelpers'
 
 describe('sessionHelpers', () => {
@@ -140,6 +142,81 @@ describe('sessionHelpers', () => {
           value: 250000,
         },
       })
+    })
+  })
+
+  describe('resolveEnsureHtmlSessionKey', () => {
+    const staleUuid = 'a3bb189e-8bf9-3888-9242-7d234c596a4f'
+    const sessionKey = 'val_1700000000_abc12'
+
+    it('returns merged session key when path targets a stale UUID', () => {
+      const k = resolveEnsureHtmlSessionKey({
+        urlReportId: staleUuid,
+        mergedSession: createBaseSession(sessionKey, 'manual'),
+        ensureTargetId: staleUuid,
+      })
+      expect(k).toBe(sessionKey)
+    })
+
+    it('prefers authoritative merged reportId over url when both are session keys (differs from path)', () => {
+      const otherKey = 'val_1700000000_xyz99'
+      const k = resolveEnsureHtmlSessionKey({
+        urlReportId: 'val_mismatch_wrong',
+        mergedSession: { ...createBaseSession(otherKey, 'manual') },
+        ensureTargetId: 'val_mismatch_wrong',
+      })
+      expect(k).toBe(otherKey)
+    })
+
+    it('returns undefined when session key would duplicate the ensure path id', () => {
+      expect(
+        resolveEnsureHtmlSessionKey({
+          urlReportId: sessionKey,
+          mergedSession: createBaseSession(sessionKey, 'manual'),
+          ensureTargetId: sessionKey,
+        })
+      ).toBeUndefined()
+    })
+
+    it('reads session_key when reportId is missing', () => {
+      const k = resolveEnsureHtmlSessionKey({
+        urlReportId: staleUuid,
+        mergedSession: {
+          ...createBaseSession(sessionKey, 'manual'),
+          reportId: staleUuid as any,
+          session_key: sessionKey,
+        } as any,
+        ensureTargetId: staleUuid,
+      })
+      expect(k).toBe(sessionKey)
+    })
+  })
+
+  describe('orderedValuationSessionLookupIds', () => {
+    const canonical = 'd290f1ee-6c54-4b01-90e6-d701748f0851'
+    const val = 'val_1700000000_abc12'
+    const stale = 'a3bb189e-8bf9-3888-9242-7d234c596a4f'
+
+    it('puts ensure response reportId first and dedupes', () => {
+      expect(
+        orderedValuationSessionLookupIds({
+          ensureResponseReportId: canonical,
+          sessionKeyFallback: val,
+          mergedSessionReportId: val,
+          urlReportId: stale,
+        })
+      ).toEqual([canonical, val, stale])
+    })
+
+    it('skips invalid ensureResponseReportId and junk merge values', () => {
+      expect(
+        orderedValuationSessionLookupIds({
+          ensureResponseReportId: 'not-a-uuid',
+          sessionKeyFallback: null,
+          mergedSessionReportId: '',
+          urlReportId: val,
+        })
+      ).toEqual([val])
     })
   })
 })

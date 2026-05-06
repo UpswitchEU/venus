@@ -86,13 +86,13 @@ export class ReportAPI extends HttpClient {
 
   /**
    * Best-effort: ask Titan to render/persist report HTML (self-heal when numbers exist but HTML is missing).
-   * Only valid for canonical report UUIDs (not val_* session keys).
+   * Accepts canonical report UUIDs and session keys (val_*).
    */
   async ensureReportHtml(
     reportId: string,
-    options?: { sync?: boolean }
+    options?: { sync?: boolean; sessionKey?: string }
   ): Promise<Record<string, unknown> | null> {
-    if (!isUuid(reportId)) {
+    if (!isUuid(reportId) && !isSessionKey(reportId)) {
       return null
     }
     try {
@@ -100,7 +100,10 @@ export class ReportAPI extends HttpClient {
         {
           method: 'POST',
           url: `/api/v2/valuations/reports/${encodeURIComponent(reportId)}/ensure-html`,
-          data: { sync: options?.sync !== false },
+          data: {
+            sync: options?.sync !== false,
+            ...(options?.sessionKey ? { sessionKey: options.sessionKey } : {}),
+          },
           headers: {},
         } as any,
         { timeout: 60_000 }

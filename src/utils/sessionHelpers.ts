@@ -17,6 +17,7 @@ import { markReportExists } from './reportExistenceCache'
 import { retryWithBackoff } from './retryWithBackoff'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
 import { dateLikeToUnixMs } from './date-like'
+import { isSessionKey, isUuid } from './identifiers'
 import { globalSessionCache } from './sessionCacheManager'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
@@ -176,6 +177,65 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     htmlReport,
     valuationResult: valuationResult as ValuationResponse | undefined,
   }
+}
+
+/**
+ * Session key to send in ensure-html POST body when the URL/path id may be stale.
+ * Titan retries lookup with this when `findOneWithAccess(pathId)` returns 404.
+ *
+ * Prefer backend-authoritative `mergedSession.reportId` / `session_key` over the URL id.
+ */
+export function resolveEnsureHtmlSessionKey(params: {
+  urlReportId: string
+  mergedSession: ValuationSession
+  ensureTargetId: string
+}): string | undefined {
+  const { urlReportId, mergedSession, ensureTargetId } = params
+  const mergedReportId =
+    typeof mergedSession.reportId === 'string' ? mergedSession.reportId : undefined
+  const snake =
+    typeof (mergedSession as { session_key?: unknown }).session_key === 'string'
+      ? ((mergedSession as { session_key?: string }).session_key as string)
+      : undefined
+
+  const candidates = [mergedReportId, snake, urlReportId]
+  for (const c of candidates) {
+    if (typeof c === 'string' && isSessionKey(c) && c !== ensureTargetId) {
+      return c
+    }
+  }
+  return undefined
+}
+
+/**
+ * After ensure-html succeeds, `GET /sessions/:id` should try identifiers in this order:
+ * Titan's resolved `reportId`, then session-key fallback, merged session id, then the URL id.
+ * De-duplicates while preserving order so a stale URL id does not block refetch when Titan
+ * returned the canonical UUID.
+ */
+export function orderedValuationSessionLookupIds(params: {
+  ensureResponseReportId?: unknown
+  sessionKeyFallback?: string | null | undefined
+  mergedSessionReportId?: unknown
+  urlReportId: string
+}): string[] {
+  const ordered: string[] = []
+  const tryPush = (v: unknown) => {
+    if (typeof v !== 'string') return
+    const t = v.trim()
+    if (!t || !(isUuid(t) || isSessionKey(t))) return
+    ordered.push(t)
+  }
+  tryPush(params.ensureResponseReportId)
+  tryPush(params.sessionKeyFallback)
+  tryPush(params.mergedSessionReportId)
+  tryPush(params.urlReportId)
+  const seen = new Set<string>()
+  return ordered.filter((id) => {
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
 }
 
 /**

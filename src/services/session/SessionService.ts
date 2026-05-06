@@ -24,7 +24,7 @@ import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
 import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
-import { isUuid } from '../../utils/identifiers'
+import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
 import {
   mergeSessionSurfaceForOptionalPrefill,
@@ -39,6 +39,8 @@ import {
   mergePrefilledQuery,
   mergeSessionFields,
   normalizeSessionDates,
+  orderedValuationSessionLookupIds,
+  resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
 import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
@@ -67,7 +69,7 @@ function sessionDataIndicatesUsableFormInputs(sessionData: unknown): boolean {
   )
 }
 
-/** Deduplicate concurrent self-heal calls per Titan report UUID */
+/** Deduplicate concurrent self-heal calls per Titan report identifier */
 const ensureHtmlInFlight = new Set<string>()
 
 /**
@@ -1978,7 +1980,8 @@ export class SessionService {
     return Math.max(top.trim().length, dStr.trim().length) < 100
   }
 
-  private pickTitanReportUuidForEnsure(urlId: string, s: ValuationSession): string | null {
+  private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
+    if (isSessionKey(urlId)) return urlId
     if (isUuid(urlId)) return urlId
     const vid = (s.valuationResult as { valuation_id?: string } | undefined)?.valuation_id
     if (typeof vid === 'string' && isUuid(vid)) return vid
@@ -2002,22 +2005,31 @@ export class SessionService {
     if (!this.sessionNeedsHtmlRecovery(mergedSession)) {
       return null
     }
-    const uuid = this.pickTitanReportUuidForEnsure(reportId, mergedSession)
-    if (!uuid) {
+    const ensureTargetId = this.pickTitanReportIdForEnsure(reportId, mergedSession)
+    if (!ensureTargetId) {
       logger.debug(
-        'HTML self-heal skipped: no Titan report UUID (need URL UUID or valuationResult.valuation_id)',
+        'HTML self-heal skipped: no Titan report identifier (need session key/UUID or valuationResult.valuation_id)',
         {
           reportId: reportId?.substring(0, 24),
         }
       )
       return null
     }
-    if (ensureHtmlInFlight.has(uuid)) {
+    const sessionKeyBody = resolveEnsureHtmlSessionKey({
+      urlReportId: reportId,
+      mergedSession,
+      ensureTargetId,
+    })
+    const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}`
+    if (ensureHtmlInFlight.has(dedupeKey)) {
       return null
     }
-    ensureHtmlInFlight.add(uuid)
+    ensureHtmlInFlight.add(dedupeKey)
     try {
-      const res = await backendAPI.ensureReportHtml(uuid, { sync: true })
+      const res = await backendAPI.ensureReportHtml(ensureTargetId, {
+        sync: true,
+        ...(sessionKeyBody ? { sessionKey: sessionKeyBody } : {}),
+      })
       if (res == null) {
         logger.debug(
           'ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching',
@@ -2030,7 +2042,19 @@ export class SessionService {
       if ((res as { success?: boolean }).success === false) {
         return null
       }
-      return (await backendAPI.getValuationSession(reportId)) ?? null
+      const lookupIds = orderedValuationSessionLookupIds({
+        ensureResponseReportId: (res as { reportId?: unknown }).reportId,
+        sessionKeyFallback: sessionKeyBody,
+        mergedSessionReportId: mergedSession.reportId,
+        urlReportId: reportId,
+      })
+      for (const id of lookupIds) {
+        const next = await backendAPI.getValuationSession(id)
+        if (next?.session) {
+          return next
+        }
+      }
+      return null
     } catch (e) {
       logger.warn('tryRefetchAfterEnsureHtml failed', {
         reportId,
@@ -2038,7 +2062,7 @@ export class SessionService {
       })
       return null
     } finally {
-      ensureHtmlInFlight.delete(uuid)
+      ensureHtmlInFlight.delete(dedupeKey)
     }
   }
 
@@ -2102,11 +2126,24 @@ export class SessionService {
           })
         }
 
+        const canonicalReportId =
+          typeof mergedSession.reportId === 'string' && mergedSession.reportId.trim()
+            ? mergedSession.reportId.trim()
+            : null
+        const canonicalIsValid =
+          canonicalReportId != null &&
+          (isUuid(canonicalReportId) || isSessionKey(canonicalReportId))
+
         // Update cache with fresh data
         globalSessionCache.set(reportId, mergedSession)
+        // Alias under Titan's canonical id so lookups succeed whether the UI/cache key was a stale UUID or val_*.
+        if (canonicalIsValid && canonicalReportId !== reportId) {
+          globalSessionCache.set(canonicalReportId, mergedSession)
+        }
 
         logger.debug('Cache revalidated in background', {
           reportId,
+          canonicalReportId: canonicalReportId?.substring(0, 36),
           hasHtmlReport: !!mergedSession.htmlReport,
         })
 
@@ -2116,9 +2153,15 @@ export class SessionService {
         try {
           const { useSessionStore } = await import('../../store/useSessionStore')
           const currentStoreSession = useSessionStore.getState().session
+          const storeRid = currentStoreSession?.reportId
+          const shouldSyncStore =
+            storeRid != null &&
+            (storeRid === reportId ||
+              (canonicalIsValid && canonicalReportId != null && storeRid === canonicalReportId))
 
-          // Only update if the store still has the same reportId
-          if (currentStoreSession?.reportId === reportId) {
+          // Sync when the active session matches the revalidation key OR the canonical id from Titan
+          // (handles stale-URL UUID in cache while Zustand already holds val_*).
+          if (shouldSyncStore) {
             const { useManualResultsStore } = await import(
               '../../store/manual/useManualResultsStore'
             )
@@ -2141,13 +2184,20 @@ export class SessionService {
                 (existingResult as { details?: { html_report?: string } } | null | undefined)
                   ?.details?.html_report
               )
-            // Update the session with the revalidated HTML reports
-            useSessionStore.getState().hydrateSession({
+            const hydratePayload: Partial<ValuationSession> = {
               htmlReport: safeHtmlForStores,
               valuationResult: mergedSession.valuationResult,
-              // Also update sessionData with merged fields
               sessionData: mergedSession.sessionData,
-            })
+            }
+            if (
+              canonicalIsValid &&
+              canonicalReportId &&
+              storeRid &&
+              canonicalReportId !== storeRid
+            ) {
+              hydratePayload.reportId = canonicalReportId
+            }
+            useSessionStore.getState().hydrateSession(hydratePayload)
 
             // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
             if (safeHtmlForStores || mergedSession.valuationResult) {
@@ -2177,9 +2227,10 @@ export class SessionService {
               hasHtmlReport: !!safeHtmlForStores,
             })
           } else {
-            logger.debug('Skipping store update - reportId changed during revalidation', {
-              revalidatedReportId: reportId,
-              currentStoreReportId: currentStoreSession?.reportId,
+            logger.debug('Skipping store update - active session does not match revalidated report', {
+              revalidationKey: reportId,
+              canonicalReportId,
+              currentStoreReportId: storeRid,
             })
           }
         } catch (storeError) {
