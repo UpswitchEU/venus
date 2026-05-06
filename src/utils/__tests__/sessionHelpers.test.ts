@@ -11,6 +11,7 @@ import {
   mergeSessionFields,
   normalizeSessionDates,
   orderedValuationSessionLookupIds,
+  resolveEnsureHtmlAlternateReportId,
   resolveEnsureHtmlSessionKey,
 } from '../sessionHelpers'
 
@@ -189,6 +190,46 @@ describe('sessionHelpers', () => {
         ensureTargetId: staleUuid,
       })
       expect(k).toBe(sessionKey)
+    })
+  })
+
+  describe('resolveEnsureHtmlAlternateReportId', () => {
+    const stale = 'bb03de8b-34f9-461e-bf33-1fea23eef21f'
+    const canonical = 'd290f1ee-6c54-4b01-90e6-d701748f0851'
+
+    it('returns merged report UUID when it differs from the URL id', () => {
+      expect(
+        resolveEnsureHtmlAlternateReportId({
+          urlReportId: stale,
+          mergedSession: { reportId: canonical } as any,
+        })
+      ).toBe(canonical)
+    })
+
+    it('returns undefined when merged id matches URL or is absent', () => {
+      expect(
+        resolveEnsureHtmlAlternateReportId({
+          urlReportId: stale,
+          mergedSession: { reportId: stale } as any,
+        })
+      ).toBeUndefined()
+      expect(
+        resolveEnsureHtmlAlternateReportId({
+          urlReportId: stale,
+          mergedSession: {} as any,
+        })
+      ).toBeUndefined()
+    })
+
+    it('returns undefined when URL is a session key (ensure target is val_*; alternate is UUID-only)', () => {
+      expect(
+        resolveEnsureHtmlAlternateReportId({
+          urlReportId: 'val_1700000000_abc12',
+          mergedSession: {
+            reportId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+          } as any,
+        })
+      ).toBeUndefined()
     })
   })
 

@@ -90,7 +90,7 @@ export class ReportAPI extends HttpClient {
    */
   async ensureReportHtml(
     reportId: string,
-    options?: { sync?: boolean; sessionKey?: string }
+    options?: { sync?: boolean; sessionKey?: string; alternateReportId?: string }
   ): Promise<Record<string, unknown> | null> {
     if (!isUuid(reportId) && !isSessionKey(reportId)) {
       return null
@@ -103,6 +103,7 @@ export class ReportAPI extends HttpClient {
           data: {
             sync: options?.sync !== false,
             ...(options?.sessionKey ? { sessionKey: options.sessionKey } : {}),
+            ...(options?.alternateReportId ? { alternateReportId: options.alternateReportId } : {}),
           },
           headers: {},
         } as any,

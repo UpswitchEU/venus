@@ -208,6 +208,23 @@ export function resolveEnsureHtmlSessionKey(params: {
 }
 
 /**
+ * When the URL still carries a superseded valuation_reports.id but the merged session
+ * already has the canonical id from `createOrUpdateFromSession`, pass this to Titan's
+ * ensure-html endpoint so it can retry lookup after a 404 on the path id.
+ */
+export function resolveEnsureHtmlAlternateReportId(params: {
+  urlReportId: string
+  mergedSession: ValuationSession
+}): string | undefined {
+  const { urlReportId, mergedSession } = params
+  const merged =
+    typeof mergedSession.reportId === 'string' ? mergedSession.reportId.trim() : ''
+  if (!merged || merged === urlReportId) return undefined
+  if (!isUuid(urlReportId) || !isUuid(merged)) return undefined
+  return merged
+}
+
+/**
  * After ensure-html succeeds, `GET /sessions/:id` should try identifiers in this order:
  * Titan's resolved `reportId`, then session-key fallback, merged session id, then the URL id.
  * De-duplicates while preserving order so a stale URL id does not block refetch when Titan

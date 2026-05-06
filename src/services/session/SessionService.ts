@@ -40,6 +40,7 @@ import {
   mergeSessionFields,
   normalizeSessionDates,
   orderedValuationSessionLookupIds,
+  resolveEnsureHtmlAlternateReportId,
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
@@ -1981,7 +1982,22 @@ export class SessionService {
   }
 
   private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
+    const sessionKeyRaw = (s as { session_key?: string }).session_key
+    const sessionKey =
+      typeof sessionKeyRaw === 'string' && isSessionKey(sessionKeyRaw.trim())
+        ? sessionKeyRaw.trim()
+        : undefined
+
+    const mergedReport =
+      typeof s.reportId === 'string' && (isUuid(s.reportId) || isSessionKey(s.reportId))
+        ? s.reportId.trim()
+        : undefined
+
+    // Prefer stable handles: session key resolves to the current row even when the URL
+    // still carries an older valuation_reports.id after re-save / version link-updates.
+    if (sessionKey) return sessionKey
     if (isSessionKey(urlId)) return urlId
+    if (mergedReport) return mergedReport
     if (isUuid(urlId)) return urlId
     const vid = (s.valuationResult as { valuation_id?: string } | undefined)?.valuation_id
     if (typeof vid === 'string' && isUuid(vid)) return vid
@@ -2020,7 +2036,11 @@ export class SessionService {
       mergedSession,
       ensureTargetId,
     })
-    const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}`
+    const alternateReportId = resolveEnsureHtmlAlternateReportId({
+      urlReportId: reportId,
+      mergedSession,
+    })
+    const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}|${alternateReportId ?? ''}`
     if (ensureHtmlInFlight.has(dedupeKey)) {
       return null
     }
@@ -2029,6 +2049,7 @@ export class SessionService {
       const res = await backendAPI.ensureReportHtml(ensureTargetId, {
         sync: true,
         ...(sessionKeyBody ? { sessionKey: sessionKeyBody } : {}),
+        ...(alternateReportId ? { alternateReportId } : {}),
       })
       if (res == null) {
         logger.debug(
