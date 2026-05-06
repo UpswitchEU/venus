@@ -19,6 +19,7 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import {
@@ -46,6 +47,7 @@ import {
 } from '../../utils/extractValuationResultsMap'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
+import { mergeSessionSurfaceForOptionalPrefill } from '../../utils/mergeOptionalSessionPrefillFields'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import {
   normalizeCurrentYearForFiling,
@@ -102,6 +104,26 @@ async function withRetry<T>(
   }
 
   throw new Error(`${name} failed after ${maxAttempts} attempts`)
+}
+
+function seedNbbPrefillFromFormData(
+  formData: Record<string, unknown> | null | undefined,
+  reportId: string,
+  source: 'restore' | 'package'
+): void {
+  if (!formData) return
+  const official = formData.official_financials
+  if (!official || typeof official !== 'object' || Array.isArray(official)) return
+  const years =
+    ((official as { historicalYears?: unknown }).historicalYears as unknown[] | undefined) ??
+    ((official as { historical_years?: unknown }).historical_years as unknown[] | undefined)
+  if (!Array.isArray(years) || years.length === 0) return
+  useNbbPrefillStore.getState().setFromHistoricalYears(years as any)
+  generalLogger.info('[SessionRestoration] NBB prefill snapshots hydrated', {
+    reportId: reportId.substring(0, 30),
+    source,
+    yearsCount: years.length,
+  })
 }
 
 /**
@@ -468,6 +490,11 @@ class SessionRestorationServiceImpl {
         // Cast to any to handle type differences between ValuationRequest and ValuationFormData
         // The normalizer extracts compatible fields, but TypeScript doesn't know they're compatible
         updateFormData(data.formData as any)
+        seedNbbPrefillFromFormData(
+          data.formData as Record<string, unknown>,
+          data.reportId,
+          'restore'
+        )
         restoredFormFields = Object.keys(data.formData).length
 
         generalLogger.info('[SessionRestoration] Form data hydrated', {
@@ -520,12 +547,12 @@ class SessionRestorationServiceImpl {
       }
     }
 
-    // 1c. Restore multi-method blended valuation state (Waarderingssynthese).
+    // 1c. Restore blended / single upfront method selection (Waarderingssynthese + single pin).
     // Applied both for drafts and completed valuations so recalculation preserves
-    // the accountant's previously configured method mix and weighting.
+    // the accountant's configured method mix and weighting.
     if (!isConversational) {
       const store = useManualResultsStore.getState()
-      if (data.preSelectedMethods && data.preSelectedMethods.length > 1) {
+      if (data.preSelectedMethods && data.preSelectedMethods.length > 0) {
         store.setPreSelectedMethods(data.preSelectedMethods)
       }
       if (data.userWeights && Object.keys(data.userWeights).length > 0) {
@@ -682,7 +709,8 @@ class SessionRestorationServiceImpl {
           count: recoveredTL.length,
         })
       } else {
-        const rawTL = (data.formData as any)?._taxLatencies
+        const fd = (data.formData as any) ?? {}
+        const rawTL = fd._taxLatencies ?? fd.tax_latencies ?? fd.taxLatencies
         if (rawTL !== undefined && Array.isArray(rawTL)) {
           taxLatStore.setItems(rawTL)
           generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
@@ -698,9 +726,10 @@ class SessionRestorationServiceImpl {
 
     // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
     try {
-      const rawIQ = (data.formData as any)?._import_quality
+      const fd = (data.formData as any) ?? {}
+      const rawIQ = fd._import_quality ?? fd.import_quality ?? fd.importQuality
       if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
-        const provenanceProvider = (data.formData as any)?.business_context
+        const provenanceProvider = (fd.business_context ?? fd.businessContext)
           ?._imported_ledger_provenance?.provider
         useImportQualityStore.getState().setImportQuality(rawIQ, {
           provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
@@ -720,7 +749,7 @@ class SessionRestorationServiceImpl {
       const normStore = useNormalizationStore.getState()
       useTaxLatencyStore.getState().setCandidates([])
       const bc = (data.formData as any)?.business_context
-      const analysis = bc?._imported_ledger_analysis
+      const analysis = bc?._imported_ledger_analysis ?? (data.formData as any)?._imported_ledger_analysis
       if (analysis && typeof analysis === 'object') {
         if (normStore.items.length === 0) {
           const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
@@ -913,7 +942,7 @@ class SessionRestorationServiceImpl {
       if (flow === 'manual' && pkg.formData && Object.keys(pkg.formData).length > 0) {
         try {
           const { updateFormData } = useManualFormStore.getState()
-          const raw = pkg.formData as Record<string, unknown>
+          const raw = mergeSessionSurfaceForOptionalPrefill(pkg.formData)
 
           // Map camelCase package keys to snake_case form store keys.
           // Single-word keys (revenue, ebitda, city, industry) are the same in
@@ -923,8 +952,13 @@ class SessionRestorationServiceImpl {
             kboNumber: 'kbo_number',
             vatNumber: 'vat_number',
             businessTypeId: 'business_type_id',
+            businessDescription: 'business_description',
+            subIndustry: 'subIndustry',
             employeeCount: 'number_of_employees',
+            numberOfEmployees: 'number_of_employees',
+            employees: 'employees',
             foundingYear: 'founding_year',
+            filingYearConfirmed: 'filing_year_confirmed',
             countryCode: 'country_code',
             postalCode: 'postal_code',
             netIncome: 'net_income',
@@ -933,6 +967,13 @@ class SessionRestorationServiceImpl {
             currentYearData: 'current_year_data',
             naceCode: 'nace_code',
             naceDescription: 'nace_description',
+            canonicalNaceCode: 'canonical_nace_code',
+            activityCode: 'activity_code',
+            activityLabel: 'activity_label',
+            businessContext: 'business_context',
+            officialFinancials: 'official_financials',
+            officialVarianceAnalysis: 'official_variance_analysis',
+            officialVerificationBadge: 'official_verification_badge',
             legalForm: 'legal_form',
           }
 
@@ -940,6 +981,16 @@ class SessionRestorationServiceImpl {
           for (const [key, value] of Object.entries(raw)) {
             if (value === undefined) continue
             const snakeKey = camelToSnake[key] ?? key
+            if (snakeKey === '_businessInfo' || snakeKey === 'businessInfo') continue
+            if (snakeKey.startsWith('_bootstrap')) continue
+            const current = mapped[snakeKey]
+            if (
+              (current !== undefined && current !== null && !(typeof current === 'string' && current.trim() === '')) &&
+              (value === null || (typeof value === 'string' && value.trim() === ''))
+            ) {
+              // Keep the richer existing value (e.g. `_businessInfo.company_name`) over blank aliases.
+              continue
+            }
             mapped[snakeKey] = value
           }
 
@@ -964,6 +1015,7 @@ class SessionRestorationServiceImpl {
           }
 
           updateFormData(mapped as any)
+          seedNbbPrefillFromFormData(mapped, reportId, 'package')
           markMercurySessionPrefillSuppressed(reportId)
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
@@ -977,12 +1029,27 @@ class SessionRestorationServiceImpl {
               suppressNextLatencyRecalc()
               useTaxLatencyStore.getState().setItems(recoveredTL)
             } else if (
-              Object.prototype.hasOwnProperty.call(raw, '_taxLatencies') &&
-              Array.isArray((raw as { _taxLatencies?: unknown })._taxLatencies)
+              Array.isArray(
+                (raw as {
+                  _taxLatencies?: unknown
+                  tax_latencies?: unknown
+                  taxLatencies?: unknown
+                })._taxLatencies ??
+                  (raw as { tax_latencies?: unknown }).tax_latencies ??
+                  (raw as { taxLatencies?: unknown }).taxLatencies
+              )
             ) {
               suppressNextLatencyRecalc()
+              const rawTaxLatencies =
+                (raw as {
+                  _taxLatencies?: unknown
+                  tax_latencies?: unknown
+                  taxLatencies?: unknown
+                })._taxLatencies ??
+                (raw as { tax_latencies?: unknown }).tax_latencies ??
+                (raw as { taxLatencies?: unknown }).taxLatencies
               useTaxLatencyStore.getState().setItems(
-                (raw as { _taxLatencies: unknown[] })._taxLatencies as any
+                rawTaxLatencies as any
               )
             }
           } catch {
@@ -993,23 +1060,37 @@ class SessionRestorationServiceImpl {
             if (recoveredNorm && recoveredNorm.length > 0) {
               useNormalizationStore.getState().setItems(recoveredNorm)
             } else if (
-              raw._normalizations &&
-              Array.isArray(raw._normalizations) &&
-              (raw._normalizations as any[]).length > 0
+              Array.isArray(
+                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
+                  (raw as { normalizations?: unknown }).normalizations
+              ) &&
+              (
+                ((raw as { _normalizations?: unknown[] })._normalizations as unknown[] | undefined) ??
+                ((raw as { normalizations?: unknown[] }).normalizations as unknown[] | undefined) ??
+                []
+              ).length > 0
             ) {
-              useNormalizationStore.getState().setItems(raw._normalizations as any)
+              const rawNormalizations =
+                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
+                (raw as { normalizations?: unknown }).normalizations
+              useNormalizationStore.getState().setItems(rawNormalizations as any)
             }
           } catch {
             // Non-critical
           }
           try {
-            if (raw._import_quality && typeof raw._import_quality === 'object') {
+            const rawImportQuality =
+              (raw as { _import_quality?: unknown; import_quality?: unknown; importQuality?: unknown })
+                ._import_quality ??
+              (raw as { import_quality?: unknown }).import_quality ??
+              (raw as { importQuality?: unknown }).importQuality
+            if (rawImportQuality && typeof rawImportQuality === 'object') {
               const bc = (raw.business_context ?? raw.businessContext) as
                 | Record<string, unknown>
                 | undefined
               const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)
                 ?.provider
-              useImportQualityStore.getState().setImportQuality(raw._import_quality as any, {
+              useImportQualityStore.getState().setImportQuality(rawImportQuality as any, {
                 provider: typeof prov === 'string' ? prov : null,
               })
             }
@@ -1022,7 +1103,9 @@ class SessionRestorationServiceImpl {
             const bc = (raw.business_context ?? raw.businessContext) as
               | Record<string, unknown>
               | undefined
-            const analysis = bc?._imported_ledger_analysis
+            const analysis =
+              bc?._imported_ledger_analysis ??
+              (raw as { _imported_ledger_analysis?: unknown })._imported_ledger_analysis
             if (analysis && typeof analysis === 'object') {
               if (ns.items.length === 0) {
                 const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis as any)

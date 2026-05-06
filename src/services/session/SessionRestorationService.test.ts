@@ -3,14 +3,18 @@ import { SessionRestorationService } from './SessionRestorationService'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
+import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {
     SessionRestorationService.clearRestorationState()
     useNormalizationStore.getState().clear()
     useTaxLatencyStore.getState().clear()
+    useNbbPrefillStore.getState().clear()
+    useImportQualityStore.setState({ importQuality: null, provider: null } as any)
     vi.spyOn(useNormalizationStore.getState(), 'loadFromTitan').mockResolvedValue(undefined)
     useManualFormStore.getState().resetForm()
     useManualResultsStore.setState({
@@ -189,6 +193,106 @@ describe('SessionRestorationService', () => {
     ])
   })
 
+  it('hydrateFromPackage restores import quality from import_quality alias', () => {
+    SessionRestorationService.hydrateFromPackage(
+      'val_pkg_import_quality_alias',
+      {
+        htmlReport: null,
+        pricingRange: null,
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {
+          company_name: 'Pkg IQ Alias Co',
+          import_quality: {
+            '2024': {
+              confidence_score: 0.91,
+              audit_flags: [],
+              field_provenance: [],
+              total_accounts_processed: 10,
+              accounts_mapped_directly: 9,
+              accounts_fallback: 1,
+              accounts_skipped: 0,
+            },
+          },
+        },
+      },
+      'manual'
+    )
+
+    expect(useImportQualityStore.getState().importQuality).toEqual({
+      '2024': expect.objectContaining({
+        confidence_score: 0.91,
+      }),
+    })
+  })
+
+  it('hydrateFromPackage flattens _businessInfo and camelCase aliases for identity fields', () => {
+    SessionRestorationService.hydrateFromPackage(
+      'val_pkg_business_info_aliases',
+      {
+        htmlReport: null,
+        pricingRange: null,
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {
+          companyName: '',
+          _businessInfo: {
+            company_name: 'Alias Manufacturing NV',
+            canonical_nace_code: '56.101',
+            taxonomy: 'sme/manufacturing',
+          },
+          businessDescription: 'Strong recurring contracts.',
+        },
+      },
+      'manual'
+    )
+
+    const form = useManualFormStore.getState().formData as Record<string, unknown>
+    expect(form.company_name).toBe('Alias Manufacturing NV')
+    expect(form.canonical_nace_code).toBe('56.101')
+    expect(form.taxonomy).toBe('sme/manufacturing')
+    expect(form.business_description).toBe('Strong recurring contracts.')
+    expect(form._businessInfo).toBeUndefined()
+  })
+
+  it('hydrateFromPackage seeds NBB prefill snapshots from official_financials.historicalYears', () => {
+    SessionRestorationService.hydrateFromPackage(
+      'val_pkg_nbb',
+      {
+        htmlReport: null,
+        pricingRange: null,
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {
+          company_name: 'Pkg NBB Co',
+          official_financials: {
+            source: 'nbb',
+            historicalYears: [
+              {
+                fiscalYear: 2024,
+                revenue: 420000,
+                ebitda: 90000,
+                schemaType: 'full',
+                revenueSource: 'turnover',
+              },
+            ],
+          },
+        },
+      },
+      'manual'
+    )
+
+    const nbb = useNbbPrefillStore.getState()
+    expect(nbb.hasNbbData).toBe(true)
+    expect(nbb.getYearSnapshot(2024)).toEqual(
+      expect.objectContaining({
+        fiscalYear: 2024,
+        revenue: 420000,
+        ebitda: 90000,
+      })
+    )
+  })
+
   it('restore seeds SDE drafts from persisted imported ledger when Titan has no normalizations', async () => {
     SessionRestorationService.clearRestorationState('val_restore_ledger')
     useNormalizationStore.getState().clear()
@@ -219,6 +323,41 @@ describe('SessionRestorationService', () => {
     const items = useNormalizationStore.getState().items
     expect(items.some((i) => i.ledgerCode === '620')).toBe(true)
     expect(useTaxLatencyStore.getState().candidates).toEqual([])
+  })
+
+  it('restore seeds NBB prefill snapshots from official_financials historicalYears', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_nbb')
+    useNbbPrefillStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_nbb', {
+      reportId: 'val_restore_nbb',
+      sessionData: {
+        company_name: 'Restore NBB Co',
+        official_financials: {
+          source: 'nbb',
+          historicalYears: [
+            {
+              fiscalYear: 2023,
+              revenue: 300000,
+              ebitda: 75000,
+              schemaType: 'abbreviated',
+              revenueSource: 'gross_margin',
+            },
+          ],
+        },
+      },
+    } as any)
+
+    const nbb = useNbbPrefillStore.getState()
+    expect(nbb.hasNbbData).toBe(true)
+    expect(nbb.getYearSnapshot(2023)).toEqual(
+      expect.objectContaining({
+        fiscalYear: 2023,
+        revenue: 300000,
+        ebitda: 75000,
+        schemaType: 'abbreviated',
+      })
+    )
   })
 
   it('restore seeds tax latency candidates from persisted imported ledger analysis', async () => {
@@ -252,6 +391,38 @@ describe('SessionRestorationService', () => {
         accountCode: '160000',
         accountName: 'Voorzieningen',
         year: 2023,
+      }),
+    ])
+  })
+
+  it('restore seeds tax latency candidates from top-level _imported_ledger_analysis alias', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_tax_latency_top_level')
+    useTaxLatencyStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_tax_latency_top_level', {
+      reportId: 'val_restore_tax_latency_top_level',
+      sessionData: {
+        company_name: 'Top Level Latency Co',
+        _imported_ledger_analysis: {
+          tax_latency_candidates: [
+            {
+              account_code: '222100',
+              account_name: 'Terreinen',
+              description: 'Terreinen met mogelijk tijdelijk fiscaal verschil',
+              suggested_question: 'Latentie toepassen?',
+              tax_rate: 25,
+              fiscal_year: 2024,
+            },
+          ],
+        },
+      },
+    } as any)
+
+    expect(useTaxLatencyStore.getState().candidates).toEqual([
+      expect.objectContaining({
+        accountCode: '222100',
+        accountName: 'Terreinen',
+        year: 2024,
       }),
     ])
   })

@@ -1,10 +1,14 @@
 /**
  * useSessionDataPrefill Hook
  *
- * @deprecated Prefer `useBootstrapPrefill` for the primary paint; this hook remains as a
- * fallback when bootstrap skipped or loaded late. **Session shape:** manual saves and
- * Hermes-backed Titan payloads target the same flat fields; nested `_businessInfo` is
- * merged via {@link mergeSessionSurfaceForOptionalPrefill} so both entry modes match.
+ * Mounted from **ManualLayout** alongside {@link useBootstrapPrefill}. Bootstrap handles
+ * first paint; this hook covers late bootstrap, sparse session snapshots, and async
+ * NACE→`business_type_id` resolution. Method-agnostic scalars/structs are applied via
+ * {@link queueOptionalGapFillFlush} (shared with {@link useSessionOptionalMethodPrefill}) so
+ * `mergeOptionalSessionPrefillFields` runs at most once per macrotask.
+ *
+ * **Session shape:** manual saves and Hermes-backed Titan payloads target the same flat
+ * fields; nested `_businessInfo` is merged via {@link mergeSessionSurfaceForOptionalPrefill}.
  *
  * @module hooks/useSessionDataPrefill
  */
@@ -17,10 +21,12 @@ import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import {
+  getSessionOptionalPrefillSignature,
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
 /** Fallback prefill from `session.sessionData` when bootstrap did not paint first. */
 export function useSessionDataPrefill() {
@@ -31,6 +37,7 @@ export function useSessionDataPrefill() {
   const hasPrefilledRef = useRef(false)
   const cancelledRef = useRef(false)
   const lastReportIdRef = useRef<string | undefined>(undefined)
+  const lastOptionalPrefillSigRef = useRef<string | undefined>(undefined)
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
@@ -38,6 +45,7 @@ export function useSessionDataPrefill() {
     if (reportId !== lastReportIdRef.current) {
       lastReportIdRef.current = reportId
       hasPrefilledRef.current = false
+      lastOptionalPrefillSigRef.current = undefined
     }
 
     if (shouldSuppressMercurySessionPrefill(reportId)) {
@@ -58,6 +66,13 @@ export function useSessionDataPrefill() {
     const isExistingReport =
       bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
     const formIsEmpty = !formData.company_name?.trim() && !formData.kbo_number?.trim()
+    /** Form already has identity — still allow method/financial gap-fill from session. */
+    const skipIdentityOnlyBootstrapShortCircuit = isExistingReport && !formIsEmpty
+    const optionalPrefillSig = getSessionOptionalPrefillSignature(sessionData)
+    if (optionalPrefillSig !== lastOptionalPrefillSigRef.current) {
+      lastOptionalPrefillSigRef.current = optionalPrefillSig
+      hasPrefilledRef.current = false
+    }
     const sessionFlat =
       sessionData && typeof sessionData === 'object'
         ? mergeSessionSurfaceForOptionalPrefill(sessionData)
@@ -68,18 +83,6 @@ export function useSessionDataPrefill() {
       sessionFlat?.kboNumber
     )
 
-    if (isExistingReport && !formIsEmpty) {
-      // Form already has data - skip (restoration or bootstrap prefill already applied)
-      generalLogger.debug(
-        '[useSessionDataPrefill] Skipping - existing report, form already has data',
-        {
-          reportMode: bootstrap?.report?.mode,
-        }
-      )
-      hasPrefilledRef.current = true
-      return
-    }
-
     if (isExistingReport && formIsEmpty && !sessionHasData) {
       // Form empty, session empty - wait for loadSession
       return
@@ -87,17 +90,37 @@ export function useSessionDataPrefill() {
 
     // Skip if bootstrap has already prefilled with meaningful data
     // Bootstrap is the primary source - only use session data as fallback
+    const bootstrapHasMeaningfulPrefill = !!(
+      bootstrap &&
+      (bootstrap.hasPrefilledData ||
+        (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
+        bootstrap.prefillData.confidence >= 0.05 ||
+        bootstrap.prefillData.companyInfo?.companyName?.trim() ||
+        bootstrap.prefillData.businessType?.id ||
+        (bootstrap.prefillData.financials &&
+          ((bootstrap.prefillData.financials.revenue != null &&
+            Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
+            (bootstrap.prefillData.financials.ebitda != null &&
+              Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
+            (bootstrap.prefillData.financials.yearData &&
+              Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
+    )
+
     if (
       bootstrap &&
       !bootstrap.isBootstrapping &&
-      bootstrap.hasPrefilledData &&
-      bootstrap.prefillData.confidence > 0.1
+      bootstrapHasMeaningfulPrefill &&
+      !skipIdentityOnlyBootstrapShortCircuit
     ) {
       generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
         confidence: bootstrap.prefillData.confidence.toFixed(2),
         fields: bootstrap.prefillData.fieldsPopulated.length,
       })
       hasPrefilledRef.current = true
+      // Bootstrap filled identity/KBO first paint; Hermes+NBB+session blobs may still hydrate
+      // afterward. One coalesced optional merge closes DCF/NAV/SaaS/SDE/fiscal gaps — same macrotask
+      // semantics as mergeOptional elsewhere (race-safe vs loadSession/async Titan writes).
+      queueOptionalGapFillFlush()
       return
     }
 
@@ -162,10 +185,38 @@ export function useSessionDataPrefill() {
       (mergedData.yearData &&
         typeof mergedData.yearData === 'object' &&
         !Array.isArray(mergedData.yearData) &&
-        Object.keys(mergedData.yearData as object).length > 0)
+        Object.keys(mergedData.yearData as object).length > 0) ||
+      (Array.isArray(mergedData.yearlyFinancials) && mergedData.yearlyFinancials.length > 0) ||
+      mergedData.official_financials ||
+      mergedData.official_variance_analysis ||
+      mergedData.official_verification_badge ||
+      mergedData.startup_inputs ||
+      (mergedData.metadata &&
+        typeof mergedData.metadata === 'object' &&
+        !Array.isArray(mergedData.metadata) &&
+        Object.keys(mergedData.metadata as object).length > 0) ||
+      mergedData.owner_salary_addback != null ||
+      mergedData.nav_hidden_reserves != null ||
+      mergedData.saas_arr != null ||
+      mergedData.preparer_ev_ebitda_median != null ||
+      mergedData.tax_latencies?.length ||
+      mergedData.taxLatencies?.length ||
+      mergedData._taxLatencies?.length ||
+      mergedData._normalizations?.length
     )
 
-    if (!hasBusinessCardData && !hasMethodOrFinancialCues) {
+    const formLive = useManualFormStore.getState().formData
+    const hasGapFillFromOptional =
+      sessionData && typeof sessionData === 'object'
+        ? Object.keys(
+            mergeOptionalSessionPrefillFields(
+              mergeSessionSurfaceForOptionalPrefill(sessionData),
+              formLive
+            )
+          ).length > 0
+        : false
+
+    if (!hasBusinessCardData && !hasMethodOrFinancialCues && !hasGapFillFromOptional) {
       return
     }
 
@@ -331,14 +382,8 @@ export function useSessionDataPrefill() {
         updates.revenue = mergedData.current_year_data.revenue
       }
 
-      // DCF / NAV / real estate / SaaS / ownership — same gap-fill for every valuation method
-      const optionalFromSession = mergeOptionalSessionPrefillFields(mergedData, {
-        ...formData,
-        ...updates,
-      } as ValuationFormData)
-      Object.assign(updates, optionalFromSession)
-
-      // Apply updates if we have any (skip if effect re-ran or unmounted)
+      // DCF/NAV/SaaS/etc.: coalesced with useSessionOptionalMethodPrefill via queueOptionalGapFillFlush
+      // Apply identity + contextual updates first so optional merge sees overlays in getState().
       if (!cancelledRef.current && Object.keys(updates).length > 0) {
         updateFormData(updates)
         hasPrefilledRef.current = true
@@ -356,6 +401,10 @@ export function useSessionDataPrefill() {
           },
         })
       }
+
+      if (!cancelledRef.current) {
+        queueOptionalGapFillFlush()
+      }
     }
     runPrefill()
     return () => {
@@ -370,7 +419,7 @@ export function useSessionDataPrefill() {
     bootstrap?.report?.hasExistingData,
     bootstrap?.report?.hasValuationResult,
     bootstrap?.hasPrefilledData,
-    bootstrap?.prefillData?.confidence,
+    bootstrap?.prefillData,
     reportId,
     restorationComplete,
   ])

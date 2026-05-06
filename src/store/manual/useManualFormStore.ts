@@ -185,14 +185,24 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
     requestAnimationFrame(() => {
       try {
         set((state) => {
+          const hasIndustry = typeof businessCard.industry === 'string' && businessCard.industry.trim() !== ''
+          const hasBusinessModel =
+            typeof businessCard.business_model === 'string' && businessCard.business_model.trim() !== ''
+          const hasCountryCode =
+            typeof businessCard.country_code === 'string' && businessCard.country_code.trim() !== ''
+          const hasFoundingYear =
+            typeof businessCard.founding_year === 'number' && Number.isFinite(businessCard.founding_year)
+          const hasEmployeeCount =
+            typeof businessCard.employee_count === 'number' && Number.isFinite(businessCard.employee_count)
+
           const updatedFormData = {
             ...state.formData,
             company_name: businessCard.company_name,
-            industry: businessCard.industry,
-            business_model: businessCard.business_model,
-            founding_year: businessCard.founding_year,
-            country_code: businessCard.country_code,
-            number_of_employees: businessCard.employee_count,
+            ...(hasIndustry && { industry: businessCard.industry }),
+            ...(hasBusinessModel && { business_model: businessCard.business_model }),
+            ...(hasFoundingYear && { founding_year: businessCard.founding_year }),
+            ...(hasCountryCode && { country_code: businessCard.country_code }),
+            ...(hasEmployeeCount && { number_of_employees: businessCard.employee_count }),
             // Phase 1.1: Add KBO registry fields if available
             ...(businessCard.city && { city: businessCard.city }),
             ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),

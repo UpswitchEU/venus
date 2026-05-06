@@ -1,10 +1,7 @@
 /**
- * Gap-fill DCF / NAV / SaaS / multiples prep from raw `session.sessionData` into the
- * manual form store when slots are still empty.
- *
- * Runs when `useSessionDataPrefill` is skipped (bootstrap prefilled, or form already
- * has identity rows) but Mercury/Titan still attach method fields to the session blob
- * (manual reports, client invites, and Hermes/integration payloads use the same merge).
+ * Runs after `restorationComplete` when the optional session fingerprint changes — same tick as
+ * {@link useSessionDataPrefill} merges identity fields; both funnel method-agnostic patches through
+ * {@link queueOptionalGapFillFlush} so optional merge runs at most once per macrotask.
  *
  * Uses {@link mergeOptionalSessionPrefillFields}, which also:
  * - expands `year_data` / `yearData` into `historical_years_data` (integration shape),
@@ -18,21 +15,22 @@
  *
  * Re-runs when {@link getSessionOptionalPrefillSignature} changes — value-level
  * fingerprints (not only object identity) so chunk-loaded or merged session JSON
- * still triggers gap-fill once figures arrive.
+ * still triggers gap-fill once figures arrive. Envelope cardinality + identity anchors
+ * prevent the “empty signature” deadlock when only `company_name`/KBO exist first.
  *
  * @module hooks/useSessionOptionalMethodPrefill
  */
 
 import { useEffect } from 'react'
 
-import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
-import {
-  getSessionOptionalPrefillSignature,
-  mergeOptionalSessionPrefillFields,
-  mergeSessionSurfaceForOptionalPrefill,
-} from '../utils/mergeOptionalSessionPrefillFields'
+import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
+import { getSessionOptionalPrefillSignature } from '../utils/mergeOptionalSessionPrefillFields'
 
+/**
+ * Existing report only (`reportId !== 'new'`). New reports rely on
+ * {@link useBootstrapPrefill} / {@link useBootstrapSync} for first paint.
+ */
 export function useSessionOptionalMethodPrefill(): void {
   const reportId = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
@@ -43,23 +41,11 @@ export function useSessionOptionalMethodPrefill(): void {
   useEffect(() => {
     if (!reportId || reportId === 'new') return
     if (!restorationComplete) return
-    if (!optionalPrefillSignature) return
 
     let cancelled = false
     queueMicrotask(() => {
       if (cancelled) return
-      if (!useSessionStore.getState().restorationComplete) return
-
-      const raw = useSessionStore.getState().session?.sessionData
-      if (!raw || typeof raw !== 'object') return
-
-      const merged = mergeSessionSurfaceForOptionalPrefill(raw)
-      const patch = mergeOptionalSessionPrefillFields(
-        merged,
-        useManualFormStore.getState().formData
-      )
-      if (Object.keys(patch).length === 0) return
-      useManualFormStore.getState().updateFormData(patch)
+      queueOptionalGapFillFlush()
     })
 
     return () => {

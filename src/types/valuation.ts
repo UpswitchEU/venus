@@ -99,6 +99,20 @@ export interface OfficialVarianceAnalysis {
   severity?: 'none' | 'soft' | 'hard'
 }
 
+export interface OfficialFinancialsYearPayload {
+  fiscalYear: number
+  revenue?: number
+  revenueSource?: 'turnover' | 'gross_margin'
+  operatingProfit?: number
+  depreciation?: number
+  writeOffs?: number
+  ebitda?: number
+  totalAssets?: number
+  equity?: number
+  schemaType?: 'full' | 'abbreviated'
+  rubricsUsed?: Record<string, string>
+}
+
 export interface OfficialFinancialsPayload {
   source?: string
   sourceLabel?: string
@@ -121,6 +135,7 @@ export interface OfficialFinancialsPayload {
   }
   varianceAnalysis?: OfficialVarianceAnalysis
   verificationBadge?: OfficialVerificationBadge
+  historicalYears?: OfficialFinancialsYearPayload[]
 }
 
 export interface ValuationRequest {

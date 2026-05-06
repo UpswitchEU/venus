@@ -5,6 +5,7 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { useSessionStore } from '../../store/useSessionStore'
 import { resetBootstrapPrefillState, useBootstrapPrefill } from '../useBootstrapPrefill'
 
 const { mockUseBootstrapSafe } = vi.hoisted(() => ({
@@ -25,6 +26,7 @@ describe('useBootstrapPrefill', () => {
       provider: null,
     })
     useTaxLatencyStore.getState().clear()
+    useSessionStore.setState({ session: null })
     mockUseBootstrapSafe.mockReset()
 
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -532,5 +534,106 @@ describe('useBootstrapPrefill', () => {
       { year: 2023, revenue: 480_000, ebitda: 0 },
       { year: 2022, revenue: 0, ebitda: 5_000 },
     ])
+  })
+
+  it('applies low-confidence financial prefill when yearData is present', async () => {
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: false,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_low_conf_financials', hasExistingData: false },
+      prefillData: {
+        sources: ['session'],
+        confidence: 0.01,
+        fieldsPopulated: [],
+        fieldsRemaining: ['company_name'],
+        financials: {
+          yearData: {
+            2024: { revenue: 700_000, ebitda: 70_000 },
+            2023: { revenue: 650_000, ebitda: 65_000 },
+          },
+        },
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      const formData = useManualFormStore.getState().formData as any
+      expect(formData.current_year_data).toMatchObject({
+        year: 2024,
+        revenue: 700_000,
+        ebitda: 70_000,
+      })
+      expect(formData.historical_years_data).toEqual([
+        { year: 2023, revenue: 650_000, ebitda: 65_000 },
+      ])
+    })
+  })
+
+  it('hydrates _taxLatencies and _normalizations aliases from session fallback surface', async () => {
+    useSessionStore.setState({
+      session: {
+        reportId: 'val_alias_prefill',
+        currentView: 'manual',
+        dataSource: 'manual',
+        sessionData: {
+          _taxLatencies: [
+            {
+              id: 'tl_1',
+              type: 'passive',
+              description: 'Deferred tax',
+              temporary_difference: 100000,
+              tax_rate: 25,
+            },
+          ],
+          _normalizations: [
+            {
+              id: 'norm_1',
+              year: 2024,
+              status: 'accepted',
+              adjustment: 5000,
+            },
+          ],
+        },
+      } as any,
+    })
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_alias_prefill', hasExistingData: false },
+      prefillData: {
+        sources: ['session'],
+        confidence: 0.4,
+        fieldsPopulated: ['company_name'],
+        fieldsRemaining: [],
+        companyInfo: {
+          companyName: 'Alias Co',
+          countryCode: 'BE',
+        },
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      expect(useTaxLatencyStore.getState().items).toEqual([
+        expect.objectContaining({
+          id: 'tl_1',
+          type: 'passive',
+        }),
+      ])
+      expect(useNormalizationStore.getState().items).toEqual([
+        expect.objectContaining({
+          id: 'norm_1',
+          status: 'accepted',
+          year: 2024,
+        }),
+      ])
+    })
   })
 })

@@ -37,7 +37,11 @@ export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean
     return true
   }
   const multi = o[SESSION_PRE_SELECTED_METHODS_KEY]
-  return Array.isArray(multi) && multi.length > 0
+  if (Array.isArray(multi) && multi.length > 0) return true
+  const flatMulti = o.pre_selected_valuation_methods
+  if (Array.isArray(flatMulti) && flatMulti.length > 0) return true
+  const sm = o.selected_method
+  return typeof sm === 'string' && sm.trim().length > 0
 }
 
 /**

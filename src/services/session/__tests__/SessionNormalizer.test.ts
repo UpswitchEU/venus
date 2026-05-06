@@ -257,6 +257,25 @@ describe('normalizeSessionData', () => {
     )
   })
 
+  it('preserves top-level imported integration artifacts for restore aliases', () => {
+    const analysis = {
+      latest_fiscal_year: 2024,
+      sde_flags: [],
+    }
+    const normalized = normalizeSessionData({
+      session_key: 'val_ledger_top_level',
+      session_data: {
+        _imported_ledger_analysis: analysis,
+        _imported_saas_metrics: { saas_arr: 1230000 },
+        _imported_saas_provenance: { provider: 'yuki' },
+      },
+    })
+
+    expect((normalized.formData as any)._imported_ledger_analysis).toEqual(analysis)
+    expect((normalized.formData as any)._imported_saas_metrics).toEqual({ saas_arr: 1230000 })
+    expect((normalized.formData as any)._imported_saas_provenance).toEqual({ provider: 'yuki' })
+  })
+
   describe('preSelectedValuationMethod (_pre_selected_valuation_method)', () => {
     it('is undefined when the session key is absent', () => {
       const normalized = normalizeSessionData({
@@ -404,6 +423,53 @@ describe('normalizeSessionData', () => {
     expect((normalized.formData.tax_latencies as unknown[]).length).toBe(1)
   })
 
+  it('extracts deal/capital/NAV method fields and official filing overlays for restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_method_matrix_restore',
+      session_data: {
+        deal_type: 'asset_purchase',
+        deal_registration_duty_pct: 12.5,
+        deal_seller_is_individual: true,
+        capital_history_enabled: true,
+        capital_round_amount: 2500000,
+        capital_last_round_post_money: 15000000,
+        capital_safe_notes: [{ amount: 400000, discount_pct: 20 }],
+        nav_real_estate_book_value: 800000,
+        nav_real_estate_appraisal_value: 1250000,
+        nav_per_asset_tax_rates: { real_estate: 30, equipment: 25 },
+        nav_equipment_revaluation: { book_value: 120000, market_value: 160000 },
+        official_financials: {
+          years: [{ year: 2024, revenue: 1200000, ebitda: 180000 }],
+        },
+        official_variance_analysis: { revenue_delta_pct: 3.1 },
+        official_verification_badge: { level: 'verified', source: 'nbb' },
+      },
+    })
+
+    expect(normalized.formData.deal_type).toBe('asset_purchase')
+    expect(normalized.formData.deal_registration_duty_pct).toBe(12.5)
+    expect(normalized.formData.deal_seller_is_individual).toBe(true)
+    expect(normalized.formData.capital_history_enabled).toBe(true)
+    expect(normalized.formData.capital_round_amount).toBe(2500000)
+    expect(normalized.formData.capital_last_round_post_money).toBe(15000000)
+    expect(normalized.formData.capital_safe_notes).toEqual([{ amount: 400000, discount_pct: 20 }])
+    expect(normalized.formData.nav_real_estate_book_value).toBe(800000)
+    expect(normalized.formData.nav_real_estate_appraisal_value).toBe(1250000)
+    expect(normalized.formData.nav_per_asset_tax_rates).toEqual({ real_estate: 30, equipment: 25 })
+    expect(normalized.formData.nav_equipment_revaluation).toEqual({
+      book_value: 120000,
+      market_value: 160000,
+    })
+    expect((normalized.formData as any).official_financials).toEqual({
+      years: [{ year: 2024, revenue: 1200000, ebitda: 180000 }],
+    })
+    expect((normalized.formData as any).official_variance_analysis).toEqual({ revenue_delta_pct: 3.1 })
+    expect((normalized.formData as any).official_verification_badge).toEqual({
+      level: 'verified',
+      source: 'nbb',
+    })
+  })
+
   it('promotes adaptive scalars from business_context when top-level keys are missing', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_bc_promote',
@@ -422,6 +488,23 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.dcf_wacc_pct).toBe(9.5)
     expect(normalized.formData.nav_hidden_reserves).toBe(40_000)
     expect(normalized.formData.rev_recurring_amount).toBe(300_000)
+  })
+
+  it('promotes adaptive struct fields from business_context when top-level slots are empty', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_bc_struct_promote',
+      session_data: {
+        capital_safe_notes: [],
+        nav_per_asset_tax_rates: {},
+        business_context: {
+          capital_safe_notes: [{ amount: 150000, discount_pct: 15 }],
+          nav_per_asset_tax_rates: { real_estate: 30 },
+        },
+      },
+    })
+
+    expect(normalized.formData.capital_safe_notes).toEqual([{ amount: 150000, discount_pct: 15 }])
+    expect(normalized.formData.nav_per_asset_tax_rates).toEqual({ real_estate: 30 })
   })
 
   it('promotes API camelCase adaptive metadata from business_context onto _internal_*', () => {
@@ -468,5 +551,50 @@ describe('normalizeSessionData', () => {
       clientUserId: null,
       relationshipId: 'rel-1',
     })
+  })
+
+  it('maps engine-flat selected_method when legacy _pre_selected_valuation_method is absent', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_sel_flat',
+      session_data: {
+        selected_method: 'DCF',
+      },
+    })
+    expect(normalized.preSelectedValuationMethod).toBe('dcf')
+  })
+
+  it('prefers _pre_selected_valuation_method over selected_method when both exist', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_sel_both',
+      session_data: {
+        _pre_selected_valuation_method: 'ebitda_multiple',
+        selected_method: 'dcf',
+      },
+    })
+    expect(normalized.preSelectedValuationMethod).toBe('ebitda_multiple')
+  })
+
+  it('accepts pre_selected_valuation_methods and user_weights without leading underscore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_blend_flat',
+      session_data: {
+        pre_selected_valuation_methods: ['dcf', 'adjusted_nav'],
+        user_weights: { dcf: 60, adjusted_nav: 40 },
+        user_weight_justification: 'Client asked for floor + income.',
+      },
+    })
+    expect(normalized.preSelectedMethods).toEqual(['dcf', 'adjusted_nav'])
+    expect(normalized.userWeights).toEqual({ dcf: 60, adjusted_nav: 40 })
+    expect(normalized.userWeightJustification).toBe('Client asked for floor + income.')
+  })
+
+  it('maps userWeights camelCase when underscore keys are absent', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_uw_camel',
+      session_data: {
+        userWeights: { dcf: 50, ebitda_multiple: 50 },
+      },
+    })
+    expect(normalized.userWeights).toEqual({ dcf: 50, ebitda_multiple: 50 })
   })
 })

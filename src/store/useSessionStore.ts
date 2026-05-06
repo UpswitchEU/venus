@@ -25,6 +25,19 @@ import { storeLogger } from '../utils/logger'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 /**
+ * After session snapshot updates from {@link loadSession} or {@link hydrateSession}, Omni optional
+ * fields (DCF/NAV/SaaS/multiples/fiscal) may still have empty slots the merge pass can fill.
+ * Imported lazily so the store does not statically depend on merge hooks (those import this store).
+ */
+function scheduleOptionalGapFillAfterHydrate(): void {
+  queueMicrotask(() => {
+    void import('../hooks/sessionOptionalGapFillFlush').then(({ queueOptionalGapFillFlush }) => {
+      queueOptionalGapFillFlush()
+    })
+  })
+}
+
+/**
  * Explicit session states (bank-grade state machine)
  */
 export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
@@ -310,6 +323,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           lastSaved: session.updatedAt || null,
           isSaving: false,
         })
+        scheduleOptionalGapFillAfterHydrate()
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 
@@ -453,6 +467,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           dirtyVersion: current.dirtyVersion,
         }
       })
+      scheduleOptionalGapFillAfterHydrate()
       return
     }
 
@@ -465,6 +480,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         hasUnsavedChanges: state.hasUnsavedChanges,
         dirtyVersion: state.dirtyVersion,
       })
+      scheduleOptionalGapFillAfterHydrate()
     }
   },
 

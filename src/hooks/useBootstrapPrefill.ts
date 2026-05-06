@@ -118,19 +118,23 @@ export function useBootstrapPrefill(): {
     // Restoration will run when loadSession completes and merge any additional data.
     // Include financials (revenue/EBITDA) so we apply prefill when only financial data exists
     const hasMeaningfulPrefill =
-      bootstrap.hasPrefilledData &&
-      bootstrap.prefillData.confidence >= 0.05 &&
-      (!!bootstrap.prefillData.companyInfo?.companyName?.trim() ||
-        !!bootstrap.prefillData.companyInfo?.kboNumber ||
-        !!bootstrap.prefillData.kboData?.kboNumber ||
-        !!bootstrap.prefillData.companyInfo?.vatNumber ||
-        (bootstrap.prefillData.financials &&
-          ((bootstrap.prefillData.financials.revenue != null &&
-            Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
-            (bootstrap.prefillData.financials.ebitda != null &&
-              Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
-            (bootstrap.prefillData.financials.yearData &&
-              Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
+      (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
+      bootstrap.prefillData.confidence >= 0.05 ||
+      !!bootstrap.prefillData.companyInfo?.companyName?.trim() ||
+      !!bootstrap.prefillData.companyInfo?.kboNumber ||
+      !!bootstrap.prefillData.kboData?.kboNumber ||
+      !!bootstrap.prefillData.companyInfo?.vatNumber ||
+      !!bootstrap.prefillData.kboData?.vatNumber ||
+      !!bootstrap.prefillData.businessType?.id ||
+      !!(
+        bootstrap.prefillData.financials &&
+        ((bootstrap.prefillData.financials.revenue != null &&
+          Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
+          (bootstrap.prefillData.financials.ebitda != null &&
+            Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
+          (bootstrap.prefillData.financials.yearData &&
+            Object.keys(bootstrap.prefillData.financials.yearData).length > 0))
+      )
 
     if (
       bootstrap.report.mode === 'existing' &&
@@ -167,7 +171,7 @@ export function useBootstrapPrefill(): {
     }
 
     // Skip if no meaningful prefill data (country-only may still be <0.05 if weights change — keep NL/BE path)
-    if (!bootstrap.hasPrefilledData || bootstrap.prefillData.confidence < 0.05) {
+    if (!hasMeaningfulPrefill) {
       const countryOnly = resolveCountryCode(bootstrap.prefillData.companyInfo?.countryCode)
       if (bootstrap.report.mode === 'new' && countryOnly) {
         queueMicrotask(() => {
@@ -773,6 +777,51 @@ function applyPrefillToForm(
       ...allData,
     })
     Object.assign(allData, optional)
+
+    const legalForm =
+      (mergedSession.legal_form as string | undefined) ??
+      (mergedSession.legalForm as string | undefined)
+    if (!allData.legal_form && typeof legalForm === 'string' && legalForm.trim()) {
+      allData.legal_form = legalForm
+    }
+
+    const businessTypeId =
+      (mergedSession.business_type_id as string | undefined) ??
+      (mergedSession.businessTypeId as string | undefined) ??
+      (mergedSession.business_type as string | undefined)
+    if (!allData.business_type_id && typeof businessTypeId === 'string' && businessTypeId.trim()) {
+      allData.business_type_id = businessTypeId
+    }
+
+    const foundingYear =
+      (mergedSession.founding_year as number | undefined) ??
+      (mergedSession.founded_year as number | undefined)
+    if (
+      !allData.founding_year &&
+      foundingYear != null &&
+      Number.isFinite(Number(foundingYear)) &&
+      Number(foundingYear) > 0
+    ) {
+      allData.founding_year = Number(foundingYear)
+    }
+
+    const mergedTaxLatencies =
+      (Array.isArray(mergedSession.tax_latencies) ? mergedSession.tax_latencies : undefined) ??
+      (Array.isArray(mergedSession.taxLatencies) ? mergedSession.taxLatencies : undefined) ??
+      (Array.isArray(mergedSession._taxLatencies) ? mergedSession._taxLatencies : undefined)
+    if (Array.isArray(mergedTaxLatencies) && mergedTaxLatencies.length > 0) {
+      if (!Array.isArray(allData.tax_latencies) || allData.tax_latencies.length === 0) {
+        allData.tax_latencies = mergedTaxLatencies
+      }
+      useTaxLatencyStore.getState().setItems(mergedTaxLatencies as any)
+    }
+
+    const mergedNormalizations = Array.isArray(mergedSession._normalizations)
+      ? mergedSession._normalizations
+      : undefined
+    if (Array.isArray(mergedNormalizations) && mergedNormalizations.length > 0) {
+      useNormalizationStore.getState().setItems(mergedNormalizations as any)
+    }
   }
 
   // Apply all data in a single update FIRST

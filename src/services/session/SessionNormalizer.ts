@@ -115,6 +115,11 @@ function normalizeFlowType(input: string | undefined | null): 'manual' | 'conver
   }
 }
 
+function snakeToCamelAlias(key: string): string | null {
+  if (!key || key.startsWith('_')) return null
+  return key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())
+}
+
 /**
  * Extract form data from session data
  * Handles both camelCase and snake_case field names
@@ -237,7 +242,31 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['_internal_typical_revenue_range'],
     ['tax_latencies', 'taxLatencies'],
     ['balance_sheet_adjustments', 'balanceSheetAdjustments'],
+    // Official Belgian filing overlays (for trust/variance + badges)
+    ['official_financials', 'officialFinancials'],
+    ['official_variance_analysis', 'officialVarianceAnalysis'],
+    ['official_verification_badge', 'officialVerificationBadge'],
+    // Keep source financial map available for method hydration and sparse backfill
+    ['year_data', 'yearData'],
+    ['import_quality', 'importQuality'],
+    ['_imported_ledger_analysis'],
+    ['_imported_saas_metrics'],
+    ['_imported_saas_provenance'],
+    ['_financial_data_source'],
   ]
+
+  // Auto-include optional method keys so extractFormData cannot drift whenever
+  // OPTIONAL_SESSION_PREFILL_* is extended.
+  const existingPrimary = new Set(fieldMappings.map(([primary]) => primary))
+  const appendOptionalMapping = (key: string) => {
+    if (existingPrimary.has(key)) return
+    const camel = snakeToCamelAlias(key)
+    const tuple = (camel ? [key, camel] : [key]) as [string, ...string[]]
+    fieldMappings.push(tuple)
+    existingPrimary.add(key)
+  }
+  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) appendOptionalMapping(key)
+  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) appendOptionalMapping(key)
 
   const formData: Partial<ValuationRequest> = {}
 
@@ -358,22 +387,33 @@ function promoteAdaptiveFieldsFromBusinessContext(
   const rawBc = fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
   if (!rawBc || typeof rawBc !== 'object' || Array.isArray(rawBc)) return
   const bc = rawBc as Record<string, unknown>
+  const hasScalarValue = (value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (typeof value === 'string') return value.trim().length > 0
+    return true
+  }
+  const hasStructValue = (value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (Array.isArray(value)) return value.length > 0
+    if (typeof value === 'object') return Object.keys(value as object).length > 0
+    return true
+  }
 
   for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
     if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
     const cur = fd[key]
-    if (cur !== undefined && cur !== null) continue
+    if (hasScalarValue(cur)) continue
     const incoming = bc[key]
-    if (incoming !== undefined && incoming !== null) {
+    if (hasScalarValue(incoming)) {
       fd[key] = incoming
     }
   }
 
   for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
     const cur = fd[key]
-    if (cur !== undefined && cur !== null) continue
+    if (hasStructValue(cur)) continue
     const incoming = bc[key]
-    if (incoming !== undefined && incoming !== null) {
+    if (hasStructValue(incoming)) {
       fd[key] = incoming
     }
   }
@@ -638,18 +678,34 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
 
   const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
   const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
-  const hasPreKey =
+  const hasLegacySinglePreKey =
     sessionData &&
     typeof sessionData === 'object' &&
     (preKey in sessionData || altKey in sessionData)
-  const rawPre = hasPreKey
-    ? preKey in sessionData!
-      ? (sessionData as any)[preKey]
-      : (sessionData as any)[altKey]
+
+  const rawPreLegacy = hasLegacySinglePreKey
+    ? preKey in (sessionData as object)
+      ? (sessionData as Record<string, unknown>)[preKey]
+      : (sessionData as Record<string, unknown>)[altKey]
     : undefined
 
+  const rawSelectedMethodFlat =
+    sessionData &&
+    typeof sessionData === 'object' &&
+    typeof (sessionData as Record<string, unknown>).selected_method === 'string'
+      ? (sessionData as Record<string, unknown>).selected_method
+      : undefined
+
+  const rawPre: unknown =
+    rawPreLegacy !== undefined ? rawPreLegacy : rawSelectedMethodFlat
+
+  const hasAnySingleMethodHint =
+    hasLegacySinglePreKey ||
+    (rawSelectedMethodFlat !== undefined &&
+      typeof rawSelectedMethodFlat === 'string')
+
   let preSelectedValuationMethod: string | null | undefined
-  if (!hasPreKey) {
+  if (!hasAnySingleMethodHint) {
     preSelectedValuationMethod = undefined
   } else if (rawPre === null || rawPre === '') {
     preSelectedValuationMethod = null
@@ -659,21 +715,36 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     preSelectedValuationMethod = undefined
   }
 
-  const rawMethods = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
+  const rawMethodsPrimary = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
+  const rawMethodsFlat = sessionData?.pre_selected_valuation_methods
+  const pickStringArray = (raw: unknown): string[] | undefined =>
+    Array.isArray(raw) && raw.length > 0 && raw.every((m: unknown) => typeof m === 'string')
+      ? (raw as string[])
+      : undefined
   const preSelectedMethods: string[] | undefined =
-    Array.isArray(rawMethods) && rawMethods.every((m: unknown) => typeof m === 'string')
-      ? rawMethods
-      : undefined
+    pickStringArray(rawMethodsPrimary) ?? pickStringArray(rawMethodsFlat)
 
-  const rawWeights = sessionData?.[SESSION_USER_WEIGHTS_KEY]
+  const pickWeightMap = (raw: unknown): Record<string, number> | undefined => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+    const o = raw as Record<string, number>
+    return Object.keys(o).length > 0 ? o : undefined
+  }
+  const rawWeightsUnderscore = sessionData?.[SESSION_USER_WEIGHTS_KEY]
+  const rawWeightsSnake = sessionData?.user_weights
+  const rawWeightsCamel = sessionData?.userWeights
   const userWeights: Record<string, number> | undefined =
-    rawWeights && typeof rawWeights === 'object' && !Array.isArray(rawWeights)
-      ? (rawWeights as Record<string, number>)
-      : undefined
+    pickWeightMap(rawWeightsUnderscore) ??
+    pickWeightMap(rawWeightsSnake) ??
+    pickWeightMap(rawWeightsCamel)
 
-  const rawJustification = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+  const rawJustificationUnderscore = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+  const rawJustificationSnake = sessionData?.user_weight_justification
   const userWeightJustification: string | undefined =
-    typeof rawJustification === 'string' ? rawJustification : undefined
+    typeof rawJustificationUnderscore === 'string'
+      ? rawJustificationUnderscore
+      : typeof rawJustificationSnake === 'string'
+        ? rawJustificationSnake
+        : undefined
 
   const normalized: NormalizedSessionData = {
     // Metadata

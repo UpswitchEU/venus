@@ -106,6 +106,7 @@ import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
+import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
@@ -815,6 +816,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
   useSessionOptionalMethodPrefill()
+  /** NACE resolution + identity paths when bootstrap is late or sparse — optional merge coalesced via {@link queueOptionalGapFillFlush}. */
+  useSessionDataPrefill()
 
   const {
     isCalculating,
