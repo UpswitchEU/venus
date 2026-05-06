@@ -43,6 +43,7 @@ import {
   type StudioMilestoneKey,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { type LiveValuation, formatEur, useLiveValuation } from './useLiveValuation'
 
 /** Inline EN/NL — kept in sync with `messages/startupStudio/*.json` somFunnelWarn*. */
@@ -325,8 +326,10 @@ function pickIssues(
   // cumulative-to-exit dilution field. Skip when SAFE notes exist — slice is
   // undefined until conversion.
   const invRound = state.investment_amount_sought
-  const preForSlice =
-    state.cap_table.pre_money_target ?? valuation.blended?.mid ?? null
+  const preForSlice = resolveHeadlinePreMoney(
+    state.cap_table.pre_money_target,
+    valuation.blended?.mid ?? null,
+  )
   if (
     state.cap_table.safe_notes.length === 0 &&
     typeof invRound === 'number' &&

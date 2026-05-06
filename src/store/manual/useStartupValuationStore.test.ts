@@ -43,6 +43,18 @@ describe('useStartupValuationStore', () => {
     expect(useStartupValuationStore.getState().cap_table.option_pool_pct).toBe(15)
   })
 
+  it('setCapField normalizes pre_money_target (rejects non-positive, caps huge EUR)', () => {
+    const g = () => useStartupValuationStore.getState()
+    g().setCapField('pre_money_target', 2_000_000)
+    expect(g().cap_table.pre_money_target).toBe(2_000_000)
+    g().setCapField('pre_money_target', 0)
+    expect(g().cap_table.pre_money_target).toBeNull()
+    g().setCapField('pre_money_target', -50)
+    expect(g().cap_table.pre_money_target).toBeNull()
+    g().setCapField('pre_money_target', TAM_SAM_SOM_MAX_EUR + 1000)
+    expect(g().cap_table.pre_money_target).toBe(TAM_SAM_SOM_MAX_EUR)
+  })
+
   it('addSafeNote / updateSafeNote / removeSafeNote round-trip', () => {
     useStartupValuationStore.getState().addSafeNote()
     const id = useStartupValuationStore.getState().cap_table.safe_notes[0]!.id

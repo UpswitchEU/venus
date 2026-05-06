@@ -15,6 +15,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { normalizeTamSamSomField, mergeTamSamSomField } from '@/features/startup-studio/utils/tamSamSomFunnel'
+import { normalizePreMoneyTarget } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 
 export type StartupStage = 'pre_seed' | 'seed' | 'series_a'
@@ -748,10 +749,19 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           return { ...state, sector: inferred }
         }),
 
-      setCapField: (key, value) =>
+      setCapField: <K extends keyof StartupCapTableState>(
+        key: K,
+        value: StartupCapTableState[K],
+      ) =>
         set((state) => ({
           ...state,
-          cap_table: { ...state.cap_table, [key]: value },
+          cap_table: {
+            ...state.cap_table,
+            [key]:
+              key === 'pre_money_target'
+                ? (normalizePreMoneyTarget(value as number | null) as StartupCapTableState[K])
+                : value,
+          },
         })),
 
       addSafeNote: () =>
@@ -875,7 +885,9 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             next.cap_table = {
               ...next.cap_table,
               ...(typeof ct.pre_money_target === 'number' || ct.pre_money_target === null
-                ? { pre_money_target: ct.pre_money_target as number | null }
+                ? {
+                    pre_money_target: normalizePreMoneyTarget(ct.pre_money_target as number | null),
+                  }
                 : {}),
               ...(typeof ct.option_pool_pct === 'number'
                 ? { option_pool_pct: ct.option_pool_pct }
@@ -1004,7 +1016,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       toRequestPayload: () => {
         const state = get()
         const capTable = omitNull({
-          pre_money_target: state.cap_table.pre_money_target,
+          pre_money_target: normalizePreMoneyTarget(state.cap_table.pre_money_target),
           option_pool_pct: state.cap_table.option_pool_pct,
           last_round_amount: state.cap_table.last_round_amount,
           last_round_post_money: state.cap_table.last_round_post_money,
@@ -1104,7 +1116,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 8,
+      version: 9,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -1130,6 +1142,9 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       //   v7 → v8: re-sanitize `pedigree_evidence` (known keys, max length)
       //            so corrupted or pre-hardening persisted blobs can't
       //            bloat localStorage or resurrect junk keys.
+      //   v8 → v9: normalize `cap_table.pre_money_target` (positive EUR,
+      //            capped) so legacy / malformed localStorage cannot
+      //            persist 0 or negative “pre-money” targets.
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as StartupValuationState
@@ -1218,6 +1233,15 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             s.pedigree_evidence = sanitizePedigreeEvidenceMap(
               s.pedigree_evidence as Record<string, unknown>,
             )
+          }
+        }
+        if (version < 9) {
+          if (s.cap_table && typeof s.cap_table === 'object') {
+            const ct = s.cap_table as StartupCapTableState
+            s.cap_table = {
+              ...ct,
+              pre_money_target: normalizePreMoneyTarget(ct.pre_money_target),
+            }
           }
         }
         return s as StartupValuationState

@@ -1,5 +1,21 @@
+import { TAM_SAM_SOM_MAX_EUR } from '@/features/startup-studio/utils/tamSamSomFunnel'
 import { describe, expect, it } from 'vitest'
-import { isValidPreMoneyTarget, resolveHeadlinePreMoney } from './resolveHeadlinePreMoney'
+import {
+  isValidPreMoneyTarget,
+  normalizePreMoneyTarget,
+  resolveHeadlinePreMoney,
+} from './resolveHeadlinePreMoney'
+
+describe('normalizePreMoneyTarget', () => {
+  it('rounds, drops non-positive, caps at studio max EUR', () => {
+    expect(normalizePreMoneyTarget(null)).toBeNull()
+    expect(normalizePreMoneyTarget(0)).toBeNull()
+    expect(normalizePreMoneyTarget(-1)).toBeNull()
+    expect(normalizePreMoneyTarget(Number.NaN)).toBeNull()
+    expect(normalizePreMoneyTarget(1_000_000.4)).toBe(1_000_000)
+    expect(normalizePreMoneyTarget(TAM_SAM_SOM_MAX_EUR + 1)).toBe(TAM_SAM_SOM_MAX_EUR)
+  })
+})
 
 describe('resolveHeadlinePreMoney', () => {
   it('uses a valid explicit target over blend', () => {
@@ -18,6 +34,10 @@ describe('resolveHeadlinePreMoney', () => {
   it('returns null when neither side is usable', () => {
     expect(resolveHeadlinePreMoney(null, null)).toBeNull()
     expect(resolveHeadlinePreMoney(0, 0)).toBeNull()
+  })
+
+  it('caps an explicit target before preferring it over blend', () => {
+    expect(resolveHeadlinePreMoney(TAM_SAM_SOM_MAX_EUR + 9, 1_700_000)).toBe(TAM_SAM_SOM_MAX_EUR)
   })
 
   it('isValidPreMoneyTarget matches resolve semantics', () => {

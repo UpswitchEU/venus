@@ -23,6 +23,7 @@ import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptiveP
 import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
+import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { type StartupStage, useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
@@ -85,13 +86,15 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
     if (mid != null && Number.isFinite(mid) && mid > 0) return intlFmt.format(Math.round(mid))
     return t('preMoneyPlaceholder')
   }, [intlFmt, t, valuation.blended?.mid])
-  const preMoney = capTable.pre_money_target ?? valuation.blended?.mid ?? 0
+  const blendedMid = valuation.blended?.mid ?? null
+  const preMoney = resolveHeadlinePreMoney(capTable.pre_money_target, blendedMid) ?? 0
   const postMoney = preMoney + (investment ?? 0)
   const newInvestorPct = postMoney > 0 && investment ? (investment / postMoney) * 100 : 0
   const optionPoolPct = capTable.option_pool_pct ?? 0
   const foundersPct = Math.max(0, 100 - newInvestorPct - optionPoolPct)
 
   const showHighRoundDilutionHint =
+    capTable.safe_notes.length === 0 &&
     investment != null &&
     investment > 0 &&
     newInvestorPct > 22 &&

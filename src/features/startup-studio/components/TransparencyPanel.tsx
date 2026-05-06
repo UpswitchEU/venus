@@ -44,6 +44,7 @@ import {
   computeY5Sensitivity,
   type NarrativeContext,
 } from '@/features/startup-studio/utils/narrativeBuilder'
+import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
@@ -74,6 +75,7 @@ export function TransparencyPanel({
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const investment = useStartupValuationStore((s) => s.investment_amount_sought)
+  const capTable = useStartupValuationStore((s) => s.cap_table)
   const y5 = useStartupValuationStore((s) => s.year5_revenue_projection)
   const exitMul = useStartupValuationStore((s) => s.exit_revenue_multiple)
   const roi = useStartupValuationStore((s) => s.target_roi_x)
@@ -86,8 +88,12 @@ export function TransparencyPanel({
   const teamLevel: TeamLevel | null = inferTeamLevel(pedigreeFlags)
   const ambitionLevel: AmbitionLevel | null = inferAmbition(sector, y5, exitMul, roi)
 
+  const narrativePreMoney =
+    resolveHeadlinePreMoney(capTable.pre_money_target, valuation.blended.mid) ??
+    valuation.blended.mid
+
   const ctx: NarrativeContext = {
-    preMoney: valuation.blended.mid,
+    preMoney: narrativePreMoney,
     raise: investment ?? 0,
     prePedigreeMid: valuation.blendedPrePedigree?.mid ?? null,
     pedigreeMultiplier: valuation.pedigreeMultiplier,

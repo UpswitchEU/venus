@@ -27,7 +27,13 @@
 		"bullish": "Bullish",
 		"notAvailable": "not available",
 		"previous": "Previous",
-		"next": "Next"
+		"next": "Next",
+		"maturityLabels": {
+			"none": "None",
+			"basic": "Basic",
+			"strong": "Strong",
+			"exceptional": "Exceptional"
+		}
 	},
 	"preset": {
 		"quickStartAria": "Quick start templates",
@@ -161,7 +167,8 @@
 		"deckFull": "{preF} pre-money · raising {askF} · post-money {postF} · ~{dilution}% to new investors this round ({stage} · {sector} · {country}).",
 		"dilutionDefinition": "This % is new investors' stake from this priced round only (raise ÷ post-money). It is not the cumulative dilution-to-exit % on the Round step.",
 		"preMoneySourceBlended": "Pre-money is the live method blend below until you set a term-sheet value under Round → Pre-money target. The blend estimates company value, not a 10–15% dilution goal for your ask.",
-		"preMoneySourceOverride": "Pre-money matches the target you set on the Round step."
+		"preMoneySourceOverride": "Pre-money matches the target you set on the Round step.",
+		"safeNotesPricedRoundNote": "You have SAFEs or convertibles recorded. The post-money % below assumes a simple priced equity close; conversion mechanics can change effective ownership."
 	},
 	"health": {
 		"allClear": "All clear — your report is ready to generate.",
@@ -492,7 +499,7 @@
 		"pedigreeLift": " Then a lift of {mult}× for team pedigree",
 		"pedigreeDiscount": " Then a discount of {mult}× for team pedigree",
 		"whyP2": "Triangulated across {count} academic methods (milestone-driven, peer-comparison, exit-driven).{overlay}.  Every leg is a published, peer-reviewed method — no hand-waving.",
-		"headline": "{preMoney} pre-money · raising {raise} · post-money {post} · ~{dilution}% dilution ({stage} · {sector} · {country})"
+		"headline": "{preMoney} pre-money · raising {raise} · post-money {post} · ~{dilution}% to new investors this round ({stage} · {sector} · {country})"
 	},
 	"transparency": {
 		"summaryTitle": "Live preview: why this number?",

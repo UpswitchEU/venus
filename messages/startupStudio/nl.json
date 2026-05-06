@@ -27,7 +27,13 @@
 		"bullish": "Optimistisch",
 		"notAvailable": "niet beschikbaar",
 		"previous": "Vorige",
-		"next": "Volgende"
+		"next": "Volgende",
+		"maturityLabels": {
+			"none": "Geen",
+			"basic": "Basis",
+			"strong": "Sterk",
+			"exceptional": "Uitzonderlijk"
+		}
 	},
 	"preset": {
 		"quickStartAria": "Snelle start templates",
@@ -160,8 +166,9 @@
 		"deckPreOnly": "Pre-money waardering: {preF} ({stage} · {sector} · {country}).",
 		"deckFull": "{preF} pre-money · op te halen {askF} · post-money {postF} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country}).",
 		"dilutionDefinition": "Dit % is het aandeel van nieuwe investeerders bij deze priced round alleen (op te halen ÷ post-money). Het is niet het cumulatief-tot-exit-% op de Ronde-stap.",
-		"preMoneySourceBlended": "Pre-money is de live blend van de methodes hieronder tot je een term-sheetbedrag invult onder Ronde → Pre-money doel. Die blend schat de ondernemingswaarde, geen 10–15% dilutiedoel voor je ask.",
-		"preMoneySourceOverride": "Pre-money volgt het doel dat je op de Ronde-stap hebt ingevuld."
+		"preMoneySourceBlended": "Pre-money is de live blend van de methodes hieronder tot je een term-sheetbedrag invult onder Ronde → Pre-money doel. Die blend schat de ondernemingswaarde, geen 10–15% dilutiedoel voor je op te halen bedrag.",
+		"preMoneySourceOverride": "Pre-money volgt het doel dat je op de Ronde-stap hebt ingevuld.",
+		"safeNotesPricedRoundNote": "Je hebt SAFEs of converteerbare instrumenten staan. Het post-money % hieronder veronderstelt een eenvoudige priced equity close; conversiemechanica kan het effectieve eigendom wijzigen."
 	},
 	"health": {
 		"allClear": "Alles staat — je rapport is klaar om te genereren.",
@@ -492,7 +499,7 @@
 		"pedigreeLift": " Daarna een lift van {mult}× voor team-pedigree",
 		"pedigreeDiscount": " Daarna een korting van {mult}× voor team-pedigree",
 		"whyP2": "Getrianguleerd over {count} academische methoden (milestone-driven, peer-comparison, exit-driven).{overlay}.  Iedere leg is een gepubliceerde, peer-reviewed methode — geen hand-waving.",
-		"headline": "{preMoney} pre-money · ophalen {raise} · post-money {post} · ~{dilution}% dilutie ({stage} · {sector} · {country})"
+		"headline": "{preMoney} pre-money · op te halen {raise} · post-money {post} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country})"
 	},
 	"transparency": {
 		"summaryTitle": "Live-preview: waarom dit cijfer?",

@@ -69,14 +69,16 @@ export function ReportStep(_props: ReportStepProps) {
   const [copied, setCopied] = useState(false)
 
   const blendedMid = valuation.blended?.mid ?? null
-  const headlinePre = headlinePreMoney(capTable.pre_money_target, blendedMid)
+  const headlinePre = resolveHeadlinePreMoney(capTable.pre_money_target, blendedMid)
   const postMoney = headlinePre != null && investment ? headlinePre + investment : null
   const dilutionPct =
     headlinePre != null && investment && postMoney != null && postMoney > 0
       ? (investment / postMoney) * 100
       : null
 
-  const usesBlendPreMoney = capTable.pre_money_target == null
+  /** Priced-round copy; SAFEs make post-money % less meaningful until conversion. */
+  const pricedRoundForCopy = capTable.safe_notes.length === 0
+  const usesBlendPreMoney = !isValidPreMoneyTarget(capTable.pre_money_target)
   const preMoneyForTypicalSlice =
     investment != null && investment > 0 && Number.isFinite(investment)
       ? (() => {
@@ -181,8 +183,11 @@ export function ReportStep(_props: ReportStepProps) {
                   </p>
                 </div>
               </div>
-              {investment != null && investment > 0 && postMoney != null && (
+              {pricedRoundForCopy && investment != null && investment > 0 && postMoney != null && (
                 <p className="mt-3 text-[11px] leading-snug text-foreground/55">{t('dilutionDefinition')}</p>
+              )}
+              {!pricedRoundForCopy && investment != null && investment > 0 && headlinePre != null && (
+                <p className="mt-3 text-[11px] leading-snug text-foreground/55">{t('safeNotesPricedRoundNote')}</p>
               )}
               <p className="mt-2 text-[11px] leading-snug text-foreground/55">
                 {usesBlendPreMoney ? t('preMoneySourceBlended') : t('preMoneySourceOverride')}
@@ -273,7 +278,7 @@ export function ReportStep(_props: ReportStepProps) {
                   <p className="text-xs font-semibold text-foreground">
                     {copy.title}{' '}
                     <span className="text-foreground/45">
-                      · {tCommon('level')} {maturity[key]}
+                      · {tCommon('level')} {tMaturity(maturity[key])}
                     </span>
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-foreground/75">{evidenceNotes[key]}</p>
