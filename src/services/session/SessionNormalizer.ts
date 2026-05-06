@@ -32,6 +32,7 @@ import { generalLogger } from '../../utils/logger'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  sessionEnvelopeHasIdentitySignals,
 } from '../../utils/mergeOptionalSessionPrefillFields'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
@@ -93,6 +94,12 @@ export interface NormalizedSessionData {
   userWeights: Record<string, number> | undefined
   /** Accountant justification for chosen weighting. */
   userWeightJustification: string | undefined
+
+  /**
+   * Raw session JSONB used at restore time — same blob passed to {@link extractFormData}.
+   * Flat extract can miss Mercury `_businessInfo` / nested overlays; gap-fill merges this envelope.
+   */
+  sessionDataEnvelope: Record<string, unknown>
 }
 
 /**
@@ -676,6 +683,8 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     htmlReport,
   })
 
+  const hasMergedEnvelopeIdentity = sessionEnvelopeHasIdentitySignals(sessionData)
+
   const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
   const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
   const hasLegacySinglePreKey =
@@ -696,13 +705,11 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
       ? (sessionData as Record<string, unknown>).selected_method
       : undefined
 
-  const rawPre: unknown =
-    rawPreLegacy !== undefined ? rawPreLegacy : rawSelectedMethodFlat
+  const rawPre: unknown = rawPreLegacy !== undefined ? rawPreLegacy : rawSelectedMethodFlat
 
   const hasAnySingleMethodHint =
     hasLegacySinglePreKey ||
-    (rawSelectedMethodFlat !== undefined &&
-      typeof rawSelectedMethodFlat === 'string')
+    (rawSelectedMethodFlat !== undefined && typeof rawSelectedMethodFlat === 'string')
 
   let preSelectedValuationMethod: string | null | undefined
   if (!hasAnySingleMethodHint) {
@@ -746,6 +753,11 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
         ? rawJustificationSnake
         : undefined
 
+  const sessionDataEnvelope: Record<string, unknown> =
+    sessionData && typeof sessionData === 'object' && !Array.isArray(sessionData)
+      ? (sessionData as Record<string, unknown>)
+      : {}
+
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
@@ -769,11 +781,14 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     // Context
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
-    hasExistingData: hasExistingData(formData, valuationResult, htmlReport),
+    hasExistingData:
+      hasExistingData(formData, valuationResult, htmlReport) || hasMergedEnvelopeIdentity,
     preSelectedValuationMethod,
     preSelectedMethods,
     userWeights,
     userWeightJustification,
+
+    sessionDataEnvelope,
   }
 
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
@@ -814,6 +829,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     preSelectedMethods: undefined,
     userWeights: undefined,
     userWeightJustification: undefined,
+    sessionDataEnvelope: {},
   }
 }
 

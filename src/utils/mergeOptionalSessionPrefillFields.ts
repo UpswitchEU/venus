@@ -13,13 +13,17 @@
  */
 
 import { SESSION_PRE_SELECTED_METHODS_KEY } from '../constants/sessionUiKeys'
-import type { OfficialFinancialsPayload, ValuationFormData, YearDataInput } from '../types/valuation'
-import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
+import type {
+  OfficialFinancialsPayload,
+  ValuationFormData,
+  YearDataInput,
+} from '../types/valuation'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
+import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import type { YearlyFinancialLike } from './yearlyFinancials'
 import {
   buildYearlyFinancialsFromCurrentAndHistorical,
@@ -185,6 +189,18 @@ export function mergeSessionSurfaceForOptionalPrefill(
   return merged
 }
 
+/** True when merged session JSON carries registry identity (includes `_businessInfo`). */
+export function sessionEnvelopeHasIdentitySignals(sessionData: unknown): boolean {
+  const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
+  return !!(
+    (typeof merged.company_name === 'string' && merged.company_name.trim() !== '') ||
+    merged.kbo_number ||
+    merged.kboNumber ||
+    merged.vat_number ||
+    merged.vatNumber
+  )
+}
+
 function sortedFinancialRowsFingerprint(rows: unknown): string {
   if (!Array.isArray(rows) || rows.length === 0) return ''
   const parts: string[] = []
@@ -335,6 +351,8 @@ export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
   'nav_equipment_revaluation',
   'capital_safe_notes',
   /** Method blend + startup path — large blobs; merge only into empty form slots. */
+  /** Multi-method blend persisted on session — gap-fill when store empty (Mercury handoff). */
+  '_pre_selected_valuation_methods',
   'user_weights',
   'startup_inputs',
   'cap_table',
@@ -356,6 +374,7 @@ const TRACKED_SESSION_UNDERSCORE_KEYS = new Set<string>([
   '_taxLatencies',
   '_normalizations',
   '_user_weights',
+  '_pre_selected_valuation_methods',
 ])
 
 function sessionEnvelopeKeyCount(record: Record<string, unknown>): number {
@@ -509,10 +528,7 @@ export function stableOptionalPrefillSourceSignature(record: Record<string, unkn
     const yearKeys = Object.keys(iq).sort().join(',')
     const confSlice = Object.entries(iq)
       .map(([y, row]) =>
-        typeof row === 'object' &&
-        row &&
-        !Array.isArray(row) &&
-        'confidence_score' in row
+        typeof row === 'object' && row && !Array.isArray(row) && 'confidence_score' in row
           ? `${y}:${(row as { confidence_score?: unknown }).confidence_score ?? ''}`
           : `${y}:`
       )
@@ -563,7 +579,9 @@ export function stableOptionalPrefillSourceSignature(record: Record<string, unkn
     const sm = b._imported_saas_metrics
     const smKeys =
       sm && typeof sm === 'object' && !Array.isArray(sm)
-        ? Object.keys(sm as object).sort().join(',')
+        ? Object.keys(sm as object)
+            .sort()
+            .join(',')
         : ''
     const prov = b._imported_saas_provenance
     const provProvider =
@@ -695,11 +713,29 @@ export function mergeOptionalSessionPrefillFields(
     const existing = fd[key]
     if (!isEmptySlot(existing)) {
       const canBackfillZeroPlaceholder =
-        isOptionalZeroPlaceholder(key, existing) &&
-        isFiniteNumber(incoming) &&
-        incoming !== 0
+        isOptionalZeroPlaceholder(key, existing) && isFiniteNumber(incoming) && incoming !== 0
       if (!canBackfillZeroPlaceholder) continue
     }
+    ;(out as Record<string, unknown>)[key] = incoming
+  }
+
+  // Registry / `_businessInfo` keys — extractFormData only reads flat session rows.
+  for (const key of SESSION_CARD_FALLBACK_STRING_KEYS) {
+    if (!Object.hasOwn(mergedData, key)) continue
+    const incoming = mergedData[key]
+    if (incoming === undefined || incoming === null) continue
+    if (typeof incoming === 'string' && incoming.trim() === '') continue
+    const existing = fd[key]
+    if (!isEmptySlot(existing)) continue
+    ;(out as Record<string, unknown>)[key] = incoming
+  }
+  for (const key of SESSION_CARD_FALLBACK_NULLISH_SCALARS) {
+    if (!Object.hasOwn(mergedData, key)) continue
+    const incoming = mergedData[key]
+    if (incoming === undefined || incoming === null) continue
+    if (typeof incoming === 'number' && !Number.isFinite(incoming)) continue
+    const existing = fd[key]
+    if (existing !== undefined && existing !== null) continue
     ;(out as Record<string, unknown>)[key] = incoming
   }
 
@@ -712,10 +748,7 @@ export function mergeOptionalSessionPrefillFields(
     ;(out as Record<string, unknown>)[key] = incoming
   }
 
-  if (
-    !(out as Record<string, unknown>)['user_weights'] &&
-    isEmptyStructSlot(fd['user_weights'])
-  ) {
+  if (!(out as Record<string, unknown>)['user_weights'] && isEmptyStructSlot(fd['user_weights'])) {
     const uwAlt = mergedData['_user_weights']
     if (
       uwAlt &&
@@ -789,7 +822,9 @@ export function mergeOptionalSessionPrefillFields(
     incomingOfficial &&
     typeof incomingOfficial === 'object' &&
     !Array.isArray(incomingOfficial) &&
-    !hasUsableOfficialFinancialsContent(fd.official_financials as OfficialFinancialsPayload | undefined) &&
+    !hasUsableOfficialFinancialsContent(
+      fd.official_financials as OfficialFinancialsPayload | undefined
+    ) &&
     hasUsableOfficialFinancialsContent(incomingOfficial as OfficialFinancialsPayload)
   ) {
     out.official_financials = incomingOfficial as ValuationFormData['official_financials']
@@ -800,8 +835,7 @@ export function mergeOptionalSessionPrefillFields(
       !Array.isArray(nestedVa) &&
       isEmptyStructSlot(fd.official_variance_analysis)
     ) {
-      out.official_variance_analysis =
-        nestedVa as ValuationFormData['official_variance_analysis']
+      out.official_variance_analysis = nestedVa as ValuationFormData['official_variance_analysis']
     }
   }
 
@@ -1043,8 +1077,9 @@ export function mergeOptionalSessionPrefillFields(
 
   const mergedYf = mergedData.yearlyFinancials
   const fdYearlyPrior = fd['yearlyFinancials']
-  const formYearlyVacant =
-    !yearlyFinancialsContainsNonPlaceholderData(fdYearlyPrior as YearlyFinancialLike[] | undefined)
+  const formYearlyVacant = !yearlyFinancialsContainsNonPlaceholderData(
+    fdYearlyPrior as YearlyFinancialLike[] | undefined
+  )
   if (
     Array.isArray(mergedYf) &&
     mergedYf.length > 0 &&
@@ -1075,4 +1110,14 @@ export function mergeOptionalSessionPrefillFields(
   }
 
   return out
+}
+
+/** Shared by SessionRestorationService and {@link queueOptionalGapFillFlush}. */
+export function buildOptionalSessionGapFillPatch(
+  rawSessionData: unknown,
+  formData: unknown
+): Partial<ValuationFormData> {
+  if (!rawSessionData || typeof rawSessionData !== 'object') return {}
+  const merged = mergeSessionSurfaceForOptionalPrefill(rawSessionData)
+  return mergeOptionalSessionPrefillFields(merged, formData)
 }

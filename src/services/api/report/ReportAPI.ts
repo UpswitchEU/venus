@@ -7,15 +7,15 @@
  * @module services/api/report/ReportAPI
  */
 
+import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
-import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 async function parsePlanGateErrorMessage(axiosError: {
-  response?: { data?: unknown };
+  response?: { data?: unknown }
 }): Promise<string> {
   const fallback =
     'PDF download requires a plan that includes downloadable reports. Upgrade to Starter to continue.'
@@ -56,10 +56,7 @@ export class ReportAPI extends HttpClient {
     const maxAttempts = isBySession
       ? Math.min(
           defaultSessionAttempts,
-          Math.max(
-            1,
-            typeof session404Cap === 'number' ? session404Cap : defaultSessionAttempts
-          )
+          Math.max(1, typeof session404Cap === 'number' ? session404Cap : defaultSessionAttempts)
         )
       : 1
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -78,7 +75,7 @@ export class ReportAPI extends HttpClient {
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status
         if (isBySession && status === 404 && attempt < maxAttempts - 1) {
-          apiLogger.info('Report by-session not ready yet, retrying', { reportId, attempt })
+          apiLogger.debug('Report by-session not ready yet, retrying', { reportId, attempt })
           continue
         }
         this.handleReportError(error, 'get report')

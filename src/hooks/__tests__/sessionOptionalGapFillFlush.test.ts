@@ -3,15 +3,14 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { queueOptionalGapFillFlush } from '../sessionOptionalGapFillFlush'
 
-const mergeOptionalSpy = vi.fn()
-const mergeSurfaceSpy = vi.fn((x: unknown) => x)
+const buildPatchSpy = vi.fn()
 
 vi.mock('../../utils/mergeOptionalSessionPrefillFields', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../utils/mergeOptionalSessionPrefillFields')>()
+  const actual =
+    await importOriginal<typeof import('../../utils/mergeOptionalSessionPrefillFields')>()
   return {
     ...actual,
-    mergeOptionalSessionPrefillFields: (...args: unknown[]) => mergeOptionalSpy(...args),
-    mergeSessionSurfaceForOptionalPrefill: (raw: unknown) => mergeSurfaceSpy(raw),
+    buildOptionalSessionGapFillPatch: (...args: unknown[]) => buildPatchSpy(...args),
   }
 })
 
@@ -21,9 +20,8 @@ async function flushMicrotasks(): Promise<void> {
 
 describe('queueOptionalGapFillFlush', () => {
   beforeEach(() => {
-    mergeOptionalSpy.mockReset()
-    mergeSurfaceSpy.mockReset()
-    mergeOptionalSpy.mockReturnValue({ revenue: 123 })
+    buildPatchSpy.mockReset()
+    buildPatchSpy.mockReturnValue({ revenue: 123 })
     useManualFormStore.getState().resetForm()
     useSessionStore.setState({
       restorationComplete: true,
@@ -43,7 +41,7 @@ describe('queueOptionalGapFillFlush', () => {
 
     await flushMicrotasks()
 
-    expect(mergeOptionalSpy).toHaveBeenCalledTimes(1)
+    expect(buildPatchSpy).toHaveBeenCalledTimes(1)
     expect(updateSpy).toHaveBeenCalledTimes(1)
     expect(updateSpy).toHaveBeenCalledWith({ revenue: 123 })
     updateSpy.mockRestore()
@@ -56,7 +54,7 @@ describe('queueOptionalGapFillFlush', () => {
     queueOptionalGapFillFlush()
     await flushMicrotasks()
 
-    expect(mergeOptionalSpy).not.toHaveBeenCalled()
+    expect(buildPatchSpy).not.toHaveBeenCalled()
     expect(updateSpy).not.toHaveBeenCalled()
     updateSpy.mockRestore()
   })
@@ -73,7 +71,7 @@ describe('queueOptionalGapFillFlush', () => {
     queueOptionalGapFillFlush()
     await flushMicrotasks()
 
-    expect(mergeOptionalSpy).not.toHaveBeenCalled()
+    expect(buildPatchSpy).not.toHaveBeenCalled()
     expect(updateSpy).not.toHaveBeenCalled()
     updateSpy.mockRestore()
   })

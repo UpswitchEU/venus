@@ -22,6 +22,7 @@ import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
+import { sessionEnvelopeHasIdentitySignals } from '../utils/mergeOptionalSessionPrefillFields'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 /**
@@ -243,8 +244,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             sessionAny.latest_valuation
           )
         )
+        const hasMergedEnvelopeIdentity = sessionEnvelopeHasIdentitySignals(sessionData)
         // CRITICAL: Broaden check to include KBO and other form fields from Mercury
-        // Empty company_name is falsy but kbo_number, vat_number, etc. may exist
+        // Empty company_name is falsy but kbo_number, vat_number, etc. may exist.
+        // Hermes may stash identity-only payloads under `_businessInfo` without flat mirrors — mirror SessionNormalizer.
         const hasExistingFormData = !!(
           sessionData.formData ||
           sessionData.form_data ||
@@ -265,7 +268,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           (sessionData.legalForm && sessionData.legalForm.trim() !== '') ||
           (sessionData.legal_form && sessionData.legal_form.trim() !== '') ||
           sessionData.naceCode ||
-          sessionData.nace_code
+          sessionData.nace_code ||
+          hasMergedEnvelopeIdentity
         )
         const isExistingSession = hasExistingValuationResult || hasExistingFormData
 

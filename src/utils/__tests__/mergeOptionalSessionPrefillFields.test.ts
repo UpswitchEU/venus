@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { getCurrentFilingYear } from '../fiscalYear'
 import {
+  buildOptionalSessionGapFillPatch,
   getSessionOptionalPrefillSignature,
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
+  sessionEnvelopeHasIdentitySignals,
   stableOptionalPrefillSourceSignature,
 } from '../mergeOptionalSessionPrefillFields'
 
@@ -216,6 +218,47 @@ describe('mergeSessionSurfaceForOptionalPrefill', () => {
   })
 })
 
+describe('buildOptionalSessionGapFillPatch', () => {
+  it('fills registry columns from nested _businessInfo into vacant slots', () => {
+    const patch = buildOptionalSessionGapFillPatch(
+      { _businessInfo: { company_name: 'Nested BV', kbo_number: '0123456749' } },
+      {}
+    )
+    expect(patch.company_name).toBe('Nested BV')
+    expect(patch.kbo_number).toBe('0123456749')
+  })
+
+  it('does not overwrite populated identity fields', () => {
+    const patch = buildOptionalSessionGapFillPatch(
+      { _businessInfo: { company_name: 'Other', kbo_number: '0999999999' } },
+      { company_name: 'Mine', kbo_number: '0111111111' }
+    )
+    expect(patch.company_name).toBeUndefined()
+    expect(patch.kbo_number).toBeUndefined()
+  })
+})
+
+describe('sessionEnvelopeHasIdentitySignals', () => {
+  it('true when company_name lives under _businessInfo only', () => {
+    expect(
+      sessionEnvelopeHasIdentitySignals({
+        _businessInfo: { company_name: 'Acme BV' },
+      })
+    ).toBe(true)
+  })
+
+  it('true when KBO lives under card only', () => {
+    expect(sessionEnvelopeHasIdentitySignals({ _businessInfo: { kbo_number: '0123456749' } })).toBe(
+      true
+    )
+  })
+
+  it('false when envelope has no identity cues', () => {
+    expect(sessionEnvelopeHasIdentitySignals({})).toBe(false)
+    expect(sessionEnvelopeHasIdentitySignals({ _businessInfo: {} })).toBe(false)
+  })
+})
+
 describe('mergeOptionalSessionPrefillFields', () => {
   it('fills empty DCF and NAV scalars when session has them', () => {
     const patch = mergeOptionalSessionPrefillFields(
@@ -408,16 +451,13 @@ describe('mergeOptionalSessionPrefillFields', () => {
       { year: String(fy - 1), revenue: 900_000, ebitda: 90_000 },
       { year: String(fy), revenue: 0, ebitda: 0 },
     ]
-    const patch = mergeOptionalSessionPrefillFields(
-      { yearlyFinancials: grid },
-      {
-        ...baseForm,
-        yearlyFinancials: [
-          { year: String(fy), revenue: 0, ebitda: 0 },
-          { year: String(fy - 1), revenue: 0, ebitda: 0 },
-        ],
-      } as any
-    )
+    const patch = mergeOptionalSessionPrefillFields({ yearlyFinancials: grid }, {
+      ...baseForm,
+      yearlyFinancials: [
+        { year: String(fy), revenue: 0, ebitda: 0 },
+        { year: String(fy - 1), revenue: 0, ebitda: 0 },
+      ],
+    } as any)
     expect((patch as Record<string, unknown>).yearlyFinancials).toEqual(grid)
   })
 
@@ -457,7 +497,9 @@ describe('mergeOptionalSessionPrefillFields', () => {
     expect((patch.business_context as Record<string, unknown>)._imported_ledger_analysis).toEqual(
       analysis
     )
-    expect((patch.business_context as Record<string, unknown>).kbo_registration).toBe('0403.123.456')
+    expect((patch.business_context as Record<string, unknown>).kbo_registration).toBe(
+      '0403.123.456'
+    )
   })
 
   it('promotes adaptive preferences from business_context camelCase aliases', () => {
@@ -605,10 +647,10 @@ describe('mergeOptionalSessionPrefillFields', () => {
   })
 
   it('does not overwrite existing user_weights via _user_weights alias', () => {
-    const patch = mergeOptionalSessionPrefillFields(
-      { _user_weights: { dcf: 1 } },
-      { ...baseForm, user_weights: { dcf: 0.5, ebitda_multiple: 0.5 } } as any
-    )
+    const patch = mergeOptionalSessionPrefillFields({ _user_weights: { dcf: 1 } }, {
+      ...baseForm,
+      user_weights: { dcf: 0.5, ebitda_multiple: 0.5 },
+    } as any)
     expect((patch as any).user_weights).toBeUndefined()
   })
 

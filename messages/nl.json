@@ -1121,13 +1121,6 @@
 			"saved": "Opgeslagen",
 			"saving": "Opslaan...",
 			"draft": "Concept"
-		},
-		"advisorLifecycle": {
-			"ariaLabel": "Klanttraject — eerdere stappen openen in Upswitch",
-			"basis": "Basis",
-			"profile": "Profiel",
-			"valuation": "Waardering",
-			"live": "Live"
 		}
 	},
 	"manualInput": {

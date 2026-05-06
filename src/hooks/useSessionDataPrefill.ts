@@ -413,6 +413,8 @@ export function useSessionDataPrefill() {
   }, [
     sessionData,
     formData.company_name,
+    formData.kbo_number,
+    formData.vat_number,
     formData.business_type_id,
     updateFormData,
     bootstrap?.report?.mode,

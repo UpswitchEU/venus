@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { PRIMARY_OMNI_METHOD_ORDER } from '../omniCalcMethods'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../../utils/mergeOptionalSessionPrefillFields'
+import { PRIMARY_OMNI_METHOD_ORDER } from '../omniCalcMethods'
 
 const METHOD_PREFILL_MATRIX: Record<(typeof PRIMARY_OMNI_METHOD_ORDER)[number], string[]> = {
   upswitch_adaptive: [
@@ -23,12 +23,18 @@ const METHOD_PREFILL_MATRIX: Record<(typeof PRIMARY_OMNI_METHOD_ORDER)[number], 
   sde_multiple: ['owner_salary_addback', '_imported_ledger_analysis', '_normalizations'],
   dcf: ['dcf_wacc_pct', 'dcf_terminal_growth_pct', 'forecast_years_data'],
   adjusted_nav: ['nav_hidden_reserves', 'nav_per_asset_tax_rates', 'balance_sheet_adjustments'],
-  fiscal_4x: ['taxable_profit', 'director_remuneration', 'sme_rate_override', 'official_financials'],
+  fiscal_4x: [
+    'taxable_profit',
+    'director_remuneration',
+    'sme_rate_override',
+    'official_financials',
+  ],
 }
 
 const OPTIONAL_SURFACE = new Set<string>([
   ...OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   ...OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  '_pre_selected_valuation_methods',
   'official_financials',
   'official_variance_analysis',
   'official_verification_badge',
@@ -50,6 +56,10 @@ const OPTIONAL_SURFACE = new Set<string>([
 ])
 
 describe('Omni prefill coverage contract', () => {
+  it('tracks persisted multi-method selection for gap-fill', () => {
+    expect(OPTIONAL_SESSION_STRUCT_SYNC_KEYS).toContain('_pre_selected_valuation_methods')
+  })
+
   it('keeps the 9-key Omni method order', () => {
     expect(PRIMARY_OMNI_METHOD_ORDER).toHaveLength(9)
   })

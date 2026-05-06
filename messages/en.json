@@ -1121,13 +1121,6 @@
 			"saved": "Saved",
 			"saving": "Saving...",
 			"draft": "Draft"
-		},
-		"advisorLifecycle": {
-			"ariaLabel": "Client journey — open previous steps in Upswitch",
-			"basis": "Basic",
-			"profile": "Profile",
-			"valuation": "Valuation",
-			"live": "Live"
 		}
 	},
 	"manualInput": {

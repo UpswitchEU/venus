@@ -49,7 +49,6 @@ import {
 } from '@/lib/analytics'
 // Calculator Components (full Clarity parity)
 import {
-  AdvisorLifecycleStrip,
   CalculatorNav,
   CalculatorShellSkeleton,
   ChatAssistantDrawer,
@@ -807,6 +806,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportPanelRef = useRef<HTMLDivElement>(null)
   /** Avoid overlapping getReport calls from the PDF-stale poll interval */
   const pdfStalePollInFlightRef = useRef(false)
+  /** Back off PDF stale polling while report row is not linked for val_* session keys (expected 404). */
+  const pdfStaleBySessionBackoffUntilRef = useRef(0)
+  const pdfStaleBySession404StreakRef = useRef(0)
 
   // Venus infrastructure
   const { user } = useAuth()
@@ -975,6 +977,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return null
   }, [session?.reportId, resolvedReportId, reportId])
+
+  useEffect(() => {
+    pdfStaleBySessionBackoffUntilRef.current = 0
+    pdfStaleBySession404StreakRef.current = 0
+  }, [persistedReportLookupId])
 
   const reportHydrationLookupId = useMemo(() => {
     const candidates = [
@@ -2494,6 +2501,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!pdfStale) {
       setPdfWaitTimedOut(false)
       setPdfPollErrorCount(0)
+      pdfStaleBySessionBackoffUntilRef.current = 0
+      pdfStaleBySession404StreakRef.current = 0
       return
     }
     setPdfWaitTimedOut(false)
@@ -2505,6 +2514,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!pdfStale || !persistedReportLookupId) return
     const id = setInterval(async () => {
       if (pdfStalePollInFlightRef.current) return
+      if (
+        isSessionKey(persistedReportLookupId) &&
+        Date.now() < pdfStaleBySessionBackoffUntilRef.current
+      ) {
+        return
+      }
       pdfStalePollInFlightRef.current = true
       try {
         const fresh = await backendAPI.getReport(
@@ -2546,13 +2561,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
         })
+        pdfStaleBySession404StreakRef.current = 0
         setPdfPollErrorCount(0)
       } catch (err) {
-        generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
-          reportId: persistedReportLookupId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-        setPdfPollErrorCount((c) => c + 1)
+        const isSession404 =
+          err instanceof APIError &&
+          err.statusCode === 404 &&
+          isSessionKey(persistedReportLookupId)
+        if (isSession404) {
+          const streak = ++pdfStaleBySession404StreakRef.current
+          const delayMs = Math.min(
+            60_000,
+            PDF_STALE_POLL_INTERVAL_MS * 2 ** Math.min(streak - 1, 5)
+          )
+          pdfStaleBySessionBackoffUntilRef.current = Date.now() + delayMs
+          generalLogger.debug('[ManualLayout] PDF stale poll skipped backoff after by-session 404', {
+            reportId: persistedReportLookupId?.substring(0, 40),
+            streak,
+            delayMs,
+          })
+        } else {
+          generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
+            reportId: persistedReportLookupId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+          setPdfPollErrorCount((c) => c + 1)
+        }
       } finally {
         pdfStalePollInFlightRef.current = false
       }
@@ -5902,9 +5936,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             onShowNormalisationReview={handleShowNormalisationReview}
           />
         )}
-        {isAccountantMode && clientContextId && (
-          <AdvisorLifecycleStrip mercuryLocale={mercuryLocale} clientId={clientContextId} />
-        )}
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -6118,9 +6149,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           pendingNormalisations={pendingNormalizationCount}
           onShowNormalisationReview={handleShowNormalisationReview}
         />
-      )}
-      {isAccountantMode && clientContextId && (
-        <AdvisorLifecycleStrip mercuryLocale={mercuryLocale} clientId={clientContextId} />
       )}
 
       {/* Main Content: Resizable Panels */}

@@ -76,6 +76,43 @@ describe('SessionRestorationService', () => {
     expect(state.result?.html_report).toBe('<html>Fresh report</html>')
   })
 
+  it('gap-fills registry fields from _businessInfo when flat session extract is empty', async () => {
+    await SessionRestorationService.restore('val_nested_card', {
+      reportId: 'val_nested_card',
+      sessionData: {
+        _businessInfo: {
+          company_name: 'Nested BV',
+          kbo_number: '0123456749',
+        },
+      },
+      valuationResult: {
+        valuation_id: 'val_nested_card',
+        equity_value_mid: 100000,
+        currency: 'EUR',
+      },
+    } as any)
+
+    const fd = useManualFormStore.getState().formData
+    expect(fd.company_name).toBe('Nested BV')
+    expect(fd.kbo_number).toBe('0123456749')
+  })
+
+  it('restores nested business card without valuation result (Hermes draft envelope)', async () => {
+    await SessionRestorationService.restore('val_card_only_draft', {
+      reportId: 'val_card_only_draft',
+      sessionData: {
+        _businessInfo: {
+          company_name: 'Draft BV',
+          kbo_number: '0888888888',
+        },
+      },
+    } as any)
+
+    const fd = useManualFormStore.getState().formData
+    expect(fd.company_name).toBe('Draft BV')
+    expect(fd.kbo_number).toBe('0888888888')
+  })
+
   it('restores persisted method maps when they only exist under details', async () => {
     await SessionRestorationService.restore('val_details_only', {
       reportId: 'val_details_only',

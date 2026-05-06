@@ -26,6 +26,12 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
+import {
+  mergeSessionSurfaceForOptionalPrefill,
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  sessionEnvelopeHasIdentitySignals,
+} from '../../utils/mergeOptionalSessionPrefillFields'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
@@ -35,13 +41,30 @@ import {
   normalizeSessionDates,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
-import {
-  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
-  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
-} from '../../utils/mergeOptionalSessionPrefillFields'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
+
+/** Diagnostics / cache hints — use merged surface so `_businessInfo`-only sessions register as form-bearing */
+function sessionDataIndicatesUsableFormInputs(sessionData: unknown): boolean {
+  if (!sessionData || typeof sessionData !== 'object') return false
+  if (sessionEnvelopeHasIdentitySignals(sessionData)) return true
+  const m = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
+  if (m.revenue != null || m.ebitda != null) return true
+  const cyd = m.current_year_data
+  if (cyd && typeof cyd === 'object' && !Array.isArray(cyd)) {
+    const o = cyd as Record<string, unknown>
+    if (o.revenue != null || o.ebitda != null) return true
+  }
+  if (Array.isArray(m.historical_years_data) && m.historical_years_data.length > 0) return true
+  const yd = m.year_data ?? m.yearData
+  return !!(
+    yd &&
+    typeof yd === 'object' &&
+    !Array.isArray(yd) &&
+    Object.keys(yd as object).length > 0
+  )
+}
 
 /** Deduplicate concurrent self-heal calls per Titan report UUID */
 const ensureHtmlInFlight = new Set<string>()
@@ -126,7 +149,12 @@ const ZERO_PLACEHOLDER_NUMERIC_KEYS = new Set([
 
 function isZeroPlaceholderNumericKey(key: string): boolean {
   if (ZERO_PLACEHOLDER_NUMERIC_KEYS.has(key)) return true
-  return key.startsWith('dcf_') || key.startsWith('nav_') || key.startsWith('saas_') || key.startsWith('rev_')
+  return (
+    key.startsWith('dcf_') ||
+    key.startsWith('nav_') ||
+    key.startsWith('saas_') ||
+    key.startsWith('rev_')
+  )
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -732,12 +760,7 @@ export class SessionService {
           ? Object.keys(cachedSession.sessionData)
           : []
         const sessionData = cachedSession.sessionData || ({} as any)
-        const hasFormFields =
-          hasSessionData &&
-          (sessionData.company_name ||
-            (sessionData.current_year_data as any)?.revenue ||
-            (sessionData.current_year_data as any)?.ebitda ||
-            sessionData.current_year_data)
+        const hasFormFields = hasSessionData && sessionDataIndicatesUsableFormInputs(sessionData)
 
         logger.debug('Session loaded from cache (instant)', {
           reportId,
@@ -1274,11 +1297,7 @@ export class SessionService {
               : []
             const sessionData = mergedSession.sessionData || ({} as any)
             const hasFormFields =
-              hasSessionData &&
-              (sessionData.company_name ||
-                (sessionData.current_year_data as any)?.revenue ||
-                (sessionData.current_year_data as any)?.ebitda ||
-                sessionData.current_year_data)
+              hasSessionData && sessionDataIndicatesUsableFormInputs(sessionData)
 
             globalSessionCache.set(reportId, mergedSession)
 
@@ -1449,7 +1468,7 @@ export class SessionService {
 
       // Extract top-level mutable fields separately so autosave can persist them too.
       const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
-      const hasExplicitName = Object.prototype.hasOwnProperty.call(updatesAny, 'name')
+      const hasExplicitName = Object.hasOwn(updatesAny, 'name')
       const name = hasExplicitName ? updatesAny.name : currentSession?.name
 
       // sessionData should contain the actual form data, not top-level session metadata.

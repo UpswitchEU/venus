@@ -17,7 +17,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Building2,
-  CloudDownload,
   HelpCircle,
   Lock,
   Plus,
@@ -101,7 +100,6 @@ import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
   ManualValuationFormData,
@@ -707,7 +705,6 @@ export function ManualInputPanel({
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const importQualityFromStore = useImportQualityStore((s) => s.importQuality)
   const hasExplicitNumericValue = useCallback(
     (value: unknown) => hasExplicitFinancialValue(value),
     []
@@ -2948,67 +2945,6 @@ export function ManualInputPanel({
     )
     .map((yf) => yf.year)
 
-  const persistedImportedLedgerAnalysis = useMemo(() => {
-    const raw = formData.business_context?._imported_ledger_analysis
-    return raw && typeof raw === 'object' && !Array.isArray(raw)
-      ? (raw as ImportedLedgerAnalysisSummary)
-      : null
-  }, [formData.business_context])
-  const effectiveImportedLedgerAnalysis = useMemo(() => {
-    const fromBatch =
-      importBatchData != null
-        ? ({
-            latest_fiscal_year: importBatchData.latest_fiscal_year,
-            sde_flags: importBatchData.sde_flags,
-            ev_equity_bridge: importBatchData.ev_equity_bridge,
-            dcf_defaults: importBatchData.dcf_defaults,
-          } as ImportedLedgerAnalysisSummary)
-        : null
-    const base = fromBatch ?? persistedImportedLedgerAnalysis
-    if (!base) return null
-    return base
-  }, [importBatchData, persistedImportedLedgerAnalysis])
-  const shouldShowImportedBatchSummary = shouldShowImportedAccountingSummary({
-    importBatchData,
-    importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
-  })
-  const connectedProvider = accountingConnectedStatus?.provider
-  /** Pull data inside Venus only for providers with in-app batch import. */
-  const supportsVenusLiveImport =
-    connectedProvider === 'bizzcontrol' || connectedProvider === 'octopus'
-  const importedProviderLabel =
-    importBatchProvider != null
-      ? accountingProviderDisplayName(importBatchProvider)
-      : connectedProvider != null
-        ? accountingProviderDisplayName(connectedProvider)
-        : 'Imported accounting'
-  const importQualityScore = useMemo(() => {
-    if (importBatchData && importBatchData.years.length > 0) {
-      return Math.round(
-        (importBatchData.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
-          importBatchData.years.length) *
-          100
-      )
-    }
-
-    if (importQualityFromStore && Object.keys(importQualityFromStore).length > 0) {
-      const qualities = Object.values(importQualityFromStore)
-      const averageConfidence =
-        qualities.reduce((sum, quality) => sum + (quality.confidence_score ?? 0), 0) /
-        qualities.length
-      return Math.round(averageConfidence * 100)
-    }
-
-    return null
-  }, [importBatchData, importQualityFromStore])
-  const importedYearCount =
-    importBatchData?.years.length ??
-    [
-      ...(formData.current_year_data?.year ? [formData.current_year_data.year] : []),
-      ...(formData.historical_years_data ?? []).map((year) => year.year),
-    ].filter((year, index, years) => years.indexOf(year) === index).length
-  const importedSdeFlagCount = effectiveImportedLedgerAnalysis?.sde_flags?.length ?? 0
-  const effectiveEvBridge = effectiveImportedLedgerAnalysis?.ev_equity_bridge
   const selectedBelgianAuditEntries = useMemo(
     () =>
       getSelectedBelgianAuditEntries({
@@ -3024,116 +2960,11 @@ export function ManualInputPanel({
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex flex-col">
-            {shouldShowImportedBatchSummary && (
-              <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-background/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                      <CloudDownload className="h-3.5 w-3.5" />
-                      {mi('integrationEntry.importedDataEyebrow')}
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold text-foreground">
-                      {mi('integrationEntry.importedDataTitle', { provider: importedProviderLabel })}
-                    </h3>
-                    <p className="mt-1 text-sm text-foreground/70">
-                      {mi('integrationEntry.importedBatchSummaryDescription', {
-                        years: importedYearCount,
-                        provider: importedProviderLabel,
-                      })}
-                    </p>
-                  </div>
-                  {supportsVenusLiveImport && (
-                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                      <AuroraButton
-                        type="button"
-                        onClick={handleImportFromAccounting}
-                        variant="secondary"
-                        disabled={importingFromAccounting}
-                        className="w-full"
-                      >
-                        {mi('integrationEntry.refreshImportedData')}
-                      </AuroraButton>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 space-y-4">
-                  <div
-                    className={cn(
-                      'grid gap-3',
-                      effectiveEvBridge ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'
-                    )}
-                  >
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.dataQualityScore')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {importQualityScore != null ? `${importQualityScore}%` : 'n/a'}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.dataQualityDescription')}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.historicalYears')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {importedYearCount}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.historicalYearsDescription')}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.dcfCapexDefault')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {effectiveImportedLedgerAnalysis?.dcf_defaults?.suggested_capex
-                            ? formatCurrency(
-                                effectiveImportedLedgerAnalysis.dcf_defaults.suggested_capex
-                              )
-                            : 'n/a'}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.dcfCapexDefaultDescription')}
-                        </p>
-                      </div>
-                      {effectiveEvBridge ? (
-                        <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                          <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                            {mi('integrationEntry.evToEquityBridge')}
-                          </div>
-                          <div className="mt-2 text-2xl font-semibold text-foreground">
-                            {formatCurrency(effectiveEvBridge.equity_value)}
-                          </div>
-                          <p className="mt-1 text-xs text-foreground/55">
-                            {mi('integrationEntry.evBridgeDescription', {
-                              netDebt: formatCurrency(effectiveEvBridge.net_debt),
-                              cash: formatCurrency(effectiveEvBridge.cash_and_equivalents),
-                              debt: formatCurrency(effectiveEvBridge.interest_bearing_debt),
-                            })}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {importedSdeFlagCount > 0 ? (
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3 text-sm text-foreground/70">
-                        {mi('integrationEntry.importedNormalizationsDetected', {
-                          count: importedSdeFlagCount,
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                {importAccountingError && (
-                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{importAccountingError}</span>
-                  </div>
-                )}
-              </section>
+            {importAccountingError && (
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{importAccountingError}</span>
+              </div>
             )}
 
             {/* Step 1: Company Identification */}

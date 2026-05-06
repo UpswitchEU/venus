@@ -49,6 +49,7 @@ export interface MethodFieldEntry {
 }
 
 export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
+  /** Base Omni inputs + historical grid stay visible; engine derives multiples range without extra panels here. */
   upswitch_adaptive: { bonusSections: [] },
   ebitda_multiple: { bonusSections: ['revenue_quality'] },
   omzet_multiple: { bonusSections: ['revenue_quality'] },
