@@ -204,7 +204,7 @@ export function resolveEnsureHtmlSessionKey(params: {
       : undefined
 
   const nestedStable = extractStableSessionKeyFromMergedSession(
-    mergedSession as Record<string, unknown>,
+    mergedSession as unknown as Record<string, any>,
   )
 
   const candidates = [mergedReportId, snake, camelSk, nestedStable, urlReportId]

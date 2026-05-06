@@ -862,10 +862,11 @@ export class SessionService {
 
         const session = sessionResponse.session as any
         const sessionData = mergeSessionDataEnvelopesFromRoot(session as Record<string, any>)
+        const htmlFromEnvelope = (v: unknown) => (typeof v === 'string' ? v : undefined)
         const hasRenderableHtmlReport = !!getFirstRenderableReportHtml(
-          sessionData?._htmlReport,
-          sessionData?.html_report,
-          session?.htmlReport
+          htmlFromEnvelope(sessionData?._htmlReport),
+          htmlFromEnvelope(sessionData?.html_report),
+          session?.htmlReport,
         )
         const hasValuationResult = !!(
           session?.valuationResult ||
@@ -1984,7 +1985,9 @@ export class SessionService {
   }
 
   private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
-    const sessionKey = extractStableSessionKeyFromMergedSession(s as Record<string, unknown>)
+    const sessionKey = extractStableSessionKeyFromMergedSession(
+      s as unknown as Record<string, any>,
+    )
 
     const mergedReport =
       typeof s.reportId === 'string' && (isUuid(s.reportId) || isSessionKey(s.reportId))

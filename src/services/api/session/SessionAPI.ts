@@ -119,7 +119,7 @@ export class SessionAPI extends HttpClient {
       return stripReportsFromValuationSessionPatchUpdates({}) as Record<string, unknown>
     }
     const mappedCurrentView =
-      patch.currentView === 'conversational' ? 'ai-guided' : patch.currentView
+      p.currentView === 'conversational' ? 'ai-guided' : p.currentView
     const mappedDataSource =
       p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
     const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView as any }
