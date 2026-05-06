@@ -71,6 +71,32 @@ describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)
     const fy = getCurrentFilingYear(now)
     expect(yf.map((r) => r.year)).toEqual([String(fy), String(fy - 1), String(fy - 2)])
   })
+
+  it('uses non-placeholder historical rows over placeholder current_year_data for the same basis year', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z')
+    const yf = getSeedYearlyFinancials(
+      {
+        current_year_data: { year: 2024, revenue: 0, ebitda: 0 },
+        historical_years_data: [
+          { year: 2024, revenue: 910_000, ebitda: 120_000 },
+          { year: 2023, revenue: 840_000, ebitda: 112_000 },
+          { year: 2022, revenue: 780_000, ebitda: 98_000 },
+        ],
+        yearlyFinancials: [
+          { year: '2024', revenue: 0, ebitda: 0 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+          { year: '2022', revenue: 0, ebitda: 0 },
+        ],
+      },
+      now
+    )
+
+    expect(yf.find((r) => r.year === '2024')).toMatchObject({
+      year: '2024',
+      revenue: 910_000,
+      ebitda: 120_000,
+    })
+  })
 })
 
 describe('isSessionSeedYearStale (Jan–Mar 2026 → April rollover heal)', () => {

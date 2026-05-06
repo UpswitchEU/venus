@@ -93,6 +93,41 @@ describe('normalizeSessionData', () => {
     ])
   })
 
+  it('prefers non-placeholder year_data rows over placeholder current/historical rows for the same basis year', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_upswitch_metaal_restore',
+      session_data: {
+        current_year_data: {
+          year: 2024,
+          revenue: 0,
+          ebitda: 0,
+        },
+        historical_years_data: [
+          { year: 2022, revenue: 780000, ebitda: 98000 },
+          { year: 2023, revenue: 840000, ebitda: 112000 },
+          { year: 2024, revenue: 0, ebitda: 0 },
+        ],
+        year_data: {
+          2024: { revenue: 910000, ebitda: 120000 },
+          2023: { revenue: 860000, ebitda: 110000 },
+        },
+      },
+    })
+
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 910000,
+      ebitda: 120000,
+    })
+    expect(normalized.formData.historical_years_data).toEqual([
+      { year: 2022, revenue: 780000, ebitda: 98000 },
+      { year: 2023, revenue: 840000, ebitda: 112000 },
+      { year: 2024, revenue: 910000, ebitda: 120000 },
+    ])
+    expect(normalized.formData.revenue).toBe(910000)
+    expect(normalized.formData.ebitda).toBe(120000)
+  })
+
   it('merges activity_* with canonical NACE and prefers activity_label for description', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_act',

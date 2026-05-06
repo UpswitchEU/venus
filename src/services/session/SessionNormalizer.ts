@@ -305,23 +305,45 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   // Preserve manual history exactly as stored. Do not fabricate historical years from
   // current-year fields because that changes accountant-entered intent on restore.
   const fd = formData as Record<string, unknown>
+  const toOptionalNumeric = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined
+    const n = Number(value)
+    return Number.isFinite(n) ? n : undefined
+  }
+  const isPlaceholderNumeric = (value: unknown): boolean => {
+    const n = toOptionalNumeric(value)
+    return n == null || n === 0
+  }
+  const hasRealRevenueOrEbitda = (row: { revenue?: number; ebitda?: number }): boolean =>
+    (row.revenue != null && row.revenue !== 0) || (row.ebitda != null && row.ebitda !== 0)
 
   // Build historical_years_data from year_data when missing (PrefillResolver/bootstrap format)
   const yearData = sessionData.year_data ?? sessionData.yearData
+  const yearRowsFromMap = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+  if (yearData && typeof yearData === 'object' && !Array.isArray(yearData)) {
+    for (const rawYear of Object.keys(yearData)) {
+      const year = Number(rawYear)
+      if (!Number.isFinite(year) || year < 2000 || year > 2100) continue
+      const row = (yearData as Record<string, unknown>)[rawYear]
+      if (!row || typeof row !== 'object' || Array.isArray(row)) continue
+      const rowObj = row as Record<string, unknown>
+      yearRowsFromMap.set(year, {
+        year,
+        revenue: toOptionalNumeric(rowObj.revenue),
+        ebitda: toOptionalNumeric(rowObj.ebitda),
+      })
+    }
+  }
   if (
     !fd.historical_years_data &&
-    yearData &&
-    typeof yearData === 'object' &&
-    !Array.isArray(yearData)
+    yearRowsFromMap.size > 0
   ) {
-    const years = Object.keys(yearData)
-      .map((y) => parseInt(y, 10))
-      .filter((y) => !isNaN(y) && y >= 2000 && y <= 2100)
+    const years = Array.from(yearRowsFromMap.keys())
     if (years.length > 0) {
       fd.historical_years_data = years
         .sort((a, b) => a - b)
         .map((year) => {
-          const data = (yearData as Record<number, { revenue?: number; ebitda?: number }>)[year]
+          const data = yearRowsFromMap.get(year)
           return {
             year,
             revenue: data?.revenue ?? 0,
@@ -329,6 +351,38 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
           }
         })
     }
+  }
+  if (Array.isArray(fd.historical_years_data) && yearRowsFromMap.size > 0) {
+    const mergedByYear = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+    for (const row of fd.historical_years_data as Array<{
+      year?: number
+      revenue?: number
+      ebitda?: number
+    }>) {
+      if (!row || !Number.isFinite(Number(row.year))) continue
+      const year = Number(row.year)
+      mergedByYear.set(year, {
+        year,
+        revenue: toOptionalNumeric(row.revenue),
+        ebitda: toOptionalNumeric(row.ebitda),
+      })
+    }
+    for (const [year, incoming] of yearRowsFromMap.entries()) {
+      const existing = mergedByYear.get(year)
+      if (!existing) {
+        mergedByYear.set(year, incoming)
+        continue
+      }
+      const next = { ...existing }
+      if (isPlaceholderNumeric(next.revenue) && incoming.revenue != null) {
+        next.revenue = incoming.revenue
+      }
+      if (isPlaceholderNumeric(next.ebitda) && incoming.ebitda != null) {
+        next.ebitda = incoming.ebitda
+      }
+      mergedByYear.set(year, next)
+    }
+    fd.historical_years_data = Array.from(mergedByYear.values()).sort((a, b) => a.year - b.year)
   }
 
   if (Array.isArray(fd.historical_years_data)) {
@@ -345,6 +399,17 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     | undefined
   if (cyd) {
     cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
+    if (cyd.year != null) {
+      const candidate = yearRowsFromMap.get(cyd.year)
+      if (candidate && hasRealRevenueOrEbitda(candidate)) {
+        if (isPlaceholderNumeric(cyd.revenue) && candidate.revenue != null) {
+          cyd.revenue = candidate.revenue
+        }
+        if (isPlaceholderNumeric(cyd.ebitda) && candidate.ebitda != null) {
+          cyd.ebitda = candidate.ebitda
+        }
+      }
+    }
   }
   if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
     if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)

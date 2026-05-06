@@ -208,4 +208,31 @@ describe('buildManualValuationRequest', () => {
       vi.useRealTimers()
     }
   })
+
+  it('keeps the Upswitch Metaal prefill fixture basis row non-zero on SME request build', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: null,
+      selectedMethod: 'upswitch_adaptive',
+    })
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      company_name: 'Metaalbewerking Upswitch',
+      revenue: 910_000,
+      ebitda: 120_000,
+      current_year_data: {
+        year: 2024,
+        revenue: 910_000,
+        ebitda: 120_000,
+      },
+      historical_years_data: [
+        { year: 2022, revenue: 780_000, ebitda: 98_000 },
+        { year: 2023, revenue: 840_000, ebitda: 112_000 },
+      ],
+    } as typeof baseFormData)
+
+    expect(req.startup_inputs).toBeUndefined()
+    expect(req.current_year_data?.revenue).toBe(910_000)
+    expect(req.current_year_data?.ebitda).toBe(120_000)
+  })
 })
