@@ -374,10 +374,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
         // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
         // BFF runs Titan GET + optional POST generate + storage stream.
-        const response = await fetch(`/api/valuations/${reportId}/pdf/download`, {
-          credentials: 'include',
-          signal: fetchSignal,
-        })
+        const response = await fetch(
+          `/api/valuations/${reportId}/pdf/download?_=${encodeURIComponent(String(Date.now()))}`,
+          {
+            credentials: 'include',
+            signal: fetchSignal,
+            cache: 'no-store',
+          }
+        )
 
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}))
@@ -419,7 +423,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         const blobUrl = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = blobUrl
-        link.download = filename || `valuation-report-${reportId}.pdf`
+        link.download = filename || `valuation-report-${reportId}-${Date.now()}.pdf`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)

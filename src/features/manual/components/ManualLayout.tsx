@@ -4012,7 +4012,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const abortController = new AbortController()
     pdfExportAbortRef.current = abortController
 
-    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
+    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}-${Date.now()}.pdf`
 
     const idForPdf = resolvedReportId ?? reportId
     if (
