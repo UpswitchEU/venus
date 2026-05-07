@@ -1732,7 +1732,7 @@
 				"fiscalPreviewUnavailableEbitda": "Positieve EBITDA is vereist voor het 4×-anker.",
 				"fiscalPreviewUnavailableMissingEbitda": "Vul een volledig historisch jaar met EBITDA in om het fiscale anker te tonen.",
 				"fiscalPreviewUnavailableMissingEquity": "Eigen vermogen (boekhoudkundig) ontbreekt voor het meest recente volledige jaar. Het 4×-anker wordt wél getoond; de volledige forfaitaire referentiewaarde (EV + 4× EBITDA) vult pas aan met balansdata.",
-				"fiscalPreviewMissingEquityAction": "Voeg in Financiële historie voor dat jaar totalen toe: eigen vermogen, of activa en schulden (of activa en vreemd vermogen) zodat eigen vermogen afgeleid kan worden.",
+				"fiscalPreviewMissingEquityAction": "Voeg in Financiële historie voor dat jaar totalen toe: eigen vermogen, of activa en schulden (of activa en vreemd vermogen) zodat eigen vermogen afgeleid kan worden."
 			},
 			"realEstateCarveOutHint": "Voor verkoopstructuur (asset deal): wanneer de koper het vastgoed niet overneemt, wordt de boekwaarde uit de transactie gehaald en wordt de fictieve huur in mindering gebracht op de EBITDA-basis. Voor de latente belasting op de meerwaarde, zie 'Balans & Latenties' in de normalisatiemodal.",
 			"estimatedMarketRentEbitdaHint": "Vul het geschatte jaarlijks markthuur (niet de boekwaarde). De motor gebruikt dit om EBITDA te normaliseren als de vennootschap het pand niet meer bezit.",

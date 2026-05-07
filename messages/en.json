@@ -1732,7 +1732,7 @@
 				"fiscalPreviewUnavailableEbitda": "Positive EBITDA is required for the 4× anchor.",
 				"fiscalPreviewUnavailableMissingEbitda": "Add a complete historical year with EBITDA to preview the fiscal anchor.",
 				"fiscalPreviewUnavailableMissingEquity": "Book equity is missing for the latest complete year. The 4× anchor still shows; the full statutory-style reference equity (book + 4× EBITDA) needs balance-sheet lines.",
-				"fiscalPreviewMissingEquityAction": "In Financial history, add totals for that year: equity, or assets and liabilities (or assets and debt) so book equity can be derived.",
+				"fiscalPreviewMissingEquityAction": "In Financial history, add totals for that year: equity, or assets and liabilities (or assets and debt) so book equity can be derived."
 			},
 			"realEstateCarveOutHint": "For deal structure (asset deal): use this when the buyer acquires the operating company but rents the property from the seller after closing. The engine removes the property value from the deal and deducts market rent from the EBITDA basis. For the deferred tax on hidden gains, see 'Balans & Latenties' in the normalization modal.",
 			"estimatedMarketRentEbitdaHint": "Enter your best estimate of annual market rent (not book). The valuation engine uses this to normalize EBITDA when the operating company no longer owns the bricks.",

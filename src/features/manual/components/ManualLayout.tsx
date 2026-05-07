@@ -3021,15 +3021,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const isStartupRoute = effectiveMethod === 'startup_valuation'
 
       if (!data.companyName?.trim()) {
-        toast.error(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
+        toast.warning(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
         return
       }
       if (!isStartupRoute && !data.businessType?.trim()) {
-        toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
+        toast.warning(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
         return
       }
       if (!isStartupRoute && !getLatestCompleteYearlyFinancial(data.yearlyFinancials || [])) {
-        toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
+        toast.warning(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
         return
       }
 

@@ -103,14 +103,6 @@ export function useBootstrapPrefill(): {
       return
     }
 
-    // Skip if bootstrap failed
-    if (bootstrap.bootstrapError) {
-      logger.warn('Bootstrap failed, skipping prefill', {
-        error: bootstrap.bootstrapError,
-      })
-      return
-    }
-
     // MERCURY FIX: For existing reports, apply prefill if bootstrap has meaningful data
     // Previously we skipped entirely and deferred to restoration - but loadSession is async,
     // so the form stayed blank until it completed. Bootstrap prefill has the data from
@@ -135,6 +127,18 @@ export function useBootstrapPrefill(): {
           (bootstrap.prefillData.financials.yearData &&
             Object.keys(bootstrap.prefillData.financials.yearData).length > 0))
       )
+
+    if (bootstrap.bootstrapError) {
+      if (!hasMeaningfulPrefill) {
+        logger.warn('Bootstrap failed with no usable prefill; skipping', {
+          error: bootstrap.bootstrapError,
+        })
+        return
+      }
+      logger.warn('Bootstrap reported an error; applying available partial prefill', {
+        error: bootstrap.bootstrapError,
+      })
+    }
 
     if (
       bootstrap.report.mode === 'existing' &&

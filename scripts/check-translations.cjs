@@ -9,6 +9,29 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+
+/**
+ * Validates every locale JSON file (syntax, BOM, root object) before parity checks.
+ * Keeps parity with scripts/verify-messages-json.mjs + build prelude.
+ */
+function verifyAllLocaleJsonStrict() {
+  const appDir = path.join(__dirname, '..');
+  const verifier = path.join(__dirname, 'verify-messages-json.mjs');
+  try {
+    execFileSync(process.execPath, [verifier], {
+      cwd: appDir,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        VERIFY_MESSAGES_QUIET: '1',
+      },
+    });
+  } catch (err) {
+    const code = typeof err.status === 'number' ? err.status : 1;
+    process.exit(code);
+  }
+}
 
 /**
  * Load messages from a locale file
@@ -17,6 +40,10 @@ function loadMessages(locale) {
   const filePath = path.join(__dirname, `../messages/${locale}.json`);
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
+    if (content.length > 0 && content.charCodeAt(0) === 0xfeff) {
+      console.error(`❌ ERROR: ${locale}.json starts with UTF-8 BOM — remove BOM (matches verify-messages-json).`);
+      process.exit(1);
+    }
     return JSON.parse(content);
   } catch (error) {
     console.error(`❌ ERROR: Failed to load ${locale}.json:`, error.message);
@@ -31,11 +58,19 @@ function loadStartupStudioOverlay(locale) {
   const tryPath = path.join(__dirname, `../messages/startupStudio/${locale}.json`);
   try {
     const content = fs.readFileSync(tryPath, 'utf-8');
+    if (content.length > 0 && content.charCodeAt(0) === 0xfeff) {
+      console.error(`❌ ERROR: startupStudio overlay has BOM: ${locale}.json`);
+      process.exit(1);
+    }
     return JSON.parse(content);
   } catch {
     try {
       const enPath = path.join(__dirname, `../messages/startupStudio/en.json`);
       const content = fs.readFileSync(enPath, 'utf-8');
+      if (content.length > 0 && content.charCodeAt(0) === 0xfeff) {
+        console.error(`❌ ERROR: startupStudio/en.json starts with UTF-8 BOM`);
+        process.exit(1);
+      }
       return JSON.parse(content);
     } catch {
       return {};
@@ -96,6 +131,8 @@ function getValue(obj, path) {
  * Main translation checker
  */
 function checkTranslations() {
+  verifyAllLocaleJsonStrict();
+
   console.log('\n🌍 Translation Status Checker for Venus\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   
