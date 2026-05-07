@@ -122,7 +122,6 @@ import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { backendAPI } from '../../../services/backendApi'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
-import { shouldPreferIntegrationEntry } from '@/utils/shouldPreferIntegrationEntry'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import {
@@ -880,11 +879,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
     Object.keys(importQualityMap).length > 0
-  /** Integration-first left-rail chrome: only when Hermes/import-quality signals or Titan accounting prefill exists. */
-  const preferIntegrationEntry = useMemo(
-    () => shouldPreferIntegrationEntry(hasImportQuality, prefillData?.sources),
-    [hasImportQuality, prefillData?.sources]
-  )
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
@@ -5681,7 +5675,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     synthesisUnlocked,
     synthesisValuationResults,
     onSynthesisPaywall: () => openStarterPaywall('synthesis'),
-    preferIntegrationEntry,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,

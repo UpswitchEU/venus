@@ -21,6 +21,11 @@ export interface AuroraButtonProps extends Omit<HTMLMotionProps<'button'>, 'chil
   size?: 'sm' | 'md' | 'lg' | 'icon'
   /** Loading state */
   loading?: boolean
+  /**
+   * Visually hidden text while `loading` (spinner only is shown). Defaults to English “Loading…”.
+   * Pass a translated string from `next-intl` (or similar) for non-English locales.
+   */
+  loadingScreenReaderLabel?: string
   /** Full width */
   fullWidth?: boolean
   /** Button content */
@@ -91,6 +96,7 @@ export const AuroraButton = forwardRef<HTMLButtonElement, AuroraButtonProps>(
       variant = 'primary',
       size = 'md',
       loading = false,
+      loadingScreenReaderLabel,
       fullWidth = false,
       disabled,
       children,
@@ -113,11 +119,12 @@ export const AuroraButton = forwardRef<HTMLButtonElement, AuroraButtonProps>(
         whileTap={!disabled && !loading ? tapScale : undefined}
         transition={springSnappy}
         {...props}
+        aria-busy={loading ? true : undefined}
       >
         {loading ? (
           <>
             <LoadingSpinner />
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">{loadingScreenReaderLabel ?? 'Loading...'}</span>
           </>
         ) : (
           children

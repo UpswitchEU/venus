@@ -1,3 +1,4 @@
+import type { IntegrationStatus } from '../../../services/api/accounting'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ValuationMethodResult } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
@@ -7,7 +8,7 @@ import {
   getSelectedBelgianAuditEntries,
   isSessionSeedYearStale,
   shouldAutoConfirmPrefilledFilingYear,
-  shouldShowImportedAccountingSummary,
+  venusLiveBatchImportProvider,
 } from '../ManualInputPanel'
 
 describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)', () => {
@@ -204,48 +205,45 @@ describe('shouldAutoConfirmPrefilledFilingYear refuses to re-confirm stale seed'
   })
 })
 
-describe('shouldShowImportedAccountingSummary', () => {
-  it('does not show the old connect/import prompt for empty accounting prefill signals', () => {
+describe('venusLiveBatchImportProvider', () => {
+  it('returns null when disconnected or missing row', () => {
+    expect(venusLiveBatchImportProvider(null)).toBe(null)
     expect(
-      shouldShowImportedAccountingSummary({
-        importBatchData: null,
-        importedLedgerAnalysis: null,
-      })
-    ).toBe(false)
-
-    expect(
-      shouldShowImportedAccountingSummary({
-        importBatchData: null,
-        importedLedgerAnalysis: {},
-      })
-    ).toBe(false)
+      venusLiveBatchImportProvider({
+        provider: 'bizzcontrol',
+        is_connected: false,
+      } satisfies IntegrationStatus)
+    ).toBe(null)
   })
 
-  it('shows only when imported accounting data has reviewable content', () => {
+  it('returns bizzcontrol or octopus only when connected', () => {
     expect(
-      shouldShowImportedAccountingSummary({
-        importedLedgerAnalysis: {
-          sde_flags: [
-            {
-              ledger_code: '610000',
-              ledger_name: 'Services and other goods',
-              amount: 280_000,
-              deviation_pct: 0.096,
-              benchmark_median_pct: 0.03,
-              benchmark_std_pct: 0.012,
-              actual_pct_of_revenue: 0.144,
-              z_score: 8,
-              confidence: 0.9,
-              year: 2025,
-              potential_sde_addback: true,
-              suggested_question: 'Review add-back',
-              rationale: 'Above benchmark',
-              category: 'discretionary_expense',
-            },
-          ],
-        },
-      })
-    ).toBe(true)
+      venusLiveBatchImportProvider({
+        provider: 'bizzcontrol',
+        is_connected: true,
+      } satisfies IntegrationStatus)
+    ).toBe('bizzcontrol')
+    expect(
+      venusLiveBatchImportProvider({
+        provider: 'octopus',
+        is_connected: true,
+      } satisfies IntegrationStatus)
+    ).toBe('octopus')
+  })
+
+  it('ignores Silverfin and other providers for in-panel batch import', () => {
+    expect(
+      venusLiveBatchImportProvider({
+        provider: 'silverfin',
+        is_connected: true,
+      } satisfies IntegrationStatus)
+    ).toBe(null)
+    expect(
+      venusLiveBatchImportProvider({
+        provider: 'yuki',
+        is_connected: true,
+      } satisfies IntegrationStatus)
+    ).toBe(null)
   })
 })
 

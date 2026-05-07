@@ -1250,21 +1250,7 @@
 		"removeForecastDescription": "De prognosejaren en hun ingevulde gegevens worden verwijderd uit uw waardering.",
 		"calculating": "Berekenen...",
 		"calculateEstimate": "Bereken Schatting",
-		"integrationEntry": {
-			"importedDataEyebrow": "Ingelezen boekhouding",
-			"importedDataTitle": "{provider}-gegevens geïmporteerd",
-			"importedBatchSummaryDescription": "{years, plural, one {# boekjaar} other {# boekjaren}} geïmporteerd uit {provider}. Bekijk de datakwaliteitsscore en ga verder met manuele opvolging.",
-			"refreshImportedData": "Geïmporteerde data vernieuwen",
-			"dataQualityScore": "Datakwaliteit",
-			"dataQualityDescription": "Saldibalans gemapt op Belgische MAR-klassen.",
-			"historicalYears": "Historische jaren",
-			"historicalYearsDescription": "Omzet, EBITDA, cash, schuld en MAR 63 zijn ingelezen.",
-			"dcfCapexDefault": "DCF CapEx-default",
-			"dcfCapexDefaultDescription": "Vooringevuld op basis van historische afschrijvingen (MAR 63-gemiddelde).",
-			"evToEquityBridge": "EV naar aandelenwaarde",
-			"evBridgeDescription": "Netto schuld {netDebt}, op basis van cash {cash} en schuld {debt}.",
-			"importedNormalizationsDetected": "{count, plural, one {# ingelezen normalisatie blijft beschikbaar voor review in de waarderingsflow.} other {# ingelezen normalisaties blijven beschikbaar voor review in de waarderingsflow.}}"
-		},
+		"liveAccountingImportHint": "Haal historische cijfers op of vernieuw ze vanuit uw gekoppelde {provider}-account.",
 		"silverfin": {
 			"importBatchSuccessTitle": "{years} boekjaren geïmporteerd uit {provider}",
 			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR"
@@ -1734,6 +1720,7 @@
 				"navTaxLatencyDeduction": "Belastinglatentie-aftrek",
 				"navEstimatedNavUnavailable": "Vul balansdata in (totale activa en passiva) om de geschatte NAV te tonen.",
 				"fiscalPreviewFootnote": "4× EBITDA-anker sluit aan bij de Belgische fiscale referentie; eigendomsfactor kan in de volledige run afwijken.",
+				"fiscalPreviewEbitdaBasisWeighted": "EBITDA hier is dezelfde gewogen genormaliseerde historische EBITDA als in stap 3 — sluit aan bij het rapport en de fiscale bijlage (niet het ruwe enkeljaarbedrag).",
 				"fiscalPreviewAnchor": "Fiscaal EBITDA-anker (4×)",
 				"fiscalPreviewBookEquity": "Boekhoudkundig eigen vermogen (laatste jaar)",
 				"fiscalPreviewImpliedEquity": "Impliciete referentie-EV (anker + boek)",
@@ -1744,7 +1731,8 @@
 				"fiscalPreviewUnavailableNonBe": "Fiscale referentie geldt voor Belgische vennootschappen (land vennootschap).",
 				"fiscalPreviewUnavailableEbitda": "Positieve EBITDA is vereist voor het 4×-anker.",
 				"fiscalPreviewUnavailableMissingEbitda": "Vul een volledig historisch jaar met EBITDA in om het fiscale anker te tonen.",
-				"fiscalPreviewUnavailableMissingEquity": "Eigen vermogen ontbreekt op het laatste jaar — anker wordt getoond; volledige fiscale referentie-EV vraagt balans-eigen vermogen (of activa − passiva)."
+				"fiscalPreviewUnavailableMissingEquity": "Eigen vermogen (boekhoudkundig) ontbreekt voor het meest recente volledige jaar. Het 4×-anker wordt wél getoond; de volledige forfaitaire referentiewaarde (EV + 4× EBITDA) vult pas aan met balansdata.",
+				"fiscalPreviewMissingEquityAction": "Voeg in Financiële historie voor dat jaar totalen toe: eigen vermogen, of activa en schulden (of activa en vreemd vermogen) zodat eigen vermogen afgeleid kan worden.",
 			},
 			"realEstateCarveOutHint": "Voor verkoopstructuur (asset deal): wanneer de koper het vastgoed niet overneemt, wordt de boekwaarde uit de transactie gehaald en wordt de fictieve huur in mindering gebracht op de EBITDA-basis. Voor de latente belasting op de meerwaarde, zie 'Balans & Latenties' in de normalisatiemodal.",
 			"estimatedMarketRentEbitdaHint": "Vul het geschatte jaarlijks markthuur (niet de boekwaarde). De motor gebruikt dit om EBITDA te normaliseren als de vennootschap het pand niet meer bezit.",

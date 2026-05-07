@@ -1250,21 +1250,7 @@
 		"removeForecastDescription": "The forecast years and any data you entered will be removed from your valuation.",
 		"calculating": "Calculating...",
 		"calculateEstimate": "Calculate Estimate",
-		"integrationEntry": {
-			"importedDataEyebrow": "Imported accounting",
-			"importedDataTitle": "{provider} data imported",
-			"importedBatchSummaryDescription": "Imported {years, plural, one {# fiscal year} other {# fiscal years}} from {provider}. Review the data quality score and continue with manual follow-up.",
-			"refreshImportedData": "Refresh imported data",
-			"dataQualityScore": "Data quality",
-			"dataQualityDescription": "Trial balance mapped against Belgian MAR classes.",
-			"historicalYears": "Historical years",
-			"historicalYearsDescription": "Revenue, EBITDA, cash, debt, and MAR 63 imported.",
-			"dcfCapexDefault": "DCF CapEx default",
-			"dcfCapexDefaultDescription": "Auto-filled from historical depreciation (MAR 63 average).",
-			"evToEquityBridge": "EV to equity bridge",
-			"evBridgeDescription": "Net debt {netDebt}, based on cash {cash} and debt {debt}.",
-			"importedNormalizationsDetected": "{count, plural, one {# imported normalization remains available for review in the valuation workflow.} other {# imported normalizations remain available for review in the valuation workflow.}}"
-		},
+		"liveAccountingImportHint": "Pull or refresh historical figures from your connected {provider} account.",
 		"silverfin": {
 			"importBatchSuccessTitle": "Imported {years} fiscal years from {provider}",
 			"importBatchSuccessDescription": "Trial balance mapped: {score}% match with Belgian MAR"
@@ -1734,6 +1720,7 @@
 				"navTaxLatencyDeduction": "Tax latency deduction",
 				"navEstimatedNavUnavailable": "Enter balance-sheet data (total assets and liabilities) to show estimated NAV.",
 				"fiscalPreviewFootnote": "4× EBITDA anchor matches Belgian fiscal reference; ownership multiplier may differ in the full run.",
+				"fiscalPreviewEbitdaBasisWeighted": "EBITDA here is the same weighted normalized historical EBITDA as in step 3 — aligned with the report and fiscal annex (not the raw single-year figure).",
 				"fiscalPreviewAnchor": "Fiscal EBITDA anchor (4×)",
 				"fiscalPreviewBookEquity": "Book equity (latest year)",
 				"fiscalPreviewImpliedEquity": "Implied reference equity (anchor + book)",
@@ -1744,7 +1731,8 @@
 				"fiscalPreviewUnavailableNonBe": "Fiscal reference applies to Belgian companies (company country).",
 				"fiscalPreviewUnavailableEbitda": "Positive EBITDA is required for the 4× anchor.",
 				"fiscalPreviewUnavailableMissingEbitda": "Add a complete historical year with EBITDA to preview the fiscal anchor.",
-				"fiscalPreviewUnavailableMissingEquity": "Book equity is missing from the latest year row — anchor is shown; full fiscal equity needs balance-sheet equity (or assets − liabilities)."
+				"fiscalPreviewUnavailableMissingEquity": "Book equity is missing for the latest complete year. The 4× anchor still shows; the full statutory-style reference equity (book + 4× EBITDA) needs balance-sheet lines.",
+				"fiscalPreviewMissingEquityAction": "In Financial history, add totals for that year: equity, or assets and liabilities (or assets and debt) so book equity can be derived.",
 			},
 			"realEstateCarveOutHint": "For deal structure (asset deal): use this when the buyer acquires the operating company but rents the property from the seller after closing. The engine removes the property value from the deal and deducts market rent from the EBITDA basis. For the deferred tax on hidden gains, see 'Balans & Latenties' in the normalization modal.",
 			"estimatedMarketRentEbitdaHint": "Enter your best estimate of annual market rent (not book). The valuation engine uses this to normalize EBITDA when the operating company no longer owns the bricks.",

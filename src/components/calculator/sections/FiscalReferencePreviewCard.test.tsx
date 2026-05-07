@@ -54,6 +54,8 @@ const fmt = {
 
 const baseMetrics: Fiscal4xPreviewMetrics = {
   available: true,
+  ebitdaForAnchor: 95_000,
+  ebitdaSource: 'reported_latest_complete_year',
   fiscalAnchor: 380_000,
   bookEquityUsed: 120_000,
   impliedFiscalEquity: 500_000,
@@ -61,6 +63,21 @@ const baseMetrics: Fiscal4xPreviewMetrics = {
 }
 
 describe('FiscalReferencePreviewCard', () => {
+  it('shows weighted EBITDA disclosure when fiscal preview uses weighted historical source', () => {
+    render(
+      <FiscalReferencePreviewCard
+        fiscalPreview={{
+          ...baseMetrics,
+          ebitdaSource: 'weighted_normalized_historical',
+        }}
+        previewCurrencyFormatter={fmt}
+        unavailableMessage={null}
+      />
+    )
+
+    expect(screen.getByText('fields.fiscalPreviewEbitdaBasisWeighted')).toBeTruthy()
+  })
+
   it('renders the formula trio when the engine returns a fully available preview', () => {
     render(
       <FiscalReferencePreviewCard
@@ -120,6 +137,8 @@ describe('FiscalReferencePreviewCard', () => {
         fiscalPreview={{
           available: false,
           unavailableReason: 'missing_ebitda',
+          ebitdaForAnchor: null,
+          ebitdaSource: null,
           fiscalAnchor: null,
           bookEquityUsed: null,
           impliedFiscalEquity: null,
@@ -144,6 +163,8 @@ describe('FiscalReferencePreviewCard', () => {
         fiscalPreview={{
           available: false,
           unavailableReason: 'missing_book_equity',
+          ebitdaForAnchor: 95_000,
+          ebitdaSource: 'reported_latest_complete_year',
           fiscalAnchor: 380_000,
           bookEquityUsed: null,
           impliedFiscalEquity: null,
@@ -163,6 +184,9 @@ describe('FiscalReferencePreviewCard', () => {
     expect(cards[2]).toHaveTextContent('fields.fiscalPreviewImpliedEquity:—')
     expect(screen.getByTestId('fiscal-preview-warning')).toHaveTextContent(
       'Eigen vermogen ontbreekt.'
+    )
+    expect(screen.getByTestId('fiscal-preview-warning')).toHaveTextContent(
+      'fields.fiscalPreviewMissingEquityAction'
     )
   })
 
@@ -185,6 +209,8 @@ describe('FiscalReferencePreviewCard', () => {
       <FiscalReferencePreviewCard
         fiscalPreview={{
           available: true,
+          ebitdaForAnchor: 95_000,
+          ebitdaSource: 'reported_latest_complete_year',
           fiscalAnchor: Number.POSITIVE_INFINITY,
           bookEquityUsed: Number.NaN,
           impliedFiscalEquity: 500_000,

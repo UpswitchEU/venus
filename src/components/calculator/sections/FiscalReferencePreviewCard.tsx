@@ -76,6 +76,12 @@ export function FiscalReferencePreviewCard({
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               {t('fields.fiscalPreviewFootnote')}
             </p>
+            {fiscalPreview.fiscalAnchor != null &&
+              fiscalPreview.ebitdaSource === 'weighted_normalized_historical' && (
+                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground/90">
+                  {t('fields.fiscalPreviewEbitdaBasisWeighted')}
+                </p>
+              )}
           </div>
           {ownershipPct != null && (
             <TooltipProvider delayDuration={150}>
@@ -125,12 +131,14 @@ export function FiscalReferencePreviewCard({
         ) : (
           <>
             {unavailableMessage && (
-              <p
-                data-testid="fiscal-preview-warning"
-                className="text-[11px] leading-snug text-muted-foreground"
-              >
-                {unavailableMessage}
-              </p>
+              <div data-testid="fiscal-preview-warning" className="space-y-1">
+                <p className="text-[11px] leading-snug text-muted-foreground">{unavailableMessage}</p>
+                {fiscalPreview.unavailableReason === 'missing_book_equity' && (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {t('fields.fiscalPreviewMissingEquityAction')}
+                  </p>
+                )}
+              </div>
             )}
             <div
               data-testid="fiscal-preview-formula"

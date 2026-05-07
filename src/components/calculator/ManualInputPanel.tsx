@@ -17,7 +17,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Building2,
-  CloudDownload,
   HelpCircle,
   Lock,
   Plus,
@@ -58,6 +57,7 @@ import { cn } from '@/design-system/utils'
 import {
   coalesceFiniteNumber,
   computeFiscal4xPreview,
+  type FiscalPreviewEbitdaSource,
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
@@ -89,9 +89,8 @@ import {
   accountingAPI,
   accountingProviderDisplayName,
   type IntegrationStatus,
-  isAccountingImportProvider,
   parseAccountingApiError,
-  pickConnectedImportStatus,
+  pickConnectedVenusBatchImportStatus,
 } from '../../services/api/accounting'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
@@ -288,22 +287,6 @@ export interface ImportedLedgerAnalysisSummary {
   }
 }
 
-export function shouldShowImportedAccountingSummary({
-  importBatchData,
-  importedLedgerAnalysis,
-}: {
-  importBatchData?: AccountingBatchPayload | null
-  importedLedgerAnalysis?: ImportedLedgerAnalysisSummary | null
-}): boolean {
-  if (importBatchData != null) return true
-  if (!importedLedgerAnalysis) return false
-  return Boolean(
-    (importedLedgerAnalysis.sde_flags?.length ?? 0) > 0 ||
-      importedLedgerAnalysis.ev_equity_bridge ||
-      importedLedgerAnalysis.dcf_defaults
-  )
-}
-
 export function getSelectedBelgianAuditEntries({
   valuationResults,
   effectiveMethod,
@@ -370,12 +353,6 @@ interface ManualInputPanelProps {
   synthesisValuationResults?: Record<string, ValuationMethodResult> | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
-  /**
-   * When false, hides the imported-accounting summary rail even if orphan ledger-analysis keys exist.
-   * `ManualLayout` sets this from {@link shouldPreferIntegrationEntry} via `StartupAwareInputPanel`.
-   * Defaults to false so missing props never show integration-first copy for manual-only dossiers.
-   */
-  preferIntegrationEntry?: boolean
 }
 
 // Options
@@ -684,6 +661,17 @@ const getLatestHistoricalYearlyFinancial = (
     .filter((year) => !year.isForecast)
     .sort((a, b) => Number(b.year) - Number(a.year))[0]
 
+/** Bizzcontrol / Octopus support pull-to-form in Venus; other providers sync via Mercury first. */
+export function venusLiveBatchImportProvider(
+  row: IntegrationStatus | null
+): 'bizzcontrol' | 'octopus' | null {
+  if (!row?.is_connected) return null
+  if (row.provider === 'bizzcontrol' || row.provider === 'octopus') {
+    return row.provider
+  }
+  return null
+}
+
 export function ManualInputPanel({
   onSubmit,
   onCSVImportComplete,
@@ -702,7 +690,6 @@ export function ManualInputPanel({
   synthesisUnlocked = false,
   synthesisValuationResults,
   onSynthesisPaywall,
-  preferIntegrationEntry = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -754,10 +741,6 @@ export function ManualInputPanel({
     dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
-  const [importBatchProvider, setImportBatchProvider] = useState<Extract<
-    AccountingImportProvider,
-    'silverfin' | 'bizzcontrol' | 'octopus'
-  > | null>(null)
   const [showBizzcontrolImportModal, setShowBizzcontrolImportModal] = useState(false)
   const [bizzcontrolCompanies, setBizzcontrolCompanies] = useState<AccountingAdministration[]>([])
   const [loadingBizzcontrolCompanies, setLoadingBizzcontrolCompanies] = useState(false)
@@ -774,7 +757,12 @@ export function ManualInputPanel({
   const [octopusHistoryRange, setOctopusHistoryRange] = useState<'3' | '5'>('3')
   const [octopusManualOverride, setOctopusManualOverride] = useState(true)
   const [importingOctopusBatch, setImportingOctopusBatch] = useState(false)
-  const [_accountingStatuses, setAccountingStatuses] = useState<IntegrationStatus[]>([])
+  const [venusLiveImportProvider, setVenusLiveImportProvider] = useState<
+    'bizzcontrol' | 'octopus' | null
+  >(null)
+  const [openingLiveAccountingImport, setOpeningLiveAccountingImport] = useState(false)
+  /** Monotonic generation: background refresh and import CTA share one counter so stale status responses cannot clobber the banner. */
+  const venusLiveImportFetchGenRef = useRef(0)
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -1730,22 +1718,84 @@ export function ManualInputPanel({
     }
   }, [effectiveMethod, hasDcfSelected, mi]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Accounting import — silent preflight; button only appears when a provider is connected
-  const [accountingConnectedStatus, setAccountingConnectedStatus] =
-    useState<IntegrationStatus | null>(null)
-  const [importingFromAccounting, setImportingFromAccounting] = useState(false)
   const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
   const accountingRefetchThrottle = useRef(0)
 
   const loadAccountingIntegrationStatus = useCallback(async () => {
+    const gen = ++venusLiveImportFetchGenRef.current
     try {
       const statuses = await accountingAPI.getAllIntegrationStatus()
-      setAccountingStatuses(statuses)
-      setAccountingConnectedStatus(pickConnectedImportStatus(statuses))
+      if (gen !== venusLiveImportFetchGenRef.current) return
+      const row = pickConnectedVenusBatchImportStatus(statuses)
+      setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
     } catch {
-      // Fail silently — if we can't reach Titan the import button simply won't appear
+      if (gen === venusLiveImportFetchGenRef.current) {
+        setVenusLiveImportProvider(null)
+      }
     }
   }, [])
+
+  const handleOpenLiveAccountingImport = useCallback(async () => {
+    setImportAccountingError(null)
+    setOpeningLiveAccountingImport(true)
+    const gen = ++venusLiveImportFetchGenRef.current
+    try {
+      const statuses = await accountingAPI.getAllIntegrationStatus()
+      if (gen !== venusLiveImportFetchGenRef.current) return
+      const row = pickConnectedVenusBatchImportStatus(statuses)
+      setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
+
+      if (row?.provider === 'bizzcontrol') {
+        setBizzcontrolImportError(null)
+        setShowBizzcontrolImportModal(true)
+        setLoadingBizzcontrolCompanies(true)
+        try {
+          const res = await accountingAPI.getBizzcontrolCompanies()
+          setBizzcontrolCompanies(res.administrations)
+          setSelectedBizzcontrolCompanyId((prev) => {
+            if (prev) return prev
+            if (res.administrations.length === 1) return res.administrations[0].administration_id
+            return ''
+          })
+        } catch (e) {
+          setBizzcontrolImportError(parseAccountingApiError(e))
+        } finally {
+          setLoadingBizzcontrolCompanies(false)
+        }
+        return
+      }
+
+      if (row?.provider === 'octopus') {
+        setOctopusImportError(null)
+        setShowOctopusImportModal(true)
+        setLoadingOctopusCompanies(true)
+        try {
+          const res = await accountingAPI.getOctopusCompanies()
+          setOctopusCompanies(res.administrations)
+          setSelectedOctopusCompanyId((prev) => {
+            if (prev) return prev
+            if (res.administrations.length === 1) return res.administrations[0].administration_id
+            return ''
+          })
+        } catch (e) {
+          setOctopusImportError(parseAccountingApiError(e))
+        } finally {
+          setLoadingOctopusCompanies(false)
+        }
+        return
+      }
+
+      setImportAccountingError(mi('importFromAccountingUnavailable'))
+    } catch (err) {
+      const msg = parseAccountingApiError(err)
+      setImportAccountingError(msg)
+      import('sonner').then(({ toast }) =>
+        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
+      )
+    } finally {
+      setOpeningLiveAccountingImport(false)
+    }
+  }, [mi])
 
   useEffect(() => {
     void loadAccountingIntegrationStatus()
@@ -1770,7 +1820,6 @@ export function ManualInputPanel({
       batch: AccountingBatchPayload
     ) => {
       setImportBatchData(batch)
-      setImportBatchProvider(provider)
       setImportAccountingError(null)
       setFormData((prev) => {
         const merged = [...prev.yearlyFinancials]
@@ -1939,86 +1988,6 @@ export function ManualInputPanel({
       setImportingOctopusBatch(false)
     }
   }, [selectedOctopusCompanyId, octopusHistoryRange, currentFilingYear, applyImportedBatch, mi])
-
-  /**
-   * Connected-accounting import entry. Only providers with in-app batch import
-   * open modals here. Yuki/Exact/Silverfin are synced before Venus and must not
-   * redirect the user out of the valuation flow.
-   */
-  const handleImportFromAccounting = useCallback(async () => {
-    setImportAccountingError(null)
-    setImportingFromAccounting(true)
-    try {
-      let row = accountingConnectedStatus
-      if (!row?.is_connected) {
-        const statuses = await accountingAPI.getAllIntegrationStatus()
-        setAccountingStatuses(statuses)
-        row = pickConnectedImportStatus(statuses) ?? null
-        setAccountingConnectedStatus(row)
-      }
-      const provider = row && isAccountingImportProvider(row.provider) ? row.provider : null
-      if (!provider) {
-        setImportAccountingError(mi('importFromAccountingUnavailable'))
-        return
-      }
-
-      if (provider === 'bizzcontrol' && row != null && row.is_connected) {
-        setBizzcontrolImportError(null)
-        setShowBizzcontrolImportModal(true)
-        setLoadingBizzcontrolCompanies(true)
-        try {
-          const res = await accountingAPI.getBizzcontrolCompanies()
-          setBizzcontrolCompanies(res.administrations)
-          setSelectedBizzcontrolCompanyId((prev) => {
-            if (prev) return prev
-            if (res.administrations.length === 1) return res.administrations[0].administration_id
-            return ''
-          })
-        } catch (e) {
-          setBizzcontrolImportError(parseAccountingApiError(e))
-        } finally {
-          setLoadingBizzcontrolCompanies(false)
-        }
-        return
-      }
-
-      if (provider === 'octopus' && row != null && row.is_connected) {
-        setOctopusImportError(null)
-        setShowOctopusImportModal(true)
-        setLoadingOctopusCompanies(true)
-        try {
-          const res = await accountingAPI.getOctopusCompanies()
-          setOctopusCompanies(res.administrations)
-          setSelectedOctopusCompanyId((prev) => {
-            if (prev) return prev
-            if (res.administrations.length === 1) return res.administrations[0].administration_id
-            return ''
-          })
-        } catch (e) {
-          setOctopusImportError(parseAccountingApiError(e))
-        } finally {
-          setLoadingOctopusCompanies(false)
-        }
-        return
-      }
-
-      if (provider === 'silverfin') {
-        setImportAccountingError(mi('importFromAccountingUnavailable'))
-        return
-      }
-
-      setImportAccountingError(mi('importFromAccountingUnavailable'))
-      return
-    } catch (err) {
-      const msg = parseAccountingApiError(err)
-      setImportAccountingError(msg)
-      import('sonner').then(({ toast }) =>
-        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
-      )
-    } finally {
-      setImportingFromAccounting(false)
-    }
-  }, [accountingConnectedStatus, locale, mi])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2963,198 +2932,11 @@ export function ManualInputPanel({
     [effectiveMethod, effectiveMethods, synthesisValuationResults]
   )
 
-  const persistedImportedLedgerAnalysis = formData.business_context?._imported_ledger_analysis as
-    | ImportedLedgerAnalysisSummary
-    | undefined
-
-  const importedLedgerProvenance = formData.business_context?._imported_ledger_provenance as
-    | { provider?: string }
-    | undefined
-
-  const effectiveImportedLedgerAnalysis = useMemo((): ImportedLedgerAnalysisSummary | null => {
-    const merged: ImportedLedgerAnalysisSummary = { ...(persistedImportedLedgerAnalysis ?? {}) }
-    if (importBatchData) {
-      if (importBatchData.latest_fiscal_year != null) {
-        merged.latest_fiscal_year = importBatchData.latest_fiscal_year
-      }
-      if (importBatchData.sde_flags?.length) {
-        merged.sde_flags = importBatchData.sde_flags as NonNullable<
-          ImportedLedgerAnalysisSummary['sde_flags']
-        >
-      }
-      if (importBatchData.ev_equity_bridge) {
-        merged.ev_equity_bridge = importBatchData.ev_equity_bridge
-      }
-      if (importBatchData.dcf_defaults) {
-        merged.dcf_defaults = importBatchData.dcf_defaults
-      }
-    }
-    if (
-      merged.sde_flags?.length ||
-      merged.ev_equity_bridge ||
-      merged.dcf_defaults ||
-      merged.latest_fiscal_year != null
-    ) {
-      return merged
-    }
-    return null
-  }, [importBatchData, persistedImportedLedgerAnalysis])
-
-  const shouldShowImportedBatchSummary =
-    preferIntegrationEntry &&
-    shouldShowImportedAccountingSummary({
-      importBatchData,
-      importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
-    })
-
-  const refreshAccountProvider = useMemo((): AccountingImportProvider | null => {
-    if (importBatchProvider) return importBatchProvider
-    const p = importedLedgerProvenance?.provider
-    return p && isAccountingImportProvider(p) ? p : null
-  }, [importBatchProvider, importedLedgerProvenance?.provider])
-
-  const importedProviderLabel = refreshAccountProvider
-    ? accountingProviderDisplayName(refreshAccountProvider)
-    : '—'
-
-  const importedYearCount = useMemo(() => {
-    if (importBatchData?.years?.length) return importBatchData.years.length
-    return formData.yearlyFinancials.filter((y) => !y.isForecast).length
-  }, [importBatchData, formData.yearlyFinancials])
-
-  const importQualityScore = useMemo(() => {
-    if (!importBatchData?.years?.length) return null
-    return Math.round(
-      (importBatchData.years.reduce((sum, y) => sum + (y.quality_score ?? 0), 0) /
-        importBatchData.years.length) *
-        100
-    )
-  }, [importBatchData])
-
-  const effectiveEvBridge = effectiveImportedLedgerAnalysis?.ev_equity_bridge ?? null
-
-  const importedSdeFlagCount = effectiveImportedLedgerAnalysis?.sde_flags?.length ?? 0
-
-  const supportsVenusLiveImport =
-    refreshAccountProvider === 'bizzcontrol' || refreshAccountProvider === 'octopus'
-
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex flex-col">
-            {shouldShowImportedBatchSummary && (
-              <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-background/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                      <CloudDownload className="h-3.5 w-3.5" />
-                      {mi('integrationEntry.importedDataEyebrow')}
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold text-foreground">
-                      {mi('integrationEntry.importedDataTitle', { provider: importedProviderLabel })}
-                    </h3>
-                    <p className="mt-1 text-sm text-foreground/70">
-                      {mi('integrationEntry.importedBatchSummaryDescription', {
-                        years: importedYearCount,
-                        provider: importedProviderLabel,
-                      })}
-                    </p>
-                  </div>
-                  {supportsVenusLiveImport && (
-                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                      <AuroraButton
-                        type="button"
-                        onClick={handleImportFromAccounting}
-                        variant="secondary"
-                        disabled={importingFromAccounting}
-                        className="w-full"
-                      >
-                        {mi('integrationEntry.refreshImportedData')}
-                      </AuroraButton>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 space-y-4">
-                  <div
-                    className={cn(
-                      'grid gap-3',
-                      effectiveEvBridge ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'
-                    )}
-                  >
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.dataQualityScore')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {importQualityScore != null ? `${importQualityScore}%` : 'n/a'}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.dataQualityDescription')}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.historicalYears')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {importedYearCount}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.historicalYearsDescription')}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                          {mi('integrationEntry.dcfCapexDefault')}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold text-foreground">
-                          {effectiveImportedLedgerAnalysis?.dcf_defaults?.suggested_capex
-                            ? formatCurrency(
-                                effectiveImportedLedgerAnalysis.dcf_defaults.suggested_capex
-                              )
-                            : 'n/a'}
-                        </div>
-                        <p className="mt-1 text-xs text-foreground/55">
-                          {mi('integrationEntry.dcfCapexDefaultDescription')}
-                        </p>
-                      </div>
-                      {effectiveEvBridge ? (
-                        <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
-                          <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
-                            {mi('integrationEntry.evToEquityBridge')}
-                          </div>
-                          <div className="mt-2 text-2xl font-semibold text-foreground">
-                            {formatCurrency(effectiveEvBridge.equity_value)}
-                          </div>
-                          <p className="mt-1 text-xs text-foreground/55">
-                            {mi('integrationEntry.evBridgeDescription', {
-                              netDebt: formatCurrency(effectiveEvBridge.net_debt),
-                              cash: formatCurrency(effectiveEvBridge.cash_and_equivalents),
-                              debt: formatCurrency(effectiveEvBridge.interest_bearing_debt),
-                            })}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {importedSdeFlagCount > 0 ? (
-                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3 text-sm text-foreground/70">
-                        {mi('integrationEntry.importedNormalizationsDetected', {
-                          count: importedSdeFlagCount,
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-            {importAccountingError && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
-                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{importAccountingError}</span>
-              </div>
-            )}
-          </section>
-            )}
-
             {/* Step 1: Company Identification */}
             <section className="space-y-4">
               <div className={SECTION_HEADER_ROW_CLASS}>
@@ -3434,6 +3216,33 @@ export function ManualInputPanel({
                 {importAccountingError && (
                   <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
                 )}
+
+                {venusLiveImportProvider ? (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:px-4">
+                    <p className="min-w-0 flex-1 text-xs text-foreground/75 leading-snug">
+                      {mi('liveAccountingImportHint', {
+                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                      })}
+                    </p>
+                    <AuroraButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                      loading={openingLiveAccountingImport}
+                      loadingScreenReaderLabel={t('common.states.loading')}
+                      disabled={importingBizzcontrolBatch || importingOctopusBatch}
+                      onClick={() => void handleOpenLiveAccountingImport()}
+                      aria-label={mi('importFromAccountingAria', {
+                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                      })}
+                    >
+                      {mi('importFromAccounting', {
+                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                      })}
+                    </AuroraButton>
+                  </div>
+                ) : null}
 
                 <FilingYearPrompt
                   defaultYear={currentFilingYear}
@@ -4040,6 +3849,16 @@ export function ManualInputPanel({
                 terminalValueMethod={terminalValueMethod}
                 onTerminalValueMethodChange={handleTerminalValueMethodChange}
                 disabled={isCalculating}
+                fiscalWeightedNormalizedEbitda={
+                  normalizedData.totalYearsWithData > 0
+                    ? normalizedData.averageNormalizedEbitda
+                    : undefined
+                }
+                fiscalWeightedHistoricalYearCount={
+                  normalizedData.totalYearsWithData > 0
+                    ? normalizedData.totalYearsWithData
+                    : undefined
+                }
               />
 
               <AnimatePresence>
@@ -4331,6 +4150,8 @@ export function AdaptiveSections({
   terminalValueMethod,
   onTerminalValueMethodChange,
   disabled,
+  fiscalWeightedNormalizedEbitda,
+  fiscalWeightedHistoricalYearCount,
 }: {
   effectiveMethod: string
   effectiveMethods?: string[]
@@ -4364,6 +4185,12 @@ export function AdaptiveSections({
   terminalValueMethod?: TerminalValueMethod
   onTerminalValueMethodChange?: (method: TerminalValueMethod) => void
   disabled?: boolean
+  /**
+   * Historical weighted normalized EBITDA (same construction as headline in step 3).
+   * When set with {@link fiscalWeightedHistoricalYearCount} &gt; 0, fiscal preview matches report annex EBITDA semantics.
+   */
+  fiscalWeightedNormalizedEbitda?: number
+  fiscalWeightedHistoricalYearCount?: number
 }) {
   const t = useTranslations('manualInput.methodSelector')
   const normalizationItems = useNormalizationStore((s) => s.items)
@@ -4385,16 +4212,34 @@ export function AdaptiveSections({
 
   const fiscalPreview = useMemo(() => {
     const row = latestCompleteYearlyFinancial
-    const ebitda =
+    const reportedLatest =
       row != null && Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : undefined
+
+    const hasWeighted =
+      (fiscalWeightedHistoricalYearCount ?? 0) > 0 &&
+      fiscalWeightedNormalizedEbitda != null &&
+      Number.isFinite(fiscalWeightedNormalizedEbitda)
+
+    const ebitda = hasWeighted ? fiscalWeightedNormalizedEbitda! : reportedLatest
+    const ebitdaSource = (
+      hasWeighted ? 'weighted_normalized_historical' : 'reported_latest_complete_year'
+    ) satisfies FiscalPreviewEbitdaSource
+
     const be = resolveBookEquityFromYearRow(row ?? undefined)
     return computeFiscal4xPreview({
       countryCode: formData.country?.trim() || 'BE',
       ebitda,
+      ebitdaSource,
       bookEquity: be,
       sharesForSale: formData.shares_for_sale ?? 100,
     })
-  }, [latestCompleteYearlyFinancial, formData.country, formData.shares_for_sale])
+  }, [
+    latestCompleteYearlyFinancial,
+    formData.country,
+    formData.shares_for_sale,
+    fiscalWeightedNormalizedEbitda,
+    fiscalWeightedHistoricalYearCount,
+  ])
 
   const saasArrProjectionPreview = useMemo(
     () =>

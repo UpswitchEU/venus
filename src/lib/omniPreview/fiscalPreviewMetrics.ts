@@ -9,9 +9,14 @@ import { ownershipMultiplierFromSharesForSale } from './ownershipMultiplier'
 
 export const FISCAL_EBITDA_MULTIPLIER = 4
 
+/** Matches how EBITDA is sourced in the preview — aligns with headline weighted normalized vs single-year reported. */
+export type FiscalPreviewEbitdaSource = 'weighted_normalized_historical' | 'reported_latest_complete_year'
+
 export type Fiscal4xPreviewInputs = {
   countryCode: string
   ebitda: number | undefined
+  /** Disclosure only — parity with annex / engine sustainable EBITDA semantics. */
+  ebitdaSource?: FiscalPreviewEbitdaSource
   bookEquity: number | null
   /**
    * Percentage of equity stake being valued (0–100). Manual product defaults to 100.
@@ -34,6 +39,9 @@ export type Fiscal4xUnavailableReason =
 export type Fiscal4xPreviewMetrics = {
   available: boolean
   unavailableReason?: Fiscal4xUnavailableReason
+  /** EBITDA input used for 4× (mirrors annex when weighted path is chosen upstream). */
+  ebitdaForAnchor: number | null
+  ebitdaSource: FiscalPreviewEbitdaSource | null
   fiscalAnchor: number | null
   impliedFiscalEquity: number | null
   bookEquityUsed: number | null
@@ -46,7 +54,14 @@ function normCountry(code: string): string {
 }
 
 export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPreviewMetrics {
-  const { countryCode, ebitda, bookEquity, sharesForSale, ownershipMultiplierOverride } = input
+  const {
+    countryCode,
+    ebitda,
+    ebitdaSource = 'reported_latest_complete_year',
+    bookEquity,
+    sharesForSale,
+    ownershipMultiplierOverride,
+  } = input
 
   const ownershipMultiplier =
     ownershipMultiplierOverride != null && Number.isFinite(ownershipMultiplierOverride)
@@ -54,6 +69,8 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
       : ownershipMultiplierFromSharesForSale(sharesForSale)
 
   const baseNull: Omit<Fiscal4xPreviewMetrics, 'available'> = {
+    ebitdaForAnchor: null,
+    ebitdaSource: null,
     fiscalAnchor: null,
     impliedFiscalEquity: null,
     bookEquityUsed: null,
@@ -69,7 +86,16 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
   }
 
   if (ebitda <= 0) {
-    return { available: false, unavailableReason: 'non_positive_ebitda', ...baseNull }
+    return {
+      available: false,
+      unavailableReason: 'non_positive_ebitda',
+      ebitdaForAnchor: ebitda,
+      ebitdaSource,
+      fiscalAnchor: null,
+      impliedFiscalEquity: null,
+      bookEquityUsed: null,
+      ownershipMultiplierApplied: ownershipMultiplier,
+    }
   }
 
   const fiscalAnchor = Math.round(ebitda * FISCAL_EBITDA_MULTIPLIER * 100) / 100
@@ -78,6 +104,8 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
     return {
       available: false,
       unavailableReason: 'missing_book_equity',
+      ebitdaForAnchor: ebitda,
+      ebitdaSource,
       fiscalAnchor,
       impliedFiscalEquity: null,
       bookEquityUsed: null,
@@ -92,6 +120,8 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
 
   return {
     available: true,
+    ebitdaForAnchor: ebitda,
+    ebitdaSource,
     fiscalAnchor,
     impliedFiscalEquity: Math.round(impliedFiscalEquity * 100) / 100,
     bookEquityUsed: bookEquity,

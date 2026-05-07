@@ -24,6 +24,7 @@ export {
   type Fiscal4xPreviewInputs,
   type Fiscal4xPreviewMetrics,
   type Fiscal4xUnavailableReason,
+  type FiscalPreviewEbitdaSource,
 } from './fiscalPreviewMetrics'
 export { computeEbitdaMarginPct } from './marketBasicsPreview'
 export { METHOD_PREVIEW_AUDIT } from './methodPreviewAudit'

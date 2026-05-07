@@ -12,7 +12,7 @@ vi.mock('../HttpClient', () => ({
   },
 }))
 
-import { accountingAPI, pickConnectedImportStatus } from '../accounting'
+import { accountingAPI, pickConnectedImportStatus, pickConnectedVenusBatchImportStatus } from '../accounting'
 
 describe('accountingAPI filing year defaults', () => {
   beforeEach(() => {
@@ -130,6 +130,43 @@ describe('accounting import provider selection', () => {
       { provider: 'bizzcontrol', is_connected: true },
     ])
     expect(row?.provider).toBe('bizzcontrol')
+  })
+})
+
+describe('pickConnectedVenusBatchImportStatus (Venus modal import)', () => {
+  it('prefers Bizzcontrol over Octopus when both are connected', () => {
+    const row = pickConnectedVenusBatchImportStatus([
+      { provider: 'octopus', is_connected: true },
+      { provider: 'bizzcontrol', is_connected: true },
+    ])
+    expect(row?.provider).toBe('bizzcontrol')
+  })
+
+  it('returns Bizzcontrol when Silverfin is also connected (unlike global picker)', () => {
+    const venusRow = pickConnectedVenusBatchImportStatus([
+      { provider: 'silverfin', is_connected: true },
+      { provider: 'bizzcontrol', is_connected: true },
+    ])
+    const globalRow = pickConnectedImportStatus([
+      { provider: 'silverfin', is_connected: true },
+      { provider: 'bizzcontrol', is_connected: true },
+    ])
+    expect(globalRow?.provider).toBe('silverfin')
+    expect(venusRow?.provider).toBe('bizzcontrol')
+  })
+
+  it('returns Octopus when it is the only Venus batch provider connected', () => {
+    const row = pickConnectedVenusBatchImportStatus([
+      { provider: 'silverfin', is_connected: true },
+      { provider: 'octopus', is_connected: true },
+    ])
+    expect(row?.provider).toBe('octopus')
+  })
+
+  it('returns null when only Silverfin is connected', () => {
+    expect(
+      pickConnectedVenusBatchImportStatus([{ provider: 'silverfin', is_connected: true }])
+    ).toBeNull()
   })
 })
 

@@ -169,6 +169,28 @@ export function pickConnectedImportStatus(
   return null
 }
 
+/** Providers that support in-app trial-balance batch import in Venus (`ManualInputPanel`). */
+export const VENUS_BATCH_IMPORT_PROVIDER_ORDER = ['bizzcontrol', 'octopus'] as const
+
+/**
+ * Pick a connected Bizzcontrol or Octopus row for Venus batch import — **not** the global
+ * `pickConnectedImportStatus` order (which prioritizes Silverfin). Use this when the UI opens
+ * the Bizzcontrol/Octopus import modals so a Mercury-primary Silverfin connection does not hide
+ * a co-connected pull provider.
+ */
+export function pickConnectedVenusBatchImportStatus(
+  statuses: IntegrationStatus[]
+): IntegrationStatus | null {
+  const byProvider = new Map(statuses.map((s) => [s.provider, s]))
+  for (const p of VENUS_BATCH_IMPORT_PROVIDER_ORDER) {
+    const row = byProvider.get(p)
+    if (row?.is_connected && isAccountingImportProvider(row.provider)) {
+      return row
+    }
+  }
+  return null
+}
+
 export function accountingProviderDisplayName(provider: string): string {
   switch (provider) {
     case 'yuki':
