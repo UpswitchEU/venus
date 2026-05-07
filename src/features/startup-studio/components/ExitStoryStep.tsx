@@ -135,7 +135,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
         <h3 className="mb-1 text-lg font-semibold text-foreground">{t('tamSamSomTitle')}</h3>
         <p className="mb-5 text-sm text-foreground/60">{t('tamSamSomLead')}</p>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-4">
           <CurrencyInput
             label={t('tamLabel')}
             value={tamSamSom.tam ?? undefined}

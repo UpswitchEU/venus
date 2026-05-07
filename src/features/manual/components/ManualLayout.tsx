@@ -1109,7 +1109,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (isPdfReady && report.pdfGeneratedAt == null) return false
     return true
   }, [report, isPdfReady])
-  const canDownloadPdf = planFeatures?.valuation_download !== false
+  const canDownloadPdf = useMemo(() => {
+    if (planFeatures?.valuation_download !== false) return true
+    // Free-tier seller carve-out for startup PDF only: match Titan `allowFreeSellerStartupValuationPdf`.
+    // Use navigation method only (not stale `result.selected_valuation_method`) so switching away from
+    // startup does not keep the download UI unlocked. Exclude accountant/client flows so advisor UX
+    // stays plan-gated like Mercury expectations.
+    if (user?.role !== 'seller' || isAccountantFlow) return false
+    const effectiveMethod = preSelectedMethod ?? selectedMethod
+    return effectiveMethod === 'startup_valuation'
+  }, [
+    planFeatures?.valuation_download,
+    user?.role,
+    selectedMethod,
+    preSelectedMethod,
+    isAccountantFlow,
+  ])
 
   // When client-side PDF generation has a URL, treat report as fresh and sync metadata
   // so `isPdfLikelyStaleVenus` stays false until the next server refresh.
@@ -2352,7 +2367,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setShowFullscreenModal(true)
         }
 
-        if (reportId && htmlReport && planFeatures?.valuation_download !== false) {
+        if (reportId && htmlReport && canDownloadPdf) {
           generatePdf?.().catch((err) => {
             if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] Background PDF generation failed', {
@@ -2368,7 +2383,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, planFeatures])
+  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, canDownloadPdf])
 
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
@@ -2460,7 +2475,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           return { ...prev, htmlReport: nextHtmlReport, ...pdfMeta }
         })
-        if (htmlForPreview && planFeatures?.valuation_download !== false) {
+        if (htmlForPreview && canDownloadPdf) {
           generatePdf?.().catch((err) => {
             if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
@@ -2480,7 +2495,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setResult(
             latestResult ? { ...latestResult, html_report: renderableHtmlFromPatch } : latestResult
           )
-          if (planFeatures?.valuation_download !== false) {
+          if (canDownloadPdf) {
             generatePdf?.().catch((err) => {
               if (err instanceof APIError && err.statusCode === 402) return
               generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
@@ -2492,7 +2507,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         return false
       }
     },
-    [generatePdf, persistedReportLookupId, setResult, planFeatures]
+    [generatePdf, persistedReportLookupId, setResult, canDownloadPdf]
   )
 
   useEffect(() => {
@@ -2595,11 +2610,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       clearTimeout(max)
       pdfStalePollInFlightRef.current = false
     }
-  }, [pdfStale, persistedReportLookupId, setResult])
+  }, [pdfStale, persistedReportLookupId, setResult, canDownloadPdf])
 
   const handleRetryPdfStalled = useCallback(async () => {
     if (!persistedReportLookupId) return
-    if (planFeatures && !planFeatures.valuation_download) {
+    if (!canDownloadPdf) {
       openStarterPaywall('pdf_download')
       return
     }
@@ -2654,7 +2669,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsPdfRetrying(false)
     }
-  }, [generatePdf, persistedReportLookupId, setResult, t, planFeatures, openStarterPaywall])
+  }, [generatePdf, persistedReportLookupId, setResult, t, canDownloadPdf, openStarterPaywall])
 
   const pdfStaleBannerEl = useMemo(() => {
     if (!report || !pdfStale) return null
@@ -3999,7 +4014,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Export Handler (server-side only — no client-side fallbacks) ───
   const handleExport = useCallback(async () => {
     if (!report) return
-    if (planFeatures && !planFeatures.valuation_download) {
+    if (!canDownloadPdf) {
       openStarterPaywall('pdf_download')
       return
     }
@@ -4068,8 +4083,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     tReport,
     t,
     pdfStale,
-    planFeatures,
     openStarterPaywall,
+    canDownloadPdf,
   ])
 
   // ─── Navigation Handlers ───
@@ -6421,7 +6436,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         businessTypeLabel={collectedData.businessType}
         countryCode={collectedData.country}
         showZeroDraftExport={showPreparerMultiplePanel}
-        canExportZeroDraft={planFeatures?.valuation_download !== false}
+        canExportZeroDraft={canDownloadPdf}
         zeroDraftReportId={resolvedReportId || reportId}
         zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
         zeroDraftCreatedAt={
