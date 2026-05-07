@@ -370,6 +370,12 @@ interface ManualInputPanelProps {
   synthesisValuationResults?: Record<string, ValuationMethodResult> | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
+  /**
+   * When false, hides the imported-accounting summary rail even if orphan ledger-analysis keys exist.
+   * `ManualLayout` sets this from {@link shouldPreferIntegrationEntry} via `StartupAwareInputPanel`.
+   * Defaults to false so missing props never show integration-first copy for manual-only dossiers.
+   */
+  preferIntegrationEntry?: boolean
 }
 
 // Options
@@ -696,6 +702,7 @@ export function ManualInputPanel({
   synthesisUnlocked = false,
   synthesisValuationResults,
   onSynthesisPaywall,
+  preferIntegrationEntry = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -2993,10 +3000,12 @@ export function ManualInputPanel({
     return null
   }, [importBatchData, persistedImportedLedgerAnalysis])
 
-  const shouldShowImportedBatchSummary = shouldShowImportedAccountingSummary({
-    importBatchData,
-    importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
-  })
+  const shouldShowImportedBatchSummary =
+    preferIntegrationEntry &&
+    shouldShowImportedAccountingSummary({
+      importBatchData,
+      importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
+    })
 
   const refreshAccountProvider = useMemo((): AccountingImportProvider | null => {
     if (importBatchProvider) return importBatchProvider
