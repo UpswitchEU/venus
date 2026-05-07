@@ -93,6 +93,41 @@ describe('normalizeSessionData', () => {
     ])
   })
 
+  it('prefers non-placeholder year_data rows over placeholder current/historical rows for the same basis year', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_upswitch_metaal_restore',
+      session_data: {
+        current_year_data: {
+          year: 2024,
+          revenue: 0,
+          ebitda: 0,
+        },
+        historical_years_data: [
+          { year: 2022, revenue: 780000, ebitda: 98000 },
+          { year: 2023, revenue: 840000, ebitda: 112000 },
+          { year: 2024, revenue: 0, ebitda: 0 },
+        ],
+        year_data: {
+          2024: { revenue: 910000, ebitda: 120000 },
+          2023: { revenue: 860000, ebitda: 110000 },
+        },
+      },
+    })
+
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 910000,
+      ebitda: 120000,
+    })
+    expect(normalized.formData.historical_years_data).toEqual([
+      { year: 2022, revenue: 780000, ebitda: 98000 },
+      { year: 2023, revenue: 840000, ebitda: 112000 },
+      { year: 2024, revenue: 910000, ebitda: 120000 },
+    ])
+    expect(normalized.formData.revenue).toBe(910000)
+    expect(normalized.formData.ebitda).toBe(120000)
+  })
+
   it('merges activity_* with canonical NACE and prefers activity_label for description', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_act',
@@ -252,7 +287,28 @@ describe('normalizeSessionData', () => {
       },
     })
 
-    expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(analysis)
+    expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(
+      analysis
+    )
+  })
+
+  it('preserves top-level imported integration artifacts for restore aliases', () => {
+    const analysis = {
+      latest_fiscal_year: 2024,
+      sde_flags: [],
+    }
+    const normalized = normalizeSessionData({
+      session_key: 'val_ledger_top_level',
+      session_data: {
+        _imported_ledger_analysis: analysis,
+        _imported_saas_metrics: { saas_arr: 1230000 },
+        _imported_saas_provenance: { provider: 'yuki' },
+      },
+    })
+
+    expect((normalized.formData as any)._imported_ledger_analysis).toEqual(analysis)
+    expect((normalized.formData as any)._imported_saas_metrics).toEqual({ saas_arr: 1230000 })
+    expect((normalized.formData as any)._imported_saas_provenance).toEqual({ provider: 'yuki' })
   })
 
   describe('preSelectedValuationMethod (_pre_selected_valuation_method)', () => {
@@ -388,7 +444,9 @@ describe('normalizeSessionData', () => {
         saas_nrr_pct: 110,
         rev_recurring_amount: 400_000,
         rev_top_client_concentration_pct: 22,
-        tax_latencies: [{ type: 'passive', description: 'x', temporary_difference: 1, tax_rate: 25 }],
+        tax_latencies: [
+          { type: 'passive', description: 'x', temporary_difference: 1, tax_rate: 25 },
+        ],
       },
     })
     expect(normalized.formData.subIndustry).toBe('SaaS vertical')
@@ -398,6 +456,53 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.rev_top_client_concentration_pct).toBe(22)
     expect(Array.isArray(normalized.formData.tax_latencies)).toBe(true)
     expect((normalized.formData.tax_latencies as unknown[]).length).toBe(1)
+  })
+
+  it('extracts deal/capital/NAV method fields and official filing overlays for restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_method_matrix_restore',
+      session_data: {
+        deal_type: 'asset_purchase',
+        deal_registration_duty_pct: 12.5,
+        deal_seller_is_individual: true,
+        capital_history_enabled: true,
+        capital_round_amount: 2500000,
+        capital_last_round_post_money: 15000000,
+        capital_safe_notes: [{ amount: 400000, discount_pct: 20 }],
+        nav_real_estate_book_value: 800000,
+        nav_real_estate_appraisal_value: 1250000,
+        nav_per_asset_tax_rates: { real_estate: 30, equipment: 25 },
+        nav_equipment_revaluation: { book_value: 120000, market_value: 160000 },
+        official_financials: {
+          years: [{ year: 2024, revenue: 1200000, ebitda: 180000 }],
+        },
+        official_variance_analysis: { revenue_delta_pct: 3.1 },
+        official_verification_badge: { level: 'verified', source: 'nbb' },
+      },
+    })
+
+    expect(normalized.formData.deal_type).toBe('asset_purchase')
+    expect(normalized.formData.deal_registration_duty_pct).toBe(12.5)
+    expect(normalized.formData.deal_seller_is_individual).toBe(true)
+    expect(normalized.formData.capital_history_enabled).toBe(true)
+    expect(normalized.formData.capital_round_amount).toBe(2500000)
+    expect(normalized.formData.capital_last_round_post_money).toBe(15000000)
+    expect(normalized.formData.capital_safe_notes).toEqual([{ amount: 400000, discount_pct: 20 }])
+    expect(normalized.formData.nav_real_estate_book_value).toBe(800000)
+    expect(normalized.formData.nav_real_estate_appraisal_value).toBe(1250000)
+    expect(normalized.formData.nav_per_asset_tax_rates).toEqual({ real_estate: 30, equipment: 25 })
+    expect(normalized.formData.nav_equipment_revaluation).toEqual({
+      book_value: 120000,
+      market_value: 160000,
+    })
+    expect((normalized.formData as any).official_financials).toEqual({
+      years: [{ year: 2024, revenue: 1200000, ebitda: 180000 }],
+    })
+    expect((normalized.formData as any).official_variance_analysis).toEqual({ revenue_delta_pct: 3.1 })
+    expect((normalized.formData as any).official_verification_badge).toEqual({
+      level: 'verified',
+      source: 'nbb',
+    })
   })
 
   it('promotes adaptive scalars from business_context when top-level keys are missing', () => {
@@ -418,6 +523,23 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.dcf_wacc_pct).toBe(9.5)
     expect(normalized.formData.nav_hidden_reserves).toBe(40_000)
     expect(normalized.formData.rev_recurring_amount).toBe(300_000)
+  })
+
+  it('promotes adaptive struct fields from business_context when top-level slots are empty', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_bc_struct_promote',
+      session_data: {
+        capital_safe_notes: [],
+        nav_per_asset_tax_rates: {},
+        business_context: {
+          capital_safe_notes: [{ amount: 150000, discount_pct: 15 }],
+          nav_per_asset_tax_rates: { real_estate: 30 },
+        },
+      },
+    })
+
+    expect(normalized.formData.capital_safe_notes).toEqual([{ amount: 150000, discount_pct: 15 }])
+    expect(normalized.formData.nav_per_asset_tax_rates).toEqual({ real_estate: 30 })
   })
 
   it('promotes API camelCase adaptive metadata from business_context onto _internal_*', () => {
@@ -446,5 +568,87 @@ describe('normalizeSessionData', () => {
     })
     expect(normalized.formData.saas_arr).toBe(500_000)
     expect(normalized.formData.dcf_wacc_pct).toBe(12)
+  })
+
+  it('preserves pending-invitation client context when client_user_id is null', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_ctx_pending_invite',
+      session_data: {
+        _client_context: {
+          client_user_id: null,
+          accountant_user_id: 'acct-1',
+          relationship_id: 'rel-1',
+        },
+      },
+    })
+    expect(normalized.clientContext).toEqual({
+      accountantUserId: 'acct-1',
+      clientUserId: null,
+      relationshipId: 'rel-1',
+    })
+  })
+
+  it('maps engine-flat selected_method when legacy _pre_selected_valuation_method is absent', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_sel_flat',
+      session_data: {
+        selected_method: 'DCF',
+      },
+    })
+    expect(normalized.preSelectedValuationMethod).toBe('dcf')
+  })
+
+  it('prefers _pre_selected_valuation_method over selected_method when both exist', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_sel_both',
+      session_data: {
+        _pre_selected_valuation_method: 'ebitda_multiple',
+        selected_method: 'dcf',
+      },
+    })
+    expect(normalized.preSelectedValuationMethod).toBe('ebitda_multiple')
+  })
+
+  it('accepts pre_selected_valuation_methods and user_weights without leading underscore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_blend_flat',
+      session_data: {
+        pre_selected_valuation_methods: ['dcf', 'adjusted_nav'],
+        user_weights: { dcf: 60, adjusted_nav: 40 },
+        user_weight_justification: 'Client asked for floor + income.',
+      },
+    })
+    expect(normalized.preSelectedMethods).toEqual(['dcf', 'adjusted_nav'])
+    expect(normalized.userWeights).toEqual({ dcf: 60, adjusted_nav: 40 })
+    expect(normalized.userWeightJustification).toBe('Client asked for floor + income.')
+  })
+
+  it('maps userWeights camelCase when underscore keys are absent', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_uw_camel',
+      session_data: {
+        userWeights: { dcf: 50, ebitda_multiple: 50 },
+      },
+    })
+    expect(normalized.userWeights).toEqual({ dcf: 50, ebitda_multiple: 50 })
+  })
+
+  it('merges session_data when sessionData is an empty object', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_merge_env',
+      sessionData: {},
+      session_data: {
+        company_name: 'Merged Co',
+      },
+    })
+    expect(normalized.formData.company_name).toBe('Merged Co')
+  })
+
+  it('prefers val_* from nested session_data over stale UUID reportId', () => {
+    const normalized = normalizeSessionData({
+      reportId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+      session_data: { session_key: 'val_nested_routing' },
+    })
+    expect(normalized.reportId).toBe('val_nested_routing')
   })
 })

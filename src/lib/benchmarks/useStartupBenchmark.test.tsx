@@ -112,4 +112,18 @@ describe('useStartupBenchmark', () => {
     expect(result.current.benchmark.exit_multiple_high).toBe(14)
     expect(result.current.benchmark.source).toBe('PitchBook Q1 2026')
   })
+
+  it('does not call fetch when disabled (non-startup routes)', () => {
+    const fetchSpy = vi.fn(() => Promise.reject(new Error('should not be called')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const { result } = renderHook(() =>
+      useStartupBenchmark('BE', 'seed', 'saas', false),
+    )
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isFallback).toBe(true)
+    expect(result.current.benchmark.region_code).toBe('BE')
+  })
 })

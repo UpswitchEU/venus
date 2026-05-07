@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
 
 // ─────────────────────────────────────────
@@ -727,7 +728,13 @@ export function NormalisationReviewStep({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="text-sm font-medium text-foreground truncate">
+                            <span
+                              className={cn(
+                                'text-sm font-medium text-foreground min-w-0',
+                                LEDGER_LABEL_TEXT_CLASSES
+                              )}
+                              title={suggestion.description}
+                            >
                               {suggestion.description}
                             </span>
                             <span
@@ -920,7 +927,12 @@ export function NormalisationReviewStep({
                             <div className="flex items-start gap-2">
                               <span className="text-sm">{preset.icon}</span>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-foreground/80 group-hover:text-foreground truncate">
+                                <p
+                                  className={cn(
+                                    'text-xs font-medium text-foreground/80 group-hover:text-foreground leading-snug',
+                                    LEDGER_LABEL_TEXT_CLASSES
+                                  )}
+                                >
                                   {nh(preset.labelKey)}
                                 </p>
                                 <p className="text-[10px] text-foreground/40">
@@ -950,6 +962,7 @@ export function NormalisationReviewStep({
                   <Input
                     placeholder={nh('searchLedgerPlaceholder')}
                     value={searchQuery}
+                    title={searchQuery.trim().length > 0 ? searchQuery : undefined}
                     onChange={(e) => {
                       setSearchQuery(e.target.value)
                       setShowLedgerDropdown(true)
@@ -966,7 +979,7 @@ export function NormalisationReviewStep({
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="absolute z-50 w-full mt-1 py-1 bg-background border border-foreground/10 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                        className="absolute z-50 w-full mt-1 py-1 bg-background border border-foreground/10 rounded-lg shadow-lg max-h-[min(18rem,45vh)] overflow-y-auto"
                       >
                         {filteredLedgers.map((account) => (
                           <button
@@ -976,12 +989,18 @@ export function NormalisationReviewStep({
                               setSearchQuery(`${account.code} · ${account.name}`)
                               setShowLedgerDropdown(false)
                             }}
-                            className="w-full px-3 py-2 text-left hover:bg-foreground/[0.04] flex items-center gap-3 transition-colors"
+                            className="w-full px-3 py-2 text-left hover:bg-foreground/[0.04] flex items-start gap-3 transition-colors"
                           >
-                            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/60">
+                            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/60 shrink-0 mt-0.5">
                               {account.code}
                             </span>
-                            <span className="text-sm text-foreground/80 truncate">
+                            <span
+                              className={cn(
+                                'text-sm text-foreground/80 min-w-0 text-left',
+                                LEDGER_LABEL_TEXT_CLASSES
+                              )}
+                              title={account.name}
+                            >
                               {account.name}
                             </span>
                           </button>
@@ -1006,13 +1025,22 @@ export function NormalisationReviewStep({
                               }
                             }}
                             className={cn(
-                              'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-center justify-between gap-3 transition-colors cursor-pointer',
+                              'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-start justify-between gap-3 transition-colors cursor-pointer',
                               filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
                             )}
                           >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">+</span>
-                              <span className="text-sm text-foreground/80 truncate">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0 mt-0.5">
+                                +
+                              </span>
+                              <span
+                                className={cn(
+                                  'text-sm text-foreground/80 min-w-0 text-left',
+                                  LEDGER_LABEL_TEXT_CLASSES
+                                )}
+                              >
+                                {nh('useCustomCode', { query: searchQuery.trim() })}
+                              </span>
                             </div>
                             <button
                               type="button"
@@ -1023,7 +1051,7 @@ export function NormalisationReviewStep({
                                 setSearchQuery(`${code} · ${name}`)
                                 setShowLedgerDropdown(false)
                               }}
-                              className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                              className="flex-shrink-0 self-start mt-0.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
                             >
                               {nh('actions.add')}
                             </button>
@@ -1042,11 +1070,16 @@ export function NormalisationReviewStep({
                     className="space-y-4"
                   >
                     {/* Selected Pill */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
-                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
                         {selectedLedger.code}
                       </span>
-                      <span className="text-sm text-foreground/80 flex-1 truncate">
+                      <span
+                        className={cn(
+                          'text-sm text-foreground/80 flex-1 min-w-0',
+                          LEDGER_LABEL_TEXT_CLASSES
+                        )}
+                      >
                         {selectedLedger.name}
                       </span>
                       <button

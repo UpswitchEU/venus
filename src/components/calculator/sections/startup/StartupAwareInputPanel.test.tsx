@@ -82,8 +82,24 @@ vi.mock('../../ManualInputPanel', () => ({
 }))
 
 vi.mock('./StartupValuationPanel', () => ({
-  StartupValuationPanel: ({ mode }: { mode: string }) => (
-    <div data-testid="startup-valuation-panel" data-mode={mode} />
+  StartupValuationPanel: ({
+    mode,
+    isAssistantOpen,
+    launcherScopeId,
+    launcherIssues,
+  }: {
+    mode: string
+    isAssistantOpen?: boolean
+    launcherScopeId?: string
+    launcherIssues?: Array<unknown>
+  }) => (
+    <div
+      data-testid="startup-valuation-panel"
+      data-mode={mode}
+      data-assistant-open={isAssistantOpen ? 'true' : 'false'}
+      data-launcher-scope-id={launcherScopeId ?? ''}
+      data-launcher-issues-count={String(launcherIssues?.length ?? 0)}
+    />
   ),
 }))
 
@@ -194,6 +210,32 @@ describe('StartupAwareInputPanel', () => {
       useBootstrapSafeMock.mockReturnValue({ isAccountantFlow: true } as never)
       const { getByTestId } = render(<StartupAwareInputPanel />)
       expect(getByTestId('startup-valuation-panel').getAttribute('data-mode')).toBe('advisor')
+    })
+
+    it('passes assistant launcher wiring props through to StartupValuationPanel', () => {
+      resultsStoreState.selectedMethod = 'startup_valuation'
+      const startupLauncherIssues = [
+        {
+          id: 'no_berkus_milestone',
+          severity: 'block',
+          step: 'berkus',
+          title: { en: 'x', nl: 'x' },
+          body: { en: 'x', nl: 'x' },
+          action: { en: 'x', nl: 'x' },
+          assistantPrompt: { en: 'x', nl: 'x' },
+        },
+      ] as const
+      const { getByTestId } = render(
+        <StartupAwareInputPanel
+          isAssistantOpen
+          startupLauncherScopeId="rep_123"
+          startupLauncherIssues={startupLauncherIssues as any}
+        />
+      )
+      const panel = getByTestId('startup-valuation-panel')
+      expect(panel.getAttribute('data-assistant-open')).toBe('true')
+      expect(panel.getAttribute('data-launcher-scope-id')).toBe('rep_123')
+      expect(panel.getAttribute('data-launcher-issues-count')).toBe('1')
     })
   })
 })

@@ -20,6 +20,10 @@ import {
   extractClientContextFromHeaders,
 } from '../../../src/constants/headers'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30
+
 const TIMEOUT_MS = 15_000 // 15s per request (includes potential token refresh)
 
 /**
@@ -167,7 +171,9 @@ export async function POST(request: NextRequest) {
 
       // ✅ CRITICAL: Forward client context headers using canonical format
       if (clientContext) {
-        headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+        if (clientContext.clientUserId) {
+          headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+        }
         headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId
         if (clientContext.relationshipId) {
           headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId

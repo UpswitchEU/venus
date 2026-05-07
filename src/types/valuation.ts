@@ -99,6 +99,20 @@ export interface OfficialVarianceAnalysis {
   severity?: 'none' | 'soft' | 'hard'
 }
 
+export interface OfficialFinancialsYearPayload {
+  fiscalYear: number
+  revenue?: number
+  revenueSource?: 'turnover' | 'gross_margin'
+  operatingProfit?: number
+  depreciation?: number
+  writeOffs?: number
+  ebitda?: number
+  totalAssets?: number
+  equity?: number
+  schemaType?: 'full' | 'abbreviated'
+  rubricsUsed?: Record<string, string>
+}
+
 export interface OfficialFinancialsPayload {
   source?: string
   sourceLabel?: string
@@ -121,6 +135,7 @@ export interface OfficialFinancialsPayload {
   }
   varianceAnalysis?: OfficialVarianceAnalysis
   verificationBadge?: OfficialVerificationBadge
+  historicalYears?: OfficialFinancialsYearPayload[]
 }
 
 export interface ValuationRequest {
@@ -221,6 +236,23 @@ export interface ValuationRequest {
    */
   metadata?: Record<string, unknown>
 
+  /**
+   * Optional capital history forwarded to the SaaS / non-startup methods'
+   * cap-table simulator.  Mirrors the Pydantic ``CapTableSummary`` on the
+   * Python side and the Zod ``capTableSummarySchema`` on the Titan side
+   * (`apps/titan-api/src/valuations/dto/valuation-request.dto.ts`).
+   * Untouched by the startup flow — the startup wizard writes its copy
+   * into ``startup_inputs.cap_table``.
+   */
+  cap_table?: CapTableSummaryInput
+
+  /**
+   * Round size the founder is currently raising (EUR).  Drives the
+   * cap-table simulator on the SaaS / non-startup result.  Mirrors
+   * ``startup_inputs.investment_amount_sought`` for the venture path.
+   */
+  investment_amount_sought?: number
+
   // Optional comparable companies
   comparables?: Array<{
     name: string
@@ -253,6 +285,35 @@ export interface TaxLatencyInput {
   temporary_difference: number
   tax_rate: number
   account_code?: string
+}
+
+/**
+ * Single SAFE / convertible note on the founder's cap table.  Shape
+ * mirrors the Pydantic ``SafeNote`` model.  ``id`` is a frontend-only
+ * stable handle so the React editor can key list rows; the engine
+ * ignores it (and Zod strips it at the boundary).
+ */
+export interface SafeNoteInput {
+  id: string
+  amount: number | null
+  valuation_cap?: number | null
+  discount_pct?: number | null
+  holder_label?: string
+}
+
+/**
+ * Cap-table summary forwarded to the engine alongside the SaaS / non-startup
+ * methods.  Field shape mirrors the Pydantic ``CapTableSummary`` model and
+ * the Titan Zod ``capTableSummarySchema`` exactly so the payload crosses
+ * Venus → Titan → ValuationIQ unchanged.
+ */
+export interface CapTableSummaryInput {
+  pre_money_target?: number
+  option_pool_pct?: number
+  safe_notes?: Array<Omit<SafeNoteInput, 'id'>>
+  last_round_amount?: number
+  last_round_post_money?: number
+  last_round_date?: string
 }
 
 export interface BalanceSheetAdjustmentInput {
@@ -416,6 +477,21 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   rev_contract_backlog?: number
   rev_gross_churn_pct?: number
   rev_capitalized_rd_amount?: number
+
+  /**
+   * Capital history — drives the cap-table simulator on the SaaS / non-startup
+   * methods.  Persisted on the form-store as an opt-in collapsible block; the
+   * builder maps these into top-level ``cap_table`` + ``investment_amount_sought``
+   * fields on the canonical request.  Empty / absent ⇒ no simulator on the report
+   * (backwards-compat preserved).
+   */
+  capital_history_enabled?: boolean
+  capital_round_amount?: number
+  capital_option_pool_pct?: number
+  capital_safe_notes?: SafeNoteInput[]
+  capital_last_round_amount?: number
+  capital_last_round_post_money?: number
+  capital_last_round_date?: string
 }
 
 // -----------------------------------------------------------------------------
@@ -1094,7 +1170,12 @@ export interface ValuationResponse {
   academic_sources?: AcademicSource[]
   professional_review_ready?: ProfessionalReviewReady
 
-  // Owner Dependency Assessment (Phase 4: 12-factor analysis)
+  // Owner Dependency Assessment (Phase 4: 12-factor analysis).
+  // OWNER-PROFILING-1 / OP-6 — `raw_adjustment` field added so the cover-page
+  // chip can render "MVP cap applied — full risk -X%" when the engine
+  // emitted more than -15% but the synthesizer clamped. Per SPIKE-1 §5.4 the
+  // raw figure must NEVER be displayed without the "cap applied" framing —
+  // see the `OwnerProfilingChip` component contract for the enforcement.
   owner_dependency_result?: {
     factors: {
       client_concentration: string
@@ -1113,6 +1194,8 @@ export interface ValuationResponse {
     overall_score: number
     risk_level: string
     valuation_adjustment: number
+    /** Engine-emitted (uncapped) figure preserved for cap-applied messaging. */
+    raw_adjustment?: number | null
     explanation: string
     key_risks: string[]
     recommendations: string[]
@@ -1370,6 +1453,8 @@ export interface ValuationResponse {
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
+  /** Render snapshot fingerprint from Titan (guards stale HTML fallback). */
+  render_fingerprint?: string
 
   /** EV → equity bridge steps (aligned with report valuation_waterfall_steps) */
   ev_equity_waterfall_steps?: EvEquityWaterfallStep[]

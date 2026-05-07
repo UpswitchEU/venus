@@ -31,7 +31,7 @@ describe('buildHeadlineNarrative', () => {
     expect(sentence).toContain('€8.6M pre-money')
     expect(sentence).toContain('€1.5M')
     expect(sentence).toContain('€10.1M')
-    expect(sentence).toContain('15%')
+    expect(sentence).toMatch(/~15%/)
     expect(sentence).toContain('pre-seed')
     expect(sentence).toContain('marketplace')
     expect(sentence).toContain('BE')
@@ -40,9 +40,9 @@ describe('buildHeadlineNarrative', () => {
   it('localises to Dutch', () => {
     const sentence = buildHeadlineNarrative(upswitchCtx, 'nl')
     expect(sentence).toContain('pre-money')
-    expect(sentence).toContain('ophalen')
+    expect(sentence).toContain('op te halen')
     expect(sentence).toContain('post-money')
-    expect(sentence).toContain('dilutie')
+    expect(sentence).toMatch(/nieuwe investeerders|voor nieuwe investeerders/i)
   })
 
   it('rounds dilution to integer percent', () => {

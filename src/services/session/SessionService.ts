@@ -17,30 +17,272 @@
  * @module services/session/SessionService
  */
 
-import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationSessionResponse } from '../../types/api-responses'
+import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
-import { isUuid } from '../../utils/identifiers'
 import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
+import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
+import { isSessionKey, isUuid } from '../../utils/identifiers'
+import { mergeSessionDataEnvelopesFromRoot } from '../../utils/sessionReportIdentity'
 import { createContextLogger } from '../../utils/logger'
+import {
+  mergeSessionSurfaceForOptionalPrefill,
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  sessionEnvelopeHasIdentitySignals,
+} from '../../utils/mergeOptionalSessionPrefillFields'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
-import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
   mergePrefilledQuery,
   mergeSessionFields,
   normalizeSessionDates,
+  orderedValuationSessionLookupIds,
+  resolveEnsureHtmlAlternateReportId,
+  resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
+import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
 import { validateSessionData } from '../../utils/sessionValidation'
+import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
 
-/** Deduplicate concurrent self-heal calls per Titan report UUID */
+/** Diagnostics / cache hints — use merged surface so `_businessInfo`-only sessions register as form-bearing */
+function sessionDataIndicatesUsableFormInputs(sessionData: unknown): boolean {
+  if (!sessionData || typeof sessionData !== 'object') return false
+  if (sessionEnvelopeHasIdentitySignals(sessionData)) return true
+  const m = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
+  if (m.revenue != null || m.ebitda != null) return true
+  const cyd = m.current_year_data
+  if (cyd && typeof cyd === 'object' && !Array.isArray(cyd)) {
+    const o = cyd as Record<string, unknown>
+    if (o.revenue != null || o.ebitda != null) return true
+  }
+  if (Array.isArray(m.historical_years_data) && m.historical_years_data.length > 0) return true
+  const yd = m.year_data ?? m.yearData
+  return !!(
+    yd &&
+    typeof yd === 'object' &&
+    !Array.isArray(yd) &&
+    Object.keys(yd as object).length > 0
+  )
+}
+
+/** Deduplicate concurrent self-heal calls per Titan report identifier */
 const ensureHtmlInFlight = new Set<string>()
+
+/**
+ * Keys merged from the in-memory session seed when Titan returns a sparse `session_data`
+ * payload. Must cover Hermes/integration metadata that lives outside
+ * {@link OPTIONAL_SESSION_PREFILL_SCALAR_KEYS} / {@link OPTIONAL_SESSION_STRUCT_SYNC_KEYS}
+ * so `backfillSparseSessionFromStoreSeed` does not drop import quality or ledger analysis
+ * after integration + NBB/CBSO enrichment.
+ *
+ * Note: Titan `BootstrapService.persistCbsoEnrichedFinancialsAttempt` persists only
+ * filing-year mirrors and historical rows (`current_year_data`, `historical_years_data`,
+ * `revenue`, `ebitda`); integration blobs are written by other bootstrap/accounting paths
+ * and must remain listed here.
+ */
+const BASE_SPARSE_BACKFILL_KEYS = [
+  'company_name',
+  'country_code',
+  'founding_year',
+  'number_of_employees',
+  'employee_count',
+  'kbo_number',
+  'vat_number',
+  'city',
+  'postal_code',
+  'legal_form',
+  'business_description',
+  'nace_code',
+  'canonical_nace_code',
+  'nace_description',
+  'taxonomy',
+  'activity_code',
+  'activity_label',
+  'business_type_id',
+  'subIndustry',
+  'industry',
+  'revenue',
+  'ebitda',
+  'year_data',
+  'current_year_data',
+  'historical_years_data',
+  'yearlyFinancials',
+  'tax_latencies',
+  '_taxLatencies',
+  '_normalizations',
+  'business_context',
+  /** Fiscal panel + Hermes bookkeeping — mirrored in bootstrap prefill, not optional scalars list. */
+  'filing_year_confirmed',
+  /** Accounting-integration payloads (aliases handled in SessionNormalizer). */
+  '_import_quality',
+  'import_quality',
+  '_financial_data_source',
+  '_imported_ledger_analysis',
+  '_imported_saas_metrics',
+  '_imported_saas_provenance',
+] as const
+
+const SPARSE_BACKFILL_KEYS = Array.from(
+  new Set<string>([
+    ...BASE_SPARSE_BACKFILL_KEYS,
+    ...OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+    ...OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+    'forecast_years_data',
+    'balance_sheet_adjustments',
+    'comparables',
+    'official_financials',
+    'official_variance_analysis',
+    'official_verification_badge',
+  ])
+)
+
+const ZERO_PLACEHOLDER_NUMERIC_KEYS = new Set([
+  'revenue',
+  'ebitda',
+  'recurring_revenue_percentage',
+  'government_bond_yield',
+  'long_term_gdp_growth',
+  'owner_salary_addback',
+  'preparer_ev_ebitda_median',
+])
+
+function isZeroPlaceholderNumericKey(key: string): boolean {
+  if (ZERO_PLACEHOLDER_NUMERIC_KEYS.has(key)) return true
+  return (
+    key.startsWith('dcf_') ||
+    key.startsWith('nav_') ||
+    key.startsWith('saas_') ||
+    key.startsWith('rev_')
+  )
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function isFiniteNonZero(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value !== 0
+}
+
+function isPlaceholderCurrentYearRow(value: unknown): boolean {
+  const row = asRecord(value)
+  if (!row) return true
+  const revenue = row.revenue
+  const ebitda = row.ebitda
+  const hasMeaningfulRevenue = isFiniteNonZero(revenue)
+  const hasMeaningfulEbitda = isFiniteNonZero(ebitda)
+  return !hasMeaningfulRevenue && !hasMeaningfulEbitda
+}
+
+function isPlaceholderYearArray(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0) return true
+  return value.every((entry) => {
+    const row = asRecord(entry)
+    if (!row) return true
+    return !isFiniteNonZero(row.revenue) && !isFiniteNonZero(row.ebitda)
+  })
+}
+
+function shouldBackfillSparseValue(
+  key: string,
+  currentValue: unknown,
+  seedValue: unknown
+): boolean {
+  if (seedValue == null || seedValue === '') return false
+
+  if (currentValue == null || currentValue === '') return true
+
+  if (
+    typeof currentValue === 'number' &&
+    isZeroPlaceholderNumericKey(key) &&
+    typeof seedValue === 'number'
+  ) {
+    return currentValue === 0 && seedValue !== 0
+  }
+
+  if (key === 'current_year_data') {
+    return isPlaceholderCurrentYearRow(currentValue) && !isPlaceholderCurrentYearRow(seedValue)
+  }
+
+  if (key === 'historical_years_data' || key === 'yearlyFinancials') {
+    return isPlaceholderYearArray(currentValue) && !isPlaceholderYearArray(seedValue)
+  }
+
+  if (Array.isArray(currentValue)) {
+    return currentValue.length === 0
+  }
+
+  const currentRecord = asRecord(currentValue)
+  const seedRecord = asRecord(seedValue)
+  if (currentRecord && seedRecord) {
+    if (Object.keys(currentRecord).length === 0 && Object.keys(seedRecord).length > 0) return true
+
+    if (key === 'business_context') {
+      const currentLegalForm = currentRecord.legal_form
+      const seedLegalForm = seedRecord.legal_form
+      const currentKbo = currentRecord.kbo_registration
+      const seedKbo = seedRecord.kbo_registration
+      return (
+        ((!currentLegalForm || currentLegalForm === '') && !!seedLegalForm) ||
+        ((!currentKbo || currentKbo === '') && !!seedKbo)
+      )
+    }
+  }
+
+  return false
+}
+
+async function backfillSparseSessionFromStoreSeed(
+  reportId: string,
+  session: ValuationSession
+): Promise<void> {
+  const sessionData = (session.sessionData || {}) as Record<string, unknown>
+  try {
+    const { useSessionStore } = await import('../../store/useSessionStore')
+    const seedSession = useSessionStore.getState().session
+    if (!seedSession || seedSession.reportId !== reportId || !seedSession.sessionData) return
+
+    const seedData = seedSession.sessionData as Record<string, unknown>
+    const merged: Record<string, unknown> = { ...sessionData }
+    const mergedKeys: string[] = []
+
+    for (const key of SPARSE_BACKFILL_KEYS) {
+      const seedValue = seedData[key]
+      if (seedValue === undefined) continue
+      if (shouldBackfillSparseValue(key, merged[key], seedValue)) {
+        merged[key] = seedValue
+        mergedKeys.push(key)
+      }
+    }
+
+    if (mergedKeys.length > 0) {
+      session.sessionData = merged as any
+      session.partialData = {
+        ...(session.partialData || {}),
+        ...Object.fromEntries(mergedKeys.map((k) => [k, merged[k]])),
+      }
+      logger.info('Backfilled sparse session payload from bootstrap seed', {
+        reportId: reportId.substring(0, 30),
+        mergedKeysCount: mergedKeys.length,
+        mergedKeys: mergedKeys.slice(0, 12),
+      })
+    }
+  } catch (error) {
+    logger.warn('Sparse session backfill skipped (non-critical)', {
+      reportId: reportId.substring(0, 30),
+      error: getErrorMessage(error),
+    })
+  }
+}
 
 /**
  * Fetch business card data from Titan API
@@ -516,9 +758,7 @@ export class SessionService {
         // Calculate cache age for stale-while-revalidate
         const updatedMs = dateLikeToUnixMs(cachedSession.updatedAt)
         const cacheAge_minutes =
-          updatedMs !== null
-            ? Math.floor((Date.now() - updatedMs) / (60 * 1000))
-            : 0
+          updatedMs !== null ? Math.floor((Date.now() - updatedMs) / (60 * 1000)) : 0
 
         // ✅ VERIFY: Log form data presence in cache for restoration
         const hasSessionData = !!cachedSession.sessionData
@@ -526,12 +766,7 @@ export class SessionService {
           ? Object.keys(cachedSession.sessionData)
           : []
         const sessionData = cachedSession.sessionData || ({} as any)
-        const hasFormFields =
-          hasSessionData &&
-          (sessionData.company_name ||
-            (sessionData.current_year_data as any)?.revenue ||
-            (sessionData.current_year_data as any)?.ebitda ||
-            sessionData.current_year_data)
+        const hasFormFields = hasSessionData && sessionDataIndicatesUsableFormInputs(sessionData)
 
         logger.debug('Session loaded from cache (instant)', {
           reportId,
@@ -626,11 +861,12 @@ export class SessionService {
         if (!sessionResponse?.session) return sessionResponse
 
         const session = sessionResponse.session as any
-        const sessionData = session?.sessionData || session?.session_data || {}
+        const sessionData = mergeSessionDataEnvelopesFromRoot(session as Record<string, any>)
+        const htmlFromEnvelope = (v: unknown) => (typeof v === 'string' ? v : undefined)
         const hasRenderableHtmlReport = !!getFirstRenderableReportHtml(
-          sessionData?._htmlReport,
-          sessionData?.html_report,
-          session?.htmlReport
+          htmlFromEnvelope(sessionData?._htmlReport),
+          htmlFromEnvelope(sessionData?.html_report),
+          session?.htmlReport,
         )
         const hasValuationResult = !!(
           session?.valuationResult ||
@@ -958,6 +1194,7 @@ export class SessionService {
 
             // Merge top-level fields into sessionData (SINGLE SOURCE OF TRUTH)
             const mergedSession = mergeSessionFields(normalizedSession)
+            await backfillSparseSessionFromStoreSeed(reportId, mergedSession)
 
             // ✅ DIAGNOSTIC: Verify business card data survived merging (existing session load)
             // ✅ FIX: Check if company_name is actually filled (not empty string)
@@ -1036,16 +1273,22 @@ export class SessionService {
             // ✅ FIX: Log _client_context presence for debugging
             // Backend access check should work without headers if session has _client_context
             const clientContext = (mergedSession.sessionData as any)?._client_context
-            if (
+            const hasFullDelegatedContext =
               clientContext?.client_user_id &&
               clientContext?.accountant_user_id &&
               clientContext?.relationship_id
-            ) {
+            const hasPendingInviteContext =
+              clientContext?.client_user_id == null &&
+              clientContext?.accountant_user_id &&
+              clientContext?.relationship_id
+            if (hasFullDelegatedContext || hasPendingInviteContext) {
               logger.debug(
                 'Session contains client context - backend should allow access via _client_context',
                 {
                   reportId,
-                  clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
+                  clientUserId: clientContext.client_user_id
+                    ? clientContext.client_user_id.substring(0, 8) + '...'
+                    : 'null (pending)',
                   accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
                   relationshipId: clientContext.relationship_id.substring(0, 8) + '...',
                   note: 'Backend access check should work even if headers are not sent',
@@ -1061,11 +1304,7 @@ export class SessionService {
               : []
             const sessionData = mergedSession.sessionData || ({} as any)
             const hasFormFields =
-              hasSessionData &&
-              (sessionData.company_name ||
-                (sessionData.current_year_data as any)?.revenue ||
-                (sessionData.current_year_data as any)?.ebitda ||
-                sessionData.current_year_data)
+              hasSessionData && sessionDataIndicatesUsableFormInputs(sessionData)
 
             globalSessionCache.set(reportId, mergedSession)
 
@@ -1198,8 +1437,7 @@ export class SessionService {
    */
   async saveSession(
     reportId: string,
-    updates: Partial<ValuationRequest> &
-      Partial<Pick<ValuationSession, 'currentView' | 'name'>>
+    updates: Partial<ValuationRequest> & Partial<Pick<ValuationSession, 'currentView' | 'name'>>
   ): Promise<ValuationSession> {
     const startTime = performance.now()
 
@@ -1237,7 +1475,7 @@ export class SessionService {
 
       // Extract top-level mutable fields separately so autosave can persist them too.
       const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
-      const hasExplicitName = Object.prototype.hasOwnProperty.call(updatesAny, 'name')
+      const hasExplicitName = Object.hasOwn(updatesAny, 'name')
       const name = hasExplicitName ? updatesAny.name : currentSession?.name
 
       // sessionData should contain the actual form data, not top-level session metadata.
@@ -1299,7 +1537,7 @@ export class SessionService {
           reportId,
           currentView,
           ...(name !== undefined && { name }),
-          sessionData: mergedSessionData,
+          sessionData: stripReportBlobsFromSessionPatch(mergedSessionData) as any,
         } as any) // Type assertion needed because session_key is not in ValuationSession type
 
         // ✅ Remove _bootstrapCreated flag from store after successful creation
@@ -1323,7 +1561,7 @@ export class SessionService {
       } else {
         // ✅ UPDATE path: Session already exists in backend
         const sessionUpdates: Partial<ValuationSession> = {
-          sessionData: sessionData as any,
+          sessionData: stripReportBlobsFromSessionPatch(sessionData) as any,
           ...(currentView && { currentView }),
           ...(name !== undefined && { name }),
         }
@@ -1729,9 +1967,7 @@ export class SessionService {
   private valuationSnapshotHasRange(vr: unknown): boolean {
     if (!vr || typeof vr !== 'object') return false
     const o = vr as Record<string, unknown>
-    return (
-      o.equity_value_mid != null || o.equity_value_low != null || o.equity_value_high != null
-    )
+    return o.equity_value_mid != null || o.equity_value_low != null || o.equity_value_high != null
   }
 
   private sessionUsableHtmlMissing(s: ValuationSession): boolean {
@@ -1748,10 +1984,22 @@ export class SessionService {
     return Math.max(top.trim().length, dStr.trim().length) < 100
   }
 
-  private pickTitanReportUuidForEnsure(urlId: string, s: ValuationSession): string | null {
+  private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
+    const sessionKey = extractStableSessionKeyFromMergedSession(
+      s as unknown as Record<string, any>,
+    )
+
+    const mergedReport =
+      typeof s.reportId === 'string' && (isUuid(s.reportId) || isSessionKey(s.reportId))
+        ? s.reportId.trim()
+        : undefined
+
+    // Prefer stable handles: session key resolves to the current row even when the URL
+    // still carries an older valuation_reports.id after re-save / version link-updates.
+    if (sessionKey) return sessionKey
+    if (isSessionKey(urlId)) return urlId
+    if (mergedReport) return mergedReport
     if (isUuid(urlId)) return urlId
-    const vid = (s.valuationResult as { valuation_id?: string } | undefined)?.valuation_id
-    if (typeof vid === 'string' && isUuid(vid)) return vid
     return null
   }
 
@@ -1772,29 +2020,61 @@ export class SessionService {
     if (!this.sessionNeedsHtmlRecovery(mergedSession)) {
       return null
     }
-    const uuid = this.pickTitanReportUuidForEnsure(reportId, mergedSession)
-    if (!uuid) {
-      logger.debug('HTML self-heal skipped: no Titan report UUID (need URL UUID or valuationResult.valuation_id)', {
-        reportId: reportId?.substring(0, 24),
-      })
-      return null
-    }
-    if (ensureHtmlInFlight.has(uuid)) {
-      return null
-    }
-    ensureHtmlInFlight.add(uuid)
-    try {
-      const res = await backendAPI.ensureReportHtml(uuid, { sync: true })
-      if (res == null) {
-        logger.debug('ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching', {
+    const ensureTargetId = this.pickTitanReportIdForEnsure(reportId, mergedSession)
+    if (!ensureTargetId) {
+      logger.debug(
+        'HTML self-heal skipped: no Titan report identifier (need session key or report UUID)',
+        {
           reportId: reportId?.substring(0, 24),
-        })
+        }
+      )
+      return null
+    }
+    const sessionKeyBody = resolveEnsureHtmlSessionKey({
+      urlReportId: reportId,
+      mergedSession,
+      ensureTargetId,
+    })
+    const alternateReportId = resolveEnsureHtmlAlternateReportId({
+      urlReportId: reportId,
+      mergedSession,
+    })
+    const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}|${alternateReportId ?? ''}`
+    if (ensureHtmlInFlight.has(dedupeKey)) {
+      return null
+    }
+    ensureHtmlInFlight.add(dedupeKey)
+    try {
+      const res = await backendAPI.ensureReportHtml(ensureTargetId, {
+        sync: true,
+        ...(sessionKeyBody ? { sessionKey: sessionKeyBody } : {}),
+        ...(alternateReportId ? { alternateReportId } : {}),
+      })
+      if (res == null) {
+        logger.debug(
+          'ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching',
+          {
+            reportId: reportId?.substring(0, 24),
+          }
+        )
         return null
       }
       if ((res as { success?: boolean }).success === false) {
         return null
       }
-      return (await backendAPI.getValuationSession(reportId)) ?? null
+      const lookupIds = orderedValuationSessionLookupIds({
+        ensureResponseReportId: (res as { reportId?: unknown }).reportId,
+        sessionKeyFallback: sessionKeyBody,
+        mergedSessionReportId: mergedSession.reportId,
+        urlReportId: reportId,
+      })
+      for (const id of lookupIds) {
+        const next = await backendAPI.getValuationSession(id)
+        if (next?.session) {
+          return next
+        }
+      }
+      return null
     } catch (e) {
       logger.warn('tryRefetchAfterEnsureHtml failed', {
         reportId,
@@ -1802,7 +2082,7 @@ export class SessionService {
       })
       return null
     } finally {
-      ensureHtmlInFlight.delete(uuid)
+      ensureHtmlInFlight.delete(dedupeKey)
     }
   }
 
@@ -1827,6 +2107,7 @@ export class SessionService {
         validateSessionData(sessionResponse.session)
         let normalizedSession = normalizeSessionDates(sessionResponse.session)
         let mergedSession = mergeSessionFields(normalizedSession)
+        await backfillSparseSessionFromStoreSeed(reportId, mergedSession)
 
         const afterEnsure = await this.tryRefetchAfterEnsureHtml(reportId, mergedSession)
         if (afterEnsure?.session) {
@@ -1865,11 +2146,24 @@ export class SessionService {
           })
         }
 
+        const canonicalReportId =
+          typeof mergedSession.reportId === 'string' && mergedSession.reportId.trim()
+            ? mergedSession.reportId.trim()
+            : null
+        const canonicalIsValid =
+          canonicalReportId != null &&
+          (isUuid(canonicalReportId) || isSessionKey(canonicalReportId))
+
         // Update cache with fresh data
         globalSessionCache.set(reportId, mergedSession)
+        // Alias under Titan's canonical id so lookups succeed whether the UI/cache key was a stale UUID or val_*.
+        if (canonicalIsValid && canonicalReportId !== reportId) {
+          globalSessionCache.set(canonicalReportId, mergedSession)
+        }
 
         logger.debug('Cache revalidated in background', {
           reportId,
+          canonicalReportId: canonicalReportId?.substring(0, 36),
           hasHtmlReport: !!mergedSession.htmlReport,
         })
 
@@ -1879,33 +2173,51 @@ export class SessionService {
         try {
           const { useSessionStore } = await import('../../store/useSessionStore')
           const currentStoreSession = useSessionStore.getState().session
+          const storeRid = currentStoreSession?.reportId
+          const shouldSyncStore =
+            storeRid != null &&
+            (storeRid === reportId ||
+              (canonicalIsValid && canonicalReportId != null && storeRid === canonicalReportId))
 
-          // Only update if the store still has the same reportId
-          if (currentStoreSession?.reportId === reportId) {
+          // Sync when the active session matches the revalidation key OR the canonical id from Titan
+          // (handles stale-URL UUID in cache while Zustand already holds val_*).
+          if (shouldSyncStore) {
             const { useManualResultsStore } = await import(
               '../../store/manual/useManualResultsStore'
             )
             const existingResult = useManualResultsStore.getState().result
             const revalidatedScreenHtml = getFirstRenderableReportHtml(
               mergedSession.htmlReport,
-              (mergedSession.valuationResult as { html_report?: string } | null | undefined)?.html_report,
-              (mergedSession.valuationResult as { details?: { html_report?: string } } | null | undefined)
-                ?.details?.html_report
+              (mergedSession.valuationResult as { html_report?: string } | null | undefined)
+                ?.html_report,
+              (
+                mergedSession.valuationResult as
+                  | { details?: { html_report?: string } }
+                  | null
+                  | undefined
+              )?.details?.html_report
             )
             const safeHtmlForStores =
               revalidatedScreenHtml ||
               getFirstRenderableReportHtml(
                 (existingResult as { html_report?: string } | null | undefined)?.html_report,
-                (existingResult as { details?: { html_report?: string } } | null | undefined)?.details
-                  ?.html_report
+                (existingResult as { details?: { html_report?: string } } | null | undefined)
+                  ?.details?.html_report
               )
-            // Update the session with the revalidated HTML reports
-            useSessionStore.getState().hydrateSession({
+            const hydratePayload: Partial<ValuationSession> = {
               htmlReport: safeHtmlForStores,
               valuationResult: mergedSession.valuationResult,
-              // Also update sessionData with merged fields
               sessionData: mergedSession.sessionData,
-            })
+            }
+            if (
+              canonicalIsValid &&
+              canonicalReportId &&
+              storeRid &&
+              canonicalReportId !== storeRid
+            ) {
+              hydratePayload.reportId = canonicalReportId
+            }
+            useSessionStore.getState().hydrateSession(hydratePayload)
 
             // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
             if (safeHtmlForStores || mergedSession.valuationResult) {
@@ -1935,9 +2247,10 @@ export class SessionService {
               hasHtmlReport: !!safeHtmlForStores,
             })
           } else {
-            logger.debug('Skipping store update - reportId changed during revalidation', {
-              revalidatedReportId: reportId,
-              currentStoreReportId: currentStoreSession?.reportId,
+            logger.debug('Skipping store update - active session does not match revalidated report', {
+              revalidationKey: reportId,
+              canonicalReportId,
+              currentStoreReportId: storeRid,
             })
           }
         } catch (storeError) {

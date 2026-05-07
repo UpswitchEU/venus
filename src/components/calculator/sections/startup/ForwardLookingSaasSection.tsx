@@ -245,6 +245,7 @@ export function ForwardLookingSaasSection({
           <div className="flex flex-col gap-4">
             <CurrencyInput
               size="sm"
+              truncateLabel={false}
               label={t('mrr')}
               value={mrr ?? undefined}
               onChange={(v) => onFieldChange('mrr', v ?? null)}
@@ -253,26 +254,33 @@ export function ForwardLookingSaasSection({
               label={t('mrrGrowth')}
               value={mrrGrowthPct ?? undefined}
               onChange={(v) => onFieldChange('mrr_growth_rate_pct', v ?? null)}
+              size="sm"
+              truncateLabel={false}
             />
             <AdaptivePercentInput
               label={t('monthlyChurn')}
               value={monthlyChurnPct ?? undefined}
               onChange={(v) => onFieldChange('monthly_churn_pct', v ?? null)}
+              size="sm"
+              truncateLabel={false}
             />
             <CurrencyInput
               size="sm"
+              truncateLabel={false}
               label={t('cac')}
               value={cac ?? undefined}
               onChange={(v) => onFieldChange('cac', v ?? null)}
             />
             <CurrencyInput
               size="sm"
+              truncateLabel={false}
               label={t('burnRate')}
               value={burnRateMonthly ?? undefined}
               onChange={(v) => onFieldChange('burn_rate_monthly', v ?? null)}
             />
             <AuroraInput
               size="sm"
+              truncateLabel={false}
               type="number"
               inputMode="numeric"
               label={t('runwayMonths')}

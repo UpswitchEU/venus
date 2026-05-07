@@ -350,6 +350,17 @@ export interface QualityWarning {
   cta_prompt?: string
 }
 
+export interface StartupAssistantIssue {
+  id: string
+  severity: 'block' | 'warn' | 'info'
+  title: string
+  body: string
+  action: string
+  ctaLabel: string
+  ctaPrompt: string
+  jumpLabel?: string
+}
+
 interface ChatAssistantDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -374,10 +385,17 @@ interface ChatAssistantDrawerProps {
    * persist with the session). Pass an empty array (or omit) to hide the rail.
    */
   qualityWarnings?: QualityWarning[]
+  startupIssues?: StartupAssistantIssue[]
   /** Called when the advisor dismisses a warning (acknowledged without acting). */
   onDismissQualityWarning?: (warningType: string) => void
   /** Called when the advisor clicks the CTA. Sends `prompt` into the chat. */
   onResolveQualityWarning?: (warningType: string, prompt: string) => void
+  /** Called when the advisor dismisses a startup issue card. */
+  onDismissStartupIssue?: (issueId: string) => void
+  /** Called when CTA is clicked for startup issue remediation. */
+  onResolveStartupIssue?: (issueId: string, prompt: string) => void
+  /** Optional jump helper (e.g. scroll to startup step). */
+  onJumpToStartupIssue?: (issueId: string) => void
   // Bi-directional sync: when AI suggests field updates
   onApplyFieldUpdate?: (field: string, value: any) => void
   pendingUpdates?: { field: string; value: any; label: string }[]
@@ -472,8 +490,12 @@ export function ChatAssistantDrawer({
   onAcceptUpdate,
   onRejectUpdate,
   qualityWarnings = [],
+  startupIssues = [],
   onDismissQualityWarning,
   onResolveQualityWarning,
+  onDismissStartupIssue,
+  onResolveStartupIssue,
+  onJumpToStartupIssue,
   onAcceptNormalisation,
   onRejectNormalisation,
   showQuickNormalizations = false,
@@ -716,58 +738,174 @@ export function ChatAssistantDrawer({
               onChange={handleFileChange}
             />
 
+            {startupIssues.length > 0 && (
+              <div
+                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-3"
+                data-testid="assistant-startup-issues"
+              >
+                {startupIssues.map((issue) => {
+                  const severityLabel =
+                    issue.severity === 'block'
+                      ? locale === 'nl'
+                        ? 'Te fixen'
+                        : 'Must fix'
+                      : issue.severity === 'warn'
+                        ? locale === 'nl'
+                          ? 'Aanbevolen'
+                          : 'Recommended'
+                        : locale === 'nl'
+                          ? 'Let op'
+                          : 'Insight'
+                  const severityDotClass =
+                    issue.severity === 'block'
+                      ? 'bg-rose-500'
+                      : issue.severity === 'warn'
+                        ? 'bg-amber-500'
+                        : 'bg-sky-500'
+                  return (
+                    <motion.div
+                      key={issue.id}
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                      className="flex gap-3"
+                    >
+                      <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
+                        <Bot className="w-4 h-4 text-primary" />
+                      </div>
+                      <div
+                        className={cn(
+                          'max-w-[85%] sm:max-w-[82%] flex-1 min-w-0',
+                          'rounded-2xl rounded-tl-md',
+                          'px-4 py-3',
+                          'bg-card/60 backdrop-blur-sm',
+                          'border border-border/40',
+                          'shadow-sm'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/75">
+                            <span
+                              className={cn('h-1.5 w-1.5 rounded-full', severityDotClass)}
+                              aria-hidden
+                            />
+                            {severityLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-foreground leading-snug">
+                          {issue.title}
+                        </p>
+                        <p className="text-sm text-foreground/65 mt-1 leading-snug">{issue.body}</p>
+                        <p className="text-xs text-foreground/55 mt-1.5">{issue.action}</p>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onResolveStartupIssue?.(issue.id, issue.ctaPrompt)
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+                          >
+                            {issue.ctaLabel}
+                          </button>
+                          {issue.jumpLabel && (
+                            <button
+                              type="button"
+                              onClick={() => onJumpToStartupIssue?.(issue.id)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
+                            >
+                              {issue.jumpLabel}
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onDismissStartupIssue?.(issue.id)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
+                          >
+                            {ca('dismissWarning', { default: 'Dismiss' })}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            )}
+
             {/*
-              Quality Warning Rail (Pass-7) — proactive resolution surface.
+              Engine Insights — Pass-9.
 
-              Each high-severity warning produced by the engine appears as an
-              actionable card here. The advisor either:
-                - Clicks the CTA → sends a prefilled prompt to the assistant
-                  (e.g. "Help me reclassify this company's sector"). The
-                  assistant then walks them through the fix.
-                - Dismisses → acknowledges the warning without acting (the
-                  parent persists this so the rail does not nag on every
-                  open).
+              Each unacknowledged high-severity warning the engine emitted
+              renders as a *proactive assistant insight* — visually a chat
+              bubble from the assistant, parked at the top of the message
+              stream so the user sees them the moment they open the
+              drawer. Visual change from Pass-7: no warning-banner header,
+              no amber rail. The bubble itself communicates urgency via
+              the assistant's voice, not via UI chrome — this is the
+              "feels like the assistant is talking to me" pattern the
+              CTO audit asked for.
 
-              This replaces the previous "warnings on Page 1 of the report"
-              pattern, which made finished PDFs look indefensible. The
-              report ships clean once the rail is empty.
+              Actions stay inline so a fix is one click away:
+                - Primary CTA → forwards the prefilled prompt (the
+                  assistant walks the user through the fix).
+                - Dismiss   → acknowledges silently (parent persists).
+
+              The report body no longer renders an AANDACHTSPUNTEN block;
+              this surface is the single source of remediation.
             */}
             {qualityWarnings.length > 0 && (
-              <div className="shrink-0 px-4 sm:px-5 py-3 sm:py-4 border-b border-foreground/[0.06] bg-amber-500/[0.04]">
-                <div className="flex items-center gap-2 mb-2.5 sm:mb-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <p className="text-sm sm:text-xs font-medium text-amber-800 dark:text-amber-200">
-                    {ca('qualityWarningsTitle', {
-                      default: 'Resolve before sharing the report',
-                    })}
-                  </p>
-                </div>
-                <div className="space-y-2.5 sm:space-y-2">
-                  {qualityWarnings.map((w) => (
+              <div
+                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-3"
+                data-testid="assistant-engine-insights"
+              >
+                {qualityWarnings.map((w) => (
+                  <motion.div
+                    key={w.type}
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                    className="flex gap-3"
+                  >
+                    {/* Assistant avatar — same shape as message bubbles so
+                        the insight reads as the assistant speaking. */}
+                    <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
+                      <Bot className="w-4 h-4 text-primary" />
+                    </div>
                     <div
-                      key={w.type}
-                      className="flex items-start justify-between gap-3 p-3 sm:p-2.5 rounded-xl sm:rounded-lg bg-background border border-amber-300/30 dark:border-amber-700/30"
+                      className={cn(
+                        'max-w-[85%] sm:max-w-[82%] flex-1 min-w-0',
+                        'rounded-2xl rounded-tl-md',
+                        'px-4 py-3',
+                        'bg-card/60 backdrop-blur-sm',
+                        'border border-border/40',
+                        'shadow-sm'
+                      )}
+                      role="status"
                     >
-                      <div className="min-w-0 flex-1">
-                        {w.message ? (
-                          <p className="text-sm sm:text-xs font-medium text-foreground leading-snug">
-                            {w.message}
-                          </p>
-                        ) : null}
-                        {w.recommendation ? (
-                          <p className="text-sm sm:text-xs text-foreground/55 mt-1 leading-snug">
-                            {w.recommendation}
-                          </p>
-                        ) : null}
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                          {ca('insightSeverity', { default: 'Insight' })}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-end gap-1.5 sm:gap-1 shrink-0">
+                      {w.message ? (
+                        <p className="text-sm font-medium text-foreground leading-snug">
+                          {w.message}
+                        </p>
+                      ) : null}
+                      {w.recommendation ? (
+                        <p className="text-sm text-foreground/65 mt-1 leading-snug">
+                          {w.recommendation}
+                        </p>
+                      ) : null}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         {w.cta_label && w.cta_prompt ? (
                           <button
                             type="button"
                             onClick={() =>
                               onResolveQualityWarning?.(w.type, w.cta_prompt!)
                             }
-                            className="px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-md text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-100 border border-amber-500/20 active:scale-95 transition-transform whitespace-nowrap touch-manipulation"
+                            className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
                           >
                             {w.cta_label}
                           </button>
@@ -775,15 +913,14 @@ export function ChatAssistantDrawer({
                         <button
                           type="button"
                           onClick={() => onDismissQualityWarning?.(w.type)}
-                          aria-label={ca('dismissWarning', { default: 'Dismiss' })}
-                          className="p-1.5 sm:p-1 rounded-md hover:bg-foreground/[0.06] text-foreground/40 active:scale-95 transition-transform touch-manipulation"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          {ca('dismissWarning', { default: 'Dismiss' })}
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </motion.div>
+                ))}
               </div>
             )}
 

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
 import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
@@ -82,7 +83,7 @@ export function RevenueQualitySection({
 
   const badgeKey = useMemo(() => {
     const methods = effectiveMethods.filter((method) => method !== 'upswitch_adaptive')
-    const hasRevenue = methods.some((method) => method === 'omzet_multiple' || method === 'revenue_multiple')
+    const hasRevenue = methods.some((method) => isRevenueMethodologyKey(method))
     const hasEbitda = methods.includes('ebitda_multiple')
     if (hasRevenue && hasEbitda) return 'revenueQualityBadgeBoth'
     if (hasEbitda) return 'revenueQualityBadgeEbitda'

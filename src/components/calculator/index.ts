@@ -6,6 +6,7 @@
  * Matches Clarity Agent Suite calculator exactly.
  */
 
+export { isValuationActiveWorkspacePath } from './advisorLifecycleWorkspace'
 export type { CalculationBreakdownModalProps } from './CalculationBreakdownModal'
 export { CalculationBreakdownModal } from './CalculationBreakdownModal'
 export type { CalculationBreakdownPanelProps } from './CalculationBreakdownPanel'
@@ -30,6 +31,8 @@ export type {
   NormalisationSuggestion as ChatNormalisationSuggestion,
   ParsedCommand,
   ParsedValue,
+  QualityWarning,
+  StartupAssistantIssue,
 } from './ChatAssistantDrawer'
 // ─────────────────────────────────────────
 // CHAT & AI

@@ -15,6 +15,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 120
+
 /**
  * Trigger PDF generation
  */

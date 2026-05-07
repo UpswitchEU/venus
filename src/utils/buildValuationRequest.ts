@@ -13,7 +13,7 @@ import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/us
 import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
-import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import type { SafeNoteInput, ValuationFormData, ValuationRequest } from '../types/valuation'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
@@ -922,6 +922,68 @@ export function buildValuationRequest(
 
   if (mergedBalanceSheetAdjustments.length > 0) {
     request.balance_sheet_adjustments = mergedBalanceSheetAdjustments
+  }
+
+  // Capital history → top-level cap_table + investment_amount_sought.
+  // The Mercury → Titan → ValuationIQ contract places these at the
+  // request root (not inside business_context) so the engine's
+  // ``calculate_arr_method`` can consume them without parsing.  ``id`` on
+  // each SAFE note is a frontend-only stable handle for React keys; we
+  // strip it at the wire boundary so the Pydantic SafeNote schema (which
+  // doesn't carry an ``id``) accepts the payload unchanged.
+  const capRoundAmount = toFiniteNumber(fd.capital_round_amount)
+  if (capRoundAmount != null && capRoundAmount > 0) {
+    request.investment_amount_sought = capRoundAmount
+  }
+
+  const capSafeNotes: SafeNoteInput[] = Array.isArray(fd.capital_safe_notes)
+    ? (fd.capital_safe_notes as SafeNoteInput[])
+    : []
+  const cleanedSafeNotes = capSafeNotes
+    .filter((n) => n && typeof n === 'object' && toFiniteNumber(n.amount) != null)
+    .map((n) => {
+      const note: Record<string, unknown> = { amount: Number(n.amount) }
+      const valuationCap = toFiniteNumber(n.valuation_cap)
+      if (valuationCap != null) note.valuation_cap = valuationCap
+      const discountPct = toFiniteNumber(n.discount_pct)
+      if (discountPct != null) note.discount_pct = discountPct
+      const holderLabel = typeof n.holder_label === 'string' ? n.holder_label.trim() : ''
+      if (holderLabel) note.holder_label = holderLabel
+      return note
+    })
+  const optionPoolPct = toFiniteNumber(fd.capital_option_pool_pct)
+  const lastRoundAmount = toFiniteNumber(fd.capital_last_round_amount)
+  const lastRoundPostMoney = toFiniteNumber(fd.capital_last_round_post_money)
+  const lastRoundDate =
+    typeof fd.capital_last_round_date === 'string' && fd.capital_last_round_date.trim().length > 0
+      ? fd.capital_last_round_date.trim()
+      : null
+
+  // Only attach cap_table when the founder gave at least one usable
+  // signal — otherwise we'd send an empty object that surfaces as
+  // "Empty cap table" on the report.
+  const hasCapTableSignal =
+    Boolean(fd.capital_history_enabled) &&
+    (cleanedSafeNotes.length > 0 ||
+      (optionPoolPct != null && optionPoolPct > 0) ||
+      (lastRoundAmount != null && lastRoundAmount > 0) ||
+      (lastRoundPostMoney != null && lastRoundPostMoney > 0) ||
+      lastRoundDate != null)
+
+  if (hasCapTableSignal) {
+    request.cap_table = {
+      ...(optionPoolPct != null ? { option_pool_pct: optionPoolPct } : {}),
+      ...(cleanedSafeNotes.length > 0
+        ? {
+            safe_notes: cleanedSafeNotes as NonNullable<
+              ValuationRequest['cap_table']
+            >['safe_notes'],
+          }
+        : {}),
+      ...(lastRoundAmount != null ? { last_round_amount: lastRoundAmount } : {}),
+      ...(lastRoundPostMoney != null ? { last_round_post_money: lastRoundPostMoney } : {}),
+      ...(lastRoundDate != null ? { last_round_date: lastRoundDate } : {}),
+    }
   }
 
   // BANK-GRADE: Log request structure for diagnostics (only in development)

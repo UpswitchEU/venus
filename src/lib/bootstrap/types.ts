@@ -130,6 +130,7 @@ export interface CompanyInfo {
 export interface PartialFinancials {
   revenue?: number
   ebitda?: number
+  dataSource?: string
   netIncome?: number
   totalAssets?: number
   totalEquity?: number

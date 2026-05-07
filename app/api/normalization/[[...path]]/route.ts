@@ -19,17 +19,66 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  CLIENT_CONTEXT_HEADERS,
-  extractClientContextFromHeaders,
-} from '@/constants/headers'
+
+import { CLIENT_CONTEXT_HEADERS, extractClientContextFromHeaders } from '@/constants/headers'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api.upswitch.app'
 
-const TIMEOUT_MS = 10_000 // 10s
+/**
+ * Saves/deletes can block on Titan → ValuationIQ re-render (~60s+ on the PDF/HTML path).
+ * Reads stay shorter so the edge pool is not wedged by slow GETs.
+ *
+ * Override without code changes:
+ * - NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS — clamps proxy timeouts below (default 120s, 10–800). Source `maxDuration` must remain a numeric literal for Next.js / Vercel (Pro max 800s).
+ * - NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS (default 120_000) — capped to ROUTE_SEGMENT_MAX_SECONDS × 1000 ms.
+ * - NORMALIZATION_PROXY_READ_TIMEOUT_MS (default 30_000) — capped to ROUTE_SEGMENT_MAX_SECONDS × 1000 ms
+ */
+function parseTimeoutMs(envKey: string, fallback: number): number {
+  const raw = process.env[envKey]
+  if (raw == null || raw === '') return fallback
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+function parsePositiveSeconds(envKey: string, fallbackSeconds: number): number {
+  const raw = process.env[envKey]
+  if (raw == null || raw === '') return fallbackSeconds
+  const n = Number.parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : fallbackSeconds
+}
+
+/** Upper bound for env-based segment cap (matches `maxDuration` literal; Vercel Pro max 800s). */
+const VERCEL_SEGMENT_MAX_SECONDS = 800
+
+const ROUTE_SEGMENT_MAX_SECONDS = Math.min(
+  VERCEL_SEGMENT_MAX_SECONDS,
+  Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120)),
+)
+
+/** Next.js segment `maxDuration` must be a static literal ≤ Vercel platform max (800s on Pro). */
+export const maxDuration = 800
+
+const NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS = Math.min(
+  parseTimeoutMs('NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS', 120_000),
+  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+)
+const NORMALIZATION_PROXY_READ_TIMEOUT_MS = Math.min(
+  parseTimeoutMs('NORMALIZATION_PROXY_READ_TIMEOUT_MS', 30_000),
+  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+)
+
+function proxyTimeoutMsForMethod(method: string): number {
+  if (method === 'POST' || method === 'DELETE' || method === 'PUT' || method === 'PATCH') {
+    return NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS
+  }
+  return NORMALIZATION_PROXY_READ_TIMEOUT_MS
+}
 
 /**
  * Build Titan URL from the catch-all path segments.
@@ -53,18 +102,19 @@ function buildTitanHeaders(request: NextRequest): Record<string, string> {
     ...(cookieHeader && { Cookie: cookieHeader }),
   }
 
-  const clientContext = extractClientContextFromHeaders((name: string) =>
-    request.headers.get(name)
-  )
+  const clientContext = extractClientContextFromHeaders((name: string) => request.headers.get(name))
   if (clientContext) {
-    headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+    if (clientContext.clientUserId) {
+      headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+    }
     headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId
     if (clientContext.relationshipId) {
       headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId
     }
   }
 
-  const correlationId = request.headers.get('x-correlation-id') || request.headers.get('x-request-id')
+  const correlationId =
+    request.headers.get('x-correlation-id') || request.headers.get('x-request-id')
   if (correlationId) {
     headers['X-Correlation-ID'] = correlationId
   }
@@ -81,7 +131,8 @@ async function proxyToTitan(
   method: string
 ): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timeoutMs = proxyTimeoutMsForMethod(method)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const path = params.path ?? []

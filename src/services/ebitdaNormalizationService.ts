@@ -7,18 +7,63 @@
  * CRITICAL: Adds client context headers (X-Client-User-Id, X-Accountant-User-Id,
  * X-Relationship-Id) when in accountant-client flow. Without these, Titan cannot
  * resolve sessions and normalization save fails with "Normalisatie niet opgeslagen".
+ *
+ * Request validation (session id length, year range, payload shape) mirrors Titan’s
+ * `VenusNormalizationController` so bad requests fail before the network. Call sites
+ * that run before a durable report/session id exists (bootstrap, empty session) should
+ * skip calls using `isValidSessionId` — same pattern as `normalizationPersist` and
+ * `normalizationSnapshot` — so integration flows never depend on “fire invalid id”.
  */
 
+import { useClientContext } from '../stores/clientContext'
 import {
   CreateNormalizationRequest,
   GetNormalizationResponse,
   MarketRatesResponse,
 } from '../types/ebitdaNormalization'
-import { useClientContext } from '../stores/clientContext'
+import { runTitanNormalizationMutationExclusive } from '../utils/normalizationTitanMutationGate'
+import { isValidSessionId } from '../utils/sessionIdValidation'
 
 // Use Next.js API proxy routes (same-origin) to avoid CORS issues.
-// These proxy to Titan's /api/normalization/* endpoints.
+// These proxy to Titan's `/api/normalization/*` endpoints.
 const API_BASE_URL = ''
+
+/**
+ * API Error with structured response
+ */
+export class NormalizationAPIError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public details?: unknown
+  ) {
+    super(message)
+    this.name = 'NormalizationAPIError'
+  }
+}
+
+/** Matches Titan VenusNormalizationController.validateSessionId (+ shared `isValidSessionId`). */
+function requireNormalizationSessionSegment(id: unknown, label: string): string {
+  const trimmed = typeof id === 'string' ? id.trim() : ''
+  if (!trimmed) {
+    throw new NormalizationAPIError(400, `${label} is required`)
+  }
+  if (!isValidSessionId(trimmed)) {
+    throw new NormalizationAPIError(400, `${label} must be 8–128 characters`)
+  }
+  return trimmed
+}
+
+/** Matches Titan VenusNormalizationController.validateYear. */
+function requireNormalizationYear(year: unknown): number {
+  if (year == null || typeof year !== 'number' || !Number.isInteger(year)) {
+    throw new NormalizationAPIError(400, 'year must be an integer')
+  }
+  if (year < 1990 || year > 2100) {
+    throw new NormalizationAPIError(400, 'year must be between 1990 and 2100')
+  }
+  return year
+}
 
 /** Get headers for normalization requests, including client context when in accountant flow */
 function getNormalizationHeaders(): Record<string, string> {
@@ -36,27 +81,16 @@ function getNormalizationHeaders(): Record<string, string> {
   return headers
 }
 
-/**
- * API Error with structured response
- */
-export class NormalizationAPIError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public details?: any
-  ) {
-    super(message)
-    this.name = 'NormalizationAPIError'
-  }
-}
-
 /** Nest can return `message` as string or string[]; normalize for toasts and logs. */
 function normalizeNestMessage(raw: unknown, depth = 0): string {
   if (depth > 4) return 'API request failed'
   if (raw == null) return 'API request failed'
   if (typeof raw === 'string') return raw
   if (Array.isArray(raw)) {
-    return raw.map((x) => String(x)).filter(Boolean).join('; ')
+    return raw
+      .map((x) => String(x))
+      .filter(Boolean)
+      .join('; ')
   }
   if (typeof raw === 'object' && raw !== null && 'message' in raw) {
     return normalizeNestMessage((raw as { message: unknown }).message, depth + 1)
@@ -116,11 +150,16 @@ export class EbitdaNormalizationService {
    */
   async getNormalization(sessionId: string, year: number): Promise<GetNormalizationResponse> {
     try {
-      const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}/${year}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: getNormalizationHeaders(),
-      })
+      const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+      requireNormalizationYear(year)
+      const response = await fetch(
+        `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/${year}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: getNormalizationHeaders(),
+        }
+      )
 
       return handleResponse<GetNormalizationResponse>(response)
     } catch (error) {
@@ -138,7 +177,8 @@ export class EbitdaNormalizationService {
    */
   async getAllNormalizations(sessionId: string): Promise<GetNormalizationResponse[]> {
     try {
-      const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}`, {
+      const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+      const response = await fetch(`${this.baseURL}/api/normalization/${encodeURIComponent(sid)}`, {
         method: 'GET',
         credentials: 'include',
         headers: getNormalizationHeaders(),
@@ -156,29 +196,70 @@ export class EbitdaNormalizationService {
 
   /**
    * Create or update normalization
+   * Serialized per session_id with DELETE so Venus never overlaps mutations (pool + lock pressure on Titan).
    */
   async saveNormalization(request: CreateNormalizationRequest): Promise<GetNormalizationResponse> {
-    const response = await fetch(`${this.baseURL}/api/normalization`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: getNormalizationHeaders(),
-      body: JSON.stringify(request),
-    })
+    const sid = requireNormalizationSessionSegment(request.session_id, 'session_id')
+    requireNormalizationYear(request.year)
 
-    return handleResponse<GetNormalizationResponse>(response)
+    if (typeof request.reported_ebitda !== 'number' || !Number.isFinite(request.reported_ebitda)) {
+      throw new NormalizationAPIError(400, 'reported_ebitda must be a finite number')
+    }
+    if (request.adjustments !== undefined && !Array.isArray(request.adjustments)) {
+      throw new NormalizationAPIError(400, 'adjustments must be an array')
+    }
+    if (request.custom_adjustments !== undefined && !Array.isArray(request.custom_adjustments)) {
+      throw new NormalizationAPIError(400, 'custom_adjustments must be an array')
+    }
+    for (const adj of request.adjustments || []) {
+      if (typeof adj.amount !== 'number' || !Number.isFinite(adj.amount)) {
+        throw new NormalizationAPIError(
+          400,
+          `Adjustment amount for category "${adj.category}" must be a finite number (received: ${adj.amount})`
+        )
+      }
+    }
+    for (const adj of request.custom_adjustments || []) {
+      if (typeof adj.amount !== 'number' || !Number.isFinite(adj.amount)) {
+        throw new NormalizationAPIError(
+          400,
+          `Custom adjustment amount for "${adj.description}" must be a finite number (received: ${adj.amount})`
+        )
+      }
+    }
+
+    const payload: CreateNormalizationRequest = { ...request, session_id: sid }
+    return runTitanNormalizationMutationExclusive(sid, async () => {
+      const response = await fetch(`${this.baseURL}/api/normalization`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getNormalizationHeaders(),
+        body: JSON.stringify(payload),
+      })
+
+      return handleResponse<GetNormalizationResponse>(response)
+    })
   }
 
   /**
    * Delete normalization (revert to reported EBITDA)
+   * Serialized per session with POST save.
    */
   async deleteNormalization(sessionId: string, year: number): Promise<void> {
-    const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}/${year}`, {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: getNormalizationHeaders(),
-    })
+    const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+    requireNormalizationYear(year)
+    return runTitanNormalizationMutationExclusive(sid, async () => {
+      const response = await fetch(
+        `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/${year}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: getNormalizationHeaders(),
+        }
+      )
 
-    return handleResponse<void>(response)
+      return handleResponse<void>(response)
+    })
   }
 
   /**
@@ -190,13 +271,18 @@ export class EbitdaNormalizationService {
     location?: string,
     year?: number
   ): Promise<MarketRatesResponse> {
+    const industryKey = typeof industry === 'string' ? industry.trim() : ''
+    if (!industryKey) {
+      throw new NormalizationAPIError(400, 'industry is required')
+    }
     const params = new URLSearchParams()
     if (revenue !== undefined) params.append('revenue', revenue.toString())
-    if (location) params.append('location', location)
-    if (year) params.append('year', year.toString())
+    const locationKey = typeof location === 'string' ? location.trim() : ''
+    if (locationKey) params.append('location', locationKey)
+    if (year !== undefined) params.append('year', year.toString())
 
     const queryString = params.toString()
-    const url = `${this.baseURL}/api/normalization/market-rates/${industry}${queryString ? `?${queryString}` : ''}`
+    const url = `${this.baseURL}/api/normalization/market-rates/${encodeURIComponent(industryKey)}${queryString ? `?${queryString}` : ''}`
 
     const response = await fetch(url, {
       method: 'GET',

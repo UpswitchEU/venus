@@ -54,6 +54,33 @@ let bootstrapCompletedGlobally = false
 // BootstrapProviders. Cleared only on logout or explicit force-refresh.
 let lastGlobalResult: SessionBootstrapState | null = null
 
+function hasMeaningfulBootstrapPrefill(
+  prefillData: SessionBootstrapState['prefillData']
+): boolean {
+  if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
+  if (prefillData.confidence >= 0.05) return true
+  if (prefillData.companyInfo?.companyName?.trim()) return true
+  if (prefillData.companyInfo?.kboNumber || prefillData.companyInfo?.vatNumber) return true
+  if (prefillData.kboData?.kboNumber || prefillData.kboData?.vatNumber) return true
+  if (prefillData.businessType?.id) return true
+  if (prefillData.financials?.yearData && Object.keys(prefillData.financials.yearData).length > 0) {
+    return true
+  }
+  if (
+    prefillData.financials?.revenue != null &&
+    Number.isFinite(Number(prefillData.financials.revenue))
+  ) {
+    return true
+  }
+  if (
+    prefillData.financials?.ebitda != null &&
+    Number.isFinite(Number(prefillData.financials.ebitda))
+  ) {
+    return true
+  }
+  return false
+}
+
 /** Reset the module-level bootstrap guard (call on logout) */
 export function resetBootstrapGuard() {
   bootstrapCompletedGlobally = false
@@ -592,7 +619,7 @@ export function BootstrapProvider({
       isAccountantFlow: state.identity.type === 'accountant_for_client',
       isNewReport: state.report.mode === 'new',
       isExistingReport: state.report.mode === 'existing',
-      hasPrefilledData: state.prefillData.confidence > 0.1,
+      hasPrefilledData: hasMeaningfulBootstrapPrefill(state.prefillData),
 
       // Actions
       refreshBootstrap: forceRefreshBootstrap,

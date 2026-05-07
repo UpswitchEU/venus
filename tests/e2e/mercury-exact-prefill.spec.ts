@@ -20,7 +20,7 @@ test.describe('Mercury Exact prefill', () => {
           data: {
             user: {
               id: 'user_exact_prefill',
-              email: 'accountant@upswitch.test',
+              email: 'accountant@example.com',
               role: 'accountant',
             },
           },
@@ -38,7 +38,7 @@ test.describe('Mercury Exact prefill', () => {
             identity: {
               type: 'authenticated',
               userId: 'user_exact_prefill',
-              email: 'accountant@upswitch.test',
+              email: 'accountant@example.com',
             },
             report: {
               mode: 'new',

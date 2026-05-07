@@ -127,4 +127,14 @@ describe('sessionHasStoredPreSelectedMethod', () => {
     ).toBe(true)
     expect(sessionHasStoredPreSelectedMethod({ _pre_selected_valuation_methods: [] })).toBe(false)
   })
+
+  it('detects flat snake_case duplicates for multi-array and selected_method', () => {
+    expect(
+      sessionHasStoredPreSelectedMethod({
+        pre_selected_valuation_methods: ['dcf'],
+      })
+    ).toBe(true)
+    expect(sessionHasStoredPreSelectedMethod({ selected_method: 'dcf' })).toBe(true)
+    expect(sessionHasStoredPreSelectedMethod({ selected_method: '  ' })).toBe(false)
+  })
 })

@@ -2,12 +2,13 @@
   "name": "venus",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@10.26.2",
   "description": "Venus - UpSwitch Valuation Calculator Frontend - The Oracle's wisdom for business insights",
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3001",
-    "build": "next build",
-    "vercel-build": "next build",
+    "build": "node scripts/generate-favicons.mjs && next build",
+    "vercel-build": "node scripts/generate-favicons.mjs && next build",
     "start": "next start --port 3001",
     "guard:exact-boundary": "node scripts/guard-exact-boundary.cjs",
     "lint": "biome check src/ app/",
@@ -24,6 +25,7 @@
     "analyze-bundle": "ANALYZE=true next build",
     "bundle-report": "node scripts/analyze-bundle.js",
     "i18n:check": "node scripts/check-translations.cjs",
+    "verify:brand-favicons": "node ../../scripts/verify-brand-favicons.mjs",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",
     "deploy:netlify": "./deploy.sh netlify",
@@ -41,7 +43,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.13.18",
     "@types/dompurify": "^3.0.5",
-    "axios": "^1.6.8",
+    "axios": "^1.15.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -90,6 +92,8 @@
     "jsdom": "^27.3.0",
     "playwright": "^1.57.0",
     "postcss": "^8.4.35",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
     "typescript": "^5.2.2",
     "vitest": "^4.0.15"
   },
@@ -111,6 +115,9 @@
     "url": "https://github.com/UpswitchEU/venus/issues"
   },
   "homepage": "https://www.upswitch.app",
+  "pnpm": {
+    "onlyBuiltDependencies": ["sharp"]
+  },
   "resolutions": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0"

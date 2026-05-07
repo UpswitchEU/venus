@@ -1,52 +1,55 @@
 /**
  * Derive the correct Mercury (parent app) URL based on the current hostname.
  *
- * Venus runs on a subdomain of Mercury (e.g. valuation.upswitch.app vs upswitch.app).
+ * Venus runs on a subdomain of Mercury (e.g. valuation.upswitch.app vs www.upswitch.app).
  * In preview/staging environments the subdomain includes a prefix
  * (e.g. preview.valuation.upswitch.app -> preview.upswitch.app).
  *
  * URL mapping:
  *   preview.valuation.upswitch.app  →  preview.upswitch.app
  *   staging.valuation.upswitch.app  →  staging.upswitch.app
- *   valuation.upswitch.app          →  upswitch.app
+ *   valuation.upswitch.app          →  www.upswitch.app (marketing canonical)
  *
- * This utility removes the need for NEXT_PUBLIC_MERCURY_URL to be configured
- * in every environment — it dynamically derives the correct URL at runtime.
+ * `NEXT_PUBLIC_MERCURY_URL` / `NEXT_PUBLIC_PARENT_DOMAIN` are normalized (https + origin only).
  */
+import {
+	MERCURY_SITE_WWW_CANONICAL,
+	tryNormalizeApiBaseUrl,
+	tryNormalizeToOrigin,
+} from './normalizeExplicitUrl'
+
 export function getMercuryUrl(): string {
-  // Prefer explicit env vars when set (works on both server and client)
-  const envUrl = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
-  if (envUrl) return envUrl
+	const envRaw = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
+	if (envRaw?.trim()) {
+		const origin = tryNormalizeToOrigin(envRaw)
+		if (origin) return origin
+	}
 
-  // Server-side without env vars — fall back to production
-  if (typeof window === 'undefined') {
-    return 'https://upswitch.app'
-  }
+	if (typeof window === 'undefined') {
+		return MERCURY_SITE_WWW_CANONICAL
+	}
 
-  const hostname = window.location.hostname
+	const hostname = window.location.hostname
 
-  // Local development
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3000'
-  }
+	if (hostname === 'localhost' || hostname === '127.0.0.1') {
+		return 'http://localhost:3000'
+	}
 
-  // Preview: preview.valuation.upswitch.app -> preview.upswitch.app
-  if (hostname.startsWith('preview.valuation.')) {
-    return `https://preview.${hostname.replace('preview.valuation.', '')}`
-  }
+	if (hostname.startsWith('preview.valuation.')) {
+		return `https://preview.${hostname.replace('preview.valuation.', '')}`
+	}
 
-  // Staging: staging.valuation.upswitch.app -> staging.upswitch.app
-  if (hostname.startsWith('staging.valuation.')) {
-    return `https://staging.${hostname.replace('staging.valuation.', '')}`
-  }
+	if (hostname.startsWith('staging.valuation.')) {
+		return `https://staging.${hostname.replace('staging.valuation.', '')}`
+	}
 
-  // Production: valuation.upswitch.app -> upswitch.app
-  if (hostname.startsWith('valuation.')) {
-    return `https://${hostname.replace('valuation.', '')}`
-  }
+	if (hostname.startsWith('valuation.')) {
+		const apex = hostname.replace(/^valuation\./, '')
+		if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
+		return `https://${apex}`
+	}
 
-  // Unknown hostname — production fallback
-  return 'https://upswitch.app'
+	return MERCURY_SITE_WWW_CANONICAL
 }
 
 /**
@@ -61,16 +64,27 @@ export function getMercuryUrl(): string {
  * Use this everywhere Venus calls Titan so staging never accidentally hits prod.
  */
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:3002'
-    }
-    if (host.includes('preview.') || host.includes('staging.')) {
-      return 'https://api-staging.upswitch.app'
-    }
-  }
-  return 'https://api.upswitch.app'
+	const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim()
+	if (backend) {
+		const n = tryNormalizeApiBaseUrl(backend)
+		if (n) return n
+	}
+
+	const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
+	if (apiBase) {
+		const n = tryNormalizeApiBaseUrl(apiBase)
+		if (n) return n
+	}
+
+	if (typeof window !== 'undefined') {
+		const host = window.location.hostname
+		if (host === 'localhost' || host === '127.0.0.1') {
+			return 'http://localhost:3002'
+		}
+		if (host.includes('preview.') || host.includes('staging.')) {
+			return 'https://api-staging.upswitch.app'
+		}
+	}
+
+	return 'https://api.upswitch.app'
 }

@@ -7,15 +7,15 @@
  * @module services/api/report/ReportAPI
  */
 
+import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
-import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 async function parsePlanGateErrorMessage(axiosError: {
-  response?: { data?: unknown };
+  response?: { data?: unknown }
 }): Promise<string> {
   const fallback =
     'PDF download requires a plan that includes downloadable reports. Upgrade to Starter to continue.'
@@ -56,10 +56,7 @@ export class ReportAPI extends HttpClient {
     const maxAttempts = isBySession
       ? Math.min(
           defaultSessionAttempts,
-          Math.max(
-            1,
-            typeof session404Cap === 'number' ? session404Cap : defaultSessionAttempts
-          )
+          Math.max(1, typeof session404Cap === 'number' ? session404Cap : defaultSessionAttempts)
         )
       : 1
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -78,7 +75,7 @@ export class ReportAPI extends HttpClient {
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status
         if (isBySession && status === 404 && attempt < maxAttempts - 1) {
-          apiLogger.info('Report by-session not ready yet, retrying', { reportId, attempt })
+          apiLogger.debug('Report by-session not ready yet, retrying', { reportId, attempt })
           continue
         }
         this.handleReportError(error, 'get report')
@@ -89,21 +86,36 @@ export class ReportAPI extends HttpClient {
 
   /**
    * Best-effort: ask Titan to render/persist report HTML (self-heal when numbers exist but HTML is missing).
-   * Only valid for canonical report UUIDs (not val_* session keys).
+   * Accepts canonical report UUIDs and session keys (val_*).
    */
   async ensureReportHtml(
     reportId: string,
-    options?: { sync?: boolean }
+    options?: { sync?: boolean; sessionKey?: string; alternateReportId?: string }
   ): Promise<Record<string, unknown> | null> {
-    if (!isUuid(reportId)) {
+    if (!isUuid(reportId) && !isSessionKey(reportId)) {
       return null
     }
     try {
+      const trimmedSk =
+        typeof options?.sessionKey === 'string' ? options.sessionKey.trim() : ''
+      const safeSessionKey =
+        trimmedSk && isSessionKey(trimmedSk) && trimmedSk !== reportId ? trimmedSk : undefined
+      const trimmedAlt =
+        typeof options?.alternateReportId === 'string'
+          ? options.alternateReportId.trim()
+          : ''
+      const safeAlternate =
+        trimmedAlt && isUuid(trimmedAlt) && trimmedAlt !== reportId ? trimmedAlt : undefined
+
       return await this.executeRequest<Record<string, unknown>>(
         {
           method: 'POST',
           url: `/api/v2/valuations/reports/${encodeURIComponent(reportId)}/ensure-html`,
-          data: { sync: options?.sync !== false },
+          data: {
+            sync: options?.sync !== false,
+            ...(safeSessionKey ? { sessionKey: safeSessionKey } : {}),
+            ...(safeAlternate ? { alternateReportId: safeAlternate } : {}),
+          },
           headers: {},
         } as any,
         { timeout: 60_000 }

@@ -137,7 +137,7 @@ class BackendAPI {
 
   async ensureReportHtml(
     reportId: string,
-    options?: { sync?: boolean }
+    options?: { sync?: boolean; sessionKey?: string; alternateReportId?: string }
   ): Promise<Record<string, unknown> | null> {
     return this.reportAPI.ensureReportHtml(reportId, options)
   }

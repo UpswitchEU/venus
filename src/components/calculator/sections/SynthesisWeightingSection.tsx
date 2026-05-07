@@ -1,12 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { RotateCcw, Scale, TrendingUp, AlertCircle } from 'lucide-react'
+import { AlertCircle, RotateCcw, Scale, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { cn } from '@/design-system/utils'
-import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraTextarea } from '@/design-system/components/Input'
-import { ValuationSectionHeader } from './ValuationSectionHeader'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyRemainderRebalance,
   equalWeightsFor,
@@ -15,10 +11,14 @@ import {
   usesRemainderWeightModel,
 } from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
+import { AuroraButton } from '@/design-system/components/Button'
+import { AuroraTextarea } from '@/design-system/components/Input'
+import { cn } from '@/design-system/utils'
 import type { ValuationMethodResult } from '@/types/valuation'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
-(amount: number): string {
+function formatCompactCurrency(amount: number): string {
   const sign = amount < 0 ? '-' : ''
   const abs = Math.abs(amount)
   if (abs >= 1_000_000) return `${sign}€${(abs / 1_000_000).toFixed(1)}M`
@@ -112,9 +112,15 @@ export function SynthesisWeightingSection({
         allAvailable = false
         continue
       }
-      sum += Number(mr.value) * (w / 100)
+      const add = Number(mr.value)
+      if (!Number.isFinite(add)) {
+        allAvailable = false
+        continue
+      }
+      sum += add * (w / 100)
     }
-    return allAvailable ? Math.round(sum) : null
+    if (!allAvailable) return null
+    return Number.isFinite(sum) && sum > 0 ? Math.round(sum) : null
   }, [hasResults, valuationResults, methods, displayWeights, total])
 
   const contributions = useMemo(() => {
@@ -122,7 +128,8 @@ export function SynthesisWeightingSection({
     return methods.map((m) => {
       const mr = getValuationMethodResultForKey(valuationResults, m)
       const w = displayWeights[m] ?? 0
-      const equity = mr?.available && mr.value != null ? Number(mr.value) : null
+      const raw = mr?.available && mr.value != null ? Number(mr.value) : NaN
+      const equity = Number.isFinite(raw) ? raw : null
       return {
         method: m,
         label: t(METHOD_LABEL_KEYS[m] ?? m),
@@ -226,17 +233,9 @@ export function SynthesisWeightingSection({
   if (methods.length < 2) return null
 
   return (
-    <section
-      ref={sectionRef}
-      className="space-y-4"
-      aria-label={synth('title')}
-    >
+    <section ref={sectionRef} className="space-y-4" aria-label={synth('title')}>
       <div className="flex items-center justify-between">
-        <ValuationSectionHeader
-          step={step}
-          title={synth('title')}
-          complete={total === 100}
-        />
+        <ValuationSectionHeader step={step} title={synth('title')} complete={total === 100} />
         <AuroraButton
           type="button"
           variant="ghost"
@@ -266,15 +265,12 @@ export function SynthesisWeightingSection({
           const w = displayWeights[method] ?? 0
           const label = t(METHOD_LABEL_KEYS[method] ?? method)
           const contrib = contributionByMethod?.[method]
-          const isRemainderRow =
-            remainderModel && remainderKey != null && method === remainderKey
+          const isRemainderRow = remainderModel && remainderKey != null && method === remainderKey
 
           return (
             <div key={method} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground/80 font-medium truncate mr-2">
-                  {label}
-                </span>
+                <span className="text-foreground/80 font-medium truncate mr-2">{label}</span>
                 <div className="flex items-center gap-2">
                   {contrib && contrib.equity != null && (
                     <span className="text-[11px] tabular-nums text-foreground/40 font-mono">
@@ -347,10 +343,7 @@ export function SynthesisWeightingSection({
                     aria-valuetext={`${w}%`}
                     aria-label={synth('ariaWeightSlider', { methodName: label })}
                   >
-                    <div
-                      className="h-full rounded-full bg-primary/50"
-                      style={{ width: `${w}%` }}
-                    />
+                    <div className="h-full rounded-full bg-primary/50" style={{ width: `${w}%` }} />
                   </div>
                 ) : (
                   <input
@@ -409,14 +402,14 @@ export function SynthesisWeightingSection({
 
       {/* Live blended valuation preview */}
       {liveBlended != null && total === 100 && (
-        <div className="rounded-xl bg-gradient-to-r from-primary to-primary/90 p-4 text-center text-primary-foreground">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Scale className="w-3.5 h-3.5 text-primary-foreground/80" />
-            <p className="text-[10px] text-primary-foreground/80 uppercase tracking-wider font-medium">
+        <div className="rounded-xl border border-foreground/[0.08] bg-card/[0.6] backdrop-blur-lg px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-1.5">
+            <Scale className="w-3.5 h-3.5 text-foreground/55" />
+            <p className="text-[10px] text-foreground/55 uppercase tracking-wider font-medium">
               {synth('blendedValue')}
             </p>
           </div>
-          <p className="text-2xl font-bold font-mono tabular-nums">
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground/90">
             {formatCompactCurrency(liveBlended)}
           </p>
         </div>
@@ -428,16 +421,38 @@ export function SynthesisWeightingSection({
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-foreground/[0.06]">
-                <th scope="col" className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('methodCol')}</th>
-                <th scope="col" className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('valueCol')}</th>
-                <th scope="col" className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('weight')}</th>
-                <th scope="col" className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('contributionCol')}</th>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40"
+                >
+                  {synth('methodCol')}
+                </th>
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap"
+                >
+                  {synth('valueCol')}
+                </th>
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40"
+                >
+                  {synth('weight')}
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap"
+                >
+                  {synth('contributionCol')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-foreground/[0.04]">
               {contributions.map((c) => (
                 <tr key={c.method} className={cn(!c.available && c.weight > 0 && 'opacity-50')}>
-                  <td className="px-3 py-2 text-foreground/70 font-medium truncate max-w-[8rem]">{c.label}</td>
+                  <td className="px-3 py-2 text-foreground/70 font-medium truncate max-w-[8rem]">
+                    {c.label}
+                  </td>
                   <td className="px-2 py-2 text-right tabular-nums font-mono text-foreground/55 whitespace-nowrap">
                     {c.equity != null ? formatCompactCurrency(c.equity) : '—'}
                   </td>
@@ -452,7 +467,9 @@ export function SynthesisWeightingSection({
             </tbody>
             <tfoot>
               <tr className="border-t border-foreground/[0.08] bg-muted/40">
-                <td className="px-3 py-2.5 font-semibold text-foreground/80">{synth('blendedValue')}</td>
+                <td className="px-3 py-2.5 font-semibold text-foreground/80">
+                  {synth('blendedValue')}
+                </td>
                 <td />
                 <td className="px-2 py-2.5 text-right tabular-nums text-foreground/50">100%</td>
                 <td className="px-3 py-2.5 text-right tabular-nums font-mono font-bold text-primary whitespace-nowrap">

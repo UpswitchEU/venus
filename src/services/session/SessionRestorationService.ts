@@ -15,49 +15,57 @@
  * @module services/session/SessionRestorationService
  */
 
-import { useManualFormStore } from '../../store/manual/useManualFormStore'
-import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-// import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
-import { useSessionStore } from '../../store/useSessionStore'
-import { useImportQualityStore } from '../../store/useImportQualityStore'
-import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import {
-  recoverPendingNormalizations,
-  useNormalizationStore,
-} from '../../store/useNormalizationStore'
-import {
-  recoverPendingTaxLatencies,
-  suppressNextLatencyRecalc,
-  useTaxLatencyStore,
-} from '../../store/useTaxLatencyStore'
-import { generalLogger } from '../../utils/logger'
-import {
-  clearMercurySessionPrefillSuppression,
-  markMercurySessionPrefillSuppressed,
-} from '../../utils/prefillRestorationGate'
-import {
-  type NormalizedSessionData,
-  normalizeSessionData,
-  validateNormalizedData,
-} from './SessionNormalizer'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
-import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
-import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
-import {
-  normalizeCurrentYearForFiling,
-  normalizeHistoricalYearsForFiling,
-} from '../../utils/fiscalYear'
 import {
   SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
   sanitizePreSelectedValuationMethod,
   sessionHasStoredPreSelectedMethod,
 } from '../../constants/sessionUiKeys'
+import { useManualFormStore } from '../../store/manual/useManualFormStore'
+import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { useImportQualityStore } from '../../store/useImportQualityStore'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
+import {
+  recoverPendingNormalizations,
+  useNormalizationStore,
+} from '../../store/useNormalizationStore'
+// import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
+import { useSessionStore } from '../../store/useSessionStore'
+import {
+  recoverPendingTaxLatencies,
+  suppressNextLatencyRecalc,
+  useTaxLatencyStore,
+} from '../../store/useTaxLatencyStore'
+import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import {
   type FormSnapshotForRevenueNav,
   parseCurrentYearRevenueForMethodNav,
 } from '../../utils/currentYearRevenueForMethodNav'
+import {
+  hydrateClientValuationResultsMap,
+  resolveSelectedValuationMethodForExtraction,
+} from '../../utils/extractValuationResultsMap'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../../utils/fiscalYear'
+import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
+import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
+import { generalLogger } from '../../utils/logger'
+import {
+  buildOptionalSessionGapFillPatch,
+  mergeSessionSurfaceForOptionalPrefill,
+} from '../../utils/mergeOptionalSessionPrefillFields'
+import {
+  clearMercurySessionPrefillSuppression,
+  markMercurySessionPrefillSuppressed,
+} from '../../utils/prefillRestorationGate'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import {
+  type NormalizedSessionData,
+  normalizeSessionData,
+  validateNormalizedData,
+} from './SessionNormalizer'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -99,6 +107,26 @@ async function withRetry<T>(
   }
 
   throw new Error(`${name} failed after ${maxAttempts} attempts`)
+}
+
+function seedNbbPrefillFromFormData(
+  formData: Record<string, unknown> | null | undefined,
+  reportId: string,
+  source: 'restore' | 'package'
+): void {
+  if (!formData) return
+  const official = formData.official_financials
+  if (!official || typeof official !== 'object' || Array.isArray(official)) return
+  const years =
+    ((official as { historicalYears?: unknown }).historicalYears as unknown[] | undefined) ??
+    ((official as { historical_years?: unknown }).historical_years as unknown[] | undefined)
+  if (!Array.isArray(years) || years.length === 0) return
+  useNbbPrefillStore.getState().setFromHistoricalYears(years as any)
+  generalLogger.info('[SessionRestoration] NBB prefill snapshots hydrated', {
+    reportId: reportId.substring(0, 30),
+    source,
+    yearsCount: years.length,
+  })
 }
 
 /**
@@ -458,25 +486,47 @@ class SessionRestorationServiceImpl {
     // Determine which results store to use based on flow type
     const isConversational = data.flowType === 'conversational'
 
-    // 1. Hydrate form store (for manual flow)
-    if (!isConversational && data.formData && Object.keys(data.formData).length > 0) {
+    // 1. Hydrate form store (for manual flow): normalized snapshot first, then merged envelope gap-fill.
+    if (!isConversational) {
       try {
         const { updateFormData } = useManualFormStore.getState()
-        // Cast to any to handle type differences between ValuationRequest and ValuationFormData
-        // The normalizer extracts compatible fields, but TypeScript doesn't know they're compatible
-        updateFormData(data.formData as any)
-        restoredFormFields = Object.keys(data.formData).length
 
-        generalLogger.info('[SessionRestoration] Form data hydrated', {
-          reportId: data.reportId?.substring(0, 30),
-          fieldCount: restoredFormFields,
-          fields: Object.keys(data.formData),
-          kboFields: {
-            company_name: !!data.formData.company_name,
-            kbo_number: !!data.formData.kbo_number,
-            vat_number: !!data.formData.vat_number,
-          },
-        })
+        if (data.formData && Object.keys(data.formData).length > 0) {
+          updateFormData(data.formData as any)
+          restoredFormFields = Object.keys(data.formData).length
+
+          generalLogger.info('[SessionRestoration] Form data hydrated', {
+            reportId: data.reportId?.substring(0, 30),
+            fieldCount: restoredFormFields,
+            fields: Object.keys(data.formData),
+            kboFields: {
+              company_name: !!data.formData.company_name,
+              kbo_number: !!data.formData.kbo_number,
+              vat_number: !!data.formData.vat_number,
+            },
+          })
+        }
+
+        const gapPatch = buildOptionalSessionGapFillPatch(
+          data.sessionDataEnvelope,
+          useManualFormStore.getState().formData
+        )
+        if (Object.keys(gapPatch).length > 0) {
+          updateFormData(gapPatch as any)
+          restoredFormFields += Object.keys(gapPatch).length
+          generalLogger.debug('[SessionRestoration] Optional envelope gap-fill after restore', {
+            reportId: data.reportId?.substring(0, 24),
+            keys: Object.keys(gapPatch),
+          })
+        }
+
+        const fdFinal = useManualFormStore.getState().formData as unknown as Record<
+          string,
+          unknown
+        >
+        if (Object.keys(fdFinal).length > 0) {
+          seedNbbPrefillFromFormData(fdFinal, data.reportId, 'restore')
+        }
       } catch (error) {
         generalLogger.error('[SessionRestoration] Form hydration failed', {
           error: error instanceof Error ? error.message : String(error),
@@ -486,7 +536,11 @@ class SessionRestorationServiceImpl {
 
     // 1b. Upfront valuation method (draft / pre-calculate only — result payload overrides later).
     // Firm may be unknown (null); revenue from restored form aligns omzet with nav/session rules.
-    if (!isConversational && !data.valuationResult && data.preSelectedValuationMethod !== undefined) {
+    if (
+      !isConversational &&
+      !data.valuationResult &&
+      data.preSelectedValuationMethod !== undefined
+    ) {
       try {
         if (data.preSelectedValuationMethod === null) {
           useManualResultsStore.getState().setPreSelectedMethod(null)
@@ -517,12 +571,12 @@ class SessionRestorationServiceImpl {
       }
     }
 
-    // 1c. Restore multi-method blended valuation state (Waarderingssynthese).
+    // 1c. Restore blended / single upfront method selection (Waarderingssynthese + single pin).
     // Applied both for drafts and completed valuations so recalculation preserves
-    // the accountant's previously configured method mix and weighting.
+    // the accountant's configured method mix and weighting.
     if (!isConversational) {
       const store = useManualResultsStore.getState()
-      if (data.preSelectedMethods && data.preSelectedMethods.length > 1) {
+      if (data.preSelectedMethods && data.preSelectedMethods.length > 0) {
         store.setPreSelectedMethods(data.preSelectedMethods)
       }
       if (data.userWeights && Object.keys(data.userWeights).length > 0) {
@@ -548,12 +602,16 @@ class SessionRestorationServiceImpl {
       try {
         const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
         const vr = data.valuationResult as Record<string, any> | null | undefined
-        const valuationExtractCtx = {
-          selectedValuationMethod: vr?.selected_valuation_method ?? existingResult?.selected_valuation_method,
+        const mergeHydrateOpts = {
+          selectedValuationMethodOverride:
+            resolveSelectedValuationMethodForExtraction(vr) ??
+            resolveSelectedValuationMethodForExtraction(existingResult) ??
+            vr?.selected_valuation_method ??
+            existingResult?.selected_valuation_method,
         }
         const normalizedValuationResults =
-          extractValuationResultsMap(vr, valuationExtractCtx) ??
-          extractValuationResultsMap(existingResult, valuationExtractCtx)
+          hydrateClientValuationResultsMap(vr, mergeHydrateOpts) ??
+          hydrateClientValuationResultsMap(existingResult, mergeHydrateOpts)
         const renderableMergeHtml = getFirstRenderableReportHtml(
           data.htmlReport,
           (data.valuationResult as { html_report?: string } | undefined)?.html_report,
@@ -641,10 +699,9 @@ class SessionRestorationServiceImpl {
         if (rawMeta && Array.isArray(rawMeta) && rawMeta.length > 0) {
           normStore.setItems(rawMeta)
           restoredEbitdaNormalizations = true
-          generalLogger.info(
-            '[SessionRestoration] Normalizations hydrated from session metadata',
-            { count: rawMeta.length }
-          )
+          generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
+            count: rawMeta.length,
+          })
         } else {
           // Fallback: load from Titan API
           await normStore.loadFromTitan(data.reportId)
@@ -675,7 +732,8 @@ class SessionRestorationServiceImpl {
           count: recoveredTL.length,
         })
       } else {
-        const rawTL = (data.formData as any)?._taxLatencies
+        const fd = (data.formData as any) ?? {}
+        const rawTL = fd._taxLatencies ?? fd.tax_latencies ?? fd.taxLatencies
         if (rawTL !== undefined && Array.isArray(rawTL)) {
           taxLatStore.setItems(rawTL)
           generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
@@ -691,9 +749,10 @@ class SessionRestorationServiceImpl {
 
     // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
     try {
-      const rawIQ = (data.formData as any)?._import_quality
+      const fd = (data.formData as any) ?? {}
+      const rawIQ = fd._import_quality ?? fd.import_quality ?? fd.importQuality
       if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
-        const provenanceProvider = (data.formData as any)?.business_context
+        const provenanceProvider = (fd.business_context ?? fd.businessContext)
           ?._imported_ledger_provenance?.provider
         useImportQualityStore.getState().setImportQuality(rawIQ, {
           provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
@@ -713,7 +772,8 @@ class SessionRestorationServiceImpl {
       const normStore = useNormalizationStore.getState()
       useTaxLatencyStore.getState().setCandidates([])
       const bc = (data.formData as any)?.business_context
-      const analysis = bc?._imported_ledger_analysis
+      const analysis =
+        bc?._imported_ledger_analysis ?? (data.formData as any)?._imported_ledger_analysis
       if (analysis && typeof analysis === 'object') {
         if (normStore.items.length === 0) {
           const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
@@ -726,13 +786,18 @@ class SessionRestorationServiceImpl {
             )
           }
         }
-        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(analysis as any)
+        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
+          analysis as any
+        )
         useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
       }
     } catch (error) {
-      generalLogger.warn('[SessionRestoration] Imported ledger normalization seed failed (non-blocking)', {
-        error: error instanceof Error ? error.message : String(error),
-      })
+      generalLogger.warn(
+        '[SessionRestoration] Imported ledger normalization seed failed (non-blocking)',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      )
     }
 
     return {
@@ -758,10 +823,22 @@ class SessionRestorationServiceImpl {
     const warnings: string[] = []
     let allVerified = true
 
+    const mergedEnvelope = mergeSessionSurfaceForOptionalPrefill(data.sessionDataEnvelope)
+    const hasEnvelopeIdentity = !!(
+      (typeof mergedEnvelope.company_name === 'string' &&
+        mergedEnvelope.company_name.trim() !== '') ||
+      mergedEnvelope.kbo_number ||
+      mergedEnvelope.kboNumber ||
+      mergedEnvelope.vat_number ||
+      mergedEnvelope.vatNumber
+    )
+
     // Build manifest of what should be restored
     // PERFORMANCE: Version history and EBITDA normalizations are now lazy-loaded
     const manifest: RestorationManifest = {
-      formData: !isConversational && !!data.formData && Object.keys(data.formData).length > 0,
+      formData:
+        !isConversational &&
+        ((!!data.formData && Object.keys(data.formData).length > 0) || hasEnvelopeIdentity),
       valuationResult: !!data.valuationResult,
       htmlReport: !!data.htmlReport,
       pricingRange: !!data.pricingRange,
@@ -770,12 +847,24 @@ class SessionRestorationServiceImpl {
     }
 
     // Verify form data was actually applied (only for manual flow)
-    if (manifest.formData) {
+    if (manifest.formData && !isConversational) {
       const formStore = useManualFormStore.getState()
-      const expectedCompanyName = data.formData.company_name
+      const expectedCompanyName =
+        (typeof data.formData.company_name === 'string' && data.formData.company_name.trim()) ||
+        (typeof mergedEnvelope.company_name === 'string' ? mergedEnvelope.company_name.trim() : '')
       const actualCompanyName = (formStore.formData as any).company_name
       if (expectedCompanyName && (!actualCompanyName || actualCompanyName.trim() === '')) {
         warnings.push('Form data company_name not restored to store')
+        allVerified = false
+      }
+      const expectedKbo =
+        (typeof data.formData.kbo_number === 'string' && data.formData.kbo_number.trim()) ||
+        (typeof mergedEnvelope.kbo_number === 'string' && mergedEnvelope.kbo_number.trim()) ||
+        (typeof mergedEnvelope.kboNumber === 'string' && mergedEnvelope.kboNumber.trim()) ||
+        ''
+      const actualKbo = (formStore.formData as any).kbo_number
+      if (expectedKbo && (!actualKbo || String(actualKbo).trim() === '')) {
+        warnings.push('Form data kbo_number not restored to store')
         allVerified = false
       }
     }
@@ -906,7 +995,7 @@ class SessionRestorationServiceImpl {
       if (flow === 'manual' && pkg.formData && Object.keys(pkg.formData).length > 0) {
         try {
           const { updateFormData } = useManualFormStore.getState()
-          const raw = pkg.formData as Record<string, unknown>
+          const raw = mergeSessionSurfaceForOptionalPrefill(pkg.formData)
 
           // Map camelCase package keys to snake_case form store keys.
           // Single-word keys (revenue, ebitda, city, industry) are the same in
@@ -916,8 +1005,13 @@ class SessionRestorationServiceImpl {
             kboNumber: 'kbo_number',
             vatNumber: 'vat_number',
             businessTypeId: 'business_type_id',
+            businessDescription: 'business_description',
+            subIndustry: 'subIndustry',
             employeeCount: 'number_of_employees',
+            numberOfEmployees: 'number_of_employees',
+            employees: 'employees',
             foundingYear: 'founding_year',
+            filingYearConfirmed: 'filing_year_confirmed',
             countryCode: 'country_code',
             postalCode: 'postal_code',
             netIncome: 'net_income',
@@ -926,6 +1020,13 @@ class SessionRestorationServiceImpl {
             currentYearData: 'current_year_data',
             naceCode: 'nace_code',
             naceDescription: 'nace_description',
+            canonicalNaceCode: 'canonical_nace_code',
+            activityCode: 'activity_code',
+            activityLabel: 'activity_label',
+            businessContext: 'business_context',
+            officialFinancials: 'official_financials',
+            officialVarianceAnalysis: 'official_variance_analysis',
+            officialVerificationBadge: 'official_verification_badge',
             legalForm: 'legal_form',
           }
 
@@ -933,6 +1034,18 @@ class SessionRestorationServiceImpl {
           for (const [key, value] of Object.entries(raw)) {
             if (value === undefined) continue
             const snakeKey = camelToSnake[key] ?? key
+            if (snakeKey === '_businessInfo' || snakeKey === 'businessInfo') continue
+            if (snakeKey.startsWith('_bootstrap')) continue
+            const current = mapped[snakeKey]
+            if (
+              current !== undefined &&
+              current !== null &&
+              !(typeof current === 'string' && current.trim() === '') &&
+              (value === null || (typeof value === 'string' && value.trim() === ''))
+            ) {
+              // Keep the richer existing value (e.g. `_businessInfo.company_name`) over blank aliases.
+              continue
+            }
             mapped[snakeKey] = value
           }
 
@@ -951,12 +1064,33 @@ class SessionRestorationServiceImpl {
 
           if (Array.isArray(mapped.historical_years_data)) {
             mapped.historical_years_data = normalizeHistoricalYearsForFiling(
-              mapped.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
+              mapped.historical_years_data as Array<{
+                year: number
+                revenue?: number
+                ebitda?: number
+              }>,
               mapped.filing_year_confirmed
             )
           }
 
           updateFormData(mapped as any)
+          const gapPatch = buildOptionalSessionGapFillPatch(
+            pkg.formData ?? {},
+            useManualFormStore.getState().formData
+          )
+          if (Object.keys(gapPatch).length > 0) {
+            updateFormData(gapPatch as any)
+            generalLogger.debug('[SessionRestoration] Package envelope gap-fill after map', {
+              reportId: reportId.substring(0, 30),
+              keys: Object.keys(gapPatch),
+            })
+          }
+
+          seedNbbPrefillFromFormData(
+            useManualFormStore.getState().formData as unknown as Record<string, unknown>,
+            reportId,
+            'package'
+          )
           markMercurySessionPrefillSuppressed(reportId)
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
@@ -970,13 +1104,30 @@ class SessionRestorationServiceImpl {
               suppressNextLatencyRecalc()
               useTaxLatencyStore.getState().setItems(recoveredTL)
             } else if (
-              Object.prototype.hasOwnProperty.call(raw, '_taxLatencies') &&
-              Array.isArray((raw as { _taxLatencies?: unknown })._taxLatencies)
+              Array.isArray(
+                (
+                  raw as {
+                    _taxLatencies?: unknown
+                    tax_latencies?: unknown
+                    taxLatencies?: unknown
+                  }
+                )._taxLatencies ??
+                  (raw as { tax_latencies?: unknown }).tax_latencies ??
+                  (raw as { taxLatencies?: unknown }).taxLatencies
+              )
             ) {
               suppressNextLatencyRecalc()
-              useTaxLatencyStore.getState().setItems(
-                (raw as { _taxLatencies: unknown[] })._taxLatencies as any
-              )
+              const rawTaxLatencies =
+                (
+                  raw as {
+                    _taxLatencies?: unknown
+                    tax_latencies?: unknown
+                    taxLatencies?: unknown
+                  }
+                )._taxLatencies ??
+                (raw as { tax_latencies?: unknown }).tax_latencies ??
+                (raw as { taxLatencies?: unknown }).taxLatencies
+              useTaxLatencyStore.getState().setItems(rawTaxLatencies as any)
             }
           } catch {
             // Non-critical
@@ -986,23 +1137,44 @@ class SessionRestorationServiceImpl {
             if (recoveredNorm && recoveredNorm.length > 0) {
               useNormalizationStore.getState().setItems(recoveredNorm)
             } else if (
-              raw._normalizations &&
-              Array.isArray(raw._normalizations) &&
-              (raw._normalizations as any[]).length > 0
+              Array.isArray(
+                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
+                  (raw as { normalizations?: unknown }).normalizations
+              ) &&
+              (
+                ((raw as { _normalizations?: unknown[] })._normalizations as
+                  | unknown[]
+                  | undefined) ??
+                ((raw as { normalizations?: unknown[] }).normalizations as unknown[] | undefined) ??
+                []
+              ).length > 0
             ) {
-              useNormalizationStore.getState().setItems(raw._normalizations as any)
+              const rawNormalizations =
+                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
+                (raw as { normalizations?: unknown }).normalizations
+              useNormalizationStore.getState().setItems(rawNormalizations as any)
             }
           } catch {
             // Non-critical
           }
           try {
-            if (raw._import_quality && typeof raw._import_quality === 'object') {
+            const rawImportQuality =
+              (
+                raw as {
+                  _import_quality?: unknown
+                  import_quality?: unknown
+                  importQuality?: unknown
+                }
+              )._import_quality ??
+              (raw as { import_quality?: unknown }).import_quality ??
+              (raw as { importQuality?: unknown }).importQuality
+            if (rawImportQuality && typeof rawImportQuality === 'object') {
               const bc = (raw.business_context ?? raw.businessContext) as
                 | Record<string, unknown>
                 | undefined
               const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)
                 ?.provider
-              useImportQualityStore.getState().setImportQuality(raw._import_quality as any, {
+              useImportQualityStore.getState().setImportQuality(rawImportQuality as any, {
                 provider: typeof prov === 'string' ? prov : null,
               })
             }
@@ -1015,7 +1187,9 @@ class SessionRestorationServiceImpl {
             const bc = (raw.business_context ?? raw.businessContext) as
               | Record<string, unknown>
               | undefined
-            const analysis = bc?._imported_ledger_analysis
+            const analysis =
+              bc?._imported_ledger_analysis ??
+              (raw as { _imported_ledger_analysis?: unknown })._imported_ledger_analysis
             if (analysis && typeof analysis === 'object') {
               if (ns.items.length === 0) {
                 const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis as any)
@@ -1066,9 +1240,8 @@ class SessionRestorationServiceImpl {
           ...pricingResult,
           html_report: pkgRenderableHtml,
           valuation_results:
-            extractValuationResultsMap(existingResult as Record<string, any> | null, {
-              selectedValuationMethod: (existingResult as Record<string, any>)?.selected_valuation_method,
-            }) ?? undefined,
+            hydrateClientValuationResultsMap(existingResult as Record<string, any> | null) ??
+            undefined,
         }
         manualStore.setResult({
           ...existingResult,
@@ -1077,7 +1250,10 @@ class SessionRestorationServiceImpl {
         // Explicitly set HTML assets for components that read them directly
         if (pkgRenderableHtml) manualStore.setHtmlReport(pkgRenderableHtml)
 
-        const mergedAfterSet = useManualResultsStore.getState().result as Record<string, unknown> | null
+        const mergedAfterSet = useManualResultsStore.getState().result as Record<
+          string,
+          unknown
+        > | null
         if (
           mergedAfterSet &&
           !(mergedAfterSet as { selected_valuation_method?: string }).selected_valuation_method &&

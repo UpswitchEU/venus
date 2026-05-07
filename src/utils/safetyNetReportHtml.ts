@@ -26,13 +26,26 @@ export function getFirstRenderableReportHtml(
 
 export function getRenderableReportHtmlFromCurrentOrFallback(
   currentHtmlReports: Array<string | null | undefined>,
-  fallbackHtmlReports: Array<string | null | undefined>
+  fallbackHtmlReports: Array<string | null | undefined>,
+  options?: {
+    currentRenderFingerprint?: string | null
+    fallbackRenderFingerprint?: string | null
+  }
 ): string | undefined {
   const currentRenderableHtml = getFirstRenderableReportHtml(...currentHtmlReports)
   if (currentRenderableHtml) return currentRenderableHtml
 
   const currentHasSafetyNetHtml = currentHtmlReports.some(isSafetyNetReportHtml)
   if (currentHasSafetyNetHtml) return undefined
+
+  const currentFingerprint = options?.currentRenderFingerprint?.trim()
+  const fallbackFingerprint = options?.fallbackRenderFingerprint?.trim()
+  if (
+    currentFingerprint &&
+    (!fallbackFingerprint || fallbackFingerprint !== currentFingerprint)
+  ) {
+    return undefined
+  }
 
   return getFirstRenderableReportHtml(...fallbackHtmlReports)
 }

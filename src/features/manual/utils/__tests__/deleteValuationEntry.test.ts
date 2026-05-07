@@ -57,7 +57,7 @@ describe('buildPostDeleteNewValuationUrl', () => {
         currentSearch: '?source=mercury&flow=advisor',
       })
     ).toBe(
-      '/nl/reports/new?clientId=client-123&prefilledQuery=Metaalbewerking+Upswitch&source=mercury&flow=advisor'
+      '/nl/reports/new?clientId=client-123&prefilledQuery=Metaalbewerking+Upswitch&flow=advisor&source=mercury'
     )
   })
 
@@ -103,7 +103,7 @@ describe('buildStaleReportRecoveryUrl', () => {
   it('copies safe passthrough params from current search (explicit)', () => {
     const url = buildStaleReportRecoveryUrl(
       'nl',
-      '?clientId=c1&prefilledQuery=Acme&source=mercury&flow=manual&mode=accountant&clientToken=tok&return_url=https%3A%2F%2Fwww.upswitch.app%2Fnl%2Fadvisor'
+      '?clientId=c1&prefilledQuery=Acme&source=mercury&flow=manual&mode=accountant&clientToken=tok&session_key=val_123&return_url=https%3A%2F%2Fwww.upswitch.app%2Fnl%2Fadvisor'
     )
     expect(url.startsWith('/nl/reports/new?')).toBe(true)
     const qs = new URLSearchParams(url.split('?')[1])
@@ -113,6 +113,7 @@ describe('buildStaleReportRecoveryUrl', () => {
     expect(qs.get('flow')).toBe('manual')
     expect(qs.get('mode')).toBe('accountant')
     expect(qs.get('clientToken')).toBe('tok')
+    expect(qs.get('session_key')).toBe('val_123')
     expect(qs.get('return_url')).toBe('https://www.upswitch.app/nl/advisor')
   })
 

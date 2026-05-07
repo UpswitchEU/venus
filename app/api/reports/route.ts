@@ -19,6 +19,8 @@ import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies(), headers(), and searchParams which are dynamic
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 30
 
 // Simple in-memory cache for reports (Next.js server-side)
 const reportsCache = new Map<string, { data: any; timestamp: number }>()

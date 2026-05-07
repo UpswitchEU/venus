@@ -25,15 +25,15 @@ describe('crossAppMessages producer contract', () => {
   })
 
   it('valuationComplete is the canonical `venus-valuation-complete` wire token', () => {
-    expect(ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete).toBe(
-      'venus-valuation-complete'
-    )
+    expect(ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete).toBe('venus-valuation-complete')
   })
 
   it('reportCreated is the canonical `upswitch-report-created` wire token', () => {
-    expect(ENGINE_TO_MERCURY_MESSAGE_TYPES.reportCreated).toBe(
-      'upswitch-report-created'
-    )
+    expect(ENGINE_TO_MERCURY_MESSAGE_TYPES.reportCreated).toBe('upswitch-report-created')
+  })
+
+  it('navigateToMercury is the canonical `venus-navigate-mercury` wire token', () => {
+    expect(ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury).toBe('venus-navigate-mercury')
   })
 
   it('all envelope wire tokens are unique (no double-binding by accident)', () => {
@@ -42,9 +42,7 @@ describe('crossAppMessages producer contract', () => {
   })
 
   it('Mercury-side authBootstrap is the canonical `upswitch-auth-bootstrap` wire token', () => {
-    expect(MERCURY_TO_ENGINE_MESSAGE_TYPES.authBootstrap).toBe(
-      'upswitch-auth-bootstrap'
-    )
+    expect(MERCURY_TO_ENGINE_MESSAGE_TYPES.authBootstrap).toBe('upswitch-auth-bootstrap')
   })
 
   it('Mercury → Engine wire tokens are unique', () => {

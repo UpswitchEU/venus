@@ -39,9 +39,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://valuation.upswitch.app'),
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '32x32' },
       {
-        url: '/favicon-dark-square-var1.svg',
+        url: '/favicon-48x48.png',
+        type: 'image/png',
+        sizes: '48x48',
+      },
+      { url: '/favicon.ico', sizes: 'any' },
+      {
+        url: '/logos/upswitch-app-icon.svg',
         type: 'image/svg+xml',
       },
       {

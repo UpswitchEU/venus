@@ -37,6 +37,7 @@ import { trackStudioRunComplete } from '@/lib/analytics'
 import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { ValuationFormData } from '@/types/valuation'
@@ -45,7 +46,13 @@ import { resolveVentureCountryIso2 } from '@/utils/resolveVentureCountryIso2'
 import { ManualInputPanel } from '../../ManualInputPanel'
 import { StartupValuationPanel } from './StartupValuationPanel'
 
-export type StartupAwareInputPanelProps = ComponentProps<typeof ManualInputPanel>
+export type StartupAwareInputPanelProps = ComponentProps<typeof ManualInputPanel> & {
+  isAssistantOpen?: boolean
+  onOpenAssistant?: () => void
+  onResolveIssueWithAssistant?: (issue: StudioIssue) => void
+  startupLauncherIssues?: StudioIssue[]
+  startupLauncherScopeId?: string
+}
 
 const STAGE_QUERY_KEY = 'startup_stage'
 const VALID_STAGES: ReadonlySet<StartupStage> = new Set<StartupStage>([
@@ -232,6 +239,14 @@ export function StartupSubmitFooter({
 }
 
 export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
+  const {
+    isAssistantOpen = false,
+    onOpenAssistant,
+    onResolveIssueWithAssistant,
+    startupLauncherIssues,
+    startupLauncherScopeId,
+    ...manualInputPanelProps
+  } = props
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   // ``useBootstrapSafe`` may be null (tests, Storybook). ``useAuth`` supplies
   // role for standalone advisors — same helper as ``ManualLayout``'s
@@ -253,14 +268,21 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <StartupValuationPanel mode={startupMode} />
+          <StartupValuationPanel
+            mode={startupMode}
+            isAssistantOpen={isAssistantOpen}
+            onOpenAssistant={onOpenAssistant}
+            onResolveIssueWithAssistant={onResolveIssueWithAssistant}
+            launcherScopeId={startupLauncherScopeId}
+            launcherIssues={startupLauncherIssues}
+          />
         </div>
-        <StartupSubmitFooter onSubmit={props.onSubmit} isCalculating={isCalculating} />
+        <StartupSubmitFooter onSubmit={manualInputPanelProps.onSubmit} isCalculating={isCalculating} />
       </div>
     )
   }
 
-  return <ManualInputPanel {...props} />
+  return <ManualInputPanel {...manualInputPanelProps} />
 }
 
 export default StartupAwareInputPanel

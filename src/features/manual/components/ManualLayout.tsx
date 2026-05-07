@@ -18,6 +18,11 @@
  *   + FullscreenReportModal, NormalisationSuggestionModal, UnifiedNormalizationModal
  *
  * @module features/manual/components/ManualLayout
+ *
+ * Phase B (advisor UX): normalisations and tax latencies should converge in
+ * this valuation experience with Titan/Postgres as the source of truth;
+ * the Mercury import wizard should slim to dossier essentials or deep-link
+ * here — see the roadmap comment on ImportReviewContent (Mercury).
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
@@ -59,11 +64,11 @@ import {
   type NormalizationItem,
   type RecentValuation,
   type RightPanelView,
+  type StartupAssistantIssue,
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
-import { StartupFounderDashboard } from '../../../components/calculator/sections/startup/StartupFounderDashboard'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
@@ -77,7 +82,8 @@ import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMess
 import {
   isActionableQualityWarningType,
   isUpfrontMethodAllowedForNav,
-  QUALITY_WARNING_ASSISTANT_CTA_KEYS,
+  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
+  type QualityWarningAssistantCtaKey,
   resolveSynthesisPercentWeightsForMethods,
 } from '../../../constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '../../../constants/methodLabels'
@@ -100,10 +106,12 @@ import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
+import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
+import { useStartupBenchmark } from '../../../lib/benchmarks/useStartupBenchmark'
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import {
   fallbackDashboardForSource,
@@ -115,6 +123,7 @@ import { valuationAuditService } from '../../../services/audit/ValuationAuditSer
 import { backendAPI } from '../../../services/backendApi'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
@@ -142,6 +151,7 @@ import {
 } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
+import { type StudioIssue, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
   APIError,
   AuthenticationError,
@@ -160,13 +170,14 @@ import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachS
 import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
+import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
-import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
-import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
-import { extractValuationResultsMap, getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
-import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
+import {
+  getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+} from '../../../utils/extractValuationResultsMap'
 import {
   getCurrentFilingYear,
   isFilingYearConfirmedValue,
@@ -183,7 +194,7 @@ import {
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
-import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
+import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -199,6 +210,8 @@ import {
 } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
+import { buildQualityWarningResetKey } from '../../../utils/qualityWarningResetKey'
+import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -216,6 +229,9 @@ import {
 } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+// `selectCapTableSimulatorResult` import removed alongside the React slider
+// mount — the canonical Jinja report is now the single source of truth.
+// The selector helper itself is intentionally kept on disk for the future.
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
@@ -254,6 +270,9 @@ function isRetryableReportHydrationError(err: unknown): boolean {
 /** Poll while PDF is stale; extend max window so slow jobs can still complete */
 const PDF_STALE_POLL_INTERVAL_MS = 2500
 const PDF_STALE_POLL_MAX_MS = 120_000
+
+/** Titan import-review handoff keys; keep aligned with Mercury `sanitizeImportReviewSessionKeyFromUrl`. */
+const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
 
 function isDcfOrHybridMethodSignal(value: unknown): boolean {
   if (value == null) return false
@@ -372,9 +391,7 @@ function getHydratedValuationResults(
     | null
     | undefined
 ) {
-  return extractValuationResultsMap(result as Record<string, any> | null | undefined, {
-    selectedValuationMethod: result?.selected_valuation_method,
-  })
+  return hydrateClientValuationResultsMap(result)
 }
 
 function serializePreparerPayload(
@@ -792,6 +809,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportPanelRef = useRef<HTMLDivElement>(null)
   /** Avoid overlapping getReport calls from the PDF-stale poll interval */
   const pdfStalePollInFlightRef = useRef(false)
+  /** Back off PDF stale polling while report row is not linked for val_* session keys (expected 404). */
+  const pdfStaleBySessionBackoffUntilRef = useRef(0)
+  const pdfStaleBySession404StreakRef = useRef(0)
 
   // Venus infrastructure
   const { user } = useAuth()
@@ -801,6 +821,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
   useSessionOptionalMethodPrefill()
+  /** NACE resolution + identity paths when bootstrap is late or sparse — optional merge coalesced via {@link queueOptionalGapFillFlush}. */
+  useSessionDataPrefill()
 
   const {
     isCalculating,
@@ -959,6 +981,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return null
   }, [session?.reportId, resolvedReportId, reportId])
 
+  useEffect(() => {
+    pdfStaleBySessionBackoffUntilRef.current = 0
+    pdfStaleBySession404StreakRef.current = 0
+  }, [persistedReportLookupId])
+
   const reportHydrationLookupId = useMemo(() => {
     const candidates = [
       session?.reportId,
@@ -1084,7 +1111,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (isPdfReady && report.pdfGeneratedAt == null) return false
     return true
   }, [report, isPdfReady])
-  const canDownloadPdf = planFeatures?.valuation_download !== false
+  const canDownloadPdf = useMemo(() => {
+    if (planFeatures?.valuation_download !== false) return true
+    // Free-tier seller carve-out for startup PDF only: match Titan `allowFreeSellerStartupValuationPdf`.
+    // Use navigation method only (not stale `result.selected_valuation_method`) so switching away from
+    // startup does not keep the download UI unlocked. Exclude accountant/client flows so advisor UX
+    // stays plan-gated like Mercury expectations.
+    if (user?.role !== 'seller' || isAccountantFlow) return false
+    const effectiveMethod = preSelectedMethod ?? selectedMethod
+    return effectiveMethod === 'startup_valuation'
+  }, [
+    planFeatures?.valuation_download,
+    user?.role,
+    selectedMethod,
+    preSelectedMethod,
+    isAccountantFlow,
+  ])
 
   // When client-side PDF generation has a URL, treat report as fresh and sync metadata
   // so `isPdfLikelyStaleVenus` stays false until the next server refresh.
@@ -1206,7 +1248,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...r,
         html_report: getRenderableReportHtmlFromCurrentOrFallback(
           [r.html_report],
-          [latestExistingResult?.html_report]
+          [latestExistingResult?.html_report],
+          {
+            currentRenderFingerprint: r.render_fingerprint,
+            fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+          }
         ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
@@ -1300,12 +1346,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [acknowledgedQualityWarnings, setAcknowledgedQualityWarnings] = useState<Set<string>>(
     () => new Set()
   )
-  // Auto-open the assistant the first time a result lands carrying any
-  // high-severity warning. We do this exactly once per result-id so we
-  // don't re-pop the drawer every render.
-  const lastAutoOpenedResultRef = useRef<string | null>(null)
-  /** One toast per valuation run when weighted synthesis was expected but missing (blend engine skip). */
+  // Startup-specific issue acknowledgement for assistant cards.
+  const [acknowledgedStartupIssues, setAcknowledgedStartupIssues] = useState<Set<string>>(
+    () => new Set()
+  )
+  // Track reset signatures for warning-card acknowledgement state.
+  const lastQualityWarningResetKeyRef = useRef<string | null>(null)
   const lastSynthesisBlendSkippedRunKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    lastQualityWarningResetKeyRef.current = null
+    lastSynthesisBlendSkippedRunKeyRef.current = null
+  }, [reportId])
+
+  useEffect(() => {
+    setAcknowledgedStartupIssues(new Set())
+  }, [reportId])
 
   // Load conversation history from server and sync to local chat state.
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
@@ -1934,10 +1990,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Hydrate collectedData and form store from session when form store is empty or missing NACE/business_type
   // Ensures initialData is populated on first render so ManualInputPanel can set selectedCompany from prefill
   // Relaxed: also run when session has nace_code or business_type_id but form does not (even if form has company_name)
+  // Identity + collectedData only — method gap-fill is `useSessionOptionalMethodPrefill` after restore.
   useEffect(() => {
-    const sessionData = (session?.sessionData || {}) as Record<string, unknown>
-    const businessInfo = (sessionData._businessInfo || {}) as Record<string, unknown>
-    const merged = { ...businessInfo, ...sessionData }
+    if (!restorationComplete) return
+    const merged = mergeSessionSurfaceForOptionalPrefill(session?.sessionData) as Record<
+      string,
+      unknown
+    >
     const hasSessionPrefill =
       (merged.company_name as string)?.trim() ||
       (merged.companyName as string)?.trim() ||
@@ -2015,13 +2074,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim())
       formUpdates.business_type_id = sessionBusinessType
     if (sessionIndustry && !formIndustry?.trim()) formUpdates.industry = sessionIndustry
-    Object.assign(
-      formUpdates,
-      mergeOptionalSessionPrefillFields(merged as Record<string, unknown>, {
-        ...useManualFormStore.getState().formData,
-        ...formUpdates,
-      })
-    )
     if (Object.keys(formUpdates).length > 0) {
       updateFormData(formUpdates)
     }
@@ -2046,6 +2098,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return next
     })
   }, [
+    restorationComplete,
     session?.sessionData,
     formCompanyName,
     formKboNumber,
@@ -2139,31 +2192,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const navValuationSummary = React.useMemo(() => {
     if (!report) return undefined
-    const vr = getHydratedValuationResults(result) ?? undefined
+    const hydrated = getHydratedValuationResults(result) as
+      | Record<string, ValuationMethodResult>
+      | undefined
+
     const isMultiMethod =
       preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
 
     let liveBlended: number | null = null
-    if (isMultiMethod && vr && Object.keys(vr).length > 0) {
-      const pctMap = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
-      if (pctMap) {
-        const weightTotal = Object.values(pctMap).reduce((s, v) => s + v, 0)
-        if (Math.abs(weightTotal - 100) <= 2) {
-          let sum = 0
-          let ok = true
-          for (const mk of preSelectedMethods) {
-            const w = pctMap[mk] ?? 0
-            if (w <= 0) continue
-            const mr = getValuationMethodResultForKey(vr, mk)
-            if (!mr?.available || mr.value == null) {
-              ok = false
-              break
-            }
-            sum += Number(mr.value) * (w / 100)
-          }
-          if (ok && sum > 0) liveBlended = Math.round(sum)
+    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
+    if (isMultiMethod && hydrated && blendPct && Object.keys(blendPct).length >= 2) {
+      let sum = 0
+      let ok = true
+      for (const m of preSelectedMethods) {
+        const mw = blendPct[m] ?? 0
+        if (mw <= 0) continue
+        const mr = getValuationMethodResultForKey(hydrated, m)
+        const rawVal = mr?.value
+        const n = rawVal == null ? NaN : Number(rawVal)
+        if (!mr?.available || !Number.isFinite(n)) {
+          ok = false
+          break
         }
+        sum += n * (mw / 100)
       }
+      if (ok && sum > 0 && Number.isFinite(sum)) liveBlended = Math.round(sum)
     }
 
     const serverBlended =
@@ -2188,16 +2241,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return getHydratedValuationResults(result) ?? null
   }, [result])
 
-  // Founder dashboard mount — show the React founder one-pager (football
-  // field + live cap-table simulator) ABOVE the HTML report whenever a
-  // founder runs the 9th startup_valuation method. Advisors keep the
-  // pure HTML report and never see the dashboard so their workflow is
-  // untouched (KISS / SRP, no regression in the accountant flow).
-  const founderStartupResult = useMemo<ValuationMethodResult | null>(() => {
-    if (showFullAdvisorMethodNav) return null
-    if (selectedMethod !== 'startup_valuation') return null
-    return synthesisValuationResults?.['startup_valuation'] ?? null
-  }, [showFullAdvisorMethodNav, selectedMethod, synthesisValuationResults])
+  // Cap-table simulator React mount removed: the canonical Jinja report
+  // (`startup_one_pager.html` + `startup_cap_table.html`) is now the
+  // single source of truth for the simulator card. Founders see one
+  // surface for the post-money/dilution rollup instead of three (React
+  // slider + one-pager + cap-table page). The selector + helper file
+  // (`selectCapTableSimulatorResult`) and the Python emitter remain in
+  // case we want to bring back the interactive slider later, gated by
+  // a feature flag, but they are not wired into the right rail.
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
@@ -2318,7 +2369,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setShowFullscreenModal(true)
         }
 
-        if (reportId && htmlReport && planFeatures?.valuation_download !== false) {
+        if (reportId && htmlReport && canDownloadPdf) {
           generatePdf?.().catch((err) => {
             if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] Background PDF generation failed', {
@@ -2334,7 +2385,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, planFeatures])
+  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, canDownloadPdf])
 
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
@@ -2345,8 +2396,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (selectedMethod === prevSelectedMethodRef.current) return
     prevSelectedMethodRef.current = selectedMethod
 
-    const methodData = hydrated[selectedMethod]
-    if (!methodData?.available || methodData.value == null) return
+    const methodData = getValuationMethodResultForKey(
+      hydrated as Record<string, ValuationMethodResult>,
+      selectedMethod
+    )
+    const rawVal = methodData?.value
+    const n = rawVal == null ? NaN : Number(rawVal)
+    if (!methodData?.available || !Number.isFinite(n)) return
     const presentation = deriveManualReportPresentation(result, selectedMethod)
 
     setReport((prev) =>
@@ -2382,7 +2438,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: getRenderableReportHtmlFromCurrentOrFallback(
             [htmlFromPatch, fresh.html_report],
-            [latestExistingResult?.html_report]
+            [latestExistingResult?.html_report],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
@@ -2396,7 +2456,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           if (!prev) return prev
           const nextHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
             [htmlFromPatch, fresh.html_report],
-            [prev.htmlReport]
+            [prev.htmlReport],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           )
           const pdfMeta: Pick<
             ValuationReportData,
@@ -2413,7 +2477,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           return { ...prev, htmlReport: nextHtmlReport, ...pdfMeta }
         })
-        if (htmlForPreview && planFeatures?.valuation_download !== false) {
+        if (htmlForPreview && canDownloadPdf) {
           generatePdf?.().catch((err) => {
             if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
@@ -2433,7 +2497,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setResult(
             latestResult ? { ...latestResult, html_report: renderableHtmlFromPatch } : latestResult
           )
-          if (planFeatures?.valuation_download !== false) {
+          if (canDownloadPdf) {
             generatePdf?.().catch((err) => {
               if (err instanceof APIError && err.statusCode === 402) return
               generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
@@ -2445,13 +2509,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         return false
       }
     },
-    [generatePdf, persistedReportLookupId, setResult, planFeatures]
+    [generatePdf, persistedReportLookupId, setResult, canDownloadPdf]
   )
 
   useEffect(() => {
     if (!pdfStale) {
       setPdfWaitTimedOut(false)
       setPdfPollErrorCount(0)
+      pdfStaleBySessionBackoffUntilRef.current = 0
+      pdfStaleBySession404StreakRef.current = 0
       return
     }
     setPdfWaitTimedOut(false)
@@ -2463,6 +2529,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!pdfStale || !persistedReportLookupId) return
     const id = setInterval(async () => {
       if (pdfStalePollInFlightRef.current) return
+      if (
+        isSessionKey(persistedReportLookupId) &&
+        Date.now() < pdfStaleBySessionBackoffUntilRef.current
+      ) {
+        return
+      }
       pdfStalePollInFlightRef.current = true
       try {
         const fresh = await backendAPI.getReport(
@@ -2477,7 +2549,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: getRenderableReportHtmlFromCurrentOrFallback(
             [fresh.html_report],
-            [latestExistingResult?.html_report]
+            [latestExistingResult?.html_report],
+            {
+              currentRenderFingerprint: fresh.render_fingerprint,
+              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+            }
           ),
           valuation_results: nextValuationResults ?? undefined,
           fiscal_4x_anchor:
@@ -2500,13 +2576,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
         })
+        pdfStaleBySession404StreakRef.current = 0
         setPdfPollErrorCount(0)
       } catch (err) {
-        generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
-          reportId: persistedReportLookupId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-        setPdfPollErrorCount((c) => c + 1)
+        const isSession404 =
+          err instanceof APIError &&
+          err.statusCode === 404 &&
+          isSessionKey(persistedReportLookupId)
+        if (isSession404) {
+          const streak = ++pdfStaleBySession404StreakRef.current
+          const delayMs = Math.min(
+            60_000,
+            PDF_STALE_POLL_INTERVAL_MS * 2 ** Math.min(streak - 1, 5)
+          )
+          pdfStaleBySessionBackoffUntilRef.current = Date.now() + delayMs
+          generalLogger.debug('[ManualLayout] PDF stale poll skipped backoff after by-session 404', {
+            reportId: persistedReportLookupId?.substring(0, 40),
+            streak,
+            delayMs,
+          })
+        } else {
+          generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
+            reportId: persistedReportLookupId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+          setPdfPollErrorCount((c) => c + 1)
+        }
       } finally {
         pdfStalePollInFlightRef.current = false
       }
@@ -2517,11 +2612,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       clearTimeout(max)
       pdfStalePollInFlightRef.current = false
     }
-  }, [pdfStale, persistedReportLookupId, setResult])
+  }, [pdfStale, persistedReportLookupId, setResult, canDownloadPdf])
 
   const handleRetryPdfStalled = useCallback(async () => {
     if (!persistedReportLookupId) return
-    if (planFeatures && !planFeatures.valuation_download) {
+    if (!canDownloadPdf) {
       openStarterPaywall('pdf_download')
       return
     }
@@ -2537,7 +2632,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...fresh,
         html_report: getRenderableReportHtmlFromCurrentOrFallback(
           [fresh.html_report],
-          [latestExistingResult?.html_report]
+          [latestExistingResult?.html_report],
+          {
+            currentRenderFingerprint: fresh.render_fingerprint,
+            fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
+          }
         ),
         valuation_results: nextValuationResults ?? undefined,
         fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
@@ -2572,7 +2671,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsPdfRetrying(false)
     }
-  }, [generatePdf, persistedReportLookupId, setResult, t, planFeatures, openStarterPaywall])
+  }, [generatePdf, persistedReportLookupId, setResult, t, canDownloadPdf, openStarterPaywall])
 
   const pdfStaleBannerEl = useMemo(() => {
     if (!report || !pdfStale) return null
@@ -2675,27 +2774,59 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     )
   }, [result])
 
-  // Pass-7: when a NEW result arrives, clear stale acknowledgements and (if
-  // any high-severity warnings with a guided CTA catalog entry are present)
-  // auto-open the assistant exactly once.
+  // Pass-9: when a materially NEW result arrives, clear stale acknowledgements but
+  // **never auto-open** the assistant. Forcing the drawer open broke flow —
+  // owners just wanted to see the report. The unread count surfaces on the
+  // closed assistant trigger (notification badge) so high-severity warnings
+  // are still discoverable; the user opens the drawer when ready.
   useEffect(() => {
     if (!result) return
-    const runKey = valuationResultRunKey(result)
-    if (!runKey) return
-    const warnings = getDataQualityWarningsFromResult(result)
-    const hasActionableHigh = warnings.some(
-      (w) =>
-        String(w.severity ?? '').toLowerCase() === 'high' && isActionableQualityWarningType(w.type)
-    )
-    // New result → drop stale acknowledgements (different run, different facts).
-    if (runKey !== lastAutoOpenedResultRef.current) {
+    const resetKey = buildQualityWarningResetKey(result)
+    if (resetKey !== lastQualityWarningResetKeyRef.current) {
       setAcknowledgedQualityWarnings(new Set())
-      if (hasActionableHigh) {
-        setChatDrawerOpen(true)
-      }
-      lastAutoOpenedResultRef.current = runKey
+      lastQualityWarningResetKeyRef.current = resetKey
     }
   }, [result])
+
+  useEffect(() => {
+    if (!result) return
+    const isMulti =
+      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
+    if (!isMulti) return
+    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
+    if (!blendPct) return
+    const wv = (result as ValuationResponse)?.weighted_valuation?.blended_equity_value
+    const hasWeighted = wv != null && Number.isFinite(Number(wv))
+    if (hasWeighted) return
+
+    const hydrated = getHydratedValuationResults(result)
+    if (!hydrated || Object.keys(hydrated).length === 0) return
+
+    let blocker: string | null = null
+    for (const m of preSelectedMethods) {
+      const pct = blendPct[m] ?? 0
+      if (pct <= 0) continue
+      const mr = getValuationMethodResultForKey(
+        hydrated as Record<string, ValuationMethodResult>,
+        m
+      )
+      const rawVal = mr?.value
+      const n = rawVal == null ? NaN : Number(rawVal)
+      if (!mr?.available || !Number.isFinite(n)) {
+        blocker = m
+        break
+      }
+    }
+    if (!blocker) return
+
+    const runKey = valuationResultRunKey(result)
+    if (runKey === lastSynthesisBlendSkippedRunKeyRef.current) return
+    lastSynthesisBlendSkippedRunKeyRef.current = runKey
+
+    toast.warning(t('synthesisBlendSkippedTitle'), {
+      description: t('synthesisBlendSkippedDesc'),
+    })
+  }, [result, preSelectedMethods, userWeights, t])
 
   useEffect(() => {
     if (isFirstMethodRender.current) {
@@ -3617,7 +3748,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       detectedValues?: any[],
       parsedCommands?: any[]
     ) => {
-      if (isLoadingHistory) return
+      // Allow non-empty user messages (e.g. quality-warning CTAs) while
+      // history hydrates; only block empty triggers during load.
+      if (isLoadingHistory && !content.trim()) return
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -3935,7 +4068,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Export Handler (server-side only — no client-side fallbacks) ───
   const handleExport = useCallback(async () => {
     if (!report) return
-    if (planFeatures && !planFeatures.valuation_download) {
+    if (!canDownloadPdf) {
       openStarterPaywall('pdf_download')
       return
     }
@@ -3948,57 +4081,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const abortController = new AbortController()
     pdfExportAbortRef.current = abortController
 
-    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
+    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}-${Date.now()}.pdf`
+
+    const idForPdf = resolvedReportId ?? reportId
+    if (
+      !idForPdf ||
+      idForPdf === 'new' ||
+      (typeof idForPdf === 'string' && idForPdf.trim() === '')
+    ) {
+      toast.error(t('pdfExportFailed'), {
+        description: t('pdfExportFailedDesc'),
+      })
+      setIsExporting(false)
+      return
+    }
+
+    toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
 
     try {
-      if (isPdfReady) {
-        await downloadPdf(undefined, filename)
-      } else if (resolvedReportId || reportId) {
-        const idForPdf = resolvedReportId || reportId
-        toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-        const pdfUrl = await generatePdf()
-        if (pdfUrl) {
-          toast.dismiss('pdf-gen')
-          await downloadPdf(undefined, filename)
-        } else {
-          // Async path: PDF is generating in background. Poll until ready or timeout.
-          const maxWaitMs = 120_000
-          const pollIntervalMs = 2_000
-          let elapsed = 0
-          while (elapsed < maxWaitMs && !abortController.signal.aborted) {
-            const res = await fetch(`/api/valuations/${idForPdf}/pdf`, {
-              method: 'GET',
-              credentials: 'include',
-              signal: abortController.signal,
-            })
-            if (res.status === 402) {
-              toast.dismiss('pdf-gen')
-              openStarterPaywall('pdf_download')
-              return
-            }
-            const data = res.ok ? await res.json().catch(() => null) : null
-            if (data?.status === 'ready' && data?.pdfUrl) {
-              toast.dismiss('pdf-gen')
-              await downloadPdf(undefined, filename)
-              break
-            }
-            await new Promise((r) => setTimeout(r, pollIntervalMs))
-            elapsed += pollIntervalMs
-          }
-          if (elapsed >= maxWaitMs) {
-            toast.dismiss('pdf-gen')
-            toast.error(t('pdfExportFailed'), {
-              description: t('pdfExportFailedDesc'),
-            })
-            return
-          }
-        }
-      } else {
-        toast.error(t('pdfExportFailed'), {
-          description: t('pdfExportFailedDesc'),
-        })
-        return
-      }
+      // Single path: BFF `/pdf/download` runs Titan GET + optional POST generate + storage.
+      // Avoids client/UI drift (`isPdfReady` vs server) and duplicate generation hops.
+      await downloadPdf(undefined, filename, abortController.signal)
 
       setDownloadHistory((prev) => [
         {
@@ -4011,9 +4114,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ])
       toast.success(t('pdfDownloaded'))
     } catch (error) {
-      toast.dismiss('pdf-gen')
       if (error instanceof APIError && error.statusCode === 402) {
         openStarterPaywall('pdf_download')
+        return
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
         return
       }
       generalLogger.error('[ManualLayout] PDF export failed', {
@@ -4021,20 +4126,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
       toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
     } finally {
+      toast.dismiss('pdf-gen')
       setIsExporting(false)
     }
   }, [
     report,
     reportId,
     resolvedReportId,
-    isPdfReady,
     downloadPdf,
-    generatePdf,
     tReport,
     t,
     pdfStale,
-    planFeatures,
     openStarterPaywall,
+    canDownloadPdf,
   ])
 
   // ─── Navigation Handlers ───
@@ -4110,6 +4214,58 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } catch {}
     }
   }, [clientContextId, currentLocale, report, session])
+
+  const handleContinueImportReview = useCallback(() => {
+    const relId =
+      clientContextId ?? ctxRelationshipId ?? useClientContext.getState()?.relationshipId
+    if (!relId || typeof window === 'undefined') {
+      handleExitClientView()
+      return
+    }
+    const loc =
+      currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+    const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
+    const pendingImportReviewKey =
+      typeof resolvedReportId === 'string' &&
+      MERCURY_IMPORT_REVIEW_SESSION_KEY_RE.test(resolvedReportId.trim())
+        ? resolvedReportId.trim()
+        : null
+    const qs = new URLSearchParams({ import_review: '1' })
+    if (pendingImportReviewKey) {
+      qs.set('session_key', pendingImportReviewKey)
+    }
+    const targetPath = `/${loc}/advisor/clients/${encodeURIComponent(relId)}?${qs}`
+    const targetUrl = `${mercuryBaseUrl}${targetPath}`
+    let isEmbedded = false
+    try {
+      isEmbedded =
+        sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
+    } catch {
+      // Cross-origin access to `window.top` can throw; in that case we are in an iframe.
+      isEmbedded = true
+    }
+
+    if (isEmbedded) {
+      window.parent.postMessage(
+        {
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
+          source: 'venus',
+          data: { url: targetPath },
+        },
+        '*'
+      )
+      // Rolling-deploy fallback: if an older Mercury shell does not yet
+      // understand `venus-navigate-mercury`, at least move the iframe to the
+      // recovery URL instead of leaving the CTA as a no-op. When Mercury handles
+      // the message, it closes/unmounts this iframe before the fallback fires.
+      window.setTimeout(() => {
+        window.location.href = targetUrl
+      }, 750)
+      return
+    }
+
+    window.location.href = targetUrl
+  }, [clientContextId, ctxRelationshipId, currentLocale, handleExitClientView, resolvedReportId])
 
   /**
    * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.
@@ -5393,6 +5549,114 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     toast.info(t('suggestionRejected'))
   }, [t])
 
+  // ─── Shared Chat Drawer Props ───
+  const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
+  const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
+  const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
+  const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
+  const hasImportedNormalizationData =
+    hasImportQuality ||
+    suggestedNormalisations.length > 0 ||
+    normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
+  const assistantLocale: 'en' | 'nl' = currentLocale === 'nl' ? 'nl' : 'en'
+  const formatStartupAssistantPrompt = useCallback(
+    (prompt: string) => {
+      if (assistantLocale === 'nl') {
+        return [
+          'Antwoord in dit exacte format (Nederlands), met deze drie kopjes vetgedrukt:',
+          '',
+          '**Actiepunten:** 1–3 genummerde, concrete stappen die ik nu in de wizard kan uitvoeren.',
+          '**Waarom dit telt:** één zin over de impact op de waardering of het rapport.',
+          '**Wat in te vullen:** een concrete waarde of voorbeeld (bedrag, percentage, multiple, of zin).',
+          '',
+          `Vraag van de gebruiker: ${prompt}`,
+        ].join('\n')
+      }
+      return [
+        'Reply in this exact format, with these three section headers in bold:',
+        '',
+        '**Action points:** 1–3 numbered, concrete things to do in the wizard right now.',
+        '**Why this matters:** one sentence on the impact on the valuation or report.',
+        '**What to enter:** a concrete value or example (amount, percentage, multiple, or sentence).',
+        '',
+        `User question: ${prompt}`,
+      ].join('\n')
+    },
+    [assistantLocale]
+  )
+
+  const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
+  const isStartupAssistantRoute = effectiveAssistantMethod === 'startup_valuation'
+  const startupCountry = useStartupValuationStore((s) => s.country_code) || 'BE'
+  const startupStage = useStartupValuationStore((s) => s.stage)
+  const startupSector = useStartupValuationStore((s) => s.sector)
+  const { benchmark: startupBenchmark } = useStartupBenchmark(
+    startupCountry,
+    startupStage,
+    startupSector,
+    isStartupAssistantRoute
+  )
+  const { issues: startupRawIssues } = useStudioIssues(startupBenchmark)
+
+  const startupIssues = useMemo<StartupAssistantIssue[]>(() => {
+    if (!isStartupAssistantRoute) return []
+    const stepLabels: Record<StudioIssue['step'], { en: string; nl: string }> = {
+      profile: { en: 'Profile', nl: 'Profiel' },
+      berkus: { en: 'Risk reduction', nl: 'Risico-reductie' },
+      scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid' },
+      founder_pedigree: { en: 'Team pedigree', nl: 'Team' },
+      traction: { en: 'Traction', nl: 'Tractie' },
+      exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },
+      round_simulator: { en: 'Round', nl: 'Ronde' },
+      report: { en: 'Report', nl: 'Rapport' },
+    }
+    return startupRawIssues
+      .filter((issue) => issue.severity !== 'info')
+      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
+      .map((issue) => ({
+        id: issue.id,
+        severity: issue.severity,
+        title: issue.title[assistantLocale],
+        body: issue.body[assistantLocale],
+        action: issue.action[assistantLocale],
+        ctaLabel: assistantLocale === 'nl' ? 'Fix met AI' : 'Fix with AI',
+        ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
+        jumpLabel: `${assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'} ${
+          stepLabels[issue.step][assistantLocale]
+        }`,
+      }))
+  }, [
+    acknowledgedStartupIssues,
+    assistantLocale,
+    formatStartupAssistantPrompt,
+    isStartupAssistantRoute,
+    startupRawIssues,
+  ])
+  const startupLauncherIssues = useMemo<StudioIssue[]>(() => {
+    if (!isStartupAssistantRoute) return []
+    return startupRawIssues
+      .filter((issue) => issue.severity !== 'info')
+      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
+  }, [acknowledgedStartupIssues, isStartupAssistantRoute, startupRawIssues])
+  const startupIssueById = useMemo(
+    () => new Map(startupLauncherIssues.map((issue) => [issue.id, issue])),
+    [startupLauncherIssues]
+  )
+  const startupLauncherScopeId = useMemo(() => {
+    const sessionIdCandidate =
+      ((session as unknown as { id?: string; key?: string; session_key?: string })?.id ??
+        (session as unknown as { id?: string; key?: string; session_key?: string })?.key ??
+        (session as unknown as { id?: string; key?: string; session_key?: string })
+          ?.session_key) ||
+      ''
+    return resolvedReportId || sessionIdCandidate || reportId || 'studio-launcher'
+  }, [reportId, resolvedReportId, session])
+
+  useEffect(() => {
+    if (isStartupAssistantRoute) return
+    setAcknowledgedStartupIssues(new Set())
+  }, [isStartupAssistantRoute])
+
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {
     onSubmit: wrappedOnSubmit,
@@ -5434,17 +5698,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       filingYearConfirmed: formStoreData.filing_year_confirmed,
       yearlyFinancials: restoredYearlyFinancials,
     },
+    isAssistantOpen: chatDrawerOpen,
+    onOpenAssistant: () => setChatDrawerOpen(true),
+    onResolveIssueWithAssistant: (issue: StudioIssue) => {
+      setChatDrawerOpen(true)
+      handleChatMessage(formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]))
+      setAcknowledgedStartupIssues((prev) => {
+        const next = new Set(prev)
+        next.add(issue.id)
+        return next
+      })
+    },
+    startupLauncherIssues,
+    startupLauncherScopeId,
   }
 
-  // ─── Shared Chat Drawer Props ───
-  const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
-  const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
-  const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
-  const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
-  const hasImportedNormalizationData =
-    hasImportQuality ||
-    suggestedNormalisations.length > 0 ||
-    normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
+  const rawQualityWarnings = useMemo(() => getDataQualityWarningsFromResult(result), [result])
 
   // ─── Quality Warning Rail (Pass-7) ───────────────────────────────────────
   // Surface engine-emitted high-severity warnings inside the assistant so
@@ -5452,16 +5721,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // once warnings are resolved or acknowledged. See engine-side Pass-3
   // aggregation that produces `result.data_quality_warnings`.
   const qualityWarnings = useMemo(() => {
-    const rawQualityWarnings = getDataQualityWarningsFromResult(result)
-    if (rawQualityWarnings.length === 0) return []
-    // CTA copy: single source in `QUALITY_WARNING_ASSISTANT_CTA_KEYS` (methodFieldConfig).
+    if (!rawQualityWarnings || rawQualityWarnings.length === 0) return []
+    // Per warning type: a localized CTA label and a prefilled assistant prompt.
     return rawQualityWarnings
       .filter((w) => String(w.severity ?? '').toLowerCase() === 'high')
       .filter((w) => !!w.type && !acknowledgedQualityWarnings.has(w.type!))
       .map((w) => {
         const cta =
           w.type && isActionableQualityWarningType(w.type)
-            ? QUALITY_WARNING_ASSISTANT_CTA_KEYS[w.type]
+            ? QUALITY_WARNING_ASSISTANT_CTA_CONFIG[w.type as QualityWarningAssistantCtaKey]
             : undefined
         // Fall back gracefully when a new engine warning type ships before
         // the catalog is updated — show the warning, no CTA.
@@ -5513,6 +5781,49 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [])
 
+  const handleResolveStartupIssue = useCallback(
+    (issueId: string, prompt: string) => {
+      setChatDrawerOpen(true)
+      handleChatMessage(prompt)
+      setAcknowledgedStartupIssues((prev) => {
+        const next = new Set(prev)
+        next.add(issueId)
+        return next
+      })
+    },
+    [handleChatMessage]
+  )
+
+  const handleDismissStartupIssue = useCallback((issueId: string) => {
+    setAcknowledgedStartupIssues((prev) => {
+      const next = new Set(prev)
+      next.add(issueId)
+      return next
+    })
+  }, [])
+
+  const handleJumpToStartupIssue = useCallback(
+    (issueId: string) => {
+      const issue = startupIssueById.get(issueId)
+      if (!issue || typeof window === 'undefined') return
+      const anchorByStep: Record<StudioIssue['step'], string> = {
+        profile: 'startup-section-profile',
+        berkus: 'startup-section-berkus',
+        scorecard: 'startup-section-scorecard',
+        founder_pedigree: 'startup-section-pedigree',
+        traction: 'startup-section-traction',
+        exit_story: 'startup-section-exit',
+        round_simulator: 'startup-section-round',
+        report: 'startup-section-report',
+      }
+      const anchor = anchorByStep[issue.step]
+      if (!anchor) return
+      const el = document.getElementById(anchor)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    },
+    [startupIssueById]
+  )
+
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -5528,6 +5839,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,
     onRejectUpdate: handleRejectUpdate,
+    startupIssues,
+    onResolveStartupIssue: handleResolveStartupIssue,
+    onDismissStartupIssue: handleDismissStartupIssue,
+    onJumpToStartupIssue: handleJumpToStartupIssue,
     qualityWarnings,
     onResolveQualityWarning: handleResolveQualityWarning,
     onDismissQualityWarning: handleDismissQualityWarning,
@@ -5541,6 +5856,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,
   }
+  const assistantOpenTasksCount = pendingUpdates.length + qualityWarnings.length + startupIssues.length
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
@@ -5585,14 +5901,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // accepted count is still derivable inside the Hub panel itself
           // (where progress feedback belongs).
           normalizationCount={pendingNormalizationCount}
-          // Badge ONLY counts items visible inside the assistant drawer
-          // when opened (the pending field-update cards rendered above the
-          // messages list). Including `pendingNormalizationCount` here used
-          // to promise content the drawer didn't deliver — clicking the
-          // badged button opened an empty conversation, since pending
-          // normalizations live in the Normalization Hub button next door
-          // and only drive a suggestion-text hint here, not a card.
-          openTasksCount={pendingUpdates.length}
+          // Badge counts actionables across the unified assistant surface:
+          // pending field updates + engine quality warnings + startup
+          // studio issues (for startup_valuation routes).
+          openTasksCount={assistantOpenTasksCount}
           isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
@@ -5769,7 +6081,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // See sibling site for full rationale on why Hub badge is `pending`,
         // not `accepted`, and Assistant badge is `pendingUpdates` only.
         normalizationCount={pendingNormalizationCount}
-        openTasksCount={pendingUpdates.length}
+        // Pass-9: badge surfaces unread items in the drawer — pending
+        // field-update cards + unacknowledged engine warnings (chat
+        // bubbles). Single counter, single source of friction-free signal.
+        // Same unified assistant task count on desktop nav.
+        openTasksCount={assistantOpenTasksCount}
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {
@@ -5944,9 +6260,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
-                          {founderStartupResult && (
-                            <StartupFounderDashboard result={founderStartupResult} />
-                          )}
+                          {/* Cap-table simulator was previously rendered here as a
+                              React slider above the HTML report. The same data is now
+                              the single source of truth in the canonical Jinja report
+                              (`startup_one_pager.html` + `startup_cap_table.html`), so
+                              the duplicate mount has been removed to give founders a
+                              clean, single-source result surface. */}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -6029,9 +6348,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                         </div>
                       )}
-                      {founderStartupResult && (
-                        <StartupFounderDashboard result={founderStartupResult} />
-                      )}
+                      {/* Cap-table simulator deliberately omitted — the canonical
+                          Jinja report (`startup_one_pager.html` + `startup_cap_table.html`)
+                          is the single source of truth for the simulator card. */}
                       <div className="valuation-report">
                         <div
                           dangerouslySetInnerHTML={{
@@ -6154,6 +6473,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         isHydratingMethods={isHydratingEditModalData}
         methodDataLoadError={reportMethodHydrationError}
         onRetryMethodDataLoad={() => setReportHydrationRetryNonce((n) => n + 1)}
+        onContinueImportReview={
+          reportMethodHydrationError === 'report_pending' && (clientContextId || ctxRelationshipId)
+            ? handleContinueImportReview
+            : undefined
+        }
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}
@@ -6164,7 +6488,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         businessTypeLabel={collectedData.businessType}
         countryCode={collectedData.country}
         showZeroDraftExport={showPreparerMultiplePanel}
-        canExportZeroDraft={planFeatures?.valuation_download !== false}
+        canExportZeroDraft={canDownloadPdf}
         zeroDraftReportId={resolvedReportId || reportId}
         zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
         zeroDraftCreatedAt={

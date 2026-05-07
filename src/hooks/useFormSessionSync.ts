@@ -19,8 +19,9 @@
  */
 
 import { useCallback, useEffect } from 'react'
-import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import { useSessionStore } from '../store/useSessionStore'
+import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
+import type { ValuationFormData } from '../types/valuation'
 import { debounceWithFlush } from '../utils/debounce'
 import {
   isFilingYearConfirmedValue,
@@ -28,15 +29,34 @@ import {
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
-import { NameGenerator } from '../utils/nameGenerator'
 import {
+  mergeSessionSurfaceForOptionalPrefill,
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   stableOptionalPrefillSourceSignature,
 } from '../utils/mergeOptionalSessionPrefillFields'
+import { NameGenerator } from '../utils/nameGenerator'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
 
 const SKIP_OPTIONAL_SESSION_SYNC_KEYS = new Set<string>(['revenue', 'ebitda', 'shares_for_sale'])
+
+type AutosyncDataRoot = Record<string, unknown>
+
+type YearMetricsRow = { year: unknown; revenue: unknown; ebitda: unknown }
+
+function fingerprintHistoricalSlice(rows: unknown): YearMetricsRow[] {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .filter(
+      (y): y is Record<string, unknown> => y != null && typeof y === 'object' && !Array.isArray(y)
+    )
+    .map((y) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
+    .sort((a, b) => Number(a.year) - Number(b.year))
+}
+
+function isAutosyncComparableRoot(value: unknown): value is AutosyncDataRoot {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+}
 
 function taxLatenciesEqualForAutosync(
   storeItems: unknown[] | undefined,
@@ -50,11 +70,20 @@ function taxLatenciesEqualForAutosync(
 
 /** Exported for tests — debounced autosave must not treat DCF / NAV-only edits as “no change”. */
 export function areFormAndSessionDataEqualForAutosync(
-  formData: any,
-  sessionData: any,
+  formData: unknown,
+  sessionData: unknown,
   taxLatencyItems?: unknown[]
 ): boolean {
-  if (!sessionData || !formData) return false
+  if (!isAutosyncComparableRoot(formData) || !isAutosyncComparableRoot(sessionData)) {
+    return false
+  }
+  const fd = formData
+
+  /** Flatten `_businessInfo` into top-level fields so manual saves and integration payloads compare equally. */
+  const sessionSurface = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<
+    string,
+    unknown
+  >
 
   const keyFields = [
     'company_name',
@@ -67,23 +96,23 @@ export function areFormAndSessionDataEqualForAutosync(
     'rev_recurring_amount',
     'rev_top_client_amount',
     'rev_gross_churn_pct',
-  ]
+  ] as const
 
   for (const field of keyFields) {
-    if (formData[field] !== sessionData[field]) {
+    if (fd[field] !== sessionSurface[field]) {
       return false
     }
   }
 
   if (
-    isFilingYearConfirmedValue(formData.filing_year_confirmed) !==
-    isFilingYearConfirmedValue(sessionData.filing_year_confirmed)
+    isFilingYearConfirmedValue(fd.filing_year_confirmed) !==
+    isFilingYearConfirmedValue(sessionSurface.filing_year_confirmed)
   ) {
     return false
   }
 
-  const formCurrentYear = formData.current_year_data
-  const sessionCurrentYear = sessionData.current_year_data
+  const formCurrentYear = fd.current_year_data as Record<string, unknown> | undefined
+  const sessionCurrentYear = sessionSurface.current_year_data as Record<string, unknown> | undefined
   if (!!formCurrentYear !== !!sessionCurrentYear) {
     return false
   }
@@ -96,50 +125,32 @@ export function areFormAndSessionDataEqualForAutosync(
     }
   }
 
-  const formHistNorm = Array.isArray(formData.historical_years_data)
-    ? formData.historical_years_data
-    : []
-  const sessHistNorm = Array.isArray(sessionData.historical_years_data)
-    ? sessionData.historical_years_data
+  const formHistNorm = Array.isArray(fd.historical_years_data) ? fd.historical_years_data : []
+  const sessHistNorm = Array.isArray(sessionSurface.historical_years_data)
+    ? sessionSurface.historical_years_data
     : []
   if (formHistNorm.length !== sessHistNorm.length) return false
-  const formStr = JSON.stringify(
-    formHistNorm
-      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
-      .sort((a: any, b: any) => a.year - b.year)
-  )
-  const sessStr = JSON.stringify(
-    sessHistNorm
-      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
-      .sort((a: any, b: any) => a.year - b.year)
-  )
+  const formStr = JSON.stringify(fingerprintHistoricalSlice(formHistNorm))
+  const sessStr = JSON.stringify(fingerprintHistoricalSlice(sessHistNorm))
   if (formStr !== sessStr) return false
 
-  const formFc = Array.isArray(formData.forecast_years_data) ? formData.forecast_years_data : []
-  const sessFc = Array.isArray(sessionData.forecast_years_data)
-    ? sessionData.forecast_years_data
+  const formFc = Array.isArray(fd.forecast_years_data) ? fd.forecast_years_data : []
+  const sessFc = Array.isArray(sessionSurface.forecast_years_data)
+    ? sessionSurface.forecast_years_data
     : []
   if (formFc.length !== sessFc.length) return false
-  const fcFormStr = JSON.stringify(
-    formFc
-      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
-      .sort((a: any, b: any) => a.year - b.year)
-  )
-  const fcSessStr = JSON.stringify(
-    sessFc
-      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
-      .sort((a: any, b: any) => a.year - b.year)
-  )
+  const fcFormStr = JSON.stringify(fingerprintHistoricalSlice(formFc))
+  const fcSessStr = JSON.stringify(fingerprintHistoricalSlice(sessFc))
   if (fcFormStr !== fcSessStr) return false
 
   if (
-    stableOptionalPrefillSourceSignature(formData as Record<string, unknown>) !==
-    stableOptionalPrefillSourceSignature((sessionData ?? {}) as Record<string, unknown>)
+    stableOptionalPrefillSourceSignature(fd) !==
+    stableOptionalPrefillSourceSignature(sessionSurface)
   ) {
     return false
   }
 
-  if (!taxLatenciesEqualForAutosync(taxLatencyItems, sessionData as Record<string, unknown>)) {
+  if (!taxLatenciesEqualForAutosync(taxLatencyItems, sessionSurface)) {
     return false
   }
 
@@ -148,7 +159,7 @@ export function areFormAndSessionDataEqualForAutosync(
 
 interface UseFormSessionSyncOptions {
   reportId: string | null | undefined
-  formData: any
+  formData: ValuationFormData
 }
 
 /**
@@ -161,7 +172,7 @@ interface UseFormSessionSyncOptions {
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
   const taxLatencyItems = useTaxLatencyStore((s) => s.items)
   const isDataEqual = useCallback(
-    (fd: any, sd: any, tax: unknown[] | undefined) =>
+    (fd: unknown, sd: unknown, tax: unknown[] | undefined) =>
       areFormAndSessionDataEqualForAutosync(fd, sd, tax),
     []
   )
@@ -191,10 +202,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
 
       const taxItems = useTaxLatencyStore.getState().items
       // Skip sync if data matches what's already in session (prevents loops during restoration)
-      if (
-        currentSession.sessionData &&
-        isDataEqual(data, currentSession.sessionData, taxItems)
-      ) {
+      if (currentSession.sessionData && isDataEqual(data, currentSession.sessionData, taxItems)) {
         generalLogger.debug('Skipping sync - form data matches session data', {
           reportId: currentSession.reportId,
         })
@@ -205,7 +213,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
         const normalizedCurrentYear = normalizeCurrentYearForFiling(
-          data.current_year_data?.year ?? data.year,
+          data.current_year_data?.year ??
+            (data as ValuationFormData & { year?: number | string | null }).year,
           data.filing_year_confirmed
         )
         const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
@@ -213,7 +222,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           data.filing_year_confirmed
         )
 
-        const sessionUpdate: Partial<any> = {
+        const dataRecord = data as unknown as Record<string, unknown>
+        const sessionUpdate: Record<string, unknown> = {
           company_name: data.company_name,
           country_code: data.country_code,
           industry: data.industry,
@@ -259,15 +269,15 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
 
         for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
           if (SKIP_OPTIONAL_SESSION_SYNC_KEYS.has(key)) continue
-          const v = (data as Record<string, unknown>)[key]
+          const v = dataRecord[key]
           if (v !== undefined) {
-            ;(sessionUpdate as Record<string, unknown>)[key] = v
+            sessionUpdate[key] = v
           }
         }
         for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
-          const v = (data as Record<string, unknown>)[key]
+          const v = dataRecord[key]
           if (v !== undefined) {
-            ;(sessionUpdate as Record<string, unknown>)[key] = v
+            sessionUpdate[key] = v
           }
         }
         if (data.tax_latencies !== undefined) {
@@ -286,30 +296,35 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         })
 
         // ✅ LOGGING: Verify historical data is synced
-        if (sessionUpdate.historical_years_data) {
+        const histForLog = sessionUpdate.historical_years_data
+        if (Array.isArray(histForLog)) {
           generalLogger.debug('[useFormSessionSync] Syncing historical data', {
             reportId: currentSession.reportId,
-            yearsCount: sessionUpdate.historical_years_data.length,
-            years: sessionUpdate.historical_years_data.map((d: any) => d.year),
-            yearsWithData: sessionUpdate.historical_years_data.map((d: any) => ({
-              year: d.year,
-              hasRevenue: d.revenue != null && Number.isFinite(Number(d.revenue)),
-              hasEbitda: d.ebitda != null && Number.isFinite(Number(d.ebitda)),
-            })),
+            yearsCount: histForLog.length,
+            years: histForLog.map((d) => (d as { year?: unknown }).year),
+            yearsWithData: histForLog.map((d) => {
+              const row = d as { year?: unknown; revenue?: unknown; ebitda?: unknown }
+              return {
+                year: row.year,
+                hasRevenue: row.revenue != null && Number.isFinite(Number(row.revenue)),
+                hasEbitda: row.ebitda != null && Number.isFinite(Number(row.ebitda)),
+              }
+            }),
           })
         }
 
         // ✅ FIX: Update local store first
-        await updateSessionData(sessionUpdate)
+        await updateSessionData(sessionUpdate as Parameters<typeof updateSessionData>[0])
 
         // ✅ NEW: Auto-update valuation name when company_name changes
         // This ensures name is updated immediately as user types
+        const companyNameUpdate = sessionUpdate.company_name
         if (
-          sessionUpdate.company_name &&
-          sessionUpdate.company_name.trim() &&
+          typeof companyNameUpdate === 'string' &&
+          companyNameUpdate.trim() &&
           currentSession.reportId
         ) {
-          const newName = NameGenerator.generateFromCompany(sessionUpdate.company_name)
+          const newName = NameGenerator.generateFromCompany(companyNameUpdate)
           const currentName = currentSession.name
 
           // Only update if name hasn't been manually edited (matches auto-generated pattern or is default)
@@ -326,7 +341,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
               useSessionStore.getState().updateSession({ name: newName })
               generalLogger.debug('[useFormSessionSync] Queued auto-generated valuation name', {
                 reportId: currentSession.reportId,
-                companyName: sessionUpdate.company_name,
+                companyName: companyNameUpdate,
                 newName,
               })
             } catch (error) {

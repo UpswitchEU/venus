@@ -8,68 +8,52 @@
  * misleading €1.7M baseline before any thinking.
  */
 
+import { useTranslations } from 'next-intl'
 import { MilestoneCard } from './MilestoneCard'
-import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import {
-  STUDIO_BERKUS_KEYS,
-  useStartupValuationStore,
-} from '@/store/manual/useStartupValuationStore'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { STUDIO_BERKUS_KEYS, useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface BerkusStepProps {
+  /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
 }
 
-export function BerkusStep({ locale = 'en' }: BerkusStepProps) {
+export function BerkusStep(_props: BerkusStepProps) {
+  const t = useTranslations('startupStudio.berkus')
+  const tCommon = useTranslations('startupStudio.common')
+  const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const { benchmark, isFallback } = useStartupBenchmark(country, stage, sector)
+  const stageLabel = tStageLabels(stage)
 
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <p className="text-sm leading-relaxed text-foreground/70">
-          {locale === 'nl' ? (
-            <>
-              Investeerders waarderen pre-seed rondes op{' '}
-              <span className="font-medium text-foreground">hoeveel uitvoeringsrisico je hebt
-              weggenomen</span>. Score vijf kwalitatieve mijlpalen — elke keuze ontgrendelt een
-              stuk van de regionale baseline.
-            </>
-          ) : (
-            <>
-              Investors price pre-seed rounds on{' '}
-              <span className="font-medium text-foreground">how much execution risk you've
-              removed</span>. Score five qualitative milestones — each pick unlocks a slice of the
-              regional baseline.
-            </>
-          )}
+          {t('introBefore')}
+          <span className="font-medium text-foreground">{t('introHighlight')}</span>
+          {t('introAfter')}
         </p>
         <p className="mt-3 text-xs text-foreground/55">
-          {locale === 'nl' ? 'Tot ' : 'Up to '}
-          <span className="font-medium tabular-nums text-foreground">
-            {formatEur(benchmark.berkus_max_per_milestone_eur * 5)}
-          </span>{' '}
-          {locale === 'nl' ? 'over 5 mijlpalen · ' : 'across 5 milestones · '}
-          {formatEur(benchmark.berkus_max_per_milestone_eur)}
-          {locale === 'nl' ? ' per mijlpaal — ' : ' per milestone — '}
-          {country} {stage.replace('_', ' ')} {locale === 'nl' ? 'benchmark' : 'benchmark'}
+          {t('capLine', {
+            total: formatEur(benchmark.berkus_max_per_milestone_eur * 5),
+            per: formatEur(benchmark.berkus_max_per_milestone_eur),
+            country,
+            stage: stageLabel,
+          })}
           {isFallback && (
             <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
-              {locale === 'nl' ? 'offline' : 'offline'}
+              {tCommon('offline')}
             </span>
           )}
         </p>
       </div>
 
       {STUDIO_BERKUS_KEYS.map((key) => (
-        <MilestoneCard
-          key={key}
-          milestoneKey={key}
-          maxPerMilestoneEur={benchmark.berkus_max_per_milestone_eur}
-          locale={locale}
-        />
+        <MilestoneCard key={key} milestoneKey={key} maxPerMilestoneEur={benchmark.berkus_max_per_milestone_eur} />
       ))}
     </div>
   )

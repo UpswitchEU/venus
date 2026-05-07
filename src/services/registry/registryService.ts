@@ -15,24 +15,25 @@ import {
 import { serviceLogger } from '../../utils/logger'
 import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import { RegistryCache } from './cache'
-import type {
-  CompanyFinancialData,
-  CompanySearchResponse,
-  RegistryServiceConfig,
-  SearchSuggestion,
+import {
+  type CompanyFinancialData,
+  type CompanySearchResponse,
+  REGISTRY_SEARCH_CLIENT_TIMEOUT_MS,
+  type RegistryServiceConfig,
+  type SearchSuggestion,
 } from './types'
 
 export class RegistryService {
   private cache: RegistryCache
   private baseURL: string
   private timeout: number
-  private pendingRequests: Map<string, Promise<any>>
+  private pendingRequests: Map<string, Promise<CompanySearchResponse | CompanyFinancialData>>
 
   constructor(config?: Partial<RegistryServiceConfig>) {
     // Use local Next.js API proxy route to avoid CORS issues
     // This proxies to Titan backend API (similar to Mercury pattern)
     this.baseURL = config?.baseURL || ''
-    this.timeout = config?.timeout || 6000
+    this.timeout = config?.timeout || REGISTRY_SEARCH_CLIENT_TIMEOUT_MS
     this.cache = new RegistryCache(config?.maxCacheSize, config?.cacheTTL)
     this.pendingRequests = new Map()
 
@@ -75,9 +76,10 @@ export class RegistryService {
     }
 
     // Check for pending request
-    if (this.pendingRequests.has(cacheKey)) {
+    const existingSearch = this.pendingRequests.get(cacheKey)
+    if (existingSearch) {
       serviceLogger.debug('Request already pending, waiting for result', { query, country })
-      return this.pendingRequests.get(cacheKey)!
+      return existingSearch as Promise<CompanySearchResponse>
     }
 
     // Create new request
@@ -119,16 +121,43 @@ export class RegistryService {
   ): Promise<CompanySearchResponse> {
     const requestId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let safetyNetTimedOut = false
+    let onExternalAbort: (() => void) | undefined
+
+    const clearSafetyTimeout = () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+        timeoutId = undefined
+      }
+    }
+
+    const detachExternalListener = () => {
+      if (onExternalAbort && externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort)
+        onExternalAbort = undefined
+      }
+    }
+
     try {
       serviceLogger.info('Searching companies', { requestId, query, country, limit })
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+      timeoutId = setTimeout(() => {
+        safetyNetTimedOut = true
+        controller.abort()
+      }, this.timeout)
+
       if (externalSignal) {
-        externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+        if (externalSignal.aborted) {
+          clearSafetyTimeout()
+          return { success: false, results: [], error: 'Aborted', requestId }
+        }
+        onExternalAbort = () => controller.abort()
+        externalSignal.addEventListener('abort', onExternalAbort, { once: true })
       }
 
-      // Use local Next.js proxy route (proxies to Titan /api/v1/registry/search)
+      // Use local Next.js proxy route (proxies to Titan /api/v2/registry/search via Venus BFF)
       const response = await fetch(`${this.baseURL}/api/registry/search`, {
         method: 'POST',
         headers: {
@@ -143,7 +172,8 @@ export class RegistryService {
         signal: controller.signal,
       })
 
-      clearTimeout(timeoutId)
+      clearSafetyTimeout()
+      detachExternalListener()
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -185,9 +215,7 @@ export class RegistryService {
       // Legal form: BE uses legal_form; NL/KVK may only send rechtsvorm / rechtsvormOmschrijving.
       const results = rawResults.map((r: Record<string, unknown>) => {
         const spread = { ...r }
-        const registration_number = String(
-          spread.registration_number ?? spread.kbo_number ?? ''
-        )
+        const registration_number = String(spread.registration_number ?? spread.kbo_number ?? '')
         const legal_form =
           pickLegalFormFromRegistryHit(spread) ||
           (typeof spread.legal_form === 'string' ? spread.legal_form : '')
@@ -207,9 +235,27 @@ export class RegistryService {
         registry_name: data.registry_name || 'Unknown Registry',
       }
     } catch (error) {
-      // Re-throw AbortError so upstream can ignore (user cancelled via rapid typing)
+      clearSafetyTimeout()
+      detachExternalListener()
+
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw error
+        if (externalSignal?.aborted) {
+          throw error
+        }
+        if (safetyNetTimedOut) {
+          return {
+            success: false,
+            results: [],
+            error: 'Search timed out. Please try again.',
+            requestId,
+          }
+        }
+        return {
+          success: false,
+          results: [],
+          error: 'Search was interrupted. Please try again.',
+          requestId,
+        }
       }
 
       serviceLogger.error('Search error', {
@@ -219,7 +265,6 @@ export class RegistryService {
         country,
       })
 
-      // Handle error and determine if it should be thrown or returned
       if (
         error instanceof RegistryError ||
         error instanceof NetworkError ||
@@ -228,7 +273,6 @@ export class RegistryService {
         throw error
       }
 
-      // For unknown errors, return failure response
       return {
         success: false,
         results: [],
@@ -272,9 +316,10 @@ export class RegistryService {
     }
 
     // Check for pending request
-    if (this.pendingRequests.has(cacheKey)) {
+    const existingFinancials = this.pendingRequests.get(cacheKey)
+    if (existingFinancials) {
       serviceLogger.debug('Financial request already pending', { companyId, country })
-      return this.pendingRequests.get(cacheKey)!
+      return existingFinancials as Promise<CompanyFinancialData>
     }
 
     // Create new request
@@ -311,11 +356,13 @@ export class RegistryService {
   ): Promise<CompanyFinancialData> {
     const requestId = `financials_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
+    const controller = new AbortController()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
     try {
       serviceLogger.info('Fetching company financials', { requestId, companyId, country })
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+      timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
       // Use GET endpoint: /api/v1/registry/company/{company_id}/financials?country_code={country}&years=3
       const url = new URL(
@@ -331,8 +378,6 @@ export class RegistryService {
         },
         signal: controller.signal,
       })
-
-      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -367,7 +412,6 @@ export class RegistryService {
         country,
       })
 
-      // Handle error and determine if it should be thrown or returned
       if (
         error instanceof RegistryError ||
         error instanceof NetworkError ||
@@ -376,12 +420,15 @@ export class RegistryService {
         throw error
       }
 
-      // For unknown errors, throw a generic error
       throw new RegistryError(error instanceof Error ? error.message : 'Unknown error', 500, {
         companyId,
         country,
         requestId,
       })
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
     }
   }
 
@@ -411,11 +458,13 @@ export class RegistryService {
   async checkHealth(): Promise<{ available: boolean; status: string; message?: string }> {
     const requestId = `health_${Date.now()}`
 
+    const controller = new AbortController()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
     try {
       serviceLogger.debug('Checking service health', { requestId })
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      timeoutId = setTimeout(() => controller.abort(), 5000)
 
       const response = await fetch(`${this.baseURL}/api/health`, {
         method: 'GET',
@@ -423,7 +472,6 @@ export class RegistryService {
         signal: controller.signal,
       })
 
-      clearTimeout(timeoutId)
       const data = await response.json()
 
       const healthStatus = {
@@ -444,6 +492,10 @@ export class RegistryService {
         available: false,
         status: 'error',
         message: error instanceof Error ? error.message : 'Service unreachable',
+      }
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
       }
     }
   }

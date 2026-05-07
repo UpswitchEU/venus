@@ -49,6 +49,126 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
   })
 
+  it('treats optional scalars under _businessInfo as equal to top-level form (prefill surface)', () => {
+    const form = { ...base, dcf_wacc_pct: 9 }
+    const sess = { ...base, _businessInfo: { dcf_wacc_pct: 9 } } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('treats key card metrics only under _businessInfo as equal to flat form (Mercury link shape)', () => {
+    const form = { ...base }
+    const sess = {
+      _businessInfo: {
+        company_name: 'A',
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        industry: 'X',
+        business_model: 'services',
+        founding_year: 2010,
+        business_type_id: 1,
+        rev_recurring_amount: 0,
+        rev_top_client_amount: 0,
+        rev_gross_churn_pct: 0,
+      },
+      filing_year_confirmed: false,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('treats Mercury empty-string top-level company_name as equal when card has the name', () => {
+    const form = { ...base }
+    const sess = {
+      company_name: '',
+      _businessInfo: {
+        company_name: 'A',
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        industry: 'X',
+        business_model: 'services',
+        founding_year: 2010,
+        business_type_id: 1,
+        rev_recurring_amount: 0,
+        rev_top_client_amount: 0,
+        rev_gross_churn_pct: 0,
+      },
+      filing_year_confirmed: false,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('uses top-level session values over _businessInfo when both present', () => {
+    const form = { ...base, revenue: 2_000_000 }
+    const sess = {
+      _businessInfo: { ...base, revenue: 1_000_000 },
+      revenue: 2_000_000,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('returns false when top-level session overrides _businessInfo but form matches only nested card', () => {
+    const form = { ...base, revenue: 1_000_000 }
+    const sess = {
+      _businessInfo: { ...base },
+      revenue: 2_000_000,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
+  })
+
+  it('compares current_year_data from merged _businessInfo surface', () => {
+    const cyd = { year: 2023, revenue: 500_000, ebitda: 100_000 }
+    const form = { ...base, current_year_data: cyd }
+    const sess = {
+      _businessInfo: {
+        company_name: 'A',
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        industry: 'X',
+        business_model: 'services',
+        founding_year: 2010,
+        business_type_id: 1,
+        rev_recurring_amount: 0,
+        rev_top_client_amount: 0,
+        rev_gross_churn_pct: 0,
+        current_year_data: cyd,
+      },
+      filing_year_confirmed: false,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('reads _taxLatencies from merged surface when only stored under _businessInfo', () => {
+    const tl = [{ id: 'x', type: 'passive' as const }]
+    const form = { ...base }
+    const sess = {
+      _businessInfo: { ...base, _taxLatencies: tl },
+      filing_year_confirmed: false,
+      historical_years_data: [],
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess, tl)).toBe(true)
+  })
+
+  it('compares historical_years_data from merged _businessInfo surface', () => {
+    const hist = [{ year: 2022, revenue: 100, ebitda: 10 }]
+    const form = { ...base, historical_years_data: hist }
+    const sess = {
+      _businessInfo: { ...base, historical_years_data: hist },
+      filing_year_confirmed: false,
+      forecast_years_data: [],
+    } as Record<string, unknown>
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
   it('compares forecast after both historical slices are empty (no early return bug)', () => {
     const form = { ...base, forecast_years_data: [{ year: 2027, revenue: 1, ebitda: 1 }] }
     const sess = { ...base, forecast_years_data: [] }

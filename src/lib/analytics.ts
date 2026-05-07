@@ -290,11 +290,6 @@ export function trackFounderStartupWizardComplete(
   })
 }
 
-/** Founder clicked "Invite my Accountant" from the founder dashboard. */
-export function trackFounderStartupInvite(method: 'cta' | 'copy_link' | 'email'): void {
-  trackEvent('venus_founder_startup_invite', { method })
-}
-
 /** Founder downloaded the one-pager PDF from the founder dashboard. */
 export function trackFounderStartupPdfDownload(reportId: string): void {
   trackEvent('venus_founder_startup_pdf_download', { report_id: reportId })
@@ -377,5 +372,39 @@ export function trackStudioRunComplete(
   trackEvent('venus_studio_run_complete', {
     report_id: reportId,
     ...(stage ? { stage } : {}),
+  })
+}
+
+/**
+ * Cover chip / report section rendered with the cap-applied framing
+ * (OWNER-PROFILING-1 / OP-6). The MVP cap clamps engine adjustments at
+ * -15%, so when this fires the underlying owner-dependency signal is
+ * steeper than the displayed haircut — material info for SPIKE-1 §5.4 R8.
+ *
+ * Caller is responsible for deduping by (report_id, mode); a re-render or
+ * tab switch should not double-fire. Payload is intentionally minimal —
+ * no factor breakdown, no PII.
+ *
+ * `mode`:
+ *   - `'cover_chip'` — Aurora chip on the report cover (Results.tsx)
+ *   - `'report_section'` — full Owner Profiling section in HTML/PDF
+ *
+ * Event name mirrors Mercury's `trackOwnerProfilingCapBindRendered` so
+ * cross-app funnels see one name. Mercury → wizard-side cap rate;
+ * Venus → report-side cap rate. Diverging rates are a wire-drift signal.
+ */
+export function trackOwnerProfilingCapBindRendered(payload: {
+  reportId: string
+  mode: 'cover_chip' | 'report_section'
+  riskLevel: string
+  appliedPct: number
+  rawPct: number
+}): void {
+  trackEvent('owner_profiling_cap_bind_rendered', {
+    report_id: payload.reportId.slice(0, 64),
+    mode: payload.mode,
+    risk_level: payload.riskLevel.slice(0, 16),
+    applied_pct: payload.appliedPct,
+    raw_pct: payload.rawPct,
   })
 }

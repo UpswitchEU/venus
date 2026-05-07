@@ -1,8 +1,8 @@
 /**
  * Normalization Snapshot Utility
  *
- * Shared utility for creating immutable normalization snapshots linked to versions
- * Used by both manual and conversational flows to ensure consistency
+ * Shared utility for creating immutable normalization snapshots linked to versions.
+ * Called when a valuation version is committed (manual flow, guided flow, ValuationForm).
  *
  * @module utils/normalizationSnapshot
  */
@@ -17,8 +17,10 @@ import { isValidSessionId } from './sessionIdValidation'
  * Creates immutable copies of draft normalizations (version_id = null)
  * and links them to the specified version for version control
  *
- * This function is used by both manual and conversational flows to ensure
- * consistent normalization snapshotting across the application
+ * This function is used by ManualLayout, ValuationForm version submission, and any
+ * flow that creates a version with a real `reportId` — all must pass a Titan-valid
+ * session/report id (see `isValidSessionId`). Early-return when the id is not ready yet
+ * so integrations and pre-session UI never hit normalization APIs incorrectly.
  *
  * @param sessionId - The session ID containing draft normalizations
  * @param versionId - The version ID to link snapshots to

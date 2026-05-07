@@ -25,6 +25,34 @@ function loadMessages(locale) {
 }
 
 /**
+ * Load startupStudio overlay for a locale (falls back to en, then empty).
+ */
+function loadStartupStudioOverlay(locale) {
+  const tryPath = path.join(__dirname, `../messages/startupStudio/${locale}.json`);
+  try {
+    const content = fs.readFileSync(tryPath, 'utf-8');
+    return JSON.parse(content);
+  } catch {
+    try {
+      const enPath = path.join(__dirname, `../messages/startupStudio/en.json`);
+      const content = fs.readFileSync(enPath, 'utf-8');
+      return JSON.parse(content);
+    } catch {
+      return {};
+    }
+  }
+}
+
+/**
+ * Merged message tree as loaded at runtime (base JSON + startupStudio namespace).
+ */
+function loadMergedMessages(locale) {
+  const base = loadMessages(locale);
+  const startupStudio = loadStartupStudioOverlay(locale);
+  return { ...base, startupStudio };
+}
+
+/**
  * Recursively flatten nested translation keys into dot-notation paths
  * Example: { common: { actions: { save: "Save" } } } => ["common.actions.save"]
  */
@@ -71,9 +99,9 @@ function checkTranslations() {
   console.log('\n🌍 Translation Status Checker for Venus\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   
-  // Load both translation files
-  const enMessages = loadMessages('en');
-  const nlMessages = loadMessages('nl');
+  // Load both translation files (including startupStudio overlay, same as runtime)
+  const enMessages = loadMergedMessages('en');
+  const nlMessages = loadMergedMessages('nl');
   
   // Flatten keys for comparison
   const enKeys = new Set(flattenKeys(enMessages));

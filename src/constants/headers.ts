@@ -44,34 +44,44 @@ export const LEGACY_CLIENT_CONTEXT_HEADERS = {
  * Extract client context from request headers
  * Accepts both canonical and legacy header formats for backward compatibility
  *
+ * Pending invitations: `X-Client-User-Id` may be omitted (store uses accountant + relationship only).
+ * In that case `clientUserId` is null; advisor and relationship must still be forwarded to Titan.
+ *
  * @param getHeader - Function to get header value by name
  * @returns Client context or null if not present
  */
 export function extractClientContextFromHeaders(
   getHeader: (name: string) => string | null
-): { clientUserId: string; accountantUserId: string; relationshipId: string } | null {
+): { clientUserId: string | null; accountantUserId: string; relationshipId: string } | null {
   // Try canonical headers first, then legacy
-  const clientUserId =
+  const clientUserIdRaw =
     getHeader(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase()) ||
     getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase())
+  const clientUserId = clientUserIdRaw?.trim() ? clientUserIdRaw.trim() : null
 
-  const accountantUserId =
+  const accountantUserIdRaw =
     getHeader(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase()) ||
     getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase())
+  const accountantUserId = accountantUserIdRaw?.trim() || ''
 
-  const relationshipId =
+  const relationshipIdRaw =
     getHeader(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase()) ||
     getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase())
+  const relationshipId = relationshipIdRaw?.trim() || ''
 
-  // Return null if any required header is missing
-  if (!clientUserId || !accountantUserId) {
+  if (!accountantUserId) {
+    return null
+  }
+
+  // Need a relationship for pending-invite proxying; allow legacy client+accountant with no relationship id
+  if (!relationshipId && !clientUserId) {
     return null
   }
 
   return {
     clientUserId,
     accountantUserId,
-    relationshipId: relationshipId || '',
+    relationshipId,
   }
 }
 

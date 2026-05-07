@@ -62,6 +62,7 @@ import {
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
   import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
@@ -100,7 +101,6 @@ import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
   ManualValuationFormData,
@@ -157,6 +157,7 @@ import {
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import {
+  CapitalHistorySection,
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
   BelgianSmeAuditPanel,
@@ -313,13 +314,17 @@ export function getSelectedBelgianAuditEntries({
   effectiveMethods: string[]
 }): Array<[string, ValuationMethodResult]> {
   if (!valuationResults) return []
-  const selected = new Set(
-    (effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]).filter(Boolean)
-  )
-  return Object.entries(valuationResults).filter(
-    (entry): entry is [string, ValuationMethodResult] =>
-      selected.has(entry[0]) && Boolean(entry[1]?.details)
-  )
+  const methods = (effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]).filter(Boolean)
+  const seen = new WeakSet<ValuationMethodResult>()
+  const out: Array<[string, ValuationMethodResult]> = []
+  for (const key of methods) {
+    const row = getValuationMethodResultForKey(valuationResults, key)
+    if (!row?.details) continue
+    if (seen.has(row)) continue
+    seen.add(row)
+    out.push([key, row])
+  }
+  return out
 }
 
 // Field help context for AI assistant integration
@@ -496,6 +501,28 @@ export const getSeedBaseFilingYear = (
 }
 
 /**
+ * A session is "stale-seeded" when it carries a confirmed `current_year_data.year`
+ * older than the live filing year *and no real numbers have been entered yet*.
+ * This happens to sessions started in Jan–Mar (when {@link getCurrentFilingYear}
+ * returns `year − 2`) that were never edited before the April rollover: their
+ * persisted year sticks at e.g. 2024 even though by May it should be 2025.
+ *
+ * On detection, the seed wrappers regenerate `yearlyFinancials`, bump
+ * `current_year_data.year`, and clear `filingYearConfirmed` so the
+ * {@link FilingYearPrompt} re-appears and the user can re-confirm (or pick
+ * "Other" to keep the older year deliberately).
+ */
+export const isSessionSeedYearStale = (
+  initialData: Partial<ValuationFormData>,
+  now: Date = new Date()
+): boolean => {
+  if (sessionHasNonPlaceholderFinancials(initialData)) return false
+  const explicitYear = Number(initialData.current_year_data?.year)
+  if (!Number.isFinite(explicitYear) || explicitYear < 2000) return false
+  return explicitYear < getCurrentFilingYear(now)
+}
+
+/**
  * Merge `current_year_data` and `historical_years_data` (the bootstrap-prefill /
  * Mercury-sync surface) into a `yearlyFinancials` array (what the panel and the
  * normalization modal's Origineel/Genormaliseerd tiles read from). Defense-in-depth
@@ -569,6 +596,12 @@ export const getSeedYearlyFinancials = (
   initialData: Partial<ValuationFormData>,
   now: Date = new Date()
 ): YearlyFinancials[] => {
+  // Stale Jan–Mar seed (confirmed older year, no real numbers yet) — regenerate
+  // from the live filing year so the panel's "Basis" matches the calendar.
+  if (isSessionSeedYearStale(initialData, now)) {
+    return generateDefaultYearlyFinancials(getCurrentFilingYear(now))
+  }
+
   const initialYearlyFinancials = initialData.yearlyFinancials
   const initialIsArray =
     Array.isArray(initialYearlyFinancials) && initialYearlyFinancials.length > 0
@@ -595,15 +628,26 @@ export const getSeedYearlyFinancials = (
 }
 
 const getSeedCurrentYearData = (
-  initialData: Partial<ValuationFormData>
+  initialData: Partial<ValuationFormData>,
+  now: Date = new Date()
 ): YearDataInput | undefined => {
   if (!initialData.current_year_data) {
     return undefined
   }
 
+  // Stale Jan–Mar seed (see isSessionSeedYearStale) — bump to the live filing
+  // year so the "current year" base label matches the freshly regenerated
+  // yearlyFinancials rows.
+  if (isSessionSeedYearStale(initialData, now)) {
+    return {
+      ...initialData.current_year_data,
+      year: getCurrentFilingYear(now),
+    }
+  }
+
   return {
     ...initialData.current_year_data,
-    year: getSeedBaseFilingYear(initialData),
+    year: getSeedBaseFilingYear(initialData, now),
   }
 }
 
@@ -611,6 +655,11 @@ export const shouldAutoConfirmPrefilledFilingYear = (
   initialData: Partial<ValuationFormData>,
   currentFilingYear: number
 ): boolean => {
+  // Stale Jan–Mar seed must NOT auto-confirm — the panel resets
+  // `filingYearConfirmed` to false on mount so the prompt re-appears, and this
+  // effect would otherwise immediately flip it back to true and re-hide it.
+  if (isSessionSeedYearStale(initialData)) return false
+
   const explicitInitialYear = Number(initialData.current_year_data?.year)
 
   return (
@@ -657,7 +706,6 @@ export function ManualInputPanel({
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const importQualityFromStore = useImportQualityStore((s) => s.importQuality)
   const hasExplicitNumericValue = useCallback(
     (value: unknown) => hasExplicitFinancialValue(value),
     []
@@ -691,7 +739,11 @@ export function ManualInputPanel({
       initialData.filingYearConfirmed
     ),
     forecast_years_data: initialData.forecast_years_data,
-    filingYearConfirmed: isFilingYearConfirmedValue(initialData.filingYearConfirmed),
+    // Stale Jan–Mar seed → drop persisted confirmation so FilingYearPrompt
+    // re-appears with the bumped (live) filing year as the new default.
+    filingYearConfirmed: isSessionSeedYearStale(initialData)
+      ? false
+      : isFilingYearConfirmedValue(initialData.filingYearConfirmed),
     dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
@@ -2894,67 +2946,6 @@ export function ManualInputPanel({
     )
     .map((yf) => yf.year)
 
-  const persistedImportedLedgerAnalysis = useMemo(() => {
-    const raw = formData.business_context?._imported_ledger_analysis
-    return raw && typeof raw === 'object' && !Array.isArray(raw)
-      ? (raw as ImportedLedgerAnalysisSummary)
-      : null
-  }, [formData.business_context])
-  const effectiveImportedLedgerAnalysis = useMemo(() => {
-    const fromBatch =
-      importBatchData != null
-        ? ({
-            latest_fiscal_year: importBatchData.latest_fiscal_year,
-            sde_flags: importBatchData.sde_flags,
-            ev_equity_bridge: importBatchData.ev_equity_bridge,
-            dcf_defaults: importBatchData.dcf_defaults,
-          } as ImportedLedgerAnalysisSummary)
-        : null
-    const base = fromBatch ?? persistedImportedLedgerAnalysis
-    if (!base) return null
-    return base
-  }, [importBatchData, persistedImportedLedgerAnalysis])
-  const shouldShowImportedBatchSummary = shouldShowImportedAccountingSummary({
-    importBatchData,
-    importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
-  })
-  const connectedProvider = accountingConnectedStatus?.provider
-  /** Pull data inside Venus only for providers with in-app batch import. */
-  const supportsVenusLiveImport =
-    connectedProvider === 'bizzcontrol' || connectedProvider === 'octopus'
-  const importedProviderLabel =
-    importBatchProvider != null
-      ? accountingProviderDisplayName(importBatchProvider)
-      : connectedProvider != null
-        ? accountingProviderDisplayName(connectedProvider)
-        : 'Imported accounting'
-  const importQualityScore = useMemo(() => {
-    if (importBatchData && importBatchData.years.length > 0) {
-      return Math.round(
-        (importBatchData.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
-          importBatchData.years.length) *
-          100
-      )
-    }
-
-    if (importQualityFromStore && Object.keys(importQualityFromStore).length > 0) {
-      const qualities = Object.values(importQualityFromStore)
-      const averageConfidence =
-        qualities.reduce((sum, quality) => sum + (quality.confidence_score ?? 0), 0) /
-        qualities.length
-      return Math.round(averageConfidence * 100)
-    }
-
-    return null
-  }, [importBatchData, importQualityFromStore])
-  const importedYearCount =
-    importBatchData?.years.length ??
-    [
-      ...(formData.current_year_data?.year ? [formData.current_year_data.year] : []),
-      ...(formData.historical_years_data ?? []).map((year) => year.year),
-    ].filter((year, index, years) => years.indexOf(year) === index).length
-  const importedSdeFlagCount = effectiveImportedLedgerAnalysis?.sde_flags?.length ?? 0
-  const effectiveEvBridge = effectiveImportedLedgerAnalysis?.ev_equity_bridge
   const selectedBelgianAuditEntries = useMemo(
     () =>
       getSelectedBelgianAuditEntries({
@@ -2964,6 +2955,79 @@ export function ManualInputPanel({
       }),
     [effectiveMethod, effectiveMethods, synthesisValuationResults]
   )
+
+  const persistedImportedLedgerAnalysis = formData.business_context?._imported_ledger_analysis as
+    | ImportedLedgerAnalysisSummary
+    | undefined
+
+  const importedLedgerProvenance = formData.business_context?._imported_ledger_provenance as
+    | { provider?: string }
+    | undefined
+
+  const effectiveImportedLedgerAnalysis = useMemo((): ImportedLedgerAnalysisSummary | null => {
+    const merged: ImportedLedgerAnalysisSummary = { ...(persistedImportedLedgerAnalysis ?? {}) }
+    if (importBatchData) {
+      if (importBatchData.latest_fiscal_year != null) {
+        merged.latest_fiscal_year = importBatchData.latest_fiscal_year
+      }
+      if (importBatchData.sde_flags?.length) {
+        merged.sde_flags = importBatchData.sde_flags as NonNullable<
+          ImportedLedgerAnalysisSummary['sde_flags']
+        >
+      }
+      if (importBatchData.ev_equity_bridge) {
+        merged.ev_equity_bridge = importBatchData.ev_equity_bridge
+      }
+      if (importBatchData.dcf_defaults) {
+        merged.dcf_defaults = importBatchData.dcf_defaults
+      }
+    }
+    if (
+      merged.sde_flags?.length ||
+      merged.ev_equity_bridge ||
+      merged.dcf_defaults ||
+      merged.latest_fiscal_year != null
+    ) {
+      return merged
+    }
+    return null
+  }, [importBatchData, persistedImportedLedgerAnalysis])
+
+  const shouldShowImportedBatchSummary = shouldShowImportedAccountingSummary({
+    importBatchData,
+    importedLedgerAnalysis: effectiveImportedLedgerAnalysis,
+  })
+
+  const refreshAccountProvider = useMemo((): AccountingImportProvider | null => {
+    if (importBatchProvider) return importBatchProvider
+    const p = importedLedgerProvenance?.provider
+    return p && isAccountingImportProvider(p) ? p : null
+  }, [importBatchProvider, importedLedgerProvenance?.provider])
+
+  const importedProviderLabel = refreshAccountProvider
+    ? accountingProviderDisplayName(refreshAccountProvider)
+    : '—'
+
+  const importedYearCount = useMemo(() => {
+    if (importBatchData?.years?.length) return importBatchData.years.length
+    return formData.yearlyFinancials.filter((y) => !y.isForecast).length
+  }, [importBatchData, formData.yearlyFinancials])
+
+  const importQualityScore = useMemo(() => {
+    if (!importBatchData?.years?.length) return null
+    return Math.round(
+      (importBatchData.years.reduce((sum, y) => sum + (y.quality_score ?? 0), 0) /
+        importBatchData.years.length) *
+        100
+    )
+  }, [importBatchData])
+
+  const effectiveEvBridge = effectiveImportedLedgerAnalysis?.ev_equity_bridge ?? null
+
+  const importedSdeFlagCount = effectiveImportedLedgerAnalysis?.sde_flags?.length ?? 0
+
+  const supportsVenusLiveImport =
+    refreshAccountProvider === 'bizzcontrol' || refreshAccountProvider === 'octopus'
 
   return (
     <>
@@ -3073,13 +3137,13 @@ export function ManualInputPanel({
                       </div>
                     ) : null}
                   </div>
-                {importAccountingError && (
-                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{importAccountingError}</span>
-                  </div>
-                )}
-              </section>
+            {importAccountingError && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{importAccountingError}</span>
+              </div>
+            )}
+          </section>
             )}
 
             {/* Step 1: Company Identification */}
@@ -4530,6 +4594,9 @@ export function AdaptiveSections({
           />
         )}
         {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
+          <CapitalHistorySection key="capital_history" />
+        )}
+        {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
           <SaasMetricsSection
             key="saas_metrics"
             step={sectionHeaderSteps.saas}
@@ -4551,6 +4618,7 @@ export function AdaptiveSections({
             disabled={disabled}
             arrProjectionPreview={saasArrProjectionPreview}
             importedSaasProvenance={importedSaasProvenance}
+            naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
           />
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (

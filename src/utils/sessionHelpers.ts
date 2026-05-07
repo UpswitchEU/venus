@@ -9,7 +9,7 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import { extractValuationResultsMap } from './extractValuationResultsMap'
+import { hydrateClientValuationResultsMap } from './extractValuationResultsMap'
 import { is409Conflict } from './errorDetection'
 import { isRetryable } from './errors/errorGuards'
 import { createContextLogger } from './logger'
@@ -17,6 +17,8 @@ import { markReportExists } from './reportExistenceCache'
 import { retryWithBackoff } from './retryWithBackoff'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
 import { dateLikeToUnixMs } from './date-like'
+import { isSessionKey, isUuid } from './identifiers'
+import { extractStableSessionKeyFromMergedSession, mergeSessionDataEnvelopesFromRoot } from './sessionReportIdentity'
 import { globalSessionCache } from './sessionCacheManager'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
@@ -110,7 +112,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   // Only add/override the special fields (valuation_result, html_report)
   // Cast to any to access session_data (backend may return snake_case)
   const sessionAny = session as any
-  const existingSessionData = session.sessionData || sessionAny.session_data || {}
+  const existingSessionData = mergeSessionDataEnvelopesFromRoot(sessionAny as Record<string, any>)
 
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
@@ -128,9 +130,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   ].filter((candidate) => candidate && typeof candidate === 'object') as Array<Record<string, any>>
   const candidateScore = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
-      selectedValuationMethod: candidate.selected_valuation_method,
-    })
+    const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
     if (valuationResultsCandidate) {
       score += 8
     }
@@ -181,6 +181,90 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
 }
 
 /**
+ * Session key to send in ensure-html POST body when the URL/path id may be stale.
+ * Titan retries lookup with this when `findOneWithAccess(pathId)` returns 404.
+ *
+ * Prefer backend-authoritative `mergedSession.reportId` / `session_key` over the URL id.
+ */
+export function resolveEnsureHtmlSessionKey(params: {
+  urlReportId: string
+  mergedSession: ValuationSession
+  ensureTargetId: string
+}): string | undefined {
+  const { urlReportId, mergedSession, ensureTargetId } = params
+  const mergedReportId =
+    typeof mergedSession.reportId === 'string' ? mergedSession.reportId : undefined
+  const snake =
+    typeof (mergedSession as { session_key?: unknown }).session_key === 'string'
+      ? ((mergedSession as { session_key?: string }).session_key as string)
+      : undefined
+  const camelSk =
+    typeof (mergedSession as { sessionKey?: unknown }).sessionKey === 'string'
+      ? ((mergedSession as { sessionKey?: string }).sessionKey as string)
+      : undefined
+
+  const nestedStable = extractStableSessionKeyFromMergedSession(
+    mergedSession as unknown as Record<string, any>,
+  )
+
+  const candidates = [mergedReportId, snake, camelSk, nestedStable, urlReportId]
+  for (const c of candidates) {
+    if (typeof c === 'string' && isSessionKey(c) && c !== ensureTargetId) {
+      return c
+    }
+  }
+  return undefined
+}
+
+/**
+ * When the URL still carries a superseded valuation_reports.id but the merged session
+ * already has the canonical id from `createOrUpdateFromSession`, pass this to Titan's
+ * ensure-html endpoint so it can retry lookup after a 404 on the path id.
+ */
+export function resolveEnsureHtmlAlternateReportId(params: {
+  urlReportId: string
+  mergedSession: ValuationSession
+}): string | undefined {
+  const { urlReportId, mergedSession } = params
+  const merged =
+    typeof mergedSession.reportId === 'string' ? mergedSession.reportId.trim() : ''
+  if (!merged || merged === urlReportId) return undefined
+  if (!isUuid(urlReportId) || !isUuid(merged)) return undefined
+  return merged
+}
+
+/**
+ * After ensure-html succeeds, `GET /sessions/:id` should try identifiers in this order:
+ * Titan's resolved `reportId`, then session-key fallback, merged session id, then the URL id.
+ * De-duplicates while preserving order so a stale URL id does not block refetch when Titan
+ * returned the canonical UUID.
+ */
+export function orderedValuationSessionLookupIds(params: {
+  ensureResponseReportId?: unknown
+  sessionKeyFallback?: string | null | undefined
+  mergedSessionReportId?: unknown
+  urlReportId: string
+}): string[] {
+  const ordered: string[] = []
+  const tryPush = (v: unknown) => {
+    if (typeof v !== 'string') return
+    const t = v.trim()
+    if (!t || !(isUuid(t) || isSessionKey(t))) return
+    ordered.push(t)
+  }
+  tryPush(params.ensureResponseReportId)
+  tryPush(params.sessionKeyFallback)
+  tryPush(params.mergedSessionReportId)
+  tryPush(params.urlReportId)
+  const seen = new Set<string>()
+  return ordered.filter((id) => {
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
+
+/**
  * Normalizes session dates from backend (strings to Date objects)
  *
  * @param session - Session from backend with string dates
@@ -201,9 +285,15 @@ export function normalizeSessionDates(session: any): ValuationSession {
     createdAt: parseDate(session.createdAt),
     updatedAt: parseDate(session.updatedAt),
     completedAt: session.completedAt ? parseDate(session.completedAt) : undefined,
-    // ✅ FIX: Preserve sessionData and partialData if they exist
-    sessionData: session.sessionData || session.session_data || {},
-    partialData: session.partialData || session.session_data || {},
+    sessionData: mergeSessionDataEnvelopesFromRoot(session),
+    partialData: (() => {
+      const fromPartial = mergeSessionDataEnvelopesFromRoot({
+        sessionData: session.partialData,
+        session_data: session.partial_data,
+      })
+      if (Object.keys(fromPartial).length > 0) return fromPartial
+      return mergeSessionDataEnvelopesFromRoot(session)
+    })(),
   }
 
   return normalized

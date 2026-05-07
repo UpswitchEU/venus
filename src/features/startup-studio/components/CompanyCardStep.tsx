@@ -30,6 +30,7 @@
  */
 
 import { Building2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { TARGET_COUNTRIES } from '@/config/countries'
@@ -55,14 +56,11 @@ import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PresetPicker } from './PresetPicker'
 
 interface CompanyCardStepProps {
+  /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
 }
 
-const STAGE_OPTIONS: { value: StartupStage; label: { en: string; nl: string } }[] = [
-  { value: 'pre_seed', label: { en: 'Pre-seed', nl: 'Pre-seed' } },
-  { value: 'seed', label: { en: 'Seed', nl: 'Seed' } },
-  { value: 'series_a', label: { en: 'Series A', nl: 'Series A' } },
-]
+const STAGE_VALUES: StartupStage[] = ['pre_seed', 'seed', 'series_a']
 
 const LEGAL_FORM_OPTIONS = [
   { value: 'bv', label: 'BV' },
@@ -73,12 +71,40 @@ const LEGAL_FORM_OPTIONS = [
   { value: 'vzw', label: 'VZW' },
 ]
 
-export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
+export function CompanyCardStep(_props: CompanyCardStepProps) {
+  const t = useTranslations('startupStudio.companyCard')
+  const stageControlOptions = useMemo(
+    () =>
+      STAGE_VALUES.map((value) => ({
+        value,
+        label: t(`stageLabels.${value}` as never),
+      })),
+    [t],
+  )
   const stage = useStartupValuationStore((s) => s.stage)
   const raise = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
+  // Traction signals — used to surface a "you might want SaaS valuation
+  // instead" nudge when a seed-stage founder already has meaningful
+  // recurring revenue.  Pre-seed never trips this (Berkus-heavy is
+  // correct for them); Series A already has its own banner.
+  const mrr = useStartupValuationStore((s) => s.mrr)
+  const arr = useStartupValuationStore((s) => s.arr)
   const setField = useStartupValuationStore((s) => s.setField)
   const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
+
+  // Materially recurring revenue threshold for the seed nudge.
+  //   - €10k MRR ≈ €120k ARR — the empirical pivot point where ARR
+  //     multiples start producing tighter, more defensible numbers
+  //     than the Berkus / VC-method blend.
+  //   - We accept either MRR or ARR so that founders who only filled
+  //     one of the two still get the prompt.
+  const SEED_NUDGE_MRR_THRESHOLD = 10_000
+  const SEED_NUDGE_ARR_THRESHOLD = 120_000
+  const seedHasMaterialRevenue =
+    stage === 'seed' &&
+    ((typeof mrr === 'number' && mrr >= SEED_NUDGE_MRR_THRESHOLD) ||
+      (typeof arr === 'number' && arr >= SEED_NUDGE_ARR_THRESHOLD))
 
   // Identity bridge — every field here writes to the Manual store so
   // `buildStartupValuationRequest` (called server-side by the report
@@ -321,14 +347,14 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
   return (
     <div className="space-y-4">
       {/* Quick-start preset picker — compact chip strip, low visual weight */}
-      <PresetPicker locale={locale} />
+      <PresetPicker />
 
       {/* Canonical company-card section. Visual contract mirrors
           ManualInputPanel's Step 1: country select → KBO/KVK search →
           business-type search → legal form. */}
       <div className="space-y-4 rounded-2xl border border-foreground/10 bg-background/60 p-5">
         <AuroraSelect
-          label={locale === 'nl' ? 'Land van vestiging' : 'Operating country'}
+          label={t('operatingCountry')}
           options={countryOptions}
           value={country}
           onChange={(val) => handleCountryChange(String(val))}
@@ -338,12 +364,8 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
         <KBOSearchInput
           label={
             country === 'NL'
-              ? locale === 'nl'
-                ? 'Bedrijfsnaam of KVK-nummer'
-                : 'Company name or KVK number'
-              : locale === 'nl'
-                ? 'Bedrijfsnaam of KBO-nummer'
-                : 'Company name or KBO number'
+              ? t('searchCompanyNl')
+              : t('searchCompanyBe')
           }
           value={companySearchValue}
           onChange={setCompanySearchValue}
@@ -358,15 +380,9 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
           description={
             !hasCompanyName
               ? country === 'NL'
-                ? locale === 'nl'
-                  ? 'Zoek in het Handelsregister van de KvK.'
-                  : 'Search the KvK trade registry.'
-                : locale === 'nl'
-                  ? 'Zoek in het KBO.'
-                  : 'Search the KBO registry.'
-              : locale === 'nl'
-                ? 'Verschijnt op je investor-ready PDF rapport.'
-                : 'Shows up on your investor-ready PDF report.'
+                ? t('registryNl')
+                : t('registryBe')
+              : t('registryPdf')
           }
         />
 
@@ -376,24 +392,21 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
             we silently hide this so the same name never appears twice. */}
         {!hasCompanyName && (
           <AuroraInput
-            label={locale === 'nl' ? 'Of: typ je bedrijfsnaam' : 'Or: type your company name'}
+            label={t('companyNameFallback')}
             value={companyName}
             onChange={(e) => updateFormData({ company_name: e.target.value.slice(0, 120) })}
-            placeholder={locale === 'nl' ? 'Bv. Henchman' : 'e.g. Henchman'}
+            placeholder={t('companyNamePlaceholder')}
             maxLength={120}
             autoComplete="organization"
             size="sm"
-            helpText={
-              locale === 'nl'
-                ? 'Verschijnt op je investor-ready PDF rapport.'
-                : 'Shows up on your investor-ready PDF report.'
-            }
+            truncateLabel={false}
+            helpText={t('registryPdf')}
             helpTextPlacement="below"
           />
         )}
 
         <BusinessTypeSearchInput
-          label={locale === 'nl' ? 'Bedrijfstype (sector)' : 'Business type (sector)'}
+          label={t('businessType')}
           value={businessTypeId}
           onChange={handleBusinessTypeSelect}
           types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
@@ -408,7 +421,7 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
         />
 
         <AuroraSelect
-          label={locale === 'nl' ? 'Rechtsvorm' : 'Legal form'}
+          label={t('legalForm')}
           options={LEGAL_FORM_OPTIONS}
           value={legalForm}
           onChange={(val) => updateFormData({ legal_form: String(val) } as Record<string, unknown>)}
@@ -426,31 +439,45 @@ export function CompanyCardStep({ locale = 'en' }: CompanyCardStepProps) {
             htmlFor="startup-stage"
             className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foreground/55"
           >
-            {locale === 'nl' ? 'Funding stage' : 'Funding stage'}
+            {t('fundingStage')}
           </label>
           <SegmentedControl
-            options={STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label[locale] }))}
+            options={stageControlOptions}
             value={stage}
             onChange={(value) => setField('stage', value as StartupStage)}
           />
+          <p className="mt-2 text-[11px] leading-relaxed text-foreground/55">
+            {t(`stageSubtitles.${stage}` as never)}
+          </p>
+          {stage === 'series_a' && (
+            <div className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50/60 p-3 text-[11px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200">
+              <p>{t('seriesANudge')}</p>
+            </div>
+          )}
+          {seedHasMaterialRevenue && (
+            <div className="mt-3 rounded-lg border border-sky-300/50 bg-sky-50/60 p-3 text-[11px] leading-relaxed text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200">
+              <p>
+                {t('seedRevenueNudge', {
+                  mrr: String(Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10),
+                })}
+              </p>
+            </div>
+          )}
         </div>
 
         <CurrencyInput
-          label={locale === 'nl' ? 'Op te halen ronde (€)' : 'Round being raised (€)'}
+          label={t('roundRaised')}
           value={raise ?? undefined}
           onChange={(value) => setField('investment_amount_sought', value ?? null)}
           placeholder="500.000"
           size="sm"
+          truncateLabel={false}
         />
 
         <AuroraTextarea
-          label={locale === 'nl' ? 'Korte pitch (1 zin, optioneel)' : 'One-line pitch (optional)'}
+          label={t('pitchLabel')}
           rows={2}
-          placeholder={
-            locale === 'nl'
-              ? 'Bv. "Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren."'
-              : 'e.g. "We help Belgian law firms analyse contracts 10× faster."'
-          }
+          placeholder={t('pitchPlaceholder')}
           value={description ?? ''}
           onChange={(e) => setField('description', e.target.value)}
           maxLength={240}

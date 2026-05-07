@@ -14,26 +14,32 @@
  * @module services/session/SessionNormalizer
  */
 
+import {
+  SESSION_PRE_SELECTED_METHODS_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
+  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
+  SESSION_USER_WEIGHTS_KEY,
+} from '../../constants/sessionUiKeys'
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
+import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
-import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { isSessionKey } from '../../utils/identifiers'
 import {
-  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
-  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
-  SESSION_PRE_SELECTED_METHODS_KEY,
-  SESSION_USER_WEIGHTS_KEY,
-  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
-} from '../../constants/sessionUiKeys'
+  extractStableSessionKeyFromMergedSession,
+  mergeSessionDataEnvelopesFromRoot,
+} from '../../utils/sessionReportIdentity'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  sessionEnvelopeHasIdentitySignals,
 } from '../../utils/mergeOptionalSessionPrefillFields'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 /**
  * Pricing range structure for valuation results
@@ -72,7 +78,7 @@ export interface NormalizedSessionData {
   // Client context (for accountant flow)
   clientContext: {
     accountantUserId: string
-    clientUserId: string
+    clientUserId: string | null
     relationshipId: string
   } | null
 
@@ -93,6 +99,12 @@ export interface NormalizedSessionData {
   userWeights: Record<string, number> | undefined
   /** Accountant justification for chosen weighting. */
   userWeightJustification: string | undefined
+
+  /**
+   * Raw session JSONB used at restore time — same blob passed to {@link extractFormData}.
+   * Flat extract can miss Mercury `_businessInfo` / nested overlays; gap-fill merges this envelope.
+   */
+  sessionDataEnvelope: Record<string, unknown>
 }
 
 /**
@@ -113,6 +125,11 @@ function normalizeFlowType(input: string | undefined | null): 'manual' | 'conver
     default:
       return 'manual'
   }
+}
+
+function snakeToCamelAlias(key: string): string | null {
+  if (!key || key.startsWith('_')) return null
+  return key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())
 }
 
 /**
@@ -237,7 +254,31 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['_internal_typical_revenue_range'],
     ['tax_latencies', 'taxLatencies'],
     ['balance_sheet_adjustments', 'balanceSheetAdjustments'],
+    // Official Belgian filing overlays (for trust/variance + badges)
+    ['official_financials', 'officialFinancials'],
+    ['official_variance_analysis', 'officialVarianceAnalysis'],
+    ['official_verification_badge', 'officialVerificationBadge'],
+    // Keep source financial map available for method hydration and sparse backfill
+    ['year_data', 'yearData'],
+    ['import_quality', 'importQuality'],
+    ['_imported_ledger_analysis'],
+    ['_imported_saas_metrics'],
+    ['_imported_saas_provenance'],
+    ['_financial_data_source'],
   ]
+
+  // Auto-include optional method keys so extractFormData cannot drift whenever
+  // OPTIONAL_SESSION_PREFILL_* is extended.
+  const existingPrimary = new Set(fieldMappings.map(([primary]) => primary))
+  const appendOptionalMapping = (key: string) => {
+    if (existingPrimary.has(key)) return
+    const camel = snakeToCamelAlias(key)
+    const tuple = (camel ? [key, camel] : [key]) as [string, ...string[]]
+    fieldMappings.push(tuple)
+    existingPrimary.add(key)
+  }
+  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) appendOptionalMapping(key)
+  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) appendOptionalMapping(key)
 
   const formData: Partial<ValuationRequest> = {}
 
@@ -269,23 +310,45 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   // Preserve manual history exactly as stored. Do not fabricate historical years from
   // current-year fields because that changes accountant-entered intent on restore.
   const fd = formData as Record<string, unknown>
+  const toOptionalNumeric = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined
+    const n = Number(value)
+    return Number.isFinite(n) ? n : undefined
+  }
+  const isPlaceholderNumeric = (value: unknown): boolean => {
+    const n = toOptionalNumeric(value)
+    return n == null || n === 0
+  }
+  const hasRealRevenueOrEbitda = (row: { revenue?: number; ebitda?: number }): boolean =>
+    (row.revenue != null && row.revenue !== 0) || (row.ebitda != null && row.ebitda !== 0)
 
   // Build historical_years_data from year_data when missing (PrefillResolver/bootstrap format)
   const yearData = sessionData.year_data ?? sessionData.yearData
+  const yearRowsFromMap = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+  if (yearData && typeof yearData === 'object' && !Array.isArray(yearData)) {
+    for (const rawYear of Object.keys(yearData)) {
+      const year = Number(rawYear)
+      if (!Number.isFinite(year) || year < 2000 || year > 2100) continue
+      const row = (yearData as Record<string, unknown>)[rawYear]
+      if (!row || typeof row !== 'object' || Array.isArray(row)) continue
+      const rowObj = row as Record<string, unknown>
+      yearRowsFromMap.set(year, {
+        year,
+        revenue: toOptionalNumeric(rowObj.revenue),
+        ebitda: toOptionalNumeric(rowObj.ebitda),
+      })
+    }
+  }
   if (
     !fd.historical_years_data &&
-    yearData &&
-    typeof yearData === 'object' &&
-    !Array.isArray(yearData)
+    yearRowsFromMap.size > 0
   ) {
-    const years = Object.keys(yearData)
-      .map((y) => parseInt(y, 10))
-      .filter((y) => !isNaN(y) && y >= 2000 && y <= 2100)
+    const years = Array.from(yearRowsFromMap.keys())
     if (years.length > 0) {
       fd.historical_years_data = years
         .sort((a, b) => a - b)
         .map((year) => {
-          const data = (yearData as Record<number, { revenue?: number; ebitda?: number }>)[year]
+          const data = yearRowsFromMap.get(year)
           return {
             year,
             revenue: data?.revenue ?? 0,
@@ -293,6 +356,38 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
           }
         })
     }
+  }
+  if (Array.isArray(fd.historical_years_data) && yearRowsFromMap.size > 0) {
+    const mergedByYear = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+    for (const row of fd.historical_years_data as Array<{
+      year?: number
+      revenue?: number
+      ebitda?: number
+    }>) {
+      if (!row || !Number.isFinite(Number(row.year))) continue
+      const year = Number(row.year)
+      mergedByYear.set(year, {
+        year,
+        revenue: toOptionalNumeric(row.revenue),
+        ebitda: toOptionalNumeric(row.ebitda),
+      })
+    }
+    for (const [year, incoming] of yearRowsFromMap.entries()) {
+      const existing = mergedByYear.get(year)
+      if (!existing) {
+        mergedByYear.set(year, incoming)
+        continue
+      }
+      const next = { ...existing }
+      if (isPlaceholderNumeric(next.revenue) && incoming.revenue != null) {
+        next.revenue = incoming.revenue
+      }
+      if (isPlaceholderNumeric(next.ebitda) && incoming.ebitda != null) {
+        next.ebitda = incoming.ebitda
+      }
+      mergedByYear.set(year, next)
+    }
+    fd.historical_years_data = Array.from(mergedByYear.values()).sort((a, b) => a.year - b.year)
   }
 
   if (Array.isArray(fd.historical_years_data)) {
@@ -309,6 +404,17 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     | undefined
   if (cyd) {
     cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
+    if (cyd.year != null) {
+      const candidate = yearRowsFromMap.get(cyd.year)
+      if (candidate && hasRealRevenueOrEbitda(candidate)) {
+        if (isPlaceholderNumeric(cyd.revenue) && candidate.revenue != null) {
+          cyd.revenue = candidate.revenue
+        }
+        if (isPlaceholderNumeric(cyd.ebitda) && candidate.ebitda != null) {
+          cyd.ebitda = candidate.ebitda
+        }
+      }
+    }
   }
   if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
     if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)
@@ -355,26 +461,36 @@ function promoteAdaptiveFieldsFromBusinessContext(
   fd: Record<string, unknown>,
   sessionData: Record<string, unknown>
 ): void {
-  const rawBc =
-    fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
+  const rawBc = fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
   if (!rawBc || typeof rawBc !== 'object' || Array.isArray(rawBc)) return
   const bc = rawBc as Record<string, unknown>
+  const hasScalarValue = (value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (typeof value === 'string') return value.trim().length > 0
+    return true
+  }
+  const hasStructValue = (value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (Array.isArray(value)) return value.length > 0
+    if (typeof value === 'object') return Object.keys(value as object).length > 0
+    return true
+  }
 
   for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
     if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
     const cur = fd[key]
-    if (cur !== undefined && cur !== null) continue
+    if (hasScalarValue(cur)) continue
     const incoming = bc[key]
-    if (incoming !== undefined && incoming !== null) {
+    if (hasScalarValue(incoming)) {
       fd[key] = incoming
     }
   }
 
   for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
     const cur = fd[key]
-    if (cur !== undefined && cur !== null) continue
+    if (hasStructValue(cur)) continue
     const incoming = bc[key]
-    if (incoming !== undefined && incoming !== null) {
+    if (hasStructValue(incoming)) {
       fd[key] = incoming
     }
   }
@@ -415,9 +531,7 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 
   const scoreCandidate = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
-      selectedValuationMethod: candidate.selected_valuation_method,
-    })
+    const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
     if (valuationResultsCandidate) {
       score += 8
     }
@@ -541,15 +655,22 @@ function extractClientContext(sessionData: any): NormalizedSessionData['clientCo
 
   // Normalize field names
   const accountantUserId = context.accountant_user_id || context.accountantUserId
-  const clientUserId = context.client_user_id || context.clientUserId
+  const clientUserIdSnake = context.client_user_id
+  const clientUserIdCamel = context.clientUserId
+  const clientUserId: string | null =
+    clientUserIdSnake !== undefined
+      ? clientUserIdSnake
+      : clientUserIdCamel !== undefined
+        ? clientUserIdCamel
+        : null
   const relationshipId = context.relationship_id || context.relationshipId
 
-  if (!accountantUserId || !clientUserId) return null
+  if (!accountantUserId || !relationshipId) return null
 
   return {
     accountantUserId,
     clientUserId,
-    relationshipId: relationshipId || '',
+    relationshipId,
   }
 }
 
@@ -614,11 +735,21 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     return createEmptyNormalizedData('')
   }
 
-  // Extract the nested session_data/sessionData
-  const sessionData = backendSession.sessionData || backendSession.session_data || {}
+  const sessionData = mergeSessionDataEnvelopesFromRoot(backendSession)
 
-  // Extract reportId from multiple possible sources
-  const reportId = backendSession.reportId || backendSession.session_key || backendSession.id || ''
+  // Prefer stable val_* session_key over UUID reportId (Mercury / stale FK) so downstream
+  // ensure-html + PDF flows resolve the same row Titan uses for GET session.
+  const preferredSessionKey = extractStableSessionKeyFromMergedSession(backendSession)
+
+  const explicitReportId =
+    typeof backendSession.reportId === 'string' ? backendSession.reportId.trim() : ''
+
+  const reportId =
+    preferredSessionKey ??
+    explicitReportId ??
+    (typeof backendSession.id === 'string' && isSessionKey(backendSession.id.trim())
+      ? backendSession.id.trim()
+      : '')
 
   // Extract and normalize all data
   const formData = extractFormData(sessionData)
@@ -632,18 +763,36 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     htmlReport,
   })
 
+  const hasMergedEnvelopeIdentity = sessionEnvelopeHasIdentitySignals(sessionData)
+
   const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
   const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
-  const hasPreKey =
+  const hasLegacySinglePreKey =
     sessionData &&
     typeof sessionData === 'object' &&
     (preKey in sessionData || altKey in sessionData)
-  const rawPre = hasPreKey
-    ? (preKey in sessionData! ? (sessionData as any)[preKey] : (sessionData as any)[altKey])
+
+  const rawPreLegacy = hasLegacySinglePreKey
+    ? preKey in (sessionData as object)
+      ? (sessionData as Record<string, unknown>)[preKey]
+      : (sessionData as Record<string, unknown>)[altKey]
     : undefined
 
+  const rawSelectedMethodFlat =
+    sessionData &&
+    typeof sessionData === 'object' &&
+    typeof (sessionData as Record<string, unknown>).selected_method === 'string'
+      ? (sessionData as Record<string, unknown>).selected_method
+      : undefined
+
+  const rawPre: unknown = rawPreLegacy !== undefined ? rawPreLegacy : rawSelectedMethodFlat
+
+  const hasAnySingleMethodHint =
+    hasLegacySinglePreKey ||
+    (rawSelectedMethodFlat !== undefined && typeof rawSelectedMethodFlat === 'string')
+
   let preSelectedValuationMethod: string | null | undefined
-  if (!hasPreKey) {
+  if (!hasAnySingleMethodHint) {
     preSelectedValuationMethod = undefined
   } else if (rawPre === null || rawPre === '') {
     preSelectedValuationMethod = null
@@ -653,21 +802,41 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     preSelectedValuationMethod = undefined
   }
 
-  const rawMethods = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
+  const rawMethodsPrimary = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
+  const rawMethodsFlat = sessionData?.pre_selected_valuation_methods
+  const pickStringArray = (raw: unknown): string[] | undefined =>
+    Array.isArray(raw) && raw.length > 0 && raw.every((m: unknown) => typeof m === 'string')
+      ? (raw as string[])
+      : undefined
   const preSelectedMethods: string[] | undefined =
-    Array.isArray(rawMethods) && rawMethods.every((m: unknown) => typeof m === 'string')
-      ? rawMethods
-      : undefined
+    pickStringArray(rawMethodsPrimary) ?? pickStringArray(rawMethodsFlat)
 
-  const rawWeights = sessionData?.[SESSION_USER_WEIGHTS_KEY]
+  const pickWeightMap = (raw: unknown): Record<string, number> | undefined => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+    const o = raw as Record<string, number>
+    return Object.keys(o).length > 0 ? o : undefined
+  }
+  const rawWeightsUnderscore = sessionData?.[SESSION_USER_WEIGHTS_KEY]
+  const rawWeightsSnake = sessionData?.user_weights
+  const rawWeightsCamel = sessionData?.userWeights
   const userWeights: Record<string, number> | undefined =
-    rawWeights && typeof rawWeights === 'object' && !Array.isArray(rawWeights)
-      ? (rawWeights as Record<string, number>)
-      : undefined
+    pickWeightMap(rawWeightsUnderscore) ??
+    pickWeightMap(rawWeightsSnake) ??
+    pickWeightMap(rawWeightsCamel)
 
-  const rawJustification = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+  const rawJustificationUnderscore = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+  const rawJustificationSnake = sessionData?.user_weight_justification
   const userWeightJustification: string | undefined =
-    typeof rawJustification === 'string' ? rawJustification : undefined
+    typeof rawJustificationUnderscore === 'string'
+      ? rawJustificationUnderscore
+      : typeof rawJustificationSnake === 'string'
+        ? rawJustificationSnake
+        : undefined
+
+  const sessionDataEnvelope: Record<string, unknown> =
+    sessionData && typeof sessionData === 'object' && !Array.isArray(sessionData)
+      ? (sessionData as Record<string, unknown>)
+      : {}
 
   const normalized: NormalizedSessionData = {
     // Metadata
@@ -692,11 +861,14 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     // Context
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
-    hasExistingData: hasExistingData(formData, valuationResult, htmlReport),
+    hasExistingData:
+      hasExistingData(formData, valuationResult, htmlReport) || hasMergedEnvelopeIdentity,
     preSelectedValuationMethod,
     preSelectedMethods,
     userWeights,
     userWeightJustification,
+
+    sessionDataEnvelope,
   }
 
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
@@ -737,6 +909,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     preSelectedMethods: undefined,
     userWeights: undefined,
     userWeightJustification: undefined,
+    sessionDataEnvelope: {},
   }
 }
 

@@ -60,6 +60,7 @@ const translations: Record<string, Record<string, string>> = {
     loadingBlurb:
       'We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.',
     retryMethodDataLoad: 'Opnieuw laden',
+    continueImportReview: 'Ga verder met gegevens controleren',
     methodSection: 'Methode',
     persistingMethod: 'Methode opslaan en rapport vernieuwen…',
   },
@@ -172,6 +173,25 @@ describe('ValuationEditModal', () => {
 
     expect(screen.getByText('Rapport nog niet gekoppeld')).toBeInTheDocument()
     expect(screen.getByText('Wacht even.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Opnieuw laden' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows accountant import-review recovery when report is still pending', () => {
+    const onContinueImportReview = vi.fn()
+    const onRetry = vi.fn()
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        isHydratingMethods={false}
+        methodDataLoadError="report_pending"
+        onContinueImportReview={onContinueImportReview}
+        onRetryMethodDataLoad={onRetry}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ga verder met gegevens controleren' }))
+    expect(onContinueImportReview).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'Opnieuw laden' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })

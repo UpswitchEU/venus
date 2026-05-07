@@ -21,6 +21,13 @@
  * Anything more sophisticated (Scorecard regional anchoring, SaaS
  * forward ARR projection) is rendered with the same simple math the
  * existing legacy panel already uses.
+ *
+ * Important for founders: the blended pre-money is **not** solved to hit
+ * a target dilution on the round. Dilution for a priced close is still
+ * raise ÷ (pre-money + raise). Also, the VC-method leg uses
+ * pre = exit_value÷target_ROI − round_size, so **a larger raise lowers
+ * that leg** and can pull the whole blend down — that is intentional
+ * parity with the Python engine, not a UI bug.
  */
 
 import { useMemo } from 'react'

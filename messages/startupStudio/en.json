@@ -1,0 +1,559 @@
+{
+	"sections": {
+		"profile": "Profile",
+		"berkus": "Risk reduction",
+		"scorecard": "Defensibility",
+		"founder_pedigree": "Team pedigree",
+		"traction": "Traction",
+		"exit_story": "Exit story",
+		"round_simulator": "Round",
+		"report": "Report",
+		"reportLanding": "Preview"
+	},
+	"common": {
+		"offline": "offline",
+		"preMoney": "Pre-money",
+		"postMoney": "Post-money",
+		"dilution": "Dilution",
+		"founders": "Founders",
+		"optionPool": "Option pool",
+		"newInvestor": "New investor",
+		"level": "level",
+		"monthsShort": "mo",
+		"median": "Median",
+		"you": "You",
+		"conservative": "Conservative",
+		"midEngine": "Mid (engine output)",
+		"bullish": "Bullish",
+		"notAvailable": "not available",
+		"previous": "Previous",
+		"next": "Next",
+		"maturityLabels": {
+			"none": "None",
+			"basic": "Basic",
+			"strong": "Strong",
+			"exceptional": "Exceptional"
+		}
+	},
+	"preset": {
+		"quickStartAria": "Quick start templates",
+		"quickStart": "Quick start"
+	},
+	"milestone": {
+		"weight": "weight",
+		"whatInvestorsLookFor": "What investors look for",
+		"beneluxExamples": "Benelux examples",
+		"yourEvidence": "Your evidence (optional)"
+	},
+	"berkus": {
+		"introBefore": "Investors price pre-seed rounds on ",
+		"introHighlight": "how much execution risk you've removed",
+		"introAfter": ". Score five qualitative milestones — each pick unlocks a slice of the regional baseline.",
+		"capLine": "Up to {total} across 5 milestones · {per} per milestone — {country} {stage} benchmark"
+	},
+	"scorecard": {
+		"introBefore": "The Scorecard refines the regional median ",
+		"introAfter": " against five weighted defensibility factors (Bill Payne 2024).",
+		"contextLine": "{country} {stage} · {sector}"
+	},
+	"companyCard": {
+		"operatingCountry": "Operating country",
+		"searchCompanyNl": "Company name or KVK number",
+		"searchCompanyBe": "Company name or KBO number",
+		"registryNl": "Search the KvK trade registry.",
+		"registryBe": "Search the KBO registry.",
+		"registryPdf": "Shows up on your investor-ready PDF report.",
+		"companyNameFallback": "Or: type your company name",
+		"companyNamePlaceholder": "e.g. Henchman",
+		"businessType": "Business type (sector)",
+		"legalForm": "Legal form",
+		"fundingStage": "Funding stage",
+		"seriesANudge": "At Series A you typically have 2+ years of audited financials. For a comp-based number, select the SaaS valuation (ARR multiple) from the method selector instead—it is usually more precise. Stay on this startup flow if you want the cap-table simulation and fundraising narrative in one place.",
+		"seedRevenueNudge": "At €{mrr}k MRR you are in the post-revenue seed segment. For a multiples-based cross-check, select the SaaS valuation (ARR multiple) from the method selector. You can keep using this startup flow for the cap-table simulation and narrative.",
+		"roundRaised": "Round size to raise (€)",
+		"pitchLabel": "One-line pitch (optional)",
+		"pitchPlaceholder": "e.g. \"We help Belgian law firms analyse contracts 10× faster.\"",
+		"stageLabels": {
+			"pre_seed": "Pre-seed",
+			"seed": "Seed",
+			"series_a": "Series A"
+		},
+		"stageSubtitles": {
+			"pre_seed": "Idea → first hires, no revenue yet — Berkus-heavy blend.",
+			"seed": "MRR live, hunting product-market fit — balanced 4-leg blend.",
+			"series_a": "~€1M+ ARR, raising to scale — VC + SaaS-forward dominate."
+		}
+	},
+	"traction": {
+		"revenuePrompt": "Are you generating revenue today? Saying \"no\" silently drops the SaaS-forward leg from the blend.",
+		"noRevenue": "No revenue yet",
+		"yesMrr": "Yes, MRR live",
+		"forwardTitle": "Forward-looking SaaS metrics",
+		"forwardSub": "Feeds the SaaS leg of the valuation with your current unit economics.",
+		"monthlyGrowth": "Monthly growth (%)",
+		"monthlyChurn": "Monthly churn (%)",
+		"ltvOptional": "LTV (€) — optional",
+		"currentArr": "Current ARR",
+		"forwardArr": "Forward 12mo ARR",
+		"payback": "Payback",
+		"ltvCacWarn": "LTV : CAC below 3× is a yellow flag for investors — explore LTV upside or CAC reduction."
+	},
+	"exitStory": {
+		"tamSamSomTitle": "Market size (TAM / SAM / SOM)",
+		"tamSamSomLead": "The funnel investors use to stress-test your exit narrative — from total addressable to the realistic obtainable slice.",
+		"tamLabel": "TAM (€ annual revenue)",
+		"tamDesc": "Total annual revenue worldwide in your category — typically billions (Gartner / Statista). Example: €50,000,000,000 = €50 billion.",
+		"samLabel": "SAM (€)",
+		"samDesc": "The slice of TAM you can realistically reach with your current geography and channel. Example: €2,000,000,000 = €2 billion.",
+		"somLabel": "SOM (€) — 3yr realistic",
+		"somDesc": "What you can realistically capture in 3 years — typically 1–5% of SAM. Example: €50,000,000 = €50 million.",
+		"somShareLine": "SOM is {pctSam}% of SAM and {pctTam}% of TAM — the SAM share is what investors usually sanity-check against the 1–5% rule.",
+		"somFunnelWarnSamGtTam": "SAM is larger than TAM — adjust if that wasn’t intentional.",
+		"somFunnelWarnSomGtSam": "SOM is larger than SAM — unusual for a 3-year slice; verify before pitching.",
+		"somFunnelWarnSomGtTam": "SOM is larger than TAM — your 3-year slice can’t exceed the total addressable market.",
+		"growthCurveTitle": "Growth curve to Year 5",
+		"growthCurveLead": "Pick a growth curve to suggest your Y5 revenue, or enter it manually.",
+		"sectorDefaultBtn": "Use sector default · {amount}",
+		"sectorDefaultHint": "(typical Y5 ARR for {sector} pre-seed)",
+		"y5Label": "Year-5 revenue (€)",
+		"investorAskTitle": "The investor's required return",
+		"investorAskLead": "What return multiple does the fund need to justify the check? This is the fund-side hurdle, not your own ROI.",
+		"targetRoiLabel": "VC's target return multiple (×)",
+		"targetRoiDesc": "The higher the number, the lower your pre-money. {roi}× means the investor wants €{roi} back for every €1 they put in today — typically 7–10 years later, after several rounds of dilution. Pre-seed ~30×, seed ~20×, Series A ~10×. We pre-filled {roi}× for {stage}.",
+		"impliedExit": "Implied exit EV",
+		"sectorMultipleFoot": "Sector exit multiple: "
+	},
+	"round": {
+		"kindTitle": "What kind of round are you raising?",
+		"kindLead": "This choice changes what we can show in the preview.",
+		"kindLeadDetail": "Priced equity: we model this close immediately — new investors receive raise ÷ post-money (see the bar below). That percentage is not the same as the cumulative dilution-to-exit field further up. SAFEs and convertibles convert at the next priced round, so there is no fixed ownership slice here yet.",
+		"priced": "Priced round",
+		"safe": "SAFE / convertible",
+		"roundSize": "Round size to raise (€)",
+		"preMoneyTarget": "Target pre-money (€) — optional",
+		"preMoneyPlaceholder": "Blended estimate",
+		"preMoneyTargetDesc": "Leave blank to use the blended valuation from the steps above. Only fill in if you have already agreed a pre-money with a lead investor.",
+		"dilutionLabel": "Cumulative dilution to exit (%)",
+		"dilutionDesc": "Expected total founder dilution through exit (median benchmarks — Atomico State of European Tech 2024 · Dealroom Benelux 2024). We start from {pct}% for {stage}. It does not drive the bar chart: this round’s new-investor % is always raise ÷ post-money.",
+		"useStageDefault": "Reset to stage default ({pct}%)",
+		"useStageDefaultAria": "Reset cumulative exit dilution to the {stage} median default of {pct}%",
+		"optionPool": "Option pool (%)",
+		"optionPoolPlaceholder": "10",
+		"optionPoolDesc": "Equity reserved for future hires. Most rounds use 10–15%; investors often expect this to be visible in the pre-money stack.",
+		"capTableTitle": "Cap table post-money",
+		"capTableExplainer": "Ownership after this close (pre-money + raise, with the option pool reserved). New investors ≈ {roundPct}% post-money from this raise alone — separate from the cumulative-to-exit % field.",
+		"roundDilutionHighHint": "~{roundPct}% for new money is a large slice for a single round; many founders aim closer to 10–15% per major cheque. At this raise, about 12% would correspond to pre-money near {preHint} (illustrative — use your actual term sheet).",
+		"preMoney": "Pre-money",
+		"postMoney": "Post-money"
+	},
+	"report": {
+		"legLabels": {
+			"berkus": "Risk reduction (Berkus)",
+			"vc": "VC method (exit story)",
+			"saas_forward": "SaaS forward (ARR)",
+			"scorecard": "Scorecard (regional)"
+		},
+		"readyForDeck": "Ready for your deck",
+		"pedigreeIncluded": "Includes founder-pedigree multiplier {mult}× on the leg-blend baseline ({mid}).",
+		"copyAria": "Copy to clipboard",
+		"copy": "Copy",
+		"copied": "Copied",
+		"range": "Range: ",
+		"footballFieldTitle": "Football field per method",
+		"yourEvidence": "Your evidence",
+		"evidenceHint": "These sentences appear under each card in the investor PDF.",
+		"pitch": "Pitch",
+		"deckPreOnly": "Pre-money valuation: {preF} ({stage} · {sector} · {country}).",
+		"deckFull": "{preF} pre-money · raising {askF} · post-money {postF} · ~{dilution}% to new investors this round ({stage} · {sector} · {country}).",
+		"dilutionDefinition": "This % is new investors' stake from this priced round only (raise ÷ post-money). It is not the cumulative dilution-to-exit % on the Round step.",
+		"preMoneySourceBlended": "Pre-money is the live method blend below until you set a term-sheet value under Round → Pre-money target. The blend estimates company value, not a 10–15% dilution goal for your ask.",
+		"preMoneySourceOverride": "Pre-money matches the target you set on the Round step.",
+		"safeNotesPricedRoundNote": "You have SAFEs or convertibles recorded. The post-money % below assumes a simple priced equity close; conversion mechanics can change effective ownership."
+	},
+	"health": {
+		"allClear": "All clear — your report is ready to generate.",
+		"mixed": "{blockerCount} blocking and {warningCount, plural, one {# recommended issue} other {# recommended issues}} to resolve",
+		"blockersOnly": "{count, plural, one {# blocking issue} other {# blocking issues}} — resolve with the assistant before PDF",
+		"warningsOnly": "{count, plural, one {# recommended improvement} other {# recommended improvements}}",
+		"assistantHint": "The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved."
+	},
+	"findingPeek": {
+		"ariaPeek": "Co-pilot suggestion",
+		"dismissAria": "Later — dismiss suggestion",
+		"askCopilot": "Ask co-pilot",
+		"severity": {
+			"block": "Must fix",
+			"warn": "Recommended",
+			"info": "Heads-up"
+		}
+	},
+	"copilot": {
+		"fabToFix": "Co-pilot · {count} to fix",
+		"fabAllClear": "Co-pilot · all clear"
+	},
+	"safeNotes": {
+		"defaultTitle": "SAFE / Convertible notes",
+		"defaultDescription": "Add outstanding SAFEs — they convert at the next priced round.",
+		"empty": "No SAFEs added yet.",
+		"add": "Add SAFE",
+		"holder": "Holder",
+		"removeAria": "Remove SAFE",
+		"amount": "Amount (€)",
+		"cap": "Valuation cap (€)",
+		"discount": "Discount (%)",
+		"advisorHint": "Advisor mode: at priced-round conversion, the most-favorable clause (cap or discount) is applied per SAFE.",
+		"capitalHistoryTitle": "Outstanding SAFEs / convertibles",
+		"capitalHistoryDescription": "Convert at the next priced round. Whichever clause is most favourable (cap or discount) applies."
+	},
+	"pedigree": {
+		"introBefore": "Investors price pre-seed not only on ",
+		"introRisk": "how much risk you've removed",
+		"introMid": ", but also on ",
+		"introWho": "who you are on paper",
+		"introAfter": ". This is a separate multiplier on the leg-blend baseline.",
+		"pickDefend": "Only pick what you can defend — investors will verify every claim.",
+		"effectiveMultiplier": "Effective multiplier",
+		"claimedNeutralized": "Claimed: {claimed}× — neutralized by missing evidence",
+		"liftApplied": "Lift applied",
+		"discountApplied": "Discount applied",
+		"noOverlay": "No overlay",
+		"evidenceLabel": "Evidence (required for the lift to count)",
+		"evidenceMissingEngine": "Without evidence the engine zeroes this pedigree claim (multiplier stays 1.00×).",
+		"evidenceCounter": "{count}/500 — appears verbatim in the report's defensibility table.",
+		"calibrationBefore": "Calibration: Strebulaev (Stanford GSB) ",
+		"calibrationTitle": "Venture Mindset",
+		"calibrationAfter": " 2024, Atomico SoEU 2024, Dealroom Benelux 2024. The multiplier is clamped to ",
+		"calibrationClamp": "0.70× – 1.80×",
+		"calibrationTail": " to keep the overlay inside the empirical envelope.",
+		"options": {
+			"prior_exit": {
+				"title": "Prior venture-backed exit (≥€10M)",
+				"description": "Any cofounder has exited a previous venture-backed company at €10M+ enterprise value.",
+				"evidence": "Investors verify: Crunchbase / Dealroom exit record, public press release, or LP reference."
+			},
+			"top_unicorn_alumnus": {
+				"title": "Top-tier scaleup alumnus",
+				"description": "Any cofounder spent ≥2 years at senior level (senior IC, lead, manager, staff or above — not entry-level / intern) inside a Benelux or European top-tier scaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).",
+				"evidence": "Investors verify: LinkedIn tenure + role band; many funds maintain a \"mafia\" graph of these networks."
+			},
+			"domain_expert_10y": {
+				"title": "10+ years industry experience",
+				"description": "Any cofounder has 10+ years operating experience inside the target customer's industry — founder-market fit beats generic founder strength at pre-seed.",
+				"evidence": "Investors verify: prior employer references; reverse interviews with target customers asking \"would you buy from this person?\""
+			},
+			"second_time_founder": {
+				"title": "Second-time founder",
+				"description": "Any cofounder previously founded a company that operated for ≥2 years (no exit required — the \"I shipped a company\" signal alone is meaningful).",
+				"evidence": "Investors verify: KBO/KVK incorporation history, prior cap table, GitHub or product archives."
+			},
+			"has_technical_cofounder": {
+				"title": "Full-time technical cofounder",
+				"description": "At least one full-time technical cofounder owns the codebase end-to-end. Mitigates the most common pre-seed execution risk (outsourced engineering).",
+				"evidence": "Investors verify: equity split, GitHub commits, technical due diligence interview."
+			},
+			"solo_founder": {
+				"title": "Solo founder (no cofounders)",
+				"description": "Single founder operating without cofounders. Solo founders close at materially lower pre-money in published Benelux datasets — the discount is empirical, not a judgment.",
+				"evidence": "Picking this clears the technical-cofounder lift — both can't be true at once."
+			}
+		},
+		"placeholders": {
+			"prior_exit": "e.g. \"Sold Acme to Salesforce 2021, €40M EV — Crunchbase: …\"",
+			"top_unicorn_alumnus": "e.g. \"Senior PM @ Adyen 2018-2021 — LinkedIn: …\"",
+			"domain_expert_10y": "e.g. \"12y M&A advisory @ ING / KBC — references on request\"",
+			"second_time_founder": "e.g. \"Founded Foo BV 2015-2019 (3 yrs) — KBO: …\"",
+			"has_technical_cofounder": "e.g. \"Jane Doe, ex-Aikido Staff Eng — owns codebase, 60% commits\""
+		}
+	},
+	"teamPicker": {
+		"heading": "How experienced is your team?",
+		"subline": "One pick. No jargon. We compute the founder-pedigree multiplier from this — no checkboxes to read.",
+		"mostPicked": "Most picked",
+		"footer": "Not sure? Pick \"{title}\" — it's the Atomico Benelux pre-seed median.",
+		"levels": {
+			"first_time": {
+				"title": "First-time founders",
+				"subtitle": "New to founding. No prior exits or scaleup tenure. Solo or with a partner.",
+				"hint": "Engine reads this as a neutral baseline — no founder-pedigree premium."
+			},
+			"experienced": {
+				"title": "Experienced operators",
+				"subtitle": "Strong industry background, technical cofounder onboard. The team can ship and sell.",
+				"hint": "Engine reads this as ~1.25× — typical Atomico Benelux pre-seed founder team."
+			},
+			"veteran": {
+				"title": "Veteran founders",
+				"subtitle": "Done it before — prior 2-year+ venture, deep domain expertise, technical cofounder.",
+				"hint": "Engine reads this as ~1.35× — second-time founders with operational track record."
+			},
+			"dream_team": {
+				"title": "Dream team",
+				"subtitle": "Prior exit (€10M+) or top scaleup alumni (Adyen / Collibra / Showpad / Bol / Mollie / etc).",
+				"hint": "Engine reads this as ~1.60× — top-quartile pedigree, lowest VC required-return."
+			}
+		}
+	},
+	"ambition": {
+		"heading": "How big do you want this to get?",
+		"subline": "One pick. We derive the underlying exit assumptions from Atomico SoEU 2024 + Dealroom Benelux benchmarks.",
+		"recommended": "Recommended",
+		"y5Anchor": "Year-5 revenue anchor",
+		"footer": "Not sure? Pick \"{title}\" — it's the Atomico median for pre-seed founders.",
+		"levels": {
+			"conservative": {
+				"title": "Solid mid-size",
+				"subtitle": "Profitable, focused, capital-efficient. Acquisition by an industry buyer.",
+				"outcome": "Reasonable mid-size revenue by year 5. Defensible, low risk.",
+				"hint": "Engine reads this as a conservative VC-method anchor."
+			},
+			"standard": {
+				"title": "Category leader",
+				"subtitle": "Strong market share, healthy ARR growth, strategic acquisition or growth round.",
+				"outcome": "Top-3 in your category by year 5.",
+				"hint": "Most pre-seed founders pick this — Atomico SoEU 2024 median."
+			},
+			"ambitious": {
+				"title": "Category-defining",
+				"subtitle": "Generational outcome — €100M+ exit or IPO path. High variance, high upside.",
+				"outcome": "Defining the category by year 5 — venture-scale outcome.",
+				"hint": "Engine reads this as a top-quartile VC-method anchor."
+			}
+		}
+	},
+	"inceptionLens": {
+		"heading": "Inception lens (optional)",
+		"subline": "For founders who aren't on a conventional milestone path. Acknowledges that pre-seed is won by momentum (not moats) and that the best founders cost more. Default: off.",
+		"noOverlayChip": "No overlay",
+		"overlayActive": "{lift} · ±{band}%",
+		"defaultBadge": "Default",
+		"whatLensLead": "What the lens does:",
+		"whatLensBody": "It lifts the mid (engine output) AND widens the band (lower P10, higher P90). Honest about increased variance — no false precision. Canonical math comes from ValuationIQ; this lens is a published, peer-reviewed overlay (Hampus Jakobsson 2024 inception thesis, Atomico SoEU 2024).",
+		"levels": {
+			"milestones_driven": {
+				"title": "Milestones-driven",
+				"subtitle": "Standard pre-seed: measurable milestones, peer-comparable trajectory. Conventional Berkus + Scorecard + VC blend, no overlay."
+			},
+			"momentum_driven": {
+				"title": "Momentum-driven",
+				"subtitle": "\"Pre-seed is won by momentum, not moats.\" Inbound investor interest, hiring acceleration, early customer pull. Lift +10%, ±15% wider variance band.",
+				"examples": "Right when peers reach out unprompted; team scaling 2× per quarter; users asking for the next version."
+			},
+			"inception_bet": {
+				"title": "Inception bet",
+				"subtitle": "Edge premium + market-creation thesis. Spike profile, generational ambition, no ceiling. Lift +25%, ±25% wider variance band — high variance, asymmetric upside acknowledged honestly.",
+				"examples": "The Lovable / Anthropic / Cursor profile. Borderline insane ambition, technical or distribution spike, market-creating thesis."
+			}
+		}
+	},
+	"landing": {
+		"hero": {
+			"eyebrow": "No signup needed to start",
+			"headline": "What's your startup worth?",
+			"headlineAccent": "Find out in 15 minutes — sign up only when you want the report.",
+			"subline": "Three established frameworks, calibrated against published Benelux benchmarks. Fill it in here, sign up at the end to download the investor-ready PDF.",
+			"stageChipsLabel": "Stage coverage",
+			"anonymous": "Anonymous until signup",
+			"noCard": "No credit card",
+			"gdpr": "GDPR-compliant",
+			"stageChips": ["Pre-seed", "Seed", "Series A"]
+		},
+		"howItWorks": {
+			"heading": "How it works",
+			"steps": [
+				{
+					"title": "Fill the wizard",
+					"body": "Eight short sections. No historical financials required. Around 15 minutes."
+				},
+				{
+					"title": "Sign up — no card",
+					"body": "A magic-link signup. Your inputs travel with you to the authenticated dashboard."
+				},
+				{
+					"title": "Download your PDF",
+					"body": "A 4-page investor-ready report — one-pager, methodology, cap table, dilution."
+				}
+			]
+		},
+		"methodology": {
+			"heading": "Three frameworks, one defensible number",
+			"lede": "We blend three valuation methods angel investors and seed funds actually ask about. Each is grounded in published research — no proprietary black box.",
+			"cards": [
+				{
+					"title": "Berkus method",
+					"attribution": "Dave Berkus, ~1990s — \"Berkus 2.0\" calibration: 2024",
+					"body": "Five risk-reduction milestones (idea, prototype, team, partnerships, rollout). Each milestone earns a defined contribution toward the pre-money — anchored on stage-aware ceilings, not a point-in-time gut feel."
+				},
+				{
+					"title": "Bill Payne Scorecard",
+					"attribution": "Bill Payne / Frontier Angels — published methodology, 2024 update",
+					"body": "Five weighted factors (market size, defensibility, GTM, capital efficiency, other tailwinds) compared against the regional median. The result is a multiplier on a published Benelux baseline."
+				},
+				{
+					"title": "VC method",
+					"attribution": "Bill Sahlman, Harvard Business Review (1987)",
+					"body": "Year-5 revenue × an exit-EV/revenue multiple ÷ the fund's target ROI. Surfaces the \"what does the fund need to see\" lens that priced rounds actually solve for."
+				}
+			]
+		},
+		"reportContents": {
+			"heading": "What you'll download",
+			"lede": "A 4-page PDF, designed to drop into a data room or paste into a deck. The same artefacts each appear in the report below.",
+			"items": [
+				{
+					"title": "Fundraising one-pager",
+					"body": "The page you hand an angel: blended pre-money, range, method-mix, football field across the three legs, cap-table simulator, defensibility highlights."
+				},
+				{
+					"title": "Executive summary",
+					"body": "Canonical headline + range + narrative, with stage and method-mix called out for the reviewer."
+				},
+				{
+					"title": "Method breakdown",
+					"body": "Audit trail per method: Berkus contributions table, Scorecard factor weights, SaaS forward multiple math, VC backsolve."
+				},
+				{
+					"title": "Cap table & dilution",
+					"body": "Existing option pool, prior round, SAFE notes, and the next-round dilution scenario — laid out so an accountant can certify it."
+				}
+			]
+		},
+		"sources": {
+			"heading": "Calibrated against published research",
+			"lede": "Benchmarks are not invented. The numbers the engine compares your inputs against come from public datasets:",
+			"items": [
+				"Atomico — State of European Tech 2024",
+				"Dealroom — Benelux 2024",
+				"Bessemer — State of the Cloud 2024",
+				"KeyBanc / OpenView — Private SaaS Survey"
+			],
+			"note": "Sources are cited inline in your downloaded report wherever a benchmark drives a number."
+		},
+		"faq": {
+			"heading": "Honest answers",
+			"items": [
+				{
+					"q": "Why is the wizard free without signing up?",
+					"a": "Filling it gives you a number you can paste into a deck on its own — that's already useful, with or without the PDF. Signup is only for the polished investor-ready report and to keep your work across sessions."
+				},
+				{
+					"q": "How accurate is this versus a paid valuation?",
+					"a": "It's a triangulation across three established methods, not a single ground-truth number. For a term sheet or a SAFE conversion, your accountant should sign off the cap table — we make that a one-click invite from inside the report."
+				},
+				{
+					"q": "What happens to my inputs if I leave without signing up?",
+					"a": "They stay in your browser only (localStorage). Nothing is sent to our servers until you sign up. If you come back within 24 hours, your inputs reload automatically."
+				},
+				{
+					"q": "Can I run this for a non-Belgian / non-Dutch startup?",
+					"a": "The wizard works for any company — the regional benchmarks today are calibrated for Belgium and the Netherlands. If you're elsewhere in Europe, the numbers still triangulate but you should treat the regional multiplier as approximate."
+				}
+			]
+		},
+		"rightRail": {
+			"title": "Your report is almost ready",
+			"sub": "Fill in the wizard on the left. When you click \"Generate my report\" we save your inputs, take you through a quick signup, and bring you straight to your finished valuation — left rail prefilled, right rail showing the PDF.",
+			"fixesIssues": "{count, plural, one {1 thing to fix before the report is investor-ready} other {# things to fix before the report is investor-ready}}",
+			"cta": "Generate my free report",
+			"ctaSubmitting": "Saving your inputs…",
+			"ctaFootnote": "Free, in 15 minutes. We never share your inputs. The next step is a quick signup — no credit card.",
+			"legalAlready": "Already have an account?",
+			"legalLogin": "Log in"
+		},
+		"meta": {
+			"title": "Startup Valuation — Free, no signup needed to start | Upswitch",
+			"description": "Run the full Berkus + Scorecard + VC-method blend on your startup. Fill it in here, sign up only when you want the investor-ready report."
+		},
+		"wizardAriaLabel": "Startup valuation wizard"
+	},
+	"narrative": {
+		"stageLabels": {
+			"pre_seed": "pre-seed",
+			"seed": "seed",
+			"series_a": "Series A"
+		},
+		"sectorLabels": {
+			"saas": "B2B SaaS",
+			"marketplace": "marketplace",
+			"fintech": "fintech",
+			"biotech_healthtech": "biotech / healthtech",
+			"deeptech_ai": "deeptech / AI",
+			"consumer": "consumer",
+			"hardware": "hardware",
+			"other": "cross-sector"
+		},
+		"team": {
+			"first_time": "a first-time founding team",
+			"experienced": "an experienced operating team",
+			"veteran": "a veteran founding team",
+			"dream_team": "a dream-team profile"
+		},
+		"ambition": {
+			"conservative": "a conservative mid-size outcome",
+			"standard": "a category-leader outcome",
+			"ambitious": "a category-defining outcome"
+		},
+		"teamFallback": "your team profile",
+		"ambitionFallback": "your growth thesis",
+		"year5Suffix": " (Y5 ARR anchor: {amount})",
+		"whyP1": "Anchored to {team} and {ambition}{year5}.  Pre-money lands at {preMoney} on a {raise} round.",
+		"pedigreeLift": " Then a lift of {mult}× for team pedigree",
+		"pedigreeDiscount": " Then a discount of {mult}× for team pedigree",
+		"whyP2": "Triangulated across {count} academic methods (milestone-driven, peer-comparison, exit-driven).{overlay}.  Every leg is a published, peer-reviewed method — no hand-waving.",
+		"headline": "{preMoney} pre-money · raising {raise} · post-money {post} · ~{dilution}% to new investors this round ({stage} · {sector} · {country})"
+	},
+	"transparency": {
+		"summaryTitle": "Live preview: why this number?",
+		"disclaimerBold": "Live preview.",
+		"disclaimerP1": "The canonical valuation, range and PDF are rendered by ",
+		"disclaimerP2": " when you click ",
+		"disclaimerP3": ". Show investors the report — not this preview.",
+		"valuationIq": "ValuationIQ",
+		"generateCta": "Generate startup valuation",
+		"sectionPlain": "1. In plain English",
+		"sectionMath": "2. The math, leg by leg",
+		"notAvailable": "not available",
+		"legLabels": {
+			"berkus": "Berkus — milestone-driven",
+			"scorecard": "Bill Payne Scorecard — peer comparison",
+			"vc": "VC Method (Sahlman) — exit-driven",
+			"saas_forward": "SaaS Forward Multiple — traction-driven"
+		},
+		"legNotes": {
+			"berkus": "Driven by your 5 risk-reduction milestones (idea, prototype, team, partnerships, rollout).",
+			"scorecard": "Driven by 5 weighted defensibility factors comparing you to the regional pre-seed average.",
+			"vc": "Driven by your Y5 ARR thesis × exit multiple ÷ target ROI − round size.",
+			"saas_forward": "Driven by current MRR projected forward 12 months × risk-adjusted multiple."
+		},
+		"pedigreeMultiplier": "Then a team-pedigree multiplier of {mult}× on the leg blend ({from} → {to}).",
+		"inceptionSection": "2½. Inception lens — applied",
+		"inceptionMomentumRest": "pre-seed is won by momentum, not moats. {mult}× lift on the mid; ±{band}% wider variance band to honestly report real pre-seed uncertainty.",
+		"inceptionBetRest": "edge premium + market-creation thesis. {mult}× lift on the mid; ±{band}% wider band — floor dips slightly (acknowledging higher downside), ceiling lifts substantially (asymmetric upside). Anthropic / Lovable / Cursor profile.",
+		"lensMomentum": "Momentum-driven lens",
+		"lensBet": "Inception bet lens",
+		"preLens": "Pre-lens (post-pedigree) mid: ",
+		"afterLens": "After lens: ",
+		"benchmark": "3. Benchmark — where do peers sit?",
+		"medianAria": "Median {amount}",
+		"engineAria": "Engine output {amount}",
+		"medianLabel": "Median: ",
+		"youLabel": "You: ",
+		"bandCaption": "Band: 0.5× – 2× regional median (empirical P25–P75 range).",
+		"sensitivityTitle": "4. What if your Y5 thesis is off by ±20%?",
+		"sensitivityFoot": "Y5 thesis is the most leveraged pre-seed input. ±20% shift ⇒ ±{spreadPct}% pre-money.",
+		"sourcesHeading": "5. Sources & methodology",
+		"sourceBerkusTitle": "Berkus (2024):",
+		"sourceBerkus": "5 risk-reduction milestones, refreshed for the 2024 venture climate.",
+		"sourceScorecardTitle": "Bill Payne Scorecard (2024):",
+		"sourceScorecard": "5 weighted defensibility factors, peer-comparison band 0.5×–1.5×.",
+		"sourceVcTitle": "VC Method (Sahlman):",
+		"sourceVc": "Y5 revenue × exit multiple ÷ target ROI − round size.",
+		"sourcePedigreeTitle": "Pedigree (Strebulaev 2024):",
+		"sourcePedigree": "Multiplicative overlay 0.70×–1.80× on leg-blend baseline.",
+		"sourceInceptionTitle": "Inception lens (opt-in):",
+		"sourceInception": "Multiplier + band-widening overlay for momentum-driven and inception-bet profiles. Acknowledges that moats don't exist at pre-seed, TAM is unknowable, and the best founders cost more.",
+		"benchmarksLabel": "Benchmarks:",
+		"offlineFallback": "offline fallback",
+		"updatedPrefix": "updated ",
+		"repro": "The audit-ready number comes from <viq></viq> (Python engine, server-side). This preview mirrors the same math, but the canonical figure — the one on your PDF and your report — is computed deterministically on the server. Identical inputs ⇒ identical number. No LLM hallucination, no hidden rules."
+	}
+}

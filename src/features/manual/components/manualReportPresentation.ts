@@ -1,6 +1,9 @@
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
-import type { ValuationResponse } from '../../../types/valuation'
-import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
+import type { ValuationMethodResult, ValuationResponse } from '../../../types/valuation'
+import {
+  getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+} from '../../../utils/extractValuationResultsMap'
 
 type ManualPresentation = {
   valuation: number
@@ -10,23 +13,31 @@ type ManualPresentation = {
   multipleRange?: { low: number; high: number }
 }
 
+function isUsableRow(method: unknown): boolean {
+  if (!method || typeof method !== 'object' || Array.isArray(method)) return false
+  const m = method as Record<string, unknown>
+  if (!m.available) return false
+  const v = m.value
+  return v != null && Number.isFinite(Number(v))
+}
+
 function resolvePreferredMethodKey(
-  valuationResults: Record<string, any>,
+  valuationResults: Record<string, ValuationMethodResult>,
   requestedMethod?: string | null
 ): string | null {
-  const isUsable = (method: any) =>
-    !!(method && typeof method === 'object' && method.available && method.value != null)
-
-  if (requestedMethod && isUsable(valuationResults[requestedMethod])) {
-    return requestedMethod
+  if (requestedMethod) {
+    const row = getValuationMethodResultForKey(valuationResults, requestedMethod)
+    if (isUsableRow(row)) return requestedMethod
   }
 
-  if (isUsable(valuationResults.upswitch_adaptive)) {
+  if (isUsableRow(getValuationMethodResultForKey(valuationResults, 'upswitch_adaptive'))) {
     return 'upswitch_adaptive'
   }
 
-  const firstAvailable = Object.entries(valuationResults).find(([, method]) => isUsable(method))
-  return firstAvailable?.[0] ?? null
+  const firstAvailable = Object.keys(valuationResults).find((k) =>
+    isUsableRow(getValuationMethodResultForKey(valuationResults, k))
+  )
+  return firstAvailable ?? null
 }
 
 export function deriveManualReportPresentation(
@@ -40,15 +51,14 @@ export function deriveManualReportPresentation(
   const reportContext =
     r.report_context ?? valuationResult?.report_context ?? r.details?.report_context ?? {}
   const hydrated =
-    extractValuationResultsMap(r as Record<string, any> | null | undefined, {
-      selectedValuationMethod: r.selected_valuation_method,
-    }) ?? {}
+    hydrateClientValuationResultsMap(r as Record<string, any> | null | undefined) ?? {}
+  const hydratedMap = hydrated as Record<string, ValuationMethodResult>
   const methodKey =
     resolvePreferredMethodKey(
-      hydrated,
+      hydratedMap,
       selectedMethod ?? r.selected_valuation_method ?? r.selectedMethod ?? 'upswitch_adaptive'
     ) ?? 'upswitch_adaptive'
-  const methodData = hydrated[methodKey]
+  const methodData = getValuationMethodResultForKey(hydratedMap, methodKey)
   const methodDetails =
     methodData?.details && typeof methodData.details === 'object' ? methodData.details : {}
 

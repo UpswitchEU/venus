@@ -53,6 +53,7 @@ import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { looksLikeNaceCode, naceBusinessTypeService } from '@/services/naceBusinessTypeService'
+import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { cn, safeString } from '../utils'
 
@@ -127,7 +128,7 @@ const floatingLabelVariants = cva(
   {
     variants: {
       state: {
-        default: 'text-foreground/50',
+        default: 'text-foreground/70',
         focus: 'text-primary',
         success: 'text-primary',
         error: 'text-destructive',
@@ -145,7 +146,7 @@ const floatingLabelVariants = cva(
     },
     compoundVariants: [
       { floated: false, size: 'sm', className: 'top-4 text-sm left-14' },
-      { floated: true, size: 'sm', className: 'top-2 text-[11px] font-medium left-14' },
+      { floated: true, size: 'sm', className: 'top-2 text-xs font-medium left-14' },
       { floated: false, size: 'md', className: 'top-5 text-base left-14' },
       { floated: true, size: 'md', className: 'top-2 text-xs font-medium left-14' },
       { floated: false, size: 'lg', className: 'top-6 text-lg left-14' },
@@ -327,8 +328,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       }
     }, [shouldShowDropdown, canSearch])
 
-    // Debounced search with request cancellation and 8s timeout
-    const REQUEST_TIMEOUT_MS = 8000
+    // Debounced search with request cancellation; align with BFF/Titan budget
+    const REQUEST_TIMEOUT_MS = REGISTRY_SEARCH_CLIENT_TIMEOUT_MS
     React.useEffect(() => {
       if (selectedCompany) {
         setResults([])

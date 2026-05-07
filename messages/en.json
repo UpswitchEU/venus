@@ -1380,8 +1380,8 @@
 			"y5RevenueDescription": "Revenue you expect in year 5 at exit. Compare to similar {sectorLabel} outcomes. Suggested starting point: {suggestion}.",
 			"exitMultipleDescription": "How many times revenue buyers pay in your space. Conservative default for {sectorLabel}: {multiple}×.",
 			"targetRoiDescription": "How many times investors want their money back. Typical ask at {stageLabel}: {stageRoi}× · {defaultRoi}× is the cross-stage academic midpoint.",
-			"dilutionAssumptionOptional": "Dilution to exit (%) (optional)",
-			"dilutionDescription": "Optional — overrides the live dilution implied by pre- and post-money in the preview below. Leave blank to use the VC formula only.",
+			"dilutionAssumptionOptional": "Cumulative dilution to exit (%) (optional)",
+			"dilutionDescription": "Total founder dilution you expect from now through exit (median benchmarks — same meaning as Studio v2). It does not set the “new investors this round” % in the preview; that comes from round size ÷ post-money. Leave blank for regional default.",
 			"exitMultiplePlaceholder": "Suggested: {multiple}×",
 			"targetRoiPlaceholder": "Default: {defaultRoi}× ({stageRoi}× for this stage)",
 			"opportunitySize": "Size of the opportunity",
@@ -1404,11 +1404,11 @@
 			"y5Revenue": "Year-5 revenue (€)",
 			"exitMultiple": "Exit EV/Revenue multiple",
 			"targetRoi": "Target VC ROI (×)",
-			"dilutionAssumption": "Dilution to exit (%)",
-			"investmentAmountSought": "Round size you're raising (€)",
+			"dilutionAssumption": "Cumulative dilution to exit (%)",
+			"investmentAmountSought": "Round size to raise (€)",
 			"investmentAmountSoughtHelper": "How much are you raising now? Drives the cap-table simulator and pre-money calculation.",
 			"capTableSimulatorTitle": "Cap-table simulator",
-			"capTableSimulatorLine": "If you raise <strong>{amount}</strong> at a pre-money of <strong>{preMoney}</strong>, you'll dilute <strong>{dilution}%</strong> of your equity.",
+			"capTableSimulatorLine": "A raise of <strong>{amount}</strong> at <strong>{preMoney}</strong> pre-money → about <strong>{dilution}%</strong> to new investors this round (post-money slice).",
 			"capTableSimulatorDisclaimer": "Live preview from the VC Method. The report shows the blended pre-money across all methods.",
 			"vcOversubscribedTitle": "Your round is too large for this VC Method",
 			"vcOversubscribedLine": "You're raising <strong>{amount}</strong>, but your Year-5 projection + exit multiple imply a post-money of only <strong>{postMoney}</strong>. Lower your round by <strong>{shortfall}</strong>, or raise your Year-5 projection / exit multiple to let the VC Method contribute.",
@@ -1629,15 +1629,15 @@
 				"warning": "Moderate",
 				"poor": "Weak"
 			},
-				"navPanels": {
-					"startLeadTitle": "Quick start",
-					"startHereTitle": "Start with these adjustments",
-					"startHereDescription": "Begin with the balance-sheet corrections you know best. These usually have the biggest impact on the NAV floor value.",
-					"assetsTitle": "Additional asset adjustments",
-					"assetsDescription": "Add the remaining balance-sheet revaluations when they are relevant for this company.",
-					"deductionsTitle": "Deductions and tax",
-					"deductionsDescription": "Use these inputs to reflect tax leakage on gains and obligations that sit outside the balance sheet."
-				},
+			"navPanels": {
+				"startLeadTitle": "Quick start",
+				"startHereTitle": "Start with these adjustments",
+				"startHereDescription": "Begin with the balance-sheet corrections you know best. These usually have the biggest impact on the NAV floor value.",
+				"assetsTitle": "Additional asset adjustments",
+				"assetsDescription": "Add the remaining balance-sheet revaluations when they are relevant for this company.",
+				"deductionsTitle": "Deductions and tax",
+				"deductionsDescription": "Use these inputs to reflect tax leakage on gains and obligations that sit outside the balance sheet."
+			},
 			"fields": {
 				"dcfRevenueGrowthPct": "Revenue growth (%)",
 				"dcfEbitdaMarginPct": "EBITDA margin (%)",
@@ -1671,8 +1671,8 @@
 				"navTaxLatencyPctDesc": "Corporate tax on realised capital gains. Belgian default is 25%. On shares often 0% (participation exemption).",
 				"navOffBalanceItems": "Off-balance sheet items",
 				"navOffBalanceItemsDesc": "Obligations not on the balance sheet: pending legal claims, environmental liabilities, severance arrangements, etc.",
-					"navLead": "Revalue the balance sheet to a more realistic market view. This helps estimate a defendable floor value for the business.",
-					"navQuickStart": "A strong first pass is real estate revaluation, hidden reserves, receivables, and any off-balance obligations.",
+				"navLead": "Revalue the balance sheet to a more realistic market view. This helps estimate a defendable floor value for the business.",
+				"navQuickStart": "A strong first pass is real estate revaluation, hidden reserves, receivables, and any off-balance obligations.",
 				"excludeRealEstate": "Exclude real estate from transaction?",
 				"realEstateBookValue": "Real estate book value",
 				"estimatedMarketRent": "Estimated market rent",
@@ -1757,6 +1757,11 @@
 			"saasImported": {
 				"title": "Imported SaaS snapshot",
 				"description": "Pre-filled from {provider} for fiscal year {year} with {confidence}% confidence. Values are derived from recurring-looking revenue in your imported ledger—not subscription-system analytics. You can still adjust any field manually before running the valuation."
+			},
+			"saasBenchmark": {
+				"title": "Pre-filled with sector benchmarks",
+				"description": "We've filled {count} fields (gross margin, churn, NRR, growth) with the typical numbers for your sector. Replace each with your own as you go.",
+				"clearCta": "Clear"
 			},
 			"waccBreakdown": {
 				"expand": "Show inputs",
@@ -1843,6 +1848,8 @@
 		"pdfStalledBlurb": "The server has not finished updating the downloadable file. You can try generating again or — if available — open the previous PDF.",
 		"pdfRetry": "Generate again",
 		"pdfOpenLastVersion": "Open previous PDF",
+		"synthesisBlendSkippedTitle": "Weighted blend not in this result",
+		"synthesisBlendSkippedDesc": "The engine did not return a blended equity value. One selected method may be unavailable—check Waarderingssynthese or recalculate.",
 		"pdfPollDegradedHint": "Sync with the server failed temporarily. Retrying usually fixes it.",
 		"downloadPdfStaleHint": "Wait until the PDF has finished updating to download the latest version.",
 		"modalEditInputsMissing": "Saved valuation inputs for this report were not found. Run a full calculation in the workspace, or contact support if this persists.",
@@ -2013,6 +2020,17 @@
 		"qualityCtaOwnerConcentrationPrompt": "The owner-concentration adjustment was skipped because number of owners or employees is missing. Help me fill these in so the discount is applied correctly.",
 		"qualityCtaEbitdaDivergenceLabel": "Reconcile EBITDA figures",
 		"qualityCtaEbitdaDivergencePrompt": "The reported EBITDA and the normalized EBITDA in the metadata disagree. Walk me through the normalizations so both numbers line up before the report is shared.",
+		"qualityCtaMethodSubstitutionLabel": "Restore method choice",
+		"qualityCtaMethodSubstitutionPrompt": "The requested valuation method could not be executed fully and was substituted. Help me fill the missing inputs so I can run the originally selected method correctly or explicitly document why the substitute method is appropriate.",
+		"qualityCtaEbitdaBenchmarkDeviationLabel": "Document margin deviation",
+		"qualityCtaEbitdaBenchmarkDeviationPrompt": "The EBITDA margin deviates materially from the sector median. Help me document the cause (owner compensation, one-offs, or structural difference) and add a targeted normalization line where needed.",
+		"qualityCtaNetDebtLabel": "Add balance data",
+		"qualityCtaNetDebtPrompt": "No balance-sheet data was provided so net debt was assumed to be zero and the operating-cash exemption used a revenue proxy. Help me add cash, total debt, and current liabilities so the EV→Equity bridge becomes audit-defensible.",
+		"qualityCtaOwnerCompEstimatedLabel": "Confirm owner compensation",
+		"qualityCtaOwnerCompEstimatedPrompt": "Owner compensation was estimated instead of explicitly provided. Help me enter the actual amount (or market replacement cost) so normalized EBITDA is defensible.",
+		"qualityCtaBookEquityLabel": "Add book equity",
+		"qualityCtaBookEquityPrompt": "Book equity is missing, so the Belgian fiscal-reference calculation cannot fully close. Help me add total equity (or total assets and total debt) from the latest filed accounts.",
+		"insightSeverity": "Insight",
 		"normCommandDetected": "Normalization command detected",
 		"normCommandDesc": "This will be applied directly to the form",
 		"detectedValues": "Detected values",
@@ -2121,10 +2139,14 @@
 		"continueToEstimate": "Continue to Estimate",
 		"ebitdaNormalizations": "EBITDA Normalizations",
 		"modalTitle": "Normalizations & Adjustments",
+		"anchorYearBridgeHint": "{year}: bridge vs reported EBITDA (filing anchor — not a sum across all fiscal years)",
+		"filteredYearTotalsHint": "Totals for filtered year {year} and current list (search / selection)",
 		"section1Header": "Operational Normalizations (EBITDA)",
 		"section1Subheader": "Profit adjustments (multiplied by the valuation multiple).",
 		"editorToggleTitle": "Add or edit normalization",
 		"editorToggleSubtitle": "Open only when you need to search, add, or adjust ledger normalizations.",
+		"autoCapBreachLine": "{year}: +{addback} ({pct}% of reported EBITDA) · 50% cap = {cap}",
+		"autoCapBreachMoreYears": "+{count} additional year(s) over cap",
 		"section2Header": "Balance Sheet Adjustments & Latencies",
 		"section2Subheader": "One-off adjustments to equity value (applied 1-to-1).",
 		"primaryTabEbitda": "EBITDA Normalizations",
@@ -2714,6 +2736,45 @@
 			"title": "Enterprise value → equity bridge",
 			"subtitle": "Cash, debt, and working capital adjustments use the same balance-sheet inputs as your accounting import or manual entry.",
 			"ariaLabel": "Enterprise value to equity waterfall chart"
+		},
+		"ownerProfiling": {
+			"summary": "Owner profiling — transferability index {tri}/100 · {riskLevel} · multiple impact {adjPct}% vs benchmark",
+			"cappedHint": "Capped equity impact — full risk would have been {rawPct}%.",
+			"riskLevels": {
+				"MINIMAL": "Minimal dependency",
+				"LOW": "Low dependency",
+				"MEDIUM": "Medium dependency",
+				"HIGH": "High dependency",
+				"CRITICAL": "Critical dependency"
+			},
+			"skipped": {
+				"title": "Owner profiling skipped",
+				"body": "The 9-question profile was not completed. The valuation does not yet include an owner-dependency adjustment — complete the profile to refine this number.",
+				"cta": "Complete owner profile"
+			}
+		},
+		"ownerProfilingPeer": {
+			"heading": "Sector peer benchmark",
+			"cohortSize": "Based on {n, plural, one {# anonymized peer} other {# anonymized peers}}",
+			"p25": "Lower quartile",
+			"median": "Sector median",
+			"p75": "Upper quartile",
+			"comparison": {
+				"below_p25": "Your score of {you} is below the sector's lower quartile (median {median}). The recommendations on the previous step can move you toward the median.",
+				"between_p25_p50": "Your score of {you} is below the sector median of {median}. Targeted work on the recommendations closes that gap.",
+				"between_p50_p75": "Your score of {you} sits above the sector median of {median} — solid transferability for this sector.",
+				"above_p75": "Your score of {you} is in the top quartile for this sector (median {median}). Buyers see this as a low-risk transition profile."
+			},
+			"privacyNote": "Anonymized aggregate. Cells with fewer than 5 contributors are not displayed.",
+			"withdrawCta": "Withdraw my anonymized contribution",
+			"withdrawConfirmPrompt": "Remove this report's data from the sector benchmark?",
+			"withdrawConfirm": "Yes, withdraw",
+			"withdrawCancel": "Cancel",
+			"withdrawSubmitting": "Withdrawing…",
+			"withdrawDone": "Your contribution has been removed. The next sector refresh will exclude it.",
+			"withdrawAlreadyDone": "This contribution was already withdrawn previously.",
+			"withdrawErrorAuth": "Sign in to manage your anonymized contribution.",
+			"withdrawErrorGeneric": "Couldn't complete the request. Please try again."
 		}
 	},
 	"invite": {
@@ -2867,6 +2928,7 @@
 		"loadingTitle": "Loading valuation methods",
 		"loadingBlurb": "We are restoring the saved method data for this report. This should only take a moment.",
 		"retryMethodDataLoad": "Try again",
+		"continueImportReview": "Continue reviewing imported data",
 		"editValuation": "Edit Valuation",
 		"methodSection": "Valuation Method",
 		"multipleSection": "EV/EBITDA Multiple Override",

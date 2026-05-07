@@ -1,7 +1,9 @@
+import { TAM_SAM_SOM_MAX_EUR } from '@/features/startup-studio/utils/tamSamSomFunnel'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   STARTUP_STAGE_DEFAULT_RAISE,
   calculatePedigreeMultiplier,
+  PEDIGREE_EVIDENCE_MAX_LEN,
   useStartupValuationStore,
 } from './useStartupValuationStore'
 
@@ -39,6 +41,18 @@ describe('useStartupValuationStore', () => {
   it('setCapField targets only cap_table slice', () => {
     useStartupValuationStore.getState().setCapField('option_pool_pct', 15)
     expect(useStartupValuationStore.getState().cap_table.option_pool_pct).toBe(15)
+  })
+
+  it('setCapField normalizes pre_money_target (rejects non-positive, caps huge EUR)', () => {
+    const g = () => useStartupValuationStore.getState()
+    g().setCapField('pre_money_target', 2_000_000)
+    expect(g().cap_table.pre_money_target).toBe(2_000_000)
+    g().setCapField('pre_money_target', 0)
+    expect(g().cap_table.pre_money_target).toBeNull()
+    g().setCapField('pre_money_target', -50)
+    expect(g().cap_table.pre_money_target).toBeNull()
+    g().setCapField('pre_money_target', TAM_SAM_SOM_MAX_EUR + 1000)
+    expect(g().cap_table.pre_money_target).toBe(TAM_SAM_SOM_MAX_EUR)
   })
 
   it('addSafeNote / updateSafeNote / removeSafeNote round-trip', () => {
@@ -132,6 +146,66 @@ describe('useStartupValuationStore', () => {
     expect(after.management_strength).toBe(50)
     expect(after.cap_table.option_pool_pct).toBe(10)
     expect(after.cap_table.safe_notes).toHaveLength(0)
+  })
+
+  it('setTamSamSom rejects non-positive values and caps absurd magnitudes', () => {
+    useStartupValuationStore.getState().setTamSamSom({
+      tam: 1_000_000,
+      sam: 500_000,
+      som: 100_000,
+    })
+    useStartupValuationStore.getState().setTamSamSom({ tam: -1 })
+    const mid = useStartupValuationStore.getState().tam_sam_som
+    expect(mid.tam).toBeNull()
+    expect(mid.sam).toBe(500_000)
+    expect(mid.som).toBe(100_000)
+    useStartupValuationStore.getState().setTamSamSom({ tam: TAM_SAM_SOM_MAX_EUR + 999 })
+    expect(useStartupValuationStore.getState().tam_sam_som.tam).toBe(TAM_SAM_SOM_MAX_EUR)
+  })
+
+  it('applyFromSnapshot clears tam with explicit null and leaves omitted keys unchanged', () => {
+    useStartupValuationStore.getState().setTamSamSom({
+      tam: 1_000_000,
+      sam: 500_000,
+      som: 100_000,
+    })
+    useStartupValuationStore.getState().applyFromSnapshot({
+      tam_sam_som: { tam: null },
+    })
+    const t = useStartupValuationStore.getState().tam_sam_som
+    expect(t.tam).toBeNull()
+    expect(t.sam).toBe(500_000)
+    expect(t.som).toBe(100_000)
+  })
+
+  it('applyFromSnapshot keeps previous tam when snapshot sends non-number garbage', () => {
+    useStartupValuationStore.getState().setTamSamSom({
+      tam: 1_000_000,
+      sam: 500_000,
+      som: 100_000,
+    })
+    useStartupValuationStore.getState().applyFromSnapshot({
+      tam_sam_som: { tam: 'oops' as unknown as number, sam: 600_000 },
+    })
+    const t = useStartupValuationStore.getState().tam_sam_som
+    expect(t.tam).toBe(1_000_000)
+    expect(t.sam).toBe(600_000)
+    expect(t.som).toBe(100_000)
+  })
+
+  it('toRequestPayload omits tam_sam_som after snapshot clears all funnel fields', () => {
+    useStartupValuationStore.getState().setTamSamSom({
+      tam: 1_000_000,
+      sam: 500_000,
+      som: 100_000,
+    })
+    useStartupValuationStore.getState().applyFromSnapshot({
+      tam_sam_som: { tam: null, sam: null, som: null },
+    })
+    const payload = useStartupValuationStore.getState().toRequestPayload() as {
+      studio_v2?: { tam_sam_som?: unknown }
+    }
+    expect(payload.studio_v2?.tam_sam_som).toBeUndefined()
   })
 
   describe('applyPreset — one-click smart defaults', () => {
@@ -324,6 +398,68 @@ describe('useStartupValuationStore', () => {
       })
     })
 
+    it('trims pedigree evidence in toRequestPayload while the store keeps raw text', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      useStartupValuationStore
+        .getState()
+        .setPedigreeEvidence('prior_exit', '  https://example.com/ref  ')
+      expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toBe(
+        '  https://example.com/ref  ',
+      )
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: { pedigree_evidence?: Record<string, string> }
+      }
+      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+        prior_exit: 'https://example.com/ref',
+      })
+    })
+
+    it('drops pedigree evidence keys that are only whitespace in the payload', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      useStartupValuationStore.getState().setPedigreeFlag('second_time_founder', true)
+      useStartupValuationStore.setState({
+        pedigree_evidence: {
+          prior_exit: 'exit ref',
+          second_time_founder: '   ',
+        },
+      })
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: { pedigree_evidence?: Record<string, string> }
+      }
+      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+        prior_exit: 'exit ref',
+      })
+    })
+
+    it('truncates pedigree evidence to PEDIGREE_EVIDENCE_MAX_LEN in the payload', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      const long = 'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN + 100)
+      useStartupValuationStore.setState({ pedigree_evidence: { prior_exit: long } })
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: { pedigree_evidence?: Record<string, string> }
+      }
+      expect(payload.founder_pedigree!.pedigree_evidence!.prior_exit).toHaveLength(
+        PEDIGREE_EVIDENCE_MAX_LEN,
+      )
+      expect(payload.founder_pedigree!.pedigree_evidence!.prior_exit).toBe(
+        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN),
+      )
+    })
+
+    it('omits unknown pedigree_evidence keys from the payload', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      useStartupValuationStore.setState({
+        pedigree_evidence: {
+          prior_exit: 'ok',
+          attacker_injected: 'nope',
+        } as Record<string, string>,
+      })
+      const payload = useStartupValuationStore.getState().toRequestPayload() as {
+        founder_pedigree?: { pedigree_evidence?: Record<string, string> }
+      }
+      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({ prior_exit: 'ok' })
+    })
+
     it('strips empty/whitespace-only evidence strings from the persisted dict', () => {
       const s = useStartupValuationStore.getState()
       s.setPedigreeFlag('domain_expert_10y', true)
@@ -331,6 +467,48 @@ describe('useStartupValuationStore', () => {
       s.setPedigreeEvidence('domain_expert_10y', '   ')
       const after = useStartupValuationStore.getState().pedigree_evidence
       expect(after).toEqual({})
+    })
+
+    it('preserves trailing spaces while typing (trim only for empty check)', () => {
+      const s = useStartupValuationStore.getState()
+      s.setPedigreeFlag('domain_expert_10y', true)
+      s.setPedigreeEvidence('domain_expert_10y', '12y M&A ')
+      expect(useStartupValuationStore.getState().pedigree_evidence.domain_expert_10y).toBe(
+        '12y M&A ',
+      )
+    })
+
+    it('setPedigreeEvidence truncates values longer than PEDIGREE_EVIDENCE_MAX_LEN', () => {
+      useStartupValuationStore.getState().setPedigreeFlag('prior_exit', true)
+      const suffix = 'END'
+      const long = `${'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN)}${suffix}`
+      useStartupValuationStore.getState().setPedigreeEvidence('prior_exit', long)
+      expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toHaveLength(
+        PEDIGREE_EVIDENCE_MAX_LEN,
+      )
+      expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toBe(
+        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN),
+      )
+    })
+
+    it('applyFromSnapshot normalizes nested pedigree_evidence like the API', () => {
+      useStartupValuationStore.getState().applyFromSnapshot({
+        founder_pedigree: {
+          prior_exit: true,
+          top_unicorn_alumnus: false,
+          domain_expert_10y: false,
+          second_time_founder: false,
+          has_technical_cofounder: false,
+          solo_founder: false,
+          pedigree_evidence: {
+            prior_exit: `  ${'b'.repeat(PEDIGREE_EVIDENCE_MAX_LEN + 40)}  `,
+            junk_key: 'dropped',
+          },
+        },
+      })
+      const ev = useStartupValuationStore.getState().pedigree_evidence
+      expect(Object.keys(ev)).toEqual(['prior_exit'])
+      expect(ev.prior_exit).toBe('b'.repeat(PEDIGREE_EVIDENCE_MAX_LEN))
     })
 
     it('clears the evidence string when the founder un-ticks the claim', () => {

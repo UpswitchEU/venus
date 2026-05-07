@@ -21,13 +21,17 @@ import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
-import { createContextLogger } from '../utils/logger'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import { createContextLogger } from '../utils/logger'
+import {
+  mergeOptionalSessionPrefillFields,
+  mergeSessionSurfaceForOptionalPrefill,
+  stableOptionalPrefillSourceSignature,
+} from '../utils/mergeOptionalSessionPrefillFields'
 import {
   buildIdentityFingerprint,
   readNewValuationPrefill,
@@ -38,6 +42,87 @@ const logger = createContextLogger('BootstrapSync')
 
 type PrefillDataParam = SessionBootstrapState['prefillData']
 
+function isEmptyLike(value: unknown): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  if (typeof value === 'object') return Object.keys(value as object).length === 0
+  return false
+}
+
+function buildGapFillPatch(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  keys: string[]
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {}
+  for (const key of keys) {
+    const next = incoming[key]
+    if (next === undefined || next === null) continue
+    if (!isEmptyLike(existing[key])) continue
+    patch[key] = next
+  }
+  return patch
+}
+
+function mergeBusinessContextGapFill(
+  existing: unknown,
+  incoming: unknown
+): Record<string, unknown> | null {
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return null
+  const inBc = incoming as Record<string, unknown>
+  const exBc =
+    existing && typeof existing === 'object' && !Array.isArray(existing)
+      ? (existing as Record<string, unknown>)
+      : {}
+  const merged = { ...exBc }
+  let changed = false
+  for (const [key, incomingValue] of Object.entries(inBc)) {
+    if (incomingValue === undefined || incomingValue === null) continue
+    if (isEmptyLike(merged[key])) {
+      merged[key] = incomingValue
+      changed = true
+    }
+  }
+  return changed ? merged : null
+}
+
+const CORE_PREFILL_GAP_KEYS = [
+  'company_name',
+  'country_code',
+  'founding_year',
+  'kbo_number',
+  'vat_number',
+  'legal_form',
+  'city',
+  'postal_code',
+  'nace_code',
+  'nace_description',
+  'canonical_nace_code',
+  'taxonomy',
+  'activity_code',
+  'activity_label',
+  'business_type_id',
+  'industry',
+  'subIndustry',
+  'number_of_employees',
+  'employee_count',
+  'business_description',
+] as const
+
+const PREFILL_METADATA_GAP_KEYS = [
+  'year_data',
+  'import_quality',
+  '_import_quality',
+  '_imported_ledger_analysis',
+  '_imported_saas_metrics',
+  '_imported_saas_provenance',
+  '_financial_data_source',
+  'official_financials',
+  'official_variance_analysis',
+  'official_verification_badge',
+] as const
+
 function normalizeCountryCode(countryCode?: string | null): string | undefined {
   if (!countryCode) return undefined
   const normalized = countryCode.trim().toUpperCase()
@@ -45,9 +130,7 @@ function normalizeCountryCode(countryCode?: string | null): string | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
-function resolveCountryCode(
-  ...candidates: Array<string | null | undefined>
-): string | undefined {
+function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
   for (const candidate of candidates) {
     const normalized = normalizeCountryCode(candidate)
     if (normalized) return normalized
@@ -62,31 +145,102 @@ function resolveCountryCode(
  */
 function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
-  if (prefillData.companyInfo?.companyName)
-    fields.company_name = prefillData.companyInfo.companyName
+  if (prefillData.companyInfo?.companyName) fields.company_name = prefillData.companyInfo.companyName
+  else if (prefillData.kboData?.companyName) fields.company_name = prefillData.kboData.companyName
   const authoritativeCountryCode = resolveCountryCode(
     prefillData.companyInfo?.countryCode,
     prefillData.kboData?.countryCode
   )
   if (authoritativeCountryCode) fields.country_code = authoritativeCountryCode
-  if (prefillData.companyInfo?.foundingYear)
-    fields.founding_year = prefillData.companyInfo.foundingYear
+  if (prefillData.companyInfo?.foundingYear) fields.founding_year = prefillData.companyInfo.foundingYear
   if (prefillData.companyInfo?.kboNumber) fields.kbo_number = prefillData.companyInfo.kboNumber
+  else if (prefillData.kboData?.kboNumber) fields.kbo_number = prefillData.kboData.kboNumber
   if (prefillData.companyInfo?.vatNumber) fields.vat_number = prefillData.companyInfo.vatNumber
+  else if (prefillData.kboData?.vatNumber) fields.vat_number = prefillData.kboData.vatNumber
   if (prefillData.companyInfo?.legalForm) fields.legal_form = prefillData.companyInfo.legalForm
+  else if (prefillData.kboData?.legalForm) fields.legal_form = prefillData.kboData.legalForm
   if (prefillData.companyInfo?.city) fields.city = prefillData.companyInfo.city
+  else if (prefillData.kboData?.city) fields.city = prefillData.kboData.city
   if (prefillData.companyInfo?.postalCode) fields.postal_code = prefillData.companyInfo.postalCode
+  else if (prefillData.kboData?.postalCode) fields.postal_code = prefillData.kboData.postalCode
   if (prefillData.companyInfo?.naceCode) fields.nace_code = prefillData.companyInfo.naceCode
+  else if (prefillData.kboData?.naceCode) fields.nace_code = prefillData.kboData.naceCode
   if (prefillData.companyInfo?.naceDescription)
     fields.nace_description = prefillData.companyInfo.naceDescription
+  else if (prefillData.kboData?.naceDescription)
+    fields.nace_description = prefillData.kboData.naceDescription
+  if (prefillData.companyInfo?.canonicalNaceCode)
+    fields.canonical_nace_code = prefillData.companyInfo.canonicalNaceCode
+  if (prefillData.companyInfo?.taxonomy) fields.taxonomy = prefillData.companyInfo.taxonomy
   if (prefillData.companyInfo?.activityCode) fields.activity_code = prefillData.companyInfo.activityCode
-  if (prefillData.companyInfo?.activityLabel) fields.activity_label = prefillData.companyInfo.activityLabel
+  else if (prefillData.kboData?.activityCode) fields.activity_code = prefillData.kboData.activityCode
+  if (prefillData.companyInfo?.activityLabel)
+    fields.activity_label = prefillData.companyInfo.activityLabel
+  else if (prefillData.kboData?.activityLabel) fields.activity_label = prefillData.kboData.activityLabel
   if (prefillData.businessType?.id) fields.business_type_id = prefillData.businessType.id
+  else if (prefillData.companyInfo?.businessTypeId)
+    fields.business_type_id = prefillData.companyInfo.businessTypeId
   if (prefillData.businessType?.industry) fields.industry = prefillData.businessType.industry
+  if (prefillData.businessType?.category) fields.subIndustry = prefillData.businessType.category
   if (prefillData.financials?.revenue !== undefined) fields.revenue = prefillData.financials.revenue
   if (prefillData.financials?.ebitda !== undefined) fields.ebitda = prefillData.financials.ebitda
+  if (prefillData.financials?.netIncome !== undefined)
+    fields.net_income = prefillData.financials.netIncome
   if (prefillData.financials?.employeeCount !== undefined)
     fields.number_of_employees = prefillData.financials.employeeCount
+  if (prefillData.financials?.employeeCount !== undefined)
+    fields.employee_count = prefillData.financials.employeeCount
+  if (
+    prefillData.financials?.yearData &&
+    typeof prefillData.financials.yearData === 'object' &&
+    Object.keys(prefillData.financials.yearData).length > 0
+  ) {
+    fields.year_data = prefillData.financials.yearData
+  }
+  if (prefillData.financials?.importQuality) {
+    fields.import_quality = prefillData.financials.importQuality
+    fields._import_quality = prefillData.financials.importQuality
+  }
+  if (prefillData.financials?.importedLedgerAnalysis) {
+    fields._imported_ledger_analysis = prefillData.financials.importedLedgerAnalysis
+    fields.business_context = {
+      ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
+      _imported_ledger_analysis: prefillData.financials.importedLedgerAnalysis,
+    }
+  }
+  if (prefillData.financials?.saasMetrics) fields._imported_saas_metrics = prefillData.financials.saasMetrics
+  if (prefillData.financials?.saasMetricsProvenance) {
+    fields._imported_saas_provenance = prefillData.financials.saasMetricsProvenance
+    fields.business_context = {
+      ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
+      _imported_saas_provenance: prefillData.financials.saasMetricsProvenance,
+    }
+  }
+  if (prefillData.financials?.dataSource) fields._financial_data_source = prefillData.financials.dataSource
+  const companyAddress = prefillData.companyInfo?.address || prefillData.kboData?.address
+  const companyStatus =
+    prefillData.kboData?.status ||
+    (prefillData.companyInfo?.isActive === true
+      ? 'Active'
+      : prefillData.companyInfo?.isActive === false
+        ? 'Inactive'
+        : undefined)
+  if (companyAddress || companyStatus) {
+    fields.business_context = {
+      ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
+      ...(companyAddress ? { company_address: companyAddress } : {}),
+      ...(companyStatus ? { company_status: companyStatus } : {}),
+    }
+  }
+  if (prefillData.officialFinancials) {
+    fields.official_financials = prefillData.officialFinancials
+    if (prefillData.officialFinancials.varianceAnalysis) {
+      fields.official_variance_analysis = prefillData.officialFinancials.varianceAnalysis
+    }
+    if (prefillData.officialFinancials.verificationBadge) {
+      fields.official_verification_badge = prefillData.officialFinancials.verificationBadge
+    }
+  }
   // NOTE: historical_years_data is intentionally NOT built here.
   // It is constructed by useBootstrapPrefill (for initial paint) and
   // SessionNormalizer (for authoritative restoration). Building it in
@@ -102,15 +256,30 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
   const fields = buildPrefillSessionFields(prefillData)
   const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber
   if (kboNum) {
+    const existingBc =
+      fields.business_context &&
+      typeof fields.business_context === 'object' &&
+      !Array.isArray(fields.business_context)
+        ? (fields.business_context as Record<string, unknown>)
+        : {}
+    const companyAddress = prefillData.companyInfo?.address || prefillData.kboData?.address
+    const companyStatus =
+      prefillData.kboData?.status ||
+      (prefillData.companyInfo?.isActive === true
+        ? 'Active'
+        : prefillData.companyInfo?.isActive === false
+          ? 'Inactive'
+          : undefined)
     fields.business_context = {
+      ...existingBc,
       kbo_registration: kboNum,
       kbo_registration_number: kboNum,
       legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
       company_id: kboNum,
-      company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
-        .filter(Boolean)
-        .join(' '),
-      company_status: 'Active',
+      company_address:
+        companyAddress ||
+        [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city].filter(Boolean).join(' '),
+      company_status: companyStatus || 'Active',
       kbo_verified: true,
     }
   }
@@ -120,7 +289,7 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
 /** Country-only prefill can score below 0.05 confidence — still hydrate form store for new reports */
 function applyCountryPrefillIfNewReport(
   report: SessionBootstrapState['report'],
-  prefillData: PrefillDataParam,
+  prefillData: PrefillDataParam
 ): void {
   if (report.mode !== 'new') return
   const cc = resolveCountryCode(prefillData.companyInfo?.countryCode)
@@ -132,6 +301,78 @@ function applyCountryPrefillIfNewReport(
     reportId: report.reportId.substring(0, 30),
     country_code: cc,
   })
+}
+
+function hasMeaningfulPrefill(prefillData: PrefillDataParam): boolean {
+  if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
+  if (prefillData.confidence >= 0.05) return true
+  if (prefillData.companyInfo?.companyName?.trim()) return true
+  if (prefillData.kboData?.companyName?.trim()) return true
+  if (prefillData.companyInfo?.canonicalNaceCode?.trim()) return true
+  if (prefillData.companyInfo?.taxonomy?.trim()) return true
+  if (prefillData.businessType?.id) return true
+  if (prefillData.businessType?.category) return true
+  if (
+    prefillData.financials?.revenue != null &&
+    Number.isFinite(Number(prefillData.financials.revenue))
+  ) {
+    return true
+  }
+  if (
+    prefillData.financials?.ebitda != null &&
+    Number.isFinite(Number(prefillData.financials.ebitda))
+  ) {
+    return true
+  }
+  if (prefillData.financials?.yearData && Object.keys(prefillData.financials.yearData).length > 0) {
+    return true
+  }
+  if (
+    Array.isArray(prefillData.officialFinancials?.historicalYears) &&
+    prefillData.officialFinancials.historicalYears.length > 0
+  ) {
+    return true
+  }
+  return false
+}
+
+function stableBootstrapSyncSignature(state: SessionBootstrapState): string {
+  const p = state.prefillData
+  const prefillSurfaceSig = stableOptionalPrefillSourceSignature(
+    mergeSessionSurfaceForOptionalPrefill(buildPrefillSessionFields(p))
+  )
+  const ci = p.companyInfo ?? {}
+  const sources = [...(p.sources ?? [])].sort().join(',')
+  const pkg = state.valuationPackage
+  const pkgFormSig = pkg?.formData
+    ? stableOptionalPrefillSourceSignature(mergeSessionSurfaceForOptionalPrefill(pkg.formData))
+    : 'none'
+  const pkgSig = pkg
+    ? [
+        String(pkg.versions?.current ?? ''),
+        String(pkg.versions?.total ?? ''),
+        String(pkg.htmlReport?.length ?? 0),
+        String(Object.keys(pkg.formData ?? {}).sort().join(',')),
+        pkg.pricingRange
+          ? `${pkg.pricingRange.min}:${pkg.pricingRange.mid}:${pkg.pricingRange.max}:${pkg.pricingRange.currency}`
+          : '',
+        pkgFormSig,
+      ].join(':')
+    : 'none'
+  return [
+    state.report.reportId,
+    state.report.mode,
+    String(state.report.hasExistingData),
+    p.confidence.toFixed(4),
+    (p.fieldsPopulated ?? []).slice().sort().join(','),
+    prefillSurfaceSig,
+    String(ci.companyName ?? ''),
+    String(ci.kboNumber ?? ''),
+    String(ci.canonicalNaceCode ?? ''),
+    String(ci.taxonomy ?? ''),
+    sources,
+    pkgSig,
+  ].join('|')
 }
 
 interface SyncStatus {
@@ -160,6 +401,7 @@ export function useBootstrapSync(): {
   const bootstrap = useBootstrapSafe()
   const [isSynced, setIsSynced] = useState(false)
   const hasSyncedRef = useRef(false)
+  const lastSyncSignatureRef = useRef<string | undefined>(undefined)
   /** Enables re-sync when navigating to another report without remounting ManualLayout */
   const lastSyncedReportIdRef = useRef<string | undefined>(undefined)
 
@@ -171,15 +413,12 @@ export function useBootstrapSync(): {
     const reportId = bootstrap.state?.report?.reportId?.trim()
     if (reportId && lastSyncedReportIdRef.current && lastSyncedReportIdRef.current !== reportId) {
       hasSyncedRef.current = false
+      lastSyncSignatureRef.current = undefined
       setIsSynced(false)
       logger.info('Bootstrap reportId changed — resetting sync gate for new valuation', {
         previousReportId: lastSyncedReportIdRef.current.substring(0, 30),
         nextReportId: reportId.substring(0, 30),
       })
-    }
-
-    if (hasSyncedRef.current) {
-      return
     }
 
     // Skip if still bootstrapping
@@ -196,6 +435,10 @@ export function useBootstrapSync(): {
     }
 
     const state = bootstrap.state
+    const syncSignature = stableBootstrapSyncSignature(state)
+    if (hasSyncedRef.current && syncSignature === lastSyncSignatureRef.current) {
+      return
+    }
 
     // Perform sync
     syncIdentity(state)
@@ -210,6 +453,7 @@ export function useBootstrapSync(): {
     }
 
     hasSyncedRef.current = true
+    lastSyncSignatureRef.current = syncSignature
     if (reportId) {
       lastSyncedReportIdRef.current = reportId
     }
@@ -276,56 +520,115 @@ function syncSession(state: SessionBootstrapState): void {
       logger.debug('Session already in store, checking for prefill updates', {
         reportId: report.reportId.substring(0, 30),
       })
+      const currentSession = sessionStore.session!
+      const currentSessionData = currentSession.sessionData || {}
+      const hasPrefill = hasMeaningfulPrefill(prefillData)
+      const prefillSessionFields = hasPrefill ? buildPrefillSessionFields(prefillData) : {}
+      const prefillFormFields = hasPrefill ? buildPrefillFormFields(prefillData) : {}
+      const pkg = state.valuationPackage
+      const packageRenderableHtml = getFirstRenderableReportHtml(pkg?.htmlReport)
+      const packageSurface =
+        pkg?.formData && typeof pkg.formData === 'object'
+          ? mergeSessionSurfaceForOptionalPrefill(pkg.formData)
+          : {}
+      const hasPackage = Boolean(
+        pkg &&
+          (packageRenderableHtml ||
+            pkg.pricingRange ||
+            (pkg.formData && Object.keys(pkg.formData).length > 0) ||
+            pkg.pdf?.url)
+      )
+      const incomingSession = {
+        ...(hasPackage ? packageSurface : {}),
+        ...(hasPrefill ? prefillSessionFields : {}),
+      } as Record<string, unknown>
+      if (hasPackage && pkg?.pricingRange) incomingSession._pricingRange = pkg.pricingRange
+      if (hasPackage && packageRenderableHtml) incomingSession._htmlReport = packageRenderableHtml
+      if (hasPackage && pkg?.pdf?.url) incomingSession.pdfUrl = pkg.pdf.url
+      const incomingForm = {
+        ...(hasPackage ? packageSurface : {}),
+        ...(hasPrefill ? prefillFormFields : {}),
+      } as Record<string, unknown>
 
-      // If bootstrap has prefill data, merge it into session and hydrate form store
-      if (prefillData.confidence >= 0.05 && (prefillData.companyInfo || prefillData.kboData)) {
-        const currentSession = sessionStore.session!
-        const currentSessionData = currentSession.sessionData || {}
+      if (Object.keys(incomingSession).length > 0) {
         const formStore = useManualFormStore.getState()
-        const formHasData = !!(
-          formStore.formData.company_name?.trim() || formStore.formData.kbo_number
+        const sessionGapPatch = buildGapFillPatch(
+          currentSessionData as Record<string, unknown>,
+          incomingSession,
+          [...CORE_PREFILL_GAP_KEYS, ...PREFILL_METADATA_GAP_KEYS] as string[]
         )
+        Object.assign(
+          sessionGapPatch,
+          mergeOptionalSessionPrefillFields(incomingSession, currentSessionData as Record<string, unknown>)
+        )
+        const mergedSessionBc = mergeBusinessContextGapFill(
+          (currentSessionData as Record<string, unknown>).business_context,
+          incomingSession.business_context
+        )
+        if (mergedSessionBc) {
+          sessionGapPatch.business_context = mergedSessionBc
+        }
 
-        // Update session if it doesn't already have this data
-        if (!currentSessionData.company_name && prefillData.companyInfo?.companyName) {
-          const updatedSessionData = {
-            ...currentSessionData,
-            ...buildPrefillSessionFields(prefillData),
-            _bootstrapPrefill: true,
-          }
+        const topLevelPatch: Partial<ValuationSession> = {}
+        if (hasPackage && packageRenderableHtml && !currentSession.htmlReport) {
+          topLevelPatch.htmlReport = packageRenderableHtml
+        }
+        if (hasPackage && pkg?.pricingRange && !currentSession.valuationResult) {
+          topLevelPatch.valuationResult = {
+            equity_value_low: pkg.pricingRange.min,
+            equity_value_mid: pkg.pricingRange.mid,
+            equity_value_high: pkg.pricingRange.max,
+            currency: pkg.pricingRange.currency,
+          } as any
+        }
 
+        if (Object.keys(sessionGapPatch).length > 0 || Object.keys(topLevelPatch).length > 0) {
+          const currentSessionDataRecord = currentSessionData as Record<string, unknown>
           sessionStore.hydrateSession({
-            ...currentSession,
-            sessionData: updatedSessionData,
+            ...topLevelPatch,
+            sessionData: {
+              ...currentSessionData,
+              ...sessionGapPatch,
+              _bootstrapPrefill: hasPrefill || !!currentSessionDataRecord._bootstrapPrefill,
+            } as any,
           })
 
-          logger.info('Updated session with bootstrap prefill data', {
+          logger.info('Updated existing session with bootstrap/package gap-fill data', {
             reportId: report.reportId.substring(0, 30),
-            fieldsAdded: prefillData.fieldsPopulated.length,
+            fieldsAdded: Object.keys(sessionGapPatch).length,
+            topLevelAdded: Object.keys(topLevelPatch).length,
+            hasPrefill,
+            hasPackage,
           })
         }
 
-        // Hydrate form store when form is empty but we have prefill (e.g. re-render before first paint)
-        if (!formHasData) {
-          const formDataUpdate = buildPrefillFormFields(prefillData)
-          const mergedForOptional = {
-            ...currentSessionData,
-            ...buildPrefillSessionFields(prefillData),
-          }
-          Object.assign(
-            formDataUpdate,
-            mergeOptionalSessionPrefillFields(mergedForOptional as Record<string, unknown>, {
-              ...formStore.formData,
-              ...formDataUpdate,
-            })
-          )
-          if (Object.keys(formDataUpdate).length > 0) {
-            useManualFormStore.getState().updateFormData(formDataUpdate as any)
-            logger.info('Hydrated form store (session already in store, form was empty)', {
-              reportId: report.reportId.substring(0, 30),
-              formFieldsCount: Object.keys(formDataUpdate).length,
-            })
-          }
+        const formDataUpdate = buildGapFillPatch(
+          formStore.formData as unknown as Record<string, unknown>,
+          incomingForm,
+          [...CORE_PREFILL_GAP_KEYS, ...PREFILL_METADATA_GAP_KEYS] as string[]
+        )
+        Object.assign(
+          formDataUpdate,
+          mergeOptionalSessionPrefillFields(incomingSession, {
+            ...formStore.formData,
+            ...formDataUpdate,
+          })
+        )
+        const mergedFormBc = mergeBusinessContextGapFill(
+          (formStore.formData as unknown as Record<string, unknown>).business_context,
+          incomingForm.business_context
+        )
+        if (mergedFormBc) {
+          formDataUpdate.business_context = mergedFormBc
+        }
+        if (Object.keys(formDataUpdate).length > 0) {
+          useManualFormStore.getState().updateFormData(formDataUpdate as any)
+          logger.info('Hydrated form store with bootstrap/package gap-fill', {
+            reportId: report.reportId.substring(0, 30),
+            formFieldsCount: Object.keys(formDataUpdate).length,
+            hasPrefill,
+            hasPackage,
+          })
         }
       }
     } else if (report.mode === 'new') {
@@ -335,10 +638,11 @@ function syncSession(state: SessionBootstrapState): void {
       // We mark it with _bootstrapCreated: true to indicate it hasn't been saved yet
       if (!storeHasSession) {
         const now = new Date()
+        const meaningfulPrefill = hasMeaningfulPrefill(prefillData)
 
         const sessionData: Record<string, any> = {
           _bootstrapCreated: true,
-          _bootstrapPrefill: prefillData.confidence > 0,
+          _bootstrapPrefill: meaningfulPrefill,
           ...buildPrefillSessionFields(prefillData),
         }
 
@@ -354,7 +658,7 @@ function syncSession(state: SessionBootstrapState): void {
 
         sessionStore.hydrateSession(minimalSession)
 
-        if (prefillData.confidence >= 0.05) {
+        if (meaningfulPrefill) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
           Object.assign(
             formDataUpdate,
@@ -442,21 +746,27 @@ function syncSession(state: SessionBootstrapState): void {
       // MERCURY FIX: Merge prefill AND valuationPackage into session store IMMEDIATELY before loadSession
       // loadSession is async - without this, form stays blank until it completes.
       // valuationPackage enables instant report display on refresh (htmlReport, versions, pdf).
-      const hasPrefill = prefillData.confidence >= 0.05
+      const hasPrefill = hasMeaningfulPrefill(prefillData)
       const pkg = state.valuationPackage
       const packageRenderableHtml = getFirstRenderableReportHtml(pkg?.htmlReport)
-      const hasPackage = pkg && (packageRenderableHtml || pkg.pricingRange)
+      const hasPackage = Boolean(
+        pkg &&
+          (packageRenderableHtml ||
+            pkg.pricingRange ||
+            (pkg.formData && Object.keys(pkg.formData).length > 0) ||
+            pkg.pdf?.url)
+      )
       const now = new Date()
       const sessionData: Record<string, any> = {
         _bootstrapPrefill: hasPrefill,
       }
-      if (hasPackage) {
-        sessionData._htmlReport = packageRenderableHtml
-        sessionData._pricingRange = pkg.pricingRange
+      if (hasPackage && pkg) {
+        if (packageRenderableHtml) sessionData._htmlReport = packageRenderableHtml
+        if (pkg.pricingRange) sessionData._pricingRange = pkg.pricingRange
         if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url
         // Merge formData for restore() when loadSession is skipped (hasAssetsInSession path)
         if (pkg.formData && Object.keys(pkg.formData).length > 0) {
-          Object.assign(sessionData, pkg.formData)
+          Object.assign(sessionData, mergeSessionSurfaceForOptionalPrefill(pkg.formData))
         }
       }
       if (hasPrefill) {
@@ -476,7 +786,7 @@ function syncSession(state: SessionBootstrapState): void {
           sessionData: sessionData as any,
         }
         // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.)
-        if (hasPackage && pkg.htmlReport) {
+        if (hasPackage && pkg?.htmlReport) {
           ;(minimalSession as any).htmlReport = pkg.htmlReport
           if (pkg.pdf?.url) (minimalSession as any).pdfUrl = pkg.pdf.url
           if (pkg.pricingRange) {
@@ -559,10 +869,11 @@ function syncClientContext(state: SessionBootstrapState): void {
     const clientContextStore = useClientContext.getState()
     const currentClient = clientContextStore.client
 
-    // Check if context is already set correctly
+    // Check if context is already set correctly (relationship matters when client user is null)
     if (
       (currentClient?.id ?? null) === (identity.clientContext.clientUserId ?? null) &&
-      clientContextStore.accountant?.id === identity.clientContext.accountantUserId
+      clientContextStore.accountant?.id === identity.clientContext.accountantUserId &&
+      clientContextStore.relationshipId === identity.clientContext.relationshipId
     ) {
       logger.debug('Client context already synced')
       syncStatusRef.current.clientContext = true

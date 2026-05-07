@@ -30,6 +30,7 @@ import type {
   WaterfallStep,
 } from '../../types/valuation'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
+import { getValuationMethodResultForKey, isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import {
@@ -543,7 +544,7 @@ function MethodBreakdownSection({
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            {methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple' ? (
+            {isRevenueMethodologyKey(methodKey) ? (
               revenueValue != null && (
                 <BreakdownMetricCard
                   label={tBreakdown('revenue')}
@@ -674,7 +675,7 @@ function MethodBreakdownSection({
                 ? tBreakdown('formulaSde')
                 : methodKey === 'arr_multiple'
                   ? tBreakdown('formulaArr')
-                : methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple'
+                : isRevenueMethodologyKey(methodKey)
                   ? tBreakdown('formulaRevenue')
                 : tBreakdown('formulaMultiple')}
         </p>
@@ -769,6 +770,8 @@ export interface ValuationEditModalProps {
   methodDataLoadError?: 'transient' | 'report_pending' | null
   /** Re-fetch report method data (parent bumps hydration nonce); shown for transient errors */
   onRetryMethodDataLoad?: () => void
+  /** Accountant recovery path: return to Mercury and open "Controleer & vul aan". */
+  onContinueImportReview?: () => void
   selectedMethod: string
   onSelectMethod: (method: string, reason?: string, note?: string) => void
   fiscalAnchor?: number | null
@@ -801,6 +804,7 @@ export function ValuationEditModal({
   isHydratingMethods = false,
   methodDataLoadError = null,
   onRetryMethodDataLoad,
+  onContinueImportReview,
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
@@ -894,13 +898,17 @@ export function ValuationEditModal({
   const entries = Object.entries(valuationResults)
   const panoramaEntries = Object.entries(panoramaValuationResults)
   const activeMethodKey = pendingMethod ?? selectedMethod
-  const activeMethod = valuationResults[activeMethodKey] ?? null
+  const activeMethod = getValuationMethodResultForKey(valuationResults, activeMethodKey) ?? null
+  const pendingOverrideRow =
+    pendingMethod && pendingMethod !== 'upswitch_adaptive'
+      ? getValuationMethodResultForKey(valuationResults, pendingMethod)
+      : null
 
   // Method selection helpers
   const getSelectedMethodLabel = (method: string) =>
     method === 'upswitch_adaptive'
       ? adaptiveLabel
-      : valuationResults[method]?.label || adaptiveLabel
+      : getValuationMethodResultForKey(valuationResults, method)?.label || adaptiveLabel
 
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
@@ -1075,8 +1083,33 @@ export function ValuationEditModal({
             <p className="text-[11px] leading-snug text-foreground/50">
               {blurb}
             </p>
-            {(methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
-            onRetryMethodDataLoad ? (
+            {methodDataLoadError === 'report_pending' && onContinueImportReview ? (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <AuroraButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="text-xs"
+                  disabled={isHydratingMethods}
+                  onClick={onContinueImportReview}
+                >
+                  {tModal('continueImportReview')}
+                </AuroraButton>
+                {onRetryMethodDataLoad ? (
+                  <AuroraButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="text-xs"
+                    disabled={isHydratingMethods}
+                    onClick={onRetryMethodDataLoad}
+                  >
+                    {tModal('retryMethodDataLoad')}
+                  </AuroraButton>
+                ) : null}
+              </div>
+            ) : (methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
+              onRetryMethodDataLoad ? (
               <AuroraButton
                 type="button"
                 variant="primary"
@@ -1195,10 +1228,10 @@ export function ValuationEditModal({
 
           {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
             <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-3 space-y-2">
-              {valuationResults[pendingMethod]?.label && (
+              {pendingOverrideRow?.label && (
                 <p className="text-[10px] font-medium text-foreground/55">
                   {t('overrideConfirmingFor', {
-                    method: valuationResults[pendingMethod]!.label,
+                    method: pendingOverrideRow.label,
                   })}
                 </p>
               )}
@@ -1253,7 +1286,9 @@ export function ValuationEditModal({
             </div>
           )}
 
-          {showFiscalAnchorRow && fiscalAnchor != null && !valuationResults['fiscal_4x'] && (
+          {showFiscalAnchorRow &&
+            fiscalAnchor != null &&
+            !getValuationMethodResultForKey(valuationResults, 'fiscal_4x') && (
             <div className="space-y-1">
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
                 <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">

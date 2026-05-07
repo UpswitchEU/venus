@@ -33,7 +33,31 @@ import { CompanyCardStep } from './CompanyCardStep'
 // `next-intl` and the design-system Select pull in heavy modules that
 // aren't relevant here; the store-level assertions are framework-free.
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: (namespace?: string) => (key: string) => {
+    if (namespace === 'startupStudio.companyCard') {
+      const map: Record<string, string> = {
+        operatingCountry: 'Operating country',
+        searchCompanyNl: 'Company name or KVK number',
+        searchCompanyBe: 'Company name or KBO number',
+        registryNl: 'Search the KvK trade registry.',
+        registryBe: 'Search the KBO registry.',
+        registryPdf: 'Shows up on your investor-ready PDF report.',
+        companyNameFallback: 'Or: type your company name',
+        companyNamePlaceholder: 'e.g. Henchman',
+        businessType: 'Business type (sector)',
+        legalForm: 'Legal form',
+        fundingStage: 'Funding stage',
+        seriesANudge: 'Series A nudge',
+        seedRevenueNudge: 'Seed nudge {mrr}',
+        roundRaised: 'Round size to raise (€)',
+        pitchLabel: 'One-line pitch (optional)',
+        pitchPlaceholder: 'Pitch placeholder',
+      }
+      if (key === 'seedRevenueNudge') return 'Seed nudge'
+      return map[key] ?? key
+    }
+    return key
+  },
   useLocale: () => 'en',
 }))
 

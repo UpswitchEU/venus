@@ -6,6 +6,10 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 import type { ValuationMethodResult } from '../../../types/valuation'
 import { compareOmniMethodKeys } from '@/constants/omniCalcMethods'
+import {
+  getValuationMethodResultForKey,
+  hydratedRevenueMethodKeysAreSameRef,
+} from '@/utils/extractValuationResultsMap'
 import { getOmniMethodEquityRange } from '../../../utils/omniCalcRange'
 
 interface OmniMethodPanoramaProps {
@@ -61,16 +65,20 @@ export function OmniMethodPanorama({
 
   const sortedMethodEntries = useMemo(() => {
     const entries = Object.entries(valuationResults)
-    const filtered = hideFiscalForNl
-      ? entries.filter(([key]) => key !== 'fiscal_4x')
-      : entries
+    const hideDuplicateRevenueAlias = hydratedRevenueMethodKeysAreSameRef(valuationResults)
+
+    const filtered = entries.filter(([key]) => {
+      if (hideFiscalForNl && key === 'fiscal_4x') return false
+      // Hydration aliases both keys to the same row; show a single panorama row (prefer omzet label slot).
+      if (hideDuplicateRevenueAlias && key === 'revenue_multiple') return false
+      return true
+    })
     return filtered.sort(([a], [b]) => compareOmniMethodKeys(a, b))
   }, [valuationResults, hideFiscalForNl])
 
+  const adaptive = getValuationMethodResultForKey(valuationResults, 'upswitch_adaptive')
   const adaptiveValue =
-    valuationResults['upswitch_adaptive']?.value != null
-      ? Number(valuationResults['upswitch_adaptive'].value)
-      : null
+    adaptive?.value != null ? Number(adaptive.value) : null
 
   const maxComparisonValue = useMemo(() => {
     return sortedMethodEntries.reduce((max, [, method]) => {

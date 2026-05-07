@@ -38,7 +38,7 @@ import { GET } from './route'
 const mockedFetch = fetchWithTimeout as unknown as ReturnType<typeof vi.fn>
 
 function makeRequest(query: string): Request {
-  return new Request(`https://venus.test/api/startup-benchmarks?${query}`)
+  return new Request(`https://valuation.upswitch.app/api/startup-benchmarks?${query}`)
 }
 
 describe('GET /api/startup-benchmarks', () => {

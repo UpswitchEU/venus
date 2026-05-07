@@ -6,6 +6,7 @@
  * @module lib/bootstrap/utils
  */
 
+import { looksLikeExistingReportId } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
 import { parseReportModeSearchParam } from '../../utils/reportMode'
 import type { BootstrapContext, BootstrapHints, FlowType } from './types'
@@ -19,7 +20,7 @@ export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
   // CRITICAL FIX: If we have a reportId from the URL, it's NEVER a new report
   // The isRecentReportId check was causing issues where valid URL report IDs
   // were treated as "new" and regenerated
-  const hasValidReportId = !!reportId && reportId.startsWith('val_')
+  const hasValidReportId = looksLikeExistingReportId(reportId)
 
   // Only consider it a new report if there's NO report ID at all
   const isNewReport = !hasValidReportId
@@ -95,7 +96,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
     const reportsIndex = pathParts.indexOf('reports')
     if (reportsIndex !== -1 && pathParts[reportsIndex + 1]) {
       const potentialId = pathParts[reportsIndex + 1]
-      if (potentialId !== 'new' && potentialId.startsWith('val_')) {
+      if (potentialId !== 'new' && looksLikeExistingReportId(potentialId)) {
         reportId = potentialId
       }
     }
@@ -103,6 +104,8 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
     // Extract locale from pathname
     const localeMatch = urlObj.pathname.match(/^\/(en|nl|fr|de)\//)
     const locale = localeMatch ? localeMatch[1] : 'en'
+
+    const versionParam = params.get('version')
 
     return {
       url,
@@ -113,7 +116,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       flow: (params.get('flow') as FlowType) || undefined,
       // Invalid values (e.g. Mercury's mode=accountant) are omitted — see parseReportModeSearchParam
       mode: parseReportModeSearchParam(params.get('mode')),
-      version: params.get('version') ? parseInt(params.get('version')!, 10) : undefined,
+      version: versionParam ? parseInt(versionParam, 10) : undefined,
       locale,
       embedded: params.get('embedded') === 'true',
       returnUrl: params.get('return_url') || undefined,

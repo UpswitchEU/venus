@@ -19,8 +19,6 @@ import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
-import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
-import { useSessionOptionalMethodPrefill } from '../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
@@ -497,18 +495,32 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const bootstrap = useBootstrapSafe()
   const isViewingExistingReport =
     bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
+  const bootstrapHasMeaningfulPrefill = !!(
+    bootstrap &&
+    (bootstrap.hasPrefilledData ||
+      (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
+      prefillConfidence >= 0.05 ||
+      bootstrap.prefillData.companyInfo?.companyName?.trim() ||
+      bootstrap.prefillData.businessType?.id ||
+      (bootstrap.prefillData.financials &&
+        ((bootstrap.prefillData.financials.revenue != null &&
+          Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
+          (bootstrap.prefillData.financials.ebitda != null &&
+            Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
+          (bootstrap.prefillData.financials.yearData &&
+            Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
+  )
 
-  // ✅ WORLD-CLASS ARCHITECTURE: Bootstrap is the SINGLE SOURCE OF TRUTH
-  // useSessionDataPrefill is deprecated - it will skip when bootstrap is available
-  useSessionDataPrefill()
-  useSessionOptionalMethodPrefill()
+  // Mercury/session gap-fill runs only on the manual calculator route (`ManualLayout`):
+  // `useSessionDataPrefill`, `useSessionOptionalMethodPrefill`, `restorationComplete` gating.
+  // This legacy shell keeps bootstrap + business-card fallback only.
 
   // PRE-FILL: Business card (ONLY if bootstrap hasn't already prefilled)
   // Bootstrap aggregates all prefill sources including user profile, so this is a fallback
   useEffect(() => {
     // ✅ WORLD-CLASS FIX: Skip if bootstrap has already prefilled
     // Bootstrap is the single source of truth for all prefill data
-    if (prefillConfidence > 0.1) {
+    if (bootstrapHasMeaningfulPrefill) {
       generalLogger.debug('Skipping business card prefill - bootstrap already prefilled', {
         prefillConfidence: prefillConfidence.toFixed(2),
       })
@@ -563,6 +575,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     businessTypes,
     updateFormData,
     isViewingExistingReport,
+    bootstrapHasMeaningfulPrefill,
     bootstrap?.report?.mode,
     bootstrap?.report?.hasExistingData,
   ])

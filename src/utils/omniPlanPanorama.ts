@@ -1,5 +1,9 @@
 import { PRIMARY_OMNI_METHOD_ORDER } from '@/constants/omniCalcMethods'
 import type { ValuationMethodResult } from '@/types/valuation'
+import {
+  isDuplicateHydratedRevenueAliasEntry,
+  revenueMethodologySiblingKey,
+} from './extractValuationResultsMap'
 
 export interface MergePlanGatedOmniOptions {
   hideFiscalForNl: boolean
@@ -26,6 +30,9 @@ export function mergePlanGatedOmniPanoramaResults(
   const out: Record<string, ValuationMethodResult> = {}
 
   for (const [key, method] of Object.entries(base)) {
+    if (isDuplicateHydratedRevenueAliasEntry(base, key, method)) {
+      continue
+    }
     if (isAllowed(key)) {
       out[key] = method
     } else {
@@ -49,6 +56,8 @@ export function mergePlanGatedOmniPanoramaResults(
   for (const key of primaryKeys) {
     if (isAllowed(key)) continue
     if (out[key]) continue
+    const sibling = revenueMethodologySiblingKey(key)
+    if (sibling && out[sibling]) continue
     out[key] = {
       value: null,
       label: options.getLabel(key),

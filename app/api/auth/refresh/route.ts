@@ -20,6 +20,8 @@ import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 30
 
 export async function POST(request: NextRequest) {
   try {

@@ -7,6 +7,8 @@
 
 import { getRequestConfig } from 'next-intl/server';
 
+import { loadLocaleMessages } from './src/lib/i18n/loadLocaleMessages';
+
 // Supported locales
 export const locales = ['en', 'nl'] as const;
 export type Locale = (typeof locales)[number];
@@ -27,16 +29,15 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
 	const validLocale: Locale = locale as Locale;
 
-	// Load messages with error handling
+	// Load messages with error handling (base JSON + startupStudio overlay)
 	let messages;
 	try {
-		messages = (await import(`./messages/${validLocale}.json`)).default;
+		messages = await loadLocaleMessages(validLocale);
 	} catch (error) {
 		console.error(`Failed to load messages for locale: ${validLocale}`, error);
-		// Fallback to English messages if locale-specific messages fail to load
 		if (validLocale !== 'en') {
 			try {
-				messages = (await import(`./messages/en.json`)).default;
+				messages = await loadLocaleMessages('en');
 			} catch (fallbackError) {
 				console.error('Failed to load fallback English messages', fallbackError);
 				messages = {};

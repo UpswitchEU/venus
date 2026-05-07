@@ -1,52 +1,55 @@
 /**
- * Gap-fill DCF / NAV / SaaS / multiples prep from raw `session.sessionData` into the
- * manual form store when slots are still empty.
+ * Runs after `restorationComplete` when the optional session fingerprint changes — same tick as
+ * {@link useSessionDataPrefill} merges identity fields; both funnel method-agnostic patches through
+ * {@link queueOptionalGapFillFlush} so optional merge runs at most once per macrotask.
  *
- * Runs when `useSessionDataPrefill` is skipped (bootstrap prefilled, or form already
- * has identity rows) but Mercury/Titan still attach method fields to the session blob.
- * Same merge rules as {@link mergeOptionalSessionPrefillFields}.
+ * Uses {@link mergeOptionalSessionPrefillFields}, which also:
+ * - expands `year_data` / `yearData` into `historical_years_data` (integration shape),
+ * - applies session `filing_year_confirmed` when normalizing history,
+ * - promotes nested `current_year_data` revenue/EBITDA to top-level scalars,
+ * - rebuilds `yearlyFinancials` when the grid is still placeholder-only.
  *
- * Skips when {@link shouldSuppressMercurySessionPrefill} — authoritative restoration
- * already hydrated the form for this report.
+ * Runs only after `restorationComplete` so `SessionRestorationService` hydration wins the race.
+ * Does not use the Mercury prefill suppression flag: this path only fills empty slots via
+ * `mergeOptionalSessionPrefillFields`, so it cannot overwrite a full restore.
  *
- * Uses `queueMicrotask` so this runs after bootstrap/layout updates in the same tick,
- * reducing duplicate `updateFormData` churn.
+ * Re-runs when {@link getSessionOptionalPrefillSignature} changes — value-level
+ * fingerprints (not only object identity) so chunk-loaded or merged session JSON
+ * still triggers gap-fill once figures arrive. Envelope cardinality + identity anchors
+ * prevent the “empty signature” deadlock when only `company_name`/KBO exist first.
  *
  * @module hooks/useSessionOptionalMethodPrefill
  */
 
 import { useEffect } from 'react'
 
-import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
-import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
+import { getSessionOptionalPrefillSignature } from '../utils/mergeOptionalSessionPrefillFields'
 
+/**
+ * Existing report only (`reportId !== 'new'`). New reports rely on
+ * {@link useBootstrapPrefill} / {@link useBootstrapSync} for first paint.
+ */
 export function useSessionOptionalMethodPrefill(): void {
   const reportId = useSessionStore((s) => s.session?.reportId)
-  const sessionData = useSessionStore((s) => s.session?.sessionData) as Record<string, unknown> | undefined
+  const restorationComplete = useSessionStore((s) => s.restorationComplete)
+  const optionalPrefillSignature = useSessionStore((s) =>
+    getSessionOptionalPrefillSignature(s.session?.sessionData)
+  )
+
   useEffect(() => {
     if (!reportId || reportId === 'new') return
-    if (shouldSuppressMercurySessionPrefill(reportId)) return
-    if (!sessionData || typeof sessionData !== 'object') return
+    if (!restorationComplete) return
 
     let cancelled = false
     queueMicrotask(() => {
       if (cancelled) return
-      if (shouldSuppressMercurySessionPrefill(reportId)) return
-
-      const bi = (sessionData as { _businessInfo?: Record<string, unknown> })._businessInfo || {}
-      const merged = { ...bi, ...sessionData }
-      const patch = mergeOptionalSessionPrefillFields(
-        merged as Record<string, unknown>,
-        useManualFormStore.getState().formData
-      )
-      if (Object.keys(patch).length === 0) return
-      useManualFormStore.getState().updateFormData(patch)
+      queueOptionalGapFillFlush()
     })
 
     return () => {
       cancelled = true
     }
-  }, [reportId, sessionData])
+  }, [reportId, optionalPrefillSignature, restorationComplete])
 }

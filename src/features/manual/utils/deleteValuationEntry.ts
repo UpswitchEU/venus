@@ -1,18 +1,11 @@
 import type { RecentValuation } from '../../../components/calculator'
+import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
 
 interface DeleteValuationEntryParams {
   valuation: RecentValuation
   deleteDraftSession: (id: string) => Promise<unknown>
   deleteReport: (id: string) => Promise<unknown>
 }
-
-const POST_DELETE_PASSTHROUGH_PARAMS = [
-  'clientToken',
-  'return_url',
-  'source',
-  'flow',
-  'mode',
-] as const
 
 interface BuildPostDeleteNewValuationUrlParams {
   locale: string
@@ -63,7 +56,7 @@ export function buildPostDeleteNewValuationUrl({
   if (prefilledQuery) params.set('prefilledQuery', prefilledQuery)
 
   const current = normalizeSearchParams(currentSearch)
-  for (const key of POST_DELETE_PASSTHROUGH_PARAMS) {
+  for (const key of PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS) {
     const value = current.get(key)
     if (value && !params.has(key) && isSafePassthroughParam(key, value)) {
       params.set(key, value)
@@ -83,8 +76,7 @@ export function buildStaleReportRecoveryUrl(locale: string, search?: string): st
   const current = normalizeSearchParams(
     search ?? (typeof window !== 'undefined' ? window.location.search : '')
   )
-  const passthrough = [...POST_DELETE_PASSTHROUGH_PARAMS, 'clientId', 'prefilledQuery'] as const
-  for (const key of passthrough) {
+  for (const key of PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS) {
     const value = current.get(key)
     if (value && !params.has(key) && isSafePassthroughParam(key, value)) {
       params.set(key, value)

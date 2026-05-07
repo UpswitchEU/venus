@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { buildPreservedReportBootstrapQueryString } from '@/lib/cross-app/preservedReportBootstrapParams'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,22 +25,11 @@ export default async function CalculatorPage({ params, searchParams }: Calculato
   const sp = searchParams ? await searchParams : {}
   const rid = sp.reportId
   const reportId = Array.isArray(rid) ? rid[0] : rid
-  const rest = Object.entries(sp).filter(([k]) => k !== 'reportId')
-  const qs =
-    rest.length > 0
-      ? '?' +
-        rest
-          .map(([k, v]) => {
-            const val = Array.isArray(v) ? v[0] : v
-            return val != null ? `${encodeURIComponent(k)}=${encodeURIComponent(String(val))}` : ''
-          })
-          .filter(Boolean)
-          .join('&')
-      : ''
+  const suffix = buildPreservedReportBootstrapQueryString(sp)
 
   if (reportId && typeof reportId === 'string' && reportId.trim().length > 0) {
-    redirect(`/${locale}/reports/${encodeURIComponent(reportId.trim())}${qs}`)
+    redirect(`/${locale}/reports/${encodeURIComponent(reportId.trim())}${suffix}`)
   }
 
-  redirect(`/${locale}/reports/new${qs}`)
+  redirect(`/${locale}/reports/new${suffix}`)
 }

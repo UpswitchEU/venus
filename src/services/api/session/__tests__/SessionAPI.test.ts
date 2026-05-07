@@ -99,6 +99,24 @@ describe('SessionAPI', () => {
       expect(result.session?.reportId).toBe('val_new_123')
     })
 
+    it('strips HTML blobs from POST session_data merge', async () => {
+      executeRequestSpy.mockResolvedValue({
+        session_key: 'val_new_123',
+        session_data: { company_name: 'New Corp' },
+      })
+
+      const heavy = '<html>' + 'z'.repeat(3000)
+      await api.createValuationSession({
+        sessionData: { company_name: 'New Corp', html_report: heavy },
+        partialData: { pdf_html_report: heavy },
+      } as any)
+
+      const body = executeRequestSpy.mock.calls[0][0] as { data: { session_data: Record<string, unknown> } }
+      expect(body.data.session_data.company_name).toBe('New Corp')
+      expect(body.data.session_data.html_report).toBeUndefined()
+      expect(body.data.session_data.pdf_html_report).toBeUndefined()
+    })
+
     it('throws on creation failure', async () => {
       executeRequestSpy.mockRejectedValue({ response: { status: 400, data: 'Invalid data' } })
       await expect(api.createValuationSession({ sessionData: {} } as any)).rejects.toThrow()
@@ -129,6 +147,50 @@ describe('SessionAPI', () => {
       expect(result.success).toBe(true)
       expect(result.updated).toBe(true)
       expect((result.session as any)?.session_data?.company_name).toBe('Updated Corp')
+    })
+
+    it('strips report HTML blobs from PATCH body (sessionData / partialData)', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        data: { session_data: {} },
+      })
+
+      const heavy = '<html>' + 'x'.repeat(5000)
+      await api.updateValuationSession('val_update_123', {
+        reportId: 'val_update_123',
+        updates: {
+          sessionData: {
+            company_name: 'Co',
+            html_report: heavy,
+            valuation_result: { equity_value_mid: 1, html_report: 'nested' },
+          },
+          partialData: { pdf_html_report: heavy },
+          htmlReport: heavy,
+        } as any,
+      })
+
+      const req = executeRequestSpy.mock.calls[0][0] as { data: Record<string, unknown> }
+      expect(req.data.htmlReport).toBeUndefined()
+      const sd = req.data.sessionData as Record<string, unknown>
+      expect(sd.company_name).toBe('Co')
+      expect(sd.html_report).toBeUndefined()
+      const vr = sd.valuation_result as Record<string, unknown>
+      expect(vr.equity_value_mid).toBe(1)
+      expect(vr.html_report).toBeUndefined()
+      const pd = req.data.partialData as Record<string, unknown>
+      expect(pd.pdf_html_report).toBeUndefined()
+    })
+
+    it('maps conversational view to ai-guided in PATCH data', async () => {
+      executeRequestSpy.mockResolvedValue({ success: true, data: {} })
+
+      await api.updateValuationSession('rid', {
+        reportId: 'rid',
+        updates: { currentView: 'conversational' } as any,
+      })
+
+      const req = executeRequestSpy.mock.calls[0][0] as { data: Record<string, unknown> }
+      expect(req.data.currentView).toBe('ai-guided')
     })
 
     it('returns optimistic success on 404 for non-critical empty updates', async () => {

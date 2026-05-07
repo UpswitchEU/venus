@@ -696,7 +696,7 @@ export class SessionBootstrapService {
         context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined
 
       // CRITICAL: clientToken in body enables Titan to resolve delegated (accountant) flow identity
-      const requestBody = {
+      let requestBody: Record<string, unknown> = {
         reportId: validReportId,
         clientToken: context.clientToken, // Required for Mercury/accountant flow - Titan resolves identity from this
         clientId: context.clientId, // Pass clientId for accountant flow verification
@@ -735,16 +735,37 @@ export class SessionBootstrapService {
       // AuthGate ensures client context is in the store BEFORE bootstrap runs
       try {
         const { useClientContext } = await import('../../stores/clientContext')
-        const contextHeaders = useClientContext.getState().getContextHeaders()
+        const contextState = useClientContext.getState()
+        const contextHeaders = contextState.getContextHeaders()
+        const clientHeader = contextHeaders['X-Client-User-Id']
+        const accountantHeader = contextHeaders['X-Accountant-User-Id']
+        const relationshipHeader = contextHeaders['X-Relationship-Id']
+        const hasAnyContextHeader = !!(clientHeader || accountantHeader || relationshipHeader)
+        const hasFullDelegatedHeaderSet = !!(clientHeader && accountantHeader && relationshipHeader)
 
-        if (Object.keys(contextHeaders).length > 0) {
+        if (hasFullDelegatedHeaderSet) {
           Object.assign(headers, contextHeaders)
-
-          this.logger.info('[Bootstrap] Added client context headers from store', {
+          this.logger.info('[Bootstrap] Added delegated client context headers from store', {
             headerCount: Object.keys(contextHeaders).length,
             hasClientToken: hints.hasClientToken || !!context.clientToken,
           })
-        } else if (hints.hasClientToken || context.clientToken) {
+        } else {
+          if (hasAnyContextHeader) {
+            this.logger.warn(
+              '[Bootstrap] Partial client context in store - skipping delegated headers for bootstrap',
+              {
+                hasClientUserId: !!clientHeader,
+                hasAccountantUserId: !!accountantHeader,
+                hasRelationshipId: !!relationshipHeader,
+              }
+            )
+          }
+          if (!requestBody['clientId'] && contextState.relationshipId) {
+            requestBody['clientId'] = contextState.relationshipId
+          }
+        }
+
+        if (!hasAnyContextHeader && (hints.hasClientToken || context.clientToken)) {
           // Only warn if clientToken was present but context not in store
           this.logger.warn('[Bootstrap] Client token present but client context not in store', {
             note: 'AuthGate should have ensured context is ready before bootstrap',

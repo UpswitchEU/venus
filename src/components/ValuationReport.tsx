@@ -12,6 +12,7 @@ import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { resolveStandaloneReportReadyHash } from '../utils/standaloneReportReadyHash'
 import { submitAnonymizedBenchmarkContribution } from '../utils/submitAnonymizedBenchmarkContribution'
 
@@ -234,8 +235,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       if (!isFromMercury) return
 
       const signalReady = () => {
-        const venusUrl = process.env.NEXT_PUBLIC_VENUS_URL || 'https://valuation.upswitch.app'
-        const venusOrigin = new URL(venusUrl).origin
+        const mercuryTargetOrigin = new URL(getMercuryUrl()).origin
 
         if (window.parent !== window) {
           window.parent.postMessage(
@@ -244,7 +244,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
               reportId,
               timestamp: Date.now(),
             },
-            venusOrigin
+            mercuryTargetOrigin
           )
         } else {
           // Standalone (non-embedded) report mark — neutral `#ready` instead

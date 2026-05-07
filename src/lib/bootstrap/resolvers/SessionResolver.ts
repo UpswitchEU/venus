@@ -7,9 +7,10 @@
  * @module lib/bootstrap/resolvers/SessionResolver
  */
 
-import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { fetchWithBySession404Retry } from '../../../utils/fetchWithBySession404Retry'
+import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { isUuid } from '../../../utils/identifiers'
+import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import type {
   BootstrapContext,
@@ -143,7 +144,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
             reportId: session.session_key,
             hasExistingData: this.hasExistingData(session),
             hasValuationResult: this.hasValuationResult(session),
-            reportReady: this.mapStatus(session.status) !== 'completed' || this.hasValuationResult(session),
+            reportReady:
+              this.mapStatus(session.status) !== 'completed' || this.hasValuationResult(session),
             version: context.version,
             status: this.mapStatus(session.status),
             createdAt: new Date(session.created_at),
@@ -301,8 +303,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
    */
   private hasExistingData(session: SessionData): boolean {
     const sessionData = session.session_data || {}
+    const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
 
-    // Check for key fields that indicate meaningful data (INPUT or OUTPUT)
     const meaningfulFields = [
       'company_name',
       'business_type_id',
@@ -315,18 +317,26 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       'html_report',
       'htmlReport',
       '_htmlReport',
+      'kbo_number',
+      'kboNumber',
+      'vat_number',
+      'vatNumber',
     ]
 
     for (const field of meaningfulFields) {
-      const value = sessionData[field]
+      const value = merged[field]
       if (value !== null && value !== undefined && value !== '') {
         return true
       }
     }
 
-    // Check for year data
-    if (sessionData.year_data && typeof sessionData.year_data === 'object') {
-      const years = Object.keys(sessionData.year_data)
+    const yearDataRaw =
+      (merged.year_data as Record<string, unknown> | undefined) ??
+      (merged.yearData as Record<string, unknown> | undefined) ??
+      (sessionData.year_data as Record<string, unknown> | undefined) ??
+      (sessionData.yearData as Record<string, unknown> | undefined)
+    if (yearDataRaw && typeof yearDataRaw === 'object' && !Array.isArray(yearDataRaw)) {
+      const years = Object.keys(yearDataRaw)
       if (years.length > 0) {
         return true
       }
@@ -469,7 +479,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         },
         {
           log: (_message, context) => {
-            this.logger.info('[SessionResolver] Report by-session not ready yet, retrying', {
+            this.logger.debug('[SessionResolver] Report by-session not ready yet, retrying', {
               sessionKey: truncateForLog(sessionKey),
               attempt: context.attempt,
             })

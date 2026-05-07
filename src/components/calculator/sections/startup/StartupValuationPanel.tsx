@@ -13,7 +13,7 @@
  *
  *   1. Profile        — canonical company card (KBO/KVK + business types)
  *   2. Risk reduction — Berkus 2.0 milestone cards
- *   3. Defensibility  — Scorecard 2.0 weighted factor cards
+ *   3. Defensibility / verdedigbaarheid — Scorecard 2.0 weighted factor cards
  *   4. Team           — Founder pedigree multiplier
  *   5. Traction       — Forward-looking SaaS metrics (skippable)
  *   6. Exit story     — VC method / TAM-SAM-SOM / exit multiple
@@ -34,13 +34,14 @@
  * distinction:
  *   - `advisor` — the StudioCoPilot floats over the whole layout and
  *     the panel exposes the same advanced controls advisors expect.
- *   - `founder` — same surface, mode-aware copy on the Studio sections
- *     that already accept a locale/mode prop.  The submit footer below
- *     the panel routes the calculation back to the founder dashboard.
+ *   - `founder` — same surface; Studio copy follows the Next.js route
+ *     locale (`next-intl`) so `/nl` and `/en` stay consistent with the
+ *     rest of Venus (not the operating-country picker).
  */
 
 import { motion } from 'framer-motion'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
@@ -52,7 +53,11 @@ import { ScorecardStep } from '@/features/startup-studio/components/ScorecardSte
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { useStartupSessionSync } from '@/features/startup-studio/hooks/useStartupSessionSync'
-import { type StudioStepId, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import {
+  type StudioIssue,
+  type StudioStepId,
+  useStudioIssues,
+} from '@/features/startup-studio/hooks/useStudioIssues'
 import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
@@ -64,61 +69,71 @@ import { useStartupValuationStore } from '@/store/manual/useStartupValuationStor
 // same shape they did under the timeline UX.
 // ---------------------------------------------------------------------------
 
+type StudioSectionLabelKey =
+  | 'sections.profile'
+  | 'sections.berkus'
+  | 'sections.scorecard'
+  | 'sections.founder_pedigree'
+  | 'sections.traction'
+  | 'sections.exit_story'
+  | 'sections.round_simulator'
+  | 'sections.report'
+
 interface SectionDef {
   id: StudioStep
   anchor: string
-  label: { en: string; nl: string }
-  render: (locale: 'en' | 'nl') => React.ReactNode
+  labelKey: StudioSectionLabelKey
+  Component: ComponentType
 }
 
 const SECTIONS: SectionDef[] = [
   {
     id: 'profile',
     anchor: 'startup-section-profile',
-    label: { en: 'Profile', nl: 'Profiel' },
-    render: (locale) => <CompanyCardStep locale={locale} />,
+    labelKey: 'sections.profile',
+    Component: CompanyCardStep,
   },
   {
     id: 'berkus',
     anchor: 'startup-section-berkus',
-    label: { en: 'Risk reduction', nl: 'Risico-reductie' },
-    render: (locale) => <BerkusStep locale={locale} />,
+    labelKey: 'sections.berkus',
+    Component: BerkusStep,
   },
   {
     id: 'scorecard',
     anchor: 'startup-section-scorecard',
-    label: { en: 'Defensibility', nl: 'Defensibility' },
-    render: (locale) => <ScorecardStep locale={locale} />,
+    labelKey: 'sections.scorecard',
+    Component: ScorecardStep,
   },
   {
     id: 'founder_pedigree',
     anchor: 'startup-section-pedigree',
-    label: { en: 'Team pedigree', nl: 'Team' },
-    render: (locale) => <FounderPedigreeStep locale={locale} />,
+    labelKey: 'sections.founder_pedigree',
+    Component: FounderPedigreeStep,
   },
   {
     id: 'traction',
     anchor: 'startup-section-traction',
-    label: { en: 'Traction', nl: 'Tractie' },
-    render: (locale) => <TractionStep locale={locale} />,
+    labelKey: 'sections.traction',
+    Component: TractionStep,
   },
   {
     id: 'exit_story',
     anchor: 'startup-section-exit',
-    label: { en: 'Exit story', nl: 'Exit-verhaal' },
-    render: (locale) => <ExitStoryStep locale={locale} />,
+    labelKey: 'sections.exit_story',
+    Component: ExitStoryStep,
   },
   {
     id: 'round_simulator',
     anchor: 'startup-section-round',
-    label: { en: 'Round', nl: 'Ronde' },
-    render: (locale) => <RoundSimulatorStep locale={locale} />,
+    labelKey: 'sections.round_simulator',
+    Component: RoundSimulatorStep,
   },
   {
     id: 'report',
     anchor: 'startup-section-report',
-    label: { en: 'Report', nl: 'Rapport' },
-    render: (locale) => <ReportStep locale={locale} />,
+    labelKey: 'sections.report',
+    Component: ReportStep,
   },
 ]
 
@@ -218,13 +233,32 @@ export interface StartupValuationPanelProps {
    * the same feature surface they had before.
    */
   mode?: StartupValuationPanelMode
+  /** Shared assistant open state from ManualLayout. */
+  isAssistantOpen?: boolean
+  /** Opens the shared assistant drawer. */
+  onOpenAssistant?: () => void
+  /** Resolves a startup issue through the shared assistant pipeline. */
+  onResolveIssueWithAssistant?: (issue: StudioIssue) => void
+  /** Stable launcher scope id for snooze/session keys. */
+  launcherScopeId?: string
+  /**
+   * Optional externally-filtered issue list for the launcher (e.g. after
+   * assistant acknowledgements). Falls back to local `useStudioIssues`.
+   */
+  launcherIssues?: StudioIssue[]
 }
 
-export function StartupValuationPanel({ className, mode = 'advisor' }: StartupValuationPanelProps) {
-  const locale = useStartupValuationStore.getState().country_code === 'NL' ? 'nl' : 'en'
-  // Kept on the surface for parity with the prior implementation; the
-  // section components are mode-agnostic for now and `mode` is reserved
-  // for the StudioCoPilot scoping (advisor vs founder grounding).
+export function StartupValuationPanel({
+  className,
+  mode = 'advisor',
+  isAssistantOpen = false,
+  onOpenAssistant,
+  onResolveIssueWithAssistant,
+  launcherScopeId = 'studio-launcher',
+  launcherIssues,
+}: StartupValuationPanelProps) {
+  const tStudio = useTranslations('startupStudio')
+  // `mode` is reserved for future advisor vs founder StudioCoPilot scoping.
   void mode
 
   // Bidirectional bridge between the Studio store and the canonical
@@ -238,12 +272,11 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const { benchmark } = useStartupBenchmark(country, stage, sector)
-  const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
-
   // Health-check feed for the floating Co-pilot.  The same hook drives
   // the `ReportStep` summary block and the Co-pilot rail, keeping the
   // single source of truth for "things to fix before PDF".
   const { issues } = useStudioIssues(benchmark)
+  const activeLauncherIssues = launcherIssues ?? issues
 
   // -----------------------------------------------------------------
   // Active-section tracking — drives a `step_viewed` analytics event
@@ -307,6 +340,7 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
     <div className={['aurora-theme space-y-6 p-6', className].filter(Boolean).join(' ')}>
       {SECTIONS.map((section, idx) => {
         const status = statuses[section.id]
+        const SectionBody = section.Component
         return (
           <motion.section
             key={section.id}
@@ -320,14 +354,14 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut', delay: idx * 0.02 }}
             className="scroll-mt-6 space-y-5 pt-2"
-            aria-label={section.label[locale]}
+            aria-label={tStudio(section.labelKey)}
           >
             <ValuationSectionHeader
               step={idx + 1}
-              title={section.label[locale]}
+              title={tStudio(section.labelKey)}
               complete={status === 'complete'}
             />
-            {section.render(locale)}
+            <SectionBody />
           </motion.section>
         )
       })}
@@ -338,11 +372,14 @@ export function StartupValuationPanel({ className, mode = 'advisor' }: StartupVa
           section.  FAB lives at bottom-right; slide-over hosts the
           structured issue list + free-form chat. */}
       <StudioCoPilot
-        issues={issues}
-        scopeId={companyName ? `studio-${companyName}` : 'studio-default'}
-        locale={locale}
-        companyName={companyName || undefined}
-        onJumpToStep={handleJumpToStep}
+        issues={activeLauncherIssues}
+        scopeId={launcherScopeId}
+        isAssistantOpen={isAssistantOpen}
+        onOpenAssistant={onOpenAssistant}
+        onResolveIssueWithAssistant={(issue) => {
+          onResolveIssueWithAssistant?.(issue)
+          handleJumpToStep(issue.step)
+        }}
       />
     </div>
   )

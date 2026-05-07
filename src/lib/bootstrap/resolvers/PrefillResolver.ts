@@ -10,8 +10,10 @@
  * @module lib/bootstrap/resolvers/PrefillResolver
  */
 
-import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -134,9 +136,7 @@ function normalizeCountryCode(countryCode?: string | null): string | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
-function resolveCountryCode(
-  ...candidates: Array<string | null | undefined>
-): string | undefined {
+function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
   for (const candidate of candidates) {
     const normalized = normalizeCountryCode(candidate)
     if (normalized) return normalized
@@ -181,9 +181,7 @@ export interface ParsedPrefilledQueryIdentifiers {
  *   2. Dutch KVK (exactly 8 digits, no leading 0 required).
  *   3. NACE code — only after a registry number is isolated.
  */
-export function parsePrefilledQueryIdentifiers(
-  query: string,
-): ParsedPrefilledQueryIdentifiers {
+export function parsePrefilledQueryIdentifiers(query: string): ParsedPrefilledQueryIdentifiers {
   const result: ParsedPrefilledQueryIdentifiers = { cleanedName: query.trim() }
   if (!query) return result
 
@@ -317,8 +315,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           // (country_code=NL triggers the SBI_2008 alias lookup in Titan).
           resolveCountryCode(
             companyInfo?.countryCode as string | undefined,
-            (companyInfo as any)?.country as string | undefined,
-          ) || resolvedCountryCode,
+            (companyInfo as any)?.country as string | undefined
+          ) || resolvedCountryCode
         )
         if (naceBusinessType) {
           businessType = naceBusinessType
@@ -345,7 +343,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
 
       // STP: Detect if this is a synced client with KBO data enriched by backend
       const isAccountantFlow = identity?.type === 'accountant_for_client'
-      const hasKboFromBackend = !!(companyInfo?.kboNumber && (kboData || profileResult?.companyInfo?.kboNumber))
+      const hasKboFromBackend = !!(
+        companyInfo?.kboNumber &&
+        (kboData || profileResult?.companyInfo?.kboNumber)
+      )
       const readOnlyKbo = isAccountantFlow && hasKboFromBackend
       const autoAdvancePastPrefilledSteps = readOnlyKbo && confidence > 0.5
 
@@ -402,7 +403,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    *   2. If no identifier is parseable, fall back to the previous fuzzy
    *      `registry/search` behavior with the cleaned company name.
    */
-  private async fetchKBO(query: string, countryCode: string): Promise<{
+  private async fetchKBO(
+    query: string,
+    countryCode: string
+  ): Promise<{
     companyInfo?: CompanyInfo
     kboData?: KBOCompanyEntity
   } | null> {
@@ -483,7 +487,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async lookupKBOByIdentifier(
     identifiers: ParsedPrefilledQueryIdentifiers,
-    countryCode: string,
+    countryCode: string
   ): Promise<RawKboRecord | null> {
     // Dutch KVK — must go through registry/search with country_code=NL.
     // The KVK service detects the 8-digit query and does an exact lookup.
@@ -494,7 +498,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     // Belgian KBO/VAT — use the dedicated exact-match lookup endpoint.
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
       const body: Record<string, string> = {}
       if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
       if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
@@ -534,14 +538,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * Fuzzy registry search by company name. Used as a fallback when no
    * structured identifier is present in the prefilled query.
    */
-  private async searchKBOByName(
-    name: string,
-    countryCode: string,
-  ): Promise<RawKboRecord | null> {
+  private async searchKBOByName(name: string, countryCode: string): Promise<RawKboRecord | null> {
     if (!name || name.trim().length < 2) return null
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
       const response = await fetch(`${API_URL}/api/v2/registry/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -661,7 +662,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async fetchBusinessTypeForNaceCode(
     naceCode: string,
-    marketCountryCode?: string,
+    marketCountryCode?: string
   ): Promise<BusinessTypeInfo | undefined> {
     try {
       const controller = new AbortController()
@@ -677,7 +678,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           credentials: 'include',
           headers: { Accept: 'application/json' },
           signal: controller.signal,
-        },
+        }
       )
       clearTimeout(timeoutId)
 
@@ -748,9 +749,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     financials?: PartialFinancials
     businessType?: BusinessTypeInfo
   } {
-    // Check both top-level and _businessInfo for data
-    const businessInfo = sessionData._businessInfo || {}
-    const merged = { ...businessInfo, ...sessionData }
+    const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
 
     const canonicalNace =
       (merged.canonical_nace_code as string) || (merged.nace_code as string) || undefined
@@ -764,12 +763,14 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       postalCode: merged.postal_code as string,
       countryCode: resolveCountryCode(
         merged.country_code as string | undefined,
-        (businessInfo as Record<string, unknown>).country as string | undefined
+        merged.country as string | undefined
       ),
       foundingYear: merged.founding_year as number,
       canonicalNaceCode: canonicalNace,
       naceCode:
-        activityPresentation && canonicalNace && activityPresentation.trim() !== canonicalNace.trim()
+        activityPresentation &&
+        canonicalNace &&
+        activityPresentation.trim() !== canonicalNace.trim()
           ? activityPresentation
           : canonicalNace,
       naceDescription:
@@ -780,21 +781,26 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     }
 
     // Extract financials: prefer top-level, fallback to current_year_data (Mercury accountant flow)
-    const cyd = merged.current_year_data as { year?: number; revenue?: number | null; ebitda?: number | null } | undefined
+    const cyd = merged.current_year_data as
+      | { year?: number; revenue?: number | null; ebitda?: number | null }
+      | undefined
     const revenue =
       (merged.revenue as number) ?? (cyd?.revenue != null ? Number(cyd.revenue) : undefined)
     const ebitda =
       (merged.ebitda as number) ?? (cyd?.ebitda != null ? Number(cyd.ebitda) : undefined)
     const yearData =
       (merged.year_data as Record<number, { revenue?: number; ebitda?: number }>) ??
+      (merged.yearData as Record<number, { revenue?: number; ebitda?: number }>) ??
       (merged.historical_years_data &&
       Array.isArray(merged.historical_years_data) &&
       merged.historical_years_data.length > 0
         ? Object.fromEntries(
-            merged.historical_years_data.map((y: { year: number; revenue?: number; ebitda?: number }) => [
-              y.year,
-              { revenue: y.revenue, ebitda: y.ebitda },
-            ])
+            merged.historical_years_data.map(
+              (y: { year: number; revenue?: number; ebitda?: number }) => [
+                y.year,
+                { revenue: y.revenue, ebitda: y.ebitda },
+              ]
+            )
           )
         : cyd?.revenue != null || cyd?.ebitda != null
           ? {

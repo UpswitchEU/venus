@@ -120,6 +120,7 @@ export function useStartupBenchmark(
   countryCode: string,
   stage: StartupStage,
   sector: StartupSector,
+  enabled = true,
 ): UseStartupBenchmarkResult {
   const country = (countryCode || 'BE').toUpperCase()
   const key = cacheKey(country, stage, sector)
@@ -139,6 +140,10 @@ export function useStartupBenchmark(
   }))
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ row: fallbackRow, loading: false, fallback: true })
+      return
+    }
     if (cache.has(key)) {
       setState({ row: cache.get(key)!, loading: false, fallback: false })
       return
@@ -166,7 +171,7 @@ export function useStartupBenchmark(
       active = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [enabled, key])
 
   return {
     benchmark: state.row,

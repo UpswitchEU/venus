@@ -112,16 +112,21 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
       `[LocaleLayout] Failed to load messages for locale: ${validFinalLocale}`,
       error instanceof Error ? error.message : String(error)
     )
-    // Fallback: load messages directly from JSON (same pattern as i18n.ts)
+    // Fallback: same merge as request config (base + startupStudio overlay)
     try {
-      messages = (await import(`../../messages/${validFinalLocale}.json`))
-        .default as AbstractIntlMessages
+      const { loadLocaleMessages } = await import('@/lib/i18n/loadLocaleMessages')
+      messages = await loadLocaleMessages(validFinalLocale)
     } catch (_fallbackError) {
       if (validFinalLocale !== 'en') {
         try {
-          messages = (await import(`../../messages/en.json`)).default as AbstractIntlMessages
+          const { loadLocaleMessages } = await import('@/lib/i18n/loadLocaleMessages')
+          messages = await loadLocaleMessages('en')
         } catch {
-          // Keep empty as last resort
+          try {
+            messages = (await import(`../../messages/en.json`)).default as AbstractIntlMessages
+          } catch {
+            // Keep empty as last resort
+          }
         }
       }
     }

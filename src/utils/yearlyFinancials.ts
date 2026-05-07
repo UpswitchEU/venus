@@ -1,3 +1,4 @@
+import type { YearDataInput, YearlyFinancials } from '../types/valuation'
 import { getCurrentFilingYear } from './fiscalYear'
 
 export interface YearlyFinancialLike {
@@ -26,12 +27,43 @@ export function getHistoricalYearRange(
 }
 
 /**
+ * Builds manual-panel `yearlyFinancials` from bootstrap/session year rows so
+ * normalization tiles match integration prefill when only `historical_years_data`
+ * / `current_year_data` were written (defense-in-depth with {@link ManualInputPanel} bridging).
+ */
+export function buildYearlyFinancialsFromCurrentAndHistorical(
+  current: YearDataInput | null | undefined,
+  historical: YearDataInput[] | null | undefined
+): YearlyFinancials[] {
+  const byYear = new Map<number, YearlyFinancials>()
+  const upsert = (yearRaw: unknown, revenue: unknown, ebitda: unknown) => {
+    const y =
+      typeof yearRaw === 'number' && Number.isFinite(yearRaw)
+        ? yearRaw
+        : Number.parseInt(String(yearRaw ?? ''), 10)
+    if (!Number.isFinite(y) || y < 2000 || y > 2100) return
+    byYear.set(y, {
+      year: String(y),
+      revenue: Number.isFinite(Number(revenue)) ? Number(revenue) : 0,
+      ebitda: Number.isFinite(Number(ebitda)) ? Number(ebitda) : 0,
+    })
+  }
+  if (current?.year != null) upsert(current.year, current.revenue, current.ebitda)
+  if (Array.isArray(historical)) {
+    for (const row of historical) {
+      if (row?.year != null) upsert(row.year, row.revenue, row.ebitda)
+    }
+  }
+  return [...byYear.values()].sort((a, b) => Number(b.year) - Number(a.year))
+}
+
+/**
  * A year is "complete" when:
  * - Revenue and EBITDA are explicit, finite, and not both zero (classic rows), or
  * - Free cash flow is explicit and finite (FCFF-only rows), excluding the triple-zero placeholder.
  */
 export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T): boolean {
-  if (!Boolean(year?.year)) return false
+  if (!year?.year) return false
 
   const revE = hasExplicitNumericValue(year.revenue)
   const ebitE = hasExplicitNumericValue(year.ebitda)
@@ -64,11 +96,7 @@ export function yearlyFinancialRowHasNonPlaceholderData(
   const fcff = Number(row.free_cash_flow)
   const fcffSignal =
     hasExplicitNumericValue(row.free_cash_flow) && Number.isFinite(fcff) && fcff !== 0
-  return (
-    (Number.isFinite(rev) && rev !== 0) ||
-    (Number.isFinite(ebit) && ebit !== 0) ||
-    fcffSignal
-  )
+  return (Number.isFinite(rev) && rev !== 0) || (Number.isFinite(ebit) && ebit !== 0) || fcffSignal
 }
 
 export function yearlyFinancialsContainsNonPlaceholderData(
@@ -122,8 +150,7 @@ export function historicalYearRowNeedsRemovalWarning(
   if (Number.isFinite(revN) && revN !== 0) return true
   // Treat explicit 0 as empty default (seed rows); non-zero EBITDA / FCFF still confirm.
   if (hasExplicitNumericValue(row.ebitda) && Number(row.ebitda) !== 0) return true
-  if (hasExplicitNumericValue(row.free_cash_flow) && Number(row.free_cash_flow) !== 0)
-    return true
+  if (hasExplicitNumericValue(row.free_cash_flow) && Number(row.free_cash_flow) !== 0) return true
 
   const numericKeys = [
     'capex',

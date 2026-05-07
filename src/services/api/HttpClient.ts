@@ -14,6 +14,7 @@
 
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
+import { buildAxiosEffectiveRequestUrl, isBySessionReportUrl } from '../../constants/reportBySessionRetry'
 // AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
 import {
@@ -24,6 +25,17 @@ import {
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+
+function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
+  const cfg = (error as {
+    config?: { method?: string; url?: string; baseURL?: string }
+  })?.config
+  const status = (error as { response?: { status?: number } })?.response?.status
+  const method = String(cfg?.method ?? 'get').toUpperCase()
+  if (method !== 'GET' || status !== 404) return false
+  const effectiveUrl = buildAxiosEffectiveRequestUrl(cfg)
+  return isBySessionReportUrl(effectiveUrl)
+}
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
@@ -195,18 +207,28 @@ export class HttpClient {
         const errorCategory = classifyError(error)
         const userFriendlyMessage = getUserFriendlyErrorMessage(error, errorCategory)
 
-        // BANK-GRADE: Always log with correlation ID for traceability
-        apiLogger.error('[HttpClient] Request failed', {
-          correlationId: correlationId || 'unknown',
-          idempotencyKey: idempotencyKey || 'none',
-          url: error.config?.url,
-          method: error.config?.method?.toUpperCase(),
-          status: error.response?.status,
-          error: error.message,
-          errorCategory,
-          userFriendlyMessage,
-          serverError: error.response?.data?.error || error.response?.data?.message,
-        })
+        if (isExpectedReportBySessionNotReadyLog(error)) {
+          apiLogger.debug('[HttpClient] Expected report-by-session not ready (404)', {
+            correlationId: correlationId || 'unknown',
+            idempotencyKey: idempotencyKey || 'none',
+            url: error.config?.url,
+            method: error.config?.method?.toUpperCase(),
+            status: error.response?.status,
+          })
+        } else {
+          // BANK-GRADE: Always log with correlation ID for traceability
+          apiLogger.error('[HttpClient] Request failed', {
+            correlationId: correlationId || 'unknown',
+            idempotencyKey: idempotencyKey || 'none',
+            url: error.config?.url,
+            method: error.config?.method?.toUpperCase(),
+            status: error.response?.status,
+            error: error.message,
+            errorCategory,
+            userFriendlyMessage,
+            serverError: error.response?.data?.error || error.response?.data?.message,
+          })
+        }
 
         // Enhance error with correlation ID for upstream handling
         if (error instanceof Error) {

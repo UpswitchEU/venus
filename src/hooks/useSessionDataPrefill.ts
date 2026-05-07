@@ -1,17 +1,14 @@
 /**
  * useSessionDataPrefill Hook
  *
- * @deprecated This hook is deprecated. Use useBootstrapPrefill instead.
+ * Mounted from **ManualLayout** alongside {@link useBootstrapPrefill}. Bootstrap handles
+ * first paint; this hook covers late bootstrap, sparse session snapshots, and async
+ * NACE→`business_type_id` resolution. Method-agnostic scalars/structs are applied via
+ * {@link queueOptionalGapFillFlush} (shared with {@link useSessionOptionalMethodPrefill}) so
+ * `mergeOptionalSessionPrefillFields` runs at most once per macrotask.
  *
- * Bootstrap is now the SINGLE SOURCE OF TRUTH for all prefill data.
- * This hook is kept for backward compatibility but will always skip
- * when bootstrap has prefilled (which is the default behavior).
- *
- * The bootstrap system aggregates all prefill sources:
- * - KBO registry data
- * - User profile (business card)
- * - Session data from Mercury
- * - Client context for accountant flows
+ * **Session shape:** manual saves and Hermes-backed Titan payloads target the same flat
+ * fields; nested `_businessInfo` is merged via {@link mergeSessionSurfaceForOptionalPrefill}.
  *
  * @module hooks/useSessionDataPrefill
  */
@@ -23,30 +20,24 @@ import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import {
+  getSessionOptionalPrefillSignature,
+  mergeOptionalSessionPrefillFields,
+  mergeSessionSurfaceForOptionalPrefill,
+} from '../utils/mergeOptionalSessionPrefillFields'
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
-/**
- * Hook to prefill form from session data
- *
- * Priority: Runs FIRST, before auth-based prefill
- * Source: sessionData from Mercury (via Titan API)
- *
- * When accountant creates client in Mercury with KBO data:
- * 1. Mercury stores business card in users table
- * 2. Mercury generates valuation link with sessionData
- * 3. Venus loads session and this hook prefills form
- *
- * This ensures client sees pre-filled form even though they're
- * not authenticated as themselves.
- */
+/** Fallback prefill from `session.sessionData` when bootstrap did not paint first. */
 export function useSessionDataPrefill() {
   const sessionData = useSessionStore((state) => state.session?.sessionData) as any
   const reportId = useSessionStore((state) => state.session?.reportId)
+  const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const { updateFormData, formData } = useManualFormStore()
   const hasPrefilledRef = useRef(false)
   const cancelledRef = useRef(false)
   const lastReportIdRef = useRef<string | undefined>(undefined)
+  const lastOptionalPrefillSigRef = useRef<string | undefined>(undefined)
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
@@ -54,6 +45,7 @@ export function useSessionDataPrefill() {
     if (reportId !== lastReportIdRef.current) {
       lastReportIdRef.current = reportId
       hasPrefilledRef.current = false
+      lastOptionalPrefillSigRef.current = undefined
     }
 
     if (shouldSuppressMercurySessionPrefill(reportId)) {
@@ -64,29 +56,32 @@ export function useSessionDataPrefill() {
       hasPrefilledRef.current = true
       return
     }
+
+    if (!restorationComplete) {
+      return
+    }
     // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
     // Restoration (loadSession) is async - form may stay blank until it completes.
     // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
     const isExistingReport =
       bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
     const formIsEmpty = !formData.company_name?.trim() && !formData.kbo_number?.trim()
-    const sessionHasData = !!(
-      sessionData?.company_name?.trim() ||
-      sessionData?.kbo_number ||
-      sessionData?._businessInfo?.company_name?.trim()
-    )
-
-    if (isExistingReport && !formIsEmpty) {
-      // Form already has data - skip (restoration or bootstrap prefill already applied)
-      generalLogger.debug(
-        '[useSessionDataPrefill] Skipping - existing report, form already has data',
-        {
-          reportMode: bootstrap?.report?.mode,
-        }
-      )
-      hasPrefilledRef.current = true
-      return
+    /** Form already has identity — still allow method/financial gap-fill from session. */
+    const skipIdentityOnlyBootstrapShortCircuit = isExistingReport && !formIsEmpty
+    const optionalPrefillSig = getSessionOptionalPrefillSignature(sessionData)
+    if (optionalPrefillSig !== lastOptionalPrefillSigRef.current) {
+      lastOptionalPrefillSigRef.current = optionalPrefillSig
+      hasPrefilledRef.current = false
     }
+    const sessionFlat =
+      sessionData && typeof sessionData === 'object'
+        ? mergeSessionSurfaceForOptionalPrefill(sessionData)
+        : null
+    const sessionHasData = !!(
+      sessionFlat?.company_name?.toString().trim() ||
+      sessionFlat?.kbo_number ||
+      sessionFlat?.kboNumber
+    )
 
     if (isExistingReport && formIsEmpty && !sessionHasData) {
       // Form empty, session empty - wait for loadSession
@@ -95,17 +90,37 @@ export function useSessionDataPrefill() {
 
     // Skip if bootstrap has already prefilled with meaningful data
     // Bootstrap is the primary source - only use session data as fallback
+    const bootstrapHasMeaningfulPrefill = !!(
+      bootstrap &&
+      (bootstrap.hasPrefilledData ||
+        (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
+        bootstrap.prefillData.confidence >= 0.05 ||
+        bootstrap.prefillData.companyInfo?.companyName?.trim() ||
+        bootstrap.prefillData.businessType?.id ||
+        (bootstrap.prefillData.financials &&
+          ((bootstrap.prefillData.financials.revenue != null &&
+            Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
+            (bootstrap.prefillData.financials.ebitda != null &&
+              Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
+            (bootstrap.prefillData.financials.yearData &&
+              Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
+    )
+
     if (
       bootstrap &&
       !bootstrap.isBootstrapping &&
-      bootstrap.hasPrefilledData &&
-      bootstrap.prefillData.confidence > 0.1
+      bootstrapHasMeaningfulPrefill &&
+      !skipIdentityOnlyBootstrapShortCircuit
     ) {
       generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
         confidence: bootstrap.prefillData.confidence.toFixed(2),
         fields: bootstrap.prefillData.fieldsPopulated.length,
       })
       hasPrefilledRef.current = true
+      // Bootstrap filled identity/KBO first paint; Hermes+NBB+session blobs may still hydrate
+      // afterward. One coalesced optional merge closes DCF/NAV/SaaS/SDE/fiscal gaps — same macrotask
+      // semantics as mergeOptional elsewhere (race-safe vs loadSession/async Titan writes).
+      queueOptionalGapFillFlush()
       return
     }
 
@@ -117,7 +132,7 @@ export function useSessionDataPrefill() {
     // ✅ FIX: Reset hasPrefilledRef if sessionData changes significantly
     // This allows re-prefill if business card data arrives later
     const hasCompanyNameInSession = !!(
-      sessionData.company_name || sessionData._businessInfo?.company_name
+      sessionFlat?.company_name?.toString().trim() || sessionFlat?.companyName?.toString().trim()
     )
     if (hasCompanyNameInSession && hasPrefilledRef.current && !formData.company_name?.trim()) {
       // Business card data arrived but wasn't prefilled - reset flag to allow prefill
@@ -136,17 +151,12 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // ✅ BANK GRADE FIX: Check both top-level fields AND _businessInfo
-    // Sessions created via generateValuationLink store data under _businessInfo
-    // Sessions created via regular create endpoint store data at top level
-    const businessInfo = sessionData._businessInfo || {}
-    const topLevelData = sessionData
-
-    // Merge both sources, with top-level taking precedence
-    const mergedData = {
-      ...businessInfo,
-      ...topLevelData, // Top-level overrides _businessInfo
-    }
+    const mergedData = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, any>
+    const rawBi = sessionData._businessInfo
+    const businessInfo =
+      rawBi && typeof rawBi === 'object' && !Array.isArray(rawBi)
+        ? (rawBi as Record<string, unknown>)
+        : {}
 
     // Check if merged data has business card fields from Mercury
     const hasBusinessCardData = !!(
@@ -160,16 +170,53 @@ export function useSessionDataPrefill() {
 
     const hasMethodOrFinancialCues = !!(
       mergedData.current_year_data ||
-      (Array.isArray(mergedData.historical_years_data) && mergedData.historical_years_data.length > 0) ||
+      (Array.isArray(mergedData.historical_years_data) &&
+        mergedData.historical_years_data.length > 0) ||
       mergedData.revenue != null ||
       mergedData.ebitda != null ||
       mergedData.dcf_wacc_pct != null ||
       mergedData.business_context ||
       (Array.isArray(mergedData.comparables) && mergedData.comparables.length > 0) ||
-      mergedData.forecast_years_data?.length
+      mergedData.forecast_years_data?.length ||
+      (mergedData.year_data &&
+        typeof mergedData.year_data === 'object' &&
+        !Array.isArray(mergedData.year_data) &&
+        Object.keys(mergedData.year_data as object).length > 0) ||
+      (mergedData.yearData &&
+        typeof mergedData.yearData === 'object' &&
+        !Array.isArray(mergedData.yearData) &&
+        Object.keys(mergedData.yearData as object).length > 0) ||
+      (Array.isArray(mergedData.yearlyFinancials) && mergedData.yearlyFinancials.length > 0) ||
+      mergedData.official_financials ||
+      mergedData.official_variance_analysis ||
+      mergedData.official_verification_badge ||
+      mergedData.startup_inputs ||
+      (mergedData.metadata &&
+        typeof mergedData.metadata === 'object' &&
+        !Array.isArray(mergedData.metadata) &&
+        Object.keys(mergedData.metadata as object).length > 0) ||
+      mergedData.owner_salary_addback != null ||
+      mergedData.nav_hidden_reserves != null ||
+      mergedData.saas_arr != null ||
+      mergedData.preparer_ev_ebitda_median != null ||
+      mergedData.tax_latencies?.length ||
+      mergedData.taxLatencies?.length ||
+      mergedData._taxLatencies?.length ||
+      mergedData._normalizations?.length
     )
 
-    if (!hasBusinessCardData && !hasMethodOrFinancialCues) {
+    const formLive = useManualFormStore.getState().formData
+    const hasGapFillFromOptional =
+      sessionData && typeof sessionData === 'object'
+        ? Object.keys(
+            mergeOptionalSessionPrefillFields(
+              mergeSessionSurfaceForOptionalPrefill(sessionData),
+              formLive
+            )
+          ).length > 0
+        : false
+
+    if (!hasBusinessCardData && !hasMethodOrFinancialCues && !hasGapFillFromOptional) {
       return
     }
 
@@ -205,7 +252,7 @@ export function useSessionDataPrefill() {
             const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
               rawBusinessType.trim(),
               undefined,
-              mergedData.country_code || mergedData.country || undefined,
+              mergedData.country_code || mergedData.country || undefined
             )
             if (cancelledRef.current) return
             if (resolved?.id) {
@@ -251,7 +298,8 @@ export function useSessionDataPrefill() {
       if (mergedData.business_description)
         updates.business_description = mergedData.business_description
       if (mergedData.industry && !updates.industry) updates.industry = mergedData.industry
-      if (mergedData.subIndustry && !formData.subIndustry) updates.subIndustry = mergedData.subIndustry
+      if (mergedData.subIndustry && !formData.subIndustry)
+        updates.subIndustry = mergedData.subIndustry
       if (mergedData.business_model) updates.business_model = mergedData.business_model
 
       // Financial rows — prefill all valuation methods (multiples, DCF, NAV inputs share these)
@@ -312,7 +360,10 @@ export function useSessionDataPrefill() {
           ? (mergedData.business_context as Record<string, unknown>)
           : null
       if (sessionBc && Object.keys(sessionBc).length > 0) {
-        updates.business_context = { ...prevBc, ...sessionBc } as ValuationFormData['business_context']
+        updates.business_context = {
+          ...prevBc,
+          ...sessionBc,
+        } as ValuationFormData['business_context']
       } else if (mergedData.kbo_number) {
         updates.business_context = {
           ...prevBc,
@@ -331,28 +382,28 @@ export function useSessionDataPrefill() {
         updates.revenue = mergedData.current_year_data.revenue
       }
 
-      // DCF / NAV / real estate / SaaS / ownership — same gap-fill for every valuation method
-      const optionalFromSession = mergeOptionalSessionPrefillFields(mergedData, {
-        ...formData,
-        ...updates,
-      } as ValuationFormData)
-      Object.assign(updates, optionalFromSession)
-
-      // Apply updates if we have any (skip if effect re-ran or unmounted)
+      // DCF/NAV/SaaS/etc.: coalesced with useSessionOptionalMethodPrefill via queueOptionalGapFillFlush
+      // Apply identity + contextual updates first so optional merge sees overlays in getState().
       if (!cancelledRef.current && Object.keys(updates).length > 0) {
         updateFormData(updates)
         hasPrefilledRef.current = true
 
         generalLogger.info('[useSessionDataPrefill] Form prefilled from Mercury session data', {
           fields: Object.keys(updates),
-          source: businessInfo.company_name ? '_businessInfo' : 'top_level',
+          primary_company_identity: sessionData.company_name?.toString().trim()
+            ? 'top_level'
+            : '_businessInfo_or_other',
           company_name: updates.company_name,
           has_kbo_data: !!(updates.kbo_number || updates.vat_number),
           data_source: {
-            from_business_info: Object.keys(businessInfo).length,
-            from_top_level: Object.keys(topLevelData).filter((k) => !k.startsWith('_')).length,
+            from_business_info_keys: Object.keys(businessInfo).length,
+            merged_field_keys: Object.keys(mergedData).filter((k) => !k.startsWith('_')).length,
           },
         })
+      }
+
+      if (!cancelledRef.current) {
+        queueOptionalGapFillFlush()
       }
     }
     runPrefill()
@@ -362,13 +413,16 @@ export function useSessionDataPrefill() {
   }, [
     sessionData,
     formData.company_name,
+    formData.kbo_number,
+    formData.vat_number,
     formData.business_type_id,
     updateFormData,
     bootstrap?.report?.mode,
     bootstrap?.report?.hasExistingData,
     bootstrap?.report?.hasValuationResult,
     bootstrap?.hasPrefilledData,
-    bootstrap?.prefillData?.confidence,
+    bootstrap?.prefillData,
     reportId,
+    restorationComplete,
   ])
 }

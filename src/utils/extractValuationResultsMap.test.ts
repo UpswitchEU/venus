@@ -3,9 +3,42 @@ import { describe, expect, it } from 'vitest'
 import {
   extractValuationResultsMap,
   getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+  hydratedRevenueMethodKeysAreSameRef,
+  isDuplicateHydratedRevenueAliasEntry,
+  isRevenueMethodologyKey,
   normalizeSelectedMethodKey,
   normalizeValuationResultWithMethodMap,
+  resolveSelectedValuationMethodForExtraction,
+  revenueMethodologySiblingKey,
 } from './extractValuationResultsMap'
+
+describe('resolveSelectedValuationMethodForExtraction', () => {
+  it('reads from report_context when top-level is missing', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        report_context: { selected_valuation_method: 'dcf' },
+      })
+    ).toBe('dcf')
+  })
+
+  it('reads from details.report_context as last resort', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        details: { report_context: { selected_valuation_method: '  ebitda_multiple  ' } },
+      })
+    ).toBe('ebitda_multiple')
+  })
+
+  it('prefers top-level over nested', () => {
+    expect(
+      resolveSelectedValuationMethodForExtraction({
+        selected_valuation_method: 'omzet_multiple',
+        report_context: { selected_valuation_method: 'dcf' },
+      })
+    ).toBe('omzet_multiple')
+  })
+})
 
 describe('getValuationMethodResultForKey', () => {
   it('resolves omzet_multiple from revenue_multiple alias', () => {
@@ -13,6 +46,13 @@ describe('getValuationMethodResultForKey', () => {
       revenue_multiple: { available: true, value: 50_000, label: 'Rev' },
     }
     expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(50_000)
+  })
+
+  it('resolves omzet_multiple from revenue_multiple alias on the map', () => {
+    const map = {
+      revenue_multiple: { available: true, value: 99_000 },
+    } as any
+    expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(99_000)
   })
 
   it('resolves revenue_multiple from omzet_multiple alias', () => {
@@ -24,8 +64,58 @@ describe('getValuationMethodResultForKey', () => {
     expect(r?.unavailable_reason).toBe('x')
   })
 
+  it('prefers the direct key when both aliases exist', () => {
+    const map = {
+      omzet_multiple: { available: true, value: 1 },
+      revenue_multiple: { available: true, value: 2 },
+    } as any
+    expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(1)
+  })
+
   it('returns undefined when method missing', () => {
-    expect(getValuationMethodResultForKey({ dcf: { available: true, value: 1, label: 'DCF' } }, 'sde_multiple')).toBeUndefined()
+    expect(
+      getValuationMethodResultForKey(
+        { dcf: { available: true, value: 1, label: 'DCF' } },
+        'sde_multiple'
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe('revenue methodology alias helpers', () => {
+  it('isRevenueMethodologyKey', () => {
+    expect(isRevenueMethodologyKey('omzet_multiple')).toBe(true)
+    expect(isRevenueMethodologyKey('revenue_multiple')).toBe(true)
+    expect(isRevenueMethodologyKey('ebitda_multiple')).toBe(false)
+  })
+
+  it('revenueMethodologySiblingKey', () => {
+    expect(revenueMethodologySiblingKey('omzet_multiple')).toBe('revenue_multiple')
+    expect(revenueMethodologySiblingKey('revenue_multiple')).toBe('omzet_multiple')
+    expect(revenueMethodologySiblingKey('dcf')).toBeNull()
+  })
+
+  it('isDuplicateHydratedRevenueAliasEntry detects same-ref EN key', () => {
+    const shared = { available: true, value: 1 } as any
+    const base = { omzet_multiple: shared, revenue_multiple: shared } as any
+    expect(isDuplicateHydratedRevenueAliasEntry(base, 'revenue_multiple', shared)).toBe(true)
+    expect(isDuplicateHydratedRevenueAliasEntry(base, 'omzet_multiple', shared)).toBe(false)
+  })
+
+  it('hydratedRevenueMethodKeysAreSameRef', () => {
+    const shared = { value: 1 } as any
+    expect(
+      hydratedRevenueMethodKeysAreSameRef({
+        omzet_multiple: shared,
+        revenue_multiple: shared,
+      })
+    ).toBe(true)
+    expect(
+      hydratedRevenueMethodKeysAreSameRef({
+        omzet_multiple: { value: 1 },
+        revenue_multiple: { value: 1 },
+      })
+    ).toBe(false)
   })
 })
 
@@ -36,7 +126,9 @@ describe('normalizeSelectedMethodKey (DCF display labels)', () => {
 
   it('normalizes long-form Discounted Cash Flow labels', () => {
     expect(normalizeSelectedMethodKey('Discounted Cash Flow')).toBe('discounted_cash_flow')
-    expect(normalizeSelectedMethodKey('Discounted Cash Flow (DCF)')).toBe('discounted_cash_flow_(dcf)')
+    expect(normalizeSelectedMethodKey('Discounted Cash Flow (DCF)')).toBe(
+      'discounted_cash_flow_(dcf)'
+    )
   })
 })
 
@@ -103,12 +195,12 @@ describe('extractValuationResultsMap', () => {
         multiple_low: '2.59' as unknown as number,
         multiple_high: '4.6' as unknown as number,
       },
-    };
+    }
 
-    const out = extractValuationResultsMap(payload);
-    expect(out?.upswitch_adaptive?.multiple_used).toBe(3.45);
-    expect(out?.upswitch_adaptive?.details?.p25_multiple).toBe(2.59);
-    expect(out?.upswitch_adaptive?.details?.p75_multiple).toBe(4.6);
+    const out = extractValuationResultsMap(payload)
+    expect(out?.upswitch_adaptive?.multiple_used).toBe(3.45)
+    expect(out?.upswitch_adaptive?.details?.p25_multiple).toBe(2.59)
+    expect(out?.upswitch_adaptive?.details?.p75_multiple).toBe(4.6)
   })
 
   it('enriches dcf method data with historical FCF readiness from dcf_valuation', () => {
@@ -251,7 +343,9 @@ describe('extractValuationResultsMap', () => {
         multiple_high: 5.4,
       },
     }
-    const out = extractValuationResultsMap(payload, { selectedValuationMethod: 'upswitch_adaptive' })
+    const out = extractValuationResultsMap(payload, {
+      selectedValuationMethod: 'upswitch_adaptive',
+    })
     expect(out?.upswitch_adaptive?.value).toBe(500_000)
     expect(out?.upswitch_adaptive?.multiple_used).toBe(4.2)
   })
@@ -286,7 +380,7 @@ describe('extractValuationResultsMap', () => {
       },
     }
     expect(
-      extractValuationResultsMap(payload, { selectedValuationMethod: ' revenue-multiple ' }),
+      extractValuationResultsMap(payload, { selectedValuationMethod: ' revenue-multiple ' })
     ).toMatchObject({
       omzet_multiple: {
         value: 120_000,
@@ -339,8 +433,53 @@ describe('extractValuationResultsMap', () => {
       extractValuationResultsMap({
         valuation_results: {},
         report_context: { applied_multiple: 4.5 },
-      }),
+      })
     ).toBeNull()
+  })
+})
+
+describe('hydrateClientValuationResultsMap', () => {
+  it('matches extract with resolved selected + top-level selected_valuation_method', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.5,
+        revenue: 500_000,
+        selected_valuation_method: 'omzet_multiple',
+      },
+    }
+    const viaHydrate = hydrateClientValuationResultsMap(payload)
+    const viaExtract = extractValuationResultsMap(payload, {
+      selectedValuationMethod:
+        resolveSelectedValuationMethodForExtraction(payload) ?? payload.selected_valuation_method,
+    })
+    expect(viaHydrate).toEqual(viaExtract)
+    expect(viaHydrate).toMatchObject({
+      omzet_multiple: { value: 120_000, multiple_used: 1.5 },
+    })
+  })
+
+  it('uses selectedValuationMethodOverride for synthesis context', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.5,
+        ebitda: 50_000,
+        revenue: 500_000,
+      },
+    }
+    const revenue = hydrateClientValuationResultsMap({
+      ...payload,
+      selected_valuation_method: 'omzet_multiple',
+    })
+    const ebitdaForced = hydrateClientValuationResultsMap(
+      { ...payload, selected_valuation_method: 'omzet_multiple' },
+      { selectedValuationMethodOverride: 'ebitda_multiple' }
+    )
+    expect(revenue).toMatchObject({ omzet_multiple: expect.any(Object) })
+    expect(ebitdaForced).toMatchObject({ ebitda_multiple: expect.any(Object) })
   })
 })
 

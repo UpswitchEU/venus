@@ -1,0 +1,559 @@
+{
+	"sections": {
+		"profile": "Profiel",
+		"berkus": "Risico-reductie",
+		"scorecard": "Verdedigbaarheid",
+		"founder_pedigree": "Team",
+		"traction": "Tractie",
+		"exit_story": "Exit-verhaal",
+		"round_simulator": "Ronde",
+		"report": "Rapport",
+		"reportLanding": "Voorbeeld"
+	},
+	"common": {
+		"offline": "offline",
+		"preMoney": "Vóór ronde",
+		"postMoney": "Na ronde",
+		"dilution": "Dilutie",
+		"founders": "Oprichters",
+		"optionPool": "Optiepool",
+		"newInvestor": "Nieuwe investeerder",
+		"level": "niveau",
+		"monthsShort": "mnd",
+		"median": "Mediaan",
+		"you": "Jij",
+		"conservative": "Conservatief",
+		"midEngine": "Midden (motor-output)",
+		"bullish": "Optimistisch",
+		"notAvailable": "niet beschikbaar",
+		"previous": "Vorige",
+		"next": "Volgende",
+		"maturityLabels": {
+			"none": "Geen",
+			"basic": "Basis",
+			"strong": "Sterk",
+			"exceptional": "Uitzonderlijk"
+		}
+	},
+	"preset": {
+		"quickStartAria": "Snelle start templates",
+		"quickStart": "Snelle start"
+	},
+	"milestone": {
+		"weight": "gewicht",
+		"whatInvestorsLookFor": "Wat investeerders zoeken",
+		"beneluxExamples": "Benelux-voorbeelden",
+		"yourEvidence": "Jouw bewijs (optioneel)"
+	},
+	"berkus": {
+		"introBefore": "Investeerders waarderen pre-seed rondes op ",
+		"introHighlight": "hoeveel uitvoeringsrisico je hebt weggenomen",
+		"introAfter": ". Score vijf kwalitatieve mijlpalen — elke keuze ontgrendelt een stuk van de regionale baseline.",
+		"capLine": "Tot {total} over 5 mijlpalen · {per} per mijlpaal — {country} {stage} benchmark"
+	},
+	"scorecard": {
+		"introBefore": "De Scorecard verfijnt de regionale mediaan ",
+		"introAfter": " op basis van vijf gewogen defensibility-factoren (Bill Payne 2024).",
+		"contextLine": "{country} {stage} · {sector}"
+	},
+	"companyCard": {
+		"operatingCountry": "Land van vestiging",
+		"searchCompanyNl": "Bedrijfsnaam of KVK-nummer",
+		"searchCompanyBe": "Bedrijfsnaam of KBO-nummer",
+		"registryNl": "Zoek in het Handelsregister van de KvK.",
+		"registryBe": "Zoek in het KBO.",
+		"registryPdf": "Verschijnt op je investor-ready PDF rapport.",
+		"companyNameFallback": "Of: typ je bedrijfsnaam",
+		"companyNamePlaceholder": "Bv. Henchman",
+		"businessType": "Bedrijfstype (sector)",
+		"legalForm": "Rechtsvorm",
+		"fundingStage": "Financieringsfase",
+		"seriesANudge": "Bij Series A heb je meestal 2+ jaar geauditte cijfers. Voor een comp-based getal: kies in de methodekiezer de SaaS-waardering (ARR multiple)—die is meestal preciezer. Gebruik deze studio-flow wanneer je het cap-tabel- en fundraising-narratief hier wilt houden.",
+		"seedRevenueNudge": "Met €{mrr}k MRR zit je in het post-revenue seed-segment. Voor een multiples-gebaseerde cross-check: kies de SaaS-waardering (ARR multiple) in de methodekiezer. Je kunt deze startup-flow blijven gebruiken voor cap-tabel en narratief.",
+		"roundRaised": "Op te halen ronde (€)",
+		"pitchLabel": "Korte pitch (1 zin, optioneel)",
+		"pitchPlaceholder": "Bv. \"Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren.\"",
+		"stageLabels": {
+			"pre_seed": "Pre-seed",
+			"seed": "Seed",
+			"series_a": "Series A"
+		},
+		"stageSubtitles": {
+			"pre_seed": "Idee → eerste hires, nog geen omzet — Berkus-zware blend.",
+			"seed": "MRR live, op zoek naar product-market fit — gebalanceerde 4-leg blend.",
+			"series_a": "~€1M+ ARR, kapitaal voor schaal — VC + SaaS-forward domineren."
+		}
+	},
+	"traction": {
+		"revenuePrompt": "Genereer je vandaag al omzet? Bij \"nee\" valt de SaaS-forward leg automatisch weg uit de blend.",
+		"noRevenue": "Nog geen omzet",
+		"yesMrr": "Ja, MRR live",
+		"forwardTitle": "Forward-looking SaaS-cijfers",
+		"forwardSub": "Voed de SaaS-leg van de waardering met je huidige unit economics.",
+		"monthlyGrowth": "Maandelijkse groei (%)",
+		"monthlyChurn": "Maandelijkse churn (%)",
+		"ltvOptional": "LTV (€) — optioneel",
+		"currentArr": "Huidige ARR",
+		"forwardArr": "Prognose-ARR (12 mnd)",
+		"payback": "Terugverdientijd",
+		"ltvCacWarn": "LTV : CAC ratio onder 3× wordt door investeerders als zorgwekkend gezien — overweeg LTV-verbeteringen of CAC-reductie."
+	},
+	"exitStory": {
+		"tamSamSomTitle": "Marktgrootte (TAM / SAM / SOM)",
+		"tamSamSomLead": "De funnel waarin investeerders je exit-verhaal toetsen — van totaal aanspreekbare markt tot het stuk dat realistisch jouw klant wordt.",
+		"tamLabel": "TAM (€ jaaromzet)",
+		"tamDesc": "Totale jaaromzet wereldwijd in jouw categorie — typisch miljarden (Gartner / Statista). Voorbeeld: €50.000.000.000 = €50 miljard.",
+		"samLabel": "SAM (€)",
+		"samDesc": "Het stuk van TAM dat je realistisch kunt bedienen vanuit je huidige geografie en kanaal. Voorbeeld: €2.000.000.000 = €2 miljard.",
+		"somLabel": "SOM (€) — 3jr realistisch",
+		"somDesc": "Wat je in 3 jaar realistisch kunt veroveren — typisch 1–5% van SAM. Voorbeeld: €50.000.000 = €50 miljoen.",
+		"somShareLine": "SOM is {pctSam}% van SAM en {pctTam}% van TAM — het SAM-aandeel toetsen investeerders meestal aan de 1–5%-regel.",
+		"somFunnelWarnSamGtTam": "SAM is groter dan TAM — pas aan als dit niet de bedoeling was.",
+		"somFunnelWarnSomGtSam": "SOM is groter dan SAM — ongebruikelijk voor een 3-jarige slice; check je cijfers voor je pitcht.",
+		"somFunnelWarnSomGtTam": "SOM is groter dan TAM — je verkrijgbare markt kan de totale markt niet overstijgen.",
+		"growthCurveTitle": "Groeicurve naar jaar 5",
+		"growthCurveLead": "Kies een groeicurve om je Y5 omzet voor te stellen, of vul handmatig in.",
+		"sectorDefaultBtn": "Gebruik sector-default · {amount}",
+		"sectorDefaultHint": "(typisch Y5 ARR voor {sector} pre-seed)",
+		"y5Label": "Year-5 omzet (€)",
+		"investorAskTitle": "Wat zoekt de investeerder?",
+		"investorAskLead": "Welke return-multiple moet de fund zien om de check te schrijven? Dit is de fund-side hurdle, niet jouw ROI.",
+		"targetRoiLabel": "Doelrendement van de investeerder (×)",
+		"targetRoiDesc": "Hoe hoger het cijfer, hoe lager jouw pre-money. {roi}× betekent: de investeerder wil €{roi} terug per €1 die ze nu storten — typisch 7–10 jaar later, na meerdere rondes verwatering. Pre-seed ~30×, seed ~20×, Series A ~10×. We hebben {roi}× ingevuld voor {stage}.",
+		"impliedExit": "Geïmpliceerde exit EV",
+		"sectorMultipleFoot": "Sector exit-multiple: "
+	},
+	"round": {
+		"kindTitle": "Welk soort ronde haal je op?",
+		"kindLead": "Deze keuze bepaalt wat we in de preview kunnen tonen.",
+		"kindLeadDetail": "Prijzenronde: we modelleren deze close meteen — nieuwe investeerders krijgen op te halen bedrag ÷ post-money (zie de balk). Dat percentage is niet hetzelfde als cumulatieve verwatering-tot-exit hogerop. SAFE’s en convertibles converteren bij de volgende prijsronde; daar is nog geen vast aandelenpercentage.",
+		"priced": "Prijzenronde (equity)",
+		"safe": "SAFE / convertibel",
+		"roundSize": "Op te halen ronde (€)",
+		"preMoneyTarget": "Streef-pre-money (€) — optioneel",
+		"preMoneyPlaceholder": "Blended schatting",
+		"preMoneyTargetDesc": "Leeg laten = de blended waardering uit de vorige stappen. Alleen invullen als je al een pre-money met een lead investor hebt afgesproken.",
+		"dilutionLabel": "Cumulatieve verwatering tot exit (%)",
+		"dilutionDesc": "Verwachte totale founder-verwatering tot en met exit (mediaan — Atomico State of European Tech 2024 · Dealroom Benelux 2024). We starten van {pct}% voor {stage}. Dit veld stuurt de balk niet aan: het aandeel nieuwe investeerders deze ronde is altijd op te halen ÷ post-money.",
+		"useStageDefault": "Terug naar stage-default ({pct}%)",
+		"useStageDefaultAria": "Cumulatieve exit-verwatering resetten naar de mediaan-default voor {stage}: {pct}%",
+		"optionPool": "Optiepool (%)",
+		"optionPoolPlaceholder": "10",
+		"optionPoolDesc": "Aandelen gereserveerd voor toekomstige hires. Veel rondes zitten op 10–15%; investeerders verwachten dit vaak in de pre-money stack.",
+		"capTableTitle": "Cap-tabel post-money",
+		"capTableExplainer": "Eigendom na deze close (pre-money + op te halen bedrag, optiepool gereserveerd). Nieuwe investeerders ≈ {roundPct}% post-money van deze ronde alleen — los van het cumulatief-tot-exit-veld.",
+		"roundDilutionHighHint": "~{roundPct}% voor nieuw geld is een grote hap voor één ronde; veel founders mikken richting 10–15% per grote cheque. Bij deze raise zou ~12% ruwweg pre-money rond {preHint} impliceren (illustratief — volg je term sheet).",
+		"preMoney": "Vóór ronde",
+		"postMoney": "Na ronde"
+	},
+	"report": {
+		"legLabels": {
+			"berkus": "Risico-reductie (Berkus)",
+			"vc": "VC-methode (exit-verhaal)",
+			"saas_forward": "SaaS forward (ARR)",
+			"scorecard": "Scorecard (regionaal)"
+		},
+		"readyForDeck": "Klaar voor je deck",
+		"pedigreeIncluded": "Inclusief founder-pedigree multiplier {mult}× op de leg-blend baseline ({mid}).",
+		"copyAria": "Kopieer naar klembord",
+		"copy": "Kopieer",
+		"copied": "Gekopieerd",
+		"range": "Bandbreedte: ",
+		"footballFieldTitle": "Waarderingsband per methode",
+		"yourEvidence": "Jouw onderbouwing",
+		"evidenceHint": "Deze zinnen verschijnen onder elke kaart in de investor PDF.",
+		"pitch": "Je pitch",
+		"deckPreOnly": "Pre-money waardering: {preF} ({stage} · {sector} · {country}).",
+		"deckFull": "{preF} pre-money · op te halen {askF} · post-money {postF} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country}).",
+		"dilutionDefinition": "Dit % is het aandeel van nieuwe investeerders bij deze priced round alleen (op te halen ÷ post-money). Het is niet het cumulatief-tot-exit-% op de Ronde-stap.",
+		"preMoneySourceBlended": "Pre-money is de live blend van de methodes hieronder tot je een term-sheetbedrag invult onder Ronde → Pre-money doel. Die blend schat de ondernemingswaarde, geen 10–15% dilutiedoel voor je op te halen bedrag.",
+		"preMoneySourceOverride": "Pre-money volgt het doel dat je op de Ronde-stap hebt ingevuld.",
+		"safeNotesPricedRoundNote": "Je hebt SAFEs of converteerbare instrumenten staan. Het post-money % hieronder veronderstelt een eenvoudige priced equity close; conversiemechanica kan het effectieve eigendom wijzigen."
+	},
+	"health": {
+		"allClear": "Alles staat — je rapport is klaar om te genereren.",
+		"mixed": "{blockerCount} blokkerend en {warningCount} aanbevolen issues te fixen",
+		"blockersOnly": "{count, plural, one {# blokkerend issue} other {# blokkerende issues}} — fix met de assistent voor PDF",
+		"warningsOnly": "{count, plural, one {# aanbevolen verbetering} other {# aanbevolen verbeteringen}}",
+		"assistantHint": "De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard."
+	},
+	"findingPeek": {
+		"ariaPeek": "Co-pilot suggestie",
+		"dismissAria": "Later — sluit suggestie",
+		"askCopilot": "Vraag co-pilot",
+		"severity": {
+			"block": "Te fixen",
+			"warn": "Aanbevolen",
+			"info": "Let op"
+		}
+	},
+	"copilot": {
+		"fabToFix": "Co-pilot · {count} te fixen",
+		"fabAllClear": "Co-pilot · alles in orde"
+	},
+	"safeNotes": {
+		"defaultTitle": "SAFE- en convertibele notities",
+		"defaultDescription": "Voeg openstaande SAFEs toe — ze converteren bij de volgende prijsronde.",
+		"empty": "Nog geen SAFEs toegevoegd.",
+		"add": "SAFE toevoegen",
+		"holder": "Houder",
+		"removeAria": "SAFE verwijderen",
+		"amount": "Bedrag (€)",
+		"cap": "Waarderings-cap (€)",
+		"discount": "Korting (%)",
+		"advisorHint": "Advisor mode: bij conversie naar priced round wordt de meest gunstige clausule (cap of discount) per SAFE toegepast.",
+		"capitalHistoryTitle": "Openstaande SAFEs / converteerbare leningen",
+		"capitalHistoryDescription": "Converteren bij de volgende prijsronde. Gebruik de meest gunstige clausule (cap of discount)."
+	},
+	"pedigree": {
+		"introBefore": "Investeerders prijzen pre-seed niet alleen op ",
+		"introRisk": "welk risico je hebt weggenomen",
+		"introMid": ", maar ook op ",
+		"introWho": "wie je bent op papier",
+		"introAfter": ". Dit is een aparte multiplier op de leg-blend baseline.",
+		"pickDefend": "Kies alleen wat je kunt onderbouwen — een investeerder verifieert elke claim.",
+		"effectiveMultiplier": "Effectieve multiplier",
+		"claimedNeutralized": "Geclaimd: {claimed}× — geneutraliseerd door ontbrekende onderbouwing",
+		"liftApplied": "Lift toegepast",
+		"discountApplied": "Korting toegepast",
+		"noOverlay": "Geen overlay",
+		"evidenceLabel": "Onderbouwing (verplicht voor de lift)",
+		"evidenceMissingEngine": "Zonder onderbouwing wordt deze pedigree-claim door de waarderingsmotor genuld (multiplier blijft 1.00×).",
+		"evidenceCounter": "{count}/500 — verschijnt verbatim in de defensibility-tabel van het rapport.",
+		"calibrationBefore": "Calibratie: Strebulaev (Stanford GSB) ",
+		"calibrationTitle": "Venture Mindset",
+		"calibrationAfter": " 2024, Atomico SoEU 2024, Dealroom Benelux 2024. De multiplier is geclamped op ",
+		"calibrationClamp": "0.70× – 1.80×",
+		"calibrationTail": " om niet-fundbare extremen te voorkomen.",
+		"options": {
+			"prior_exit": {
+				"title": "Eerdere venture-backed exit (≥€10M)",
+				"description": "Een medeoprichter heeft eerder een venture-backed bedrijf verkocht voor €10M+.",
+				"evidence": "Investeerders verifiëren: Crunchbase / Dealroom, persbericht, of LP-referentie."
+			},
+			"top_unicorn_alumnus": {
+				"title": "Senior alumnus topscaleup",
+				"description": "≥2 jaar op senior niveau (senior IC, lead, manager, staff of hoger — geen junior of stage) bij een Beneluxse of Europese topscaleup (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).",
+				"evidence": "Investeerders verifiëren: LinkedIn-duur + rol-niveau; veel fondsen onderhouden een \"mafia\"-graph."
+			},
+			"domain_expert_10y": {
+				"title": "10+ jaar branche-ervaring",
+				"description": "Een medeoprichter heeft 10+ jaar operationele ervaring in de doelsector — founder-market fit weegt zwaarder dan generieke \"founder strength\".",
+				"evidence": "Investeerders verifiëren: referenties van vorige werkgevers; klantgesprekken: \"zou je kopen van deze persoon?\""
+			},
+			"second_time_founder": {
+				"title": "Tweede keer oprichter",
+				"description": "Een medeoprichter richtte eerder een bedrijf op dat ≥2 jaar actief was (geen exit vereist — alleen het \"ik heb een bedrijf gerund\" signaal telt).",
+				"evidence": "Investeerders verifiëren: KBO/KVK-historiek, eerdere cap-tabel, archief van product of GitHub."
+			},
+			"has_technical_cofounder": {
+				"title": "Voltijdse technische medeoprichter",
+				"description": "Minstens één voltijdse technische medeoprichter eigent zich de codebase volledig toe. Verlaagt het meest voorkomende pre-seed uitvoeringsrisico (uitbestede engineering).",
+				"evidence": "Investeerders verifiëren: aandeelhoudersverdeling, GitHub-commits, technische due-diligence."
+			},
+			"solo_founder": {
+				"title": "Solo-oprichter (geen medeoprichters)",
+				"description": "Eén oprichter zonder medeoprichters. Solo-oprichters sluiten significant lager in gepubliceerde Benelux-datasets — de korting is empirisch, geen oordeel.",
+				"evidence": "Bij selectie vervalt de \"technische medeoprichter\" lift — beide kunnen niet tegelijk waar zijn."
+			}
+		},
+		"placeholders": {
+			"prior_exit": "bv. \"Acme verkocht aan Salesforce 2021, €40M EV — Crunchbase: …\"",
+			"top_unicorn_alumnus": "bv. \"Senior PM @ Adyen 2018-2021 — LinkedIn: …\"",
+			"domain_expert_10y": "bv. \"12 jaar M&A-advies @ ING / KBC — referenties op aanvraag\"",
+			"second_time_founder": "bv. \"Foo BV opgericht 2015-2019 (3 jaar) — KBO: …\"",
+			"has_technical_cofounder": "bv. \"Jane Doe, ex-Aikido Staff Eng — eigenaar codebase, 60% commits\""
+		}
+	},
+	"teamPicker": {
+		"heading": "Hoe ervaren is je team?",
+		"subline": "Eén pick. Geen vakjargon. We rekenen de bijhorende founder-pedigree multiplier zelf uit.",
+		"mostPicked": "Meest gekozen",
+		"footer": "Niet zeker? Kies \"{title}\" — dat is de Atomico Benelux pre-seed mediaan.",
+		"levels": {
+			"first_time": {
+				"title": "Eerste keer oprichters",
+				"subtitle": "Nog niet eerder een bedrijf opgericht. Geen eerdere exits of scaleup-ervaring.",
+				"hint": "Engine leest dit als neutrale baseline — geen founder-pedigree premie."
+			},
+			"experienced": {
+				"title": "Ervaren operators",
+				"subtitle": "Sterke branche-ervaring, technische medeoprichter aan boord. Team kan bouwen en verkopen.",
+				"hint": "Engine leest dit als ~1.25× — typisch Atomico Benelux pre-seed team."
+			},
+			"veteran": {
+				"title": "Veteraan oprichters",
+				"subtitle": "Eerder gedaan — vorig 2-jaar+ bedrijf, diepe domein-expertise, technische medeoprichter.",
+				"hint": "Engine leest dit als ~1.35× — tweede keer oprichters met operationeel track record."
+			},
+			"dream_team": {
+				"title": "Dream team",
+				"subtitle": "Eerdere exit (€10M+) of senior alumni topscaleup (Adyen / Collibra / Showpad / Bol / Mollie / etc).",
+				"hint": "Engine leest dit als ~1.60× — top-quartile pedigree, laagste VC required-return."
+			}
+		}
+	},
+	"ambition": {
+		"heading": "Hoe groot wil je dat dit wordt?",
+		"subline": "Eén keuze. We berekenen de bijhorende exit-aannames automatisch op basis van Atomico SoEU 2024 + Dealroom Benelux benchmarks.",
+		"recommended": "Aanbevolen",
+		"y5Anchor": "Year-5 omzet anker",
+		"footer": "Geen idee? Kies \"{title}\" — dat is de Atomico mediaan voor pre-seed founders.",
+		"levels": {
+			"conservative": {
+				"title": "Stevige mid-size",
+				"subtitle": "Winstgevend, gefocust, kapitaal-efficiënt. Overname door een industriële koper.",
+				"outcome": "Redelijke mid-size omzet tegen jaar 5. Verdedigbaar, laag risico.",
+				"hint": "Engine leest dit als een conservatieve VC-methode anker."
+			},
+			"standard": {
+				"title": "Categorieleider",
+				"subtitle": "Sterk marktaandeel, gezonde ARR-groei, strategische overname of groeironde.",
+				"outcome": "Top-3 in je categorie tegen jaar 5.",
+				"hint": "De meeste pre-seed founders kiezen dit — Atomico SoEU 2024 mediaan."
+			},
+			"ambitious": {
+				"title": "Categorie-definiërend",
+				"subtitle": "Generationele uitkomst — €100M+ exit of IPO-pad. Hoge variantie, hoge upside.",
+				"outcome": "Categorie-definiërend tegen jaar 5 — venture-scale uitkomst.",
+				"hint": "Engine leest dit als een top-quartile VC-methode anker."
+			}
+		}
+	},
+	"inceptionLens": {
+		"heading": "Inception lens (optioneel)",
+		"subline": "Voor founders die niet op een conventioneel milestone-pad zitten. Erkent dat pre-seed wordt gewonnen door momentum, niet door moats — en dat de beste founders meer kosten. Standaard: uitgeschakeld.",
+		"noOverlayChip": "Geen overlay",
+		"overlayActive": "{lift} · ±{band}%",
+		"defaultBadge": "Standaard",
+		"whatLensLead": "Wat de lens doet:",
+		"whatLensBody": "De lens tilt de mid (engine output) op én verbreedt de band (lower P10, higher P90). Eerlijk over verhoogde variantie — geen valse precisie. Canonieke wiskunde komt van ValuationIQ; deze lens is een gepubliceerde, peer-reviewed overlay (Hampus Jakobsson 2024 inception thesis, Atomico SoEU 2024).",
+		"levels": {
+			"milestones_driven": {
+				"title": "Milestones-gedreven",
+				"subtitle": "Standaard pre-seed: meetbare mijlpalen, peer-vergelijkbaar traject. Conventionele Berkus + Scorecard + VC blend, geen overlay."
+			},
+			"momentum_driven": {
+				"title": "Momentum-gedreven",
+				"subtitle": "\"Pre-seed wordt gewonnen door momentum, niet door moats.\" Inkomende investeerdersinteresse, versnelling van aanwervingen, vroege klantenvraag. Lift +10%, ±15% bredere band.",
+				"examples": "Wanneer peers ongevraagd uitreiken; team verdubbelt per kwartaal; gebruikers vragen om de volgende versie."
+			},
+			"inception_bet": {
+				"title": "Inception bet",
+				"subtitle": "Edge premie + markt-creatie thesis. Spike-profiel, generationele ambitie, geen plafond. Lift +25%, ±25% bredere band — hoge variantie, asymmetrische upside eerlijk erkend.",
+				"examples": "Het Lovable / Anthropic / Cursor profiel. Bijna-krankzinnige ambitie, technisch of distributie spike, markt-creërende thesis."
+			}
+		}
+	},
+	"landing": {
+		"hero": {
+			"eyebrow": "Geen account nodig om te beginnen",
+			"headline": "Wat is je startup waard?",
+			"headlineAccent": "Ontdek het in 15 minuten — registreer alleen als je het rapport wilt.",
+			"subline": "Drie gevestigde frameworks, gekalibreerd op gepubliceerde Benelux-benchmarks. Vul het hier in, registreer aan het eind om het investor-ready PDF te downloaden.",
+			"stageChipsLabel": "Stage-dekking",
+			"anonymous": "Anoniem tot registratie",
+			"noCard": "Geen creditcard",
+			"gdpr": "GDPR-compliant",
+			"stageChips": ["Pre-seed", "Seed", "Series A"]
+		},
+		"howItWorks": {
+			"heading": "Hoe het werkt",
+			"steps": [
+				{
+					"title": "Vul de wizard in",
+					"body": "Acht korte secties. Geen historische cijfers nodig. Ongeveer 15 minuten."
+				},
+				{
+					"title": "Registreer — geen kaart",
+					"body": "Magic-link registratie. Je inputs reizen met je mee naar het ingelogde dashboard."
+				},
+				{
+					"title": "Download je PDF",
+					"body": "Een 4-paginas investor-ready rapport — one-pager, methodologie, cap table, dilutie."
+				}
+			]
+		},
+		"methodology": {
+			"heading": "Drie frameworks, één verdedigbaar getal",
+			"lede": "We combineren drie waarderingsmethodes waar angel investors en seed-fondsen daadwerkelijk om vragen. Elk is gebaseerd op gepubliceerd onderzoek — geen proprietary black box.",
+			"cards": [
+				{
+					"title": "Berkus methode",
+					"attribution": "Dave Berkus, ~jaren '90 — \"Berkus 2.0\" kalibratie: 2024",
+					"body": "Vijf risico-reductie mijlpalen (idee, prototype, team, partnerschappen, uitrol). Elke mijlpaal verdient een gedefinieerde bijdrage aan de pre-money — verankerd op stage-bewuste plafonds, geen onderbuikgevoel."
+				},
+				{
+					"title": "Bill Payne Scorecard",
+					"attribution": "Bill Payne / Frontier Angels — gepubliceerde methodologie, 2024 update",
+					"body": "Vijf gewogen factoren (marktomvang, verdedigbaarheid, GTM, kapitaalefficiëntie, overige meewinden) vergeleken met de regio-mediaan. Het resultaat is een multiplier op een gepubliceerde Benelux-baseline."
+				},
+				{
+					"title": "VC methode",
+					"attribution": "Bill Sahlman, Harvard Business Review (1987)",
+					"body": "Jaar-5 omzet × een exit-EV/omzet multiple ÷ het doelrendement van het fonds. Brengt de \"wat moet het fonds zien\" lens naar boven die priced rounds in praktijk oplossen."
+				}
+			]
+		},
+		"reportContents": {
+			"heading": "Wat je downloadt",
+			"lede": "Een PDF van 4 paginas, ontworpen om in een data room te droppen of in een deck te plakken. Dezelfde artefacten zie je elk in het rapport hieronder.",
+			"items": [
+				{
+					"title": "Fundraising one-pager",
+					"body": "De pagina die je een angel overhandigt: geblende pre-money, bandbreedte, methodemix, football field over de drie legs, cap-table simulator, defensibility-hoogtepunten."
+				},
+				{
+					"title": "Executive summary",
+					"body": "Canonieke headline + bandbreedte + narratief, met stage en methodemix uitgelicht voor de lezer."
+				},
+				{
+					"title": "Methode-breakdown",
+					"body": "Audit-trail per methode: Berkus-bijdragentabel, Scorecard factor-gewichten, SaaS forward multiple wiskunde, VC backsolve."
+				},
+				{
+					"title": "Cap table & dilutie",
+					"body": "Bestaande optiepool, vorige ronde, SAFE notes, en het volgende-ronde dilutiescenario — opgemaakt zodat een accountant het kan certificeren."
+				}
+			]
+		},
+		"sources": {
+			"heading": "Gekalibreerd op gepubliceerd onderzoek",
+			"lede": "Benchmarks zijn niet verzonnen. De getallen waaraan de engine je inputs spiegelt, komen uit publieke datasets:",
+			"items": [
+				"Atomico — State of European Tech 2024",
+				"Dealroom — Benelux 2024",
+				"Bessemer — State of the Cloud 2024",
+				"KeyBanc / OpenView — Private SaaS Survey"
+			],
+			"note": "Bronnen worden inline geciteerd in je gedownloade rapport, telkens een benchmark een getal stuurt."
+		},
+		"faq": {
+			"heading": "Eerlijke antwoorden",
+			"items": [
+				{
+					"q": "Waarom is de wizard gratis zonder registratie?",
+					"a": "Hem invullen geeft je al een getal dat je in een deck kunt plakken — dat is op zich nuttig, met of zonder PDF. Registratie is alleen voor het gepolijste investor-ready rapport en om je werk over sessies heen te bewaren."
+				},
+				{
+					"q": "Hoe nauwkeurig is dit ten opzichte van een betaalde waardering?",
+					"a": "Het is een triangulatie over drie gevestigde methoden, geen single-source-of-truth getal. Voor een term sheet of een SAFE-conversie moet je accountant de cap table tekenen — we maken dat een één-klik uitnodiging vanuit het rapport."
+				},
+				{
+					"q": "Wat gebeurt er met mijn inputs als ik wegga zonder te registreren?",
+					"a": "Ze blijven alleen in je browser (localStorage). Niets gaat naar onze servers tot je registreert. Als je binnen 24 uur terugkomt, laden je inputs automatisch terug."
+				},
+				{
+					"q": "Kan ik dit gebruiken voor een niet-Belgische / niet-Nederlandse startup?",
+					"a": "De wizard werkt voor elk bedrijf — de regionale benchmarks zijn vandaag gekalibreerd voor België en Nederland. Voor de rest van Europa triangleert het getal nog steeds, maar behandel de regio-multiplier als bij benadering."
+				}
+			]
+		},
+		"rightRail": {
+			"title": "Je rapport is bijna klaar",
+			"sub": "Vul de wizard links in. Klik op \"Genereer mijn rapport\", we slaan je inputs op, je doet een snelle registratie en je komt meteen op je voltooide waardering uit — links voorgevuld, rechts het PDF-rapport.",
+			"fixesIssues": "{count, plural, one {1 punt om aan te scherpen voordat het rapport investor-ready is} other {# punten om aan te scherpen voordat het rapport investor-ready is}}",
+			"cta": "Genereer mijn gratis rapport",
+			"ctaSubmitting": "Inputs opslaan…",
+			"ctaFootnote": "Gratis, in 15 minuten. We delen je inputs nooit. De volgende stap is een snelle registratie — geen creditcard.",
+			"legalAlready": "Heb je al een account?",
+			"legalLogin": "Log in"
+		},
+		"meta": {
+			"title": "Startup-waardering — Gratis, geen account nodig om te starten | Upswitch",
+			"description": "Run de volledige Berkus + Scorecard + VC-methode blend op je startup. Vul het hier in, registreer pas wanneer je het investor-ready rapport wilt."
+		},
+		"wizardAriaLabel": "Startup-waardering wizard"
+	},
+	"narrative": {
+		"stageLabels": {
+			"pre_seed": "Pre-seed",
+			"seed": "Seed",
+			"series_a": "Series A"
+		},
+		"sectorLabels": {
+			"saas": "B2B SaaS",
+			"marketplace": "Marktplaats / platform",
+			"fintech": "Fintech",
+			"biotech_healthtech": "Biotech / healthtech",
+			"deeptech_ai": "Deeptech / AI",
+			"consumer": "Consumer / B2C",
+			"hardware": "Hardware",
+			"other": "Meerdere sectoren"
+		},
+		"team": {
+			"first_time": "een eerste-keer oprichtend team",
+			"experienced": "een ervaren operationeel team",
+			"veteran": "een veteraan oprichtend team",
+			"dream_team": "een dream-team profiel"
+		},
+		"ambition": {
+			"conservative": "een conservatieve mid-size uitkomst",
+			"standard": "een categorieleider uitkomst",
+			"ambitious": "een categorie-definiërende uitkomst"
+		},
+		"teamFallback": "jouw team-profiel",
+		"ambitionFallback": "je groei-thesis",
+		"year5Suffix": " (Y5 omzet-anker: {amount})",
+		"whyP1": "Verankerd op {team} en {ambition}{year5}.  Pre-money komt uit op {preMoney} bij een ronde van {raise}.",
+		"pedigreeLift": " Daarna een lift van {mult}× voor team-pedigree",
+		"pedigreeDiscount": " Daarna een korting van {mult}× voor team-pedigree",
+		"whyP2": "Getrianguleerd over {count} academische methoden (milestone-driven, peer-comparison, exit-driven).{overlay}.  Iedere leg is een gepubliceerde, peer-reviewed methode — geen hand-waving.",
+		"headline": "{preMoney} pre-money · op te halen {raise} · post-money {post} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country})"
+	},
+	"transparency": {
+		"summaryTitle": "Live-preview: waarom dit cijfer?",
+		"disclaimerBold": "Live preview.",
+		"disclaimerP1": "De canonieke waardering, range en PDF worden door ",
+		"disclaimerP2": " gerenderd wanneer je op ",
+		"disclaimerP3": " klikt. Toon investeerders het rapport, niet dit voorbeeld.",
+		"valuationIq": "ValuationIQ",
+		"generateCta": "Genereer startup waardering",
+		"sectionPlain": "1. In gewoon Nederlands",
+		"sectionMath": "2. De wiskunde, leg per leg",
+		"notAvailable": "niet beschikbaar",
+		"legLabels": {
+			"berkus": "Berkus — milestone-gedreven",
+			"scorecard": "Bill Payne Scorecard — peer-vergelijking",
+			"vc": "VC Method (Sahlman) — exit-gedreven",
+			"saas_forward": "SaaS Forward Multiple — tractie-gedreven"
+		},
+		"legNotes": {
+			"berkus": "Gedreven door je 5 risico-reductie mijlpalen (idee, prototype, team, partnerships, uitrol).",
+			"scorecard": "Gedreven door 5 gewogen defensibility-factoren vergeleken met het regionale pre-seed gemiddelde.",
+			"vc": "Gedreven door je Y5 ARR thesis × exit multiple ÷ target ROI − ronde-grootte.",
+			"saas_forward": "Gedreven door huidige MRR vooruit-geprojecteerd 12 maanden × risico-aangepaste multiple."
+		},
+		"pedigreeMultiplier": "Daarna een team-pedigree multiplier van {mult}× op de leg-blend ({from} → {to}).",
+		"inceptionSection": "2½. Inception lens — toegepast",
+		"inceptionMomentumRest": "pre-seed wordt gewonnen door momentum, niet door moats. {mult}× lift op de mid; ±{band}% bredere variantie band om de werkelijke pre-seed onzekerheid eerlijk te rapporteren.",
+		"inceptionBetRest": "edge premie + markt-creatie thesis. {mult}× lift op de mid; ±{band}% bredere band — vloer iets lager (verhoogd downside-risico erkend), plafond aanzienlijk hoger (asymmetrische upside). Anthropic / Lovable / Cursor profiel.",
+		"lensMomentum": "Momentum-gedreven lens",
+		"lensBet": "Inception bet lens",
+		"preLens": "Vóór lens (na pedigree) mid: ",
+		"afterLens": "Na lens: ",
+		"benchmark": "3. Benchmark — waar zitten peers?",
+		"medianAria": "Mediaan {amount}",
+		"engineAria": "Output motor {amount}",
+		"medianLabel": "Mediaan: ",
+		"youLabel": "Jij: ",
+		"bandCaption": "Band: 0.5× – 2× regionale mediaan (P25–P75 empirisch bereik).",
+		"sensitivityTitle": "4. Wat als je Y5-thesis ±20% afwijkt?",
+		"sensitivityFoot": "Y5-thesis is de meest gehefboomde input bij pre-seed. ±20% beweging ⇒ ±{spreadPct}% pre-money.",
+		"sourcesHeading": "5. Bronnen & methodologie",
+		"sourceBerkusTitle": "Berkus (2024):",
+		"sourceBerkus": "5 risico-reductie mijlpalen, geüpdated voor het 2024 venture klimaat.",
+		"sourceScorecardTitle": "Bill Payne Scorecard (2024):",
+		"sourceScorecard": "5 gewogen defensibility-factoren, peer-vergelijkingsband 0.5×–1.5×.",
+		"sourceVcTitle": "VC Method (Sahlman):",
+		"sourceVc": "Y5 omzet × exit-multiple ÷ target ROI − ronde-grootte.",
+		"sourcePedigreeTitle": "Pedigree (Strebulaev 2024):",
+		"sourcePedigree": "Multiplicatieve overlay 0.70×–1.80× op leg-blend baseline.",
+		"sourceInceptionTitle": "Inception lens (opt-in):",
+		"sourceInception": "Multiplier + band-widening overlay voor momentum-driven en inception-bet profielen. Erkent dat moats niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.",
+		"benchmarksLabel": "Benchmarks:",
+		"offlineFallback": "offline reserve",
+		"updatedPrefix": "bijgewerkt ",
+		"repro": "Audit-ready cijfer komt van <viq></viq> (Python engine, server-side). Deze preview spiegelt dezelfde wiskunde, maar het canonieke getal — dat in je PDF en op je rapport staat — wordt deterministisch berekend op de server. Identieke inputs ⇒ identiek getal. Geen LLM-hallucinatie, geen verborgen regels."
+	}
+}

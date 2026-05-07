@@ -9,16 +9,110 @@
  * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
  * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
-import type { ValuationMethodResult } from '../types/valuation'
+import type { ValuationMethodResult } from '@/types/valuation'
 
 export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
+}
+
+/** Optional override when merging two payloads (e.g. session restore + in-memory result). */
+export type HydrateClientValuationResultsOptions = {
+  selectedValuationMethodOverride?: string | null
+}
+
+/** The other NL/EN key for the same revenue-multiple methodology. */
+export function revenueMethodologySiblingKey(
+  key: string
+): 'omzet_multiple' | 'revenue_multiple' | null {
+  if (key === 'omzet_multiple') return 'revenue_multiple'
+  if (key === 'revenue_multiple') return 'omzet_multiple'
+  return null
+}
+
+/** Read method row from a hydrated map; `omzet_multiple` / `revenue_multiple` are aliases. */
+export function getValuationMethodResultForKey(
+  map: Record<string, ValuationMethodResult> | null | undefined,
+  methodKey: string
+): ValuationMethodResult | undefined {
+  if (!map) return undefined
+  const direct = map[methodKey]
+  if (direct) return direct
+  const sibling = revenueMethodologySiblingKey(methodKey)
+  if (sibling) return map[sibling]
+  return undefined
+}
+
+/**
+ * After {@link withMethodAliases}, `revenue_multiple` may duplicate `omzet_multiple` by reference.
+ * Skip copying/enumerating the EN key when merging UI rows.
+ */
+export function isDuplicateHydratedRevenueAliasEntry(
+  map: Record<string, ValuationMethodResult | undefined>,
+  key: string,
+  method: ValuationMethodResult | undefined
+): boolean {
+  if (key !== 'revenue_multiple' || method == null) return false
+  const omzet = map.omzet_multiple
+  return omzet != null && omzet === method
+}
+
+/** True when both keys exist and reference the same hydrated row. */
+export function hydratedRevenueMethodKeysAreSameRef(
+  map: Record<string, ValuationMethodResult | undefined> | null | undefined
+): boolean {
+  if (!map || typeof map !== 'object') return false
+  const omzet = map.omzet_multiple
+  const revenue = map.revenue_multiple
+  return omzet != null && revenue != null && omzet === revenue
+}
+
+/**
+ * Selected method for {@link extractValuationResultsMap} context when only nested fields are set.
+ * Order: top-level → `report_context` → `details` → `details.report_context`.
+ */
+export function resolveSelectedValuationMethodForExtraction(
+  valuationResult: unknown
+): string | null {
+  if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
+    return null
+  }
+  const root = valuationResult as Record<string, unknown>
+  const pick = (v: unknown): string | null => {
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    return null
+  }
+
+  const direct = pick(root['selected_valuation_method'])
+  if (direct) return direct
+
+  const rc = root['report_context']
+  if (rc && typeof rc === 'object' && !Array.isArray(rc)) {
+    const fromRc = pick((rc as Record<string, unknown>)['selected_valuation_method'])
+    if (fromRc) return fromRc
+  }
+
+  const details = root['details']
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const d = details as Record<string, unknown>
+    const fromDetails = pick(d['selected_valuation_method'])
+    if (fromDetails) return fromDetails
+    const drc = d['report_context']
+    if (drc && typeof drc === 'object' && !Array.isArray(drc)) {
+      return pick((drc as Record<string, unknown>)['selected_valuation_method'])
+    }
+  }
+
+  return null
 }
 
 const METHOD_KEY_ALIASES: Record<string, string> = {
   revenue_multiple: 'omzet_multiple',
 }
 const REVENUE_METHOD_KEYS = new Set(['omzet_multiple', 'revenue_multiple'])
+
+export function isRevenueMethodologyKey(methodKey: string): boolean {
+  return REVENUE_METHOD_KEYS.has(methodKey)
+}
 
 export function normalizeSelectedMethodKey(methodKey: unknown): string {
   if (methodKey == null) return ''
@@ -299,7 +393,7 @@ function getFallbackMethodLabel(methodKey: string): string {
   if (methodKey === 'arr_multiple') {
     return 'ARR multiple'
   }
-  if (methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple') {
+  if (isRevenueMethodologyKey(methodKey)) {
     return 'Omzetmultiple'
   }
   if (methodKey === 'ebitda_multiple') {
@@ -515,7 +609,7 @@ function synthesizeMinimalValuationResultsMap(
 
   const value = equityMid ?? enterpriseMid ?? 0
 
-  if (REVENUE_METHOD_KEYS.has(methodKey) && currentRevenue != null && currentRevenue <= 0) {
+  if (isRevenueMethodologyKey(methodKey) && currentRevenue != null && currentRevenue <= 0) {
     return {
       [methodKey]: {
         available: false,
@@ -595,6 +689,29 @@ export function extractValuationResultsMap(
   return withMethodAliases(synthesizeMinimalValuationResultsMap(valuationResult, context))
 }
 
+/**
+ * Single Venus entry point: {@link extractValuationResultsMap} with
+ * {@link resolveSelectedValuationMethodForExtraction} + top-level `selected_valuation_method`.
+ * Prefer this over ad-hoc context objects so Manual layout, stores, sessions, and benchmarks stay aligned.
+ */
+export function hydrateClientValuationResultsMap(
+  valuationResult: unknown,
+  options?: HydrateClientValuationResultsOptions | null
+): Record<string, ValuationMethodResult> | null {
+  if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
+    return null
+  }
+  const vr = valuationResult as Record<string, any>
+  const selectedValuationMethod =
+    options?.selectedValuationMethodOverride ??
+    resolveSelectedValuationMethodForExtraction(valuationResult) ??
+    vr.selected_valuation_method
+  const map = extractValuationResultsMap(vr, {
+    selectedValuationMethod: selectedValuationMethod,
+  })
+  return (map as Record<string, ValuationMethodResult> | null) ?? null
+}
+
 function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
   const vr = value.valuation_results
   return !!(vr && typeof vr === 'object' && !Array.isArray(vr) && Object.keys(vr).length > 0)
@@ -618,19 +735,4 @@ export function normalizeValuationResultWithMethodMap(
   }
 
   return { ...value, valuation_results: map }
-}
-
-/**
- * Resolve API valuation result for a method key; `omzet_multiple` / `revenue_multiple` are aliases.
- */
-export function getValuationMethodResultForKey(
-  map: Record<string, ValuationMethodResult> | null | undefined,
-  methodKey: string
-): ValuationMethodResult | undefined {
-  if (!map) return undefined
-  const direct = map[methodKey]
-  if (direct) return direct
-  if (methodKey === 'omzet_multiple') return map['revenue_multiple']
-  if (methodKey === 'revenue_multiple') return map['omzet_multiple']
-  return undefined
 }

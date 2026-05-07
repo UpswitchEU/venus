@@ -16,11 +16,17 @@
  *
  * Pure function — no React, no store coupling.  Take the engine's
  * details payload, return strings.
+ *
+ * Copy lives in `messages/startupStudio/{locale}.json` under `narrative`.
  */
 
+import studioEn from '../../../../messages/startupStudio/en.json'
+import studioNl from '../../../../messages/startupStudio/nl.json'
 import type { TeamLevel } from '@/features/startup-studio/data/teamLevel'
 import type { AmbitionLevel } from '@/features/startup-studio/data/ambition'
 import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
+
+type NarrativeBundle = (typeof studioEn)['narrative']
 
 export interface NarrativeContext {
   /** Headline pre-money EUR. */
@@ -48,42 +54,24 @@ export interface NarrativeContext {
   year5Revenue: number | null
 }
 
+function interpolate(template: string, vars: Record<string, string | number>): string {
+  let s = template
+  for (const [k, v] of Object.entries(vars)) {
+    s = s.split(`{${k}}`).join(String(v))
+  }
+  return s
+}
+
+function narrativeBundle(locale: 'en' | 'nl'): NarrativeBundle {
+  return (locale === 'nl' ? studioNl : studioEn).narrative
+}
+
 /** Format EUR for narrative use — €X.XM not raw digits. */
 function fmt(eur: number | null | undefined): string {
   if (eur == null || !Number.isFinite(eur)) return '—'
   if (eur >= 1_000_000) return `€${(eur / 1_000_000).toFixed(1)}M`
   if (eur >= 1_000) return `€${Math.round(eur / 1_000)}k`
   return `€${Math.round(eur)}`
-}
-
-const STAGE_LABEL = {
-  pre_seed: 'pre-seed',
-  seed: 'seed',
-  series_a: 'Series A',
-} as const
-
-const SECTOR_LABEL: Record<StartupSector, string> = {
-  saas: 'B2B SaaS',
-  marketplace: 'marketplace',
-  fintech: 'fintech',
-  biotech_healthtech: 'biotech / healthtech',
-  deeptech_ai: 'deeptech / AI',
-  consumer: 'consumer',
-  hardware: 'hardware',
-  other: 'cross-sector',
-}
-
-const TEAM_LABEL: Record<TeamLevel, { en: string; nl: string }> = {
-  first_time: { en: 'a first-time founding team', nl: 'een eerste-keer oprichtend team' },
-  experienced: { en: 'an experienced operating team', nl: 'een ervaren operationeel team' },
-  veteran: { en: 'a veteran founding team', nl: 'een veteraan oprichtend team' },
-  dream_team: { en: 'a dream-team profile', nl: 'een dream-team profiel' },
-}
-
-const AMBITION_LABEL: Record<AmbitionLevel, { en: string; nl: string }> = {
-  conservative: { en: 'a conservative mid-size outcome', nl: 'een conservatieve mid-size uitkomst' },
-  standard: { en: 'a category-leader outcome', nl: 'een categorieleider uitkomst' },
-  ambitious: { en: 'a category-defining outcome', nl: 'een categorie-definiërende uitkomst' },
 }
 
 /**
@@ -94,23 +82,18 @@ export function buildHeadlineNarrative(
   ctx: NarrativeContext,
   locale: 'en' | 'nl' = 'en',
 ): string {
+  const n = narrativeBundle(locale)
   const post = ctx.preMoney + ctx.raise
   const dilution = post > 0 ? (ctx.raise / post) * 100 : 0
-  const stageLabel = STAGE_LABEL[ctx.stage]
-  const sectorLabel = SECTOR_LABEL[ctx.sector]
-
-  if (locale === 'nl') {
-    return (
-      `${fmt(ctx.preMoney)} pre-money · ophalen ${fmt(ctx.raise)} · post-money ` +
-      `${fmt(post)} · ~${dilution.toFixed(0)}% dilutie ` +
-      `(${stageLabel} · ${sectorLabel} · ${ctx.countryCode})`
-    )
-  }
-  return (
-    `${fmt(ctx.preMoney)} pre-money · raising ${fmt(ctx.raise)} · post-money ` +
-    `${fmt(post)} · ~${dilution.toFixed(0)}% dilution ` +
-    `(${stageLabel} · ${sectorLabel} · ${ctx.countryCode})`
-  )
+  return interpolate(n.headline, {
+    preMoney: fmt(ctx.preMoney),
+    raise: fmt(ctx.raise),
+    post: fmt(post),
+    dilution: dilution.toFixed(0),
+    stage: n.stageLabels[ctx.stage],
+    sector: n.sectorLabels[ctx.sector],
+    country: ctx.countryCode,
+  })
 }
 
 /**
@@ -122,30 +105,25 @@ export function buildWhyNarrative(
   ctx: NarrativeContext,
   locale: 'en' | 'nl' = 'en',
 ): string[] {
+  const n = narrativeBundle(locale)
   const lines: string[] = []
 
-  // Paragraph 1 — the team + ambition story (English summary of what
-  // the founder picked, no method names yet).
-  if (locale === 'nl') {
-    const team = ctx.team ? TEAM_LABEL[ctx.team].nl : 'jouw team-profiel'
-    const ambition = ctx.ambition ? AMBITION_LABEL[ctx.ambition].nl : 'je groei-thesis'
-    const year5 = ctx.year5Revenue ? ` (Y5 omzet-anker: ${fmt(ctx.year5Revenue)})` : ''
-    lines.push(
-      `Verankerd op ${team} en ${ambition}${year5}.  ` +
-        `Pre-money komt uit op ${fmt(ctx.preMoney)} bij een ronde van ${fmt(ctx.raise)}.`,
-    )
-  } else {
-    const team = ctx.team ? TEAM_LABEL[ctx.team].en : 'your team profile'
-    const ambition = ctx.ambition ? AMBITION_LABEL[ctx.ambition].en : 'your growth thesis'
-    const year5 = ctx.year5Revenue ? ` (Y5 ARR anchor: ${fmt(ctx.year5Revenue)})` : ''
-    lines.push(
-      `Anchored to ${team} and ${ambition}${year5}.  ` +
-        `Pre-money lands at ${fmt(ctx.preMoney)} on a ${fmt(ctx.raise)} round.`,
-    )
-  }
+  const team = ctx.team ? n.team[ctx.team] : n.teamFallback
+  const ambition = ctx.ambition ? n.ambition[ctx.ambition] : n.ambitionFallback
+  const year5 = ctx.year5Revenue
+    ? interpolate(n.year5Suffix, { amount: fmt(ctx.year5Revenue) })
+    : ''
 
-  // Paragraph 2 — the methodology in plain English (no jargon).
-  // Triangulation across three lenses, one sentence.
+  lines.push(
+    interpolate(n.whyP1, {
+      team,
+      ambition,
+      year5,
+      preMoney: fmt(ctx.preMoney),
+      raise: fmt(ctx.raise),
+    }),
+  )
+
   const activeLegCount = [
     ctx.legs.berkus,
     ctx.legs.scorecard,
@@ -153,29 +131,19 @@ export function buildWhyNarrative(
     ctx.legs.saasForward,
   ].filter((v) => v != null && v > 0).length
 
-  if (locale === 'nl') {
-    const overlay =
-      ctx.pedigreeMultiplier !== 1.0
-        ? ` Daarna een ${ctx.pedigreeMultiplier > 1 ? 'lift' : 'korting'} van ` +
-          `${ctx.pedigreeMultiplier.toFixed(2)}× voor team-pedigree`
-        : ''
-    lines.push(
-      `Getrianguleerd over ${activeLegCount} academische methoden ` +
-        `(milestone-driven, peer-comparison, exit-driven).${overlay}.  ` +
-        `Iedere leg is een gepubliceerde, peer-reviewed methode — geen hand-waving.`,
-    )
-  } else {
-    const overlay =
-      ctx.pedigreeMultiplier !== 1.0
-        ? ` Then a ${ctx.pedigreeMultiplier > 1 ? 'lift' : 'discount'} of ` +
-          `${ctx.pedigreeMultiplier.toFixed(2)}× for team pedigree`
-        : ''
-    lines.push(
-      `Triangulated across ${activeLegCount} academic methods ` +
-        `(milestone-driven, peer-comparison, exit-driven).${overlay}.  ` +
-        `Every leg is a published, peer-reviewed method — no hand-waving.`,
-    )
-  }
+  const overlay =
+    ctx.pedigreeMultiplier !== 1.0
+      ? interpolate(ctx.pedigreeMultiplier > 1 ? n.pedigreeLift : n.pedigreeDiscount, {
+          mult: ctx.pedigreeMultiplier.toFixed(2),
+        })
+      : ''
+
+  lines.push(
+    interpolate(n.whyP2, {
+      count: activeLegCount,
+      overlay,
+    }),
+  )
 
   return lines
 }

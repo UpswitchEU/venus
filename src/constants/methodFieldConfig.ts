@@ -1,3 +1,4 @@
+import { revenueMethodologySiblingKey } from '@/utils/extractValuationResultsMap'
 import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
 
 /**
@@ -48,6 +49,7 @@ export interface MethodFieldEntry {
 }
 
 export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
+  /** Base Omni inputs + historical grid stay visible; engine derives multiples range without extra panels here. */
   upswitch_adaptive: { bonusSections: [] },
   ebitda_multiple: { bonusSections: ['revenue_quality'] },
   omzet_multiple: { bonusSections: ['revenue_quality'] },
@@ -155,8 +157,7 @@ export function resolveBusinessTypeIdForBonusSections(
   if (fromPicker) return fromPicker
   const fromForm = formBusinessType?.trim()
   if (fromForm) return fromForm
-  const fromStore =
-    typeof storeBusinessTypeId === 'string' ? storeBusinessTypeId.trim() : ''
+  const fromStore = typeof storeBusinessTypeId === 'string' ? storeBusinessTypeId.trim() : ''
   return fromStore || null
 }
 
@@ -223,10 +224,28 @@ export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
 ]
 
 /**
- * Engine `data_quality_warnings.type` → `chatAssistant.*` keys for guided CTAs.
- * Assistant auto-open on new results uses {@link ACTIONABLE_QUALITY_WARNING_TYPES} derived from these keys.
+ * Engine `data_quality_warnings.type` values that have a guided assistant CTA (label + prefilled prompt).
+ * Keep in sync with `chatAssistant` message keys via {@link QUALITY_WARNING_ASSISTANT_CTA_CONFIG}.
  */
-export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = {
+export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = [
+  'thin_comparables_proxy',
+  'owner_concentration_skipped_missing_inputs',
+  'ebitda_divergence',
+  'method_substitution',
+  'ebitda_benchmark_deviation',
+  'net_debt_unavailable',
+  'owner_compensation_estimated',
+  'book_equity_unavailable',
+] as const
+
+export type QualityWarningAssistantCtaKey = (typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS)[number]
+
+export type ActionableQualityWarningType = QualityWarningAssistantCtaKey
+
+/**
+ * i18n keys under `chatAssistant` for each guided CTA — single source for {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS}.
+ */
+export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   thin_comparables_proxy: {
     labelKey: 'qualityCtaThinComparablesLabel',
     promptKey: 'qualityCtaThinComparablesPrompt',
@@ -239,19 +258,41 @@ export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = {
     labelKey: 'qualityCtaEbitdaDivergenceLabel',
     promptKey: 'qualityCtaEbitdaDivergencePrompt',
   },
-} as const
-
-export type ActionableQualityWarningType = keyof typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS
+  method_substitution: {
+    labelKey: 'qualityCtaMethodSubstitutionLabel',
+    promptKey: 'qualityCtaMethodSubstitutionPrompt',
+  },
+  ebitda_benchmark_deviation: {
+    labelKey: 'qualityCtaEbitdaBenchmarkDeviationLabel',
+    promptKey: 'qualityCtaEbitdaBenchmarkDeviationPrompt',
+  },
+  // Surfaced when Step 7 had to assume net debt = 0 because no balance
+  // sheet was supplied. Owner-managed micro-SMEs hit this constantly because
+  // they don't volunteer balance data on a 5-minute valuation; the CTA opens
+  // a guided fix in the assistant rather than blocking submit.
+  net_debt_unavailable: {
+    labelKey: 'qualityCtaNetDebtLabel',
+    promptKey: 'qualityCtaNetDebtPrompt',
+  },
+  owner_compensation_estimated: {
+    labelKey: 'qualityCtaOwnerCompEstimatedLabel',
+    promptKey: 'qualityCtaOwnerCompEstimatedPrompt',
+  },
+  book_equity_unavailable: {
+    labelKey: 'qualityCtaBookEquityLabel',
+    promptKey: 'qualityCtaBookEquityPrompt',
+  },
+} as const satisfies Record<QualityWarningAssistantCtaKey, { labelKey: string; promptKey: string }>
 
 /** Same keys as {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS} — use for Set membership / auto-open. */
-export const ACTIONABLE_QUALITY_WARNING_TYPES = new Set<string>(
-  Object.keys(QUALITY_WARNING_ASSISTANT_CTA_KEYS)
-)
+export const ACTIONABLE_QUALITY_WARNING_TYPES = new Set<string>([
+  ...QUALITY_WARNING_ASSISTANT_CTA_KEYS,
+])
 
 export function isActionableQualityWarningType(
-  type: string | undefined | null
+  type: string | null | undefined
 ): type is ActionableQualityWarningType {
-  return typeof type === 'string' && type in QUALITY_WARNING_ASSISTANT_CTA_KEYS
+  return !!type && Object.hasOwn(QUALITY_WARNING_ASSISTANT_CTA_CONFIG, type)
 }
 
 /**
@@ -293,8 +334,8 @@ export function sanitizeMethodSelection(methods: string[]): string[] {
 
   const hasStandalone = methods.some(isStandaloneMethod)
   if (hasStandalone) {
-    const first = methods.find(isStandaloneMethod)!
-    return [first]
+    const first = methods.find(isStandaloneMethod)
+    if (first) return [first]
   }
 
   const seen = new Set<string>()
@@ -349,10 +390,7 @@ export function getPreSelectableMethodsForFirmAndRevenue(
  * Whether an upfront nav pick is permitted for the given allowed-method list
  * (from {@link getPreSelectableMethodsForFirmAndRevenue} / {@link getPreSelectableMethodsForFirm}).
  */
-export function isUpfrontMethodAllowedForNav(
-  method: string,
-  allowed: readonly string[]
-): boolean {
+export function isUpfrontMethodAllowedForNav(method: string, allowed: readonly string[]): boolean {
   return method === 'upswitch_adaptive' || allowed.includes(method)
 }
 
@@ -366,12 +404,16 @@ export function resolveDisplayPreSelectedMethodKey(
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  const missingPreselect = PRE_SELECTABLE_METHODS.filter((method) => !(method in METHOD_FIELD_CONFIG))
+  const missingPreselect = PRE_SELECTABLE_METHODS.filter(
+    (method) => !(method in METHOD_FIELD_CONFIG)
+  )
   if (missingPreselect.length > 0) {
     throw new Error(`Missing METHOD_FIELD_CONFIG entries for: ${missingPreselect.join(', ')}`)
   }
   // Keep in sync with `PRIMARY_OMNI_METHOD_ORDER` so result keys / edit flows always resolve bonus sections.
-  const missingPrimary = PRIMARY_OMNI_METHOD_ORDER.filter((method) => !(method in METHOD_FIELD_CONFIG))
+  const missingPrimary = PRIMARY_OMNI_METHOD_ORDER.filter(
+    (method) => !(method in METHOD_FIELD_CONFIG)
+  )
   if (missingPrimary.length > 0) {
     throw new Error(
       `Missing METHOD_FIELD_CONFIG entries for primary omni keys: ${missingPrimary.join(', ')}`
@@ -434,7 +476,9 @@ export function equalWeightsFor(methods: string[]): Record<string, number> {
 }
 
 /**
- * Effective integer % weight for one method (0–100), honoring `omzet_multiple` ↔ `revenue_multiple` pairing.
+ * Integer % weights (sum 100) for Waarderingssynthese → Titan `user_weights` (÷100).
+ * - Aligns `omzet_multiple` / `revenue_multiple` when one side is missing (ValuationIQ may echo EN key).
+ * - If any selected method has no weight or the sum is not ~100% (±2pp), uses {@link equalWeightsFor}.
  */
 export function pickSynthesisPercentWeightForMethod(
   methodKey: string,
@@ -442,22 +486,14 @@ export function pickSynthesisPercentWeightForMethod(
 ): number | undefined {
   const v = userWeights[methodKey]
   if (typeof v === 'number' && Number.isFinite(v)) return v
-  if (methodKey === 'omzet_multiple') {
-    const r = userWeights['revenue_multiple']
-    if (typeof r === 'number' && Number.isFinite(r)) return r
-  }
-  if (methodKey === 'revenue_multiple') {
-    const o = userWeights['omzet_multiple']
-    if (typeof o === 'number' && Number.isFinite(o)) return o
+  const sibling = revenueMethodologySiblingKey(methodKey)
+  if (sibling) {
+    const alt = userWeights[sibling]
+    if (typeof alt === 'number' && Number.isFinite(alt)) return alt
   }
   return undefined
 }
 
-/**
- * Integer % weights (sum 100) for Waarderingssynthese → Titan `user_weights` (÷100).
- * - Aligns `omzet_multiple` / `revenue_multiple` when one side is missing (ValuationIQ may echo EN key).
- * - If any selected method has no weight or the sum is not ~100% (±2pp), uses {@link equalWeightsFor}.
- */
 export function resolveSynthesisPercentWeightsForMethods(
   methods: string[],
   userWeights: Record<string, number>

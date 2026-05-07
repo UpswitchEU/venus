@@ -26,6 +26,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { dateLikeToUnixMs } from '@/utils/date-like'
 
 // ─────────────────────────────────────────
@@ -417,11 +418,30 @@ export function NormalisationReviewPanel({
               </div>
 
               {/* Details */}
-              <div className="flex-1 min-w-0">
-                <Body size="sm" className="font-medium mb-0.5">
+              <div className="flex-1 min-w-0 space-y-1">
+                <Body
+                  size="sm"
+                  className={cn('font-medium', LEDGER_LABEL_TEXT_CLASSES)}
+                  title={suggestion.category}
+                >
                   {suggestion.category}
                 </Body>
-                <Caption className="text-foreground/50 line-clamp-2">{suggestion.reason}</Caption>
+                {suggestion.description &&
+                  suggestion.description.trim().length > 0 &&
+                  suggestion.description.trim() !== suggestion.category.trim() && (
+                    <Caption
+                      className={cn('text-foreground/65', LEDGER_LABEL_TEXT_CLASSES)}
+                      title={suggestion.description}
+                    >
+                      {suggestion.description}
+                    </Caption>
+                  )}
+                <Caption
+                  className={cn('text-foreground/50', LEDGER_LABEL_TEXT_CLASSES)}
+                  title={suggestion.reason}
+                >
+                  {suggestion.reason}
+                </Caption>
               </div>
 
               {/* Actions */}
@@ -493,8 +513,8 @@ export function MappingTable({
         </Caption>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <table className="w-full min-w-[560px]">
           <thead>
             <tr className="border-b border-foreground/[0.06]">
               <th className="px-6 py-3 text-left text-xs font-medium text-foreground/40 uppercase tracking-wider">
@@ -519,8 +539,11 @@ export function MappingTable({
                     {mapping.yukiCode}
                   </Mono>
                 </td>
-                <td className="px-6 py-3">
-                  <Body size="sm" className="text-foreground/70 truncate max-w-xs">
+                <td
+                  className="px-6 py-3 align-top min-w-[12rem] max-w-xl"
+                  title={mapping.yukiDescription}
+                >
+                  <Body size="sm" className={cn('text-foreground/70', LEDGER_LABEL_TEXT_CLASSES)}>
                     {mapping.yukiDescription}
                   </Body>
                 </td>

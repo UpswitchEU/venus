@@ -14,7 +14,9 @@ import {
   LEGACY_CLIENT_CONTEXT_HEADERS,
 } from '@/constants/headers'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 function getClientContextHeaders(request: NextRequest): Record<string, string> {
   const headers: Record<string, string> = {}

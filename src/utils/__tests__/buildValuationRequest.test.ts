@@ -1213,4 +1213,133 @@ describe('buildValuationRequest', () => {
 
     warnSpy.mockRestore()
   })
+
+  // -------------------------------------------------------------------
+  // Capital history → cap_table + investment_amount_sought bridge
+  //
+  // Pins the Mercury → Titan boundary contract for the SaaS cap-table
+  // feature.  The form-store carries `capital_*` fields (UI-only); the
+  // builder must collapse them into the canonical `cap_table` summary
+  // and the top-level `investment_amount_sought` field that Titan's
+  // Zod schema validates and ValuationIQ's `calculate_arr_method`
+  // consumes.  Empty / disabled inputs ⇒ neither field on the wire
+  // (backwards compat).
+  // -------------------------------------------------------------------
+
+  describe('capital history bridge', () => {
+    it('omits cap_table and investment_amount_sought when no capital fields are set', () => {
+      const result = buildValuationRequest(makeFormData(), [])
+      expect(result.cap_table).toBeUndefined()
+      expect(result.investment_amount_sought).toBeUndefined()
+    })
+
+    it('maps capital_round_amount to top-level investment_amount_sought', () => {
+      const result = buildValuationRequest(
+        makeFormData({ capital_round_amount: 750_000 }),
+        []
+      )
+      expect(result.investment_amount_sought).toBe(750_000)
+      // No `capital_history_enabled` flag ⇒ no cap_table block.
+      expect(result.cap_table).toBeUndefined()
+    })
+
+    it('builds cap_table with SAFEs + option pool + last-round when enabled', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          capital_history_enabled: true,
+          capital_round_amount: 500_000,
+          capital_option_pool_pct: 12,
+          capital_safe_notes: [
+            {
+              id: 'safe-1',
+              amount: 100_000,
+              valuation_cap: 5_000_000,
+              discount_pct: 20,
+              holder_label: 'Angel #1',
+            },
+            {
+              id: 'safe-2',
+              amount: 50_000,
+            },
+          ],
+          capital_last_round_amount: 250_000,
+          capital_last_round_post_money: 2_500_000,
+          capital_last_round_date: '2024-06-15',
+        }),
+        []
+      )
+
+      expect(result.investment_amount_sought).toBe(500_000)
+      expect(result.cap_table).toBeDefined()
+      expect(result.cap_table?.option_pool_pct).toBe(12)
+      expect(result.cap_table?.last_round_amount).toBe(250_000)
+      expect(result.cap_table?.last_round_post_money).toBe(2_500_000)
+      expect(result.cap_table?.last_round_date).toBe('2024-06-15')
+      // SAFE notes: ids stripped, optional fields preserved when present.
+      expect(result.cap_table?.safe_notes).toEqual([
+        {
+          amount: 100_000,
+          valuation_cap: 5_000_000,
+          discount_pct: 20,
+          holder_label: 'Angel #1',
+        },
+        {
+          amount: 50_000,
+        },
+      ])
+    })
+
+    it('drops SAFE notes whose amount is missing (incomplete row guard)', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          capital_history_enabled: true,
+          capital_option_pool_pct: 10,
+          capital_safe_notes: [
+            { id: 'safe-1', amount: 100_000 },
+            { id: 'safe-2', amount: null }, // user added a row but didn't fill the amount
+          ],
+        }),
+        []
+      )
+      expect(result.cap_table?.safe_notes).toHaveLength(1)
+      expect(result.cap_table?.safe_notes?.[0]).toEqual({ amount: 100_000 })
+    })
+
+    it('omits cap_table when capital_history_enabled is false even with SAFEs persisted', () => {
+      // The toggle is the gate — a founder who fills in SAFEs and then
+      // toggles "no, first round" can keep their inputs in form-store
+      // without the engine seeing them.  Same affordance as the deal-
+      // structure section.
+      const result = buildValuationRequest(
+        makeFormData({
+          capital_history_enabled: false,
+          capital_safe_notes: [{ id: 'safe-1', amount: 100_000 }],
+          capital_option_pool_pct: 10,
+        }),
+        []
+      )
+      expect(result.cap_table).toBeUndefined()
+    })
+
+    it('strips empty holder_label and skips invalid optional fields', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          capital_history_enabled: true,
+          capital_safe_notes: [
+            {
+              id: 'safe-1',
+              amount: 100_000,
+              valuation_cap: null,
+              discount_pct: null,
+              holder_label: '   ',
+            },
+          ],
+        }),
+        []
+      )
+      const note = result.cap_table?.safe_notes?.[0]
+      expect(note).toBeDefined()
+      expect(note).toEqual({ amount: 100_000 })
+    })
+  })
 })

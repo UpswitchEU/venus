@@ -12,6 +12,18 @@ describe('valuationResultRunKey', () => {
     ).toBe('val-abc')
   })
 
+  it('uses id when valuation_id missing', () => {
+    expect(valuationResultRunKey({ id: 'id-only' })).toBe('id-only')
+  })
+
+  it('stringifies numeric id', () => {
+    expect(valuationResultRunKey({ id: 42 } as Record<string, unknown>)).toBe('42')
+  })
+
+  it('stringifies bigint id', () => {
+    expect(valuationResultRunKey({ id: 42n } as unknown as Record<string, unknown>)).toBe('42')
+  })
+
   it('falls back to stable fingerprint when id is missing', () => {
     const base = {
       selected_valuation_method: 'dcf',
@@ -62,6 +74,41 @@ describe('valuationResultRunKey', () => {
       valuation_results: { dcf: { available: true, value: 3, label: 'DCF' } },
     })
     expect(a).not.toBe(b)
+  })
+
+  it('fingerprint differs when updated_at differs (no stable id)', () => {
+    const base = {
+      valuation_results: { dcf: { available: true, value: 1 } },
+      html_report: '<p>x</p>',
+    }
+    const a = valuationResultRunKey({
+      ...base,
+      updated_at: '2026-01-01T00:00:00Z',
+    } as Record<string, unknown>)
+    const b = valuationResultRunKey({
+      ...base,
+      updated_at: '2026-01-02T00:00:00Z',
+    } as Record<string, unknown>)
+    expect(a).toMatch(/^fp:[0-9a-f]+$/)
+    expect(a).not.toBe(b)
+  })
+
+  it('stable id ignores updated_at', () => {
+    expect(
+      valuationResultRunKey({
+        valuation_id: 'same',
+        updated_at: '2026-01-01T00:00:00Z',
+      } as Record<string, unknown>)
+    ).toBe('same')
+  })
+
+  it('includes Date updated_at in fingerprint when id missing', () => {
+    const d = new Date('2026-06-01T12:00:00Z')
+    const key = valuationResultRunKey({
+      valuation_results: { dcf: { available: true, value: 1 } },
+      updated_at: d,
+    } as Record<string, unknown>)
+    expect(key.startsWith('fp:')).toBe(true)
   })
 
   it('returns empty string for nullish input', () => {
