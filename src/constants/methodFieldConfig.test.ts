@@ -9,31 +9,28 @@ import {
   getConflictingMethod,
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
+  getSynthesisMethodKeysForUi,
   isActionableQualityWarningType,
   isCombinableMethod,
   isUpfrontMethodAllowedForNav,
+  METHOD_FIELD_CONFIG,
   normalizeRemainderWeights,
+  PRE_SELECTABLE_METHODS,
   pickSynthesisPercentWeightForMethod,
+  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
   QUALITY_WARNING_ASSISTANT_CTA_KEYS,
   rebalanceMethodWeights,
-  usesRemainderWeightModel,
   resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
+  resolveSynthesisPercentWeightsForMethods,
   sanitizeMethodSelection,
   sanitizeSynthesisWeightDigits,
-  getSynthesisMethodKeysForUi,
-  resolveSynthesisPercentWeightsForMethods,
-  METHOD_FIELD_CONFIG,
-  PRE_SELECTABLE_METHODS,
-  QUALITY_WARNING_ASSISTANT_CTA_KEYS,
-  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
-  pickSynthesisPercentWeightForMethod,
-  isActionableQualityWarningType,
+  usesRemainderWeightModel,
 } from './methodFieldConfig'
 
 describe('methodFieldConfig', () => {
   it('keeps actionable quality warning Set aligned with assistant CTA key catalog', () => {
-    const catalogKeys = Object.keys(QUALITY_WARNING_ASSISTANT_CTA_KEYS)
+    const catalogKeys = [...QUALITY_WARNING_ASSISTANT_CTA_KEYS]
     expect(ACTIONABLE_QUALITY_WARNING_TYPES.size).toBe(catalogKeys.length)
     for (const k of catalogKeys) {
       expect(ACTIONABLE_QUALITY_WARNING_TYPES.has(k)).toBe(true)
@@ -63,7 +60,7 @@ describe('methodFieldConfig', () => {
 
   it('covers every pre-selectable method in the registry', () => {
     expect(
-      PRE_SELECTABLE_METHODS.every((method) => Object.prototype.hasOwnProperty.call(METHOD_FIELD_CONFIG, method))
+      PRE_SELECTABLE_METHODS.every((method) => Object.hasOwn(METHOD_FIELD_CONFIG, method))
     ).toBe(true)
   })
 
@@ -110,7 +107,10 @@ describe('methodFieldConfig', () => {
     it('returns null when fewer than two methods or adaptive is included', () => {
       expect(resolveSynthesisPercentWeightsForMethods(['dcf'], {})).toBeNull()
       expect(
-        resolveSynthesisPercentWeightsForMethods(['upswitch_adaptive', 'dcf'], { upswitch_adaptive: 50, dcf: 50 })
+        resolveSynthesisPercentWeightsForMethods(['upswitch_adaptive', 'dcf'], {
+          upswitch_adaptive: 50,
+          dcf: 50,
+        })
       ).toBeNull()
     })
 
@@ -120,7 +120,10 @@ describe('methodFieldConfig', () => {
         ebitda_multiple: 50,
       })
       expect(
-        resolveSynthesisPercentWeightsForMethods(['dcf', 'ebitda_multiple'], { dcf: 30, ebitda_multiple: 30 })
+        resolveSynthesisPercentWeightsForMethods(['dcf', 'ebitda_multiple'], {
+          dcf: 30,
+          ebitda_multiple: 30,
+        })
       ).toEqual({ dcf: 50, ebitda_multiple: 50 })
     })
 
@@ -174,10 +177,7 @@ describe('methodFieldConfig', () => {
   })
 
   it('merges method and business-type sections without duplicates', () => {
-    expect(getBonusSections('dcf', 'saas_software')).toEqual([
-      'dcf_projections',
-      'saas_metrics',
-    ])
+    expect(getBonusSections('dcf', 'saas_software')).toEqual(['dcf_projections', 'saas_metrics'])
   })
 
   it('falls back to business-type sections when the method is unknown', () => {
@@ -242,9 +242,9 @@ describe('methodFieldConfig', () => {
   })
 
   it('deduplicates bonus sections when blending methods', () => {
-    expect(getBonusSectionsForMethods(['ebitda_multiple', 'omzet_multiple'], 'retail', 'shop')).toEqual([
-      'revenue_quality',
-    ])
+    expect(
+      getBonusSectionsForMethods(['ebitda_multiple', 'omzet_multiple'], 'retail', 'shop')
+    ).toEqual(['revenue_quality'])
   })
 
   it('parses SaaS signals from form-like state', () => {
@@ -271,7 +271,9 @@ describe('methodFieldConfig', () => {
   it('keeps omzet_multiple in the list regardless of revenue value', () => {
     expect(getPreSelectableMethodsForFirmAndRevenue('BE', 0)).toContain('omzet_multiple')
     expect(getPreSelectableMethodsForFirmAndRevenue('BE', -500)).toContain('omzet_multiple')
-    expect(getPreSelectableMethodsForFirmAndRevenue('BE', undefined)).toEqual(PRE_SELECTABLE_METHODS)
+    expect(getPreSelectableMethodsForFirmAndRevenue('BE', undefined)).toEqual(
+      PRE_SELECTABLE_METHODS
+    )
   })
 
   it('isUpfrontMethodAllowedForNav respects list and always allows adaptive', () => {
@@ -343,7 +345,11 @@ describe('methodFieldConfig', () => {
 
     it('normalizeRemainderWeights fixes free sum over 100', () => {
       const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
-      const w = normalizeRemainderWeights(methods, { dcf: 60, ebitda_multiple: 50, adjusted_nav: 0 })
+      const w = normalizeRemainderWeights(methods, {
+        dcf: 60,
+        ebitda_multiple: 50,
+        adjusted_nav: 0,
+      })
       expect(Object.values(w).reduce((s, v) => s + v, 0)).toBe(100)
       expect(w.adjusted_nav).toBeGreaterThanOrEqual(0)
     })
@@ -395,8 +401,12 @@ describe('methodFieldConfig', () => {
 
   describe('pickSynthesisPercentWeightForMethod', () => {
     it('aliases revenue_multiple onto omzet_multiple and vice versa', () => {
-      expect(pickSynthesisPercentWeightForMethod('omzet_multiple', { revenue_multiple: 40 })).toBe(40)
-      expect(pickSynthesisPercentWeightForMethod('revenue_multiple', { omzet_multiple: 60 })).toBe(60)
+      expect(pickSynthesisPercentWeightForMethod('omzet_multiple', { revenue_multiple: 40 })).toBe(
+        40
+      )
+      expect(pickSynthesisPercentWeightForMethod('revenue_multiple', { omzet_multiple: 60 })).toBe(
+        60
+      )
     })
   })
 
