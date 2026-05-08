@@ -943,12 +943,12 @@
 		},
 		"paywall": {
 			"title": "Upgrade uw abonnement",
-			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€1.490/jaar of €149/maand) voor alle 9 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (€2.990/jaar of €299/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.",
+			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€1.490/jaar of €149/maand) voor alle 10 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (€2.990/jaar of €299/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.",
 			"upgrade": "Bekijk plannen en upgrade",
 			"cancel": "Misschien Later",
 			"accountantPaidRequired": "Een betaald adviseur-abonnement is vereist. Upgrade naar Starter of Pro via je dashboard (Instellingen → Facturatie) om door te gaan.",
 			"clientPremiumRequired": "Een Premium-abonnement is vereist om door te gaan. Bekijk de prijzen om te upgraden.",
-			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€1.490/jaar of €149/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 9 methodes en branded rapporten."
+			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€1.490/jaar of €149/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 10 methodes en branded rapporten."
 		},
 		"versionComparison": {
 			"title": "Versies Vergelijken",
@@ -1480,6 +1480,8 @@
 			"fiscal4xDescription": "Belgische fiscale referentieformule. Je krijgt het volledige adaptieve waarderingsrapport; een aparte fiscale annex in de PDF volgt op kantoorinstellingen en per rapport (niet alleen op deze methode). Voor interne overdrachten en successie—niet voor gewone M&A tegen marktvoorwaarden.",
 			"startupValuation": "Startup waardering (pre-revenue)",
 			"startupValuationDescription": "Venture-grade Berkus + Scorecard + VC-blend voor pre-revenue en early-stage oprichters. Geen historische cijfers nodig—enkel kwalitatieve mijlpalen, tractie, SAFEs en cap-table.",
+			"liquidationAnalysis": "Liquidatiewaarde (Geordende + Gedwongen)",
+			"liquidationAnalysisDescription": "Activa-gebaseerde downside-lens. Geordende afbouw (6–12 maanden) en gedwongen veiling, per Pratt & Niculita (2008). De vloerwaarde die een eigenaar realistisch kan recupereren wanneer de zaak niet als going concern verkocht kan worden. Zelfde balans-inputs als Gecorrigeerde NAV.",
 			"fiscalDisclaimerTitle": "Let op",
 			"fiscalDisclaimerText": "Uitsluitend voor interne overdrachten, successieplanning of fiscale rulings. Niet bestemd voor externe M&A-transacties.",
 			"recommendedForMethod": "Aanbevolen voor {method}",

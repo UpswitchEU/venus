@@ -6566,7 +6566,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               ? 'Uw gratis rapport blijft online beschikbaar met watermerk. Voor een merkversie zonder watermerk in PDF: nodig uw boekhouder of M&A-adviseur uit. Zij beheren het abonnement — voor u blijft alles gratis.'
               : 'Deze functie is onderdeel van het Starter-abonnement van uw adviseur. Nodig uw boekhouder of M&A-adviseur uit zodat zij deze functies voor uw rapport kunnen ontgrendelen — voor u blijft het gebruik gratis.'
             : methodPaywallReason === 'methods'
-              ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 9 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
+              ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA, gecorrigeerd NAV en liquidatiewaarde (read-only, geen PDF-download). Upgrade naar Starter voor alle 10 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
               : methodPaywallReason === 'normalization'
                 ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
                 : methodPaywallReason === 'version_history'

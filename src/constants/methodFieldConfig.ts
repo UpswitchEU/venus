@@ -62,6 +62,14 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   fiscal_4x: { bonusSections: [] },
   /** Startup engine renders its own dedicated `StartupValuationPanel` — no SME bonus sections. */
   startup_valuation: { bonusSections: [] },
+  /**
+   * Liquidation analysis runs on the same balance-sheet inputs as
+   * adjusted_nav. Reuses the NAV asset schedule bonus section so the
+   * advisor enters real-estate / inventory / receivables overrides
+   * once and both the going-concern NAV and the orderly+forced
+   * liquidation scenarios pick them up.
+   */
+  liquidation_analysis: { bonusSections: ['nav_asset_schedule'] },
 }
 
 export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {

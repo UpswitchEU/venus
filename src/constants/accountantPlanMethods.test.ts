@@ -38,7 +38,8 @@ describe('resolveAllowedMethodKeys', () => {
     expect(keys).toContain('upswitch_adaptive')
     expect(keys).toContain('arr_multiple')
     expect(keys).toContain('startup_valuation')
-    expect(keys?.length).toBe(6)
+    expect(keys).toContain('liquidation_analysis')
+    expect(keys?.length).toBe(7)
   })
 
   // Cross-app contract: paid tiers must always resolve to `null`
@@ -66,8 +67,9 @@ describe('resolveAllowedMethodKeys', () => {
     // an unrecognised string MUST collapse to the most restrictive list so
     // we never accidentally unlock paid methods in the UI.
     const keys = resolveAllowedMethodKeys(undefined, 'mystery_tier')
-    expect(keys?.length).toBe(6)
+    expect(keys?.length).toBe(7)
     expect(keys).toContain('dcf')
+    expect(keys).toContain('liquidation_analysis')
   })
 })
 

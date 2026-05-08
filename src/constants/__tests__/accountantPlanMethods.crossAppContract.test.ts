@@ -225,11 +225,13 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
   })
 
   it('Venus FREE list contains exactly the founder triad + advisor extras (snapshot)', () => {
-    // Pin the EXACT 6 keys so that:
+    // Pin the EXACT 7 keys so that:
     //   - The 3 founder methods (upswitch_adaptive, arr_multiple,
     //     startup_valuation) stay free for owners self-serving in Venus.
-    //   - The 3 advisor extras (dcf, ebitda_multiple, adjusted_nav) stay
-    //     free for accountants on the Free PLG tier.
+    //   - The 4 advisor extras (dcf, ebitda_multiple, adjusted_nav,
+    //     liquidation_analysis) stay free for accountants on the Free PLG
+    //     tier. Liquidation rides on the same balance-sheet inputs as NAV
+    //     so it stays in the same gating bucket.
     // Any silent reshuffle (e.g. dropping `dcf` from Free) will fail here
     // BEFORE customers see the wrong nav.
     expect([...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]).toEqual([
@@ -239,6 +241,7 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
       'adjusted_nav',
       'arr_multiple',
       'startup_valuation',
+      'liquidation_analysis',
     ])
   })
 })

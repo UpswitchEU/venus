@@ -5,6 +5,9 @@
  * NOTE: ``arr_multiple`` and ``startup_valuation`` are part of the Free tier so
  * pre-revenue founders + business owners can run the SaaS / Startup paths without
  * upgrading. Both methods are non-combinable in the synthesis flow.
+ *
+ * ``liquidation_analysis`` shares the balance-sheet input contract with
+ * ``adjusted_nav``; gating it differently from NAV would be confusing UX.
  */
 export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS = [
   'upswitch_adaptive',
@@ -13,6 +16,7 @@ export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS = [
   'adjusted_nav',
   'arr_multiple',
   'startup_valuation',
+  'liquidation_analysis',
 ] as const
 
 /**

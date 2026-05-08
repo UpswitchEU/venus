@@ -943,12 +943,12 @@
 		},
 		"paywall": {
 			"title": "Upgrade your plan",
-			"message": "Your free reports include a watermark. Upgrade to Starter (€1,490/year or €149/month) for all 9 methods, manual control over every adjustment, and watermark-free branded reports. Pro (€2,990/year or €299/month) adds live sync with your accounting software so you can value your client base without manual entry.",
+			"message": "Your free reports include a watermark. Upgrade to Starter (€1,490/year or €149/month) for all 10 methods, manual control over every adjustment, and watermark-free branded reports. Pro (€2,990/year or €299/month) adds live sync with your accounting software so you can value your client base without manual entry.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
 			"accountantPaidRequired": "A paid advisor plan is required. Upgrade to Starter or Pro from your dashboard (Settings → Billing) to continue.",
 			"clientPremiumRequired": "A Premium plan is required to continue. View pricing to upgrade.",
-			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€1,490/year or €149/month excl. VAT) for unlimited watermark-free valuations, all 9 methods, and branded reports."
+			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€1,490/year or €149/month excl. VAT) for unlimited watermark-free valuations, all 10 methods, and branded reports."
 		},
 		"versionComparison": {
 			"title": "Compare Versions",
@@ -1480,6 +1480,8 @@
 			"fiscal4xDescription": "Belgian fiscal reference formula. You still get the full adaptive valuation report; a separate fiscal annex in the PDF depends on firm settings and per-report options (not on this method alone). For internal transfers and succession planning—not arm's-length M&A.",
 			"startupValuation": "Startup valuation (pre-revenue)",
 			"startupValuationDescription": "Venture-grade Berkus + Scorecard + VC blend for pre-revenue and early-stage founders. No historical financials needed—qualitative milestones, traction, SAFEs and cap-table only.",
+			"liquidationAnalysis": "Liquidation Analysis (Orderly + Forced)",
+			"liquidationAnalysisDescription": "Asset-based downside lens. Orderly wind-down (6–12 months) and forced auction scenarios per Pratt & Niculita (2008). The floor value an owner could realistically recover if the business cannot be sold as a going concern. Same balance-sheet inputs as Adjusted NAV.",
 			"fiscalDisclaimerTitle": "Attention",
 			"fiscalDisclaimerText": "For internal transfers, succession planning, or tax rulings only. Not intended for external M&A transactions.",
 			"recommendedForMethod": "Recommended for {method}",
