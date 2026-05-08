@@ -14,7 +14,6 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { normalizeTamSamSomField, mergeTamSamSomField } from '@/features/startup-studio/utils/tamSamSomFunnel'
 import { normalizePreMoneyTarget } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 
@@ -420,9 +419,6 @@ export interface StartupValuationState {
   /** Founder-supplied one-liner / pitch (Studio Step 0). */
   description: string
 
-  /** Optional TAM / SAM / SOM trio for the Step 4 exit-story builder. */
-  tam_sam_som: { tam: number | null; sam: number | null; som: number | null }
-
   /**
    * True once the founder has explicitly picked a sector through the UI.
    * Persisted so we never re-seed away from a deliberate choice on a
@@ -484,10 +480,6 @@ interface StartupValuationStore extends StartupValuationState {
   ) => void
   /** Studio v2 — evidence note setter (free-text per milestone). */
   setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
-  /** Studio v2 — Step 4 TAM/SAM/SOM trio setter. */
-  setTamSamSom: (
-    next: Partial<{ tam: number | null; sam: number | null; som: number | null }>
-  ) => void
   addSafeNote: () => void
   updateSafeNote: (id: string, patch: Partial<StartupSafeNote>) => void
   removeSafeNote: (id: string) => void
@@ -598,7 +590,6 @@ const INITIAL_STATE: StartupValuationState = {
     other_factors: '',
   },
   description: '',
-  tam_sam_som: { tam: null, sam: null, som: null },
 
   _sectorWasUserSet: false,
 }
@@ -718,7 +709,6 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             ? { exit_revenue_multiple: preset.exit_revenue_multiple }
             : {}),
           ...(preset.target_roi_x != null ? { target_roi_x: preset.target_roi_x } : {}),
-          ...(preset.tam_sam_som ? { tam_sam_som: preset.tam_sam_som } : {}),
         })
       },
 
@@ -727,16 +717,6 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           ...state,
           evidence_notes: { ...state.evidence_notes, [key]: note },
         })),
-
-      setTamSamSom: (next) =>
-        set((state) => {
-          const prev = state.tam_sam_som
-          const merged = { ...prev }
-          if ('tam' in next) merged.tam = normalizeTamSamSomField(next.tam)
-          if ('sam' in next) merged.sam = normalizeTamSamSomField(next.sam)
-          if ('som' in next) merged.som = normalizeTamSamSomField(next.som)
-          return { ...state, tam_sam_som: merged }
-        }),
 
       seedSectorFromNaceIfDefault: (nace) =>
         set((state) => {
@@ -991,21 +971,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             }
             next.evidence_notes = merged as typeof next.evidence_notes
           }
-          const tamSamSom = (s.tam_sam_som ?? v2.tam_sam_som) as unknown
-          if (tamSamSom && typeof tamSamSom === 'object') {
-            const t = tamSamSom as Record<string, unknown>
-            next.tam_sam_som = {
-              tam: 'tam' in t
-                ? mergeTamSamSomField(t.tam, next.tam_sam_som.tam)
-                : normalizeTamSamSomField(next.tam_sam_som.tam),
-              sam: 'sam' in t
-                ? mergeTamSamSomField(t.sam, next.tam_sam_som.sam)
-                : normalizeTamSamSomField(next.tam_sam_som.sam),
-              som: 'som' in t
-                ? mergeTamSamSomField(t.som, next.tam_sam_som.som)
-                : normalizeTamSamSomField(next.tam_sam_som.som),
-            }
-          }
+          // TAM/SAM/SOM was removed 2026-05-08; any persisted snapshot
+          // that still carries it under top-level or `studio_v2` keys
+          // is silently dropped here so legacy localStorage / API
+          // round-trips don't crash the restore.
           if (typeof s.inception_lens === 'string') {
             next.inception_lens = s.inception_lens as typeof next.inception_lens
           }
@@ -1042,18 +1011,6 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           studioMetadata.evidence_notes = Object.fromEntries(
             Object.entries(state.evidence_notes).filter(([, v]) => v.trim().length > 0)
           )
-        }
-        if (
-          state.tam_sam_som.tam != null ||
-          state.tam_sam_som.sam != null ||
-          state.tam_sam_som.som != null
-        ) {
-          const tamN = normalizeTamSamSomField(state.tam_sam_som.tam)
-          const samN = normalizeTamSamSomField(state.tam_sam_som.sam)
-          const somN = normalizeTamSamSomField(state.tam_sam_som.som)
-          if (tamN != null || samN != null || somN != null) {
-            studioMetadata.tam_sam_som = { tam: tamN, sam: samN, som: somN }
-          }
         }
 
         return {
@@ -1193,7 +1150,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             }
           }
           if (s.description === undefined) s.description = ''
-          if (!s.tam_sam_som) s.tam_sam_som = { tam: null, sam: null, som: null }
+          // ``tam_sam_som`` was removed 2026-05-08; we silently drop
+          // any legacy persisted value so older localStorage shapes
+          // hydrate cleanly into the trimmed state.
+          if ('tam_sam_som' in s) delete s.tam_sam_som
         }
         if (version < 5) {
           // Default to all-false so the multiplier is 1.0 (no overlay) for
@@ -1255,7 +1215,6 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           setPedigreeEvidence,
           applyPreset,
           setEvidenceNote,
-          setTamSamSom,
           addSafeNote,
           updateSafeNote,
           removeSafeNote,
@@ -1271,7 +1230,6 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         void setPedigreeEvidence
         void applyPreset
         void setEvidenceNote
-        void setTamSamSom
         void addSafeNote
         void updateSafeNote
         void removeSafeNote

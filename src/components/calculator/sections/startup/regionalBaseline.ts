@@ -129,3 +129,100 @@ export function previewBerkusContribution(
   const clamped = Math.min(100, Math.max(0, scorePct))
   return Math.round((clamped / 100) * maxPerMilestone)
 }
+
+/**
+ * Forecast horizon for the live SaaS-forward preview — matches the
+ * Python engine's `_FORWARD_MONTHS` so the on-screen number tracks
+ * what the report will eventually print.
+ */
+const FORWARD_MONTHS = 12
+
+/**
+ * Cap on monthly growth used for the forward ARR preview.  Anything
+ * above ~20%/mo compounds into nine-figure projections in a year and
+ * blows up the UI without changing the founder's signal.
+ */
+const MAX_MOM_GROWTH_PCT = 20
+
+/**
+ * Forward 12-month ARR projection — pure mirror of the engine's
+ * ``saas_forward._project_forward_arr`` (without the Decimal
+ * quantisation).  Returns ``null`` when no anchor revenue exists.
+ *
+ * Lives here (not in the legacy `ForwardLookingSaasSection.tsx`,
+ * which was retired 2026-05-08) so the test suite keeps a single
+ * import target.
+ */
+export function projectForwardArrEur({
+  mrr,
+  arr,
+  momGrowthPct,
+}: {
+  mrr: number | null | undefined
+  arr: number | null | undefined
+  momGrowthPct: number | null | undefined
+}): number | null {
+  const anchorMrr =
+    typeof mrr === 'number' && mrr > 0
+      ? mrr
+      : typeof arr === 'number' && arr > 0
+        ? arr / 12
+        : null
+  if (anchorMrr === null) return null
+
+  const growth =
+    typeof momGrowthPct === 'number' && momGrowthPct > 0
+      ? Math.min(momGrowthPct, MAX_MOM_GROWTH_PCT)
+      : 0
+  const monthlyFactor = 1 + growth / 100
+  const forwardMrr = anchorMrr * Math.pow(monthlyFactor, FORWARD_MONTHS)
+  return Math.round(forwardMrr * 12)
+}
+
+/**
+ * Default target ROI surfaced when a stage-specific override is not
+ * available.  The 15× academic mid-point preserves the legacy fallback
+ * the now-retired `ExitScenarioSection` defaulted to.
+ */
+export const DEFAULT_TARGET_ROI_X = 15
+
+/**
+ * Pure mirror of the engine's VC backsolve formula
+ * ``vc_method.calculate_vc_method`` (without Decimal quantisation).
+ * Returns ``null`` when the inputs cannot produce a meaningful pre-money
+ * (zero/negative inputs, fully oversubscribed round, etc).  Lives here
+ * alongside the regional baseline so callers don't have to reach into
+ * the retired `ExitScenarioSection.tsx`.
+ */
+export function previewVcMethod({
+  year5Revenue,
+  exitMultiple,
+  targetRoi,
+  investmentSought,
+  fallbackRoi,
+}: {
+  year5Revenue: number | null | undefined
+  exitMultiple: number | null | undefined
+  targetRoi: number | null | undefined
+  investmentSought: number | null | undefined
+  fallbackRoi: number
+}): { post: number; pre: number; investment: number; dilution: number } | null {
+  const y5 = typeof year5Revenue === 'number' ? year5Revenue : 0
+  const m = typeof exitMultiple === 'number' ? exitMultiple : 0
+  const roi =
+    typeof targetRoi === 'number' && targetRoi > 0 ? targetRoi : fallbackRoi
+  const inv =
+    typeof investmentSought === 'number' && investmentSought > 0 ? investmentSought : 0
+
+  if (y5 <= 0 || m <= 0 || roi <= 0) return null
+
+  const post = (y5 * m) / roi
+  if (post <= 0) return null
+
+  if (inv <= 0) return { post, pre: post, investment: 0, dilution: 0 }
+
+  const pre = Math.max(0, post - inv)
+  const rawDilution = (inv / post) * 100
+  const dilution = Math.max(0, Math.min(100, rawDilution))
+  return { post, pre, investment: inv, dilution }
+}

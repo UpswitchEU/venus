@@ -1,4 +1,10 @@
-import { TAM_SAM_SOM_MAX_EUR } from '@/features/startup-studio/utils/tamSamSomFunnel'
+/**
+ * Mirror of the production cap-money sanity bound on
+ * ``normalizePreMoneyTarget``.  Kept inline here (rather than imported)
+ * because the helper does not export the constant — and we don't want
+ * to widen the public surface for what is purely a test-only assertion.
+ */
+const PRE_MONEY_TARGET_MAX_EUR = 1e15
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   STARTUP_STAGE_DEFAULT_RAISE,
@@ -51,8 +57,8 @@ describe('useStartupValuationStore', () => {
     expect(g().cap_table.pre_money_target).toBeNull()
     g().setCapField('pre_money_target', -50)
     expect(g().cap_table.pre_money_target).toBeNull()
-    g().setCapField('pre_money_target', TAM_SAM_SOM_MAX_EUR + 1000)
-    expect(g().cap_table.pre_money_target).toBe(TAM_SAM_SOM_MAX_EUR)
+    g().setCapField('pre_money_target', PRE_MONEY_TARGET_MAX_EUR + 1000)
+    expect(g().cap_table.pre_money_target).toBe(PRE_MONEY_TARGET_MAX_EUR)
   })
 
   it('addSafeNote / updateSafeNote / removeSafeNote round-trip', () => {
@@ -148,59 +154,29 @@ describe('useStartupValuationStore', () => {
     expect(after.cap_table.safe_notes).toHaveLength(0)
   })
 
-  it('setTamSamSom rejects non-positive values and caps absurd magnitudes', () => {
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
-    })
-    useStartupValuationStore.getState().setTamSamSom({ tam: -1 })
-    const mid = useStartupValuationStore.getState().tam_sam_som
-    expect(mid.tam).toBeNull()
-    expect(mid.sam).toBe(500_000)
-    expect(mid.som).toBe(100_000)
-    useStartupValuationStore.getState().setTamSamSom({ tam: TAM_SAM_SOM_MAX_EUR + 999 })
-    expect(useStartupValuationStore.getState().tam_sam_som.tam).toBe(TAM_SAM_SOM_MAX_EUR)
+  it('applyFromSnapshot silently drops legacy tam_sam_som payloads', () => {
+    // Older Studio sessions persisted ``tam_sam_som`` either at the top
+    // level or under ``studio_v2``.  After the 2026-05-08 removal the
+    // store no longer carries the field, so a snapshot containing it
+    // must hydrate cleanly without throwing or polluting state.
+    expect(() =>
+      useStartupValuationStore.getState().applyFromSnapshot({
+        tam_sam_som: { tam: 1_000_000, sam: 500_000, som: 100_000 },
+        studio_v2: { tam_sam_som: { tam: 99 } },
+        description: 'a survivor field',
+      }),
+    ).not.toThrow()
+    const after = useStartupValuationStore.getState() as Record<string, unknown>
+    expect('tam_sam_som' in after).toBe(false)
+    expect((after as { description: string }).description).toBe('a survivor field')
   })
 
-  it('applyFromSnapshot clears tam with explicit null and leaves omitted keys unchanged', () => {
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
-    })
+  it('toRequestPayload never emits studio_v2.tam_sam_som', () => {
+    // Sanity check on the request envelope: the legacy field must not
+    // resurface under ``studio_v2`` even when a session round-trip is
+    // simulated end-to-end.
     useStartupValuationStore.getState().applyFromSnapshot({
-      tam_sam_som: { tam: null },
-    })
-    const t = useStartupValuationStore.getState().tam_sam_som
-    expect(t.tam).toBeNull()
-    expect(t.sam).toBe(500_000)
-    expect(t.som).toBe(100_000)
-  })
-
-  it('applyFromSnapshot keeps previous tam when snapshot sends non-number garbage', () => {
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
-    })
-    useStartupValuationStore.getState().applyFromSnapshot({
-      tam_sam_som: { tam: 'oops' as unknown as number, sam: 600_000 },
-    })
-    const t = useStartupValuationStore.getState().tam_sam_som
-    expect(t.tam).toBe(1_000_000)
-    expect(t.sam).toBe(600_000)
-    expect(t.som).toBe(100_000)
-  })
-
-  it('toRequestPayload omits tam_sam_som after snapshot clears all funnel fields', () => {
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
-    })
-    useStartupValuationStore.getState().applyFromSnapshot({
-      tam_sam_som: { tam: null, sam: null, som: null },
+      tam_sam_som: { tam: 1_000_000, sam: 500_000, som: 100_000 },
     })
     const payload = useStartupValuationStore.getState().toRequestPayload() as {
       studio_v2?: { tam_sam_som?: unknown }
@@ -247,9 +223,6 @@ describe('useStartupValuationStore', () => {
       expect(s.year5_revenue_projection).toBe(60_000_000)
       expect(s.exit_revenue_multiple).toBe(6)
       expect(s.target_roi_x).toBe(12)
-
-      // TAM/SAM/SOM funnel — €750M realistic 3-yr Benelux GMV
-      expect(s.tam_sam_som.som).toBe(750_000_000)
 
       // Sector flag flipped — guards against NACE auto-seed silently
       // overriding the preset on a refresh.

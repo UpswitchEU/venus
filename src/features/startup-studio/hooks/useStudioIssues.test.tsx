@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
@@ -30,31 +30,12 @@ function seedMinimalStableStudio() {
   st.setField('stage', 'pre_seed')
   st.setField('sector', 'consumer')
   st.setMaturity('sound_idea', 'basic')
-  st.setTamSamSom({
-    tam: 10_000_000_000,
-    sam: 1_000_000_000,
-    som: 50_000_000,
-  })
 }
 
 describe('useStudioIssues', () => {
   beforeEach(() => {
     useStartupValuationStore.getState().reset()
     useManualFormStore.getState().resetForm()
-  })
-
-  it('warns when TAM/SAM/SOM funnel ordering is inconsistent', () => {
-    seedMinimalStableStudio()
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000_000,
-      sam: 2_000_000_000,
-      som: 10_000_000,
-    })
-
-    const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
-    expect(
-      result.current.warnings.some((w) => w.id === 'tam_sam_som_inconsistent'),
-    ).toBe(true)
   })
 
   it('warns when priced-round new-investor slice is very high vs typical 10–15%', () => {
@@ -95,23 +76,4 @@ describe('useStudioIssues', () => {
     expect(w!.title.nl).toContain('B2B SaaS')
   })
 
-  it('recomputes when only tam_sam_som changes (memo includes funnel state)', () => {
-    seedMinimalStableStudio()
-    const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
-    expect(
-      result.current.warnings.some((w) => w.id === 'tam_sam_som_inconsistent'),
-    ).toBe(false)
-
-    act(() => {
-      useStartupValuationStore.getState().setTamSamSom({
-        tam: 1_000_000_000,
-        sam: 2_000_000_000,
-        som: 10_000_000,
-      })
-    })
-
-    expect(
-      result.current.warnings.some((w) => w.id === 'tam_sam_som_inconsistent'),
-    ).toBe(true)
-  })
 })

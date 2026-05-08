@@ -20,11 +20,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DEFAULT_TARGET_ROI_X,
   getRegionalBaseline,
   previewBerkusContribution,
+  previewVcMethod,
+  projectForwardArrEur,
 } from './regionalBaseline'
-import { projectForwardArrEur } from './ForwardLookingSaasSection'
-import { previewVcMethod, DEFAULT_TARGET_ROI_X } from './ExitScenarioSection'
 
 describe('getRegionalBaseline', () => {
   it('returns BE seed numbers that mirror regional_data.py', () => {

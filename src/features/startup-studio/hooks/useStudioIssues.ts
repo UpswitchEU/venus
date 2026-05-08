@@ -31,10 +31,6 @@
 import { useMemo } from 'react'
 import studioEn from '../../../../messages/startupStudio/en.json'
 import studioNl from '../../../../messages/startupStudio/nl.json'
-import {
-  computeSomSharePercents,
-  type TamSamSomFunnelIssue,
-} from '@/features/startup-studio/utils/tamSamSomFunnel'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
@@ -45,25 +41,6 @@ import {
 } from '@/store/manual/useStartupValuationStore'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { type LiveValuation, formatEur, useLiveValuation } from './useLiveValuation'
-
-/** Inline EN/NL — kept in sync with `messages/startupStudio/*.json` somFunnelWarn*. */
-const TAM_SAM_SOM_FUNNEL_WARN_COPY: Record<
-  TamSamSomFunnelIssue,
-  { en: string; nl: string }
-> = {
-  sam_gt_tam: {
-    en: 'SAM is larger than TAM — adjust if that wasn’t intentional.',
-    nl: 'SAM is groter dan TAM — pas aan als dit niet de bedoeling was.',
-  },
-  som_gt_sam: {
-    en: 'SOM is larger than SAM — unusual for a 3-year slice; verify before pitching.',
-    nl: 'SOM is groter dan SAM — ongebruikelijk voor een 3-jarige slice; check je cijfers voor je pitcht.',
-  },
-  som_gt_tam: {
-    en: 'SOM is larger than TAM — your 3-year slice can’t exceed the total addressable market.',
-    nl: 'SOM is groter dan TAM — je verkrijgbare markt kan de totale markt niet overstijgen.',
-  },
-}
 
 export type StudioIssueSeverity = 'block' | 'warn' | 'info'
 
@@ -288,40 +265,7 @@ function pickIssues(
     })
   }
 
-  // ── 6b. TAM / SAM / SOM funnel ordering (Exit story credibility) ─
-  const { tam: tamF, sam: samF, som: somF } = state.tam_sam_som
-  const somFunnelShare =
-    tamF != null && samF != null && somF != null
-      ? computeSomSharePercents(tamF, samF, somF)
-      : null
-  if (somFunnelShare && somFunnelShare.issues.length > 0) {
-    const bodyEn = somFunnelShare.issues
-      .map((i) => TAM_SAM_SOM_FUNNEL_WARN_COPY[i].en)
-      .join(' ')
-    const bodyNl = somFunnelShare.issues
-      .map((i) => TAM_SAM_SOM_FUNNEL_WARN_COPY[i].nl)
-      .join(' ')
-    issues.push({
-      id: 'tam_sam_som_inconsistent',
-      severity: 'warn',
-      step: 'exit_story',
-      title: {
-        en: 'TAM / SAM / SOM funnel looks inconsistent',
-        nl: 'TAM / SAM / SOM-trechter lijkt inconsistent',
-      },
-      body: { en: bodyEn, nl: bodyNl },
-      action: {
-        en: 'In Exit story, align TAM ≥ SAM ≥ SOM or fix the intentional narrative.',
-        nl: 'Lijn in Exit-verhaal TAM ≥ SAM ≥ SOM uit of herformuleer je verhaal.',
-      },
-      assistantPrompt: {
-        en: 'My TAM, SAM, and SOM numbers may contradict each other. Help me sanity-check the funnel and suggest credible ranges for my pitch.',
-        nl: 'Mijn TAM-, SAM- en SOM-cijfers spreken elkaar misschien tegen. Help me de trechter te controleren en geloofwaardige ranges voor te stellen.',
-      },
-    })
-  }
-
-  // ── 6c. This-round new-investor % (priced cap preview) ────────────
+  // ── 6b. This-round new-investor % (priced cap preview) ────────────
   // Same math as Round simulator / VC `next_round_dilution_pct`: not the
   // cumulative-to-exit dilution field. Skip when SAFE notes exist — slice is
   // undefined until conversion.
@@ -486,7 +430,6 @@ export function useStudioIssues(benchmark: StartupBenchmarkRow): StudioIssuesRes
     state.arr,
     state.maturity,
     state.evidence_notes,
-    state.tam_sam_som,
     state.founder_pedigree,
     state.inception_lens,
     valuation.blended?.mid,

@@ -62,9 +62,6 @@ export interface StudioPreset {
   year5_revenue_projection?: number
   exit_revenue_multiple?: number
   target_roi_x?: number
-
-  /** Optional TAM/SAM/SOM trio. */
-  tam_sam_som?: { tam: number; sam: number; som: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -177,12 +174,6 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
   year5_revenue_projection: 60_000_000,
   exit_revenue_multiple: 6,
   target_roi_x: 12,
-
-  tam_sam_som: {
-    tam: 1_000_000_000_000, // €1T EU SME exit market
-    sam: 50_000_000_000, // €50B Benelux annual GMV
-    som: 750_000_000, // €750M realistic 3-yr Benelux GMV reachable post-€1.5M
-  },
 }
 
 // ---------------------------------------------------------------------------

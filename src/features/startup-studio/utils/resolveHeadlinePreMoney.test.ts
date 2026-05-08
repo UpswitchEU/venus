@@ -1,5 +1,12 @@
-import { TAM_SAM_SOM_MAX_EUR } from '@/features/startup-studio/utils/tamSamSomFunnel'
 import { describe, expect, it } from 'vitest'
+
+/**
+ * Mirror of the production cap-money sanity bound on
+ * ``normalizePreMoneyTarget`` — kept inline to avoid widening the
+ * module's exported surface.
+ */
+const PRE_MONEY_TARGET_MAX_EUR = 1e15
+
 import {
   isValidPreMoneyTarget,
   normalizePreMoneyTarget,
@@ -13,7 +20,7 @@ describe('normalizePreMoneyTarget', () => {
     expect(normalizePreMoneyTarget(-1)).toBeNull()
     expect(normalizePreMoneyTarget(Number.NaN)).toBeNull()
     expect(normalizePreMoneyTarget(1_000_000.4)).toBe(1_000_000)
-    expect(normalizePreMoneyTarget(TAM_SAM_SOM_MAX_EUR + 1)).toBe(TAM_SAM_SOM_MAX_EUR)
+    expect(normalizePreMoneyTarget(PRE_MONEY_TARGET_MAX_EUR + 1)).toBe(PRE_MONEY_TARGET_MAX_EUR)
   })
 })
 
@@ -37,7 +44,7 @@ describe('resolveHeadlinePreMoney', () => {
   })
 
   it('caps an explicit target before preferring it over blend', () => {
-    expect(resolveHeadlinePreMoney(TAM_SAM_SOM_MAX_EUR + 9, 1_700_000)).toBe(TAM_SAM_SOM_MAX_EUR)
+    expect(resolveHeadlinePreMoney(PRE_MONEY_TARGET_MAX_EUR + 9, 1_700_000)).toBe(PRE_MONEY_TARGET_MAX_EUR)
   })
 
   it('isValidPreMoneyTarget matches resolve semantics', () => {

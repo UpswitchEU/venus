@@ -184,27 +184,24 @@ describe('buildManualValuationRequest', () => {
     expect(cta as string).toMatch(/^https?:\/\//)
   })
 
-  it('venture path forwards normalized studio_v2.tam_sam_som on startup_inputs', () => {
+  it('venture path never emits studio_v2.tam_sam_som (field removed 2026-05-08)', () => {
+    // TAM/SAM/SOM was deleted from the studio store; even when an
+    // older session snapshot reaches `applyFromSnapshot` carrying the
+    // legacy keys, the request envelope must not surface them.
     useManualResultsStore.setState({
       preSelectedMethod: 'startup_valuation',
       selectedMethod: 'startup_valuation',
     })
     useStartupValuationStore.getState().reset()
     useStartupValuationStore.getState().setField('stage', 'seed')
-    useStartupValuationStore.getState().setTamSamSom({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
+    useStartupValuationStore.getState().applyFromSnapshot({
+      tam_sam_som: { tam: 1_000_000, sam: 500_000, som: 100_000 },
     })
 
     const req = buildManualValuationRequest(baseFormData)
     const inputs = req.startup_inputs as Record<string, unknown>
-    const studioV2 = inputs.studio_v2 as Record<string, unknown>
-    expect(studioV2.tam_sam_som).toEqual({
-      tam: 1_000_000,
-      sam: 500_000,
-      som: 100_000,
-    })
+    const studioV2 = inputs.studio_v2 as Record<string, unknown> | undefined
+    expect(studioV2?.tam_sam_som).toBeUndefined()
   })
 
   it('venture path sets filing-safe current_year_data (ignores stale form year for Titan)', () => {

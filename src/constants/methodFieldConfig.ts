@@ -68,6 +68,16 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
    * advisor enters real-estate / inventory / receivables overrides
    * once and both the going-concern NAV and the orderly+forced
    * liquidation scenarios pick them up.
+   *
+   * Phase 1 (Big-4 academic depth) is live on the engine side: IVS
+   * 104 §60–80 premise-of-value, Altman Z'' (2000) distress score,
+   * and a 12-class realisation schedule are produced automatically
+   * whenever the balance sheet supplies enough inputs. The dedicated
+   * `liquidation_inputs` bonus section that lets the advisor override
+   * the 12-class schedule + pin a premise + supply retained earnings
+   * (Z'' X2) is intentionally deferred to Phase 2 — the engine uses
+   * sensible Pratt&Niculita / EY academic defaults and warning-tracked
+   * fallbacks until that section ships.
    */
   liquidation_analysis: { bonusSections: ['nav_asset_schedule'] },
 }
@@ -185,6 +195,14 @@ export const PRE_SELECTABLE_METHODS = [
   'fiscal_4x',
   /** Venture / pre-revenue path — Berkus + Scorecard + VC blend. */
   'startup_valuation',
+  /**
+   * Liquidation Analysis — orderly + forced wind-down with IVS 104
+   * premise of value, Altman Z'' distress probability, 12-class
+   * realisation schedule, BE/NL insolvency priority cascade and
+   * tax leakage. The downside lens; not blendable with going-concern
+   * multiples (different premise of value, IVS 104 §80).
+   */
+  'liquidation_analysis',
 ] as const
 
 export type PreSelectableMethod = (typeof PRE_SELECTABLE_METHODS)[number]
@@ -217,6 +235,14 @@ export const STANDALONE_METHODS = new Set([
   'fiscal_4x',
   /** Startup engine consumes its own qualitative inputs and cannot be blended with SME methods. */
   'startup_valuation',
+  /**
+   * Liquidation analysis runs on a different premise of value (IVS 104 §60–80
+   * — orderly/forced wind-down vs. going-concern). Blending it with multiples
+   * or DCF would be an apples-to-oranges error. Reconciliation against
+   * going-concern lenses lives inside the liquidation report itself
+   * (probability-weighted expected value per Damodaran 2012 Ch. 23).
+   */
+  'liquidation_analysis',
 ])
 
 /**
