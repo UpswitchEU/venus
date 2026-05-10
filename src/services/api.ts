@@ -30,10 +30,14 @@ class ValuationAPI {
     this.client = axios.create({
       baseURL: getApiUrl(),
       // BANK-GRADE: Cascading Timeout Chain
-      // Venus (85s) > Titan (80s) > ValuationIQ (70s)
-      // This ensures proper error propagation - ValuationIQ times out first,
-      // Titan catches and logs it, Venus receives structured error before its timeout
-      timeout: 85000, // 85 seconds - part of cascading timeout chain
+      // Venus (120s) > Titan (100s) > ValuationIQ (90s)
+      // The outer-most caller MUST hold the longest budget so inner
+      // services time out first and surface structured errors. Audit
+      // 2026-05-10 caught the previous 85s ceiling here, which was
+      // shorter than Titan's 100s call (`SERVICE_TIMEOUTS.VALUATION_IQ`
+      // in apps/titan-api/src/common/config/timeouts.config.ts) — the
+      // user UI was abandoning requests Titan was still processing.
+      timeout: 120000, // 120 seconds - holds the outermost budget
       headers: {
         'Content-Type': 'application/json',
       },

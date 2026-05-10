@@ -84,6 +84,13 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
   'total_equity',
   'nwc_change',
   'free_cash_flow',
+  // Liquidation-relevant balance-sheet line items.  Forwarded over the
+  // wire when Hermes (or a manual entry path) populates them so the
+  // Liquidation form's prefill chain has a real signal to consume.
+  // Audit 2026-05-10 (C1+C2) — Hermes mapping deferred but the wire
+  // contract is now live so future prefills don't need a migration.
+  'paid_up_capital',
+  'deferred_tax_liabilities',
 ] as const
 
 const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
@@ -100,6 +107,11 @@ const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
   'total_liabilities',
   'current_liabilities',
   'total_debt',
+  // paid_up_capital and deferred_tax_liabilities are non-negative by
+  // construction (a negative paid-up capital is meaningless; a negative
+  // DTL would be a deferred tax asset, which lives on a different line).
+  'paid_up_capital',
+  'deferred_tax_liabilities',
 ])
 
 function pickOptionalYearDataFields(source: unknown): Record<string, number> {
@@ -1052,6 +1064,65 @@ export function buildValuationRequest(
     Number.isFinite(Number(fd.liq_multiples_value_override))
   ) {
     liquidationInputs.multiples_value_override = Number(fd.liq_multiples_value_override)
+  }
+  // Per-tier liability buckets — supplying these flips the cascade
+  // page from "estimated from jurisdiction defaults" to a real
+  // EY/Big-4-grade waterfall.  Keys mirror engine's
+  // `priority_cascade.CascadeTierCode`.  Each bucket is independently
+  // optional; a partial dict still triggers the engine's explicit-mode
+  // branch and a missing tier defaults to 0 inside the cascade.
+  const liabilityBuckets: Record<string, number> = {}
+  const liabilityBucketKeys = [
+    'estate_costs',
+    'secured',
+    'super_preferent_employees',
+    'preferent_tax',
+    'preferent_other',
+    'unsecured',
+    'subordinated',
+  ] as const
+  for (const tier of liabilityBucketKeys) {
+    const formKey = `liq_lb_${tier}` as const
+    const raw = (fd as Record<string, unknown>)[formKey]
+    if (raw != null && Number.isFinite(Number(raw)) && Number(raw) > 0) {
+      liabilityBuckets[tier] = Number(raw)
+    }
+  }
+  if (Object.keys(liabilityBuckets).length > 0) {
+    liquidationInputs.liability_buckets = liabilityBuckets
+  }
+  // Per-asset-class adjusted-FMV overrides — the appraiser-grade
+  // companion to liability_buckets.  Each entry maps a class code to
+  // `{adjusted_value: N}` matching the engine's
+  // `asset_overrides[<class>]['adjusted_value']` contract.  Only
+  // `adjusted_value` is surfaced by the UI today; the engine also
+  // accepts `orderly_recovery_factor`, `forced_recovery_factor`,
+  // disposal-month overrides, etc., but those are kept on cohort
+  // defaults until product calls for an expanded form.
+  const assetOverrides: Record<string, { adjusted_value: number }> = {}
+  const assetClassCodes = [
+    'cash',
+    'trade_receivables',
+    'other_receivables',
+    'inventory_finished',
+    'inventory_wip',
+    'inventory_raw',
+    'land',
+    'buildings',
+    'machinery_equipment',
+    'vehicles',
+    'it_equipment',
+    'intangibles',
+  ] as const
+  for (const cls of assetClassCodes) {
+    const formKey = `liq_ao_${cls}` as const
+    const raw = (fd as Record<string, unknown>)[formKey]
+    if (raw != null && Number.isFinite(Number(raw)) && Number(raw) > 0) {
+      assetOverrides[cls] = { adjusted_value: Number(raw) }
+    }
+  }
+  if (Object.keys(assetOverrides).length > 0) {
+    liquidationInputs.asset_overrides = assetOverrides
   }
   if (Object.keys(liquidationInputs).length > 0) {
     request.liquidation_inputs = liquidationInputs as ValuationRequest['liquidation_inputs']

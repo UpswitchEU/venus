@@ -57,6 +57,7 @@ import {
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
+import { computeSdeOwnerSalaryPrefill } from '@/lib/sde'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { TARGET_COUNTRIES } from '../../config/countries'
@@ -4302,6 +4303,55 @@ export function AdaptiveSections({
       (n) => n.status === 'accepted' && n.category === 'salary' && Math.abs(n.adjustment) > 0
     )
   }, [formData.owner_salary_addback, normalizationItems])
+
+  /**
+   * SDE owner-salary prefill — derive a high-confidence default for
+   * `owner_salary_addback` from accepted salary normalization items
+   * (account 620 / 618). Without this prefill the engine falls back to
+   * `revenue × 15%` even when the actual director compensation is
+   * sitting in the trial balance. Single-shot per "user has not typed
+   * a value yet" — never overwrites a manual entry.
+   */
+  const sdeSalaryPrefill = useMemo(
+    () => computeSdeOwnerSalaryPrefill(normalizationItems),
+    [normalizationItems]
+  )
+  const sdeSectionActive =
+    (effectiveMethods ?? [effectiveMethod]).includes('sde_multiple') ||
+    (effectiveMethods ?? [effectiveMethod])
+      .map((m) => m)
+      .some((m) => m === 'sde_multiple')
+  // Track applied prefill so we never re-apply after the user clears the field.
+  const sdePrefillAppliedRef = useRef<{ year: number; value: number } | null>(null)
+  useEffect(() => {
+    if (!sdeSectionActive) return
+    if (!onAnyFieldChange) return
+    if (sdeSalaryPrefill.suggestedValue == null) return
+    // Never overwrite a value the user has typed (or that already differs
+    // from the suggestion via prior session restore).
+    const current = formData.owner_salary_addback
+    if (current != null && Number(current) > 0) return
+    // Idempotency — only apply each suggestion once per session.
+    const last = sdePrefillAppliedRef.current
+    if (
+      last &&
+      last.year === sdeSalaryPrefill.sourceYear &&
+      last.value === sdeSalaryPrefill.suggestedValue
+    ) {
+      return
+    }
+    onAnyFieldChange('owner_salary_addback', sdeSalaryPrefill.suggestedValue)
+    sdePrefillAppliedRef.current = {
+      year: sdeSalaryPrefill.sourceYear ?? 0,
+      value: sdeSalaryPrefill.suggestedValue,
+    }
+  }, [
+    sdeSectionActive,
+    sdeSalaryPrefill.suggestedValue,
+    sdeSalaryPrefill.sourceYear,
+    formData.owner_salary_addback,
+    onAnyFieldChange,
+  ])
   const methods = effectiveMethods ?? [effectiveMethod]
   const sections =
     methods.length > 1
@@ -4797,6 +4847,30 @@ export function AdaptiveSections({
             liqRunwayMonthsOrderly={formData.liq_runway_months_orderly as number | undefined}
             liqDistressWaccOrderly={formData.liq_distress_wacc_orderly as number | undefined}
             liqMultiplesValueOverride={formData.liq_multiples_value_override as number | undefined}
+            liqLiabilityBuckets={{
+              estate_costs: formData.liq_lb_estate_costs as number | undefined,
+              secured: formData.liq_lb_secured as number | undefined,
+              super_preferent_employees:
+                formData.liq_lb_super_preferent_employees as number | undefined,
+              preferent_tax: formData.liq_lb_preferent_tax as number | undefined,
+              preferent_other: formData.liq_lb_preferent_other as number | undefined,
+              unsecured: formData.liq_lb_unsecured as number | undefined,
+              subordinated: formData.liq_lb_subordinated as number | undefined,
+            }}
+            liqAssetOverrides={{
+              cash: formData.liq_ao_cash as number | undefined,
+              trade_receivables: formData.liq_ao_trade_receivables as number | undefined,
+              other_receivables: formData.liq_ao_other_receivables as number | undefined,
+              inventory_finished: formData.liq_ao_inventory_finished as number | undefined,
+              inventory_wip: formData.liq_ao_inventory_wip as number | undefined,
+              inventory_raw: formData.liq_ao_inventory_raw as number | undefined,
+              land: formData.liq_ao_land as number | undefined,
+              buildings: formData.liq_ao_buildings as number | undefined,
+              machinery_equipment: formData.liq_ao_machinery_equipment as number | undefined,
+              vehicles: formData.liq_ao_vehicles as number | undefined,
+              it_equipment: formData.liq_ao_it_equipment as number | undefined,
+              intangibles: formData.liq_ao_intangibles as number | undefined,
+            }}
             prefillSourceHeadcount={
               (formData as { number_of_employees?: number }).number_of_employees ?? undefined
             }
@@ -4807,19 +4881,21 @@ export function AdaptiveSections({
                 : undefined
             }
             prefillSourcePaidUpCapital={
-              // Hermes maps NBB "Geplaatst kapitaal" / RGS "Geplaatst en
-              // gestort kapitaal" into the dedicated `paid_up_capital`
-              // field on the year row when the filing exposes it.  Falls
-              // back to `total_equity` only when the dedicated line is
-              // missing — equity is a noisier proxy (it includes
-              // retained earnings + reserves) but is always present, so
-              // it's a reasonable bootstrap that the advisor can
-              // override.  Skips zero/negative values so the field stays
-              // blank and the engine's cohort default fires.
+              // Prefer the dedicated `paid_up_capital` line when Hermes
+              // exposes it (NBB code 1100 "Geplaatst kapitaal" / NL RGS
+              // BlnPasEigVerVlk).  Fall back to `total_equity` as a
+              // noisier proxy — equity is a superset (includes retained
+              // earnings + reserves) but is always present on filings,
+              // so it's a reasonable bootstrap the advisor can override.
+              // Skips zero/negative values so the field stays blank and
+              // the engine's cohort default fires.
+              //
+              // Audit 2026-05-10 (C1): the dedicated field is now typed
+              // on `YearDataInput`, so the cast bypass is gone.  Hermes
+              // doesn't yet populate this line — until it does, the
+              // fallback to `total_equity` is the only signal.
               (() => {
-                const paidUp = (
-                  latestCompleteYearlyFinancial as { paid_up_capital?: number | null } | undefined
-                )?.paid_up_capital
+                const paidUp = latestCompleteYearlyFinancial?.paid_up_capital
                 if (paidUp != null && Number(paidUp) > 0) return Number(paidUp)
                 const equity = latestCompleteYearlyFinancial?.total_equity
                 if (equity != null && Number(equity) > 0) return Number(equity)
@@ -4827,16 +4903,17 @@ export function AdaptiveSections({
               })()
             }
             prefillSourceDeferredTax={
-              // Hermes maps NBB code 168 ("Uitgestelde belastingen") /
-              // RGS BlnSch.LtgVoz to `deferred_tax_liabilities` on the
-              // year row.  Skips zero/missing — engine cohort default
-              // takes over.
+              // `deferred_tax_liabilities` is the IAS 12 long-term tax
+              // line (NBB code 168 / NL RGS BlnSch.LtgVoz).  No fallback
+              // proxy — DTL is materially different from any other
+              // long-term liability bucket, so a bad guess would
+              // mislead.  Field stays blank when Hermes hasn't surfaced
+              // it; the engine's cohort default fires instead.
+              //
+              // Audit 2026-05-10 (C2): the field is now typed on
+              // `YearDataInput`.  The cast bypass is gone.
               (() => {
-                const dtl = (
-                  latestCompleteYearlyFinancial as
-                    | { deferred_tax_liabilities?: number | null }
-                    | undefined
-                )?.deferred_tax_liabilities
+                const dtl = latestCompleteYearlyFinancial?.deferred_tax_liabilities
                 if (dtl != null && Number(dtl) > 0) return Number(dtl)
                 return undefined
               })()
@@ -4940,6 +5017,20 @@ export function AdaptiveSections({
               }
               onActiveOwnersCountChange={
                 onAnyFieldChange ? (count) => onAnyFieldChange('number_of_owners', count) : undefined
+              }
+              salaryPrefillSource={
+                sdePrefillAppliedRef.current &&
+                Number(formData.owner_salary_addback) ===
+                  sdePrefillAppliedRef.current.value
+                  ? sdeSalaryPrefill.source
+                  : null
+              }
+              salaryPrefillYear={
+                sdePrefillAppliedRef.current &&
+                Number(formData.owner_salary_addback) ===
+                  sdePrefillAppliedRef.current.value
+                  ? sdeSalaryPrefill.sourceYear
+                  : null
               }
               disabled={disabled}
             />

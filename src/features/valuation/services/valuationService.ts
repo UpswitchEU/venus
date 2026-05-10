@@ -54,7 +54,13 @@ export class ValuationService implements IValuationService {
           },
         })
 
-        // Wait a bit for completion (this is a temporary solution)
+        // Outer wrapper timeout — must be ≥ the inner stream cascade
+        // (`manualValuationStreamService.DEFAULT_TIMEOUT` = 85_000) plus
+        // a buffer for the SSE close handshake.  Was 30_000 (audit
+        // 2026-05-10 D3): if the engine took 31s the wrapper rejected
+        // with "timed out" while the underlying stream kept running
+        // and eventually completed — silent loss.  90_000 = 85s
+        // cascade + 5s buffer.
         setTimeout(() => {
           if (finalResult) {
             resolve(finalResult)
@@ -62,7 +68,7 @@ export class ValuationService implements IValuationService {
             reject(new Error('Valuation calculation timed out'))
             stream.close()
           }
-        }, 30000) // 30 second timeout
+        }, 90000) // 90s — must exceed stream cascade (85s)
       })
 
       generalLogger.info('Valuation calculation completed', {

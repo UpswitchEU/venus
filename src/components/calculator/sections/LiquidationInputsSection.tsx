@@ -75,6 +75,68 @@ const ESSENTIAL_FIELDS = [
 ] as const
 
 /**
+ * Per-tier liability bucket order — mirrors
+ * `priority_cascade.CascadeTierCode` on the engine side. Each tier
+ * has a stable engine string key + a Boek-XX / Faillissementswet
+ * citation surfaced as the field hint so the advisor can match a
+ * GL trial balance to the right rang. Supplying these buckets kills
+ * the engine's "estimated from jurisdiction defaults" warning that
+ * fires on every cascade page when `liability_buckets` is null.
+ *
+ * `shareholders` is intentionally excluded — it's the residual class
+ * the cascade *computes*, not an input the advisor supplies.
+ */
+const LIABILITY_BUCKET_TIERS = [
+  { code: 'estate_costs', i18nKey: 'estateCosts' },
+  { code: 'secured', i18nKey: 'secured' },
+  { code: 'super_preferent_employees', i18nKey: 'superPreferentEmployees' },
+  { code: 'preferent_tax', i18nKey: 'preferentTax' },
+  { code: 'preferent_other', i18nKey: 'preferentOther' },
+  { code: 'unsecured', i18nKey: 'unsecured' },
+  { code: 'subordinated', i18nKey: 'subordinated' },
+] as const
+
+type LiabilityBucketCode = (typeof LIABILITY_BUCKET_TIERS)[number]['code']
+
+const LIABILITY_BUCKET_FORM_KEYS = LIABILITY_BUCKET_TIERS.map(
+  (tier) => `liq_lb_${tier.code}` as const
+)
+
+/**
+ * Per-asset-class adjusted-FMV overrides — mirrors
+ * `asset_schedule.AssetClass` on the engine side.  Each class accepts
+ * a single number (appraiser FMV in EUR).  Engine's per-class default
+ * derives `adjusted_value` from the matching balance-sheet line, so a
+ * blank override here just means "trust the book value."  Supplying
+ * even a single override surfaces in the realisation schedule with
+ * the engine flagging "appraiser override applied."
+ *
+ * Surfaced under a separate toggle so the section header counts only
+ * the *essential* 4 — these are power-user appraiser knowledge, not
+ * required inputs.
+ */
+const ASSET_CLASSES = [
+  { code: 'cash', i18nKey: 'cash' },
+  { code: 'trade_receivables', i18nKey: 'tradeReceivables' },
+  { code: 'other_receivables', i18nKey: 'otherReceivables' },
+  { code: 'inventory_finished', i18nKey: 'inventoryFinished' },
+  { code: 'inventory_wip', i18nKey: 'inventoryWip' },
+  { code: 'inventory_raw', i18nKey: 'inventoryRaw' },
+  { code: 'land', i18nKey: 'land' },
+  { code: 'buildings', i18nKey: 'buildings' },
+  { code: 'machinery_equipment', i18nKey: 'machineryEquipment' },
+  { code: 'vehicles', i18nKey: 'vehicles' },
+  { code: 'it_equipment', i18nKey: 'itEquipment' },
+  { code: 'intangibles', i18nKey: 'intangibles' },
+] as const
+
+type AssetClassCode = (typeof ASSET_CLASSES)[number]['code']
+
+const ASSET_OVERRIDE_FORM_KEYS = ASSET_CLASSES.map(
+  (cls) => `liq_ao_${cls.code}` as const
+)
+
+/**
  * Minimal data-input row.  Label + (optional) prefill marker + field +
  * (optional) inline unit hint.  Deliberately lean — the left panel is
  * for data input, not for advisor narrative.  Anything explaining what
@@ -128,6 +190,15 @@ export interface LiquidationInputsSectionProps {
   liqRunwayMonthsOrderly?: number
   liqDistressWaccOrderly?: number
   liqMultiplesValueOverride?: number
+  // Per-tier liability buckets — supplied so the priority cascade
+  // page renders the actual debt structure instead of the engine's
+  // jurisdiction-default estimate (audit P0 #8).
+  liqLiabilityBuckets?: Partial<Record<LiabilityBucketCode, number>>
+  // Per-asset-class adjusted-FMV overrides — turn the realisation
+  // schedule from a book-value rollforward into an appraiser-grade
+  // working paper (audit P0 #9).  Engine falls back to balance-sheet
+  // values for any class without an override.
+  liqAssetOverrides?: Partial<Record<AssetClassCode, number>>
   // Prefill sources (read-only signals from base inputs).  Each is a
   // dominant-source value that the field auto-populates from on first
   // mount; the user's manual edit wins forever after.
@@ -160,6 +231,8 @@ export function LiquidationInputsSection({
   liqRunwayMonthsOrderly,
   liqDistressWaccOrderly,
   liqMultiplesValueOverride,
+  liqLiabilityBuckets,
+  liqAssetOverrides,
   prefillSourceHeadcount,
   prefillSourceAnnualRent,
   prefillSourcePaidUpCapital,
@@ -170,6 +243,19 @@ export function LiquidationInputsSection({
 }: LiquidationInputsSectionProps) {
   const t = useTranslations('manualInput.liquidationInputs')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showLiabilityBuckets, setShowLiabilityBuckets] = useState(false)
+  const [showAssetOverrides, setShowAssetOverrides] = useState(false)
+  // Count of non-zero buckets — surfaces in the toggle so the advisor
+  // can see at-a-glance whether the cascade is running on real data
+  // or jurisdiction defaults.
+  const liabilityBucketsFilled = LIABILITY_BUCKET_TIERS.filter((tier) => {
+    const v = liqLiabilityBuckets?.[tier.code]
+    return typeof v === 'number' && v > 0
+  }).length
+  const assetOverridesFilled = ASSET_CLASSES.filter((cls) => {
+    const v = liqAssetOverrides?.[cls.code]
+    return typeof v === 'number' && v > 0
+  }).length
   const [headcountWasPrefilled, setHeadcountWasPrefilled] = useState(false)
   const [rentWasPrefilled, setRentWasPrefilled] = useState(false)
   const [paidUpCapitalWasPrefilled, setPaidUpCapitalWasPrefilled] = useState(false)
@@ -250,6 +336,12 @@ export function LiquidationInputsSection({
     onFieldChange('liq_runway_months_orderly', undefined)
     onFieldChange('liq_distress_wacc_orderly', undefined)
     onFieldChange('liq_multiples_value_override', undefined)
+    for (const field of LIABILITY_BUCKET_FORM_KEYS) {
+      onFieldChange(field, undefined)
+    }
+    for (const field of ASSET_OVERRIDE_FORM_KEYS) {
+      onFieldChange(field, undefined)
+    }
     if (onAnyFieldChange) {
       onAnyFieldChange('liq_premise_override', undefined)
     }
@@ -269,6 +361,25 @@ export function LiquidationInputsSection({
       data-testid="liquidation-inputs-section"
     >
       <ValuationSectionHeader step={step} title={t('title')} subtitle={t('subtitle')} />
+
+      {/* Essentials-filled status chip — surfaces the four-of-four
+          progress hinted at in the file-header comment.  Engine fires
+          defaults on blank fields so the chip mirrors what the report's
+          "estimated bucket" warnings will say (audit P0 #6).  Counts
+          *defined* values rather than *non-prefilled* so the bar reads
+          the same whether the data came from a filing or from typing. */}
+      <div
+        className="flex items-center gap-2 rounded-md bg-primary/[0.06] px-2.5 py-1.5 text-[11px] text-foreground/70"
+        data-testid="liq-essentials-progress"
+      >
+        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-primary/70" />
+        {t('essentialsProgress', {
+          filled: [liqHeadcount, liqMonthlyRent, liqPaidUpCapital, liqDeferredTax].filter(
+            (v) => v !== undefined
+          ).length,
+          total: ESSENTIAL_FIELDS.length,
+        })}
+      </div>
 
       {/* Wind-down panel — bottom-up cost inputs. */}
       <div className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3">
@@ -471,17 +582,23 @@ export function LiquidationInputsSection({
                   max={100}
                   step={0.5}
                   placeholder={t('distressWaccPlaceholder')}
+                  // Stored as decimal (0.15 = 15%); UI surfaces percent.
+                  // Round to 1 decimal on display so the float-multiply
+                  // round-trip (0.155 → 15.500000000000002) doesn't leak
+                  // garbage digits on re-render (audit P0 #7).
                   value={
                     liqDistressWaccOrderly === undefined
                       ? ''
-                      : Number(liqDistressWaccOrderly) * 100
+                      : Math.round(Number(liqDistressWaccOrderly) * 1000) / 10
                   }
                   disabled={disabled}
                   onChange={(e) => {
                     const raw = e.target.value
                     onFieldChange(
                       'liq_distress_wacc_orderly',
-                      raw === '' ? undefined : Math.max(0, Number(raw)) / 100
+                      raw === ''
+                        ? undefined
+                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
                     )
                   }}
                   className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -505,6 +622,123 @@ export function LiquidationInputsSection({
                 data-testid="liq-multiples-value-input"
               />
             </FieldRow>
+          </div>
+        </motion.div>
+      ) : null}
+
+      {/* Per-tier liability buckets — supplying these kills the
+          engine's "estimated from jurisdiction defaults" warning that
+          fires on every cascade page.  Defaults match the BE Boek XX /
+          NL Faillissementswet tier order.  Hidden behind a separate
+          toggle (not the generic "Show advanced") because the chip
+          shows progress: "0 of 7 tiers" → "7 of 7 tiers" — the advisor
+          knows exactly how much of the cascade is real. */}
+      <button
+        type="button"
+        onClick={() => setShowLiabilityBuckets((prev) => !prev)}
+        className="flex w-full items-center justify-between rounded-lg border border-primary/10 bg-background/60 px-3 py-2 text-xs font-medium text-foreground/80 hover:bg-primary/[0.05]"
+        data-testid="liq-liability-buckets-toggle"
+      >
+        <span className="flex flex-col items-start gap-0.5">
+          <span>{t('liabilityBucketsTitle')}</span>
+          <span className="text-[10px] font-normal text-muted-foreground">
+            {t('liabilityBucketsProgress', {
+              filled: liabilityBucketsFilled,
+              total: LIABILITY_BUCKET_TIERS.length,
+            })}
+          </span>
+        </span>
+        <span className="text-muted-foreground">{showLiabilityBuckets ? '−' : '+'}</span>
+      </button>
+
+      {showLiabilityBuckets ? (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ duration: 0.15 }}
+          className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3"
+          data-testid="liq-liability-buckets-section"
+        >
+          <p className="text-[11px] text-muted-foreground">
+            {t('liabilityBucketsSubtitle')}
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {LIABILITY_BUCKET_TIERS.map((tier) => {
+              const formKey = `liq_lb_${tier.code}` as const
+              const current = liqLiabilityBuckets?.[tier.code]
+              return (
+                <FieldRow
+                  key={tier.code}
+                  label={t(`liabilityBucketLabel.${tier.i18nKey}`)}
+                  hint={t(`liabilityBucketHint.${tier.i18nKey}`)}
+                >
+                  <CurrencyInput
+                    value={current}
+                    onChange={(next) => onFieldChange(formKey, next)}
+                    disabled={disabled}
+                    data-testid={`liq-lb-${tier.code}-input`}
+                  />
+                </FieldRow>
+              )
+            })}
+          </div>
+        </motion.div>
+      ) : null}
+
+      {/* Per-asset-class adjusted-FMV overrides — turns the
+          realisation schedule from a book-value rollforward into an
+          appraiser-grade working paper (audit P0 #9).  Hidden behind a
+          separate toggle from the liability buckets; the progress hint
+          tells the advisor how many classes carry appraiser values.
+          Engine falls back to balance-sheet derivation for blanks. */}
+      <button
+        type="button"
+        onClick={() => setShowAssetOverrides((prev) => !prev)}
+        className="flex w-full items-center justify-between rounded-lg border border-primary/10 bg-background/60 px-3 py-2 text-xs font-medium text-foreground/80 hover:bg-primary/[0.05]"
+        data-testid="liq-asset-overrides-toggle"
+      >
+        <span className="flex flex-col items-start gap-0.5">
+          <span>{t('assetOverridesTitle')}</span>
+          <span className="text-[10px] font-normal text-muted-foreground">
+            {t('assetOverridesProgress', {
+              filled: assetOverridesFilled,
+              total: ASSET_CLASSES.length,
+            })}
+          </span>
+        </span>
+        <span className="text-muted-foreground">{showAssetOverrides ? '−' : '+'}</span>
+      </button>
+
+      {showAssetOverrides ? (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ duration: 0.15 }}
+          className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3"
+          data-testid="liq-asset-overrides-section"
+        >
+          <p className="text-[11px] text-muted-foreground">
+            {t('assetOverridesSubtitle')}
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {ASSET_CLASSES.map((cls) => {
+              const formKey = `liq_ao_${cls.code}` as const
+              const current = liqAssetOverrides?.[cls.code]
+              return (
+                <FieldRow
+                  key={cls.code}
+                  label={t(`assetClassLabel.${cls.i18nKey}`)}
+                  hint={t('assetOverridesHint')}
+                >
+                  <CurrencyInput
+                    value={current}
+                    onChange={(next) => onFieldChange(formKey, next)}
+                    disabled={disabled}
+                    data-testid={`liq-ao-${cls.code}-input`}
+                  />
+                </FieldRow>
+              )
+            })}
           </div>
         </motion.div>
       ) : null}

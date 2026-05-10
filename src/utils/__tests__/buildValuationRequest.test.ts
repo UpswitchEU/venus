@@ -1416,6 +1416,115 @@ describe('buildValuationRequest', () => {
       )
       expect(result.liquidation_inputs).toBeUndefined()
     })
+
+    it('bundles per-tier liability buckets under liability_buckets', () => {
+      // Pinned 2026-05-10: supplying explicit buckets is what flips
+      // the cascade page from "estimated from jurisdiction defaults"
+      // (engine warning) to a real EY/Big-4-grade waterfall.  Keys
+      // map verbatim to `CascadeTierCode` on the engine side.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_lb_estate_costs: 5_000,
+          liq_lb_secured: 120_000,
+          liq_lb_super_preferent_employees: 45_000,
+          liq_lb_preferent_tax: 30_000,
+          liq_lb_preferent_other: 10_000,
+          liq_lb_unsecured: 200_000,
+          liq_lb_subordinated: 25_000,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      const inputs = result.liquidation_inputs as Record<string, unknown>
+      expect(inputs).toBeDefined()
+      expect(inputs.liability_buckets).toEqual({
+        estate_costs: 5_000,
+        secured: 120_000,
+        super_preferent_employees: 45_000,
+        preferent_tax: 30_000,
+        preferent_other: 10_000,
+        unsecured: 200_000,
+        subordinated: 25_000,
+      })
+    })
+
+    it('drops zero / negative liability bucket entries', () => {
+      // Engine treats a missing tier as 0; a 0 input would still
+      // surface the explicit-mode branch with a noisier wire.  Strip
+      // them so the dict is minimal.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_lb_secured: 0,
+          liq_lb_unsecured: -100,
+          liq_lb_preferent_tax: 50_000,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      const buckets = (result.liquidation_inputs as Record<string, unknown>)
+        ?.liability_buckets as Record<string, number>
+      expect(buckets).toEqual({ preferent_tax: 50_000 })
+    })
+
+    it('omits liability_buckets when no tier is supplied', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_headcount: 5,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      // Engine defaults fire; the wire stays clean.
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.liability_buckets,
+      ).toBeUndefined()
+    })
+
+    it('bundles asset_overrides per class as nested {adjusted_value} dicts', () => {
+      // Engine expects asset_overrides keyed by `AssetClass.value`,
+      // each entry a dict with optional `adjusted_value` /
+      // `orderly_recovery_factor` / etc.  Venus only surfaces
+      // `adjusted_value` today.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_ao_machinery_equipment: 120_000,
+          liq_ao_buildings: 500_000,
+          liq_ao_intangibles: 25_000,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      const inputs = result.liquidation_inputs as Record<string, unknown>
+      expect(inputs.asset_overrides).toEqual({
+        machinery_equipment: { adjusted_value: 120_000 },
+        buildings: { adjusted_value: 500_000 },
+        intangibles: { adjusted_value: 25_000 },
+      })
+    })
+
+    it('drops zero / negative asset overrides', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_ao_cash: 0,
+          liq_ao_land: -1000,
+          liq_ao_vehicles: 15_000,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides,
+      ).toEqual({
+        vehicles: { adjusted_value: 15_000 },
+      })
+    })
+
+    it('omits asset_overrides when no class is overridden', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_headcount: 5,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides,
+      ).toBeUndefined()
+    })
   })
 
   describe('fiscal_inputs (meerwaardebelasting / Art. 90 WIB 92)', () => {

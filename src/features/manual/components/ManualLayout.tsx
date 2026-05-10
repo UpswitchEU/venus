@@ -1740,6 +1740,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const formAddress = [formPostalCode, formCity].filter(Boolean).join(' ')
   const formNumber_of_employees = useManualFormStore((s) => s.formData.number_of_employees)
+  // `number_of_owners` is the Zustand mirror of the panel's `ownerManagers`
+  // field. It is set by session restore, BusinessCard prefill, and the
+  // assistant CTA at line 3718. Without seeding `collectedData.ownerManagers`
+  // from it, the panel's `initialData.ownerManagers || 1` defaults to 1 on
+  // every mount, silently discarding any pre-known owner count.
+  const formNumberOfOwners = useManualFormStore((s) => s.formData.number_of_owners)
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
@@ -1753,7 +1759,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     businessModel: formBusinessModel || 'services',
     country: formCountry || 'BE',
     yearFounded: formYearFounded ? String(formYearFounded) : '',
-    ownerManagers: 1,
+    ownerManagers:
+      typeof formNumberOfOwners === 'number' && formNumberOfOwners > 0 ? formNumberOfOwners : 1,
     fteEmployees: formNumber_of_employees,
   })
 
@@ -3874,8 +3881,180 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onToolStart: (toolName) => {
             conversationStore.setToolInProgress(toolName)
           },
-          onToolResult: (_toolName, _result) => {
+          onToolResult: (toolName, result) => {
+            // Streaming-path tool-result rendering. Mirrors the non-streaming
+            // parser in AIChatService.sendMessage so the inline cards
+            // (suggest_normalization / update_field_value / run_valuation /
+            // generate_report / run_sellability) render in the streaming
+            // happy path — not just on the onError fallback. Read-tool
+            // results arrive with `result === undefined` (Titan only emits
+            // toolResult for write tools per claude.service.ts:644) and
+            // short-circuit out below.
             conversationStore.setToolInProgress(null)
+            if (!result || typeof result !== 'object') return
+            const data = result as Record<string, any>
+
+            const newFieldUpdate =
+              toolName === 'update_field_value' && data.update
+                ? [
+                    {
+                      field: data.update.field,
+                      value: data.update.value,
+                      label: data.update.label,
+                      source: 'ai' as const,
+                      confidence: data.update.confidence,
+                    },
+                  ]
+                : null
+
+            const newNormalisationSuggestion =
+              toolName === 'suggest_normalization' && data.suggestion
+                ? [
+                    {
+                      ...data.suggestion,
+                      id: crypto.randomUUID(),
+                      status: 'pending' as const,
+                      multiple: 5.2,
+                    },
+                  ]
+                : null
+
+            const newValuationRun =
+              toolName === 'run_valuation'
+                ? data.status === 'pending_approval' && data.request
+                  ? [
+                      {
+                        id: crypto.randomUUID(),
+                        status: 'pending_approval' as const,
+                        reportId: data.request.report_id,
+                        methods: data.request.methods ?? null,
+                        estimatedCredits: data.request.estimated_credits,
+                        inputsSummary: data.request.inputs_summary,
+                        note: data.request.note ?? null,
+                        message: data.message,
+                      },
+                    ]
+                  : data.status === 'blocked'
+                    ? [
+                        {
+                          id: crypto.randomUUID(),
+                          status: 'blocked' as const,
+                          reason: data.reason,
+                          missing: data.missing,
+                          message: data.message,
+                        },
+                      ]
+                    : null
+                : null
+
+            const newReportGeneration =
+              toolName === 'generate_report'
+                ? data.status === 'pending_approval' && data.request
+                  ? [
+                      {
+                        id: crypto.randomUUID(),
+                        status: 'pending_approval' as const,
+                        reportId: data.request.report_id,
+                        estimatedCredits: data.request.estimated_credits,
+                        resultSummary: data.request.result_summary,
+                        note: data.request.note ?? null,
+                        message: data.message,
+                      },
+                    ]
+                  : data.status === 'blocked'
+                    ? [
+                        {
+                          id: crypto.randomUUID(),
+                          status: 'blocked' as const,
+                          reason: data.reason,
+                          message: data.message,
+                        },
+                      ]
+                    : null
+                : null
+
+            const newSellabilityRun =
+              toolName === 'run_sellability'
+                ? data.status === 'pending_approval' && data.request
+                  ? [
+                      {
+                        id: crypto.randomUUID(),
+                        status: 'pending_approval' as const,
+                        estimatedCredits: data.request.estimated_credits,
+                        answers: data.request.answers,
+                        currentScore: data.request.current_score ?? null,
+                        note: data.request.note ?? null,
+                        message: data.message,
+                      },
+                    ]
+                  : data.status === 'blocked'
+                    ? [
+                        {
+                          id: crypto.randomUUID(),
+                          status: 'blocked' as const,
+                          reason: data.reason,
+                          missing: data.missing,
+                          message: data.message,
+                        },
+                      ]
+                    : null
+                : null
+
+            if (
+              !newFieldUpdate &&
+              !newNormalisationSuggestion &&
+              !newValuationRun &&
+              !newReportGeneration &&
+              !newSellabilityRun
+            ) {
+              return
+            }
+
+            setChatMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== streamingMsgId) return m
+                return {
+                  ...m,
+                  ...(newFieldUpdate && {
+                    fieldUpdates: [...(m.fieldUpdates ?? []), ...newFieldUpdate],
+                  }),
+                  ...(newNormalisationSuggestion && {
+                    normalisationSuggestions: [
+                      ...(m.normalisationSuggestions ?? []),
+                      ...newNormalisationSuggestion,
+                    ],
+                  }),
+                  ...(newValuationRun && {
+                    valuationRunRequests: [
+                      ...(m.valuationRunRequests ?? []),
+                      ...newValuationRun,
+                    ],
+                  }),
+                  ...(newReportGeneration && {
+                    reportGenerationRequests: [
+                      ...(m.reportGenerationRequests ?? []),
+                      ...newReportGeneration,
+                    ],
+                  }),
+                  ...(newSellabilityRun && {
+                    sellabilityRunRequests: [
+                      ...(m.sellabilityRunRequests ?? []),
+                      ...newSellabilityRun,
+                    ],
+                  }),
+                }
+              })
+            )
+
+            // Mirror the parallel state hooks the onError fallback uses, so
+            // accept-all flows and pending-update tracking work identically
+            // whether or not the stream survived.
+            if (newFieldUpdate) {
+              setPendingUpdates((prev) => [...prev, ...newFieldUpdate])
+            }
+            if (newNormalisationSuggestion) {
+              handleNormalisationSuggestions(newNormalisationSuggestion)
+            }
           },
           onDone: (responseConversationId) => {
             streamCleanupRef.current = null
@@ -5706,7 +5885,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       industry: collectedData.industry,
       country: collectedData.country,
       yearFounded: collectedData.yearFounded,
-      ownerManagers: collectedData.ownerManagers,
+      // Same store-first pattern as `fteEmployees`: trust whatever was set
+      // upstream (session restore / BusinessCard / assistant CTA), only fall
+      // back to `collectedData.ownerManagers` when the store is empty.
+      ownerManagers:
+        typeof formStoreData.number_of_owners === 'number' && formStoreData.number_of_owners > 0
+          ? formStoreData.number_of_owners
+          : collectedData.ownerManagers,
       fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
       current_year_data: formStoreData.current_year_data ?? collectedData.current_year_data,
       historical_years_data: formStoreData.historical_years_data,

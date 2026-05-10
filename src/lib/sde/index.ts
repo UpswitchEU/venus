@@ -12,3 +12,9 @@ export {
   type SdePreviewMetrics,
   type SdePreviewUnavailableReason,
 } from './sdePreviewMetrics'
+export {
+  computeSdeOwnerSalaryPrefill,
+  type SdeSalaryPrefillNormalizationItem,
+  type SdeSalaryPrefillResult,
+  type SdeSalaryPrefillSource,
+} from './sdeOwnerSalaryPrefill'

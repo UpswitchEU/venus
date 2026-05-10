@@ -34,6 +34,12 @@ interface SdeOwnerCompensationSectionProps {
    * tier (1 = high key-person discount, ≥4 = low). */
   activeOwnersCount?: number
   onActiveOwnersCountChange?: (count: number) => void
+  /** When the salary value matches an auto-derived prefill from the
+   * normalization store, render a "Prefilled" badge near the field so
+   * the user knows it came from their imported trial balance and can
+   * edit freely. Cleared as soon as the user types. */
+  salaryPrefillSource?: 'imported_ledger' | 'manual_entry' | null
+  salaryPrefillYear?: number | null
   disabled?: boolean
 }
 
@@ -47,6 +53,8 @@ export function SdeOwnerCompensationSection({
   onOwnerRoleChange,
   activeOwnersCount,
   onActiveOwnersCountChange,
+  salaryPrefillSource,
+  salaryPrefillYear,
   disabled,
 }: SdeOwnerCompensationSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
@@ -171,9 +179,22 @@ export function SdeOwnerCompensationSection({
           disabled={disabled}
           truncateLabel={false}
         />
-        <p className="text-[10.5px] leading-snug text-foreground/50 ml-1">
-          {t('fields.ownerSalaryAddbackHelp')}
-        </p>
+        {salaryPrefillSource === 'imported_ledger' || salaryPrefillSource === 'manual_entry' ? (
+          <p className="text-[10.5px] leading-snug text-emerald-700 ml-1">
+            <span aria-hidden="true">●</span>{' '}
+            {salaryPrefillSource === 'imported_ledger'
+              ? t('fields.sdeSalaryPrefilledFromLedger', {
+                  year: salaryPrefillYear ?? '',
+                })
+              : t('fields.sdeSalaryPrefilledFromNormalization', {
+                  year: salaryPrefillYear ?? '',
+                })}
+          </p>
+        ) : (
+          <p className="text-[10.5px] leading-snug text-foreground/50 ml-1">
+            {t('fields.ownerSalaryAddbackHelp')}
+          </p>
+        )}
       </div>
 
       {/* Active owners count — feeds engine owner-concentration tier

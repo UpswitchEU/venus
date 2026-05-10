@@ -83,6 +83,34 @@ export interface YearDataInput {
    * (rent feeds the wind-down build-up only via `liquidation_inputs`). */
   rent_expense?: number
 
+  /** Paid-up capital — the share-capital contribution that has been
+   * paid in by shareholders (BE: "Geplaatst kapitaal" / NL:
+   * "Geplaatst en gestort kapitaal").  Distinct from `total_equity`
+   * (which also includes retained earnings + reserves).  Drives the
+   * Liquidation form's `liq_paid_up_capital` prefill — base for the
+   * BE liquidatiebonus exemption + NL box-2 acquisition cost.
+   *
+   * Hermes mapping: not yet populated (audit 2026-05-10 C1).  Field
+   * declared on the type so the Liquidation form's prefill chain is
+   * type-safe today; Hermes provider mappers extend later to extract
+   * NBB code 1100 ("Geplaatst kapitaal") / RGS BlnPasEigVerVlk on
+   * provider connectors that expose it.  Until then the prefill falls
+   * through to `total_equity` as a noisier proxy. */
+  paid_up_capital?: number
+
+  /** Deferred tax liabilities (DTL) — long-term tax obligations
+   * recognised on the balance sheet under IAS 12.  Drives the
+   * Liquidation form's `liq_deferred_tax` prefill — 100% reversal at
+   * liquidation per IAS 12 §15 + §35.
+   *
+   * Hermes mapping: not yet populated (audit 2026-05-10 C2).  Field
+   * declared on the type so the Liquidation form's prefill chain is
+   * type-safe today; Hermes provider mappers extend later to extract
+   * NBB code 168 ("Uitgestelde belastingen") / RGS BlnSch.LtgVoz on
+   * provider connectors that expose it.  Until then the field stays
+   * blank and the engine's cohort default fires. */
+  deferred_tax_liabilities?: number
+
   // Forecast flag — distinguishes user-provided projections from historical actuals
   is_forecast?: boolean
 }
