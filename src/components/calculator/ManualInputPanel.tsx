@@ -13,20 +13,13 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertCircle,
-  AlertTriangle,
-  Building2,
-  HelpCircle,
-  Lock,
-  Plus,
-  X,
-} from 'lucide-react'
+import { AlertCircle, AlertTriangle, Building2, HelpCircle, Lock, Plus, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { OctopusImportModal } from '@/components/integrations/OctopusImportModal'
+import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
 import {
   type BusinessType,
   BusinessTypeSearchInput,
@@ -34,8 +27,6 @@ import {
   type KBOCompany,
   KBOSearchInput,
 } from '@/design-system'
-import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
-import { TARGET_COUNTRIES } from '../../config/countries'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import {
@@ -57,12 +48,18 @@ import { cn } from '@/design-system/utils'
 import {
   coalesceFiniteNumber,
   computeFiscal4xPreview,
+  computeNavBookReferences,
+  computeNavPrefill,
   type FiscalPreviewEbitdaSource,
+  type NavBookReferenceSnapshot,
+  type NavPrefillField,
+  type NavPrefillProvenanceMap,
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
-import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
+import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { TARGET_COUNTRIES } from '../../config/countries'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
   import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
@@ -78,6 +75,8 @@ import {
   getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
 } from '../../constants/methodFieldConfig'
+// Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
+// BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
 import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
@@ -156,11 +155,14 @@ import {
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import {
+  // BelgianSmeAuditPanel — moved to the ValuationIQ report (advisory output)
   CapitalHistorySection,
+  computeEquipmentMeerwaarde,
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
-  BelgianSmeAuditPanel,
   DealStructureCompareSection,
+  FiscalInputsSection,
+  LiquidationInputsSection,
   NavAssetScheduleSection,
   NavEquipmentLifespanSection,
   NavRealEstateAppraisalSection,
@@ -193,7 +195,7 @@ import {
   buildProjectionRowFromForecastRow,
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
-import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
+import { deriveDcfSmartDefaults, deriveWaccSectorBand } from './sections/dcfSmartDefaults'
 import { FiscalReferencePreviewCard } from './sections/FiscalReferencePreviewCard'
 import { PreviewMetricCard } from './sections/previewMetricCards'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
@@ -297,7 +299,9 @@ export function getSelectedBelgianAuditEntries({
   effectiveMethods: string[]
 }): Array<[string, ValuationMethodResult]> {
   if (!valuationResults) return []
-  const methods = (effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]).filter(Boolean)
+  const methods = (effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]).filter(
+    Boolean
+  )
   const seen = new WeakSet<ValuationMethodResult>()
   const out: Array<[string, ValuationMethodResult]> = []
   for (const key of methods) {
@@ -471,7 +475,10 @@ export const getSeedBaseFilingYear = (
 ): number => {
   const filingYear = getCurrentFilingYear(now)
   const maxSelectableYear = Math.min(Math.max(now.getFullYear() - 1, 2000), 2100)
-  if (!sessionHasNonPlaceholderFinancials(initialData) && !isFilingYearConfirmedValue(initialData.filingYearConfirmed)) {
+  if (
+    !sessionHasNonPlaceholderFinancials(initialData) &&
+    !isFilingYearConfirmedValue(initialData.filingYearConfirmed)
+  ) {
     return filingYear
   }
   const explicitYear = Number(initialData.current_year_data?.year)
@@ -479,7 +486,9 @@ export const getSeedBaseFilingYear = (
     return filingYear
   }
 
-  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed) ? maxSelectableYear : filingYear
+  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed)
+    ? maxSelectableYear
+    : filingYear
   return Math.min(explicitYear, maxSeedYear)
 }
 
@@ -562,10 +571,7 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
     }
   }
   if (d.current_year_data) {
-    upsert(
-      d.current_year_data.year,
-      d.current_year_data as unknown as Record<string, unknown>
-    )
+    upsert(d.current_year_data.year, d.current_year_data as unknown as Record<string, unknown>)
   }
   if (Array.isArray(d.historical_years_data)) {
     for (const row of d.historical_years_data) {
@@ -945,7 +951,7 @@ export function ManualInputPanel({
         const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
           businessTypeToApply.trim(),
           undefined,
-          prefill.country,
+          prefill.country
         )
         if (!isCurrent()) return
         if (resolved?.id) {
@@ -1534,7 +1540,7 @@ export function ManualInputPanel({
       .getBusinessTypeForNaceCode(
         naceCode,
         controller.signal,
-        formData.country || formData.country_code,
+        formData.country || formData.country_code
       )
       .then((type) => {
         if (controller.signal.aborted) return
@@ -2131,11 +2137,13 @@ export function ManualInputPanel({
   const { latestHistoricalRevenue, latestHistoricalEbitda } = useMemo(() => {
     const historical = sortedYearlyFinancials.filter(
       (y) =>
-        !y.isForecast &&
-        (Number.isFinite(Number(y.revenue)) || Number.isFinite(Number(y.ebitda)))
+        !y.isForecast && (Number.isFinite(Number(y.revenue)) || Number.isFinite(Number(y.ebitda)))
     )
     if (historical.length === 0) {
-      return { latestHistoricalRevenue: undefined as number | undefined, latestHistoricalEbitda: undefined as number | undefined }
+      return {
+        latestHistoricalRevenue: undefined as number | undefined,
+        latestHistoricalEbitda: undefined as number | undefined,
+      }
     }
     const row = historical[0]
     const r = row.revenue
@@ -2189,6 +2197,15 @@ export function ManualInputPanel({
     const pct = (avgDep / rev) * 100
     return Math.round(Math.min(5, Math.max(2, pct)) * 10) / 10
   }, [importBatchData, formData.business_context, latestHistoricalRevenue])
+
+  /** Sector WACC band (Damodaran 2026 EU SMB cohort) — anchors the WACC input and flags out-of-band values. */
+  const waccSectorBand = useMemo(
+    () =>
+      deriveWaccSectorBand(
+        selectedBusinessType?.category ?? formData.industry ?? formData.businessType
+      ),
+    [selectedBusinessType?.category, formData.industry, formData.businessType]
+  )
 
   /** Forecast-defaults badge: history/sector model vs accounting import (Titan — same defaults as Mercury bulk). */
   const dcfDefaultsProvenance = useMemo((): 'none' | 'integration' | 'history' | 'both' => {
@@ -2254,7 +2271,14 @@ export function ManualInputPanel({
       saas?: number
       revenue?: number
       sde?: number
+      fiscal?: number
     } = {}
+    /** Fiscal-inputs section leads — meerwaarde dossier reads top-to-bottom
+     * (legal context → "hoogste van vier" → going-concern numerics).
+     * fiscal_4x is standalone, so this never co-renders with another bonus. */
+    if (bonus.includes('fiscal_inputs')) {
+      out.fiscal = n++
+    }
     if (bonus.includes('dcf_projections')) {
       out.dcfGlobal = hasDcfForecastWorkspace ? 4 : n++
     }
@@ -2295,6 +2319,7 @@ export function ManualInputPanel({
       adaptiveHeaderSteps.saas,
       adaptiveHeaderSteps.revenue,
       adaptiveHeaderSteps.sde,
+      adaptiveHeaderSteps.fiscal,
     ].filter((s): s is number => s != null)
     return Math.max(...allSteps) + 1
   }, [balanceSheetCarveOutStep, adaptiveHeaderSteps])
@@ -2448,29 +2473,77 @@ export function ManualInputPanel({
   const handleApplyDcfProjectionAutofill = useCallback(() => {
     if (!canApplyDcfProjectionAutofill) return
 
-    setFormData((prev) => ({
-      ...prev,
-      yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
-        prev.yearlyFinancials,
-        deriveDcfProjectionPreview({
-          yearlyFinancials: prev.yearlyFinancials,
-          smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
-          revenueGrowthPct: prev.dcf_revenue_growth_pct,
-          ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
-          capexPct: prev.dcf_capex_pct,
-          daPct: prev.dcf_da_pct,
-          nwcPct: prev.dcf_nwc_pct,
-          taxRatePct: prev.dcf_tax_rate_pct,
-          forecastYears: prev.yearlyFinancials
-            .filter((row) => row.isForecast)
-            .map((row) => Number(row.year)),
-        })
-      ) as YearlyFinancials[],
-    }))
+    // Detect manual per-year edits BEFORE we overwrite. A row counts as
+    // manually edited when it carries explicit values for capex / depreciation
+    // / nwc_change / free_cash_flow — none of those are seeded by the defaults
+    // path, so their presence means the user opened the detailed table and
+    // tweaked something. Warning + undo prevents silent data loss.
+    let snapshot: YearlyFinancials[] | null = null
+    let manualEditCount = 0
 
-    import('sonner').then(({ toast }) =>
-      toast.success(mi('dcfProjectionAutofillApplied', { count: dcfForecastRows.length }))
-    )
+    setFormData((prev) => {
+      snapshot = prev.yearlyFinancials
+      manualEditCount = prev.yearlyFinancials.filter((row) => {
+        if (!row.isForecast) return false
+        const r = row as YearlyFinancials & {
+          capex?: number | null
+          depreciation?: number | null
+          nwc_change?: number | null
+          free_cash_flow?: number | null
+        }
+        return (
+          (typeof r.capex === 'number' && Number.isFinite(r.capex)) ||
+          (typeof r.depreciation === 'number' && Number.isFinite(r.depreciation)) ||
+          (typeof r.nwc_change === 'number' && Number.isFinite(r.nwc_change)) ||
+          (typeof r.free_cash_flow === 'number' && Number.isFinite(r.free_cash_flow))
+        )
+      }).length
+
+      return {
+        ...prev,
+        yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
+          prev.yearlyFinancials,
+          deriveDcfProjectionPreview({
+            yearlyFinancials: prev.yearlyFinancials,
+            smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
+            revenueGrowthPct: prev.dcf_revenue_growth_pct,
+            ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
+            capexPct: prev.dcf_capex_pct,
+            daPct: prev.dcf_da_pct,
+            nwcPct: prev.dcf_nwc_pct,
+            taxRatePct: prev.dcf_tax_rate_pct,
+            forecastYears: prev.yearlyFinancials
+              .filter((row) => row.isForecast)
+              .map((row) => Number(row.year)),
+          })
+        ) as YearlyFinancials[],
+      }
+    })
+
+    void import('sonner').then(({ toast }) => {
+      const undoLabel = mi('dcfProjectionAutofillUndo') || 'Undo'
+      const baseMsg = mi('dcfProjectionAutofillApplied', { count: dcfForecastRows.length })
+      const overwriteSuffix =
+        manualEditCount > 0
+          ? ` ${mi('dcfProjectionAutofillOverwrote', { count: manualEditCount })}`
+          : ''
+      const restore = () => {
+        if (!snapshot) return
+        const restoreSnapshot = snapshot
+        setFormData((prev) => ({ ...prev, yearlyFinancials: restoreSnapshot }))
+      }
+      if (manualEditCount > 0) {
+        toast.warning(`${baseMsg}${overwriteSuffix}`, {
+          duration: 8000,
+          action: { label: undoLabel, onClick: restore },
+        })
+      } else {
+        toast.success(baseMsg, {
+          duration: 5000,
+          action: { label: undoLabel, onClick: restore },
+        })
+      }
+    })
   }, [canApplyDcfProjectionAutofill, dcfForecastRows.length, mi])
 
   const dcfForecastYearKeys = useMemo(
@@ -2798,7 +2871,7 @@ export function ManualInputPanel({
           const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(
             naceCode,
             controller.signal,
-            company.countryCode || undefined,
+            company.countryCode || undefined
           )
           if (controller.signal.aborted) return
           if (bt) {
@@ -2917,20 +2990,19 @@ export function ManualInputPanel({
   const partialYears = formData.yearlyFinancials
     .filter(
       (yf) =>
-        !yf.isForecast &&
-        hasExplicitNumericValue(yf.revenue) !== hasExplicitNumericValue(yf.ebitda)
+        !yf.isForecast && hasExplicitNumericValue(yf.revenue) !== hasExplicitNumericValue(yf.ebitda)
     )
     .map((yf) => yf.year)
 
-  const selectedBelgianAuditEntries = useMemo(
-    () =>
-      getSelectedBelgianAuditEntries({
-        valuationResults: synthesisValuationResults,
-        effectiveMethod,
-        effectiveMethods,
-      }),
-    [effectiveMethod, effectiveMethods, synthesisValuationResults]
-  )
+  // Round-4 audit: `selectedBelgianAuditEntries` was used to drive the
+  // BelgianSmeAuditPanel mount in this component. That panel was
+  // advisory output (SDE bridge ladder, NAV revaluation log, deal
+  // structure readout) and now lives in the ValuationIQ report. The
+  // memo is dropped here to avoid recomputing the audit selection per
+  // render when nothing on the input panel consumes it. The
+  // `getSelectedBelgianAuditEntries` helper stays exported for the
+  // report-side renderer (the report context aggregator picks the same
+  // entries directly from `valuation_results`).
 
   return (
     <>
@@ -3056,9 +3128,7 @@ export function ManualInputPanel({
                             value={formData.businessType}
                             onChange={handleBusinessTypeSelect}
                             types={
-                              businessTypesForSearch.length > 0
-                                ? businessTypesForSearch
-                                : undefined
+                              businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined
                             }
                             loading={businessTypesLoading}
                             loadError={businessTypesError}
@@ -3158,7 +3228,7 @@ export function ManualInputPanel({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div className="relative">
                     <AuroraInput
                       label={mi('fields.totalFte')}
                       type="number"
@@ -3183,6 +3253,20 @@ export function ManualInputPanel({
                       placeholder="0"
                       truncateLabel={false}
                     />
+                    {/* FTE help-trigger added so the help affordance is symmetric
+                        with `ownerManagers` next to it — the size-discount inputs
+                        are paired and the user expects parity. */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+                      <FieldHelpTrigger
+                        context={{
+                          field: 'fteEmployees',
+                          label: mi('fields.totalFte'),
+                          value: formData.fteEmployees,
+                          hint: mi('totalFteHint'),
+                        }}
+                        onTrigger={onFieldHelpRequest}
+                      />
+                    </div>
                     {(fieldValidation.errors.fteEmployees ||
                       fieldValidation.warnings.fteEmployees) && (
                       <p
@@ -3361,6 +3445,15 @@ export function ManualInputPanel({
                                       : tTax('summary', { count: taxLatencyCount })}
                                 </button>
                               )}
+                              {/* Single, stable verb "Review adjustments" — replaces the
+                                  pre-existing toggle between "Normalize" (no adjustments
+                                  yet) and "Adjust" (some applied), which forced two
+                                  verbs for the same action and read as a state, not as
+                                  a destination. The count is shown on the sibling
+                                  underlined link to the left, so the button is now a
+                                  self-describing destination. The visual hierarchy
+                                  stays: primary when no adjustments exist (CTA) →
+                                  secondary once any have been accepted. */}
                               <button
                                 type="button"
                                 onClick={() => onViewAllNormalizations?.()}
@@ -3374,12 +3467,7 @@ export function ManualInputPanel({
                                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                                 )}
                               >
-                                {normalizedData.years.some(
-                                  (y) =>
-                                    y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
-                                )
-                                  ? mi('adjust')
-                                  : mi('normalize')}
+                                {mi('reviewAdjustments')}
                               </button>
                             </div>
                           </div>
@@ -3425,9 +3513,9 @@ export function ManualInputPanel({
                             : partialYears.includes(yearData.year)
                               ? 'border-warning/40 bg-warning/[0.03]'
                               : Number.isFinite(yearData.revenue) &&
-                                Number.isFinite(yearData.ebitda)
-                              ? 'border-foreground/[0.08] bg-foreground/[0.02]'
-                              : 'border-dashed border-foreground/[0.06]'
+                                  Number.isFinite(yearData.ebitda)
+                                ? 'border-foreground/[0.08] bg-foreground/[0.02]'
+                                : 'border-dashed border-foreground/[0.06]'
                         )}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -3642,6 +3730,28 @@ export function ManualInputPanel({
                             <span>{mi('fillBothFields')}</span>
                           </div>
                         )}
+                        {/* Inline EBITDA-margin readout — shown only when both
+                            revenue and EBITDA are present and revenue > 0.
+                            Pure data-input feedback (no advisory commentary):
+                            buyers always ask "what's the margin trend?" and
+                            without this readout the user has no anchor while
+                            typing the numbers. The check excludes partial
+                            years (the partial-year warning fires above) and
+                            non-positive revenue (NaN guard). */}
+                        {!partialYears.includes(yearData.year) &&
+                          Number.isFinite(yearData.revenue) &&
+                          Number.isFinite(yearData.ebitda) &&
+                          yearData.revenue > 0 &&
+                          (() => {
+                            const margin = (yearData.ebitda / yearData.revenue) * 100
+                            if (!Number.isFinite(margin)) return null
+                            return (
+                              <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">
+                                {margin.toFixed(1)}%{' '}
+                                <span className="font-sans">{mi('ebitdaMarginInlineLabel')}</span>
+                              </p>
+                            )
+                          })()}
                       </div>
                     )
                   })}
@@ -3710,6 +3820,10 @@ export function ManualInputPanel({
                         onDcfInputModeChange={handleDcfInputModeChange}
                         disabled={isCalculating}
                         dcfDefaultsProvenance={dcfDefaultsProvenance}
+                        smartDefaults={dcfSmartDefaultsFromHistory}
+                        integrationCapexPct={integrationDerivedCapexPct}
+                        integrationDaPct={integrationDerivedDaPct}
+                        waccSectorBand={waccSectorBand}
                       />
                     )}
 
@@ -3792,6 +3906,10 @@ export function ManualInputPanel({
                         }}
                         dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
                         disabled={isCalculating}
+                        smartDefaults={dcfSmartDefaultsFromHistory}
+                        integrationCapexPct={integrationDerivedCapexPct}
+                        integrationDaPct={integrationDerivedDaPct}
+                        waccSectorBand={waccSectorBand}
                       />
                     )}
                 </div>
@@ -3908,19 +4026,22 @@ export function ManualInputPanel({
               </AnimatePresence>
 
               {/*
-               * Belgian SME audit trail.
-               * Surfaces engine outputs (SDE bridge, NAV revaluation log, deal
-               * structure comparison) for whichever methods returned them. The
-               * panel renders nothing when no audit-worthy details are present.
+               * Round-4 audit: BelgianSmeAuditPanel was mounted here to
+               * surface SDE bridge, NAV revaluation log (deferred-tax
+               * breakdown, real-estate book→appraisal swap, equipment
+               * lifespan revaluation, SME-rate eligibility trail), and
+               * the deal-structure comparison. All of that is *advisory
+               * output* — it belongs in the ValuationIQ report, not the
+               * data-input panel. The audit-trail surfaces still live in
+               * the engine response (`result.details.*`); the
+               * `main_report{*}/pages/adjusted_nav_valuation.html` dossier
+               * renders them for the deliverable. See
+               * `selectedBelgianAuditEntries` (still computed for any
+               * remaining sub-section input feedback) and
+               * `BelgianSmeAuditPanel` itself, which stays in the
+               * codebase as the report-side renderer once we wire it
+               * into `main_report/pages/`.
                */}
-              {selectedBelgianAuditEntries.map(([methodKey, result]) => (
-                <BelgianSmeAuditPanel
-                  key={`audit-${methodKey}`}
-                  details={result.details as Record<string, unknown>}
-                  title={`${methodKey.replace(/_/g, ' ')} — audit trail`}
-                  className="mt-6"
-                />
-              ))}
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
@@ -4099,36 +4220,16 @@ export function ManualInputPanel({
   )
 }
 
-/**
- * Pulls the most recent `deal_structure_comparison` payload out of the form
- * data. The engine emits it under the asset-based / NAV method's `details`
- * after any calculation. We accept either a freshly-cached form override
- * (`_last_deal_structure_comparison`) or any of the synthesis result
- * details — whichever was set last.
- */
-function resolveLatestDealStructureComparison(
-  formData: ValuationFormData
-): import('./sections').DealStructureComparison | null {
-  const overlay = (
-    formData as ValuationFormData & {
-      _last_deal_structure_comparison?: import('./sections').DealStructureComparison
-    }
-  )._last_deal_structure_comparison
-  if (overlay) return overlay
-  const results =
-    (formData as ValuationFormData & {
-      _last_method_results?: Record<string, { details?: Record<string, unknown> | null }>
-    })._last_method_results ?? null
-  if (!results) return null
-  for (const result of Object.values(results)) {
-    const cmp = (result?.details as Record<string, unknown> | undefined)
-      ?.deal_structure_comparison
-    if (cmp && typeof cmp === 'object') {
-      return cmp as import('./sections').DealStructureComparison
-    }
-  }
-  return null
-}
+// Round-6 audit: `resolveLatestDealStructureComparison` was the only
+// place ManualInputPanel read `result.details.*` engine output. It fed
+// the `comparison` prop on `DealStructureCompareSection`, which round-4
+// stripped (advisory output → moved to ValuationIQ report). With the
+// prop gone, this helper had no callers, so the function + its
+// `_last_deal_structure_comparison` overlay convention are removed —
+// the engine response now flows directly to the report-side context
+// builder (`omni_calc_overrides._apply_non_multiple_overrides` lifts it
+// to `nav_deal_structure`). The input panel must never read engine
+// output back into itself.
 
 export function AdaptiveSections({
   effectiveMethod,
@@ -4169,6 +4270,7 @@ export function AdaptiveSections({
     saas?: number
     revenue?: number
     sde?: number
+    fiscal?: number
   }
   /** When true, DCF globals are rendered in ManualInputPanel (forecast defaults first). */
   suppressDcfGlobalAssumptions?: boolean
@@ -4209,6 +4311,137 @@ export function AdaptiveSections({
     () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
     [formData.yearlyFinancials]
   )
+
+  /* ────────────────────────────────────────────────────────────────────
+   * NAV (Adjusted Net Asset Value) — auto-prefill (round-2)
+   * ─────────────────────────────────────────────────────────────────────
+   * Compute the prefill snapshot every render (cheap pure call). Apply
+   * via effect so we never trigger a setState during render. Provenance
+   * is then forwarded to the schedule UI so prefilled fields show a
+   * "Prefilled" badge — trust is explicit, the user can edit freely.
+   *
+   * We only touch fields the user hasn't typed into (the helper guards
+   * against overwrites internally). The effect is gated on the NAV
+   * section being mounted — when the user picks a different method the
+   * prefill stays inert. */
+  const navIsActiveSection = sections.includes('nav_asset_schedule')
+
+  // Round-5: compute the *desired* prefill from current upstream inputs,
+  // ignoring whatever's currently in `formData.nav_*`. We then reconcile
+  // in the effect below. This lets us re-prefill on signal change (e.g.
+  // user switches country BE → NL → tax rate auto-updates from 25 to
+  // 25.8) without overwriting values the user has typed manually.
+  //
+  // Calling the helper with an empty `existing` is the round-3 idempotency
+  // contract — the helper always returns the same desired snapshot for
+  // a given (country, carve-out) tuple regardless of form state.
+  const navDesiredPrefill = useMemo(
+    () =>
+      computeNavPrefill({
+        countryCode: formData.country,
+        realEstateCarveOutBookValue:
+          (formData.real_estate_book_value as number | undefined) ?? null,
+        existing: {},
+      }),
+    [formData.country, formData.real_estate_book_value]
+  )
+
+  // Track each prefilled field's *applied value* and its *provenance*.
+  // The applied-value ref lets us tell user-typed values apart from
+  // stale prefills:
+  //   - current value === applied value  → still our prefill, free to update
+  //   - current value !== applied value  → user typed it, leave alone
+  //   - current value == null            → empty, free to apply
+  // Round-5: this lets us refresh the rate when the country changes
+  // without overwriting the rate when the user has set their own.
+  const navPrefillAppliedRef = useRef<Partial<Record<NavPrefillField, number>>>({})
+  const navPrefillProvenanceRef = useRef<NavPrefillProvenanceMap>({})
+
+  // Stable handles for the form-data fields the prefill effect cares
+  // about. Reading via refs avoids re-firing the effect when other
+  // unrelated form fields change.
+  const _navTaxLatencyPctValue = formData.nav_tax_latency_pct as number | undefined
+  const _navRealEstateBookValue = formData.nav_real_estate_book_value as number | undefined
+
+  useEffect(() => {
+    if (!navIsActiveSection) return
+    const { values, provenance } = navDesiredPrefill
+    const currentByField: Record<NavPrefillField, number | undefined> = {
+      nav_tax_latency_pct: _navTaxLatencyPctValue,
+      nav_real_estate_book_value: _navRealEstateBookValue,
+    }
+    for (const [field, desired] of Object.entries(values)) {
+      if (desired == null || !Number.isFinite(desired)) continue
+      const typedField = field as NavPrefillField
+      const current = currentByField[typedField]
+      const applied = navPrefillAppliedRef.current[typedField]
+
+      // Skip when the user has typed something different from any prior
+      // prefill — respect their edit.
+      if (current != null && current !== applied) continue
+      // Skip the no-op case (current already equals desired).
+      if (current === desired) continue
+
+      onFieldChange(field, desired)
+      navPrefillAppliedRef.current[typedField] = desired
+      navPrefillProvenanceRef.current[typedField] = provenance[typedField]
+    }
+  }, [
+    navIsActiveSection,
+    navDesiredPrefill,
+    _navTaxLatencyPctValue,
+    _navRealEstateBookValue,
+    onFieldChange,
+  ])
+
+  const navBookReferences = useMemo<NavBookReferenceSnapshot>(
+    () =>
+      computeNavBookReferences({
+        inventory: latestCompleteYearlyFinancial
+          ? Number(latestCompleteYearlyFinancial.inventory)
+          : null,
+        accountsReceivable: latestCompleteYearlyFinancial
+          ? Number(latestCompleteYearlyFinancial.accounts_receivable)
+          : null,
+        // Goodwill isn't on the summarised yearly financial today; left
+        // null so the schedule's goodwill chip stays hidden until the
+        // Hermes detail-account enrichment lands. Plumbing's ready.
+        goodwill: null,
+        totalAssets: latestCompleteYearlyFinancial
+          ? Number(latestCompleteYearlyFinancial.total_assets)
+          : null,
+        totalLiabilities: latestCompleteYearlyFinancial
+          ? Number(latestCompleteYearlyFinancial.total_liabilities)
+          : null,
+      }),
+    [latestCompleteYearlyFinancial]
+  )
+
+  // Provenance map exposed to the schedule UI: only includes a field when
+  // its current form value still matches what we applied. The moment the
+  // user edits, identity breaks and the entry drops out, hiding the
+  // "Prefilled" badge cleanly. Form-data fields are listed explicitly in
+  // the dep array so the memo invalidates on user edits.
+  const navPrefillProvenance = useMemo<NavPrefillProvenanceMap>(() => {
+    const result: NavPrefillProvenanceMap = {}
+    const applied = navPrefillAppliedRef.current
+    const provenance = navPrefillProvenanceRef.current
+    const currentValues: Record<NavPrefillField, number | undefined> = {
+      nav_tax_latency_pct: formData.nav_tax_latency_pct as number | undefined,
+      nav_real_estate_book_value: formData.nav_real_estate_book_value as number | undefined,
+    }
+    for (const [field, appliedValue] of Object.entries(applied)) {
+      const typedField = field as NavPrefillField
+      const currentValue = currentValues[typedField]
+      if (currentValue != null && currentValue === appliedValue) {
+        const provenanceEntry = provenance[typedField]
+        if (provenanceEntry) {
+          result[typedField] = provenanceEntry
+        }
+      }
+    }
+    return result
+  }, [formData.nav_tax_latency_pct, formData.nav_real_estate_book_value])
 
   const fiscalPreview = useMemo(() => {
     const row = latestCompleteYearlyFinancial
@@ -4310,6 +4543,13 @@ export function AdaptiveSections({
   return (
     <>
       <AnimatePresence mode="sync">
+        {/* fiscal_4x left-panel surface: live formula preview only. The
+            scope disclaimer (Wettelijke referentie / Art. 90 WIB 92 / etc.)
+            was removed from the data rail 2026-05-10 — it's pure advisory
+            copy that already renders on the fiscal_reference report page
+            (`fiscal_scope_disclaimer`) and on the picker tooltip. The data
+            rail stays focused on inputs the advisor brings + their live
+            implication on the engine output. */}
         {showFiscalNotice && (
           <motion.div
             key="fiscal_4x_notice"
@@ -4319,23 +4559,33 @@ export function AdaptiveSections({
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="space-y-3"
           >
-            <div className="rounded-lg border border-amber-500/15 bg-amber-500/[0.05] px-3 py-2">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                <p className="min-w-0 text-[11px] leading-relaxed text-muted-foreground">
-                  <span className="mr-1 font-medium text-foreground">
-                    {t('fiscalDisclaimerTitle')}:
-                  </span>
-                  {t('fiscalDisclaimerText')}
-                </p>
-              </div>
-            </div>
             <FiscalReferencePreviewCard
               fiscalPreview={fiscalPreview}
               previewCurrencyFormatter={previewCurrencyFormatter}
               unavailableMessage={fiscalPreviewUnavailableMessage}
             />
           </motion.div>
+        )}
+        {/* Meerwaarde-tax left-panel section — pure data input.
+            Renders only when fiscal_4x is the pre-selected method.
+            Captures the four amount values for the cedent's 31/12/2025
+            cost-basis filing: aanschaffingswaarde + alternative anchors
+            (contractuele formule, markttransactie 2025, onafhankelijk
+            verslag). Advisory metadata (peildatum, company role, EBITDA
+            basis, internal-transfer flag, acknowledged-anchors) is
+            auto-derived by the report builder or set on metadata via
+            firm/transaction settings — not collected on the data rail. */}
+        {sections.includes('fiscal_inputs') && sectionHeaderSteps.fiscal != null && (
+          <FiscalInputsSection
+            key="fiscal_inputs"
+            step={sectionHeaderSteps.fiscal}
+            fiscalAcquisitionCost={formData.fiscal_acquisition_cost as number | undefined}
+            fiscalAnchor2Value={formData.fiscal_anchor_2_value as number | undefined}
+            fiscalAnchor3Value={formData.fiscal_anchor_3_value as number | undefined}
+            fiscalAnchor4Value={formData.fiscal_anchor_4_value as number | undefined}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
         )}
         {sections.includes('dcf_projections') &&
           !suppressDcfGlobalAssumptions &&
@@ -4371,37 +4621,112 @@ export function AdaptiveSections({
               disabled={disabled}
             />
           )}
+        {sections.includes('nav_asset_schedule') &&
+          sectionHeaderSteps.nav != null &&
+          (() => {
+            // Compute the side-input meerwaarde locally so the schedule
+            // section's live preview mirrors the engine instead of the
+            // schedule-deltas-only subset. Round-1 fix B6.
+            const _bookValRE = formData.nav_real_estate_book_value as number | undefined
+            const _appraisalRE = formData.nav_real_estate_appraisal_value as number | undefined
+            const realEstateMeerwaarde =
+              _bookValRE != null &&
+              _appraisalRE != null &&
+              Number.isFinite(_bookValRE) &&
+              Number.isFinite(_appraisalRE)
+                ? _appraisalRE - _bookValRE
+                : null
+            const equipmentMeerwaarde = computeEquipmentMeerwaarde(
+              formData.nav_equipment_revaluation,
+              latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.year) : undefined
+            )
+            // Round-1 fix B3: signal the schedule to swap its delta field
+            // out for a read-only "from appraisal" badge whenever the
+            // book→appraisal pair is fully filled.
+            const hasRealEstateAppraisalSwap =
+              _bookValRE != null &&
+              _appraisalRE != null &&
+              Number.isFinite(_bookValRE) &&
+              Number.isFinite(_appraisalRE)
+            return (
+              <NavAssetScheduleSection
+                key="nav_asset_schedule"
+                step={sectionHeaderSteps.nav}
+                navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
+                navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
+                navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
+                navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
+                navReceivablesAdjustment={formData.nav_receivables_adjustment as number | undefined}
+                navOtherRevaluations={formData.nav_other_revaluations as number | undefined}
+                navTaxLatencyPct={formData.nav_tax_latency_pct as number | undefined}
+                navOffBalanceItems={formData.nav_off_balance_items as number | undefined}
+                countryCode={formData.country?.trim() || 'BE'}
+                totalAssets={
+                  latestCompleteYearlyFinancial
+                    ? Number(latestCompleteYearlyFinancial.total_assets)
+                    : undefined
+                }
+                totalLiabilities={
+                  latestCompleteYearlyFinancial
+                    ? Number(latestCompleteYearlyFinancial.total_liabilities)
+                    : undefined
+                }
+                businessType={formData.industry || undefined}
+                realEstateAppraisalMeerwaarde={realEstateMeerwaarde}
+                equipmentRevaluationMeerwaarde={equipmentMeerwaarde}
+                hasRealEstateAppraisalSwap={hasRealEstateAppraisalSwap}
+                bookReferences={navBookReferences}
+                prefillProvenance={navPrefillProvenance}
+                perAssetTaxRates={
+                  formData.nav_per_asset_tax_rates as
+                    | {
+                        real_estate?: number
+                        inventory?: number
+                        receivables?: number
+                        hidden_reserves?: number
+                        other_revaluations?: number
+                      }
+                    | undefined
+                }
+                onPerAssetTaxRateChange={
+                  onAnyFieldChange
+                    ? (patch) => {
+                        // Merge into the existing per-asset rates dict so
+                        // we never blow away other rates the user has
+                        // already set. Round-3 fix B4.
+                        const current =
+                          (formData.nav_per_asset_tax_rates as
+                            | Record<string, number | undefined>
+                            | undefined) ?? {}
+                        const next: Record<string, number> = {}
+                        for (const [k, v] of Object.entries({ ...current, ...patch })) {
+                          if (v != null && Number.isFinite(v)) {
+                            next[k] = v
+                          }
+                        }
+                        onAnyFieldChange(
+                          'nav_per_asset_tax_rates',
+                          Object.keys(next).length > 0 ? next : undefined
+                        )
+                      }
+                    : undefined
+                }
+                onFieldChange={onFieldChange}
+                disabled={disabled}
+              />
+            )
+          })()}
+        {/*
+          NAV is one method that decomposes into four defensible cards
+          (schedule + real-estate swap + equipment lifespan + deal
+          structure). Round-1 fix B1 letters the sub-cards (Na/Nb/Nc/Nd)
+          off the parent NAV step so the user reads them as one method's
+          progressive disclosure rather than four loose forms.
+        */}
         {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
-          <NavAssetScheduleSection
-            key="nav_asset_schedule"
-            step={sectionHeaderSteps.nav}
-            navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
-            navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
-            navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
-            navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
-            navReceivablesAdjustment={formData.nav_receivables_adjustment as number | undefined}
-            navOtherRevaluations={formData.nav_other_revaluations as number | undefined}
-            navTaxLatencyPct={formData.nav_tax_latency_pct as number | undefined}
-            navOffBalanceItems={formData.nav_off_balance_items as number | undefined}
-            countryCode={formData.country?.trim() || 'BE'}
-            totalAssets={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.total_assets)
-                : undefined
-            }
-            totalLiabilities={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.total_liabilities)
-                : undefined
-            }
-            businessType={formData.industry || undefined}
-            onFieldChange={onFieldChange}
-            disabled={disabled}
-          />
-        )}
-        {sections.includes('nav_asset_schedule') && (
           <NavRealEstateAppraisalSection
             key="nav_real_estate_appraisal"
+            step={`${sectionHeaderSteps.nav}b`}
             bookValue={formData.nav_real_estate_book_value as number | undefined}
             appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
             deferredTaxRatePct={
@@ -4412,38 +4737,112 @@ export function AdaptiveSections({
             disabled={disabled}
           />
         )}
-        {sections.includes('nav_asset_schedule') && onAnyFieldChange && (
-          <NavEquipmentLifespanSection
-            key="nav_equipment_lifespan"
-            value={formData.nav_equipment_revaluation}
-            reportingYear={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.year)
+        {sections.includes('nav_asset_schedule') &&
+          sectionHeaderSteps.nav != null &&
+          onAnyFieldChange && (
+            <NavEquipmentLifespanSection
+              key="nav_equipment_lifespan"
+              step={`${sectionHeaderSteps.nav}c`}
+              value={formData.nav_equipment_revaluation}
+              reportingYear={
+                latestCompleteYearlyFinancial
+                  ? Number(latestCompleteYearlyFinancial.year)
+                  : undefined
+              }
+              onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
+              disabled={disabled}
+            />
+          )}
+        {sections.includes('nav_asset_schedule') &&
+          sectionHeaderSteps.nav != null &&
+          onAnyFieldChange && (
+            <DealStructureCompareSection
+              key="deal_structure_compare"
+              step={`${sectionHeaderSteps.nav}d`}
+              inputs={{
+                dealType: formData.deal_type,
+                goodwillAmount: formData.deal_goodwill_amount,
+                sellerShareBasis: formData.deal_seller_share_basis,
+                sellerIsIndividual: formData.deal_seller_is_individual ?? true,
+                buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
+                registrationDutyPct: formData.deal_registration_duty_pct,
+              }}
+              onChange={(field, value) => {
+                if (typeof value === 'number' || value === undefined) {
+                  onFieldChange(field, value as number | undefined)
+                } else {
+                  onAnyFieldChange(field, value)
+                }
+              }}
+              disabled={disabled}
+            />
+          )}
+        {/* Liquidation-specific advisor inputs — left-panel section that
+            renders when liquidation_analysis is the pre-selected method.
+            Drives the Phase 2-4 chain (cascade buckets, tax bridge,
+            wind-down build-up, premise override). Engine defaults fire
+            when fields are blank — the Statement of Affairs flags every
+            estimated bucket. Reuses the nav step counter so left-panel
+            numbering stays sequential. */}
+        {sections.includes('liquidation_inputs') && (
+          <LiquidationInputsSection
+            key="liquidation_inputs"
+            step={sectionHeaderSteps.nav ?? 0}
+            liqHeadcount={formData.liq_headcount as number | undefined}
+            liqMonthlyRent={formData.liq_monthly_rent as number | undefined}
+            liqPaidUpCapital={formData.liq_paid_up_capital as number | undefined}
+            liqDeferredTax={formData.liq_deferred_tax as number | undefined}
+            liqPremiseOverride={(formData.liq_premise_override as string | undefined) ?? undefined}
+            liqTaxableReserves={formData.liq_taxable_reserves as number | undefined}
+            liqRunwayMonthsOrderly={formData.liq_runway_months_orderly as number | undefined}
+            liqDistressWaccOrderly={formData.liq_distress_wacc_orderly as number | undefined}
+            liqMultiplesValueOverride={formData.liq_multiples_value_override as number | undefined}
+            prefillSourceHeadcount={
+              (formData as { number_of_employees?: number }).number_of_employees ?? undefined
+            }
+            prefillSourceAnnualRent={
+              latestCompleteYearlyFinancial?.rent_expense !== undefined &&
+              latestCompleteYearlyFinancial?.rent_expense !== null
+                ? Number(latestCompleteYearlyFinancial.rent_expense)
                 : undefined
             }
-            onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
-            disabled={disabled}
-          />
-        )}
-        {sections.includes('nav_asset_schedule') && onAnyFieldChange && (
-          <DealStructureCompareSection
-            key="deal_structure_compare"
-            inputs={{
-              dealType: formData.deal_type,
-              goodwillAmount: formData.deal_goodwill_amount,
-              sellerShareBasis: formData.deal_seller_share_basis,
-              sellerIsIndividual: formData.deal_seller_is_individual ?? true,
-              buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
-              registrationDutyPct: formData.deal_registration_duty_pct,
-            }}
-            comparison={resolveLatestDealStructureComparison(formData)}
-            onChange={(field, value) => {
-              if (typeof value === 'number' || value === undefined) {
-                onFieldChange(field, value as number | undefined)
-              } else {
-                onAnyFieldChange(field, value)
-              }
-            }}
+            prefillSourcePaidUpCapital={
+              // Hermes maps NBB "Geplaatst kapitaal" / RGS "Geplaatst en
+              // gestort kapitaal" into the dedicated `paid_up_capital`
+              // field on the year row when the filing exposes it.  Falls
+              // back to `total_equity` only when the dedicated line is
+              // missing — equity is a noisier proxy (it includes
+              // retained earnings + reserves) but is always present, so
+              // it's a reasonable bootstrap that the advisor can
+              // override.  Skips zero/negative values so the field stays
+              // blank and the engine's cohort default fires.
+              (() => {
+                const paidUp = (
+                  latestCompleteYearlyFinancial as { paid_up_capital?: number | null } | undefined
+                )?.paid_up_capital
+                if (paidUp != null && Number(paidUp) > 0) return Number(paidUp)
+                const equity = latestCompleteYearlyFinancial?.total_equity
+                if (equity != null && Number(equity) > 0) return Number(equity)
+                return undefined
+              })()
+            }
+            prefillSourceDeferredTax={
+              // Hermes maps NBB code 168 ("Uitgestelde belastingen") /
+              // RGS BlnSch.LtgVoz to `deferred_tax_liabilities` on the
+              // year row.  Skips zero/missing — engine cohort default
+              // takes over.
+              (() => {
+                const dtl = (
+                  latestCompleteYearlyFinancial as
+                    | { deferred_tax_liabilities?: number | null }
+                    | undefined
+                )?.deferred_tax_liabilities
+                if (dtl != null && Number(dtl) > 0) return Number(dtl)
+                return undefined
+              })()
+            }
+            onFieldChange={onFieldChange}
+            onAnyFieldChange={onAnyFieldChange}
             disabled={disabled}
           />
         )}
@@ -4473,6 +4872,7 @@ export function AdaptiveSections({
             arrProjectionPreview={saasArrProjectionPreview}
             importedSaasProvenance={importedSaasProvenance}
             naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
+            yearlyFinancials={formData.yearlyFinancials}
           />
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
@@ -4533,9 +4933,13 @@ export function AdaptiveSections({
                 (formData as ValuationFormData & { owner_role?: 'working' | 'passive' }).owner_role
               }
               onOwnerRoleChange={
-                onAnyFieldChange
-                  ? (role) => onAnyFieldChange('owner_role', role)
-                  : undefined
+                onAnyFieldChange ? (role) => onAnyFieldChange('owner_role', role) : undefined
+              }
+              activeOwnersCount={
+                (formData as ValuationFormData & { number_of_owners?: number }).number_of_owners
+              }
+              onActiveOwnersCountChange={
+                onAnyFieldChange ? (count) => onAnyFieldChange('number_of_owners', count) : undefined
               }
               disabled={disabled}
             />

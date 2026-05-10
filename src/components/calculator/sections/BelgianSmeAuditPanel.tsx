@@ -1,34 +1,47 @@
 'use client'
 
 /**
- * Belgian SME Audit Panel
- * -----------------------
- * Composite panel that picks up audit-trail surfaces from a method's
- * `details` object and renders them as defensible artefacts:
+ * Belgian SME Audit Panel — DEPRECATED FOR LEFT-PANEL USE
+ * -------------------------------------------------------
+ * This component renders **advisory output** (SDE bridge ladder, NAV
+ * revaluation log with deferred-tax breakdown, real-estate book→appraisal
+ * swap audit, equipment lifespan audit, deal-structure comparison).
  *
- *   - SDE bridge ladder       (Reported NI → SDE)
- *   - NAV revaluation log     (per-asset latente belastingen, SME rate trail)
- *   - Real-estate revaluation (book → appraisal swap with auto meerwaarde)
- *   - Equipment revaluation   (economic vs. tax book)
- *   - Deal structure compare  (Aandelen vs. Handelsfonds)
+ * Round-4 audit: per the data-input/advisory-output split — the manual
+ * calculator's left panel is for INPUT only — this panel is no longer
+ * mounted in `ManualInputPanel`. The report-side renderers in
+ * `apps/valuation-iq/src/templates/main_report{,_pdf}/components/`
+ * (`_nav_audit_trail.html` + `_nav_deal_structure.html`) carry the same
+ * surfaces in the deliverable.
  *
- * The component is designed to be drop-in: it reads the canonical engine
- * keys (no transformation in upstream callers) and renders only the
- * subsections that have data. Safe to embed multiple times in the page.
+ * The component file and types stay exported because the data shapes
+ * (`DealScenario`, `DealStructureComparison`, `DeferredTaxBreakdownRow`,
+ * `SmeEligibilityPayload`, `RealEstateRevaluation`) are still consumed
+ * elsewhere. Do NOT remount this in the input flow without the same
+ * audit conversation that stripped it.
+ *
+ * If a future read-only post-calc flow needs an inline audit summary
+ * (e.g. an advisor-mode preview that doesn't render the full report),
+ * use this component there. For the deliverable, use the Jinja
+ * partials.
  */
 
 import type { ReactNode } from 'react'
+// Round-6: import from the deep paths directly. The barrel no longer
+// re-exports `NavRevaluationAuditLog` (it's report-side advisory output)
+// so the previous `from './'` route would now be broken.
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import {
   type DealScenario,
   type DealStructureComparison,
+} from './DealStructureCompareSection'
+import {
   type DeferredTaxBreakdownRow,
   NavRevaluationAuditLog,
   type RealEstateRevaluation,
-  SdeBridgeLadder,
-  type SdeBridgeRow,
   type SmeEligibilityPayload,
-} from './'
-import { useManualPreviewFormatters } from '@/lib/omniPreview'
+} from './NavRevaluationAuditLog'
+import { SdeBridgeLadder, type SdeBridgeRow } from './SdeBridgeLadder'
 
 export interface BelgianSmeAuditPanelProps {
   /**

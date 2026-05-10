@@ -259,7 +259,7 @@ export function DcfProjectionTable({
                     if (!proj) {
                       return (
                         <td key={fRow.year} className="px-4 py-2.5 text-right text-foreground/30">
-                          \u2014
+                          —
                         </td>
                       )
                     }

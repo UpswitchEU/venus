@@ -38,8 +38,15 @@ import {
   clientShouldWarnExtremeMultiple,
   usePreparerMultipleStore,
 } from '../../store/manual/usePreparerMultipleStore'
+import {
+  SCENARIO_PRESETS,
+  SUGGESTED_DELTA_BAND,
+  detectDossierSignal,
+  projectSuggestedMultiple,
+} from '../../store/manual/preparerCalibrationSuggestions'
 import { DcfSensitivityMatrix } from './sections/DcfSensitivityMatrix'
 import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
+import { PercentileBandGauge } from './PercentileBandGauge'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -63,7 +70,7 @@ const formatCurrency = (amount: number) => {
 }
 
 const formatMultiple = (value: number | null) =>
-  value == null ? null : `${value.toFixed(2)}x`
+  value == null ? null : `${value.toFixed(2)}×`
 
 const formatPercent = (value: number | null, scale = 1) =>
   value == null ? null : `${(value * scale).toFixed(1)}%`
@@ -148,25 +155,56 @@ function BreakdownMetricCard({
   label,
   value,
   accent = false,
+  muted = false,
 }: {
   label: string
   value: string
   accent?: boolean
+  /** Visual de-emphasis when the value is `—` (unavailable). Keeps the grid stable. */
+  muted?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+    <div
+      className={cn(
+        'rounded-lg border px-3 py-2',
+        muted ? 'border-border/40 bg-background/40' : 'border-border/60 bg-background/60',
+      )}
+    >
       <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
         {label}
       </p>
       <p
         className={cn(
           'mt-1 text-sm font-mono font-semibold tabular-nums',
-          accent ? 'text-primary' : 'text-foreground/80',
+          muted ? 'text-foreground/35' : accent ? 'text-primary' : 'text-foreground/80',
         )}
       >
         {value}
       </p>
     </div>
+  )
+}
+
+/** Render a metric card stably: value when present, `—` placeholder when null
+ *  so the grid shape stays the same across runs. */
+function StableMetricCard({
+  label,
+  value,
+  formatter,
+  accent = false,
+}: {
+  label: string
+  value: number | null
+  formatter: (n: number) => string
+  accent?: boolean
+}) {
+  return (
+    <BreakdownMetricCard
+      label={label}
+      value={value != null ? formatter(value) : '—'}
+      accent={accent && value != null}
+      muted={value == null}
+    />
   )
 }
 
@@ -543,59 +581,53 @@ function MethodBreakdownSection({
         </div>
       ) : (
         <>
+          {/* Stable grid: always render the same six slots so the layout
+              doesn't reflow between runs. Missing values render as `—`. */}
           <div className="grid gap-2 sm:grid-cols-2">
             {isRevenueMethodologyKey(methodKey) ? (
-              revenueValue != null && (
-                <BreakdownMetricCard
-                  label={tBreakdown('revenue')}
-                  value={formatCurrency(revenueValue)}
-                />
-              )
+              <StableMetricCard
+                label={tBreakdown('revenue')}
+                value={revenueValue}
+                formatter={formatCurrency}
+              />
             ) : (
-              normalizedEbitda != null && (
-                <BreakdownMetricCard
-                  label={tBreakdown('normalizedEbitda')}
-                  value={formatCurrency(normalizedEbitda)}
-                />
-              )
-            )}
-            {benchmarkMultiple != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('benchmarkMultiple')}
-                value={formatMultiple(benchmarkMultiple) || '—'}
+              <StableMetricCard
+                label={tBreakdown('normalizedEbitda')}
+                value={normalizedEbitda}
+                formatter={formatCurrency}
               />
             )}
-            {effectiveAppliedMultiple != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('appliedMultiple')}
-                value={formatMultiple(effectiveAppliedMultiple) || '—'}
-              />
-            )}
-            {enterpriseValue != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('enterpriseValue')}
-                value={formatCurrency(enterpriseValue)}
-              />
-            )}
-            {netDebt != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('netDebt')}
-                value={formatCurrency(netDebt)}
-              />
-            )}
-            {balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 && (
-              <BreakdownMetricCard
-                label={tBreakdown('balanceSheetAdjustments')}
-                value={formatCurrency(balanceSheetAdjustments)}
-              />
-            )}
-            {equityValue != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('equityValue')}
-                value={formatCurrency(equityValue)}
-                accent
-              />
-            )}
+            <StableMetricCard
+              label={tBreakdown('benchmarkMultiple')}
+              value={benchmarkMultiple}
+              formatter={(n) => formatMultiple(n) ?? '—'}
+            />
+            <StableMetricCard
+              label={tBreakdown('appliedMultiple')}
+              value={effectiveAppliedMultiple}
+              formatter={(n) => formatMultiple(n) ?? '—'}
+            />
+            <StableMetricCard
+              label={tBreakdown('enterpriseValue')}
+              value={enterpriseValue}
+              formatter={formatCurrency}
+            />
+            <StableMetricCard
+              label={tBreakdown('netDebt')}
+              value={netDebt}
+              formatter={formatCurrency}
+            />
+            <StableMetricCard
+              label={tBreakdown('balanceSheetAdjustments')}
+              value={balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 ? balanceSheetAdjustments : null}
+              formatter={formatCurrency}
+            />
+            <StableMetricCard
+              label={tBreakdown('equityValue')}
+              value={equityValue}
+              formatter={formatCurrency}
+              accent
+            />
             {previewEquity != null && (
               <BreakdownMetricCard
                 label={tBreakdown('previewEquity')}
@@ -659,12 +691,12 @@ function MethodBreakdownSection({
         </>
       )}
 
-      <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-2">
+      <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-2.5 space-y-1.5">
         <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
           <Scale className="w-3.5 h-3.5" />
           {tBreakdown('formulaHeading')}
         </div>
-        <p className="mt-1 text-[11px] leading-snug text-foreground/55">
+        <p className="text-[11px] leading-snug text-foreground/55">
           {methodKey === 'dcf'
             ? tBreakdown('formulaDcf')
             : methodKey === 'fiscal_4x'
@@ -679,6 +711,50 @@ function MethodBreakdownSection({
                   ? tBreakdown('formulaRevenue')
                 : tBreakdown('formulaMultiple')}
         </p>
+        {/* Concrete numeric example built from this run's actual values when
+            we have what we need. Renders in mono with proper × and → for M&A polish. */}
+        {(() => {
+          const isMultiple =
+            methodKey === 'sde_multiple' ||
+            methodKey === 'arr_multiple' ||
+            isRevenueMethodologyKey(methodKey) ||
+            (methodKey !== 'dcf' && methodKey !== 'fiscal_4x' && methodKey !== 'adjusted_nav')
+          if (!isMultiple) return null
+          const metric =
+            methodKey === 'sde_multiple'
+              ? sdeValue
+              : methodKey === 'arr_multiple'
+                ? arrValue
+                : isRevenueMethodologyKey(methodKey)
+                  ? revenueValue
+                  : normalizedEbitda
+          const mult = effectiveAppliedMultiple
+          if (metric == null || mult == null || enterpriseValue == null) return null
+          const eqVal = equityValue ?? enterpriseValue
+          return (
+            <p className="text-[11px] font-mono tabular-nums text-foreground/70 leading-relaxed pt-1 border-t border-border/40 break-words">
+              {formatCurrency(metric)} <span className="text-foreground/40">×</span>{' '}
+              {mult.toFixed(2)}× <span className="text-foreground/40">=</span>{' '}
+              <span className="text-foreground/85">{formatCurrency(enterpriseValue)}</span>
+              {netDebt != null && netDebt !== 0 && (
+                <>
+                  {' '}
+                  <span className="text-foreground/40">{netDebt > 0 ? '−' : '+'}</span>{' '}
+                  {formatCurrency(Math.abs(netDebt))}
+                </>
+              )}
+              {balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 && (
+                <>
+                  {' '}
+                  <span className="text-foreground/40">{balanceSheetAdjustments > 0 ? '+' : '−'}</span>{' '}
+                  {formatCurrency(Math.abs(balanceSheetAdjustments))}
+                </>
+              )}{' '}
+              <span className="text-foreground/40">→</span>{' '}
+              <span className="text-primary font-semibold">{formatCurrency(eqVal)}</span>
+            </p>
+          )
+        })()}
       </div>
     </div>
   )
@@ -861,6 +937,12 @@ export function ValuationEditModal({
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
   const [overrideNote, setOverrideNote] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  // Per-modal-open "I dismissed the auto-suggestion" — keeps the suggestion
+  // panel from re-appearing every render once the preparer made an
+  // explicit decision (apply / dismiss). Reset on result change so a new
+  // calculation can re-surface a fresh signal.
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false)
 
   useEffect(() => {
     const newMode = selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual'
@@ -893,6 +975,10 @@ export function ValuationEditModal({
 
   useEffect(() => {
     if (result) syncFromValuationResult(result)
+    // Re-arm the suggestion panel each time a fresh result arrives — the
+    // dossier signals can change between recalculations (e.g. owner role
+    // changed → owner-dependency risk re-evaluated).
+    setSuggestionDismissed(false)
   }, [result, syncFromValuationResult])
 
   const entries = Object.entries(valuationResults)
@@ -980,6 +1066,102 @@ export function ValuationEditModal({
     )
   const bench = benchmarkNum ?? 5
 
+  // Slider clamps anchored on benchmark (replaces legacy hard-coded 0.1–20×):
+  // – wide enough to cover strategic-buyer premia (up to ~2.2× benchmark)
+  //   and distress / asset-heavy discounts (down to ~0.45× benchmark);
+  // – capped at 30× absolute ceiling so SaaS-flavoured peers stay reachable
+  //   without unlocking joke values; floor at 0.5× absolute.
+  const sliderMin = Math.max(0.5, Math.round(bench * 0.45 * 20) / 20)
+  const sliderMax = Math.min(30, Math.round(bench * 2.2 * 20) / 20)
+
+  // Extreme-band info for descriptive warning copy.
+  const extremeBoundInfo = (() => {
+    if (!showExtreme || appliedNum == null) return null
+    const p90 = mv?.p90_ebitda_multiple
+    const p75 = mv?.p75_ebitda_multiple
+    const p10 = mv?.p10_ebitda_multiple
+    const p25 = mv?.p25_ebitda_multiple
+    const hi = p90 != null && p90 > 0 ? p90 : p75
+    const lo = p10 != null && p10 > 0 ? p10 : p25
+    if (hi != null && appliedNum > hi) {
+      return {
+        direction: tPrep('extremeWarningAbove'),
+        directionLabel: tPrep('extremeWarningDirAboveLabel'),
+        bound: 'p90',
+        boundValue: hi.toFixed(2),
+      }
+    }
+    if (lo != null && appliedNum < lo) {
+      return {
+        direction: tPrep('extremeWarningBelow'),
+        directionLabel: tPrep('extremeWarningDirBelowLabel'),
+        bound: 'p10',
+        boundValue: lo.toFixed(2),
+      }
+    }
+    return null
+  })()
+
+  // ── "Already in the benchmark" — surface the engine's own discount cascade
+  //    so the preparer can see what's already priced in BEFORE adding their
+  //    own override. The waterfall stages carry both the step label and the
+  //    discount percentage; we filter trivial (<0.1pt) noise so the card
+  //    stays actionable. Falls back to `stages` when `discount_waterfall`
+  //    isn't present (legacy payloads). #}
+  const engineDiscountSteps = useMemo(() => {
+    const pipeline = (result as ValuationResponse | null)?.multiple_pipeline
+    const raw = pipeline?.discount_waterfall ?? pipeline?.stages ?? []
+    const TRIVIAL = 0.1
+    return raw
+      .map((row) => {
+        const name = (row as { step_name?: string }).step_name ?? ''
+        const pct =
+          'discount_percentage' in row && typeof row.discount_percentage === 'number'
+            ? row.discount_percentage
+            : null
+        return name && pct != null && Math.abs(pct) >= TRIVIAL
+          ? { name: name.trim(), pct }
+          : null
+      })
+      .filter((row): row is { name: string; pct: number } => row !== null)
+      .slice(0, 6) // keep the card scannable on a narrow modal column
+  }, [result])
+
+  // ── Dossier-signal-driven calibration suggestion. Fed from the response
+  //    root (recurring-revenue %, owner-concentration risk) and de-duped
+  //    against the engine's discount waterfall so we never propose a
+  //    discount the engine has already applied. See
+  //    `preparerCalibrationSuggestions.detectDossierSignal` for the rules. #}
+  const dossierSignal = useMemo(() => {
+    const resultRecord = (result ?? null) as Record<string, unknown> | null
+    const recurringRevenuePercentage = toNumberOrNull(
+      resultRecord?.recurring_revenue_percentage,
+    )
+    const ownerConcRisk =
+      typeof mv?.owner_concentration?.risk_level === 'string'
+        ? mv.owner_concentration.risk_level
+        : null
+    return detectDossierSignal({
+      recurringRevenuePercentage,
+      ownerConcentrationRisk: ownerConcRisk,
+      appliedWaterfallStepNames: engineDiscountSteps.map((s) => s.name),
+    })
+  }, [result, mv, engineDiscountSteps])
+
+  // ── Restored-from-save signal. The store has already hydrated the picker
+  //    from `multiple_adjustment_summary`; we surface a small badge so the
+  //    preparer knows these aren't fresh defaults but their last save. #}
+  const wasRestoredFromSave = useMemo(() => {
+    const savedKey = result?.multiple_adjustment_summary?.reason_key
+    return Boolean(savedKey && savedKey === reasonKey)
+  }, [result, reasonKey])
+
+  // ── Currently-selected reason's typical band (for the inline caption
+  //    under the Justification picker). Hidden for `other` (no anchor) and
+  //    when no reason is picked. We narrow the empty-string case via a
+  //    truthy check so the SUGGESTED_DELTA_BAND lookup is type-safe.
+  const selectedReasonBand = reasonKey ? SUGGESTED_DELTA_BAND[reasonKey] : null
+
   let regionName: string | null = null
   if (countryCode && countryCode.length === 2) {
     try {
@@ -1049,9 +1231,21 @@ export function ValuationEditModal({
     toNumberOrNull(resultDetails.sustainable_ebitda) ??
     toNumberOrNull(resultDetails.weighted_ebitda_total) ??
     toNumberOrNull((result as Record<string, any> | null)?.ebitda)
+  // Always render the live preview when EBITDA + multiple are known so the
+  // reader gets immediate "what will the headline be after Recalculate?" signal.
+  // Benchmark fallback: when the user hasn't moved the slider, preview the
+  // benchmark median itself (delta = 0 against headline by construction).
+  const previewMultiple =
+    appliedNum != null && Number.isFinite(appliedNum)
+      ? appliedNum
+      : benchmarkNum != null && Number.isFinite(benchmarkNum)
+        ? benchmarkNum
+        : null
   const liveEquityPreview =
-    !effectiveDisabled && sustainableEbitda != null && appliedNum != null
-      ? Math.round(sustainableEbitda * appliedNum - previewNetDebt + previewBalanceSheetAdjustments)
+    sustainableEbitda != null && previewMultiple != null && previewMultiple > 0
+      ? Math.round(
+          sustainableEbitda * previewMultiple - previewNetDebt + previewBalanceSheetAdjustments,
+        )
       : null
   const activeMetricValue = toNumberOrNull(activeMethod?.value)
 
@@ -1223,6 +1417,10 @@ export function ValuationEditModal({
               onMethodClick={handleMethodClick}
               firmCountryCode={firmCountryCode}
               onPlanLockedMethodClick={onPlanLockedMethodClick}
+              comparablesCount={
+                mv?.comparables_count != null ? Number(mv.comparables_count) : null
+              }
+              comparablesQuality={mv?.comparables_quality ?? null}
             />
           )}
 
@@ -1321,12 +1519,40 @@ export function ValuationEditModal({
               previewEquity={liveEquityPreview}
             />
 
-        {/* ─── EV/EBITDA Multiple Override ─── */}
+        {/* ─── Calibrate EV/EBITDA multiple ─── */}
         {showPreparerMultiple && hasPrepData && (
           <div className={cn('space-y-3', nonEbitdaMethodSelected && 'opacity-60')}>
-              <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
-                {tModal('multipleSection')}
-              </h4>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
+                    {tModal('multipleSection')}
+                  </h4>
+                  {wasRestoredFromSave && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-medium text-primary/85"
+                      title={tPrep('restoredBadgeLabel')}
+                    >
+                      <svg
+                        className="w-2.5 h-2.5"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M6 1v4l2.5 1.5" />
+                        <circle cx="6" cy="6" r="5" />
+                      </svg>
+                      {tPrep('restoredBadgeLabel')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] leading-snug text-foreground/55">
+                  {tModal('multipleSectionLead')}
+                </p>
+              </div>
 
               {nonEbitdaMethodSelected && (
                 <div className="rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
@@ -1338,11 +1564,12 @@ export function ValuationEditModal({
                 </div>
               )}
 
-              <div className="grid gap-1.5">
-                <span className="text-[10px] font-medium text-foreground/45 uppercase">
+              {/* Benchmark anchor — single big number with caption above. */}
+              <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
                   {tPrep('benchmark')}
-                </span>
-                <p className="text-[12px] text-foreground/80 leading-snug font-medium">
+                </p>
+                <p className="text-[11px] text-foreground/60 leading-snug mt-0.5">
                   {benchmarkContext
                     ? tPrep('benchmarkAnchored', {
                         context: benchmarkContext,
@@ -1352,16 +1579,228 @@ export function ValuationEditModal({
                         multiple: (benchmarkMedian ?? bench).toFixed(2),
                       })}
                 </p>
-                <span className="text-sm font-mono font-semibold tabular-nums text-primary">
-                  {(benchmarkMedian ?? bench).toFixed(2)}×
-                </span>
-                <p className="text-[10px] text-foreground/45">
-                  {tPrep('benchmarkConfidence', { level: tPrep(confidenceKey) })}
-                  {mv?.confidence_score != null && Number.isFinite(Number(mv.confidence_score))
-                    ? ` · ${tPrep('scoreLabel', { score: Math.round(Number(mv.confidence_score)) })}`
-                    : ''}
-                </p>
+                <div className="mt-1.5 flex items-baseline gap-2">
+                  <span className="text-2xl font-mono font-semibold tabular-nums text-primary leading-none">
+                    {(benchmarkMedian ?? bench).toFixed(2)}×
+                  </span>
+                  <span className="text-[10px] text-foreground/45">
+                    {tPrep('benchmarkConfidence', { level: tPrep(confidenceKey) })}
+                    {mv?.confidence_score != null && Number.isFinite(Number(mv.confidence_score))
+                      ? ` · ${tPrep('scoreLabel', { score: Math.round(Number(mv.confidence_score)) })}`
+                      : ''}
+                  </span>
+                </div>
               </div>
+
+              {/* "Already in the benchmark" — surfaces the engine's own discount
+                  cascade so the preparer sees what's already priced in BEFORE
+                  adding their own override. Without this card, every override
+                  risks double-counting an effect the engine already booked. */}
+              <details
+                className="rounded-lg border border-border/50 bg-background/40 group"
+                open={engineDiscountSteps.length > 0 && engineDiscountSteps.length <= 3}
+              >
+                <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-foreground/55 marker:hidden flex items-center justify-between gap-2 select-none">
+                  <span>{tPrep('alreadyInBenchmarkTitle')}</span>
+                  <span className="font-mono tabular-nums text-foreground/40">
+                    {engineDiscountSteps.length > 0
+                      ? `${engineDiscountSteps.length}`
+                      : '—'}
+                  </span>
+                </summary>
+                <div className="px-3 pb-2.5 pt-1 space-y-1.5 border-t border-border/30">
+                  <p className="text-[10px] leading-snug text-foreground/50">
+                    {tPrep('alreadyInBenchmarkSubtitle')}
+                  </p>
+                  {engineDiscountSteps.length === 0 ? (
+                    <p className="text-[10px] italic text-foreground/45 pt-1">
+                      {tPrep('alreadyInBenchmarkEmpty')}
+                    </p>
+                  ) : (
+                    <ul className="space-y-1 text-[11px]">
+                      {engineDiscountSteps.map((step, idx) => (
+                        <li
+                          key={`${step.name}-${idx}`}
+                          className="flex items-baseline justify-between gap-2 font-mono tabular-nums"
+                        >
+                          <span className="font-sans text-foreground/70 truncate">
+                            {step.name}
+                          </span>
+                          <span
+                            className={cn(
+                              'shrink-0 font-semibold',
+                              step.pct < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400',
+                            )}
+                          >
+                            {step.pct > 0 ? '+' : '−'}
+                            {Math.abs(step.pct).toFixed(1)}%
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </details>
+
+              {/* Auto-suggested calibration. Surfaced only when:
+                  – a clear dossier signal applies (e.g. CRITICAL owner risk)
+                  – the engine hasn't already discounted for that signal
+                  – the preparer hasn't dismissed it for this session.
+                  One-click apply pre-fills both reasonKey and appliedMedian.
+                  We respect any saved override (don't override the saved
+                  reasonKey unless suggestion differs and user clicks). */}
+              {dossierSignal != null &&
+                !suggestionDismissed &&
+                !nonEbitdaMethodSelected &&
+                benchmarkNum != null &&
+                benchmarkNum > 0 &&
+                !(wasRestoredFromSave && reasonKey === dossierSignal.reasonKey) && (
+                  <div className="rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                        {tPrep('suggestedBadgeLabel')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 leading-snug">
+                      {tPrep('suggestionPanelTitle')}
+                    </p>
+                    <p className="text-[11px] leading-snug text-amber-800/85 dark:text-amber-200/85">
+                      {tPrep('suggestionPanelBody', {
+                        signal: tPrep(dossierSignal.i18nKey, dossierSignal.i18nValues ?? {}),
+                        direction_label:
+                          dossierSignal.band.direction === 'discount'
+                            ? tPrep('signalDirectionDiscount')
+                            : tPrep('signalDirectionPremium'),
+                        low: dossierSignal.band.lowPct,
+                        high: dossierSignal.band.highPct,
+                      })}
+                    </p>
+                    <div className="flex gap-2 pt-0.5">
+                      <AuroraButton
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={effectiveDisabled}
+                        className="flex-1 text-[11px]"
+                        onClick={() => {
+                          const projected = projectSuggestedMultiple(
+                            benchmarkNum,
+                            dossierSignal.band,
+                          )
+                          // Clamp into the slider band so the suggested value
+                          // is always reachable by the input/slider afterward.
+                          const clamped = Math.min(
+                            sliderMax,
+                            Math.max(sliderMin, projected),
+                          )
+                          setAppliedMedian(clamped)
+                          setReasonKey(dossierSignal.reasonKey)
+                          setSuggestionDismissed(true)
+                        }}
+                      >
+                        {tPrep('suggestionApplyCta', {
+                          percent: dossierSignal.band.midPct,
+                          direction_label:
+                            dossierSignal.band.direction === 'discount'
+                              ? tPrep('signalDirectionDiscount')
+                              : tPrep('signalDirectionPremium'),
+                        })}
+                      </AuroraButton>
+                      <AuroraButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={effectiveDisabled}
+                        className="text-[11px]"
+                        onClick={() => setSuggestionDismissed(true)}
+                      >
+                        {tPrep('suggestionDismissCta')}
+                      </AuroraButton>
+                    </div>
+                  </div>
+                )}
+
+              {/* Quick scenarios — one-click M&A scenarios that pre-fill
+                  reason + applied multiple. The auto-suggest panel above
+                  is dossier-driven (single best-fit signal); this row gives
+                  the preparer the standard "shapes" they reach for daily.
+                  Both surfaces share SUGGESTED_DELTA_BAND so the resulting
+                  multiples are identical. */}
+              {!nonEbitdaMethodSelected &&
+                benchmarkNum != null &&
+                benchmarkNum > 0 && (
+                  <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2.5 space-y-2">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
+                        {tPrep('presetsTitle')}
+                      </p>
+                      <p className="text-[10px] leading-snug text-foreground/45">
+                        {tPrep('presetsSubtitle')}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {SCENARIO_PRESETS.map((preset) => {
+                        const projected = projectSuggestedMultiple(benchmarkNum, preset.band)
+                        const isActive = reasonKey === preset.reasonKey
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            disabled={effectiveDisabled}
+                            aria-pressed={isActive}
+                            className={cn(
+                              'group flex flex-col items-start gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+                              'disabled:opacity-50 disabled:cursor-not-allowed',
+                              isActive
+                                ? 'border-primary/40 bg-primary/[0.08]'
+                                : preset.band.direction === 'discount'
+                                  ? 'border-rose-500/20 bg-rose-500/[0.04] hover:border-rose-500/35 hover:bg-rose-500/[0.06]'
+                                  : 'border-emerald-500/20 bg-emerald-500/[0.04] hover:border-emerald-500/35 hover:bg-emerald-500/[0.06]',
+                            )}
+                            onClick={() => {
+                              const clamped = Math.min(
+                                sliderMax,
+                                Math.max(sliderMin, projected),
+                              )
+                              setAppliedMedian(clamped)
+                              setReasonKey(preset.reasonKey)
+                              // Suppress the auto-suggest panel once the user
+                              // has explicitly picked a scenario chip.
+                              setSuggestionDismissed(true)
+                            }}
+                          >
+                            <span
+                              className={cn(
+                                'flex items-center justify-between w-full text-[11px] font-semibold',
+                                isActive ? 'text-primary' : 'text-foreground/85',
+                              )}
+                            >
+                              <span className="truncate">{tPrep(preset.labelI18nKey)}</span>
+                              <span
+                                className={cn(
+                                  'shrink-0 ml-2 text-[10px] font-mono tabular-nums',
+                                  preset.band.direction === 'discount'
+                                    ? 'text-rose-700 dark:text-rose-400'
+                                    : 'text-emerald-700 dark:text-emerald-400',
+                                )}
+                              >
+                                {preset.band.direction === 'discount' ? '−' : '+'}
+                                {preset.band.midPct}%
+                              </span>
+                            </span>
+                            <span className="text-[10px] leading-snug text-foreground/55">
+                              {tPrep(preset.hintI18nKey)}
+                            </span>
+                            <span className="text-[10px] font-mono tabular-nums text-foreground/45 mt-0.5">
+                              → {projected.toFixed(2)}×
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
               <div className="grid gap-1">
                 <label
@@ -1370,21 +1809,36 @@ export function ValuationEditModal({
                 >
                   {tPrep('applied')}
                 </label>
-                {prepDeltaNum != null && Math.abs(prepDeltaNum) >= 0.005 && (
-                  <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[10px] text-foreground/55">
-                    <span>{tPrep('deltaLabel')}</span>
-                    <span className="font-mono tabular-nums text-foreground/75">
-                      {prepDeltaNum > 0 ? '+' : ''}
-                      {prepDeltaNum.toFixed(2)}×
+                {prepDeltaNum != null && Math.abs(prepDeltaNum) >= 0.005 && benchmarkNum != null && benchmarkNum > 0 && (
+                  <div
+                    className={cn(
+                      'flex items-center justify-between rounded-md border px-2.5 py-1.5 text-[11px]',
+                      prepDeltaNum > 0
+                        ? 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-300'
+                        : 'border-rose-500/25 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300',
+                    )}
+                  >
+                    <span className="font-semibold uppercase tracking-wide text-[10px]">
+                      {prepDeltaNum > 0
+                        ? tPrep('deltaPremiumLabel')
+                        : tPrep('deltaDiscountLabel')}
+                    </span>
+                    <span className="font-mono tabular-nums">
+                      {prepDeltaNum > 0 ? '+' : '−'}
+                      {Math.abs(prepDeltaNum).toFixed(2)}×
+                      <span className="opacity-70 ml-2">
+                        ({prepDeltaNum > 0 ? '+' : '−'}
+                        {((Math.abs(prepDeltaNum) / benchmarkNum) * 100).toFixed(1)}%)
+                      </span>
                     </span>
                   </div>
                 )}
                 <input
                   id="modal-prep-ev-ebitda"
                   type="number"
-                  step={0.1}
-                  min={0.1}
-                  max={20}
+                  step={0.05}
+                  min={sliderMin}
+                  max={sliderMax}
                   disabled={effectiveDisabled}
                   value={appliedMedian ?? ''}
                   onChange={(e) => {
@@ -1394,7 +1848,8 @@ export function ValuationEditModal({
                       return
                     }
                     const n = parseFloat(v)
-                    if (Number.isFinite(n)) setAppliedMedian(Math.min(20, Math.max(0.1, n)))
+                    if (Number.isFinite(n))
+                      setAppliedMedian(Math.min(sliderMax, Math.max(sliderMin, n)))
                   }}
                   className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
                 />
@@ -1402,13 +1857,13 @@ export function ValuationEditModal({
                   type="range"
                   aria-label={tPrep('applied')}
                   disabled={effectiveDisabled}
-                  min={0.1}
-                  max={20}
-                  step={0.1}
+                  min={sliderMin}
+                  max={sliderMax}
+                  step={0.05}
                   value={
                     appliedMedian != null && Number.isFinite(appliedMedian)
-                      ? Math.min(20, Math.max(0.1, appliedMedian))
-                      : Math.min(20, Math.max(0.1, bench))
+                      ? Math.min(sliderMax, Math.max(sliderMin, appliedMedian))
+                      : Math.min(sliderMax, Math.max(sliderMin, bench))
                   }
                   onChange={(e) => {
                     const n = parseFloat(e.target.value)
@@ -1416,10 +1871,38 @@ export function ValuationEditModal({
                   }}
                   className="w-full h-2 mt-1 accent-primary"
                 />
+                {/* Visual peer-set gauge — replaces the plain "min — max"
+                    line. Shows where the applied multiple sits relative to
+                    p10/p25/p50/p75/p90 of the peer set. Falls back to a
+                    note when fewer than two percentiles are available. */}
+                <PercentileBandGauge
+                  band={{
+                    p10: mv?.p10_ebitda_multiple ?? null,
+                    p25: mv?.p25_ebitda_multiple ?? null,
+                    p50: mv?.p50_ebitda_multiple ?? benchmarkNum,
+                    p75: mv?.p75_ebitda_multiple ?? null,
+                    p90: mv?.p90_ebitda_multiple ?? null,
+                  }}
+                  benchmark={benchmarkNum}
+                  applied={appliedNum}
+                  domainMin={sliderMin}
+                  domainMax={sliderMax}
+                  caption={tPrep('gaugeCaption')}
+                  labels={{
+                    legend: tPrep('gaugeLegend'),
+                    benchmark: tPrep('gaugeBenchmarkLabel'),
+                    applied: tPrep('gaugeAppliedLabel'),
+                    typicalBand: tPrep('gaugeTypicalBandLabel'),
+                    outOfBand: tPrep('gaugeOutOfBandLabel'),
+                  }}
+                  className="mt-2"
+                />
                 <p className="text-[10px] text-foreground/35">{tPrep('sliderHint')}</p>
               </div>
 
-              {liveEquityPreview != null && activeMetricValue != null && (
+              {/* Always render the live preview when EBITDA + a multiple are
+                  known. Delta vs the persisted headline drives colour. */}
+              {liveEquityPreview != null && (
                 <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
@@ -1438,20 +1921,30 @@ export function ValuationEditModal({
                         {tBreakdown('previewBlurb')}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-foreground/45">
-                        {tBreakdown('deltaToHeadline')}
-                      </p>
-                      <p
-                        className={cn(
-                          'text-[11px] font-mono tabular-nums',
-                          liveEquityPreview - activeMetricValue >= 0 ? 'text-success' : 'text-warning',
-                        )}
-                      >
-                        {liveEquityPreview - activeMetricValue >= 0 ? '+' : '−'}
-                        {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
-                      </p>
-                    </div>
+                    {activeMetricValue != null && (
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wide text-foreground/45">
+                          {tBreakdown('deltaToHeadline')}
+                        </p>
+                        <p
+                          className={cn(
+                            'text-[11px] font-mono tabular-nums',
+                            liveEquityPreview - activeMetricValue === 0
+                              ? 'text-foreground/55'
+                              : liveEquityPreview - activeMetricValue > 0
+                                ? 'text-success'
+                                : 'text-warning',
+                          )}
+                        >
+                          {liveEquityPreview - activeMetricValue === 0
+                            ? '±'
+                            : liveEquityPreview - activeMetricValue > 0
+                              ? '+'
+                              : '−'}
+                          {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1477,15 +1970,43 @@ export function ValuationEditModal({
                   }))}
                   clearable
                 />
+                {/* Typical-band caption for the selected reason. Sourced from
+                    SUGGESTED_DELTA_BAND (Pratt / Damodaran / Trugman / Marktlink).
+                    Shown only for reasons with an academic anchor — `other`
+                    intentionally has no band, so the preparer is forced to
+                    justify in the note. */}
+                {selectedReasonBand != null && (
+                  <p className="text-[10px] leading-snug text-foreground/50 font-mono tabular-nums">
+                    {tPrep('reasonBandTooltip', {
+                      direction:
+                        selectedReasonBand.direction === 'discount'
+                          ? tPrep('signalDirectionDiscount')
+                          : tPrep('signalDirectionPremium'),
+                      low: selectedReasonBand.lowPct,
+                      high: selectedReasonBand.highPct,
+                    })}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-1">
-                <label
-                  className="text-[10px] font-medium text-foreground/45 uppercase"
-                  htmlFor="modal-prep-note"
-                >
-                  {tPrep('noteOptional')}
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label
+                    className="text-[10px] font-medium text-foreground/45 uppercase"
+                    htmlFor="modal-prep-note"
+                  >
+                    {tPrep('noteOptional')}
+                  </label>
+                  <span
+                    className={cn(
+                      'text-[10px] font-mono tabular-nums',
+                      note.length > 450 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground/40',
+                    )}
+                    aria-live="polite"
+                  >
+                    {tModal('noteCharCounter', { count: note.length, max: 500 })}
+                  </span>
+                </div>
                 <textarea
                   id="modal-prep-note"
                   disabled={effectiveDisabled}
@@ -1497,35 +2018,56 @@ export function ValuationEditModal({
                 />
               </div>
 
+              {/* Footnote preview — promoted: this is what appears verbatim
+                  in the calibration page of the PDF, so the reader needs
+                  to see it as primary copy, not muted. */}
               {previewText && (
-                <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
+                <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
-                      {tPrep('previewTitle')}
-                    </span>
-                    <span className="text-[10px] text-primary/65">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/85">
+                        {tPrep('previewTitle')}
+                      </p>
+                      <p className="text-[10px] text-primary/60">
+                        {tPrep('previewSubtitle')}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-primary/70 bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
                       {livePreview ? tPrep('previewLive') : tPrep('previewSaved')}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-foreground/75">
+                  <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 italic">
                     {previewText}
                   </p>
                 </div>
               )}
 
               {showExtreme && (
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    disabled={effectiveDisabled}
-                    checked={acknowledgedExtreme}
-                    onChange={(e) => setAcknowledgedExtreme(e.target.checked)}
-                    className="mt-1"
-                  />
-                  <span className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
-                    {tPrep('extremeWarning')}
-                  </span>
-                </label>
+                <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                  <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-snug">
+                    {extremeBoundInfo && appliedNum != null
+                      ? tPrep('extremeWarningDetailed', {
+                          applied: appliedNum.toFixed(2),
+                          direction: extremeBoundInfo.direction,
+                          bound: extremeBoundInfo.bound,
+                          boundValue: extremeBoundInfo.boundValue,
+                          direction_label: extremeBoundInfo.directionLabel,
+                        })
+                      : tPrep('extremeWarning')}
+                  </p>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      disabled={effectiveDisabled}
+                      checked={acknowledgedExtreme}
+                      onChange={(e) => setAcknowledgedExtreme(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <span className="text-[11px] text-amber-700 dark:text-amber-300/90 leading-snug">
+                      {tPrep('extremeWarning')}
+                    </span>
+                  </label>
+                </div>
               )}
 
               <div className="flex flex-col gap-2">
@@ -1544,16 +2086,52 @@ export function ValuationEditModal({
                     {tPrep('recalculate')}
                   </AuroraButton>
                 )}
-                <AuroraButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={effectiveDisabled}
-                  className="w-full text-xs"
-                  onClick={() => resetToBenchmark()}
-                >
-                  {tPrep('resetBenchmark')}
-                </AuroraButton>
+                {!showResetConfirm ? (
+                  <AuroraButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={effectiveDisabled}
+                    className="w-full text-xs"
+                    onClick={() => setShowResetConfirm(true)}
+                  >
+                    {tPrep('resetBenchmark')}
+                  </AuroraButton>
+                ) : (
+                  <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                    <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                      {tModal('resetConfirmTitle')}
+                    </p>
+                    <p className="text-[11px] leading-snug text-amber-700/90 dark:text-amber-300/85">
+                      {tModal('resetConfirmBody')}
+                    </p>
+                    <div className="flex gap-2">
+                      <AuroraButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={effectiveDisabled}
+                        className="flex-1 text-xs"
+                        onClick={() => setShowResetConfirm(false)}
+                      >
+                        {tModal('resetConfirmCancel')}
+                      </AuroraButton>
+                      <AuroraButton
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={effectiveDisabled}
+                        className="flex-1 text-xs"
+                        onClick={() => {
+                          resetToBenchmark()
+                          setShowResetConfirm(false)
+                        }}
+                      >
+                        {tModal('resetConfirmCta')}
+                      </AuroraButton>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
         )}

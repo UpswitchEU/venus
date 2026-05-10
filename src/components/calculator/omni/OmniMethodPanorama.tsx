@@ -23,6 +23,15 @@ interface OmniMethodPanoramaProps {
   firmCountryCode?: string | null
   /** Opens upgrade / method paywall when user taps a plan-gated teaser row. */
   onPlanLockedMethodClick?: () => void
+  /**
+   * Comparables stats from `result.multiples_valuation`. Used to render an
+   * inline `n=32 · medium` chip on multiple-driven rows so the preparer can
+   * judge data confidence at a glance, without clicking into the row to
+   * see the breakdown card. The panorama is read-only here — sourcing this
+   * once at the modal level keeps every row consistent.
+   */
+  comparablesCount?: number | null
+  comparablesQuality?: string | null
 }
 
 const formatCurrency = (amount: number) => {
@@ -36,7 +45,7 @@ const formatCurrency = (amount: number) => {
       : `${sign}€${rounded}`
 }
 
-const formatMultiple = (value: number | null) => (value == null ? null : `${value.toFixed(2)}x`)
+const formatMultiple = (value: number | null) => (value == null ? null : `${value.toFixed(2)}×`)
 
 const formatPercent = (value: number | null, scale = 1) =>
   value == null ? null : `${(value * scale).toFixed(1)}%`
@@ -56,9 +65,30 @@ export function OmniMethodPanorama({
   className,
   firmCountryCode,
   onPlanLockedMethodClick,
+  comparablesCount,
+  comparablesQuality,
 }: OmniMethodPanoramaProps) {
   const t = useTranslations('omniCalc')
   const tBreakdown = useTranslations('methodBreakdown')
+
+  // Methods anchored on a peer-set median (the chip below applies only to
+  // these — other methods don't have a comparables sample in the same sense).
+  const MULTIPLE_DRIVEN_KEYS = new Set([
+    'ebitda_multiple',
+    'omzet_multiple',
+    'revenue_multiple',
+    'sde_multiple',
+    'arr_multiple',
+  ])
+  const comparablesQualityKey = (() => {
+    const q = (comparablesQuality ?? '').toLowerCase().trim()
+    if (q === 'high' || q === 'very_high') return 'comparablesQualityValues.high'
+    if (q === 'medium' || q === 'moderate') return 'comparablesQualityValues.medium'
+    if (q === 'low' || q === 'very_low') return 'comparablesQualityValues.low'
+    return null
+  })()
+  const hasComparablesChip =
+    comparablesCount != null && comparablesCount > 0 && comparablesQualityKey != null
 
   const hideFiscalForNl =
     firmCountryCode?.trim().toUpperCase().substring(0, 2) === 'NL'
@@ -210,6 +240,17 @@ export function OmniMethodPanorama({
                         <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-primary bg-primary/12 px-2 py-0.5 rounded-full border border-primary/15">
                           <Check className="w-2.5 h-2.5" aria-hidden />
                           {t('selected')}
+                        </span>
+                      )}
+                      {/* Comparables chip — `n=32 · medium`. Only on multiple-
+                          driven rows where a peer-set sample exists; skipped on
+                          plan teasers (no real numbers behind the row). */}
+                      {hasComparablesChip && !isPlanTeaser && MULTIPLE_DRIVEN_KEYS.has(key) && (
+                        <span
+                          className="shrink-0 inline-flex items-center gap-1 text-[9px] font-mono tabular-nums text-foreground/55 bg-foreground/[0.04] px-1.5 py-0.5 rounded-full border border-foreground/[0.08]"
+                          title={`${comparablesCount} comparables · ${tBreakdown(comparablesQualityKey as never)}`}
+                        >
+                          n={comparablesCount} · {tBreakdown(comparablesQualityKey as never)}
                         </span>
                       )}
                     </div>

@@ -17,12 +17,16 @@ import { useEffect, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStartupPrefilledKeys } from '@/features/startup-studio/hooks/useStartupPrefilledKeys'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface TractionStepProps {
   /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
+  /** Forwarded by `StartupValuationPanel`; unused on this step. */
+  advisorMode?: boolean
 }
 
 function hasRevenueSignal(mrr: number | null | undefined, arr: number | null | undefined): boolean {
@@ -38,18 +42,43 @@ export function TractionStep(_props: TractionStepProps) {
   const churn = useStartupValuationStore((s) => s.monthly_churn_pct)
   const cac = useStartupValuationStore((s) => s.cac)
   const ltv = useStartupValuationStore((s) => s.ltv)
+  const revenueStatus = useStartupValuationStore((s) => s.revenue_status)
   const setField = useStartupValuationStore((s) => s.setField)
+  // Prefill-source map maintained by `useStartupPrefill` — when MRR
+  // or ARR was synced from an accountant integration, the corresponding
+  // key is in the set and we render a "from Mercury" badge under the
+  // input.  Cleared values drop the badge naturally because the
+  // visual signal lives next to the value.
+  const prefilledKeys = useStartupPrefilledKeys()
+  // Snapshot initial MRR once at mount so we can distinguish "user
+  // edited to a different number" from "still showing the prefilled
+  // value".  An edit elevates the badge to `your_override` (subtle
+  // slate); the original Mercury origin stays auditable.  ARR is a
+  // pure derivation from MRR in the preview strip, so we don't track
+  // a separate ARR snapshot — the MRR badge is the canonical signal.
+  const [initialMrr] = useState<number | null | undefined>(mrr)
 
-  const [hasRevenue, setHasRevenue] = useState<'yes' | 'no'>(() =>
-    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no',
-  )
+  // Resolve the segmented control's value:
+  //   - 'yes' if MRR/ARR carry a signal (covers prefilled / returning)
+  //   - explicit store value when the founder picked one
+  //   - 'no' as the default render (pre-revenue is the modal case at
+  //     pre-seed, and "no" is the only state that drops the SaaS leg).
+  const hasRevenue: 'yes' | 'no' = hasRevenueSignal(mrr, storedArr)
+    ? 'yes'
+    : revenueStatus === 'yes'
+      ? 'yes'
+      : 'no'
 
+  // Mirror inferred state back into the store so the section completion
+  // lights up for returning founders whose only signal is MRR/ARR.
   useEffect(() => {
-    if (hasRevenueSignal(mrr, storedArr)) setHasRevenue('yes')
-  }, [mrr, storedArr])
+    if (hasRevenueSignal(mrr, storedArr) && revenueStatus !== 'yes') {
+      setField('revenue_status', 'yes')
+    }
+  }, [mrr, storedArr, revenueStatus, setField])
 
   const handleToggle = (value: 'yes' | 'no') => {
-    setHasRevenue(value)
+    setField('revenue_status', value)
     if (value === 'no') {
       setField('mrr', null)
       setField('arr', null)
@@ -86,22 +115,62 @@ export function TractionStep(_props: TractionStepProps) {
           <p className="mb-5 text-sm text-foreground/60">{t('forwardSub')}</p>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <CurrencyInput
-              label="MRR (€)"
-              value={mrr ?? undefined}
-              onChange={(value) => setField('mrr', value ?? null)}
-              placeholder="5.000"
-              size="sm"
-              truncateLabel={false}
-            />
-            <AdaptivePercentInput
-              label={t('monthlyGrowth')}
-              value={growth ?? undefined}
-              onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
-              placeholder="10"
-              size="sm"
-              truncateLabel={false}
-            />
+            <div>
+              <CurrencyInput
+                label={t('mrrLabel')}
+                value={mrr ?? undefined}
+                onChange={(value) => setField('mrr', value ?? null)}
+                placeholder="5.000"
+                size="sm"
+                truncateLabel={false}
+              />
+              {/* Prefill provenance — when the bootstrap chain seeded
+                  MRR from an accountant integration (Yuki/Exact via
+                  Hermes), surface that origin so the founder knows
+                  the number isn't a typo of their own.  Once they
+                  edit the value, the variant flips to `your_override`
+                  to signal the field has moved off the synced number. */}
+              {prefilledKeys.has('mrr') && typeof mrr === 'number' && mrr > 0 && (
+                <div className="mt-1.5">
+                  <PrefillBadge
+                    variant={mrr === initialMrr ? 'mercury' : 'your_override'}
+                  />
+                </div>
+              )}
+            </div>
+            <div>
+              <AdaptivePercentInput
+                label={t('monthlyGrowth')}
+                value={growth ?? undefined}
+                onChange={(value) => setField('mrr_growth_rate_pct', value ?? null)}
+                placeholder="10"
+                size="sm"
+                truncateLabel={false}
+                description={t('monthlyGrowthHint')}
+              />
+              {/* Annual cross-check — surface the implied annual growth
+                  the moment the founder types so a "5%" entry doesn't
+                  silently get treated as monthly when the founder
+                  meant annual. The math is (1+m)^12 - 1, identical to
+                  what the engine compounds when projecting forward
+                  ARR. Hot-zone warning above 20%/mo is the empirical
+                  cap from Bessemer State of the Cloud — sustained
+                  >20%/mo is unicorn-only territory. */}
+              {typeof growth === 'number' && growth > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] tabular-nums">
+                  <span className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-foreground/65">
+                    {t('monthlyGrowthAnnualEquiv', {
+                      annualPct: ((Math.pow(1 + growth / 100, 12) - 1) * 100).toFixed(0),
+                    })}
+                  </span>
+                  {growth > 20 && (
+                    <span className="rounded-md border border-amber-400/40 bg-amber-50/60 px-2 py-0.5 text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200">
+                      {t('monthlyGrowthHotWarn')}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <AdaptivePercentInput
               label={t('monthlyChurn')}
               value={churn ?? undefined}
@@ -111,7 +180,7 @@ export function TractionStep(_props: TractionStepProps) {
               truncateLabel={false}
             />
             <CurrencyInput
-              label="CAC (€)"
+              label={t('cacLabel')}
               value={cac ?? undefined}
               onChange={(value) => setField('cac', value ?? null)}
               placeholder="500"
@@ -149,7 +218,7 @@ export function TractionStep(_props: TractionStepProps) {
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-foreground/55">LTV : CAC</p>
+                <p className="text-[10px] uppercase tracking-wide text-foreground/55">{t('ltvCacRatioLabel')}</p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
                   {ltvCacRatio != null ? `${ltvCacRatio.toFixed(1)}×` : '—'}
                 </p>

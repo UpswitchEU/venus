@@ -10,6 +10,7 @@ const translations: Record<string, Record<string, string>> = {
       'Selecteer het jaar waarvoor de jaarrekening is neergelegd of intern afgerond.',
     filingYearLabelSafeDefault: 'Veilige standaard',
     filingYearLabelBooksClosed: 'Boeken al gesloten',
+    filingYearLabelRecommended: 'Aanbevolen — laatst afgesloten boekjaar',
     filingYearAriaSafeDefault: 'Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is',
     filingYearAriaBooksClosed:
       'Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond',
@@ -44,7 +45,13 @@ describe('FilingYearPrompt', () => {
     expect(screen.getByText('Meest recente afgesloten boekjaar?')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /2024/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /2025/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Veilige standaard')).toBeInTheDocument()
+    // Descriptor was changed from the abstract state name "Veilige standaard"
+    // to a concrete reason: "Aanbevolen — laatst afgesloten boekjaar". The
+    // suggestedYears list is currently size-1 so there's only ever one
+    // descriptor; a state-name label was confusing because there was nothing
+    // to disambiguate against.
+    expect(screen.getByText('Aanbevolen — laatst afgesloten boekjaar')).toBeInTheDocument()
+    expect(screen.queryByText('Veilige standaard')).not.toBeInTheDocument()
     expect(screen.queryByText('Boeken al gesloten')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ander jaar...' })).toBeInTheDocument()
   })

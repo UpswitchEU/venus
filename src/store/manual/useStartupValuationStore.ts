@@ -16,6 +16,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { normalizePreMoneyTarget } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
+import { inferStartupStageFromFoundingYear } from './inferStartupStageFromFoundingYear'
 
 export type StartupStage = 'pre_seed' | 'seed' | 'series_a'
 
@@ -355,6 +356,15 @@ export interface StartupValuationState {
   // VC method inputs
   year5_revenue_projection: number | null
   exit_revenue_multiple: number | null
+  /**
+   * Founder-supplied rationale when ``exit_revenue_multiple`` deviates
+   * from the sector default. The string lands verbatim in the investor
+   * PDF (see VC method table in the startup_valuation report family),
+   * so a defensible override always carries its source / comp citation
+   * with it. Empty / null when the founder is using the sector
+   * default.
+   */
+  exit_revenue_multiple_rationale: string | null
   target_roi_x: number | null
   dilution_assumption_pct: number | null
   /**
@@ -426,6 +436,34 @@ export interface StartupValuationState {
    * Internal — not part of the request payload.
    */
   _sectorWasUserSet: boolean
+
+  /**
+   * True once the founder has explicitly picked a funding stage through
+   * the UI.  Mirrors ``_sectorWasUserSet`` and gates
+   * ``seedStageFromFoundingYearIfDefault`` so the registry hit can
+   * propose a sensible stage default without ever clobbering an
+   * explicit founder pick.  Internal — not part of the request payload.
+   */
+  _stageWasUserSet: boolean
+
+  /**
+   * Founder's explicit answer to "Are you generating revenue yet?".
+   * Until 2026-05-10 this lived only as local state inside `TractionStep`,
+   * which meant a pre-revenue founder who deliberately picked "no"
+   * still showed up as `partial` on the section status — the green
+   * checkmark never lit up because completion was inferred from
+   * MRR/ARR > 0.  Lifting it to the store gives the panel a proper
+   * `complete` signal for pre-revenue founders.
+   *
+   * Values:
+   *   - `'unanswered'`: founder hasn't engaged with the toggle (default).
+   *   - `'no'`:        explicitly pre-revenue — drops the SaaS Forward
+   *                     leg engine-side via `synthesis._resolve_weights`.
+   *   - `'yes'`:       has revenue; expects MRR / growth / churn / CAC.
+   *
+   * Not part of the request payload; the engine reads MRR/ARR directly.
+   */
+  revenue_status: 'unanswered' | 'no' | 'yes'
 }
 
 interface StartupValuationStore extends StartupValuationState {
@@ -492,6 +530,21 @@ interface StartupValuationStore extends StartupValuationState {
    * See `inferStartupSectorFromNace` for the mapping table.
    */
   seedSectorFromNaceIfDefault: (nace: string | null | undefined) => void
+  /**
+   * Smart-default for the funding stage based on the registry-supplied
+   * founding year.  Mirrors ``seedSectorFromNaceIfDefault`` exactly:
+   *   - Never overrides an explicit user choice (`_stageWasUserSet`).
+   *   - Never re-seeds if the inferred stage matches the current one.
+   *   - Returns silently when the founding year is missing, malformed,
+   *     or implies a future incorporation.
+   *
+   * Called from the KBO/KVK registry handler in ``CompanyCardStep``
+   * once a registry hit lands.  See ``inferStartupStageFromFoundingYear``
+   * for the cohort buckets.  Audit 2026-05-10: the wizard previously
+   * never did this, so a 2024-incorporated founder always saw the
+   * default ``'seed'`` until they manually flipped it.
+   */
+  seedStageFromFoundingYearIfDefault: (year: number | null | undefined) => void
   reset: () => void
   /** Build the `startup_inputs` payload accepted by Titan / ValuationIQ. */
   toRequestPayload: () => Record<string, unknown>
@@ -548,6 +601,7 @@ const INITIAL_STATE: StartupValuationState = {
 
   year5_revenue_projection: null,
   exit_revenue_multiple: null,
+  exit_revenue_multiple_rationale: null,
   target_roi_x: null,
   dilution_assumption_pct: null,
   // Seeded with the Benelux seed-stage median (€750k) so the cap-table
@@ -592,6 +646,8 @@ const INITIAL_STATE: StartupValuationState = {
   description: '',
 
   _sectorWasUserSet: false,
+  _stageWasUserSet: false,
+  revenue_status: 'unanswered',
 }
 
 function generateSafeNoteId(): string {
@@ -622,6 +678,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // Mark the sector as user-set so smart-default seeding never
           // silently overrides a deliberate choice on the next session.
           if (key === 'sector') next._sectorWasUserSet = true
+          // Same gate for stage — once the founder picks a stage, the
+          // registry-driven inference ``seedStageFromFoundingYearIfDefault``
+          // refuses to clobber it.
+          if (key === 'stage') next._stageWasUserSet = true
           return next
         }),
 
@@ -727,6 +787,17 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // the user is still free to override, and we still want to
           // re-evaluate if the underlying NACE prefill changes mid-session.
           return { ...state, sector: inferred }
+        }),
+
+      seedStageFromFoundingYearIfDefault: (year) =>
+        set((state) => {
+          if (state._stageWasUserSet) return state
+          const inferred = inferStartupStageFromFoundingYear({ foundingYear: year })
+          if (!inferred || inferred === state.stage) return state
+          // Same convention as the sector seeder: we do NOT flip the
+          // user-set flag here, so a later registry hit (different
+          // company picked) can still re-seed.
+          return { ...state, stage: inferred }
         }),
 
       setCapField: <K extends keyof StartupCapTableState>(
@@ -1029,7 +1100,19 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           other_factors: state.other_factors,
           ...omitNull({
             mrr: state.mrr,
-            arr: state.arr,
+            // ARR auto-derive: the ValuationIQ SaaS-Forward leg gates on
+            // ``inputs.arr > 0`` ([saas_forward.py:191]). The wizard's
+            // Traction step accepts MRR alone as a "yes, has revenue"
+            // signal, so a founder who fills in MRR=€5k and skips ARR
+            // would have the SaaS-Forward leg silently dropped engine-side
+            // (audit issue #9). Backfill ARR = MRR × 12 here so the
+            // engine sees what the wizard's preview already showed.
+            arr:
+              state.arr != null
+                ? state.arr
+                : typeof state.mrr === 'number' && state.mrr > 0
+                  ? state.mrr * 12
+                  : null,
             mrr_growth_rate_pct: state.mrr_growth_rate_pct,
             monthly_churn_pct: state.monthly_churn_pct,
             cac: state.cac,
@@ -1039,6 +1122,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             team_size: state.team_size,
             year5_revenue_projection: state.year5_revenue_projection,
             exit_revenue_multiple: state.exit_revenue_multiple,
+            exit_revenue_multiple_rationale: state.exit_revenue_multiple_rationale,
             target_roi_x: state.target_roi_x,
             dilution_assumption_pct: state.dilution_assumption_pct,
             investment_amount_sought: state.investment_amount_sought,

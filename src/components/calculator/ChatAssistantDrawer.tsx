@@ -294,6 +294,89 @@ export interface NormalisationSuggestion {
   multiple?: number
 }
 
+/**
+ * Pending valuation-run proposal from the AI's run_valuation tool.
+ * Decision = local UI state after the user clicks; back-end side effects
+ * (the actual /api/v2/valuations/calculate run) are dispatched by the parent's
+ * `onApproveValuationRun` callback.
+ */
+export interface ValuationRunRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  methods?: string[] | null
+  estimatedCredits?: number
+  inputsSummary?: {
+    business_name: string | null
+    business_type: string | null
+    industry: string | null
+    revenue: string | null
+    ebitda: string | null
+    ebitda_normalized: string | null
+    pending_normalizations: number
+    applied_normalizations: number
+  }
+  note?: string | null
+  reason?: string
+  missing?: string[]
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+/**
+ * Pending PDF-generation proposal from the AI's generate_report tool.
+ * Approve fires the existing `generatePdf` flow on the parent — no extra credit.
+ */
+export interface ReportGenerationRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  estimatedCredits?: number
+  resultSummary?: {
+    business_name: string | null
+    business_type: string | null
+    valuation_method: string | null
+    currency: string
+    midpoint: number | null
+    min: number | null
+    max: number | null
+    confidence_score: number | null
+    calculated_at: string | null
+  }
+  note?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+/**
+ * Pending Sellability-compute proposal from the AI's run_sellability tool.
+ * Approve POSTs to Venus's /api/sellability/score proxy (Titan-backed). Free —
+ * no credit consumed. Q1/Q2/Q3 answers come from the persisted owner profile.
+ */
+export interface SellabilityRunRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  estimatedCredits?: number
+  answers?: {
+    q1_top3_concentration_pct: number | null
+    q2_contracted_share: string | null
+    q3_books_cleanliness: string | null
+  }
+  currentScore?: {
+    score: number
+    band: string
+    computed_at: string | Date
+  } | null
+  note?: string | null
+  reason?: string
+  missing?: string[]
+  message?: string
+  decision?: 'approved' | 'rejected'
+  /** Set after successful compute so the card can show the new score inline. */
+  computedScore?: { score: number; band: string; confidence?: string } | null
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -305,6 +388,12 @@ export interface ChatMessage {
   fieldUpdates?: FieldUpdate[]
   // AI-generated normalization suggestions with accept/reject
   normalisationSuggestions?: NormalisationSuggestion[]
+  // AI-proposed valuation runs (from run_valuation tool) — propose-only, user clicks Run
+  valuationRunRequests?: ValuationRunRequest[]
+  // AI-proposed PDF generations (from generate_report tool) — propose-only, user clicks Generate
+  reportGenerationRequests?: ReportGenerationRequest[]
+  // AI-proposed Sellability computes (from run_sellability tool) — propose-only, user clicks Compute
+  sellabilityRunRequests?: SellabilityRunRequest[]
   // Task-driven: open tasks the user can complete
   tasks?: {
     id: string
@@ -404,6 +493,15 @@ interface ChatAssistantDrawerProps {
   // Normalization suggestion handlers
   onAcceptNormalisation?: (id: string) => void
   onRejectNormalisation?: (id: string) => void
+  // Run-valuation proposal handlers (propose-only AI tool — see run_valuation.tool.ts)
+  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onRejectValuationRun?: (proposalId: string) => void
+  // Report-generation proposal handlers (propose-only AI tool — see generate_report.tool.ts)
+  onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
+  onRejectReportGeneration?: (proposalId: string) => void
+  // Sellability-compute proposal handlers (propose-only AI tool — see run_sellability.tool.ts)
+  onApproveSellabilityRun?: (proposalId: string) => void
+  onRejectSellabilityRun?: (proposalId: string) => void
   // Quick suggestion pills for common normalizations
   showQuickNormalizations?: boolean
   // Command pill click handler - auto-fills and sends
@@ -498,6 +596,12 @@ export function ChatAssistantDrawer({
   onJumpToStartupIssue,
   onAcceptNormalisation,
   onRejectNormalisation,
+  onApproveValuationRun,
+  onRejectValuationRun,
+  onApproveReportGeneration,
+  onRejectReportGeneration,
+  onApproveSellabilityRun,
+  onRejectSellabilityRun,
   showQuickNormalizations = false,
   onCommandPillClick,
   onOpenNormalizationHub,
@@ -1000,6 +1104,12 @@ export function ChatAssistantDrawer({
                         onApplyUpdate={onApplyFieldUpdate}
                         onAcceptNormalisation={onAcceptNormalisation}
                         onRejectNormalisation={onRejectNormalisation}
+                        onApproveValuationRun={onApproveValuationRun}
+                        onRejectValuationRun={onRejectValuationRun}
+                        onApproveReportGeneration={onApproveReportGeneration}
+                        onRejectReportGeneration={onRejectReportGeneration}
+                        onApproveSellabilityRun={onApproveSellabilityRun}
+                        onRejectSellabilityRun={onRejectSellabilityRun}
                         onCommandPillClick={handleCommandPillClick}
                         onRetry={onRetry}
                       />
@@ -1477,6 +1587,12 @@ function MessageBubble({
   onApplyUpdate,
   onAcceptNormalisation,
   onRejectNormalisation,
+  onApproveValuationRun,
+  onRejectValuationRun,
+  onApproveReportGeneration,
+  onRejectReportGeneration,
+  onApproveSellabilityRun,
+  onRejectSellabilityRun,
   onCommandPillClick,
   onRetry,
 }: {
@@ -1485,6 +1601,12 @@ function MessageBubble({
   onApplyUpdate?: (field: string, value: any) => void
   onAcceptNormalisation?: (id: string) => void
   onRejectNormalisation?: (id: string) => void
+  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onRejectValuationRun?: (proposalId: string) => void
+  onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
+  onRejectReportGeneration?: (proposalId: string) => void
+  onApproveSellabilityRun?: (proposalId: string) => void
+  onRejectSellabilityRun?: (proposalId: string) => void
   onCommandPillClick?: (command: string) => void
   onRetry?: (messageId: string) => void
 }) {
@@ -1988,6 +2110,478 @@ function MessageBubble({
                       )}
                     >
                       {isAccepted ? ca('accepted') : ca('rejected')}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* AI-Proposed Valuation Runs (run_valuation tool) — propose-only, user approves to fire calculation */}
+        {message.valuationRunRequests && message.valuationRunRequests.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
+              {/* TODO i18n */} Voorstel: waardering berekenen
+            </p>
+            {message.valuationRunRequests.map((req) => {
+              const isPending = req.status === 'pending_approval' && !req.decision
+              const isBlocked = req.status === 'blocked'
+              const isApproved = req.decision === 'approved'
+              const isRejected = req.decision === 'rejected'
+              const summary = req.inputsSummary
+              const revenueNum = summary?.revenue ? Number(summary.revenue) : null
+              const ebitdaNormNum =
+                summary?.ebitda_normalized ? Number(summary.ebitda_normalized) : null
+              const ebitdaNum = summary?.ebitda ? Number(summary.ebitda) : null
+              const ebitdaForDisplay = ebitdaNormNum ?? ebitdaNum
+
+              return (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className={cn(
+                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
+                    isPending && 'border-primary/20 bg-primary/5',
+                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
+                    isApproved && 'border-success/20 bg-success/5',
+                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
+                  )}
+                >
+                  <div className="flex items-start gap-3 p-4 sm:p-3">
+                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
+                      📐
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-xs font-medium text-foreground">
+                        {isBlocked
+                          ? /* TODO i18n */ 'Kan nog niet berekenen'
+                          : summary?.business_name
+                            ? `Waardering berekenen — ${summary.business_name}`
+                            : /* TODO i18n */ 'Waardering berekenen'}
+                      </p>
+                      {req.note && (
+                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
+                          {req.note}
+                        </p>
+                      )}
+                      {isBlocked && req.message && (
+                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
+                          {req.message}
+                        </p>
+                      )}
+                      {isBlocked && req.missing && req.missing.length > 0 && (
+                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
+                          {/* TODO i18n */ 'Ontbrekend: '}
+                          {req.missing.join(', ')}
+                        </p>
+                      )}
+                      {isPending && summary && (
+                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-[10px]">
+                          {revenueNum !== null && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Omzet'}:{' '}
+                              <span className="font-mono text-foreground/80">
+                                €{revenueNum.toLocaleString(currencyLocale)}
+                              </span>
+                            </div>
+                          )}
+                          {ebitdaForDisplay !== null && (
+                            <div className="text-foreground/50">
+                              EBITDA{ebitdaNormNum ? '*' : ''}:{' '}
+                              <span className="font-mono text-foreground/80">
+                                €{ebitdaForDisplay.toLocaleString(currencyLocale)}
+                              </span>
+                            </div>
+                          )}
+                          {summary.business_type && (
+                            <div className="text-foreground/50 col-span-2">
+                              {/* TODO i18n */ 'Sector'}:{' '}
+                              <span className="text-foreground/80">{summary.business_type}</span>
+                            </div>
+                          )}
+                          {summary.applied_normalizations > 0 && (
+                            <div className="text-foreground/50 col-span-2">
+                              {/* TODO i18n */ 'Toegepaste normalisaties'}:{' '}
+                              <span className="text-foreground/80">{summary.applied_normalizations}</span>
+                              {summary.pending_normalizations > 0 && (
+                                <span className="text-foreground/40">
+                                  {' '}
+                                  (+{summary.pending_normalizations} {/* TODO i18n */ 'in afwachting'})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {req.estimatedCredits != null && (
+                            <div className="text-foreground/50 col-span-2 mt-1">
+                              {/* TODO i18n */ 'Verbruikt'}:{' '}
+                              <span className="text-foreground/80">
+                                {req.estimatedCredits} {req.estimatedCredits === 1 ? 'credit' : 'credits'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
+                      <button
+                        type="button"
+                        onClick={() => onRejectValuationRun?.(req.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
+                          'active:bg-foreground/[0.06] transition-colors',
+                          'border-r border-foreground/[0.06]',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Annuleer'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onApproveValuationRun?.(req.id, req.reportId)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'bg-primary/10 text-primary hover:bg-primary/20',
+                          'active:bg-primary/25 transition-colors',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Bereken nu'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  {(isApproved || isRejected) && (
+                    <div
+                      className={cn(
+                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
+                        isApproved
+                          ? 'border-success/10 text-success bg-success/5'
+                          : 'border-foreground/[0.06] text-foreground/40'
+                      )}
+                    >
+                      {isApproved
+                        ? /* TODO i18n */ 'Berekening gestart'
+                        : /* TODO i18n */ 'Geannuleerd'}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* AI-Proposed PDF Generations (generate_report tool) — propose-only, user approves to fire generatePdf */}
+        {message.reportGenerationRequests && message.reportGenerationRequests.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
+              {/* TODO i18n */} Voorstel: PDF rapport
+            </p>
+            {message.reportGenerationRequests.map((req) => {
+              const isPending = req.status === 'pending_approval' && !req.decision
+              const isBlocked = req.status === 'blocked'
+              const isApproved = req.decision === 'approved'
+              const isRejected = req.decision === 'rejected'
+              const result = req.resultSummary
+              const ccy = result?.currency ?? 'EUR'
+              const fmt = (n: number | null | undefined) =>
+                n != null && Number.isFinite(n)
+                  ? `${ccy === 'EUR' ? '€' : `${ccy} `}${Number(n).toLocaleString(currencyLocale)}`
+                  : null
+              const midpoint = fmt(result?.midpoint)
+              const min = fmt(result?.min)
+              const max = fmt(result?.max)
+
+              return (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className={cn(
+                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
+                    isPending && 'border-primary/20 bg-primary/5',
+                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
+                    isApproved && 'border-success/20 bg-success/5',
+                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
+                  )}
+                >
+                  <div className="flex items-start gap-3 p-4 sm:p-3">
+                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
+                      <FileText className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/60" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-xs font-medium text-foreground">
+                        {isBlocked
+                          ? /* TODO i18n */ 'PDF nog niet beschikbaar'
+                          : result?.business_name
+                            ? `PDF rapport — ${result.business_name}`
+                            : /* TODO i18n */ 'PDF rapport genereren'}
+                      </p>
+                      {req.note && (
+                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
+                          {req.note}
+                        </p>
+                      )}
+                      {isBlocked && req.message && (
+                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
+                          {req.message}
+                        </p>
+                      )}
+                      {isPending && result && (
+                        <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
+                          {midpoint && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Indicatieve waarde'}:{' '}
+                              <span className="font-mono font-semibold text-foreground/90">
+                                {midpoint}
+                              </span>
+                            </div>
+                          )}
+                          {(min || max) && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Range'}:{' '}
+                              <span className="font-mono text-foreground/80">
+                                {min ?? '—'} – {max ?? '—'}
+                              </span>
+                            </div>
+                          )}
+                          {result.valuation_method && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Methode'}:{' '}
+                              <span className="text-foreground/80">{result.valuation_method}</span>
+                            </div>
+                          )}
+                          {result.confidence_score != null && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Betrouwbaarheid'}:{' '}
+                              <span className="text-foreground/80">{result.confidence_score}%</span>
+                            </div>
+                          )}
+                          <div className="text-foreground/50 mt-1">
+                            {/* TODO i18n */ 'Geen extra credit — hergebruikt bestaande berekening'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
+                      <button
+                        type="button"
+                        onClick={() => onRejectReportGeneration?.(req.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
+                          'active:bg-foreground/[0.06] transition-colors',
+                          'border-r border-foreground/[0.06]',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Annuleer'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onApproveReportGeneration?.(req.id, req.reportId)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'bg-primary/10 text-primary hover:bg-primary/20',
+                          'active:bg-primary/25 transition-colors',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Genereer PDF'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  {(isApproved || isRejected) && (
+                    <div
+                      className={cn(
+                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
+                        isApproved
+                          ? 'border-success/10 text-success bg-success/5'
+                          : 'border-foreground/[0.06] text-foreground/40'
+                      )}
+                    >
+                      {isApproved
+                        ? /* TODO i18n */ 'PDF genereren gestart'
+                        : /* TODO i18n */ 'Geannuleerd'}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* AI-Proposed Sellability Computes (run_sellability tool) — propose-only, user approves to fire POST /api/sellability/score */}
+        {message.sellabilityRunRequests && message.sellabilityRunRequests.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
+              {/* TODO i18n */} Voorstel: Sellability score
+            </p>
+            {message.sellabilityRunRequests.map((req) => {
+              const isPending = req.status === 'pending_approval' && !req.decision
+              const isBlocked = req.status === 'blocked'
+              const isApproved = req.decision === 'approved'
+              const isRejected = req.decision === 'rejected'
+              const answers = req.answers
+              const cur = req.currentScore
+              const computed = req.computedScore
+
+              return (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className={cn(
+                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
+                    isPending && 'border-primary/20 bg-primary/5',
+                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
+                    isApproved && 'border-success/20 bg-success/5',
+                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
+                  )}
+                >
+                  <div className="flex items-start gap-3 p-4 sm:p-3">
+                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
+                      🎯
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-xs font-medium text-foreground">
+                        {isBlocked
+                          ? /* TODO i18n */ 'Profielgegevens ontbreken'
+                          : computed
+                            ? /* TODO i18n */ `Sellability berekend: ${computed.score}/100 (${computed.band})`
+                            : /* TODO i18n */ 'Verkoopbaarheidsscore berekenen'}
+                      </p>
+                      {req.note && (
+                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
+                          {req.note}
+                        </p>
+                      )}
+                      {isBlocked && req.message && (
+                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
+                          {req.message}
+                        </p>
+                      )}
+                      {isBlocked && req.missing && req.missing.length > 0 && (
+                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
+                          {/* TODO i18n */ 'Ontbrekend: '}
+                          {req.missing.join(', ')}
+                        </p>
+                      )}
+                      {isPending && answers && (
+                        <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
+                          {answers.q1_top3_concentration_pct != null && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Q1 — Top-3 klantconcentratie'}:{' '}
+                              <span className="font-mono text-foreground/80">
+                                {answers.q1_top3_concentration_pct}%
+                              </span>
+                            </div>
+                          )}
+                          {answers.q2_contracted_share && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Q2 — Gecontracteerde omzet'}:{' '}
+                              <span className="text-foreground/80">{answers.q2_contracted_share}</span>
+                            </div>
+                          )}
+                          {answers.q3_books_cleanliness && (
+                            <div className="text-foreground/50">
+                              {/* TODO i18n */ 'Q3 — Boekhoud-netheid'}:{' '}
+                              <span className="text-foreground/80">{answers.q3_books_cleanliness}</span>
+                            </div>
+                          )}
+                          {cur && (
+                            <div className="text-foreground/50 mt-1">
+                              {/* TODO i18n */ 'Huidige score'}:{' '}
+                              <span className="font-mono font-semibold text-foreground/80">
+                                {cur.score}/100 ({cur.band})
+                              </span>
+                            </div>
+                          )}
+                          <div className="text-foreground/50 mt-1">
+                            {/* TODO i18n */ 'Geen credit — herberekent op basis van bestaand profiel'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
+                      <button
+                        type="button"
+                        onClick={() => onRejectSellabilityRun?.(req.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
+                          'active:bg-foreground/[0.06] transition-colors',
+                          'border-r border-foreground/[0.06]',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Annuleer'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onApproveSellabilityRun?.(req.id)}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2',
+                          'px-5 sm:px-4 py-4 sm:py-3',
+                          'bg-primary/10 text-primary hover:bg-primary/20',
+                          'active:bg-primary/25 transition-colors',
+                          'touch-manipulation'
+                        )}
+                      >
+                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span className="text-sm sm:text-xs font-medium">
+                          {/* TODO i18n */ 'Bereken nu'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  {(isApproved || isRejected) && (
+                    <div
+                      className={cn(
+                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
+                        isApproved
+                          ? 'border-success/10 text-success bg-success/5'
+                          : 'border-foreground/[0.06] text-foreground/40'
+                      )}
+                    >
+                      {isApproved
+                        ? computed
+                          ? /* TODO i18n */ `Berekend: ${computed.score}/100 (${computed.band})`
+                          : /* TODO i18n */ 'Berekening gestart'
+                        : /* TODO i18n */ 'Geannuleerd'}
                     </div>
                   )}
                 </motion.div>

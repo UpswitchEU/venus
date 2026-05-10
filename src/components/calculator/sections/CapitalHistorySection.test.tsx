@@ -7,17 +7,21 @@
  *
  *   1. Default state is **expanded** — the section only mounts on the
  *      SaaS valuation path, where most founders have prior rounds to
- *      declare.  Keeping it collapsed-by-default produced "I didn't
- *      know that existed" feedback during early Wintercircus runs.
- *   2. The header label reads "Funding so far" (renamed from the more
- *      paperwork-y "Capital history (optional)" — the wording change
- *      is part of the contract because copy reviewers look for it).
- *   3. The "First round / Raised before" toggle renders without a
+ *      declare.
+ *   2. The "First round / Raised before" toggle renders without a
  *      click; toggling to "Raised before" reveals the SAFE editor and
  *      option pool / last-round inputs.
+ *   3. "Round being raised" lives ABOVE the toggle as the always-
+ *      required primary input — the toggle only gates the prior-rounds
+ *      disclosure.
  *   4. The SAFE editor's add button writes a new note (with a stable
  *      generated ID) into the form-store.
  *   5. Removing a SAFE clears it from the form-store.
+ *
+ * Copy assertions go through the i18n key surface (the test mock
+ * returns the namespaced key verbatim, e.g. `haveRaisedNo`) so the
+ * suite is locale-agnostic; the actual EN/NL strings live in
+ * `messages/{en,nl}.json` and are validated by translation linters.
  *
  * The bridge to the canonical request shape is covered by the
  * dedicated bridge tests in `buildValuationRequest.test.ts`; this
@@ -29,11 +33,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { CapitalHistorySection } from './CapitalHistorySection'
 
-// next-intl is required by the design-system inputs but the section
-// itself reads the locale via prop.  Match the SaasMetricsSection test's
-// approach: stub useLocale + replace heavy inputs with thin shims so the
-// suite stays focused on the cap-table UX contract, not currency
-// formatting.
+// next-intl is required by the design-system inputs and now also by the
+// section itself (locale comes from `useTranslations` route locale).
+// Mock returns the bare i18n key so assertions can target stable IDs
+// rather than copy strings.
 vi.mock('next-intl', () => ({
   useLocale: () => 'en',
   useTranslations: () => (key: string) => key,
@@ -57,54 +60,59 @@ describe('CapitalHistorySection', () => {
     useManualFormStore.setState(initialFormSnapshot, true)
   })
 
-  it('renders the renamed "Funding so far" header (not the legacy label)', () => {
-    render(<CapitalHistorySection locale="en" />)
-    // New label is the contract; legacy label must be gone so copy
-    // reviewers don't see two competing strings during QA.
-    expect(screen.getByText('Funding so far')).toBeInTheDocument()
+  it('renders the section header (sectionTitle key) and not the legacy label', () => {
+    render(<CapitalHistorySection />)
+    expect(screen.getByText('sectionTitle')).toBeInTheDocument()
+    // The legacy "Capital history (optional)" copy must not leak back in.
     expect(screen.queryByText('Capital history (optional)')).toBeNull()
   })
 
   it('starts expanded so first-time founders see the toggle + investment ask without a click', () => {
-    render(<CapitalHistorySection locale="en" />)
-    // No click required — body controls render on first paint.
-    expect(screen.getByText('First round')).toBeInTheDocument()
-    expect(screen.getByText('Raised before')).toBeInTheDocument()
-    expect(screen.getByText(/Round being raised/i)).toBeInTheDocument()
+    render(<CapitalHistorySection />)
+    expect(screen.getByText('haveRaisedNo')).toBeInTheDocument()
+    expect(screen.getByText('haveRaisedYes')).toBeInTheDocument()
+    // The "Round you're raising now" input is mocked as a thin shim
+    // that renders its label as plain text.  `roundLabel` is the i18n
+    // key returned by the test mock.
+    expect(screen.getByText('roundLabel')).toBeInTheDocument()
+  })
+
+  it('"Round being raised" sits ABOVE the toggle (always-visible primary input)', () => {
+    render(<CapitalHistorySection />)
+    const round = screen.getByText('roundLabel')
+    const toggleNo = screen.getByText('haveRaisedNo')
+    // DocumentPosition: round must come BEFORE toggle in DOM order.
+    // 4 = DOCUMENT_POSITION_FOLLOWING (toggleNo follows round).
+    expect(round.compareDocumentPosition(toggleNo) & 4).toBe(4)
   })
 
   it('toggling "Raised before" enables the SAFE editor + option pool inputs', () => {
-    render(<CapitalHistorySection locale="en" />)
+    render(<CapitalHistorySection />)
 
-    // Sanity: SAFE editor not rendered yet on default "First round" —
-    // we identify the editor by its unique heading
-    // "Outstanding SAFEs / convertibles" rather than the loose substring
-    // (the section's own intro paragraph mentions SAFEs in passing).
-    expect(screen.queryByRole('heading', { name: /Outstanding SAFEs/i })).toBeNull()
+    // Sanity: SAFE editor heading not rendered yet on default "First round".
+    // The editor passes `title={tSafe('capitalHistoryTitle')}` so under the
+    // bare-key mock the heading is the literal "capitalHistoryTitle".
+    expect(screen.queryByRole('heading', { name: 'capitalHistoryTitle' })).toBeNull()
 
-    fireEvent.click(screen.getByText('Raised before'))
+    fireEvent.click(screen.getByText('haveRaisedYes'))
 
     // Form-store now reflects the toggle.
     expect(useManualFormStore.getState().formData.capital_history_enabled).toBe(true)
-    // SAFE editor + option pool input + last-round inputs become visible.
-    // Match the input labels exactly (the section's intro paragraph also
-    // contains "existing option pool" in passing).
-    expect(screen.getByRole('heading', { name: /Outstanding SAFEs/i })).toBeInTheDocument()
-    expect(screen.getByText('Existing option pool (%)')).toBeInTheDocument()
-    expect(screen.getByText(/Last round — amount/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'capitalHistoryTitle' })).toBeInTheDocument()
+    expect(screen.getByText('optionPoolLabel')).toBeInTheDocument()
+    expect(screen.getByText('lastRoundAmountLabel')).toBeInTheDocument()
+    // The date input must be wrapped in a labelled block matching its
+    // siblings (no raw `<input>` floating in the grid).
+    expect(screen.getByText('lastRoundDateLabel')).toBeInTheDocument()
   })
 
-  it('clicking the SAFE button appends a new note to the form-store', () => {
-    render(<CapitalHistorySection locale="en" />)
-    fireEvent.click(screen.getByText('Raised before'))
+  it('clicking the SAFE add button appends a new note to the form-store', () => {
+    render(<CapitalHistorySection />)
+    fireEvent.click(screen.getByText('haveRaisedYes'))
 
-    // Empty state copy visible until a note is added.
-    expect(screen.getByText('No SAFEs added yet.')).toBeInTheDocument()
-
-    // The "+ SAFE" add button on the editor.  Exact-match the
-    // accessible name to avoid colliding with the section header
-    // button (whose long description contains "SAFEs").
-    fireEvent.click(screen.getByRole('button', { name: /^SAFE$/ }))
+    // The SafeNotesEditor's add button is labelled by the bare i18n key
+    // 'add' under the test mock.
+    fireEvent.click(screen.getByRole('button', { name: 'add' }))
 
     const notes = useManualFormStore.getState().formData.capital_safe_notes ?? []
     expect(notes).toHaveLength(1)
@@ -127,9 +135,10 @@ describe('CapitalHistorySection', () => {
       },
     }, true)
 
-    render(<CapitalHistorySection locale="en" />)
-    // Section is auto-expanded because the store has data.
-    const removeButtons = screen.getAllByRole('button', { name: /Remove SAFE/i })
+    render(<CapitalHistorySection />)
+    // Remove buttons carry `aria-label={t('removeAria')}` — bare key
+    // 'removeAria' under the mock.
+    const removeButtons = screen.getAllByRole('button', { name: 'removeAria' })
     expect(removeButtons).toHaveLength(2)
 
     fireEvent.click(removeButtons[0])

@@ -2,23 +2,16 @@
 
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useCallback, useMemo, type ReactNode } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
+import { cn } from '@/design-system/utils'
 import {
-  computeEstimatedNav,
-  computeGrossPositiveAdjustments,
-  computeNavAdjustmentsSum,
-  computeTaxLatencyDeduction,
   countFilledNavProgressFields,
-  NAV_DEFAULT_TAX_LATENCY_PCT,
-  NAV_PROGRESS_TOTAL_FIELDS,
-  NAV_SECTOR_DEFAULTS,
-  resolveNavSectorKey,
+  type NavBookReferenceSnapshot,
+  type NavPrefillProvenanceMap,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
-import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
-import { PreviewMetricCard } from './previewMetricCards'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 function NavPanel({
@@ -33,11 +26,41 @@ function NavPanel({
   return (
     <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
       <div className="space-y-1">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">{title}</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+          {title}
+        </h4>
         <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
       {children}
     </div>
+  )
+}
+
+/**
+ * "Book: €X" chip — read-only anchor next to an adjustment input so the
+ * user can see the magnitude they're correcting without context-switching
+ * back to the balance sheet. Round-2 fix B7 / book-reference anchoring.
+ */
+function BookReferenceChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-foreground/55 tabular-nums">
+      <span className="uppercase tracking-wide text-[9px] text-foreground/45">{label}</span>
+      {value}
+    </span>
+  )
+}
+
+/**
+ * "Prefilled" badge for fields auto-derived from the balance sheet or
+ * country profile. Different colour to the regular preview chips so the
+ * user knows it was *suggested* — they can edit it freely.
+ */
+function PrefilledBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/[0.10] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
+      <span aria-hidden="true">●</span>
+      {label}
+    </span>
   )
 }
 
@@ -55,6 +78,58 @@ interface NavAssetScheduleSectionProps {
   totalLiabilities?: number
   businessType?: string | null
   countryCode?: string
+  /**
+   * Side-input revaluations from the dedicated subsections — feed the
+   * live-preview formula so the displayed estimated NAV reflects the
+   * appraisal swap and equipment lifespan in addition to the schedule
+   * deltas. Round-1 fix B6.
+   */
+  realEstateAppraisalMeerwaarde?: number | null
+  equipmentRevaluationMeerwaarde?: number | null
+  /**
+   * When true, the real-estate book→appraisal swap (in
+   * NavRealEstateAppraisalSection) has live values. The schedule's flat
+   * `nav_real_estate_adjustment` field becomes a duplicate input in that
+   * case, so we hide it and surface a read-only "Real estate uplift: €X
+   * (from appraisal)" line that points the user at the canonical input.
+   * Round-1 fix B3.
+   */
+  hasRealEstateAppraisalSwap?: boolean
+  /**
+   * Reference book values (inventory, receivables, goodwill, book equity)
+   * surfaced inline on the corresponding adjustment inputs. NOT prefilled
+   * into form state — the form fields are *deltas*. Round-2 fix B7.
+   */
+  bookReferences?: NavBookReferenceSnapshot
+  /**
+   * Provenance map for fields auto-derived by `computeNavPrefill`. When a
+   * field is in this map AND the user has not yet edited it, the UI
+   * surfaces a "Prefilled" badge so trust is explicit. Round-2 prefill.
+   */
+  prefillProvenance?: NavPrefillProvenanceMap
+  /**
+   * Per-asset deferred-tax rate overrides. Engine already accepts these
+   * on the calculate request via `nav_per_asset_tax_rates`. The
+   * collapsible "Advanced — per-asset rates" disclosure (round-3 fix B4)
+   * surfaces them as five individual % inputs so an M&A advisor can
+   * model BE participation-exemption (real-estate share = 0%), tax-loss
+   * carryforwards on receivables write-downs, etc. without the
+   * blunt-instrument single global rate.
+   */
+  perAssetTaxRates?: {
+    real_estate?: number
+    inventory?: number
+    receivables?: number
+    hidden_reserves?: number
+    other_revaluations?: number
+  }
+  /**
+   * Patch handler for per-asset rates. Receives the partial nested
+   * object that should merge into `formData.nav_per_asset_tax_rates`.
+   */
+  onPerAssetTaxRateChange?: (
+    patch: NonNullable<NavAssetScheduleSectionProps['perAssetTaxRates']>
+  ) => void
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
 }
@@ -71,8 +146,15 @@ export function NavAssetScheduleSection({
   navOffBalanceItems,
   totalAssets,
   totalLiabilities,
-  businessType,
+  businessType: _businessType, // reserved for B5 industry-band copy (T-23)
   countryCode,
+  realEstateAppraisalMeerwaarde,
+  equipmentRevaluationMeerwaarde,
+  hasRealEstateAppraisalSwap,
+  bookReferences,
+  prefillProvenance,
+  perAssetTaxRates,
+  onPerAssetTaxRateChange,
   onFieldChange,
   disabled,
 }: NavAssetScheduleSectionProps) {
@@ -102,56 +184,48 @@ export function NavAssetScheduleSection({
     ]
   )
 
+  // `sectionComplete` drives only the section-header check icon (data
+  // affordance — "you've filled at least one field").  Anything beyond
+  // that (progress bar / readiness narrative) lives in the report.
   const filledCount = useMemo(() => countFilledNavProgressFields(inputs), [inputs])
-  const grossAdjustmentSum = useMemo(() => computeNavAdjustmentsSum(inputs), [inputs])
-  const grossPositiveAdjustments = useMemo(() => computeGrossPositiveAdjustments(inputs), [inputs])
-
-  const effectiveTaxPct = navTaxLatencyPct ?? (countryCode?.startsWith('BE') ? NAV_DEFAULT_TAX_LATENCY_PCT : undefined)
-
-  const taxDeduction = useMemo(
-    () => computeTaxLatencyDeduction(grossPositiveAdjustments, effectiveTaxPct),
-    [grossPositiveAdjustments, effectiveTaxPct]
-  )
-
-  const estimatedNav = useMemo(
-    () =>
-      computeEstimatedNav(
-        totalAssets,
-        totalLiabilities,
-        grossAdjustmentSum,
-        grossPositiveAdjustments,
-        effectiveTaxPct,
-        navOffBalanceItems
-      ),
-    [totalAssets, totalLiabilities, grossAdjustmentSum, grossPositiveAdjustments, effectiveTaxPct, navOffBalanceItems]
-  )
-
   const sectionComplete = filledCount > 0
-  const isReady = filledCount >= 2
-  const progressPct = (filledCount / NAV_PROGRESS_TOTAL_FIELDS) * 100
 
-  const sectorKey = useMemo(() => resolveNavSectorKey(businessType), [businessType])
-  const hasDefaults = sectorKey != null && sectorKey in NAV_SECTOR_DEFAULTS
+  // Book-equity available only for the confidence chip ("Mostly
+  // prefilled" requires a known book equity). NOT used for any
+  // computation surfaced as a number on the panel.
+  const bookEquity = bookReferences?.bookEquity ?? null
 
-  const applyDefaults = useCallback(() => {
-    if (!sectorKey) return
-    const defaults = NAV_SECTOR_DEFAULTS[sectorKey]
-    if (!defaults) return
-    const fieldMap: Record<string, string> = {
-      navRealEstateAdjustment: 'nav_real_estate_adjustment',
-      navInventoryAdjustment: 'nav_inventory_adjustment',
-      navHiddenReserves: 'nav_hidden_reserves',
-      navGoodwillWriteoff: 'nav_goodwill_writeoff',
-      navReceivablesAdjustment: 'nav_receivables_adjustment',
-      navOtherRevaluations: 'nav_other_revaluations',
-    }
-    for (const [camel, val] of Object.entries(defaults)) {
-      const snakeKey = fieldMap[camel]
-      if (snakeKey != null && val != null) {
-        onFieldChange(snakeKey, val)
-      }
-    }
-  }, [sectorKey, onFieldChange])
+  // ── Inventory / receivables book-value chips ────────────────────────
+  // These ARE input aids — anchor the user's typed adjustment so they
+  // know the magnitude they're correcting. Locale-aware via the same
+  // formatter as everywhere else.
+  const inventoryRef = bookReferences?.inventory
+  const receivablesRef = bookReferences?.accountsReceivable
+  const goodwillRef = bookReferences?.goodwill
+
+  const taxLatencyPrefilled =
+    prefillProvenance?.nav_tax_latency_pct != null && navTaxLatencyPct != null
+
+  // Round-3 fix B4: per-asset tax-rate disclosure. Defaults closed
+  // because 95% of users want a single rate (the global is fine); the
+  // 5% who need precision (BE participation exemption on shares,
+  // recoverable VAT on receivables write-down, etc.) get a one-click
+  // expansion with five individual % inputs that map directly to the
+  // engine's `nav_per_asset_tax_rates` shape.
+  const [perAssetRatesOpen, setPerAssetRatesOpen] = useState(
+    () =>
+      // Auto-open when ANY per-asset override is already set (e.g.
+      // session-restored from a saved valuation).
+      perAssetTaxRates != null &&
+      Object.values(perAssetTaxRates).some((v) => v != null && Number.isFinite(v))
+  )
+  const perAssetRateKeys = [
+    'real_estate',
+    'inventory',
+    'receivables',
+    'hidden_reserves',
+    'other_revaluations',
+  ] as const
 
   return (
     <motion.section
@@ -165,77 +239,76 @@ export function NavAssetScheduleSection({
         step={step}
         complete={sectionComplete}
         title={t('sections.navAssetSchedule')}
-        badge={
-          <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
-            {t('recommendedForMethod', { method: 'NAV' })}
-          </span>
-        }
       />
+      {/* Section quickstart panel removed 2026-05-10 — the "Recommended
+          for NAV" chip, the data-source-confidence chip, the navLead /
+          navQuickStart explainer paragraphs, the progress bar with
+          filledCount counter, and the "minimum X fields" coaching note
+          were all advisor narrative, not data input.  Methodology copy
+          (asset uplift / working-capital / deductions framing) lives in
+          `templates/main_report/pages/adjusted_nav_valuation.html`
+          (`t.nav_methodology_intro`).  The form is for data only —
+          fields below are the input. */}
 
-      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
-        <div className="space-y-1">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-            {t('navPanels.startLeadTitle')}
-          </h4>
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('fields.navLead')}</p>
-          <p className="text-[11px] text-foreground/45">{t('fields.navQuickStart')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
-              <motion.div
-                className={cn(
-                  'h-full rounded-full transition-colors',
-                  isReady ? 'bg-emerald-500' : 'bg-primary/50'
-                )}
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-            </div>
-          </div>
-          <p className="whitespace-nowrap text-[10px] text-foreground/45">
-            {isReady
-              ? t('sections.navProgressReady')
-              : t('sections.navProgressHint', {
-                  filled: filledCount,
-                  total: NAV_PROGRESS_TOTAL_FIELDS,
-                })}
-          </p>
-        </div>
-        {!isReady && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {t('sections.navProgressMinimumHint')}
-          </p>
-        )}
+      {/*
+        Round-2 fix B2: schedule restructured into the engine's mental
+        model — three panels that map 1:1 to how `_apply_nav_channel`
+        composes the bridge.
 
-        {hasDefaults && filledCount === 0 && (
-          <button
-            type="button"
-            onClick={applyDefaults}
-            disabled={disabled}
-            className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-left text-xs font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
-          >
-            {t('sections.navDefaultsButton')}
-          </button>
-        )}
-      </div>
+          Panel A — Asset uplifts (positive revaluations):
+            real estate, hidden reserves, other revaluations
+            → contribute to gross corrections AND to the tax latency base
 
-      <NavPanel
-        title={t('navPanels.startHereTitle')}
-        description={t('navPanels.startHereDescription')}
-      >
+          Panel B — Working-capital corrections (typically conservative):
+            inventory NRV, receivables provision
+            → adjust the running NAV, positive amounts grow the tax base
+
+          Panel C — Deductions (always subtracted):
+            goodwill writeoff (intangible impairment),
+            tax latency %,
+            off-balance obligations
+
+        Off-balance moves OUT of panel A (it's a deduction, not an
+        uplift), goodwill moves IN to deductions (it's always negative
+        for NAV purposes — a writedown of an intangible carried at cost).
+        Order within each panel is most-likely-impactful first so the
+        progress bar fills fastest from the top.
+      */}
+      <NavPanel title={t('navPanels.upliftsTitle')} description={t('navPanels.upliftsDescription')}>
         <div className="grid grid-cols-1 gap-3">
-          <CurrencyInput
-            label={t('fields.navRealEstateAdjustment')}
-            value={navRealEstateAdjustment}
-            onChange={(v) => onFieldChange('nav_real_estate_adjustment', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navRealEstateAdjustmentDesc')}
-            truncateLabel={false}
-          />
+          {hasRealEstateAppraisalSwap ? (
+            // Round-1 fix B3: when the user has filled the dedicated
+            // book→appraisal swap below, this delta becomes a duplicate
+            // input. Replace with a read-only line that points at the
+            // canonical artefact so we never double-count and never
+            // confuse the user with two stale values.
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-foreground/75">
+                  {t('fields.navRealEstateAdjustment')}
+                </span>
+                <span className="tabular-nums font-semibold text-emerald-700">
+                  {realEstateAppraisalMeerwaarde != null
+                    ? currencyFormatter.format(realEstateAppraisalMeerwaarde)
+                    : '—'}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-snug text-foreground/55">
+                {t('fields.navRealEstateAdjustmentFromAppraisal')}
+              </p>
+            </div>
+          ) : (
+            <CurrencyInput
+              label={t('fields.navRealEstateAdjustment')}
+              value={navRealEstateAdjustment}
+              onChange={(v) => onFieldChange('nav_real_estate_adjustment', v)}
+              size="sm"
+              placeholder="0"
+              disabled={disabled}
+              description={t('fields.navRealEstateAdjustmentDesc')}
+              truncateLabel={false}
+            />
+          )}
           <CurrencyInput
             label={t('fields.navHiddenReserves')}
             value={navHiddenReserves}
@@ -244,55 +317,6 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navHiddenReservesDesc')}
-            truncateLabel={false}
-          />
-          <CurrencyInput
-            label={t('fields.navReceivablesAdjustment')}
-            value={navReceivablesAdjustment}
-            onChange={(v) => onFieldChange('nav_receivables_adjustment', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            allowNegative
-            description={t('fields.navReceivablesAdjustmentDesc')}
-            truncateLabel={false}
-          />
-          <CurrencyInput
-            label={t('fields.navOffBalanceItems')}
-            value={navOffBalanceItems}
-            onChange={(v) => onFieldChange('nav_off_balance_items', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navOffBalanceItemsDesc')}
-            truncateLabel={false}
-          />
-        </div>
-      </NavPanel>
-
-      <NavPanel
-        title={t('navPanels.assetsTitle')}
-        description={t('navPanels.assetsDescription')}
-      >
-        <div className="grid grid-cols-1 gap-3">
-          <CurrencyInput
-            label={t('fields.navGoodwillWriteoff')}
-            value={navGoodwillWriteoff}
-            onChange={(v) => onFieldChange('nav_goodwill_writeoff', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navGoodwillWriteoffDesc')}
-            truncateLabel={false}
-          />
-          <CurrencyInput
-            label={t('fields.navInventoryAdjustment')}
-            value={navInventoryAdjustment}
-            onChange={(v) => onFieldChange('nav_inventory_adjustment', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navInventoryAdjustmentDesc')}
             truncateLabel={false}
           />
           <CurrencyInput
@@ -309,50 +333,156 @@ export function NavAssetScheduleSection({
       </NavPanel>
 
       <NavPanel
+        title={t('navPanels.workingCapitalTitle')}
+        description={t('navPanels.workingCapitalDescription')}
+      >
+        <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-1">
+            <CurrencyInput
+              label={t('fields.navInventoryAdjustment')}
+              value={navInventoryAdjustment}
+              onChange={(v) => onFieldChange('nav_inventory_adjustment', v)}
+              size="sm"
+              placeholder="0"
+              disabled={disabled}
+              allowNegative
+              description={t('fields.navInventoryAdjustmentDesc')}
+              truncateLabel={false}
+            />
+            {inventoryRef != null && (
+              <BookReferenceChip
+                label={t('bookRef.label')}
+                value={currencyFormatter.format(inventoryRef)}
+              />
+            )}
+          </div>
+          <div className="space-y-1">
+            <CurrencyInput
+              label={t('fields.navReceivablesAdjustment')}
+              value={navReceivablesAdjustment}
+              onChange={(v) => onFieldChange('nav_receivables_adjustment', v)}
+              size="sm"
+              placeholder="0"
+              disabled={disabled}
+              allowNegative
+              description={t('fields.navReceivablesAdjustmentDesc')}
+              truncateLabel={false}
+            />
+            {receivablesRef != null && (
+              <BookReferenceChip
+                label={t('bookRef.label')}
+                value={currencyFormatter.format(receivablesRef)}
+              />
+            )}
+          </div>
+        </div>
+      </NavPanel>
+
+      <NavPanel
         title={t('navPanels.deductionsTitle')}
         description={t('navPanels.deductionsDescription')}
       >
         <div className="grid grid-cols-1 gap-3">
-          <AdaptivePercentInput
-            label={t('fields.navTaxLatencyPct')}
-            value={navTaxLatencyPct}
-            onChange={(v) => onFieldChange('nav_tax_latency_pct', v)}
-            placeholder={countryCode?.startsWith('BE') ? '25' : '0'}
+          <div className="space-y-1">
+            <CurrencyInput
+              label={t('fields.navGoodwillWriteoff')}
+              value={navGoodwillWriteoff}
+              onChange={(v) => onFieldChange('nav_goodwill_writeoff', v)}
+              size="sm"
+              placeholder="0"
+              disabled={disabled}
+              description={t('fields.navGoodwillWriteoffDesc')}
+              truncateLabel={false}
+            />
+            {goodwillRef != null && goodwillRef > 0 && (
+              <BookReferenceChip
+                label={t('bookRef.label')}
+                value={currencyFormatter.format(goodwillRef)}
+              />
+            )}
+          </div>
+          <div className="space-y-1">
+            <AdaptivePercentInput
+              label={t('fields.navTaxLatencyPct')}
+              value={navTaxLatencyPct}
+              onChange={(v) => onFieldChange('nav_tax_latency_pct', v)}
+              placeholder={countryCode?.startsWith('BE') ? '25' : '0'}
+              disabled={disabled}
+              description={t('fields.navTaxLatencyPctDesc')}
+              truncateLabel={false}
+            />
+            {taxLatencyPrefilled && <PrefilledBadge label={t('prefill.badge')} />}
+          </div>
+
+          {/*
+            Round-3 fix B4: per-asset tax-rate disclosure. Defaults
+            closed; opens automatically when overrides are already set.
+            Maps to engine `nav_per_asset_tax_rates`. Users who want
+            precision (BE participation exemption: real-estate share = 0%,
+            recoverable VAT on doubtful receivables, etc.) get five
+            inputs without cluttering the default-rate path.
+          */}
+          {onPerAssetTaxRateChange && (
+            <div className="rounded-lg border border-foreground/[0.08] bg-foreground/[0.015]">
+              <button
+                type="button"
+                onClick={() => setPerAssetRatesOpen((open) => !open)}
+                aria-expanded={perAssetRatesOpen}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground/65 transition-colors hover:bg-foreground/[0.03]"
+              >
+                <span>{t('fields.navPerAssetTaxRatesTitle')}</span>
+                <span className="text-[10px] text-foreground/45 tabular-nums" aria-hidden="true">
+                  {perAssetRatesOpen ? '−' : '+'}
+                </span>
+              </button>
+              {perAssetRatesOpen && (
+                <div className="space-y-2 border-t border-foreground/[0.06] px-3 pb-3 pt-2">
+                  <p className="text-[10.5px] leading-snug text-foreground/55">
+                    {t('fields.navPerAssetTaxRatesDescription')}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {perAssetRateKeys.map((key) => (
+                      <AdaptivePercentInput
+                        key={key}
+                        label={t(`fields.navPerAssetTaxRate.${key}`)}
+                        value={perAssetTaxRates?.[key]}
+                        onChange={(v) => onPerAssetTaxRateChange({ [key]: v })}
+                        placeholder={navTaxLatencyPct != null ? String(navTaxLatencyPct) : '—'}
+                        disabled={disabled}
+                        truncateLabel={false}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <CurrencyInput
+            label={t('fields.navOffBalanceItems')}
+            value={navOffBalanceItems}
+            onChange={(v) => onFieldChange('nav_off_balance_items', v)}
+            size="sm"
+            placeholder="0"
             disabled={disabled}
-            description={t('fields.navTaxLatencyPctDesc')}
+            description={t('fields.navOffBalanceItemsDesc')}
             truncateLabel={false}
           />
         </div>
       </NavPanel>
 
-      {/* Live preview panel */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
-            {t('sections.navDerivedMetrics')}
-          </h4>
-          <span className="text-[10px] text-foreground/45">{t('fields.navPreviewFootnote')}</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          <PreviewMetricCard
-            label={t('fields.navAdjustmentsSum')}
-            value={currencyFormatter.format(grossAdjustmentSum)}
-          />
-          <PreviewMetricCard
-            label={t('fields.navTaxLatencyDeduction')}
-            value={taxDeduction !== 0 ? currencyFormatter.format(taxDeduction) : '—'}
-          />
-          <PreviewMetricCard
-            label={t('fields.navEstimatedNav')}
-            value={estimatedNav != null ? currencyFormatter.format(estimatedNav) : '—'}
-            hint={
-              estimatedNav != null
-                ? t('fields.navSynthesisHint')
-                : t('fields.navEstimatedNavUnavailable')
-            }
-          />
-        </div>
-      </div>
+      {/*
+        Round-4 audit: schedule-summary preview cards (book-equity
+        anchor / sum of adjustments / tax-latency deduction / estimated
+        NAV with uplift hint) were removed. The left panel is for data
+        input — the corrected NAV bridge, intrinsic-value summary card
+        and uplift commentary all live in the ValuationIQ report
+        (`adjusted_nav_valuation.html`, screen + PDF). Surfacing them
+        here duplicated the report and made the panel feel like a
+        mini-dashboard. The book-reference chips and per-field meerwaarde
+        previews stay because they're input *validation* — they confirm
+        what the user just typed before submit.
+      */}
     </motion.section>
   )
 }

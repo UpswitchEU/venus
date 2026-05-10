@@ -18,6 +18,17 @@ interface WaccBreakdownPanelProps {
   taxShieldPct?: number
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
+  /**
+   * Sector-anchored WACC band rendered as a defensibility hint above the input.
+   * When supplied and the current value falls outside [min, max], an amber out-of-band
+   * note appears (reviewer flag, not blocker).
+   */
+  sectorBand?: {
+    sectorLabel: string
+    median: number
+    min: number
+    max: number
+  } | null
 }
 
 const DEFAULT_RISK_FREE_RATE_PCT = 3
@@ -45,9 +56,22 @@ export function WaccBreakdownPanel({
   taxShieldPct,
   onFieldChange,
   disabled,
+  sectorBand,
 }: WaccBreakdownPanelProps) {
   const t = useTranslations('manualInput.methodSelector')
   const [expanded, setExpanded] = useState(false)
+
+  // Out-of-band detection vs the supplied sector band.
+  // Uses the current WACC the user sees (computed when the build-up is open,
+  // typed when collapsed) so the warning tracks the value being submitted.
+  const outOfBandSeverity = useMemo<'high' | 'low' | null>(() => {
+    if (!sectorBand) return null
+    const value = expanded ? currentWaccPct : currentWaccPct
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null
+    if (value > sectorBand.max) return 'high'
+    if (value < sectorBand.min) return 'low'
+    return null
+  }, [sectorBand, currentWaccPct, expanded])
 
   const resolvedRiskFreeRatePct = riskFreeRatePct ?? DEFAULT_RISK_FREE_RATE_PCT
   const resolvedEquityRiskPremiumPct = equityRiskPremiumPct ?? DEFAULT_EQUITY_RISK_PREMIUM_PCT
@@ -56,12 +80,19 @@ export function WaccBreakdownPanel({
   const resolvedDebtEquityPct = debtEquityPct ?? DEFAULT_DEBT_EQUITY_PCT
   const resolvedTaxShieldPct = taxShieldPct ?? DEFAULT_TAX_SHIELD_PCT
 
-  const computedWaccPct = useMemo(() => {
+  const waccBuildup = useMemo(() => {
     const debtWeight = clamp(resolvedDebtEquityPct, 0, 95) / 100
     const equityWeight = 1 - debtWeight
     const costOfEquityPct = resolvedRiskFreeRatePct + resolvedBeta * resolvedEquityRiskPremiumPct
     const afterTaxDebtPct = resolvedCostOfDebtPct * (1 - clamp(resolvedTaxShieldPct, 0, 100) / 100)
-    return round1(equityWeight * costOfEquityPct + debtWeight * afterTaxDebtPct)
+    const wacc = round1(equityWeight * costOfEquityPct + debtWeight * afterTaxDebtPct)
+    return {
+      debtWeight,
+      equityWeight,
+      costOfEquityPct: round1(costOfEquityPct),
+      afterTaxDebtPct: round1(afterTaxDebtPct),
+      wacc,
+    }
   }, [
     resolvedBeta,
     resolvedCostOfDebtPct,
@@ -70,11 +101,39 @@ export function WaccBreakdownPanel({
     resolvedRiskFreeRatePct,
     resolvedTaxShieldPct,
   ])
+  const computedWaccPct = waccBuildup.wacc
 
   useEffect(() => {
     if (!expanded) return
     onFieldChange('dcf_wacc_pct', computedWaccPct)
   }, [computedWaccPct, expanded, onFieldChange])
+
+  // Seed the 6 build-up sub-fields on mount when blank, so the engine
+  // receives the same values the formula chip displays. Without this,
+  // a user who never expands the panel ships `undefined` for Rf / β / ERP /
+  // Kd / D-E / tax-shield, and the backend's own fallbacks may diverge from
+  // what the chip showed (the same class of bug as the headline WACC seed).
+  // Null-checks prevent the loop on prop reflection.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot seed per missing field
+  useEffect(() => {
+    if (disabled) return
+    if (riskFreeRatePct == null)
+      onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
+    if (equityRiskPremiumPct == null)
+      onFieldChange('dcf_equity_risk_premium_pct', DEFAULT_EQUITY_RISK_PREMIUM_PCT)
+    if (beta == null) onFieldChange('dcf_beta', DEFAULT_BETA)
+    if (costOfDebtPct == null) onFieldChange('dcf_cost_of_debt_pct', DEFAULT_COST_OF_DEBT_PCT)
+    if (debtEquityPct == null) onFieldChange('dcf_debt_equity_pct', DEFAULT_DEBT_EQUITY_PCT)
+    if (taxShieldPct == null) onFieldChange('dcf_tax_shield_pct', DEFAULT_TAX_SHIELD_PCT)
+  }, [
+    disabled,
+    riskFreeRatePct,
+    equityRiskPremiumPct,
+    beta,
+    costOfDebtPct,
+    debtEquityPct,
+    taxShieldPct,
+  ])
 
   const handleToggleExpanded = () => {
     if (!expanded) {
@@ -93,6 +152,21 @@ export function WaccBreakdownPanel({
 
   return (
     <div className="w-full min-w-0">
+      {sectorBand && (
+        <div className="mb-2 flex flex-col gap-0.5">
+          <p className="text-[10px] leading-snug text-foreground/55">
+            {t('waccBreakdown.sectorBand', {
+              min: sectorBand.min.toFixed(1),
+              max: sectorBand.max.toFixed(1),
+              median: sectorBand.median.toFixed(1),
+              sector: sectorBand.sectorLabel,
+            })}
+          </p>
+          <p className="text-[9px] leading-snug text-foreground/35">
+            {t('waccBreakdown.sectorBandSource')}
+          </p>
+        </div>
+      )}
       <AdaptivePercentInput
         label={t('fields.dcfWaccPct')}
         value={expanded ? computedWaccPct : currentWaccPct}
@@ -102,6 +176,31 @@ export function WaccBreakdownPanel({
         readOnly={expanded}
         truncateLabel={false}
       />
+      {outOfBandSeverity && (
+        <p
+          className="mt-1 text-[10px] leading-snug text-amber-700 dark:text-amber-200/90"
+          role="note"
+        >
+          {outOfBandSeverity === 'high'
+            ? t('waccBreakdown.outOfBandHigh')
+            : t('waccBreakdown.outOfBandLow')}
+        </p>
+      )}
+      {/* Always-visible CAPM chip — shows the math behind the rate even when
+          the breakdown is collapsed. Uses resolved* values so the math is
+          consistent with what the engine receives (no silent placeholder/value drift). */}
+      {!expanded && (
+        <p className="mt-1 font-mono text-[10px] leading-snug text-foreground/55 tabular-nums">
+          {t('waccBreakdown.liveFormula', {
+            equityWeight: round1(waccBuildup.equityWeight * 100).toFixed(1),
+            costOfEquity: waccBuildup.costOfEquityPct.toFixed(1),
+            debtWeight: round1(waccBuildup.debtWeight * 100).toFixed(1),
+            costOfDebt: resolvedCostOfDebtPct.toFixed(1),
+            taxShield: resolvedTaxShieldPct.toFixed(0),
+            wacc: waccBuildup.wacc.toFixed(1),
+          })}
+        </p>
+      )}
       <button
         type="button"
         onClick={handleToggleExpanded}
@@ -171,6 +270,16 @@ export function WaccBreakdownPanel({
                 disabled={disabled}
                 truncateLabel={false}
               />
+              <p className="mt-1 rounded-lg border border-primary/10 bg-primary/[0.03] px-3 py-2 font-mono text-[10px] leading-relaxed text-foreground/65 tabular-nums">
+                {t('waccBreakdown.liveFormula', {
+                  equityWeight: round1(waccBuildup.equityWeight * 100).toFixed(1),
+                  costOfEquity: waccBuildup.costOfEquityPct.toFixed(1),
+                  debtWeight: round1(waccBuildup.debtWeight * 100).toFixed(1),
+                  costOfDebt: resolvedCostOfDebtPct.toFixed(1),
+                  taxShield: resolvedTaxShieldPct.toFixed(0),
+                  wacc: waccBuildup.wacc.toFixed(1),
+                })}
+              </p>
             </div>
           </motion.div>
         )}

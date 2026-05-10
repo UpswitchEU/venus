@@ -31,10 +31,7 @@ const NAV_SCHEDULE_KEYS: (keyof NavScheduleInputs)[] = [
   'navOtherRevaluations',
 ]
 
-const NAV_DEDUCTION_KEYS: (keyof NavDeductionInputs)[] = [
-  'navTaxLatencyPct',
-  'navOffBalanceItems',
-]
+const NAV_DEDUCTION_KEYS: (keyof NavDeductionInputs)[] = ['navTaxLatencyPct', 'navOffBalanceItems']
 
 export function computeNavAdjustmentsSum(input: NavScheduleInputs): number {
   let sum = 0
@@ -119,13 +116,36 @@ export function computeTaxLatencyDeduction(
 }
 
 /**
+ * Side-input revaluations that the user enters in dedicated subsections
+ * (real-estate book→appraisal swap, equipment economic-lifespan
+ * reconstruction). These flow into the engine via separate keys but must
+ * be mirrored in the live preview so the displayed estimated NAV does
+ * not drift from the engine output.
+ *
+ * Round-1 fix B6: previously the preview used only the schedule-section
+ * deltas, so a user entering a €500k real-estate appraisal swap saw the
+ * estimated NAV unchanged until they ran the full calculation.
+ */
+export type NavSideRevaluations = {
+  /** appraisal − book; positive = uplift (taxable like a positive correction). */
+  realEstateMeerwaarde?: number | null
+  /** economic_book − tax_book; positive = uplift, negative = impairment. */
+  equipmentMeerwaarde?: number | null
+}
+
+/**
  * Client-side estimated corrected NAV:
- *   Book equity + net adjustments - tax latency on positive gains - off-balance items
+ *   Book equity + net adjustments + side revaluations
+ *   − tax latency on positive gains − off-balance items
  * Returns null when balance-sheet data is missing.
  *
  * @param grossAdjustmentSum  NET sum of all adjustments (for the additive term)
  * @param grossPositiveAdjustments  Sum of individually-positive adjustments excl.
  *   goodwill (tax base — mirrors backend `gross_positive_adjustments`)
+ * @param sideRevaluations  Real-estate appraisal swap + equipment lifespan
+ *   meerwaarde from the dedicated subsections. Positive amounts add to
+ *   the tax base; negative amounts (impairments) flow through to the net
+ *   sum but are not taxed.
  */
 export function computeEstimatedNav(
   totalAssets: number | undefined | null,
@@ -133,17 +153,36 @@ export function computeEstimatedNav(
   grossAdjustmentSum: number,
   grossPositiveAdjustments: number,
   taxLatencyPct?: number | null,
-  offBalanceItems?: number | null
+  offBalanceItems?: number | null,
+  sideRevaluations?: NavSideRevaluations | null
 ): number | null {
   if (totalAssets == null || !Number.isFinite(totalAssets)) return null
   if (totalLiabilities == null || !Number.isFinite(totalLiabilities)) return null
 
   const bookEquity = totalAssets - totalLiabilities
-  const taxDeduction = computeTaxLatencyDeduction(grossPositiveAdjustments, taxLatencyPct)
+
+  // Side-input revaluations: net effect adds to the running total, and the
+  // POSITIVE portion (uplift) increases the tax-latency base in lockstep
+  // with how the engine treats the schedule's positive corrections.
+  const reMeerwaarde =
+    sideRevaluations?.realEstateMeerwaarde != null &&
+    Number.isFinite(sideRevaluations.realEstateMeerwaarde)
+      ? sideRevaluations.realEstateMeerwaarde
+      : 0
+  const eqMeerwaarde =
+    sideRevaluations?.equipmentMeerwaarde != null &&
+    Number.isFinite(sideRevaluations.equipmentMeerwaarde)
+      ? sideRevaluations.equipmentMeerwaarde
+      : 0
+  const sideNet = reMeerwaarde + eqMeerwaarde
+  const sidePositive = Math.max(0, reMeerwaarde) + Math.max(0, eqMeerwaarde)
+
+  const taxBase = grossPositiveAdjustments + sidePositive
+  const taxDeduction = computeTaxLatencyDeduction(taxBase, taxLatencyPct)
   const offBalance =
     offBalanceItems != null && Number.isFinite(offBalanceItems) ? offBalanceItems : 0
 
-  return bookEquity + grossAdjustmentSum + taxDeduction - Math.abs(offBalance)
+  return bookEquity + grossAdjustmentSum + sideNet + taxDeduction - Math.abs(offBalance)
 }
 
 /**

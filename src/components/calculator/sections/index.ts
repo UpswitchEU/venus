@@ -1,4 +1,12 @@
 export { AdaptivePercentInput } from './AdaptivePercentInput'
+// Round-6 audit: `BelgianSmeAuditPanel` no longer exported from the
+// sections barrel. It renders advisory output (SDE bridge, NAV
+// revaluation log, deal-structure comparison) — that lives in the
+// ValuationIQ report (`_nav_audit_trail.html` + `_nav_deal_structure.html`).
+// The component file stays in the tree for any future advisor-mode
+// preview that legitimately needs an inline audit, but it must be
+// imported with the explicit deep path so the import flag-reviews it.
+export { CapitalHistorySection } from './CapitalHistorySection'
 export { DcfForecastWorkspace } from './DcfForecastWorkspace'
 export {
   DcfGlobalAssumptions,
@@ -6,6 +14,12 @@ export {
 } from './DcfGlobalAssumptions'
 export { DcfProjectionTable } from './DcfProjectionTable'
 export { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
+export {
+  type DealScenario,
+  DealStructureCompareSection,
+  type DealStructureComparison,
+  type DealStructureInputs,
+} from './DealStructureCompareSection'
 export {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
@@ -16,35 +30,38 @@ export {
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
   DCF_DEFAULT_WACC_PCT,
 } from './dcfEngineDefaults'
+export { FiscalInputsSection } from './FiscalInputsSection'
+export { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
+export { LiquidationInputsSection } from './LiquidationInputsSection'
+export { MethodPreviewAuditDevPanel } from './MethodPreviewAuditDevPanel'
+export { NavAssetScheduleSection } from './NavAssetScheduleSection'
+export {
+  computeEquipmentMeerwaarde,
+  NavEquipmentLifespanSection,
+} from './NavEquipmentLifespanSection'
+export { NavRealEstateAppraisalSection } from './NavRealEstateAppraisalSection'
+// Round-6 audit: `NavRevaluationAuditLog` no longer exported from the
+// sections barrel either — it's the per-asset deferred-tax/SME-rate
+// table that BelgianSmeAuditPanel composes for advisory output. The
+// data shapes (`DeferredTaxBreakdownRow`, `RealEstateRevaluation`,
+// `SmeEligibilityPayload`) stay exported because Venus consumes them
+// in tests and helpers, but the rendering component is gated behind
+// the deep import.
+export {
+  type DeferredTaxBreakdownRow,
+  type RealEstateRevaluation,
+  type SmeEligibilityPayload,
+} from './NavRevaluationAuditLog'
 export {
   formatPreviewMetricValue,
   PreviewMetricCard,
   roundPreviewMetric,
 } from './previewMetricCards'
-export { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
-export { MethodPreviewAuditDevPanel } from './MethodPreviewAuditDevPanel'
-export { NavAssetScheduleSection } from './NavAssetScheduleSection'
 export { RealEstateCarveOutSection } from './RealEstateCarveOutSection'
 export { RevenueQualitySection } from './RevenueQualitySection'
-export { SdeOwnerCompensationSection } from './SdeOwnerCompensationSection'
-export { SdeBridgeLadder, type SdeBridgeRow } from './SdeBridgeLadder'
-export {
-  NavRevaluationAuditLog,
-  type DeferredTaxBreakdownRow,
-  type SmeEligibilityPayload,
-  type RealEstateRevaluation,
-} from './NavRevaluationAuditLog'
-export { NavRealEstateAppraisalSection } from './NavRealEstateAppraisalSection'
-export { NavEquipmentLifespanSection } from './NavEquipmentLifespanSection'
-export { BelgianSmeAuditPanel } from './BelgianSmeAuditPanel'
-export {
-  DealStructureCompareSection,
-  type DealScenario,
-  type DealStructureComparison,
-  type DealStructureInputs,
-} from './DealStructureCompareSection'
 export { SaasMetricsSection } from './SaasMetricsSection'
-export { CapitalHistorySection } from './CapitalHistorySection'
+export { SdeBridgeLadder, type SdeBridgeRow } from './SdeBridgeLadder'
+export { SdeOwnerCompensationSection } from './SdeOwnerCompensationSection'
 export { SynthesisWeightingSection } from './SynthesisWeightingSection'
 
 export {

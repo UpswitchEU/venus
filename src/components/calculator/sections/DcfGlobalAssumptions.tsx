@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Database, History } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Switch } from '@/design-system/components/Switch'
 import { cn } from '@/design-system/utils'
@@ -62,12 +62,35 @@ interface DcfGlobalAssumptionsProps {
    * Only shown for `forecastDefaultsOnly`.
    */
   dcfDefaultsProvenance?: 'none' | 'history' | 'integration' | 'both'
+  /**
+   * Historical-derived defaults (CAGR for revenue growth, latest margin, sector WACC base).
+   * When supplied, the seed effect prefers these over the static engine fallbacks
+   * so blank inputs ship the actually-defensible value to the engine, not "3%".
+   */
+  smartDefaults?: {
+    revenueGrowthPct?: number
+    ebitdaMarginPct?: number
+    capexPct?: number
+    daPct?: number
+    nwcPct?: number
+    taxRatePct?: number
+    waccPct?: number
+    terminalGrowthPct?: number
+    exitMultiple?: number
+  } | null
+  /** Integration-derived overrides (Titan/accounting pipeline). Highest priority for CapEx/D&A. */
+  integrationCapexPct?: number | null
+  integrationDaPct?: number | null
+  /** Sector WACC band (Damodaran 2026, EU SMB) shown above the WACC input. */
+  waccSectorBand?: {
+    sectorLabel: string
+    median: number
+    min: number
+    max: number
+  } | null
 }
 
-const terminalMethodOptions: { value: TerminalValueMethod; label: string }[] = [
-  { value: 'perpetual_growth', label: '' },
-  { value: 'exit_multiple', label: '' },
-]
+const TERMINAL_METHOD_VALUES: TerminalValueMethod[] = ['perpetual_growth', 'exit_multiple']
 
 export function DcfGlobalAssumptions({
   step,
@@ -100,13 +123,136 @@ export function DcfGlobalAssumptions({
   disabled,
   className,
   dcfDefaultsProvenance = 'none',
+  smartDefaults,
+  integrationCapexPct,
+  integrationDaPct,
+  waccSectorBand,
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
-  const [showAdvancedDrivers, setShowAdvancedDrivers] = useState(true)
+  // Collapsed by default — the four FCFF drivers (CapEx, D&A, ΔNWC, tax) are
+  // shown in the summary line and are typically left on sector defaults. Keeping
+  // them open by default greets the user with six percent inputs and reads as overload.
+  const [showAdvancedDrivers, setShowAdvancedDrivers] = useState(false)
 
-  const segmentOptions = terminalMethodOptions.map((opt) => ({
-    ...opt,
-    label: t(`terminalMethod.${opt.value}` as const),
+  // Cap-ack state for the >5% terminal-growth hard-stop. Local-only (we don't
+  // persist this on the request) — re-firing the gate after a fresh entry is
+  // intentional. Pattern matches `project_normalization_bridge_phase1_2026_04_29.md`.
+  const [terminalGrowthCapAck, setTerminalGrowthCapAck] = useState(false)
+
+  // Round-trip the *best available* default into form state when a field is blank
+  // so the engine receives the value the user sees in the placeholder. Without this,
+  // blank fields ship `undefined` and the backend's own fallback may diverge from
+  // the placeholder (the same class of bug as the Three Towers Capital incident — see
+  // memory/project_defensibility_gate_2026_04_29.md).
+  //
+  // Priority chain per field (best → worst, picked by `pick`):
+  //   1. Integration override (Titan/accounting import) — only CapEx, D&A
+  //   2. History-derived smart default (`deriveDcfSmartDefaults`)        — preferred
+  //   3. Static engine fallback (`DCF_DEFAULT_*`)                         — last resort
+  //
+  // Only writes when the field is currently undefined (no overwrite of user edits).
+  // Gated by `variant` / `dcfInputMode` so we don't seed irrelevant fields.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable defaults; we want a one-shot seed per missing field
+  useEffect(() => {
+    if (disabled) return
+    const finite = (v: unknown): v is number =>
+      typeof v === 'number' && Number.isFinite(v)
+    const pick = (...sources: Array<number | null | undefined>): number | undefined => {
+      for (const s of sources) {
+        if (finite(s)) return s
+      }
+      return undefined
+    }
+    const seedIfMissing = (current: number | undefined, field: string, value: number | undefined) => {
+      if (finite(current)) return
+      if (value === undefined) return
+      onFieldChange(field, value)
+    }
+    const inForecastBlock = variant === 'full' || variant === 'forecastDefaultsOnly'
+    const inDiscountBlock = variant === 'full' || variant === 'discountTerminalOnly'
+
+    // Forecast defaults — only seeded in EBITDA mode (FCFF-only mode reads FCFF directly).
+    if (inForecastBlock && dcfInputMode === 'ebitda') {
+      seedIfMissing(
+        dcfRevenueGrowthPct,
+        'dcf_revenue_growth_pct',
+        pick(smartDefaults?.revenueGrowthPct, DCF_DEFAULT_REVENUE_GROWTH_PCT),
+      )
+      seedIfMissing(
+        dcfEbitdaMarginPct,
+        'dcf_ebitda_margin_pct',
+        pick(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT),
+      )
+      seedIfMissing(
+        dcfCapexPct,
+        'dcf_capex_pct',
+        pick(integrationCapexPct, smartDefaults?.capexPct, DCF_DEFAULT_CAPEX_PCT),
+      )
+      seedIfMissing(
+        dcfDaPct,
+        'dcf_da_pct',
+        pick(integrationDaPct, smartDefaults?.daPct, DCF_DEFAULT_DA_PCT),
+      )
+      seedIfMissing(
+        dcfNwcPct,
+        'dcf_nwc_pct',
+        pick(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT),
+      )
+      seedIfMissing(
+        dcfTaxRatePct,
+        'dcf_tax_rate_pct',
+        pick(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT),
+      )
+    }
+
+    // Discount + terminal — seed for both modes (FCFF-only still needs WACC + g).
+    if (inDiscountBlock) {
+      // WACC: prefer history-derived (sector-classified) over static 10%.
+      // The build-up panel computes its own value when expanded; that path
+      // takes over via WaccBreakdownPanel.useEffect (see WaccBreakdownPanel.tsx).
+      seedIfMissing(
+        dcfWaccPct,
+        'dcf_wacc_pct',
+        pick(smartDefaults?.waccPct, 10),
+      )
+      const onPerpetual =
+        dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth'
+      if (onPerpetual) {
+        seedIfMissing(
+          dcfTerminalGrowthPct,
+          'dcf_terminal_growth_pct',
+          pick(smartDefaults?.terminalGrowthPct, DCF_DEFAULT_TERMINAL_GROWTH_PCT),
+        )
+      } else {
+        seedIfMissing(
+          dcfExitMultiple,
+          'dcf_exit_multiple',
+          pick(smartDefaults?.exitMultiple, 6),
+        )
+      }
+    }
+  }, [
+    variant,
+    dcfInputMode,
+    terminalValueMethod,
+    disabled,
+    // Smart-defaults change when historical data updates — re-seed missing fields.
+    smartDefaults?.revenueGrowthPct,
+    smartDefaults?.ebitdaMarginPct,
+    smartDefaults?.capexPct,
+    smartDefaults?.daPct,
+    smartDefaults?.nwcPct,
+    smartDefaults?.taxRatePct,
+    smartDefaults?.waccPct,
+    smartDefaults?.terminalGrowthPct,
+    smartDefaults?.exitMultiple,
+    integrationCapexPct,
+    integrationDaPct,
+  ])
+
+  const segmentOptions = TERMINAL_METHOD_VALUES.map((value) => ({
+    value,
+    label: t(`terminalMethod.${value}` as const),
   }))
   const terminalSegmentOptions =
     dcfInputMode === 'fcff_only'
@@ -189,6 +335,23 @@ export function DcfGlobalAssumptions({
           {t('forecastDefaultsLead')}
         </p>
       )}
+
+      {/* No-history affordance: when smartDefaults is null, we're shipping
+          sector-only fallbacks. Surface that explicitly so the user knows the
+          calibration is loose and can act (add historical years above).
+          Only render in EBITDA-mode forecast block — FCFF-only doesn't use these. */}
+      {variant === 'forecastDefaultsOnly' &&
+        dcfInputMode === 'ebitda' &&
+        smartDefaults == null && (
+          <div
+            className="-mt-0.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2"
+            role="note"
+          >
+            <p className="text-[11px] leading-snug text-amber-900 dark:text-amber-200/90">
+              {t('forecastDefaultsNoHistoryNote')}
+            </p>
+          </div>
+        )}
 
       {variant === 'forecastDefaultsOnly' && dcfDefaultsProvenance !== 'none' && (
         <div
@@ -383,6 +546,7 @@ export function DcfGlobalAssumptions({
                 taxShieldPct={dcfTaxShieldPct}
                 onFieldChange={onFieldChange}
                 disabled={disabled}
+                sectorBand={waccSectorBand}
               />
             </div>
           </div>
@@ -419,20 +583,67 @@ export function DcfGlobalAssumptions({
                     <AdaptivePercentInput
                       label={t('fields.dcfTerminalGrowthPct')}
                       value={dcfTerminalGrowthPct}
-                      onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
+                      onChange={(v) => {
+                        onFieldChange('dcf_terminal_growth_pct', v)
+                        // If the user lowers below the 5% cap, drop the ack so the
+                        // hard-stop re-fires next time they push past 5% again.
+                        if (typeof v === 'number' && v <= 5) setTerminalGrowthCapAck(false)
+                      }}
                       placeholder={String(DCF_DEFAULT_TERMINAL_GROWTH_PCT)}
                       disabled={disabled}
                       truncateLabel={false}
                     />
                     {dcfTerminalGrowthPct != null &&
                       Number.isFinite(dcfTerminalGrowthPct) &&
-                      dcfTerminalGrowthPct > 3 && (
+                      dcfTerminalGrowthPct > 3 &&
+                      dcfTerminalGrowthPct <= 5 && (
                         <p
                           className="text-[10px] leading-snug text-amber-800 dark:text-amber-200/90"
                           role="note"
                         >
                           {t('terminalGrowthHighWarning')}
                         </p>
+                      )}
+                    {dcfTerminalGrowthPct != null &&
+                      Number.isFinite(dcfTerminalGrowthPct) &&
+                      dcfTerminalGrowthPct > 5 &&
+                      !terminalGrowthCapAck && (
+                        <div
+                          className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] p-3"
+                          role="alertdialog"
+                          aria-labelledby="terminal-growth-cap-title"
+                        >
+                          <p
+                            id="terminal-growth-cap-title"
+                            className="text-[11px] font-semibold text-amber-900 dark:text-amber-200"
+                          >
+                            {t('terminalGrowthCapTitle')}
+                          </p>
+                          <p className="mt-1 text-[10px] leading-snug text-amber-800 dark:text-amber-200/85">
+                            {t('terminalGrowthCapBody')}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setTerminalGrowthCapAck(true)}
+                              disabled={disabled}
+                              className="inline-flex items-center justify-center rounded-md border border-amber-600/40 bg-amber-500/15 px-2.5 py-1.5 text-[10px] font-medium text-amber-900 dark:text-amber-100 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {t('terminalGrowthCapAck')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onFieldChange('dcf_terminal_growth_pct', 3)
+                                setTerminalGrowthCapAck(false)
+                              }}
+                              disabled={disabled}
+                              className="inline-flex items-center justify-center rounded-md border border-foreground/15 bg-background px-2.5 py-1.5 text-[10px] font-medium text-foreground/75 hover:border-foreground/25 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {t('terminalGrowthCapClear')}
+                            </button>
+                          </div>
+                        </div>
                       )}
                   </div>
                 </motion.div>

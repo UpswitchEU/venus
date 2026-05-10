@@ -7,7 +7,19 @@
  *
  * @see README.md in this folder for the module map.
  */
+
+// Re-export domain modules for a single import path
+export * from '../saas'
+export * from '../sde'
 export { resolveBookEquityFromYearRow, type YearRowForBookEquity } from './bookEquityFromYearRow'
+export {
+  computeFiscal4xPreview,
+  FISCAL_EBITDA_MULTIPLIER,
+  type Fiscal4xPreviewInputs,
+  type Fiscal4xPreviewMetrics,
+  type Fiscal4xUnavailableReason,
+  type FiscalPreviewEbitdaSource,
+} from './fiscalPreviewMetrics'
 export { coalesceFiniteNumber, toFiniteNumber } from './guards'
 export {
   createManualCurrencyFormatter,
@@ -17,17 +29,23 @@ export {
   getBelgianNumberLocale,
   type ManualPreviewFormatters,
 } from './manualPreviewFormatters'
-export { PREVIEW_DECIMALS, type BelgianLocaleTag } from './previewConstants'
-export {
-  computeFiscal4xPreview,
-  FISCAL_EBITDA_MULTIPLIER,
-  type Fiscal4xPreviewInputs,
-  type Fiscal4xPreviewMetrics,
-  type Fiscal4xUnavailableReason,
-  type FiscalPreviewEbitdaSource,
-} from './fiscalPreviewMetrics'
 export { computeEbitdaMarginPct } from './marketBasicsPreview'
 export { METHOD_PREVIEW_AUDIT } from './methodPreviewAudit'
+export {
+  computeNavBookReferences,
+  computeNavPrefill,
+  NAV_TAX_LATENCY_DEFAULT_BE_PCT,
+  NAV_TAX_LATENCY_DEFAULT_NL_PCT,
+  type NavBookReferenceInputs,
+  type NavBookReferenceSnapshot,
+  type NavPrefillField,
+  type NavPrefillInputs,
+  type NavPrefillProvenance,
+  type NavPrefillProvenanceMap,
+  type NavPrefillProvenanceSource,
+  type NavPrefillSnapshot,
+  resolveCountryTaxLatencyPct,
+} from './navPrefill'
 export {
   computeEstimatedNav,
   computeGrossPositiveAdjustments,
@@ -40,12 +58,17 @@ export {
   NAV_PROGRESS_TOTAL_FIELDS,
   NAV_SECTOR_DEFAULTS,
   NAV_TOTAL_FIELDS,
-  resolveNavSectorKey,
   type NavDeductionInputs,
   type NavProgressInputs,
   type NavScheduleInputs,
+  resolveNavSectorKey,
 } from './navSchedulePreview'
 export { ownershipMultiplierFromSharesForSale } from './ownershipMultiplier'
+export { type BelgianLocaleTag, PREVIEW_DECIMALS } from './previewConstants'
+export {
+  type RevenueQualityBadgeVariant,
+  resolveRevenueQualityBadgeVariant,
+} from './revenueQualityBadge'
 export {
   computeRevenueQualityPreview,
   getRecurringRevenueBadge,
@@ -55,13 +78,5 @@ export {
   type RevenueQualityPreviewMetrics,
   type TopClientBadge,
 } from './revenueQualityPreview'
-export {
-  resolveRevenueQualityBadgeVariant,
-  type RevenueQualityBadgeVariant,
-} from './revenueQualityBadge'
 export type { MethodPreviewAuditEntry, MethodPreviewAuditRegistry } from './types'
 export { useManualPreviewFormatters } from './useManualPreviewFormatters'
-
-// Re-export domain modules for a single import path
-export * from '../saas'
-export * from '../sde'

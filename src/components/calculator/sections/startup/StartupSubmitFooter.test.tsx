@@ -24,6 +24,16 @@
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Per-file next-intl mock — see StartupAwareInputPanel.test.tsx for
+// rationale. Pinning per-file prevents the StartupValuationPanel
+// per-file mock from leaking into this file when both run in the
+// same vitest process.
+vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
+  useTranslations: () => (key: string) => key,
+}))
+
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
   MATURITY_TO_SCORE,
@@ -35,6 +45,89 @@ import { buildStartupSubmitPayload, StartupSubmitFooter } from './StartupAwareIn
 vi.mock('next/navigation', () => ({
   useParams: () => ({ locale: 'en' }),
   useRouter: () => ({ push: vi.fn() }),
+}))
+
+// Submit footer reads its copy from ``startupStudio.submit.*``; the
+// review-defaults modal reads from ``startupStudio.reviewGate.*``,
+// ``startupStudio.companyCard.stageLabels.*``, and
+// ``startupStudio.narrative.sectorLabels.*``.  Stub the next-intl
+// provider so component tests don't need to wrap in a
+// ``NextIntlClientProvider`` — same shape as MilestoneCard /
+// CompanyCard tests, just covers the extra namespaces the gate uses.
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, fmt?: Record<string, unknown>) => {
+    // Simple `{name}`-style template substitution so the modal's row
+    // labels render cleanly without next-intl's full ICU pipeline.
+    const map: Record<string, string> = {
+      calculating: 'Calculating…',
+      generate: 'Generate startup valuation',
+      hintMissingCompany:
+        'Add the company name above to unlock report generation.',
+      hintMissingMilestone:
+        'Pick at least one milestone in “Risk reduction” for a defensible valuation.',
+      // reviewGate
+      title: 'Review your assumptions',
+      subtitleWithDefaults: '{count} values are using engine defaults',
+      subtitleAllReviewed: 'All reviewed',
+      defaultChip: 'default',
+      defaultChipTooltip: 'Engine default',
+      editBtn: 'Edit',
+      cancelBtn: 'Back to wizard',
+      confirmBtn: 'Generate report',
+      closeAria: 'Close',
+      'row.stage': 'Funding stage',
+      'row.sector': 'Engine sector',
+      'row.y5': 'Year-5 revenue',
+      'row.exitMultiple': 'Exit multiple',
+      'row.targetRoi': 'Target ROI',
+      'row.investment': 'Round size',
+      'row.dilution': 'Dilution',
+      // stageLabels / sectorLabels passthrough
+      pre_seed: 'Pre-seed',
+      seed: 'Seed',
+      series_a: 'Series A',
+      saas: 'SaaS',
+      marketplace: 'Marketplace',
+      fintech: 'Fintech',
+      biotech_healthtech: 'Biotech / Healthtech',
+      deeptech_ai: 'Deeptech / AI',
+      consumer: 'Consumer',
+      hardware: 'Hardware',
+      other: 'Cross-sector',
+    }
+    let out = map[key] ?? key
+    if (fmt) {
+      for (const [k, v] of Object.entries(fmt)) {
+        out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+      }
+    }
+    return out
+  },
+  useLocale: () => 'en',
+}))
+
+// The review-defaults modal subscribes to the live benchmark hook on
+// every render — and ``StartupSubmitFooter`` itself now also calls
+// ``useStartupBenchmark`` + ``useStudioIssues`` for the studio-issues
+// blocker gate.  Stub both with deterministic shapes so the footer
+// renders without an Athena fetch + studio-issues feed.
+vi.mock('@/lib/benchmarks/useStartupBenchmark', () => ({
+  useStartupBenchmark: () => ({
+    benchmark: {
+      region_code: 'BE',
+      stage: 'seed',
+      sector: 'saas',
+      average_pre_money_eur: 4_000_000,
+      berkus_max_per_milestone_eur: 500_000,
+      exit_multiple_low: 5,
+      exit_multiple_high: 7,
+      comparable_exit_revenue_multiple: 6,
+    },
+    isFallback: false,
+  }),
+}))
+vi.mock('@/features/startup-studio/hooks/useStudioIssues', () => ({
+  useStudioIssues: () => ({ issues: [], blockers: [], warnings: [] }),
 }))
 
 const initialFormSnapshot = useManualFormStore.getState()
@@ -68,7 +161,11 @@ describe('StartupSubmitFooter', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('fires onSubmit on manual click once a milestone is picked', () => {
+  it('fires onSubmit only after the review-defaults gate is confirmed', () => {
+    // Two-step submit contract (audit issue #7):
+    //   1. First click on Generate opens the review-defaults modal.
+    //   2. Confirm in the modal fires the real ``onSubmit``.
+    // Cancel inside the modal must NEVER reach onSubmit.
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
@@ -80,8 +177,54 @@ describe('StartupSubmitFooter', () => {
       },
       true
     )
-    // The submit gate refuses to fire against the all-zero default
-    // Studio store; pick a milestone so the gate releases.
+    useStartupValuationStore.setState(
+      {
+        ...initialStudioSnapshot,
+        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
+        sound_idea: MATURITY_TO_SCORE.strong,
+      },
+      true
+    )
+
+    const onSubmit = vi.fn()
+    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+
+    // First click: opens the review modal — onSubmit must NOT fire yet.
+    fireEvent.click(screen.getByRole('button', { name: /generate startup valuation/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    // The review modal renders a Confirm button (its label is set by
+    // the canonical translation key ``confirmBtn`` — "Generate report"
+    // in the test stub). Click it to fire the real submit.
+    fireEvent.click(screen.getByRole('button', { name: /generate report/i }))
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    const payload = onSubmit.mock.calls[0]?.[0]
+    expect(payload).toBeDefined()
+    expect(payload.companyName).toBe('Acme Robotics')
+    expect(payload.country).toBe('NL')
+    // The synthetic shape MUST include keys the report UI consumes
+    // (setCollectedData reads businessType / industry / yearFounded).
+    expect(payload).toHaveProperty('businessType')
+    expect(payload).toHaveProperty('industry')
+    expect(payload).toHaveProperty('yearFounded')
+    expect(Array.isArray(payload.yearlyFinancials)).toBe(true)
+  })
+
+  it('opens the review-defaults modal but does NOT submit when the founder cancels', () => {
+    // Cancel-path companion to the confirm test above: the modal must
+    // open, give the founder a way out, and never silently fire the
+    // calculation.
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: {
+          ...initialFormSnapshot.formData,
+          company_name: 'Acme Robotics',
+        },
+      },
+      true
+    )
     useStartupValuationStore.setState(
       {
         ...initialStudioSnapshot,
@@ -95,18 +238,10 @@ describe('StartupSubmitFooter', () => {
     render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
 
     fireEvent.click(screen.getByRole('button', { name: /generate startup valuation/i }))
-
-    expect(onSubmit).toHaveBeenCalledTimes(1)
-    const payload = onSubmit.mock.calls[0]?.[0]
-    expect(payload).toBeDefined()
-    expect(payload.companyName).toBe('Acme Robotics')
-    expect(payload.country).toBe('NL')
-    // The synthetic shape MUST include keys the report UI consumes
-    // (setCollectedData reads businessType / industry / yearFounded).
-    expect(payload).toHaveProperty('businessType')
-    expect(payload).toHaveProperty('industry')
-    expect(payload).toHaveProperty('yearFounded')
-    expect(Array.isArray(payload.yearlyFinancials)).toBe(true)
+    // Cancel button label comes from `cancelBtn` — "Back to wizard" in
+    // the test stub.
+    fireEvent.click(screen.getByRole('button', { name: /back to wizard/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('does NOT fire on manual click when no milestone has been picked yet', () => {

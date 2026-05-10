@@ -3915,6 +3915,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               multiple: 5.2,
                             })
                           ),
+                          valuationRunRequests: aiResponse.valuationRunRequests?.map((r) => ({
+                            ...r,
+                            id: crypto.randomUUID(),
+                          })),
+                          reportGenerationRequests: aiResponse.reportGenerationRequests?.map(
+                            (r) => ({
+                              ...r,
+                              id: crypto.randomUUID(),
+                            })
+                          ),
+                          sellabilityRunRequests: aiResponse.sellabilityRunRequests?.map(
+                            (r) => ({
+                              ...r,
+                              id: crypto.randomUUID(),
+                            })
+                          ),
                         }
                       : m
                   )
@@ -5824,6 +5840,185 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [startupIssueById]
   )
 
+  // ─────────────────────────────────────────
+  // AI propose-only action handlers (run_valuation, generate_report)
+  //
+  // These respond to inline action cards rendered by the chat drawer when the
+  // assistant's tool registry returns a `pending_approval` payload.
+  // - Approve `run_valuation` → fire the existing `handleManualSubmit` with the
+  //   cached request payload (matches the user clicking Calculate). If the user
+  //   hasn't submitted yet this session, fall back to a toast pointing them at
+  //   the form's primary Calculate button.
+  // - Approve `generate_report` → fire the existing `generatePdf` flow. No
+  //   extra credit is consumed (the PDF reuses the persisted valuation result).
+  // - Reject (both) → mark the proposal locally so the card greys out; no
+  //   server-side state changes.
+  //
+  // Decision is stored on the message's request entry, NOT in a separate store,
+  // so a refresh re-fetches history and re-renders proposals as fresh pending.
+  // ─────────────────────────────────────────
+  const handleApproveValuationRun = useCallback(
+    (proposalId: string, _reportId?: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          valuationRunRequests: m.valuationRunRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
+          ),
+        }))
+      )
+      if (lastSubmittedDataRef.current) {
+        handleManualSubmit(lastSubmittedDataRef.current)
+      } else {
+        toast.info(
+          // TODO i18n
+          'Klik op "Bereken" in het formulier om de eerste waardering te starten — daarna kan ik herrekeningen vanuit de chat starten.'
+        )
+      }
+    },
+    [handleManualSubmit, setChatMessages]
+  )
+
+  const handleRejectValuationRun = useCallback(
+    (proposalId: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          valuationRunRequests: m.valuationRunRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
+          ),
+        }))
+      )
+    },
+    [setChatMessages]
+  )
+
+  const handleApproveReportGeneration = useCallback(
+    (proposalId: string, _reportId?: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          reportGenerationRequests: m.reportGenerationRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
+          ),
+        }))
+      )
+      if (generatePdf) {
+        generatePdf().catch((err: unknown) => {
+          generalLogger.warn('[ManualLayout] AI-approved PDF generation failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+          toast.error(
+            // TODO i18n
+            'PDF generatie mislukt. Probeer opnieuw via de download-knop in het rapport.'
+          )
+        })
+      } else {
+        toast.info(
+          // TODO i18n
+          'PDF generatie nog niet beschikbaar — bereken eerst de waardering.'
+        )
+      }
+    },
+    [generatePdf, setChatMessages]
+  )
+
+  const handleRejectReportGeneration = useCallback(
+    (proposalId: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          reportGenerationRequests: m.reportGenerationRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
+          ),
+        }))
+      )
+    },
+    [setChatMessages]
+  )
+
+  // Sellability compute fires through Venus's /api/sellability/score proxy
+  // (which forwards to Titan). Free — no credit. On success we surface the
+  // new score on the inline card AND raise a toast so it's visible whether or
+  // not the chat drawer is scrolled to the proposal.
+  const handleApproveSellabilityRun = useCallback(
+    async (proposalId: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
+          ),
+        }))
+      )
+      try {
+        const resp = await fetch('/api/sellability/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({}),
+        })
+        const json = (await resp.json().catch(() => ({}))) as {
+          success?: boolean
+          data?: { score?: number; band?: string; confidence?: string }
+          error?: string
+        }
+        if (!resp.ok || json.success === false) {
+          throw new Error(json.error || `HTTP ${resp.status}`)
+        }
+        const data = json.data ?? (json as any)
+        if (data && typeof data.score === 'number') {
+          setChatMessages((prev) =>
+            prev.map((m) => ({
+              ...m,
+              sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
+                r.id === proposalId
+                  ? {
+                      ...r,
+                      computedScore: {
+                        score: data.score!,
+                        band: data.band ?? 'unknown',
+                        confidence: data.confidence,
+                      },
+                    }
+                  : r
+              ),
+            }))
+          )
+          toast.success(
+            // TODO i18n
+            `Sellability: ${data.score}/100 (${data.band ?? 'n/a'})`
+          )
+        } else {
+          toast.info(/* TODO i18n */ 'Sellability berekend.')
+        }
+      } catch (err) {
+        generalLogger.warn('[ManualLayout] AI-approved sellability compute failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+        toast.error(
+          // TODO i18n
+          'Sellability berekening mislukt. Probeer het opnieuw via je owner profile in Mercury.'
+        )
+      }
+    },
+    [setChatMessages]
+  )
+
+  const handleRejectSellabilityRun = useCallback(
+    (proposalId: string) => {
+      setChatMessages((prev) =>
+        prev.map((m) => ({
+          ...m,
+          sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
+            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
+          ),
+        }))
+      )
+    },
+    [setChatMessages]
+  )
+
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -5848,6 +6043,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onDismissQualityWarning: handleDismissQualityWarning,
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,
+    onApproveValuationRun: handleApproveValuationRun,
+    onRejectValuationRun: handleRejectValuationRun,
+    onApproveReportGeneration: handleApproveReportGeneration,
+    onRejectReportGeneration: handleRejectReportGeneration,
+    onApproveSellabilityRun: handleApproveSellabilityRun,
+    onRejectSellabilityRun: handleRejectSellabilityRun,
     hasUploadedData: hasImportedNormalizationData,
     toolInProgress: conversationStore.toolInProgress,
     onOpenNormalizationHub: () => {
@@ -6254,7 +6455,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                                   <p className="text-[11px] font-mono tabular-nums text-foreground/55">
                                     {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
                                     {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}
-                                    K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
+                                    K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
                                   </p>
                                 </div>
                               </div>
@@ -6342,7 +6543,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               <p className="text-[11px] font-mono tabular-nums text-foreground/55">
                                 {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
                                 {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K ·{' '}
-                                {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
+                                {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
                               </p>
                             </div>
                           </div>

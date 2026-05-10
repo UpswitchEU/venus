@@ -132,18 +132,20 @@ describe('StartupValuationPanel — unified shell', () => {
   it('renders all 8 canonical sections in order on first paint', () => {
     render(<StartupValuationPanel />)
 
-    // Order matters — the section numerals + Aurora-Teal step circles
-    // must match `1. Profile → 2. Risk reduction → 3. Verdedigbaarheid →
-    // 4. Team pedigree → 5. Traction → 6. Exit story → 7. Round → 8. Report`.
+    // Order matters — the panel was reordered 2026-05-10 to lead with the
+    // EV/Revenue spine (Exit Story) so M&A readers see the headline math
+    // immediately, with Berkus / Scorecard / Pedigree / Traction framed
+    // as overlays around it.  Mirrors the SECTIONS array in
+    // ``StartupValuationPanel.tsx``.
     const order = [
-      'section-company-card',
-      'section-berkus',
-      'section-scorecard',
-      'section-pedigree',
-      'section-traction',
-      'section-exit',
-      'section-round',
-      'section-report',
+      'section-company-card',  // 1. Profile
+      'section-exit',          // 2. Exit story (the EV/Revenue spine)
+      'section-berkus',        // 3. Risk reduction overlay
+      'section-scorecard',     // 4. Defensibility overlay
+      'section-pedigree',      // 5. Team pedigree overlay
+      'section-traction',      // 6. Traction overlay
+      'section-round',         // 7. Round simulator
+      'section-report',        // 8. Report preview
     ] as const
 
     for (const id of order) {

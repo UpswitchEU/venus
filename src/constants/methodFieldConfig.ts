@@ -22,6 +22,8 @@ export type InputSectionKey =
   | 'saas_metrics'
   | 'revenue_quality'
   | 'sde_owner_compensation'
+  | 'liquidation_inputs'
+  | 'fiscal_inputs'
 
 /**
  * Canonical order for bonus sections — matches `AdaptiveSections` JSX order and
@@ -29,11 +31,21 @@ export type InputSectionKey =
  * arbitrary method-array order.
  */
 const BONUS_SECTION_RENDER_ORDER: InputSectionKey[] = [
+  /** Fiscal inputs lead so the meerwaarde dossier reads top-to-bottom:
+   * legal context (peildatum / company role / interne meerwaarde / EBITDA
+   * basis / aanschaffingswaarde + four-anchor "hoogste van" worksheet)
+   * before any going-concern numerics. fiscal_4x is standalone, so this
+   * placement only affects pre-Omni order on its own page. */
+  'fiscal_inputs',
   'dcf_projections',
   'nav_asset_schedule',
   'saas_metrics',
   'revenue_quality',
   'sde_owner_compensation',
+  /** Liquidation-specific bonus section — renders after nav_asset_schedule
+   * so the advisor enters general balance-sheet adjustments first, then
+   * liquidation-specific overrides (cascade buckets / wind-down / tax). */
+  'liquidation_inputs',
 ]
 
 function sortBonusSectionsCanonical(sections: InputSectionKey[]): InputSectionKey[] {
@@ -59,7 +71,27 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   dcf: { bonusSections: ['dcf_projections'] },
   sde_multiple: { bonusSections: ['sde_owner_compensation'] },
   adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
-  fiscal_4x: { bonusSections: [] },
+  /**
+   * Belgian capital-gains tax (meerwaardebelasting, Art. 90 WIB 92).
+   *
+   * Renders the dedicated `fiscal_inputs` left-panel section so accountants
+   * and lawyers can capture the legal artefacts the report needs:
+   *   - Peildatum override (non-calendar boekjaar)
+   *   - Company role (werkmaatschappij / holding / mixed) — drives the
+   *     holding-EBITDA warning on the report
+   *   - Interne meerwaarde flag — surfaces the 33% rate banner and the
+   *     4× EBITDA debt-cap anti-misbruik check
+   *   - EBITDA basis (statutair vs genormaliseerd) — wettelijke formule
+   *     uses last closed boekjaar; we expose the choice explicitly
+   *   - Aanschaffingswaarde (per-share or total) — the value being filed
+   *   - Four-anchor "hoogste van" worksheet (forfait / contract / 2025
+   *     markttransactie / onafhankelijk verslag) with optional € amounts
+   *
+   * The engine still needs no extra inputs for the forfait formula
+   * itself — these inputs feed the `fiscal_section.py` report builder
+   * verbatim through `fiscal_inputs: dict` on the calculate request.
+   */
+  fiscal_4x: { bonusSections: ['fiscal_inputs'] },
   /** Startup engine renders its own dedicated `StartupValuationPanel` — no SME bonus sections. */
   startup_valuation: { bonusSections: [] },
   /**
@@ -69,17 +101,25 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
    * once and both the going-concern NAV and the orderly+forced
    * liquidation scenarios pick them up.
    *
-   * Phase 1 (Big-4 academic depth) is live on the engine side: IVS
-   * 104 §60–80 premise-of-value, Altman Z'' (2000) distress score,
-   * and a 12-class realisation schedule are produced automatically
-   * whenever the balance sheet supplies enough inputs. The dedicated
-   * `liquidation_inputs` bonus section that lets the advisor override
-   * the 12-class schedule + pin a premise + supply retained earnings
-   * (Z'' X2) is intentionally deferred to Phase 2 — the engine uses
-   * sensible Pratt&Niculita / EY academic defaults and warning-tracked
-   * fallbacks until that section ships.
+   * Phase 1-4 (Big-4 academic depth) live on the engine side: IVS
+   * 104 §60–80 premise + Altman Z'' + 12-class realisation schedule
+   * + BE/NL Boek-XX/Faillissementswet cascade + tax bridge + wind-down
+   * build-up + PV-discount + sensitivity + premise reconciliation +
+   * Delphi NACE cohort + IVS+USPAP+IFRS-13 disclosure + replacement
+   * cost (M&A buyer ceiling) + Statement of Affairs (M&A cover) +
+   * audit-trail metadata.
+   *
+   * Left-panel bonus sections:
+   * - `nav_asset_schedule` — general balance-sheet adjustments that
+   *   feed the 12-class schedule (real-estate / inventory / receivable
+   *   appraisals).
+   * - `liquidation_inputs` — liquidation-specific advisor overrides
+   *   (headcount, monthly_rent, paid_up_capital, deferred_tax_liabs,
+   *   premise override). Drives the cascade + tax + wind-down build-up.
    */
-  liquidation_analysis: { bonusSections: ['nav_asset_schedule'] },
+  liquidation_analysis: {
+    bonusSections: ['nav_asset_schedule', 'liquidation_inputs'],
+  },
 }
 
 export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {

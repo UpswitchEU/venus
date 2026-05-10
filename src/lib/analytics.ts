@@ -312,12 +312,18 @@ export type StudioStep =
   | 'report'
 
 /**
- * @deprecated The Studio is now a single scroll-through panel inside
- * `ManualLayout`'s left rail — there is no Next/Back button, so this
- * "step completed by Next click" event no longer fires.  Kept so older
- * dashboards do not break on a missing import; remove once funnels
- * have been migrated to use `venus_studio_step_viewed` + the panel's
- * status derivation as the equivalent signal.  Target removal: 2026-Q3.
+/**
+ * Fires the first time a section's derived status flips to
+ * ``'complete'`` during a session. The original "Next click" trigger
+ * was retired with the unified scroll-through panel (no more Next /
+ * Back buttons); the event now fires off the panel's
+ * ``useSectionStatuses`` derivation instead. The event name and shape
+ * are preserved so existing funnel dashboards keep reading the same
+ * key — only the trigger surface changed.
+ *
+ * Dedup contract: callers MUST track which steps already fired this
+ * event in the current session to avoid one completion firing every
+ * render. ``StartupValuationPanel`` does this with a ``Ref<Set>``.
  */
 export function trackStudioStepCompleted(
   step: StudioStep,

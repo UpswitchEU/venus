@@ -121,10 +121,11 @@ export function InceptionLensPicker(_props: InceptionLensPickerProps) {
         })}
       </div>
 
-      <p className="rounded-md bg-primary/[0.04] p-2.5 text-[11px] leading-relaxed text-foreground/65">
-        <span className="font-medium text-foreground">{t('whatLensLead')}</span>{' '}
-        {t('whatLensBody')}
-      </p>
+      {/* "What the lens does" methodology paragraph relocated to
+          the ValuationIQ report (advisor-CTA partial / lens
+          descriptors) on 2026-05-10. The picker stays as the input
+          control; the engine math + variance-band explanation is
+          report-side. */}
     </section>
   )
 }

@@ -182,6 +182,24 @@ export function MilestoneCard({
                   {opt.level === 'none' ? '—' : `+${formatEur(eurValue)}`}
                 </span>
               )}
+              {/* Scorecard mode: show the Bill Payne 0.5×–1.5×
+                  peer-comparison multiplier this option produces.
+                  Mirrors `_score_to_multiplier` in scorecard.py so the
+                  founder sees the exact lever they're picking — same
+                  number that prints in the method-breakdown table. */}
+              {eurValue == null && weightPct != null && (
+                <span
+                  className={cn(
+                    'shrink-0 rounded-md px-2 py-1 text-xs font-medium tabular-nums',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-foreground/5 text-foreground/55'
+                  )}
+                  aria-label={`${opt.label} multiplier ${(0.5 + MATURITY_TO_SCORE[opt.level] / 100).toFixed(2)}×`}
+                >
+                  {(0.5 + MATURITY_TO_SCORE[opt.level] / 100).toFixed(2)}×
+                </span>
+              )}
             </button>
           )
         })}
@@ -223,7 +241,13 @@ export function MilestoneCard({
         </motion.div>
       )}
 
-      {/* Evidence text — investor justification sentence */}
+      {/* Evidence text — investor justification sentence. The text
+          becomes the per-milestone footnote in the investor PDF, so a
+          live char counter (especially within 30 chars of the limit)
+          tells the founder when they're about to truncate the
+          rationale that ships verbatim. The 280-char cap matches
+          Twitter-paragraph length — long enough for a defensible
+          claim, short enough to read in one breath. */}
       <div className="mt-5">
         <label
           htmlFor={`evidence-${milestoneKey}`}
@@ -240,6 +264,26 @@ export function MilestoneCard({
           onBlur={handleEvidenceBlur}
           maxLength={280}
         />
+        {(() => {
+          const count = (evidence ?? '').length
+          const remaining = 280 - count
+          // Show counter only once the user has typed something — keeps
+          // the empty-state clean, surfaces the limit only when relevant.
+          if (count === 0) return null
+          const nearLimit = remaining <= 30
+          return (
+            <p
+              className={cn(
+                'mt-1 text-[10px] tabular-nums',
+                nearLimit ? 'text-amber-700 dark:text-amber-300' : 'text-foreground/45',
+              )}
+            >
+              {nearLimit
+                ? t('evidenceCounterNearLimit', { count, remaining })
+                : t('evidenceCounter', { count })}
+            </p>
+          )
+        })()}
       </div>
     </motion.section>
   )

@@ -76,6 +76,13 @@ export interface YearDataInput {
   /** Explicit FCFF for forecast years (DCF “zonder EBITDA” mode). */
   free_cash_flow?: number
 
+  /** Annual rent expense — Hermes provider mappers populate this from
+   * MAR class 61x / RGS huurkosten ledger codes. Surfaced on Venus
+   * formData so the Liquidation form can prefill `liq_monthly_rent`
+   * as `rent_expense / 12`. The engine ignores this field on its own
+   * (rent feeds the wind-down build-up only via `liquidation_inputs`). */
+  rent_expense?: number
+
   // Forecast flag — distinguishes user-provided projections from historical actuals
   is_forecast?: boolean
 }
@@ -225,6 +232,32 @@ export interface ValuationRequest {
    * Mirrors `apps/titan-api/src/valuations/dto/valuation-request.dto.ts` (`startupInputsSchema`).
    */
   startup_inputs?: Record<string, unknown>
+
+  /**
+   * Liquidation Phase 2-4 advisor inputs — bundled by
+   * `buildValuationRequest` from the `LiquidationInputsSection` form
+   * fields (`liq_*`).  Keys map 1:1 to the engine's
+   * `calculate_liquidation_method` kwargs.
+   *
+   * Mirrors:
+   *   - Titan Zod (`valuation-request.dto.ts:liquidation_inputs`)
+   *   - Pydantic legacy (`legacy_schemas.ValuationRequest.liquidation_inputs`)
+   *   - Pydantic stateless (`stateless_api.CalculateRequest.liquidation_inputs`)
+   *
+   * Open-shaped on purpose: only the 4 + 1 fields below are wired
+   * from the UI today, but the engine accepts 14 more reserved kwargs
+   * (per-tier liability_buckets, runway_months_*, distress_wacc_*,
+   * multiples_value_override, identifiable_intangibles_uplift_pct,
+   * etc.).  Keeping the type open keeps the contract migration-free.
+   */
+  liquidation_inputs?: {
+    headcount?: number
+    monthly_rent?: number
+    paid_up_capital?: number
+    deferred_tax_liabilities?: number
+    owner_premise_override?: 'orderly_liquidation' | 'forced_liquidation'
+    [key: string]: unknown
+  }
 
   /**
    * Free-form caller metadata forwarded to ValuationIQ's `request.metadata`.
@@ -492,6 +525,34 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   capital_last_round_amount?: number
   capital_last_round_post_money?: number
   capital_last_round_date?: string
+
+  // ---------------------------------------------------------------------
+  // Meerwaarde-tax (fiscal_4x) data inputs — the four amount values
+  // captured by Venus FiscalInputsSection for the cedent's 31/12/2025
+  // cost-basis filing under Art. 90 WIB 92. Bundled by
+  // `buildValuationRequest` into a `fiscal_inputs: dict` on the request,
+  // forwarded through Titan and ValuationIQ's stateless_router into the
+  // metadata consumed by `fiscal_section.py`. None of these change the
+  // engine's forfait formula — they populate the four-anchor "hoogste
+  // van" worksheet on the report.
+  //
+  // Advisory metadata (peildatum, company role, EBITDA basis,
+  // internal-transfer flag, anchors-acknowledged attestation) is NOT
+  // declared here — the data rail collects only what the advisor
+  // brings; everything else is auto-derived by the report builder
+  // (peildatum from closed_fiscal_year_data.year, company role from
+  // KBO NACE, EBITDA basis from `fiscal_uses_normalized_ebitda`) or
+  // set on `request.metadata` via firm/transaction settings.
+  // ---------------------------------------------------------------------
+  /** Aanschaffingswaarde 31/12/2025 (advisor pin). When omitted the
+   *  report derives it from the max-of-four anchors. */
+  fiscal_acquisition_cost?: number
+  /** Anchor 2 — contractuele formule (aandeelhoudersovereenkomst). */
+  fiscal_anchor_2_value?: number
+  /** Anchor 3 — objectieve markttransactie 2025. */
+  fiscal_anchor_3_value?: number
+  /** Anchor 4 — onafhankelijk waarderingsverslag (deadline 31/12/2027). */
+  fiscal_anchor_4_value?: number
 }
 
 // -----------------------------------------------------------------------------

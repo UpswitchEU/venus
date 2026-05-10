@@ -1,312 +1,141 @@
 'use client'
 
 /**
- * Step 8 — Investor-ready preview.
+ * Step 8 — Pre-submit gate.
  *
- * Live "pre-result" summary the founder sees inside the unified
- * `StartupValuationPanel` before clicking the canonical submit footer
- * below the panel.  Three blocks:
- *   1. Deck-ready one-liner with pre-money / post-money / dilution rollup.
- *      Pre-money matches the Round step: term-sheet target if set, else the
- *      live leg blend from `useLiveValuation`.
- *   2. Football-field bar chart per leg.
- *   3. Evidence sentences the founder typed for each milestone — the
- *      "why" lines that surface in the PDF investor narrative.
+ * The left panel is for INPUT.  The valuation report (rendered
+ * server-side by ValuationIQ) is the canonical advisory OUTPUT.
+ * Earlier versions of this step duplicated the report's headline
+ * (deck-ready sentence, football field, evidence rollup, narrative
+ * — every block that exists on the PDF), which competed with the
+ * actual report and forced founders to read the same numbers twice.
+ *
+ * This step now does ONE thing: tells the founder whether they're
+ * ready to click submit, and surfaces the blockers/warnings they
+ * still need to fix.  Each finding carries a "fix in {step}" jump
+ * link that scrolls them straight to the offending input section —
+ * no hunting through the panel.
+ *
+ * Everything that used to live here:
+ *   - deck-ready one-liner            → startup_one_pager.html
+ *   - football field                  → startup_one_pager.html / exec_summary
+ *   - evidence rollup                 → startup_method_breakdown.html
+ *   - narrative                       → startup_executive_summary.html
+ *   - "X% pedigree multiplier" chip   → startup_method_breakdown.html
  *
  * The full HTML/PDF report is rendered server-side by ValuationIQ once
  * `StartupSubmitFooter` (sibling component below the panel) fires the
  * canonical `valuationService.calculateValuation` call.  This step is
- * deliberately preview-only — no network, no submit button.  Health
- * issues that would gate a credible PDF are routed to the Studio
- * Co-pilot rail rather than blocking inline.
+ * deliberately preview-only — no network, no submit button.
  */
 
-import { AlertCircle, Check, Copy } from 'lucide-react'
+import { AlertCircle, ArrowRight, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useCallback, useState } from 'react'
-import { getMilestoneCopy } from '@/features/startup-studio/data/maturityOptions'
-import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
-import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import { useStudioIssues, type StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStudioLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import {
-  isValidPreMoneyTarget,
-  resolveHeadlinePreMoney,
-} from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
-import {
-  STUDIO_BERKUS_KEYS,
-  STUDIO_SCORECARD_KEYS,
-  useStartupValuationStore,
-} from '@/store/manual/useStartupValuationStore'
-
-const REPORT_LEG_KEYS = ['berkus', 'vc', 'saas_forward', 'scorecard'] as const
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
 interface ReportStepProps {
   /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
+  /** Forwarded by `StartupValuationPanel`; unused on this step. */
+  advisorMode?: boolean
+}
+
+/** Map a StudioStepId to the DOM anchor `StartupValuationPanel` mounts. */
+const STEP_ANCHOR: Record<string, string> = {
+  profile: 'startup-section-profile',
+  berkus: 'startup-section-berkus',
+  scorecard: 'startup-section-scorecard',
+  founder_pedigree: 'startup-section-pedigree',
+  traction: 'startup-section-traction',
+  exit_story: 'startup-section-exit',
+  round_simulator: 'startup-section-round',
+  report: 'startup-section-report',
+}
+
+function jumpToStep(stepId: string): void {
+  if (typeof window === 'undefined') return
+  const anchor = STEP_ANCHOR[stepId]
+  if (!anchor) return
+  const el = document.getElementById(anchor)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 export function ReportStep(_props: ReportStepProps) {
   const locale = useStudioLocale()
   const t = useTranslations('startupStudio.report')
-  const tRound = useTranslations('startupStudio.round')
-  const tCommon = useTranslations('startupStudio.common')
-  const tMaturity = useTranslations('startupStudio.common.maturityLabels')
-  const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
-  const tSectorLabels = useTranslations('startupStudio.narrative.sectorLabels')
+  const tHealth = useTranslations('startupStudio.health')
+  const tSections = useTranslations('startupStudio.sections')
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code)
-  const investment = useStartupValuationStore((s) => s.investment_amount_sought)
-  const capTable = useStartupValuationStore((s) => s.cap_table)
-  const description = useStartupValuationStore((s) => s.description)
-  const evidenceNotes = useStartupValuationStore((s) => s.evidence_notes)
-  const maturity = useStartupValuationStore((s) => s.maturity)
   const { benchmark } = useStartupBenchmark(country || 'BE', stage, sector)
-  const valuation = useLiveValuation(benchmark)
   const { blockers, warnings } = useStudioIssues(benchmark)
 
-  const [copied, setCopied] = useState(false)
-
-  const blendedMid = valuation.blended?.mid ?? null
-  const headlinePre = resolveHeadlinePreMoney(capTable.pre_money_target, blendedMid)
-  const postMoney = headlinePre != null && investment ? headlinePre + investment : null
-  const dilutionPct =
-    headlinePre != null && investment && postMoney != null && postMoney > 0
-      ? (investment / postMoney) * 100
-      : null
-
-  /** Priced-round copy; SAFEs make post-money % less meaningful until conversion. */
-  const pricedRoundForCopy = capTable.safe_notes.length === 0
-  const usesBlendPreMoney = !isValidPreMoneyTarget(capTable.pre_money_target)
-  const preMoneyForTypicalSlice =
-    investment != null && investment > 0 && Number.isFinite(investment)
-      ? (() => {
-          const target = 0.12
-          const pre = investment / target - investment
-          return pre > 0 && Number.isFinite(pre) ? pre : null
-        })()
-      : null
-  const showHighRoundDilutionHint =
-    pricedRoundForCopy &&
-    investment != null &&
-    investment > 0 &&
-    dilutionPct != null &&
-    dilutionPct > 22 &&
-    preMoneyForTypicalSlice != null
-
-  const stageLabel = tStageLabels(stage)
-  const sectorLabel = tSectorLabels(sector)
-  const countryStr = country ?? ''
-
-  const deckSentence = (() => {
-    if (headlinePre == null) return null
-    const preF = formatEur(headlinePre)
-    if (!investment || !postMoney || dilutionPct == null) {
-      return t('deckPreOnly', {
-        preF,
-        stage: stageLabel,
-        sector: sectorLabel,
-        country: countryStr,
-      })
-    }
-    const askF = formatEur(investment)
-    const postF = formatEur(postMoney)
-    return t('deckFull', {
-      preF,
-      askF,
-      postF,
-      dilution: dilutionPct.toFixed(0),
-      stage: stageLabel,
-      sector: sectorLabel,
-      country: countryStr,
-    })
-  })()
-
-  const copyDeckSentence = useCallback(async () => {
-    if (!deckSentence) return
-    try {
-      await navigator.clipboard.writeText(deckSentence)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard API blocked — sentence remains visible on-screen.
-    }
-  }, [deckSentence])
-
-  const filledEvidence = [...STUDIO_BERKUS_KEYS, ...STUDIO_SCORECARD_KEYS].filter(
-    (key) => (evidenceNotes[key] ?? '').trim().length > 0,
-  )
-
-  const blended = valuation.blended
-
-  function legLabel(key: string, fallback: string): string {
-    if ((REPORT_LEG_KEYS as readonly string[]).includes(key)) {
-      return t(`legLabels.${key}` as 'legLabels.berkus')
-    }
-    return fallback
-  }
+  const total = blockers.length + warnings.length
 
   return (
     <div className="space-y-5">
-      {deckSentence && (
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-primary">
-                {t('readyForDeck')}
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-foreground">{deckSentence}</p>
-              <div className="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-background/60 p-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {tCommon('preMoney')}
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-                    {formatEur(headlinePre)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {tCommon('postMoney')}
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-                    {formatEur(postMoney)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-foreground/55">
-                    {tCommon('dilution')}
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-                    {dilutionPct != null ? `${dilutionPct.toFixed(0)}%` : '—'}
-                  </p>
-                </div>
-              </div>
-              {pricedRoundForCopy && investment != null && investment > 0 && postMoney != null && (
-                <p className="mt-3 text-[11px] leading-snug text-foreground/55">{t('dilutionDefinition')}</p>
-              )}
-              {!pricedRoundForCopy && investment != null && investment > 0 && headlinePre != null && (
-                <p className="mt-3 text-[11px] leading-snug text-foreground/55">{t('safeNotesPricedRoundNote')}</p>
-              )}
-              <p className="mt-2 text-[11px] leading-snug text-foreground/55">
-                {usesBlendPreMoney ? t('preMoneySourceBlended') : t('preMoneySourceOverride')}
-              </p>
-              {showHighRoundDilutionHint && dilutionPct != null && (
-                <p className="mt-2 rounded-md border border-amber-400/40 bg-amber-50/50 px-3 py-2 text-[11px] leading-snug text-amber-950/90 dark:border-amber-700/35 dark:bg-amber-950/30 dark:text-amber-100/85">
-                  {tRound('roundDilutionHighHint', {
-                    roundPct: dilutionPct.toFixed(1),
-                    preHint: formatEur(preMoneyForTypicalSlice),
-                  })}
-                </p>
-              )}
-              {valuation.pedigreeMultiplier !== 1.0 && (
-                <p className="mt-2 text-[11px] text-foreground/55">
-                  {t('pedigreeIncluded', {
-                    mult: valuation.pedigreeMultiplier.toFixed(2),
-                    mid: formatEur(valuation.blendedPrePedigree?.mid ?? null),
-                  })}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={copyDeckSentence}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background/80 px-3 py-2 text-xs font-medium text-foreground/80 transition hover:border-primary hover:text-primary"
-              aria-label={t('copyAria')}
-            >
-              <Copy className="h-3.5 w-3.5" />
-              {copied ? t('copied') : t('copy')}
-            </button>
-          </div>
+      <PreSubmitSummary blockerCount={blockers.length} warningCount={warnings.length} />
+
+      {total > 0 && (
+        <IssueList
+          issues={[...blockers, ...warnings]}
+          locale={locale}
+          tSections={tSections}
+          tHealth={tHealth}
+        />
+      )}
+
+      {/* Inline jump CTA — the canonical submit lives in the sticky
+          StartupSubmitFooter below the panel.  We render a clear
+          "scroll-to-submit" affordance (not the actual submit, to keep
+          one source of truth for gating, validation and analytics). */}
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window === 'undefined') return
+          const el = document.getElementById('startup-submit-footer')
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }}
+        aria-label={t('submitJumpAria')}
+        className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-5 text-left transition hover:border-primary hover:from-primary/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground sm:text-base">
+            {t('submitJumpLabel')}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-foreground/60">
+            {t('submitJumpHint')}
+          </p>
         </div>
-      )}
-
-      {blended && (
-        <p className="text-xs text-foreground/65">
-          {t('range')}
-          <span className="font-semibold tabular-nums text-foreground">{formatEur(blended.low)}</span>
-          {' – '}
-          <span className="font-semibold tabular-nums text-foreground">{formatEur(blended.high)}</span>
-        </p>
-      )}
-
-      <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">{t('footballFieldTitle')}</h3>
-
-        {(() => {
-          const max = Math.max(...valuation.legs.map((l) => l.value ?? 0), 1)
-          return (
-            <div className="space-y-3">
-              {valuation.legs.map((leg) => {
-                const value = leg.value ?? 0
-                const label = legLabel(leg.key, leg.label)
-                return (
-                  <div key={leg.key}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-medium text-foreground">{label}</span>
-                      <span className="tabular-nums text-foreground/65">
-                        {formatEur(leg.value)}{' '}
-                        <span className="text-foreground/40">
-                          ({(leg.weight * 100).toFixed(0)}%)
-                        </span>
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/5">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${(value / max) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })()}
-      </div>
-
-      {filledEvidence.length > 0 && (
-        <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <h3 className="mb-1 text-sm font-semibold text-foreground">{t('yourEvidence')}</h3>
-          <p className="mb-4 text-xs text-foreground/55">{t('evidenceHint')}</p>
-          <ul className="space-y-3">
-            {filledEvidence.map((key) => {
-              const copy = getMilestoneCopy(key, locale)
-              return (
-                <li key={key} className="rounded-lg bg-primary/5 p-3">
-                  <p className="text-xs font-semibold text-foreground">
-                    {copy.title}{' '}
-                    <span className="text-foreground/45">
-                      · {tCommon('level')} {tMaturity(maturity[key])}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-foreground/75">{evidenceNotes[key]}</p>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
-
-      {description && (
-        <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">{t('pitch')}</h3>
-          <p className="text-sm leading-relaxed text-foreground/75">{description}</p>
-        </div>
-      )}
-
-      <HealthCheck blockerCount={blockers.length} warningCount={warnings.length} />
+        <span
+          aria-hidden
+          className="shrink-0 text-2xl text-primary transition-transform group-hover:translate-y-0.5"
+        >
+          ↓
+        </span>
+      </button>
     </div>
   )
 }
 
-interface HealthCheckProps {
+interface PreSubmitSummaryProps {
   blockerCount: number
   warningCount: number
 }
 
-function HealthCheck({ blockerCount, warningCount }: HealthCheckProps) {
+/**
+ * Top-of-step status banner.  Three states:
+ *   - all clear → emerald "ready to submit"
+ *   - blockers > 0 → rose "must fix before submit"
+ *   - warnings only → amber "will still ship, but recommended fix"
+ */
+function PreSubmitSummary({ blockerCount, warningCount }: PreSubmitSummaryProps) {
   const t = useTranslations('startupStudio.health')
   const totalIssues = blockerCount + warningCount
 
@@ -356,17 +185,78 @@ function HealthCheck({ blockerCount, warningCount }: HealthCheckProps) {
           >
             {title}
           </p>
-          <p
-            className={
-              blockerCount > 0
-                ? 'mt-1 text-xs leading-relaxed text-rose-700/85 dark:text-rose-300/90'
-                : 'mt-1 text-xs leading-relaxed text-amber-700/85 dark:text-amber-300/90'
-            }
-          >
-            {t('assistantHint')}
-          </p>
         </div>
       </div>
     </div>
+  )
+}
+
+interface IssueListProps {
+  issues: StudioIssue[]
+  locale: 'en' | 'nl'
+  tSections: ReturnType<typeof useTranslations>
+  tHealth: ReturnType<typeof useTranslations>
+}
+
+/**
+ * Inline list of blockers + warnings with one-click jumps to the
+ * offending step.  The audit (A13) flagged that the previous "Open
+ * the assistant" hint forced founders into 2 extra clicks just to
+ * see what was wrong — this list gives them the diagnosis + the
+ * action in one surface.
+ */
+function IssueList({ issues, locale, tSections, tHealth }: IssueListProps) {
+  return (
+    <ul className="space-y-2">
+      {issues.map((issue) => {
+        const isBlocker = issue.severity === 'block'
+        return (
+          <li
+            key={issue.id}
+            className={
+              isBlocker
+                ? 'rounded-xl border border-rose-200/60 bg-rose-50/40 p-3 dark:border-rose-800/40 dark:bg-rose-950/20'
+                : 'rounded-xl border border-amber-200/60 bg-amber-50/40 p-3 dark:border-amber-800/40 dark:bg-amber-950/20'
+            }
+          >
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className={
+                  isBlocker
+                    ? 'mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-rose-500'
+                    : 'mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500'
+                }
+              />
+              <div className="min-w-0 flex-1">
+                <p
+                  className={
+                    isBlocker
+                      ? 'text-xs font-semibold text-rose-900 dark:text-rose-200'
+                      : 'text-xs font-semibold text-amber-900 dark:text-amber-200'
+                  }
+                >
+                  {issue.title[locale]}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-foreground/65">
+                  {issue.action[locale]}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => jumpToStep(issue.step)}
+                aria-label={tHealth('jumpToStepAria', {
+                  step: tSections(issue.step),
+                })}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-foreground/15 bg-background px-2 py-1 text-[10px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary"
+              >
+                {tSections(issue.step)}
+                <ArrowRight className="h-3 w-3" aria-hidden />
+              </button>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

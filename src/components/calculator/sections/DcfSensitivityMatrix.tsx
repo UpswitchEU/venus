@@ -48,7 +48,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   const formatPercent = (value: number) => `${ratioFormatter.format(value * 100)}%`
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple'
-      ? `${ratioFormatter.format(value)}x`
+      ? `${ratioFormatter.format(value)}×`
       : formatPercent(value)
 
   const centerRowIndex = Math.floor(sensitivityData.wacc_values.length / 2)

@@ -30,7 +30,7 @@
  */
 
 import { Building2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { TARGET_COUNTRIES } from '@/config/countries'
@@ -48,31 +48,93 @@ import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import { registryService } from '@/services/registry/registryService'
 import type { CompanySearchResult } from '@/services/registry/types'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import {
+  STARTUP_SECTOR_EXIT_MULTIPLES,
+  STARTUP_STAGE_DEFAULT_RAISE,
+  type StartupSector,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
+import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
 
 interface CompanyCardStepProps {
   /** @deprecated Route locale from next-intl is used. */
   locale?: 'en' | 'nl'
+  /** Forwarded by `StartupValuationPanel`; unused on this step. */
+  advisorMode?: boolean
 }
 
 const STAGE_VALUES: StartupStage[] = ['pre_seed', 'seed', 'series_a']
 
-const LEGAL_FORM_OPTIONS = [
-  { value: 'bv', label: 'BV' },
-  { value: 'nv', label: 'NV' },
-  { value: 'eenmanszaak', label: 'Eenmanszaak' },
-  { value: 'vof', label: 'VOF' },
-  { value: 'cvba', label: 'CVBA' },
-  { value: 'vzw', label: 'VZW' },
-]
+/**
+ * Country-scoped legal-form enum. The Belgian set was previously the
+ * only one shipped, so a Dutch / French / German founder selecting a
+ * non-BE country still saw the BE labels (BV/NV/Eenmanszaak/VOF/
+ * CVBA/VZW). NL has its own canonical entities (CV, Stichting, etc.);
+ * shipping the wrong list silently drove dirty data into Titan and
+ * confused Mercury's downstream form. Falls back to BE for any
+ * unknown country code so existing payloads keep rendering.
+ */
+const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<string, ReadonlyArray<{ value: string; label: string }>> = {
+  BE: [
+    { value: 'bv', label: 'BV' },
+    { value: 'nv', label: 'NV' },
+    { value: 'eenmanszaak', label: 'Eenmanszaak' },
+    { value: 'vof', label: 'VOF' },
+    { value: 'cvba', label: 'CVBA' },
+    { value: 'vzw', label: 'VZW' },
+  ],
+  NL: [
+    { value: 'bv', label: 'BV' },
+    { value: 'nv', label: 'NV' },
+    { value: 'eenmanszaak', label: 'Eenmanszaak' },
+    { value: 'vof', label: 'VOF' },
+    { value: 'cv', label: 'CV (Coöperatie)' },
+    { value: 'stichting', label: 'Stichting' },
+  ],
+  FR: [
+    { value: 'sas', label: 'SAS' },
+    { value: 'sasu', label: 'SASU' },
+    { value: 'sarl', label: 'SARL' },
+    { value: 'eurl', label: 'EURL' },
+    { value: 'sa', label: 'SA' },
+    { value: 'micro_entreprise', label: 'Micro-entreprise' },
+  ],
+  DE: [
+    { value: 'gmbh', label: 'GmbH' },
+    { value: 'ug', label: 'UG (haftungsbeschränkt)' },
+    { value: 'ag', label: 'AG' },
+    { value: 'gbr', label: 'GbR' },
+    { value: 'kg', label: 'KG' },
+    { value: 'einzelunternehmen', label: 'Einzelunternehmen' },
+  ],
+} as const
+
+function getLegalFormOptions(countryCode: string): ReadonlyArray<{ value: string; label: string }> {
+  return (
+    LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
+    LEGAL_FORM_OPTIONS_BY_COUNTRY.BE
+  )
+}
 
 export function CompanyCardStep(_props: CompanyCardStepProps) {
   const t = useTranslations('startupStudio.companyCard')
+  const locale = useLocale()
+  // Locale-aware integer formatter — matches the same Intl rules
+  // CurrencyInput's display uses, so the placeholder for round size
+  // never disagrees with the value the founder ends up seeing once
+  // they type. NL renders "750.000", EN-BE renders "750,000".
+  const placeholderIntFmt = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+        maximumFractionDigits: 0,
+        useGrouping: true,
+      }),
+    [locale],
+  )
   const stageControlOptions = useMemo(
     () =>
       STAGE_VALUES.map((value) => ({
@@ -82,6 +144,14 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     [t],
   )
   const stage = useStartupValuationStore((s) => s.stage)
+  const sector = useStartupValuationStore((s) => s.sector)
+  // Subscribe to the applied exit multiple so the SectorChip can show
+  // the *current* number (post-override), not the sector default.  Two
+  // truths in the same panel was the audit finding — the chip used to
+  // print `6×` while Exit Story applied `9×`.
+  const appliedExitMultiple = useStartupValuationStore(
+    (s) => s.exit_revenue_multiple,
+  )
   const raise = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
   // Traction signals — used to surface a "you might want SaaS valuation
@@ -92,17 +162,51 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const arr = useStartupValuationStore((s) => s.arr)
   const setField = useStartupValuationStore((s) => s.setField)
   const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
+  const seedStageFromFoundingYearIfDefault = useStartupValuationStore(
+    (s) => s.seedStageFromFoundingYearIfDefault,
+  )
 
-  // Materially recurring revenue threshold for the seed nudge.
+  // Auto-seed the round size from the stage benchmark.  Two trigger
+  // paths:
+  //   1. First paint with raise null — fill in the stage default.
+  //   2. Stage change while raise still matches *some* stage default —
+  //      treat this as "founder is still on auto-seed" and re-seed
+  //      to the new stage's default.  A founder who typed a custom
+  //      number (e.g. €600K) won't have it match any default, so we
+  //      never clobber typed values.
+  // Without (2), a founder who lands on the seed default (€750K),
+  // realises they're pre-seed, and flips the stage segmented control,
+  // would still see €750K (vs the €250K pre-seed default) until they
+  // manually clear and re-type.  Stage defaults are Atomico/Dealroom
+  // 2024 cohort medians.
+  useEffect(() => {
+    const stageDefaults = Object.values(STARTUP_STAGE_DEFAULT_RAISE)
+    const onSomeDefault =
+      typeof raise === 'number' && stageDefaults.includes(raise)
+    if (raise == null || onSomeDefault) {
+      const next = STARTUP_STAGE_DEFAULT_RAISE[stage]
+      if (raise !== next) {
+        setField('investment_amount_sought', next)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage])
+
+  // Materially recurring revenue threshold for the SaaS-pivot nudge.
   //   - €10k MRR ≈ €120k ARR — the empirical pivot point where ARR
   //     multiples start producing tighter, more defensible numbers
   //     than the Berkus / VC-method blend.
   //   - We accept either MRR or ARR so that founders who only filled
   //     one of the two still get the prompt.
+  //   - Audit A7 fix: nudge fires on ANY stage with material revenue,
+  //     not just `seed`.  A pre-seed founder who's already monetising
+  //     (rare but real) should see the same suggestion; a Series-A
+  //     founder is already covered by the dedicated `seriesANudge`
+  //     above so we suppress the duplicate here.
   const SEED_NUDGE_MRR_THRESHOLD = 10_000
   const SEED_NUDGE_ARR_THRESHOLD = 120_000
   const seedHasMaterialRevenue =
-    stage === 'seed' &&
+    stage !== 'series_a' &&
     ((typeof mrr === 'number' && mrr >= SEED_NUDGE_MRR_THRESHOLD) ||
       (typeof arr === 'number' && arr >= SEED_NUDGE_ARR_THRESHOLD))
 
@@ -143,25 +247,100 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     seedSectorFromNaceIfDefault(naceCode)
   }, [naceCode, seedSectorFromNaceIfDefault])
 
-  // Mercury KBO calculator → Studio handoff: when a founder lands here
-  // via `?prefilledQuery=Acme%20Robotics`, seed the company-name field
-  // exactly once.  Only prefill when the field is empty so we never
-  // clobber a name the founder already typed (or one that was prefilled
-  // by a previous KBO lookup and persisted in the form store).  The
-  // 120-char clamp matches the input's `maxLength` and the schema cap
-  // enforced server-side by the Manual valuation request builder.
+  // Mercury → Venus deep-link prefill. Mercury can supply a rich
+  // context envelope through URL params so the studio is already
+  // filled in before the founder touches a field. The handler runs
+  // exactly once on first mount (`prefilledRef` gate); each parser
+  // refuses to clobber a non-empty value the founder already has, so
+  // a returning user with localStorage-persisted state never has
+  // their typed values overwritten.
+  //
+  // Honoured params (all optional, all URL-encoded):
+  //   companyName / prefilledQuery → company name (120-char clamp)
+  //   stage           → 'pre_seed' | 'seed' | 'series_a'
+  //   sector          → one of the 8 StartupSector enum values
+  //   country         → 2-letter ISO (BE / NL / FR / DE / …)
+  //   mrr             → integer EUR
+  //   arr             → integer EUR
+  //   raise           → integer EUR (round size)
+  //   pitch           → URL-encoded one-liner (240-char clamp)
+  //
+  // Anything not honoured is silently ignored — Mercury can keep
+  // shipping experimental params without breaking the studio.
   const prefilledRef = useRef(false)
   useEffect(() => {
     if (prefilledRef.current) return
     if (typeof window === 'undefined') return
     prefilledRef.current = true
     const params = new URLSearchParams(window.location.search)
-    const query = params.get('prefilledQuery')?.trim()
-    if (!query) return
-    const current = useManualFormStore.getState().formData.company_name?.trim() ?? ''
-    if (current) return
-    updateFormData({ company_name: query.slice(0, 120) })
-  }, [updateFormData])
+    const formStore = useManualFormStore.getState()
+    const studioStore = useStartupValuationStore.getState()
+
+    // Company name — both the legacy alias and the new one.
+    const nameParam =
+      params.get('companyName')?.trim() || params.get('prefilledQuery')?.trim()
+    if (nameParam && !(formStore.formData.company_name?.trim() ?? '')) {
+      updateFormData({ company_name: nameParam.slice(0, 120) })
+    }
+
+    // Stage — only flip when the param matches the enum exactly. We
+    // deliberately don't gate on a "user-set" flag because the URL
+    // is the single source-of-truth for first-mount intent.
+    const stageParam = params.get('stage')?.trim()
+    if (
+      stageParam === 'pre_seed' ||
+      stageParam === 'seed' ||
+      stageParam === 'series_a'
+    ) {
+      setField('stage', stageParam)
+    }
+
+    // Sector — the store has `_sectorWasUserSet` to keep the NACE
+    // seeder from clobbering an explicit pick later. The URL pre-fill
+    // counts as the same kind of explicit pick.
+    const sectorParam = params.get('sector')?.trim() as StartupSector | undefined
+    if (
+      sectorParam &&
+      (SECTOR_OPTIONS as ReadonlyArray<string>).includes(sectorParam)
+    ) {
+      setField('sector', sectorParam)
+    }
+
+    // Country — pass through to both stores so the registry search
+    // and the engine envelope agree on the same code.
+    const countryParam = params.get('country')?.trim().toUpperCase()
+    if (countryParam && countryParam.length === 2) {
+      const currentCountry = (formStore.formData.country_code ?? '').toUpperCase()
+      if (!currentCountry) {
+        updateFormData({ country_code: countryParam })
+        setField('country_code', countryParam)
+      }
+    }
+
+    // Numeric prefills — defensive parsing rejects NaN / negative.
+    const parseIntParam = (key: string): number | null => {
+      const raw = params.get(key)
+      if (!raw) return null
+      const n = Math.round(Number(raw))
+      return Number.isFinite(n) && n > 0 ? n : null
+    }
+    const mrrParam = parseIntParam('mrr')
+    if (mrrParam != null && studioStore.mrr == null) setField('mrr', mrrParam)
+    const arrParam = parseIntParam('arr')
+    if (arrParam != null && studioStore.arr == null) setField('arr', arrParam)
+    const raiseParam = parseIntParam('raise')
+    if (raiseParam != null && studioStore.investment_amount_sought == null) {
+      setField('investment_amount_sought', raiseParam)
+    }
+
+    // Pitch — 240-char clamp matches the textarea's maxLength + the
+    // engine's schema cap. Only set when empty so a returning user's
+    // edits never get reset by a stale URL.
+    const pitchParam = params.get('pitch')?.trim()
+    if (pitchParam && !(studioStore.description ?? '').trim()) {
+      setField('description', pitchParam.slice(0, 240))
+    }
+  }, [setField, updateFormData])
 
   // -------------------------------------------------------------------
   // Country
@@ -221,6 +400,22 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           typeof btIdRaw === 'string' && btIdRaw.trim() ? btIdRaw.trim() : undefined
         const businessTypeTitle =
           typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
+        // Founding year — prefer the explicit numeric field, fall back
+        // to the first 4-digit year found in ``startDate`` ("2018-04-12"
+        // / "12/04/2018").  The studio uses this to pre-fill the funding
+        // stage; missing / unparseable → ``undefined`` (caller skips).
+        const foundingYearRaw = raw.founding_year
+        const startDateRaw = raw.start_date
+        const foundingYearFromField =
+          typeof foundingYearRaw === 'number' && Number.isFinite(foundingYearRaw)
+            ? foundingYearRaw
+            : undefined
+        const foundingYearFromStartDate = (() => {
+          if (typeof startDateRaw !== 'string') return undefined
+          const m = startDateRaw.match(/(19|20)\d{2}/)
+          return m ? Number(m[0]) : undefined
+        })()
+        const foundingYear = foundingYearFromField ?? foundingYearFromStartDate
         return {
           id:
             r.company_id ||
@@ -240,6 +435,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           countryCode: r.country_code || country,
           businessTypeId,
           businessTypeTitle,
+          foundingYear,
         }
       })
     },
@@ -301,13 +497,63 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           updates.industry = mapped.category
         }
       }
+      // Founding year — registry-supplied incorporation year drives the
+      // engine envelope's ``founding_year`` field AND seeds the funding
+      // stage default below.  Only set when the form-store doesn't
+      // already carry one (returning user, prior session, etc.) so we
+      // never clobber a manually-entered year.
+      if (
+        typeof company.foundingYear === 'number' &&
+        Number.isFinite(company.foundingYear)
+      ) {
+        const currentFoundingYear = useManualFormStore.getState().formData
+          .founding_year
+        if (
+          currentFoundingYear === undefined ||
+          currentFoundingYear === null ||
+          (typeof currentFoundingYear === 'number' && currentFoundingYear === 0)
+        ) {
+          updates.founding_year = company.foundingYear
+        }
+      }
       // Bridge `legal_form` → SME `business_structure` mapping for any
       // downstream consumer that branches on it.  No-op if mapping fails.
       mapLegalFormToBusinessStructure(company.legalForm ?? '')
       updateFormData(updates)
       setField('country_code', String(updates.country_code))
+
+      // Stage smart-default — registry incorporation year → cohort
+      // bucket (pre_seed / seed / series_a).  Idempotent and bail-out
+      // safe (gated on `_stageWasUserSet`); see the action's docstring
+      // and ``inferStartupStageFromFoundingYear`` for the cohort math.
+      // Audit 2026-05-10 prefill win.
+      seedStageFromFoundingYearIfDefault(company.foundingYear ?? null)
+
+      // Auto-fill the founder's one-line pitch from the KBO/KVK
+      // activity label / NACE description ON FIRST MATCH only — never
+      // clobber a pitch the founder already typed.  This is a
+      // "best-available-data" prefill: the registry text isn't a real
+      // pitch, but it's a strong starting point the founder can refine
+      // in seconds.  120 chars matches the textarea soft-cap.
+      const currentDescription = useStartupValuationStore.getState().description
+      if (!currentDescription.trim()) {
+        const sourceText = (
+          company.activityLabel?.trim() ||
+          company.naceDescription?.trim() ||
+          ''
+        )
+        if (sourceText) {
+          setField('description', sourceText.slice(0, 120))
+        }
+      }
     },
-    [businessTypesForSearch, country, setField, updateFormData]
+    [
+      businessTypesForSearch,
+      country,
+      setField,
+      updateFormData,
+      seedStageFromFoundingYearIfDefault,
+    ]
   )
 
   const handleClearCompany = useCallback(() => {
@@ -422,7 +668,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
         <AuroraSelect
           label={t('legalForm')}
-          options={LEGAL_FORM_OPTIONS}
+          options={getLegalFormOptions(country)}
           value={legalForm}
           onChange={(val) => updateFormData({ legal_form: String(val) } as Record<string, unknown>)}
           size="sm"
@@ -450,29 +696,56 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
             {t(`stageSubtitles.${stage}` as never)}
           </p>
           {stage === 'series_a' && (
-            <div className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50/60 p-3 text-[11px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200">
-              <p>{t('seriesANudge')}</p>
-            </div>
+            <SwitchToArrNudge
+              tone="amber"
+              text={t('seriesANudge')}
+            />
           )}
           {seedHasMaterialRevenue && (
-            <div className="mt-3 rounded-lg border border-sky-300/50 bg-sky-50/60 p-3 text-[11px] leading-relaxed text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200">
-              <p>
-                {t('seedRevenueNudge', {
-                  mrr: String(Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10),
-                })}
-              </p>
-            </div>
+            <SwitchToArrNudge
+              tone="sky"
+              text={t('seedRevenueNudge', {
+                mrr: String(Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10),
+              })}
+            />
           )}
         </div>
+
+        {/* Engine-sector chip — surfaces the canonical sector enum the
+            engine reads (one of 8 values) and the exit multiple it
+            drives.  Until now the founder picked a "Business type" and
+            never saw what sector the NACE→sector inference resolved
+            to, even though that single field swings exit multiples
+            from 3× (consumer / hardware) to 10× (biotech).  Inline
+            override stays one click away. */}
+        <SectorChip
+          sector={sector}
+          onChange={(next) => setField('sector', next)}
+          appliedMultiple={appliedExitMultiple ?? null}
+        />
 
         <CurrencyInput
           label={t('roundRaised')}
           value={raise ?? undefined}
           onChange={(value) => setField('investment_amount_sought', value ?? null)}
-          placeholder="500.000"
+          placeholder={placeholderIntFmt.format(STARTUP_STAGE_DEFAULT_RAISE[stage])}
           size="sm"
           truncateLabel={false}
         />
+        {/* Round-size provenance — the seed is wired by an effect
+            higher up in this component (auto-fills from
+            STARTUP_STAGE_DEFAULT_RAISE on first paint). The badge
+            tells the founder whether they're still on the stage
+            default or have moved off it. */}
+        <div className="-mt-2">
+          <PrefillBadge
+            variant={
+              raise == null || raise === STARTUP_STAGE_DEFAULT_RAISE[stage]
+                ? 'stage_default'
+                : 'your_override'
+            }
+          />
+        </div>
 
         <AuroraTextarea
           label={t('pitchLabel')}
@@ -484,6 +757,160 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           size="sm"
         />
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SectorChip — read-only-by-default, one-click override
+// ---------------------------------------------------------------------------
+
+const SECTOR_OPTIONS: ReadonlyArray<StartupSector> = [
+  'saas',
+  'marketplace',
+  'fintech',
+  'biotech_healthtech',
+  'deeptech_ai',
+  'consumer',
+  'hardware',
+  'other',
+] as const
+
+/**
+ * Render the canonical engine sector + the exit multiple it drives.
+ * Founders never had a way to see what sector the NACE inference
+ * picked — and therefore no way to know that "marketplace" was using
+ * a 4× multiple while their pitch deck assumed 6× SaaS comps.  The
+ * chip surfaces both numbers and stays out of the way until clicked.
+ *
+ * `appliedMultiple` is the value Exit Story is currently using.  When
+ * it differs from the sector default we render the applied number with
+ * a small "(default 4×)" hint so the founder sees one truth on this
+ * panel, not two.  Falls back to the sector default when the founder
+ * hasn't picked yet.
+ */
+function SectorChip({
+  sector,
+  onChange,
+  appliedMultiple,
+}: {
+  sector: StartupSector
+  onChange: (next: StartupSector) => void
+  appliedMultiple?: number | null
+}) {
+  const t = useTranslations('startupStudio.companyCard')
+  const tSector = useTranslations('startupStudio.narrative.sectorLabels')
+  const [editing, setEditing] = useState(false)
+  const sectorLabel = tSector(sector)
+  const sectorDefault = STARTUP_SECTOR_EXIT_MULTIPLES[sector]
+  const multiple = appliedMultiple ?? sectorDefault
+  const isOverridden =
+    appliedMultiple != null && Math.abs(appliedMultiple - sectorDefault) > 0.01
+
+  if (!editing) {
+    // Display chip — sector label + change button only.  The exit
+    // multiple that earlier iterations rendered here ("6× exit
+    // benchmark") was calc context that belongs on the report, not
+    // on an input chip.  Removed 2026-05-10 to keep the input panel
+    // input-only.  The override marker stays because it's input
+    // metadata (tells the user their value differs from the
+    // sector default).
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.02] px-3 py-2 text-[12px] text-foreground/75">
+        <span className="font-medium uppercase tracking-wide text-foreground/55 text-[10px]">
+          {t('sectorChipLabel')}
+        </span>
+        <span className="font-semibold text-foreground">{sectorLabel}</span>
+        {isOverridden && (
+          <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-foreground/55">
+            override
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="ml-auto rounded-md border border-foreground/15 bg-background px-2 py-0.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary"
+        >
+          {t('sectorChipChange')}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-primary/40 bg-primary/[0.03] p-3">
+      <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-primary">
+        {t('sectorChipPickHeading')}
+      </p>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {SECTOR_OPTIONS.map((opt) => {
+          const isSelected = opt === sector
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                onChange(opt)
+                setEditing(false)
+              }}
+              className={[
+                'rounded-md px-2 py-1.5 text-[11px] font-medium transition',
+                isSelected
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-foreground/15 bg-background text-foreground/75 hover:border-primary/50 hover:text-primary',
+              ].join(' ')}
+            >
+              {tSector(opt)}{' '}
+              <span className="opacity-65 tabular-nums">
+                {STARTUP_SECTOR_EXIT_MULTIPLES[opt]}×
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-2 text-[10px] text-foreground/55">
+        {t('sectorChipPickHint')}
+      </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SwitchToArrNudge — surfaces the Series-A and post-revenue-seed
+// nudges with a clickable "Switch to ARR multiple" CTA. The text-only
+// nudge that was here before told the founder to "select the SaaS
+// valuation from the method selector" — but the method selector lives
+// somewhere else entirely, so the founder either ignored the prompt
+// or lost their inputs hunting for it. The CTA flips
+// `useManualResultsStore.selectedMethod` directly so the swap happens
+// in place, with all studio inputs preserved.
+// ---------------------------------------------------------------------------
+
+interface SwitchToArrNudgeProps {
+  tone: 'amber' | 'sky'
+  text: string
+}
+
+function SwitchToArrNudge({ tone, text }: SwitchToArrNudgeProps) {
+  const t = useTranslations('startupStudio.companyCard')
+  const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
+  const cls = tone === 'amber'
+    ? 'border-amber-300/50 bg-amber-50/60 text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200'
+    : 'border-sky-300/50 bg-sky-50/60 text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200'
+  const btnCls = tone === 'amber'
+    ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
+    : 'border-sky-500 bg-sky-500 text-white hover:bg-sky-600'
+  return (
+    <div className={`mt-3 rounded-lg border p-3 text-[11px] leading-relaxed ${cls}`}>
+      <p>{text}</p>
+      <button
+        type="button"
+        onClick={() => setSelectedMethod('arr_multiple')}
+        aria-label={t('switchToArrAria')}
+        className={`mt-2 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition ${btnCls}`}
+      >
+        {t('switchToArrCta')}
+      </button>
     </div>
   )
 }

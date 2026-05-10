@@ -1342,4 +1342,151 @@ describe('buildValuationRequest', () => {
       expect(note).toEqual({ amount: 100_000 })
     })
   })
+
+  describe('liquidation_inputs (Phase 2-4 advisor overrides)', () => {
+    it('omits liquidation_inputs entirely when no liq_* field is set', () => {
+      const result = buildValuationRequest(makeFormData(), [])
+      // Empty dict would overwrite engine defaults with nothing on the
+      // wire; unset is the right default so the valuation-iq orchestrator
+      // treats it as "engine defaults" (Graydon/KPMG cohort).
+      expect(result.liquidation_inputs).toBeUndefined()
+    })
+
+    it('bundles all 4 LiquidationInputsSection essentials + premise override', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_headcount: 12,
+          liq_monthly_rent: 8_500,
+          liq_paid_up_capital: 250_000,
+          liq_deferred_tax: 35_000,
+          liq_premise_override: 'orderly_liquidation',
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      // Pinned for the audit 2026-05-10 wiring fix: liquidation_inputs
+      // must survive the build → Titan Zod → legacy Pydantic → orchestrator
+      // chain.  Field-name parity matches `calculate_liquidation_method`
+      // kwargs verbatim — DO NOT rename without a coordinated migration.
+      expect(result.liquidation_inputs).toEqual({
+        headcount: 12,
+        monthly_rent: 8_500,
+        paid_up_capital: 250_000,
+        deferred_tax_liabilities: 35_000,
+        owner_premise_override: 'orderly_liquidation',
+      })
+    })
+
+    it('coerces headcount to a non-negative integer', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          // Decimal headcount is meaningless — must be floored to integer.
+          liq_headcount: 7.8,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(result.liquidation_inputs?.headcount).toBe(7)
+    })
+
+    it('drops invalid premise override values silently', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_headcount: 5,
+          // typo / invalid string — must NOT propagate; engine would reject
+          // an unknown premise enum.
+          liq_premise_override: 'going_concern_typo',
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      // headcount still emits; premise_override is dropped.
+      expect(result.liquidation_inputs?.headcount).toBe(5)
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.owner_premise_override,
+      ).toBeUndefined()
+    })
+
+    it('rejects going_concern as a premise (intentionally not exposed)', () => {
+      // Liquidation analysis is in STANDALONE_METHODS — picking
+      // going_concern would contradict the report's IVS 104 §80 premise.
+      // Even if the form somehow emitted it, the build path must drop it.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_premise_override: 'going_concern',
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(result.liquidation_inputs).toBeUndefined()
+    })
+  })
+
+  describe('fiscal_inputs (meerwaardebelasting / Art. 90 WIB 92)', () => {
+    // The data rail captures only the four amount values for the
+    // cedent's 31/12/2025 cost-basis filing. Advisory metadata
+    // (peildatum, company role, EBITDA basis, internal-transfer flag,
+    // anchors-acknowledged attestation) is auto-derived by the report
+    // builder OR set on `request.metadata` via firm/transaction settings
+    // — never collected on the data rail. See FiscalInputsSection.tsx
+    // header comment for the rail / metadata split.
+    type RequestWithFiscal = ReturnType<typeof buildValuationRequest> & {
+      fiscal_inputs?: Record<string, unknown>
+    }
+
+    it('omits fiscal_inputs entirely when no fiscal_* field is set', () => {
+      const result = buildValuationRequest(makeFormData(), []) as RequestWithFiscal
+      // Empty dict would be wire noise; unset is the right default so
+      // the aggregator treats the run as "engine defaults".
+      expect(result.fiscal_inputs).toBeUndefined()
+    })
+
+    it('emits the four amount keys when populated', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          fiscal_acquisition_cost: 850_000,
+          fiscal_anchor_2_value: 900_000,
+          fiscal_anchor_3_value: 1_100_000,
+          fiscal_anchor_4_value: 1_050_000,
+        }),
+        []
+      ) as RequestWithFiscal
+
+      expect(result.fiscal_inputs).toEqual({
+        acquisition_cost: 850_000,
+        anchor_2_value: 900_000,
+        anchor_3_value: 1_100_000,
+        anchor_4_value: 1_050_000,
+      })
+    })
+
+    it('emits a partial dict when only some anchors are filled', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          fiscal_acquisition_cost: 500_000,
+          fiscal_anchor_3_value: 600_000,
+        }),
+        []
+      ) as RequestWithFiscal
+
+      expect(result.fiscal_inputs).toEqual({
+        acquisition_cost: 500_000,
+        anchor_3_value: 600_000,
+      })
+    })
+
+    it('coerces numeric values and skips non-finite ones', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          // @ts-expect-error — runtime guard against legacy stringly-typed values
+          fiscal_anchor_2_value: '750000',
+          // @ts-expect-error — NaN should be dropped, not propagated
+          fiscal_anchor_3_value: Number.NaN,
+          fiscal_anchor_4_value: 0,
+        }),
+        []
+      ) as RequestWithFiscal
+
+      expect(result.fiscal_inputs?.anchor_2_value).toBe(750_000)
+      expect(result.fiscal_inputs?.anchor_3_value).toBeUndefined()
+      // 0 is a legitimate value (a contract formula can yield zero); preserve it.
+      expect(result.fiscal_inputs?.anchor_4_value).toBe(0)
+    })
+  })
 })

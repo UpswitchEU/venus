@@ -17,11 +17,12 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { Slider } from '@/design-system/components/Slider'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
@@ -100,6 +101,14 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
     newInvestorPct > 22 &&
     Number.isFinite(newInvestorPct)
 
+  // Founders-below-floor advisory used to live here as an inline
+  // banner on the cap-table preview. That's output / advice on a
+  // calculated value, which belongs on the report side — moved to
+  // the cap-table page in the ValuationIQ report (2026-05-10). The
+  // input panel still shows the cap-table bar + legend so the
+  // founder sees the percentage; the *consequence* prose lives in
+  // the report where the rest of the deal-readiness analysis sits.
+
   /** Pre-money (€) that would yield ~12% to new money for this raise (illustrative). */
   const preMoneyForTypicalSlice = useMemo(() => {
     if (!investment || investment <= 0 || !Number.isFinite(investment)) return null
@@ -129,55 +138,85 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
 
       {roundType === 'priced' && (
         <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <CurrencyInput
-              label={t('roundSize')}
-              value={investment ?? undefined}
-              onChange={(value) => setField('investment_amount_sought', value ?? null)}
-              placeholder={intlFmt.format(500_000)}
-              size="sm"
-              truncateLabel={false}
-            />
-            <CurrencyInput
-              label={t('preMoneyTarget')}
-              value={capTable.pre_money_target ?? undefined}
-              onChange={(value) => setCapField('pre_money_target', value ?? null)}
-              placeholder={preMoneyPlaceholder}
-              size="sm"
-              truncateLabel={false}
-              description={t('preMoneyTargetDesc')}
-            />
+          {/* Pre-money is the headline pitch number for this round and
+              sits FIRST so founders don't miss it.  Leaving the field
+              blank still works — the live blend lights up the placeholder
+              and the headline math falls back to it — but pretending the
+              field is "optional" was demoting the most important input
+              on the panel. */}
+          <CurrencyInput
+            label={t('preMoneyTarget')}
+            value={capTable.pre_money_target ?? undefined}
+            onChange={(value) => setCapField('pre_money_target', value ?? null)}
+            placeholder={preMoneyPlaceholder}
+            size="sm"
+            truncateLabel={false}
+            description={t('preMoneyTargetDesc')}
+          />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-                <div className="min-w-0 flex-1">
-                  <AdaptivePercentInput
-                    label={t('dilutionLabel')}
-                    value={dilution ?? undefined}
-                    onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
-                    placeholder={String(stageDefaultDilution)}
-                    size="sm"
-                    truncateLabel={false}
-                    description={t('dilutionDesc', {
-                      pct: stageDefaultDilution,
-                      stage: stageLabel,
-                    })}
-                  />
-                </div>
-                {dilution != null && Math.abs(dilution - stageDefaultDilution) > 0.5 && (
-                  <button
-                    type="button"
-                    onClick={() => setField('dilution_assumption_pct', stageDefaultDilution)}
-                    aria-label={t('useStageDefaultAria', {
-                      stage: stageLabel,
-                      pct: stageDefaultDilution,
-                    })}
-                    className="shrink-0 rounded-md border border-foreground/15 bg-background px-2.5 py-1.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary sm:mb-0.5"
-                  >
-                    {t('useStageDefault', { pct: stageDefaultDilution })}
-                  </button>
-                )}
-              </div>
+              <CurrencyInput
+                label={t('roundSize')}
+                value={investment ?? undefined}
+                onChange={(value) => setField('investment_amount_sought', value ?? null)}
+                placeholder={intlFmt.format(500_000)}
+                size="sm"
+                truncateLabel={false}
+              />
+              {/* What-if slider — drag to compare cap-table outcomes
+                  at different raise amounts. The store updates on
+                  every drag so the cap-table bar, post-money pill
+                  and founders-below-floor banner all move live. */}
+              <RaiseWhatIfSlider />
             </div>
+            {/* Cumulative dilution to exit — advisor-only.  Founders
+                were confused by a percentage that explicitly "doesn't
+                drive the bar chart"; this field still feeds the engine
+                so we keep it visible for advisors and silently default
+                to the stage benchmark for founders.  See {@link
+                StartupValuationPanel} for the ``mode`` flow-through. */}
+            {advisorMode && (
+              <div className="sm:col-span-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <AdaptivePercentInput
+                      label={t('dilutionLabel')}
+                      value={dilution ?? undefined}
+                      onChange={(value) => setField('dilution_assumption_pct', value ?? null)}
+                      placeholder={String(stageDefaultDilution)}
+                      size="sm"
+                      truncateLabel={false}
+                      description={t('dilutionDesc', {
+                        pct: stageDefaultDilution,
+                        stage: stageLabel,
+                      })}
+                    />
+                    {/* Source stamp under the dilution input — without
+                        this footnote a stale benchmark would silently
+                        ship through. Atomico SoEU and Dealroom Benelux
+                        are the canonical European seed/Series-A
+                        cohort sources for cumulative-to-exit dilution
+                        medians. */}
+                    <p className="mt-1 text-[10px] text-foreground/45">
+                      {t('dilutionDefaultsSource')}
+                    </p>
+                  </div>
+                  {dilution != null && Math.abs(dilution - stageDefaultDilution) > 0.5 && (
+                    <button
+                      type="button"
+                      onClick={() => setField('dilution_assumption_pct', stageDefaultDilution)}
+                      aria-label={t('useStageDefaultAria', {
+                        stage: stageLabel,
+                        pct: stageDefaultDilution,
+                      })}
+                      className="shrink-0 rounded-md border border-foreground/15 bg-background px-2.5 py-1.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary sm:mb-0.5"
+                    >
+                      {t('useStageDefault', { pct: stageDefaultDilution })}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="sm:max-w-sm">
               <AdaptivePercentInput
                 label={t('optionPool')}
@@ -267,6 +306,83 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
           advisorMode={advisorMode}
         />
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// RaiseWhatIfSlider — drag to compare cap-table outcomes at different
+// round sizes without losing the typed value's "anchor". The slider
+// writes through to the same `investment_amount_sought` field the
+// CurrencyInput owns, so the cap-table bar, post-money pill, and the
+// founders-below-floor banner all update live.
+//
+// Range: 50% – 200% of the typed value (or 50k – 5M when no value),
+// with a step that adapts to the magnitude (€10k below 1M, €25k above)
+// so the slider has the right "feel" at every scale.
+// ---------------------------------------------------------------------------
+
+function RaiseWhatIfSlider() {
+  const t = useTranslations('startupStudio.round')
+  const locale = useLocale()
+  const intlFmt = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+        maximumFractionDigits: 0,
+        useGrouping: true,
+      }),
+    [locale],
+  )
+  const investment = useStartupValuationStore((s) => s.investment_amount_sought)
+  const setField = useStartupValuationStore((s) => s.setField)
+
+  // Anchor the slider's range to the typed value when present, otherwise
+  // a generic 50k–5M envelope that covers pre-seed → late-seed.
+  const baseValue = typeof investment === 'number' && investment > 0 ? investment : 500_000
+  // Use the original input as the centre; widen ±50–100% so the user
+  // can explore both directions. Also `useRef`-pin the bounds so the
+  // slider doesn't keep redrawing as the user drags (which would
+  // recompute the bounds from the new value mid-drag and feel jittery).
+  const boundsRef = useRef<{ min: number; max: number } | null>(null)
+  if (boundsRef.current == null) {
+    boundsRef.current = {
+      min: Math.max(50_000, Math.round((baseValue * 0.5) / 10_000) * 10_000),
+      max: Math.round((baseValue * 2) / 10_000) * 10_000,
+    }
+  }
+  const { min, max } = boundsRef.current
+  // Step adapts to the magnitude so the slider has good feel.
+  const step = baseValue >= 1_000_000 ? 25_000 : 10_000
+
+  const sliderValue =
+    typeof investment === 'number' && Number.isFinite(investment)
+      ? Math.min(Math.max(investment, min), max)
+      : baseValue
+
+  return (
+    <div className="mt-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+          {t('raiseSliderLabel')}
+        </p>
+        <p className="font-mono text-[11px] tabular-nums text-foreground/60">
+          {intlFmt.format(min)} — {intlFmt.format(max)}
+        </p>
+      </div>
+      <div className="mt-2">
+        <Slider
+          value={sliderValue}
+          min={min}
+          max={max}
+          step={step}
+          showTooltip
+          formatValue={(v) => `€${intlFmt.format(v)}`}
+          onChange={(v) => setField('investment_amount_sought', v)}
+        />
+      </div>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-foreground/55">
+        {t('raiseSliderHint')}
+      </p>
     </div>
   )
 }

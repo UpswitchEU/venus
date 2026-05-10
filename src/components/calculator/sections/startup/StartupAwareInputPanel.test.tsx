@@ -24,6 +24,18 @@ import { render } from '@testing-library/react'
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Per-file next-intl mock. The global mock in `src/__tests__/setup.ts`
+// covers most cases, but vitest's hoisted-mock module cache lets the
+// `vi.mock('next-intl', …)` in `StartupValuationPanel.test.tsx` leak
+// into adjacent files when both run in the same process. Declaring
+// the mock explicitly here pins resolution per-file and prevents the
+// leak from breaking submit / panel tests that don't need a custom
+// translation map.
+vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
+  useTranslations: () => (key: string) => key,
+}))
+
 const setFieldSpy = vi.fn()
 const resultsStoreState: {
   preSelectedMethod: string | null
@@ -75,6 +87,49 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('next/navigation', () => ({
   useParams: () => useParamsMock(),
+}))
+
+// Submit footer reads its copy via ``useTranslations``. Same stub shape
+// as the StartupSubmitFooter test — keeps these component tests
+// hermetic without a NextIntlClientProvider wrapper.
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => {
+    const map: Record<string, string> = {
+      calculating: 'Calculating…',
+      generate: 'Generate startup valuation',
+      hintMissingCompany:
+        'Add the company name above to unlock report generation.',
+      hintMissingMilestone:
+        'Pick at least one milestone in “Risk reduction” for a defensible valuation.',
+    }
+    return map[key] ?? key
+  },
+  useLocale: () => 'en',
+}))
+
+// ``StartupSubmitFooter`` itself (not just the review modal) now calls
+// ``useStartupBenchmark`` + ``useStudioIssues`` to evaluate the third
+// submit gate (any blocker in the studio-issues feed disables submit).
+// Stub both with deterministic return shapes so the panel renders
+// without the real Athena fetch + studio-issues feed.
+vi.mock('@/lib/benchmarks/useStartupBenchmark', () => ({
+  useStartupBenchmark: () => ({
+    benchmark: {
+      region_code: 'BE',
+      stage: 'seed',
+      sector: 'saas',
+      average_pre_money_eur: 4_000_000,
+      berkus_max_per_milestone_eur: 500_000,
+      exit_multiple_low: 5,
+      exit_multiple_high: 7,
+      comparable_exit_revenue_multiple: 6,
+    },
+    isFallback: false,
+  }),
+}))
+vi.mock('@/features/startup-studio/hooks/useStudioIssues', () => ({
+  // Empty issue feed → no blockers → footer's third gate is permissive.
+  useStudioIssues: () => ({ issues: [], blockers: [], warnings: [] }),
 }))
 
 vi.mock('../../ManualInputPanel', () => ({

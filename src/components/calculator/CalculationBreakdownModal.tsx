@@ -52,7 +52,7 @@ export function CalculationBreakdownModal({
     {
       icon: TrendingUp,
       label: t('stepMultiple'),
-      value: `${report.multiple.toFixed(1)}x`,
+      value: `${report.multiple.toFixed(1)}×`,
       description: t('stepMultipleDesc'),
     },
     {

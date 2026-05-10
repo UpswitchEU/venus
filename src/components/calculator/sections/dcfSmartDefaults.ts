@@ -40,6 +40,42 @@ function classifyWaccBase(businessCategory?: string): number {
   return 10.5
 }
 
+/**
+ * Sector WACC band (min / median / max) used as a UI anchor next to the WACC input.
+ * Calibrated to Damodaran 2026 EU SMB WACC distributions, narrowed to a ±2.5pp window
+ * around the median per sector. Median maps to the same value as `classifyWaccBase`.
+ *
+ * Returns a label and a min/max for "Sector range: 8.5%–13.5% (median 11.0%)".
+ */
+export interface WaccSectorBand {
+  sectorLabel: string
+  median: number
+  min: number
+  max: number
+}
+
+export function deriveWaccSectorBand(businessCategory?: string): WaccSectorBand {
+  const median = classifyWaccBase(businessCategory)
+  const key = (businessCategory ?? '').toLowerCase()
+  let sectorLabel = 'European SMB'
+  if (key.includes('saas') || key.includes('software') || key.includes('tech')) {
+    sectorLabel = 'SaaS / Software'
+  } else if (key.includes('retail') || key.includes('ecommerce') || key.includes('e-commerce')) {
+    sectorLabel = 'Retail / e-commerce'
+  } else if (key.includes('construction') || key.includes('horeca') || key.includes('hospitality')) {
+    sectorLabel = 'Construction / Hospitality'
+  } else if (key.includes('manufact') || key.includes('industry') || key.includes('industrial')) {
+    sectorLabel = 'Industrial / Manufacturing'
+  }
+  // ±2.5pp band around the sector median, rounded to 1 decimal.
+  return {
+    sectorLabel,
+    median,
+    min: round1(Math.max(5, median - 2.5)),
+    max: round1(median + 2.5),
+  }
+}
+
 export function deriveDcfSmartDefaults(args: {
   yearlyFinancials?: DcfYearlyFinancialsLike[]
   businessCategory?: string

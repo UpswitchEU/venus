@@ -45,6 +45,22 @@ vi.mock('next-view-transitions', () => ({
   }) => React.createElement('a', { href, ...props }, children),
 }))
 
+// Default global mock for next-intl. The framework reads its
+// translation context from a React provider that isn't mounted in
+// vitest's jsdom environment, so any component calling
+// `useTranslations`/`useLocale` outside a per-file mock crashed
+// once parallel worker shards started rendering them. The mock
+// returns the i18n key verbatim — tests asserting on copy compare
+// against keys (e.g. `startupStudio.panelHeader.title`), and tests
+// that don't read copy ignore the strings entirely. Per-file
+// `vi.mock('next-intl', …)` calls (e.g. StartupValuationPanel.test)
+// still override this with their own translation map; vitest's
+// hoisted-mock semantics make the per-file mock win.
+vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
+  useTranslations: () => (key: string) => key,
+}))
+
 // Mock Next.js Image component
 vi.mock('next/image', () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {

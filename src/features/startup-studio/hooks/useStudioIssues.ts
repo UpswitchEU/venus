@@ -34,12 +34,14 @@ import studioNl from '../../../../messages/startupStudio/nl.json'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
+  STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
   STUDIO_BERKUS_KEYS,
   STUDIO_SCORECARD_KEYS,
   type StudioMilestoneKey,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
+import { projectForwardArrEur } from '@/components/calculator/sections/startup/regionalBaseline'
 import { type LiveValuation, formatEur, useLiveValuation } from './useLiveValuation'
 
 export type StudioIssueSeverity = 'block' | 'warn' | 'info'
@@ -265,6 +267,111 @@ function pickIssues(
     })
   }
 
+  // ── 6a-bis. Year-5 revenue sanity check ─────────────────────────
+  // Two warnings on the leveraged Y5 thesis:
+  //   1. Y5 ≥ 10× the sector default — without an explicit moat the
+  //      VC backsolve gives the founder a misleadingly large pre-money.
+  //   2. Y5 < forward-projected ARR — the founder is implicitly
+  //      forecasting a *decline* from current trajectory, which any
+  //      seasoned VC will challenge in the first call.
+  // Skipped when the founder hasn't entered a Y5 yet (the engine seeds
+  // it for them on first paint, but the warning would be noise on the
+  // sector default).
+  const y5Value = state.year5_revenue_projection
+  const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[state.sector] ?? 5_000_000
+  if (typeof y5Value === 'number' && y5Value > 0 && sectorDefaultY5 > 0) {
+    const ratio = y5Value / sectorDefaultY5
+    if (ratio >= 10) {
+      issues.push({
+        id: 'y5_above_sector_default',
+        severity: 'warn',
+        step: 'exit_story',
+        title: {
+          en: `Year-5 revenue is ${ratio.toFixed(0)}× the sector default`,
+          nl: `Jaar-5 omzet is ${ratio.toFixed(0)}× de sector-default`,
+        },
+        body: {
+          en: `You're projecting ${formatEur(y5Value)} by year 5 vs. a ${formatEur(sectorDefaultY5)} default for this stage / sector. Numbers this far above the benchmark need an explicit moat or distribution thesis investors can underwrite.`,
+          nl: `Je projecteert ${formatEur(y5Value)} in jaar 5 t.o.v. een ${formatEur(sectorDefaultY5)} default voor deze fase/sector. Cijfers zo ver boven de benchmark vragen een expliciete moat- of distributie-thesis die investeerders kunnen onderschrijven.`,
+        },
+        action: {
+          en: 'Either lower Year-5 to the sector range, or add an evidence note on Berkus / Scorecard explaining the moat.',
+          nl: 'Verlaag Year-5 naar de sectorrange, of voeg een onderbouwing toe op Berkus / Scorecard die de moat uitlegt.',
+        },
+        assistantPrompt: {
+          en: `My Year-5 revenue (${formatEur(y5Value)}) is ${ratio.toFixed(1)}× the sector default. Help me decide whether to defend it with a moat thesis or dial it down.`,
+          nl: `Mijn jaar-5 omzet (${formatEur(y5Value)}) is ${ratio.toFixed(1)}× de sector-default. Help me beslissen of ik dit verdedig met een moat-thesis of bijstel.`,
+        },
+      })
+    }
+
+    const forwardArr = projectForwardArrEur({
+      mrr: state.mrr,
+      arr: state.arr,
+      momGrowthPct: state.mrr_growth_rate_pct,
+    })
+    if (
+      typeof forwardArr === 'number' &&
+      forwardArr > 0 &&
+      y5Value < forwardArr
+    ) {
+      issues.push({
+        id: 'y5_below_forward_arr',
+        severity: 'warn',
+        step: 'exit_story',
+        title: {
+          en: 'Year-5 revenue is below your year-1 trajectory',
+          nl: 'Jaar-5 omzet ligt onder je jaar-1 traject',
+        },
+        body: {
+          en: `Your current MRR + monthly growth project ${formatEur(forwardArr)} 12 months out, but Year-5 revenue is set to ${formatEur(y5Value)}. That's a flat-or-declining curve — investors will read it as missing thesis or stale input.`,
+          nl: `Je huidige MRR en maandelijkse groei projecteren ${formatEur(forwardArr)} over 12 maanden, maar Year-5 staat op ${formatEur(y5Value)}. Dat is een vlakke of dalende curve — investeerders lezen dat als ontbrekende thesis of verouderde input.`,
+        },
+        action: {
+          en: 'Raise Year-5 above your forward 12mo ARR, or revisit MRR / monthly growth in Traction if those inputs are stale.',
+          nl: 'Verhoog Year-5 boven je forward 12mo ARR, of corrigeer MRR / maandelijkse groei onder Tractie als die inputs verouderd zijn.',
+        },
+        assistantPrompt: {
+          en: `My Year-5 revenue (${formatEur(y5Value)}) is below the 12mo forward ARR (${formatEur(forwardArr)}) my MRR + growth imply. What's a credible Year-5 anchor for my stage?`,
+          nl: `Mijn jaar-5 omzet (${formatEur(y5Value)}) ligt onder de 12mo forward ARR (${formatEur(forwardArr)}) die mijn MRR + groei impliceren. Wat is een geloofwaardige jaar-5 anchor voor mijn fase?`,
+        },
+      })
+    }
+  }
+
+  // ── 6a-ter. Target ROI sanity check ─────────────────────────────
+  // Fires when the founder types an ROI below ~5×.  The field collects
+  // the *fund-side* hurdle (what the VC needs back to justify the
+  // cheque), not the founder's personal expected return — and even
+  // late-stage funds underwrite ≥5×.  Anything below is almost
+  // certainly a typo or a misread of the input label.  Stage defaults
+  // are 30× / 20× / 10× so a human-typed value of 1×–4× is the only
+  // way to trip this.
+  const roiValue = state.target_roi_x
+  if (typeof roiValue === 'number' && roiValue > 0 && roiValue < 5) {
+    issues.push({
+      id: 'target_roi_too_low',
+      severity: 'warn',
+      step: 'exit_story',
+      title: {
+        en: `Target ROI of ${roiValue}× looks too low`,
+        nl: `Target ROI van ${roiValue}× lijkt te laag`,
+      },
+      body: {
+        en: `The Target ROI field is the *fund-side* return hurdle (what the VC needs back to justify the cheque) — typically 30× pre-seed, 20× seed, 10× Series A. Below 5× is almost certainly a typo or a confusion with your personal expected return. The lower this number, the higher your pre-money — so investors will challenge it.`,
+        nl: `Het Target ROI-veld is de *fonds-zijde* return hurdle (wat de VC terug moet zien om de cheque te rechtvaardigen) — typisch 30× pre-seed, 20× seed, 10× Series A. Onder 5× is bijna zeker een typfout of verwarring met je persoonlijke verwachte rendement. Hoe lager dit cijfer, hoe hoger je pre-money — investeerders zullen het aanvechten.`,
+      },
+      action: {
+        en: 'Use a stage-typical preset (30×/20×/10×) under Exit story, or confirm a value above 5×.',
+        nl: 'Gebruik een fase-typische preset (30×/20×/10×) onder Exit-verhaal, of bevestig een waarde boven 5×.',
+      },
+      assistantPrompt: {
+        en: `My target ROI is set to ${roiValue}× which seems low for the VC backsolve. What's a credible number for my stage?`,
+        nl: `Mijn target ROI staat op ${roiValue}× wat laag lijkt voor de VC backsolve. Wat is een geloofwaardig cijfer voor mijn fase?`,
+      },
+    })
+  }
+
   // ── 6b. This-round new-investor % (priced cap preview) ────────────
   // Same math as Round simulator / VC `next_round_dilution_pct`: not the
   // cumulative-to-exit dilution field. Skip when SAFE notes exist — slice is
@@ -366,6 +473,16 @@ function pickIssues(
     })
   }
 
+  // Inception-lens recommendation (the "your profile fits the
+  // Inception-bet / Momentum-driven lens" nudge) used to live here
+  // as a Studio-CoPilot info issue. That's analytical advisory on
+  // the founder's profile shape, which belongs on the report side —
+  // moved to the advisor-CTA partial in the ValuationIQ report
+  // (2026-05-10) where the rest of the lens-overlay narrative sits.
+  // The lens picker itself stays in `ExitStoryStep` because it's an
+  // input control (the founder picks which overlay to apply); the
+  // recommendation of WHICH lens to pick is now downstream.
+
   // ── 9. Benchmark fallback (advisory) ────────────────────────────
   if (
     benchmark.source.includes('offline') ||
@@ -428,6 +545,7 @@ export function useStudioIssues(benchmark: StartupBenchmarkRow): StudioIssuesRes
     state.target_roi_x,
     state.mrr,
     state.arr,
+    state.mrr_growth_rate_pct,
     state.maturity,
     state.evidence_notes,
     state.founder_pedigree,

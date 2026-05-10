@@ -18,7 +18,7 @@
 
 import { Check } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   type PresetKey,
   STUDIO_PRESET_ORDER,
@@ -134,6 +134,7 @@ export function PresetPicker(_props: PresetPickerProps) {
   const locale = useLocale() === 'nl' ? 'nl' : 'en'
   const t = useTranslations('startupStudio.preset')
   const applyPreset = useStartupValuationStore((s) => s.applyPreset)
+  const reset = useStartupValuationStore((s) => s.reset)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
   // Subscribe to the canonical business-types catalogue so picking a
   // preset can seed `business_type_id` — without this bridge the
@@ -142,6 +143,39 @@ export function PresetPicker(_props: PresetPickerProps) {
   // mapping.
   const { businessTypes } = useBusinessTypes()
   const [active, setActive] = useState<PresetKey | null>(() => readActivePreset())
+  // Hover preview — surfaces what the chip will apply BEFORE click,
+  // so the founder can scan three or four chips and pick the one that
+  // matches their archetype without losing typed values to a wrong
+  // pick. Closes the audit gap "presets give no preview of what they
+  // apply." Mouse enter / focus sets; mouse leave / blur clears.
+  const [hovered, setHovered] = useState<PresetKey | null>(null)
+  // Locale-aware compact EUR formatter for the inline preview line.
+  const intlPreviewFmt = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }),
+    [locale],
+  )
+
+  // A3 — clear-preset escape hatch. Once a founder picks a preset, the
+  // sessionStorage tag pins the chip's active state and the Studio
+  // store carries the preset's defaults. Without an explicit clear,
+  // the only way back to a blank canvas was a hard reload + ?reset=1.
+  // The clear chip resets the Studio store + clears the session tag
+  // so a founder evaluating "let me look at the math, then start
+  // fresh" path is fully supported.
+  const handleClear = useCallback(() => {
+    reset()
+    persistActivePreset(null)
+    setActive(null)
+    try {
+      window.dispatchEvent(new CustomEvent('venus:preset_cleared'))
+    } catch {
+      // jsdom / older browsers — non-fatal
+    }
+  }, [reset])
 
   const handlePick = useCallback(
     (preset: StudioPreset) => {
@@ -177,36 +211,91 @@ export function PresetPicker(_props: PresetPickerProps) {
     [applyPreset, updateFormData, businessTypes]
   )
 
+  // Pick the preset to render the preview line for: hovered wins over
+  // active so a hover always tells the user what THIS chip will apply
+  // (not what the previous click stuck). Falls back to active so the
+  // preview line stays useful after a click, until the next hover.
+  const previewKey = hovered ?? active
+  const previewPreset = previewKey ? STUDIO_PRESETS[previewKey] : null
+  const previewMilestoneCount = previewPreset
+    ? Object.values(previewPreset.maturity).filter((v) => v !== 'none').length
+    : 0
+
   return (
-    <div
-      aria-label={t('quickStartAria')}
-      className="flex flex-wrap items-center gap-2"
-    >
-      <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
-        {t('quickStart')}
-      </span>
-      {STUDIO_PRESET_ORDER.map((key) => {
-        const preset = STUDIO_PRESETS[key]
-        const isActive = active === key
-        return (
+    <div aria-label={t('quickStartAria')} className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+          {t('quickStart')}
+        </span>
+        {STUDIO_PRESET_ORDER.map((key) => {
+          const preset = STUDIO_PRESETS[key]
+          const isActive = active === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handlePick(preset)}
+              onMouseEnter={() => setHovered(key)}
+              onMouseLeave={() => setHovered((h) => (h === key ? null : h))}
+              onFocus={() => setHovered(key)}
+              onBlur={() => setHovered((h) => (h === key ? null : h))}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                isActive
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-foreground/10 bg-background/60 text-foreground/75 hover:border-primary/40 hover:bg-primary/[0.04]'
+              )}
+              title={preset.subtitle[locale]}
+            >
+              {isActive && <Check className="h-3 w-3" aria-hidden />}
+              {preset.title[locale]}
+            </button>
+          )
+        })}
+        {active && (
           <button
-            key={key}
             type="button"
-            onClick={() => handlePick(preset)}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-              isActive
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-foreground/10 bg-background/60 text-foreground/75 hover:border-primary/40 hover:bg-primary/[0.04]'
-            )}
-            title={preset.subtitle[locale]}
+            onClick={handleClear}
+            className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-background/60 px-2.5 py-1 text-xs font-medium text-foreground/65 transition-colors hover:border-rose-300 hover:bg-rose-50/40 hover:text-rose-700 dark:hover:border-rose-700/40 dark:hover:bg-rose-950/30 dark:hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40"
+            title={t('clearTooltip')}
+            aria-label={t('clearAria')}
           >
-            {isActive && <Check className="h-3 w-3" aria-hidden />}
-            {preset.title[locale]}
+            <span aria-hidden>×</span>
+            {t('clear')}
           </button>
-        )
-      })}
+        )}
+      </div>
+
+      {/* Inline preview — surfaces what the hovered chip will apply
+          before the user commits. Tracks the active preset by default
+          so a clicked-then-moved-mouse scenario keeps the relevant
+          context visible. */}
+      {previewPreset && (
+        <div
+          className="rounded-md border border-foreground/10 bg-foreground/[0.02] px-2.5 py-1.5 text-[11px] leading-snug text-foreground/65"
+          aria-live="polite"
+        >
+          <span className="font-medium uppercase tracking-wide text-foreground/45">
+            {t('previewLabel')}:
+          </span>{' '}
+          <span className="text-foreground/80">{previewPreset.title[locale]}</span>
+          <span className="mx-1 text-foreground/35">·</span>
+          {t('previewStage')} {previewPreset.stage}
+          <span className="mx-1 text-foreground/35">·</span>
+          {t('previewSector')} {previewPreset.sector}
+          <span className="mx-1 text-foreground/35">·</span>
+          {t('previewRaise')} €{intlPreviewFmt.format(previewPreset.investment_amount_sought)}
+          {previewPreset.year5_revenue_projection != null && (
+            <>
+              <span className="mx-1 text-foreground/35">·</span>
+              {t('previewY5')} €{intlPreviewFmt.format(previewPreset.year5_revenue_projection)}
+            </>
+          )}
+          <span className="mx-1 text-foreground/35">·</span>
+          {t('previewMilestones', { count: previewMilestoneCount })}
+        </div>
+      )}
     </div>
   )
 }

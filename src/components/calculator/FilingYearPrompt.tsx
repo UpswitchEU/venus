@@ -51,7 +51,14 @@ export function FilingYearPrompt({
       <div className="flex flex-wrap gap-2">
         {suggestedYears.map((year, index) => {
           const isPrimary = index === 0
-          const label = isPrimary ? mi('filingYearLabelSafeDefault') : mi('filingYearLabelBooksClosed')
+          // Suggested year list is currently size-1 (the inferred safe
+          // default). The descriptor below the year used to read "Safe
+          // default" — abstract state name, not a reason. Switched to
+          // "Recommended — most recent closed year" so the user sees
+          // *why* this year is suggested instead of having to decode
+          // a label. Aria text keeps the explicit "Choose {year}…" form
+          // for screen readers.
+          const label = mi('filingYearLabelRecommended')
           const ariaLabel = isPrimary
             ? mi('filingYearAriaSafeDefault', { year })
             : mi('filingYearAriaBooksClosed', { year })

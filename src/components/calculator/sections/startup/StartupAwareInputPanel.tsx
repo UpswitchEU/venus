@@ -29,15 +29,19 @@
  */
 
 import { useParams } from 'next/navigation'
-import { type ComponentProps, useCallback, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
 import { AuroraButton } from '@/design-system'
 import { useAuth } from '@/hooks/useAuth'
 import { trackStudioRunComplete } from '@/lib/analytics'
 import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { ReviewDefaultsModal } from '@/features/startup-studio/components/ReviewDefaultsModal'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
+import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { ValuationFormData } from '@/types/valuation'
@@ -66,6 +70,15 @@ const VALID_STAGES: ReadonlySet<StartupStage> = new Set<StartupStage>([
  * seed the Venus startup store with it on first mount.  Idempotent and
  * SSR-safe: the effect runs exactly once per page load on the client and
  * silently bails out if the param is missing or invalid.
+ *
+ * The full prefill chain (KBO identity, sector inference, traction,
+ * round size) lives in :func:`useStartupPrefill`, mounted inside
+ * `StartupValuationPanel`.  This thin wrapper exists so the deep-link
+ * stage seed fires even when the founder hasn't yet picked the
+ * startup method (the panel hasn't mounted), matching Mercury's
+ * cross-app contract that a `?startup_stage=` URL pre-selects the
+ * stage independently of when the panel itself mounts.  When both
+ * fire, the second `setField('stage', X)` is a no-op (same value).
  */
 function useStartupStageDeepLinkPrefill() {
   const setField = useStartupValuationStore((s) => s.setField)
@@ -167,7 +180,7 @@ export function StartupSubmitFooter({
   isCalculating: boolean
 }) {
   const params = useParams<{ locale?: string; id?: string }>()
-  const locale = params?.locale === 'nl' ? 'nl' : 'en'
+  const t = useTranslations('startupStudio.submit')
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
   // Reactive milestone-pick gate.  We subscribe to `maturity` so the
   // submit button flips from disabled → enabled the moment the founder
@@ -177,11 +190,40 @@ export function StartupSubmitFooter({
     Object.values(s.maturity).some((v) => v !== 'none')
   )
   const stage = useStartupValuationStore((s) => s.stage)
+  const sector = useStartupValuationStore((s) => s.sector)
+  const country = useStartupValuationStore((s) => s.country_code) || 'BE'
 
-  const handleClick = useCallback(() => {
+  // A15 — third submit gate: any `useStudioIssues` finding with
+  // severity 'block' that the existing identity / milestone gates
+  // don't already cover.  Without this, a founder could submit with
+  // (e.g.) a positive pedigree flag whose evidence is empty — the
+  // engine would zero the multiplier and produce a report that
+  // doesn't match what the founder saw on screen.  We exclude the
+  // two stable IDs the explicit gates already cover so the same
+  // failure isn't counted twice in the helper-text branching.
+  const { benchmark } = useStartupBenchmark(country, stage, sector)
+  const { blockers: allBlockers } = useStudioIssues(benchmark)
+  const ALREADY_GATED_IDS = useMemo(
+    () => new Set(['missing_company_name', 'missing_first_milestone']),
+    [],
+  )
+  const extraBlockers = useMemo(
+    () => allBlockers.filter((b) => !ALREADY_GATED_IDS.has(b.id)),
+    [allBlockers, ALREADY_GATED_IDS],
+  )
+  const hasExtraBlockers = extraBlockers.length > 0
+
+  // Review-defaults gate (audit issue #7).  Submit is a two-step:
+  //   1. First click opens a confirmation modal listing every assumption
+  //      the engine will use, tagging the ones still on smart-default.
+  //   2. Modal Confirm fires the real `onSubmit`.
+  // The first click never fires the actual valuation — protects founders
+  // from generating an "investor-ready" report against unreviewed
+  // defaults (Y5, ROI, sector, exit multiple, etc.).
+  const [reviewOpen, setReviewOpen] = useState(false)
+
+  const fireSubmit = useCallback(() => {
     if (!onSubmit) return
-    if (isCalculating) return
-    if (!hasAnyMilestone) return
     // Fire `venus_studio_run_complete` exactly when the user explicitly
     // triggers the calculation.  The downstream Titan response carries
     // the canonical report id; this event marks the submit moment from
@@ -189,52 +231,86 @@ export function StartupSubmitFooter({
     // the same shape they did under the old auto-fire wizard.
     trackStudioRunComplete(params?.id ?? '', stage)
     void onSubmit(buildStartupSubmitPayload())
-  }, [onSubmit, isCalculating, hasAnyMilestone, params?.id, stage])
+  }, [onSubmit, params?.id, stage])
+
+  const handleClick = useCallback(() => {
+    if (!onSubmit) return
+    if (isCalculating) return
+    if (!hasAnyMilestone) return
+    // A15 — extra blockers (e.g. positive pedigree flag with empty
+    // evidence) also gate. The button is already disabled in this
+    // state — the early-return is a defence-in-depth in case the
+    // disabled-state and click-handler ever drift.
+    if (hasExtraBlockers) return
+    setReviewOpen(true)
+  }, [onSubmit, isCalculating, hasAnyMilestone, hasExtraBlockers])
+
+  const handleConfirm = useCallback(() => {
+    setReviewOpen(false)
+    fireSubmit()
+  }, [fireSubmit])
+
+  const handleCancel = useCallback(() => setReviewOpen(false), [])
 
   const missingCompanyName = !companyName.trim()
   const missingMilestone = !hasAnyMilestone
   // Disabled state mirrors every gate the click handler enforces — so
   // a disabled button never silently no-ops on click (the silent no-op
-  // pattern feels broken to the user).
-  const disabled = isCalculating || missingCompanyName || missingMilestone
+  // pattern feels broken to the user).  A15 added blocker-issue gate.
+  const disabled =
+    isCalculating || missingCompanyName || missingMilestone || hasExtraBlockers
 
   // The helper text is mutually exclusive: company-name takes priority
   // because the founder typically lands at the top of the panel and
   // hasn't scrolled down to the milestones yet.  Once they fill in the
-  // identity, the milestone hint takes over.
+  // identity, the milestone hint takes over, and finally any other
+  // engine-blocker findings (A15) so a founder always sees the
+  // single most-actionable next step under the disabled button.
   const helperText = missingCompanyName
-    ? locale === 'nl'
-      ? 'Vul eerst de bedrijfsnaam bovenaan in om je rapport te genereren.'
-      : 'Add the company name above to unlock report generation.'
+    ? t('hintMissingCompany')
     : missingMilestone
-      ? locale === 'nl'
-        ? 'Kies minstens één mijlpaal in “Risico-reductie” voor een verdedigbare waardering.'
-        : 'Pick at least one milestone in “Risk reduction” for a defensible valuation.'
-      : null
+      ? t('hintMissingMilestone')
+      : hasExtraBlockers
+        ? t('hintBlockerIssues', { count: extraBlockers.length })
+        : null
 
   return (
-    <div className="sticky bottom-0 z-20 shrink-0 -mx-4 px-4 py-3 border-t border-foreground/[0.06] bg-background/95 backdrop-blur">
-      <AuroraButton
-        type="button"
-        variant="primary"
-        size="lg"
-        fullWidth
-        loading={isCalculating}
-        disabled={disabled}
-        onClick={handleClick}
+    <>
+      <div
+        id="startup-submit-footer"
+        className="sticky bottom-0 z-20 shrink-0 -mx-4 px-4 py-3 border-t border-foreground/[0.06] bg-background/95 backdrop-blur"
       >
-        {isCalculating
-          ? locale === 'nl'
-            ? 'Berekenen…'
-            : 'Calculating…'
-          : locale === 'nl'
-            ? 'Genereer startup waardering'
-            : 'Generate startup valuation'}
-      </AuroraButton>
-      {helperText && (
-        <p className="mt-2 text-center text-[11px] text-foreground/60">{helperText}</p>
+        <AuroraButton
+          type="button"
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={isCalculating}
+          disabled={disabled}
+          onClick={handleClick}
+        >
+          {isCalculating ? t('calculating') : t('generate')}
+        </AuroraButton>
+        {helperText && (
+          <p className="mt-2 text-center text-[11px] text-foreground/60">{helperText}</p>
+        )}
+      </div>
+      {/* Mount the modal only when it is open. ``ReviewDefaultsModal``
+          subscribes to the startup store + ``useStartupBenchmark``
+          unconditionally inside its body (rules-of-hooks), so keeping
+          it mounted while closed would re-run those hooks on every
+          panel render — wasteful, and breaks Storybook / unit tests
+          that don't seed the benchmark hook.  Conditional mount keeps
+          the hook tree dormant until the user actually clicks
+          "Generate". */}
+      {reviewOpen && (
+        <ReviewDefaultsModal
+          open={reviewOpen}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
       )}
-    </div>
+    </>
   )
 }
 
@@ -262,6 +338,14 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
 
   const isCalculating = useManualResultsStore((s) => s.isCalculating)
 
+  // Lightweight stage-only deep-link prefill — fires regardless of
+  // whether the panel itself is mounted yet (Mercury may send the URL
+  // param before the user picks the method).  The full prefill chain
+  // (KBO identity, NACE→sector inference, accounting-derived SaaS
+  // metrics, round-size URL param) lives in `useStartupPrefill`,
+  // mounted inside `StartupValuationPanel`.  Both are idempotent;
+  // duplicate `setField('stage', X)` writes with the same value are
+  // a no-op.
   useStartupStageDeepLinkPrefill()
 
   if (effectiveMethod === 'startup_valuation') {

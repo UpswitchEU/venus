@@ -21,8 +21,9 @@
  */
 
 import { motion } from 'framer-motion'
-import { AlertTriangle, Users } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   calculatePedigreeMultiplier,
@@ -33,9 +34,11 @@ import {
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 
-/** @deprecated Prop ignored — copy comes from next-intl route locale. */
+/** @deprecated `locale` ignored — copy comes from next-intl route locale. */
 interface FounderPedigreeStepProps {
   locale?: 'en' | 'nl'
+  /** Forwarded by `StartupValuationPanel`; unused on this step. */
+  advisorMode?: boolean
 }
 
 function formatDelta(delta: number): string {
@@ -49,6 +52,46 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
   const setFlag = useStartupValuationStore((s) => s.setPedigreeFlag)
   const evidence = useStartupValuationStore((s) => s.pedigree_evidence)
   const setEvidence = useStartupValuationStore((s) => s.setPedigreeEvidence)
+
+  // A6 — auto-focus the evidence textarea the moment a positive flag
+  // is checked (penalties + solo_founder don't need evidence). Without
+  // this, founders ticked "Repeat founder" + "Technical co-founder" +
+  // "Domain expert" thinking each adds a multiplier, only to discover
+  // 60s later that the engine zeroed every claim because the evidence
+  // text was empty. The auto-focus + the chip's "pending" suffix +
+  // the amber border together make the evidence requirement
+  // unmissable instead of a silent gotcha.
+  const evidenceRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
+  const [pendingFocusKey, setPendingFocusKey] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pendingFocusKey) return
+    const el = evidenceRefs.current[pendingFocusKey]
+    if (el) {
+      // Defer to the next frame so the framer-motion enter transition
+      // has finished — focusing during the layout animation jumps the
+      // viewport unpleasantly on long forms.
+      requestAnimationFrame(() => {
+        el.focus({ preventScroll: false })
+      })
+    }
+    setPendingFocusKey(null)
+  }, [pendingFocusKey])
+  const handleFlagToggle = useCallback(
+    (key: FounderPedigreeKey, nextChecked: boolean) => {
+      setFlag(key, nextChecked)
+      // Only auto-focus on POSITIVE deltas being newly checked — penalties
+      // (solo_founder) don't take evidence; unchecks shouldn't yank focus.
+      if (
+        nextChecked &&
+        key !== 'solo_founder' &&
+        PEDIGREE_DELTA_PCT[key] > 0 &&
+        !(evidence[key as Exclude<FounderPedigreeKey, 'solo_founder'>] ?? '').trim()
+      ) {
+        setPendingFocusKey(key)
+      }
+    },
+    [evidence, setFlag],
+  )
 
   const multiplier = calculatePedigreeMultiplier(flags)
 
@@ -74,13 +117,13 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <p className="text-sm leading-relaxed text-foreground/70">
-              {t('introBefore')}
-              <span className="font-medium text-foreground">{t('introRisk')}</span>
-              {t('introMid')}
-              <span className="font-medium text-foreground">{t('introWho')}</span>
-              {t('introAfter')}
+              {t('introInputPrompt')}
             </p>
-            <p className="mt-3 text-xs text-foreground/55">{t('pickDefend')}</p>
+            {/* Solo-founder asymmetry citation + Strebulaev calibration
+                citation moved to the ValuationIQ report (advisor-CTA
+                partial / pedigree section) on 2026-05-10 — both were
+                pure methodology citation, which belongs on the
+                output side. The picker stays as the input control. */}
           </div>
           <div
             className={cn(
@@ -145,7 +188,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                 type="button"
                 role="checkbox"
                 aria-checked={checked}
-                onClick={() => setFlag(key, !checked)}
+                onClick={() => handleFlagToggle(key, !checked)}
                 className={cn(
                   'group block w-full rounded-2xl p-5 text-left',
                   'focus:outline-none focus:ring-2 focus:ring-primary/40',
@@ -158,7 +201,17 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                       checked
                         ? isPenalty
                           ? 'border-amber-500 bg-amber-500'
-                          : 'border-primary bg-primary'
+                          : evidenceMissing
+                            ? // A6 — checkbox glyph also flips amber when
+                              // a positive flag is checked but the
+                              // evidence is still empty.  Card border was
+                              // already amber in this state; the checkbox
+                              // matching it makes the "pending" status
+                              // visible from a 30cm reading distance
+                              // instead of needing the founder to look at
+                              // the chip's small "· pending" suffix.
+                              'border-amber-500 bg-amber-500'
+                            : 'border-primary bg-primary'
                         : 'border-foreground/30 group-hover:border-primary/60',
                     )}
                   >
@@ -184,10 +237,28 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                           'rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums',
                           isPenalty
                             ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                            : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+                            : evidenceMissing
+                              ? 'bg-foreground/10 text-foreground/55 line-through'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
                         )}
+                        // Surface the gate inline on the chip so the
+                        // founder sees "+0.30× pending evidence" the
+                        // moment they tick the box, instead of seeing
+                        // a confident +0.30× and only later (in the
+                        // bottom-right multiplier card) discovering it
+                        // was neutralized.
+                        title={
+                          evidenceMissing
+                            ? `${formatDelta(delta)} · ${t('liftPendingChipSuffix')}`
+                            : undefined
+                        }
                       >
                         {formatDelta(delta)}
+                        {evidenceMissing && (
+                          <span className="ml-1 text-[10px] font-medium uppercase tracking-wide opacity-80">
+                            · {t('liftPendingChipSuffix')}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">
@@ -211,6 +282,12 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                   </label>
                   <textarea
                     id={`pedigree-evidence-${evidenceKey}`}
+                    // A6 — keep a per-row ref so handleFlagToggle can
+                    // requestAnimationFrame-focus this textarea right
+                    // after the founder ticks the parent flag.
+                    ref={(el) => {
+                      evidenceRefs.current[key] = el
+                    }}
                     rows={2}
                     value={evidenceText}
                     onChange={(e) => setEvidence(evidenceKey, e.target.value)}
@@ -241,18 +318,11 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
         })}
       </div>
 
-      <div className="rounded-xl border border-foreground/10 bg-foreground/[0.02] p-4">
-        <p className="flex items-start gap-2 text-xs text-foreground/55">
-          <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {t('calibrationBefore')}
-            <span className="italic">{t('calibrationTitle')}</span>
-            {t('calibrationAfter')}
-            <span className="font-medium text-foreground">{t('calibrationClamp')}</span>
-            {t('calibrationTail')}
-          </span>
-        </p>
-      </div>
+      {/* Strebulaev calibration / 0.70×–1.80× clamp citation moved
+          to the ValuationIQ report (advisor-CTA partial) on
+          2026-05-10. The clamp is engine behaviour, not input
+          guidance — the founder doesn't need to know the empirical
+          envelope to pick which pedigree claims apply. */}
     </div>
   )
 }

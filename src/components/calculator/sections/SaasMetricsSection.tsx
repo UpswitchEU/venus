@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { cn } from '@/design-system/utils'
@@ -10,6 +10,7 @@ import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
 import { SAAS_SECTOR_DEFAULTS } from './saasBenchmarks'
+import { computeYoyRevenueGrowthPct, type YearlyFinancialsRow } from './saasYoyPrefill'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type HealthStatus = 'excellent' | 'good' | 'warning' | 'poor'
@@ -67,6 +68,69 @@ function SaasPanel({
   )
 }
 
+/**
+ * Inline chip rendered immediately under a SaaS input that we
+ * pre-filled. Surfaces the source ("Sector benchmark" /
+ * "From your revenue history") so the founder never confuses a
+ * prefilled value with their own data — the chief reason an M&A
+ * audience trusted the pre-2026 sector banner less than this
+ * per-field signal. The chip's `title` carries the tooltip copy.
+ */
+function PrefilledFieldChip({
+  source,
+  label,
+  tooltip,
+}: {
+  source: 'benchmark' | 'history'
+  label: string
+  tooltip: string
+}) {
+  const tone =
+    source === 'history'
+      ? 'border-emerald-300/60 bg-emerald-50/70 text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-200'
+      : 'border-amber-300/60 bg-amber-50/70 text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200'
+  return (
+    <span
+      className={cn(
+        'mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-tight',
+        tone,
+      )}
+      title={tooltip}
+    >
+      <span aria-hidden="true">●</span>
+      {label}
+    </span>
+  )
+}
+
+/**
+ * Wraps an input + an optional prefilled-source chip so the chip
+ * always renders directly under the field it describes (no second
+ * render path, no layout drift between locales).
+ */
+function FieldWithSourceChip({
+  prefilled,
+  source,
+  label,
+  tooltip,
+  children,
+}: {
+  prefilled: boolean
+  source: 'benchmark' | 'history' | null
+  label: string
+  tooltip: string
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-0">
+      {children}
+      {prefilled && source && (
+        <PrefilledFieldChip source={source} label={label} tooltip={tooltip} />
+      )}
+    </div>
+  )
+}
+
 interface SaasMetricsSectionProps {
   step: number
   complete: boolean
@@ -94,6 +158,11 @@ interface SaasMetricsSectionProps {
    *  the one-shot benchmark prefill of gross margin, churn, NRR, growth.
    *  Optional — when absent, no prefill is attempted. */
   naceCode?: string | null
+  /** Historical revenue grid already collected for every method.  When
+   *  two consecutive complete years are present, the YoY revenue delta
+   *  prefills `saas_arr_growth_pct` more accurately than the sector
+   *  median can.  See `saasYoyPrefill.ts` for the clamp / sort rules. */
+  yearlyFinancials?: ReadonlyArray<YearlyFinancialsRow> | null
 }
 
 export function SaasMetricsSection({
@@ -115,6 +184,7 @@ export function SaasMetricsSection({
   arrProjectionPreview = [],
   importedSaasProvenance,
   naceCode,
+  yearlyFinancials,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const { saasMetric: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
@@ -132,40 +202,70 @@ export function SaasMetricsSection({
   // so the banner can clear them in one click.
   const sector = useMemo(() => inferStartupSectorFromNace(naceCode ?? null), [naceCode])
   const benchmark = sector ? SAAS_SECTOR_DEFAULTS[sector] : null
+  // Best-available YoY growth derived from the historical revenue grid
+  // the founder already filled in for every method.  When present, this
+  // is the most accurate prefill for `saas_arr_growth_pct` we can offer
+  // without an accounting integration — used in preference to the
+  // sector median.  Returns null when fewer than two complete years are
+  // available or the prior-year revenue is non-positive.
+  const yoyGrowthPct = useMemo(
+    () => computeYoyRevenueGrowthPct(yearlyFinancials),
+    [yearlyFinancials],
+  )
   const prefilledKeysRef = useRef<Set<string>>(new Set())
+  const prefilledSourceRef = useRef<Map<string, 'benchmark' | 'history'>>(new Map())
   const prefilledRanRef = useRef(false)
   const [prefilledKeys, setPrefilledKeys] = useState<readonly string[]>([])
 
   useEffect(() => {
     if (prefilledRanRef.current) return
-    if (!benchmark) return
+    // We can prefill the growth field from history alone (no NACE / sector
+    // required).  Only bail when neither source nor a benchmark exists.
+    if (!benchmark && yoyGrowthPct == null) return
     if (importedSaasProvenance) return
     prefilledRanRef.current = true
     const filled: string[] = []
-    if (saasGrossMarginPct == null) {
+    const sources = new Map<string, 'benchmark' | 'history'>()
+    if (benchmark && saasGrossMarginPct == null) {
       onFieldChange('saas_gross_margin_pct', benchmark.gross_margin_pct)
       filled.push('saas_gross_margin_pct')
+      sources.set('saas_gross_margin_pct', 'benchmark')
     }
-    if (saasChurnPct == null) {
+    if (benchmark && saasChurnPct == null) {
       onFieldChange('saas_churn_pct', benchmark.monthly_churn_pct)
       filled.push('saas_churn_pct')
+      sources.set('saas_churn_pct', 'benchmark')
     }
-    if (saasNrrPct == null) {
+    if (benchmark && saasNrrPct == null) {
       onFieldChange('saas_nrr_pct', benchmark.nrr_pct)
       filled.push('saas_nrr_pct')
+      sources.set('saas_nrr_pct', 'benchmark')
     }
     if (saasArrGrowthPct == null) {
-      // saas_arr_growth_pct in the schema is monthly when it pairs
-      // with monthly churn; the existing placeholder ("25") is consistent
-      // with monthly growth at early stage.
-      onFieldChange('saas_arr_growth_pct', benchmark.monthly_growth_pct)
-      filled.push('saas_arr_growth_pct')
+      // saas_arr_growth_pct is an ANNUAL fraction end-to-end:
+      // - Engine: Rule of 40 = arr_growth + gross_margin (both annual)
+      // - Engine: high_growth gate = arr_growth_pct >= 30 (annual %)
+      // - Investors: every M&A multiple framework reads YoY growth.
+      // YoY from the founder's own historical revenue grid is the most
+      // accurate signal we have — falls back to the sector median when
+      // we can't compute it.
+      if (yoyGrowthPct != null) {
+        onFieldChange('saas_arr_growth_pct', yoyGrowthPct)
+        filled.push('saas_arr_growth_pct')
+        sources.set('saas_arr_growth_pct', 'history')
+      } else if (benchmark) {
+        onFieldChange('saas_arr_growth_pct', benchmark.annual_growth_pct)
+        filled.push('saas_arr_growth_pct')
+        sources.set('saas_arr_growth_pct', 'benchmark')
+      }
     }
     if (filled.length === 0) return
     prefilledKeysRef.current = new Set(filled)
+    prefilledSourceRef.current = sources
     setPrefilledKeys(filled)
   }, [
     benchmark,
+    yoyGrowthPct,
     importedSaasProvenance,
     saasGrossMarginPct,
     saasChurnPct,
@@ -175,12 +275,43 @@ export function SaasMetricsSection({
   ])
 
   const clearBenchmarkPrefill = () => {
+    // Only clear values the founder has not edited since the prefill —
+    // tracked via `editedSinceFillRef`. Anything the founder typed
+    // (even if it now equals the benchmark) is the founder's number,
+    // not ours.
     for (const key of prefilledKeysRef.current) {
+      if (editedSinceFillRef.current.has(key)) continue
       onFieldChange(key, undefined)
     }
     prefilledKeysRef.current = new Set()
+    prefilledSourceRef.current = new Map()
     setPrefilledKeys([])
   }
+
+  // ─── Per-field "still-prefilled" tracking ───────────────────────
+  // A field counts as "prefilled" only while the founder has not
+  // edited it. Once they type, we drop the chip + the per-field
+  // key so the Clear All CTA never wipes their value.
+  const editedSinceFillRef = useRef<Set<string>>(new Set())
+  const isStillPrefilled = useCallback(
+    (key: string): boolean => {
+      if (!prefilledKeysRef.current.has(key)) return false
+      if (editedSinceFillRef.current.has(key)) return false
+      return true
+    },
+    // prefilledKeys state used to force a re-render when the set changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prefilledKeys],
+  )
+  const handleFieldChange = useCallback(
+    (key: string, value: number | undefined) => {
+      if (prefilledKeysRef.current.has(key)) {
+        editedSinceFillRef.current.add(key)
+      }
+      onFieldChange(key, value)
+    },
+    [onFieldChange],
+  )
 
   const showBenchmarkBanner = prefilledKeys.length > 0 && !importedSaasProvenance
   const importedProviderLabel = importedSaasProvenance?.source
@@ -241,7 +372,24 @@ export function SaasMetricsSection({
   const totalFields = 11
   const isReady = saasArr != null && Number.isFinite(saasArr) && coreFilledCount >= 3
   const progressPct = (filledCount / totalFields) * 100
-  const showAdvancedInputs = advancedExpanded || advancedFilledCount > 0 || isReady
+  // True accordion: open it automatically the first time it makes
+  // sense (founder past the core 4 OR has already filled an advanced
+  // field), but always let them collapse it again.  The
+  // "permanent open once shown" pattern produced "I can't close this"
+  // feedback during the first Wintercircus runs.
+  const advancedAutoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (advancedAutoOpenedRef.current) return
+    if (advancedExpanded) {
+      advancedAutoOpenedRef.current = true
+      return
+    }
+    if (advancedFilledCount > 0 || isReady) {
+      advancedAutoOpenedRef.current = true
+      setAdvancedExpanded(true)
+    }
+  }, [advancedExpanded, advancedFilledCount, isReady])
+  const showAdvancedInputs = advancedExpanded
 
   return (
     <motion.section
@@ -357,24 +505,38 @@ export function SaasMetricsSection({
             description={t('fieldHints.saasMrr')}
             truncateLabel={false}
           />
-          <AdaptivePercentInput
-            label={t('fields.saasArrGrowthPct')}
-            value={saasArrGrowthPct}
-            onChange={(v) => onFieldChange('saas_arr_growth_pct', v)}
-            placeholder="25"
-            disabled={disabled}
-            description={t('fieldHints.saasArrGrowthPct')}
-            truncateLabel={false}
-          />
-          <AdaptivePercentInput
-            label={t('fields.saasNrrPct')}
-            value={saasNrrPct}
-            onChange={(v) => onFieldChange('saas_nrr_pct', v)}
-            placeholder="110"
-            disabled={disabled}
-            description={t('fieldHints.saasNrrPct')}
-            truncateLabel={false}
-          />
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_arr_growth_pct')}
+            source={prefilledSourceRef.current.get('saas_arr_growth_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') ?? 'benchmark'}`)}
+            tooltip={t(`prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') === 'history' ? 'historyTooltip' : 'benchmarkTooltip'}`)}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasArrGrowthPct')}
+              value={saasArrGrowthPct}
+              onChange={(v) => handleFieldChange('saas_arr_growth_pct', v)}
+              placeholder="60"
+              disabled={disabled}
+              description={t('fieldHints.saasArrGrowthPct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_nrr_pct')}
+            source={prefilledSourceRef.current.get('saas_nrr_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_nrr_pct') ?? 'benchmark'}`)}
+            tooltip={t('prefillSource.benchmarkTooltip')}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasNrrPct')}
+              value={saasNrrPct}
+              onChange={(v) => handleFieldChange('saas_nrr_pct', v)}
+              placeholder="110"
+              disabled={disabled}
+              description={t('fieldHints.saasNrrPct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
         </div>
       </SaasPanel>
 
@@ -383,15 +545,22 @@ export function SaasMetricsSection({
         description={t('saasPanels.retentionDescription')}
       >
         <div className="grid grid-cols-1 gap-3">
-          <AdaptivePercentInput
-            label={t('fields.saasChurnPct')}
-            value={saasChurnPct}
-            onChange={(v) => onFieldChange('saas_churn_pct', v)}
-            placeholder="5"
-            disabled={disabled}
-            description={t('fieldHints.saasChurnPct')}
-            truncateLabel={false}
-          />
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_churn_pct')}
+            source={prefilledSourceRef.current.get('saas_churn_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_churn_pct') ?? 'benchmark'}`)}
+            tooltip={t('prefillSource.benchmarkTooltip')}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasChurnPct')}
+              value={saasChurnPct}
+              onChange={(v) => handleFieldChange('saas_churn_pct', v)}
+              placeholder="5"
+              disabled={disabled}
+              description={t('fieldHints.saasChurnPct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
           <AdaptivePercentInput
             label={t('fields.saasCustomerChurnPct')}
             value={saasCustomerChurnPct}
@@ -410,23 +579,59 @@ export function SaasMetricsSection({
             description={t('fieldHints.saasExpansionRevenuePct')}
             truncateLabel={false}
           />
-          <AdaptivePercentInput
-            label={t('fields.saasGrossMarginPct')}
-            value={saasGrossMarginPct}
-            onChange={(v) => onFieldChange('saas_gross_margin_pct', v)}
-            placeholder="78"
-            disabled={disabled}
-            description={t('fieldHints.saasGrossMarginPct')}
-            truncateLabel={false}
-          />
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_gross_margin_pct')}
+            source={prefilledSourceRef.current.get('saas_gross_margin_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_gross_margin_pct') ?? 'benchmark'}`)}
+            tooltip={t('prefillSource.benchmarkTooltip')}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasGrossMarginPct')}
+              value={saasGrossMarginPct}
+              onChange={(v) => handleFieldChange('saas_gross_margin_pct', v)}
+              placeholder="78"
+              disabled={disabled}
+              description={t('fieldHints.saasGrossMarginPct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
         </div>
       </SaasPanel>
 
-      {showAdvancedInputs ? (
-        <SaasPanel
-          title={t('saasPanels.advancedTitle')}
-          description={t('saasPanels.advancedDescription')}
-        >
+      {/* Advanced inputs — true accordion (collapse from any state). */}
+      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 min-w-0 flex-1">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+              {t('saasPanels.advancedTitle')}
+            </h4>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {showAdvancedInputs
+                ? t('saasPanels.advancedDescription')
+                : t('saasPanels.advancedLockedDescription')}
+            </p>
+            {!showAdvancedInputs && advancedFilledCount > 0 && (
+              <p className="text-[11px] text-foreground/55">
+                {t('saasAdvanced.expandSummary', {
+                  count: advancedFilledCount,
+                  total: 3,
+                })}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAdvancedExpanded((prev) => !prev)}
+            disabled={disabled}
+            aria-expanded={showAdvancedInputs}
+            className="shrink-0 rounded-md border border-primary/20 bg-background/60 px-2 py-1 text-[11px] font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
+          >
+            {showAdvancedInputs
+              ? t('saasAdvanced.collapseLabel')
+              : t('saasPanels.showAdvancedButton')}
+          </button>
+        </div>
+        {showAdvancedInputs && (
           <div className="grid grid-cols-1 gap-3">
             <CurrencyInput
               label={t('fields.saasCac')}
@@ -458,23 +663,8 @@ export function SaasMetricsSection({
               truncateLabel={false}
             />
           </div>
-        </SaasPanel>
-      ) : (
-        <SaasPanel
-          title={t('saasPanels.advancedTitle')}
-          description={t('saasPanels.advancedLockedDescription')}
-        >
-          <button
-            type="button"
-            onClick={() => setAdvancedExpanded(true)}
-            disabled={disabled}
-            className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-left text-xs font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
-            aria-expanded={showAdvancedInputs}
-          >
-            {t('saasPanels.showAdvancedButton')}
-          </button>
-        </SaasPanel>
-      )}
+        )}
+      </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -492,19 +682,24 @@ export function SaasMetricsSection({
             { key: 'nrrExpansionSpread', label: t('fields.nrrExpansionSpread'), value: derivedMetrics.nrrExpansionSpread, suffix: ' pts' },
           ] as const).map(({ key, label, value, suffix }) => {
             const status = getHealthStatus(key, value)
+            // The `title` attribute carries the formula so an
+            // accountant verifying the engine output can see the math
+            // without round-tripping to the docs.
+            const formula = t(`saasFormulas.${key}`)
             return (
-              <PreviewMetricCard
-                key={key}
-                label={label}
-                value={formatPreviewMetricValue(
-                  value,
-                  metricFormatter,
-                  PREVIEW_DECIMALS.saasMetric,
-                  suffix
-                )}
-                status={status}
-                statusLabel={status ? t(`saasHealthStatus.${status}`) : undefined}
-              />
+              <div key={key} title={formula}>
+                <PreviewMetricCard
+                  label={label}
+                  value={formatPreviewMetricValue(
+                    value,
+                    metricFormatter,
+                    PREVIEW_DECIMALS.saasMetric,
+                    suffix
+                  )}
+                  status={status}
+                  statusLabel={status ? t(`saasHealthStatus.${status}`) : undefined}
+                />
+              </div>
             )
           })}
         </div>

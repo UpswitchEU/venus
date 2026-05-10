@@ -196,13 +196,21 @@ describe('AdaptiveSections', () => {
     )
 
     expect(screen.getByText('sections.navAssetSchedule')).toBeInTheDocument()
-    expect(screen.getByText('fields.navLead')).toBeInTheDocument()
+    // `fields.navLead` and the navProgress chrome were stripped 2026-05-10
+    // (left panel = data input only; advisor copy lives in
+    // `adjusted_nav_valuation.html`).  Verify the data fields still render.
+    expect(screen.queryByText('fields.navLead')).not.toBeInTheDocument()
     expect(screen.getByText('fields.navRealEstateAdjustment')).toBeInTheDocument()
     expect(screen.getByText('fields.navTaxLatencyPct')).toBeInTheDocument()
     expect(screen.queryByText('sections.saasMetrics')).not.toBeInTheDocument()
   })
 
-  it('renders the fiscal disclaimer when fiscal 4x is selected', () => {
+  it('renders the fiscal preview card when fiscal 4x is selected', () => {
+    // The amber disclaimer banner was dropped from the data rail
+    // 2026-05-10 (advisory copy duplicates `fiscal_scope_disclaimer` on
+    // the fiscal_reference report page). The fiscal preview card stays
+    // — it's a live calculator showing what the data implies for the
+    // forfait formula. Section heading sentinel: 'sections.fiscalDerivedMetrics'.
     render(
       <AdaptiveSections
         {...baseProps}
@@ -212,11 +220,15 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('fiscalDisclaimerText')).toBeInTheDocument()
     expect(screen.getByText('sections.fiscalDerivedMetrics')).toBeInTheDocument()
+    // Disclaimer banner sentinel must NOT render anywhere on the rail.
+    expect(screen.queryByText('fiscalDisclaimerText')).not.toBeInTheDocument()
   })
 
-  it('hides the fiscal disclaimer for NL accountant firms even if fiscal 4x is selected', () => {
+  it('hides the fiscal preview card entirely for NL accountant firms', () => {
+    // NL firms cannot pre-select fiscal_4x at all (Belgian forfait
+    // doesn't apply); the preview card is suppressed alongside the
+    // method itself. Same gate as Titan/PDF.
     render(
       <AdaptiveSections
         {...baseProps}
@@ -227,7 +239,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.queryByText('fiscalDisclaimerText')).not.toBeInTheDocument()
+    expect(screen.queryByText('sections.fiscalDerivedMetrics')).not.toBeInTheDocument()
   })
 
   it('surfaces the DCF autofill action and forwards clicks', () => {

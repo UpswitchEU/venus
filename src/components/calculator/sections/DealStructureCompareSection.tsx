@@ -7,10 +7,14 @@
  * (`details.deal_structure_comparison`) and exposes the inputs that
  * drive it: deal type selector, goodwill amount, seller-side flags and
  * buyer's discount rate for the goodwill amortisation tax-shield NPV.
+ *
+ * Round-1 fix B1: i18n + step badge — same `ValuationSectionHeader`
+ * rhythm + locale-aware copy as the rest of the left panel.
  */
 
-import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { useTranslations } from 'next-intl'
 import { CurrencyInput } from '../CurrencyInput'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 export type DealScenario = {
   label: string
@@ -40,236 +44,159 @@ export interface DealStructureInputs {
 }
 
 export interface DealStructureCompareSectionProps {
+  /** Sub-step indicator (e.g. '5d'). See NavRealEstateAppraisalSection. */
+  step: string | number
   inputs: DealStructureInputs
-  comparison?: DealStructureComparison | null
   onChange: (field: string, value: unknown) => void
   disabled?: boolean
   className?: string
 }
 
 export function DealStructureCompareSection({
+  step,
   inputs,
-  comparison,
   onChange,
   disabled,
   className,
 }: DealStructureCompareSectionProps) {
-  const { currency } = useManualPreviewFormatters()
+  const t = useTranslations('manualInput.methodSelector.navDealStructure')
   const dealType = inputs.dealType ?? 'compare'
 
+  // Section "complete" once a deal type has been picked AND we have at
+  // least one anchor (goodwill OR seller share basis OR buyer discount).
+  // Engine-side, the comparison is always computed from the engine's own
+  // defaults if the user supplies nothing — so completeness is a UX
+  // signal, not a gating signal.
+  const sectionComplete =
+    !!inputs.dealType &&
+    (inputs.goodwillAmount != null ||
+      inputs.sellerShareBasis != null ||
+      inputs.buyerDiscountRatePct != null)
+
   return (
-    <section
-      className={`rounded-xl border border-foreground/[0.08] bg-background ${className ?? ''}`}
-      aria-label="Deal structure comparison"
-    >
-      <header className="border-b border-foreground/[0.06] px-4 py-3">
-        <h4 className="text-[12px] font-semibold uppercase tracking-wide text-foreground/65">
-          Deal structure — Aandelen vs. Handelsfonds
-        </h4>
-        <p className="mt-0.5 text-[11px] leading-snug text-foreground/50">
-          Compare share deal vs. asset deal economics including goodwill amortisation tax shield (Art.
-          61 WIB 92) and private-shareholder capital-gains tax (Art. 90 WIB 92, 10% from 01/01/2026).
+    <section className={`mt-6 space-y-4 pt-2 ${className ?? ''}`} aria-label={t('ariaLabel')}>
+      <ValuationSectionHeader step={step} complete={sectionComplete} title={t('title')} />
+
+      <div className="rounded-xl border border-foreground/[0.08] bg-background">
+        <p className="border-b border-foreground/[0.06] px-4 py-3 text-[11px] leading-snug text-foreground/55">
+          {t('description')}
         </p>
-      </header>
 
-      <fieldset className="grid grid-cols-3 gap-2 px-4 py-3">
-        <legend className="sr-only">Deal type</legend>
-        {(['share', 'asset', 'compare'] as const).map((opt) => {
-          const selected = dealType === opt
-          const label =
-            opt === 'share' ? 'Aandelen' : opt === 'asset' ? 'Handelsfonds' : 'Compare'
-          return (
-            <label
-              key={opt}
-              className={`cursor-pointer rounded-lg border px-2.5 py-2 text-center transition-colors ${
-                selected
-                  ? 'border-primary/60 bg-primary/[0.06]'
-                  : 'border-foreground/[0.08] hover:border-foreground/[0.18]'
-              } ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
-            >
-              <input
-                type="radio"
-                name="deal-type"
-                value={opt}
-                className="sr-only"
-                checked={selected}
-                disabled={disabled}
-                onChange={() => onChange('deal_type', opt)}
-              />
-              <span className="text-[12px] font-semibold text-foreground/85">{label}</span>
-            </label>
-          )
-        })}
-      </fieldset>
+        <fieldset className="grid grid-cols-3 gap-2 px-4 py-3">
+          <legend className="sr-only">{t('dealTypeLegend')}</legend>
+          {(['share', 'asset', 'compare'] as const).map((opt) => {
+            const selected = dealType === opt
+            return (
+              <label
+                key={opt}
+                className={`cursor-pointer rounded-lg border px-2.5 py-2 text-center transition-colors ${
+                  selected
+                    ? 'border-primary/60 bg-primary/[0.06]'
+                    : 'border-foreground/[0.08] hover:border-foreground/[0.18]'
+                } ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="deal-type"
+                  value={opt}
+                  className="sr-only"
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => onChange('deal_type', opt)}
+                />
+                <span className="text-[12px] font-semibold text-foreground/85">
+                  {t(`dealType.${opt}`)}
+                </span>
+              </label>
+            )
+          })}
+        </fieldset>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-3">
-        <CurrencyInput
-          label="Goodwill paid in asset deal"
-          value={inputs.goodwillAmount}
-          onChange={(v) => onChange('deal_goodwill_amount', v)}
-          size="sm"
-          placeholder="Auto = headline − book equity"
-          disabled={disabled}
-          truncateLabel={false}
-        />
-        <CurrencyInput
-          label="Seller's share basis (cost)"
-          value={inputs.sellerShareBasis}
-          onChange={(v) => onChange('deal_seller_share_basis', v)}
-          size="sm"
-          placeholder="0"
-          disabled={disabled}
-          truncateLabel={false}
-        />
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
-            Buyer discount rate (%)
-          </span>
-          <input
-            type="number"
-            step="0.5"
-            min={0}
-            max={50}
-            value={inputs.buyerDiscountRatePct ?? ''}
-            onChange={(e) =>
-              onChange(
-                'deal_buyer_discount_rate_pct',
-                e.target.value === '' ? undefined : Number(e.target.value)
-              )
-            }
-            placeholder="10"
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-3">
+          <CurrencyInput
+            label={t('goodwillLabel')}
+            value={inputs.goodwillAmount}
+            onChange={(v) => onChange('deal_goodwill_amount', v)}
+            size="sm"
+            placeholder={t('goodwillPlaceholder')}
             disabled={disabled}
-            className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
+            truncateLabel={false}
           />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
-            Registration duty on movables (%)
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min={0}
-            max={20}
-            value={inputs.registrationDutyPct ?? ''}
-            onChange={(e) =>
-              onChange(
-                'deal_registration_duty_pct',
-                e.target.value === '' ? undefined : Number(e.target.value)
-              )
-            }
+          <CurrencyInput
+            label={t('sellerShareBasisLabel')}
+            value={inputs.sellerShareBasis}
+            onChange={(v) => onChange('deal_seller_share_basis', v)}
+            size="sm"
             placeholder="0"
             disabled={disabled}
-            className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
+            truncateLabel={false}
           />
-        </label>
-        <label className="col-span-1 sm:col-span-2 flex items-center gap-2 rounded-lg border border-foreground/[0.08] px-3 py-2">
-          <input
-            type="checkbox"
-            checked={inputs.sellerIsIndividual ?? true}
-            disabled={disabled}
-            onChange={(e) => onChange('deal_seller_is_individual', e.target.checked)}
-            className="h-3.5 w-3.5"
-          />
-          <span className="text-[12px] text-foreground/75">
-            Seller is a natural person (private shareholder)
-          </span>
-        </label>
-      </div>
-
-      {comparison ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
-          {([comparison.share_deal, comparison.asset_deal] as const).map((scenario) => (
-            <article
-              key={scenario.label}
-              className="rounded-lg border border-foreground/[0.06] bg-background px-3 py-2.5"
-            >
-              <h5 className="text-[12px] font-semibold text-foreground/85">{scenario.label}</h5>
-              <dl className="mt-2 space-y-1 text-[11px]">
-                <Row label="Headline price" value={currency.format(scenario.headline_price)} />
-                <Row
-                  label="Seller tax"
-                  value={`−${currency.format(scenario.seller_tax)}`}
-                  tone="negative"
-                />
-                <Row
-                  label="Seller net proceeds"
-                  value={currency.format(scenario.seller_net_proceeds)}
-                  emphasised
-                />
-                <Row
-                  label="Buyer tax shield NPV"
-                  value={
-                    scenario.buyer_tax_shield_npv === 0
-                      ? '—'
-                      : `+${currency.format(scenario.buyer_tax_shield_npv)}`
-                  }
-                  tone={scenario.buyer_tax_shield_npv > 0 ? 'positive' : undefined}
-                />
-                <Row
-                  label="Buyer net cost"
-                  value={currency.format(scenario.buyer_net_cost)}
-                  emphasised
-                />
-              </dl>
-              {scenario.notes.length ? (
-                <ul className="mt-2 space-y-0.5 text-[10.5px] leading-snug text-foreground/50">
-                  {scenario.notes.map((note, idx) => (
-                    <li key={idx} className="flex gap-1.5">
-                      <span className="text-foreground/35">•</span>
-                      <span>{note}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          ))}
-          <div className="sm:col-span-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">
-                Indifference premium
-              </span>
-              <span className="tabular-nums text-[13px] font-semibold text-primary">
-                {currency.format(comparison.indifference_premium)}
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] leading-snug text-foreground/65">
-              {comparison.recommendation}
-            </p>
-          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
+              {t('buyerDiscountRateLabel')}
+            </span>
+            <input
+              type="number"
+              step="0.5"
+              min={0}
+              max={50}
+              value={inputs.buyerDiscountRatePct ?? ''}
+              onChange={(e) =>
+                onChange(
+                  'deal_buyer_discount_rate_pct',
+                  e.target.value === '' ? undefined : Number(e.target.value)
+                )
+              }
+              placeholder="10"
+              disabled={disabled}
+              className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
+              {t('registrationDutyLabel')}
+            </span>
+            <input
+              type="number"
+              step="0.1"
+              min={0}
+              max={20}
+              value={inputs.registrationDutyPct ?? ''}
+              onChange={(e) =>
+                onChange(
+                  'deal_registration_duty_pct',
+                  e.target.value === '' ? undefined : Number(e.target.value)
+                )
+              }
+              placeholder="0"
+              disabled={disabled}
+              className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
+            />
+          </label>
+          <label className="col-span-1 sm:col-span-2 flex items-center gap-2 rounded-lg border border-foreground/[0.08] px-3 py-2">
+            <input
+              type="checkbox"
+              checked={inputs.sellerIsIndividual ?? true}
+              disabled={disabled}
+              onChange={(e) => onChange('deal_seller_is_individual', e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className="text-[12px] text-foreground/75">{t('sellerIsIndividualLabel')}</span>
+          </label>
         </div>
-      ) : (
-        <p className="border-t border-foreground/[0.06] px-4 py-3 text-[11px] text-foreground/50">
-          Run the calculation with deal type = "Compare" to see both scenarios.
-        </p>
-      )}
-    </section>
-  )
-}
 
-function Row({
-  label,
-  value,
-  emphasised,
-  tone,
-}: {
-  label: string
-  value: string
-  emphasised?: boolean
-  tone?: 'positive' | 'negative'
-}) {
-  const valueClass =
-    tone === 'positive'
-      ? 'text-emerald-600'
-      : tone === 'negative'
-        ? 'text-rose-500'
-        : emphasised
-          ? 'font-semibold text-foreground/85'
-          : 'text-foreground/75'
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-foreground/55">{label}</dt>
-      <dd className={`tabular-nums ${valueClass}`}>{value}</dd>
-    </div>
+        {/*
+          Round-4 audit: the comparison-result tiles (Share-Deal vs.
+          Asset-Deal headline / seller tax / seller net proceeds / buyer
+          tax shield NPV / buyer net cost / indifference premium /
+          recommendation) and the run-compare prompt are advisory output.
+          They moved to the ValuationIQ report (deal-structure section
+          inside the NAV dossier). The left panel keeps only the inputs
+          that drive that comparison: deal-type radio, goodwill,
+          seller-share basis, buyer-discount %, registration duty,
+          seller-is-individual flag.
+        */}
+      </div>
+    </section>
   )
 }

@@ -986,6 +986,130 @@ export function buildValuationRequest(
     }
   }
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Liquidation Phase 2-4 advisor inputs — bundle the LiquidationInputsSection
+  // form values into a single `liquidation_inputs` dict on the request. The
+  // valuation-iq stateless_router forwards this verbatim to
+  // calculate_all_methods → calculate_liquidation_method, where each key
+  // drives the corresponding cascade / tax / wind-down / premise calculation.
+  // Engine defaults fire when the dict is null OR when individual keys are
+  // missing — the Statement of Affairs flags every estimated bucket.
+  // Only emit when at least one liq_* field is set; an empty dict would
+  // overwrite engine defaults with nothing (no functional difference, but
+  // noisier on the wire).
+  // ──────────────────────────────────────────────────────────────────────
+  const liquidationInputs: Record<string, unknown> = {}
+  if (fd.liq_headcount != null && Number.isFinite(Number(fd.liq_headcount))) {
+    liquidationInputs.headcount = Math.max(0, Math.floor(Number(fd.liq_headcount)))
+  }
+  if (fd.liq_monthly_rent != null && Number.isFinite(Number(fd.liq_monthly_rent))) {
+    liquidationInputs.monthly_rent = Number(fd.liq_monthly_rent)
+  }
+  if (fd.liq_paid_up_capital != null && Number.isFinite(Number(fd.liq_paid_up_capital))) {
+    liquidationInputs.paid_up_capital = Number(fd.liq_paid_up_capital)
+  }
+  if (fd.liq_deferred_tax != null && Number.isFinite(Number(fd.liq_deferred_tax))) {
+    liquidationInputs.deferred_tax_liabilities = Number(fd.liq_deferred_tax)
+  }
+  // Premise override — only the two liquidation premises are valid here.
+  // `going_concern` is intentionally NOT accepted: liquidation analysis is
+  // in STANDALONE_METHODS (different premise of value per IVS 104 §80), so
+  // a going-concern pin inside a liquidation report would either be silently
+  // ignored by the engine or produce a contradictory narrative.  Defense-
+  // in-depth pairs with the UI gate in `LiquidationInputsSection.PREMISE_OPTIONS`
+  // so the wire boundary stays clean even if a stale formData payload (e.g.
+  // session restore) still carries the legacy value.  Audit 2026-05-10 (A2).
+  const liqPremise = (fd as { liq_premise_override?: string }).liq_premise_override
+  if (
+    liqPremise === 'orderly_liquidation' ||
+    liqPremise === 'forced_liquidation'
+  ) {
+    liquidationInputs.owner_premise_override = liqPremise
+  }
+  // Advanced fields surfaced by the collapsible "Show advanced" toggle.
+  // Each is independently optional — engine defaults apply when blank.
+  if (fd.liq_taxable_reserves != null && Number.isFinite(Number(fd.liq_taxable_reserves))) {
+    liquidationInputs.taxable_reserves = Number(fd.liq_taxable_reserves)
+  }
+  if (
+    fd.liq_runway_months_orderly != null &&
+    Number.isFinite(Number(fd.liq_runway_months_orderly))
+  ) {
+    liquidationInputs.runway_months_orderly = Math.max(
+      1,
+      Math.floor(Number(fd.liq_runway_months_orderly))
+    )
+  }
+  if (
+    fd.liq_distress_wacc_orderly != null &&
+    Number.isFinite(Number(fd.liq_distress_wacc_orderly))
+  ) {
+    // Stored as decimal (0.15 = 15%); UI surfaces as percent.
+    liquidationInputs.distress_wacc_orderly = Math.max(0, Number(fd.liq_distress_wacc_orderly))
+  }
+  if (
+    fd.liq_multiples_value_override != null &&
+    Number.isFinite(Number(fd.liq_multiples_value_override))
+  ) {
+    liquidationInputs.multiples_value_override = Number(fd.liq_multiples_value_override)
+  }
+  if (Object.keys(liquidationInputs).length > 0) {
+    request.liquidation_inputs = liquidationInputs as ValuationRequest['liquidation_inputs']
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Meerwaarde-tax (fiscal_4x) advisor data input — four amount values
+  // for the cedent's 31/12/2025 cost-basis filing under Art. 90 WIB 92.
+  // The left-panel surface is intentionally pure data input; advisory
+  // metadata (peildatum, company role, EBITDA basis, internal-transfer
+  // flag, acknowledged-anchors attestation) is auto-derived by the
+  // valuation-iq report builder from the same closed-fiscal-year data
+  // already on the request, OR set on `request.metadata` via firm /
+  // transaction settings — never collected on the data rail.
+  //
+  // Keys forwarded:
+  //   - acquisition_cost:  cedent's historische kostprijs (anchor 1 ref)
+  //   - anchor_2_value:    contractuele formule (aandeelhoudersovereenkomst)
+  //   - anchor_3_value:    objectieve markttransactie 2025
+  //   - anchor_4_value:    onafhankelijk waarderingsverslag
+  //
+  // Engine defaults fire when keys are missing — the report renders
+  // blank anchors as "n.v.t." Only emit when at least one fiscal_* field
+  // is set; an empty dict would be wire noise.
+  // ──────────────────────────────────────────────────────────────────────
+  const fiscalInputs: Record<string, unknown> = {}
+  if (
+    fd.fiscal_acquisition_cost != null &&
+    Number.isFinite(Number(fd.fiscal_acquisition_cost))
+  ) {
+    fiscalInputs.acquisition_cost = Number(fd.fiscal_acquisition_cost)
+  }
+  if (
+    fd.fiscal_anchor_2_value != null &&
+    Number.isFinite(Number(fd.fiscal_anchor_2_value))
+  ) {
+    fiscalInputs.anchor_2_value = Number(fd.fiscal_anchor_2_value)
+  }
+  if (
+    fd.fiscal_anchor_3_value != null &&
+    Number.isFinite(Number(fd.fiscal_anchor_3_value))
+  ) {
+    fiscalInputs.anchor_3_value = Number(fd.fiscal_anchor_3_value)
+  }
+  if (
+    fd.fiscal_anchor_4_value != null &&
+    Number.isFinite(Number(fd.fiscal_anchor_4_value))
+  ) {
+    fiscalInputs.anchor_4_value = Number(fd.fiscal_anchor_4_value)
+  }
+  if (Object.keys(fiscalInputs).length > 0) {
+    ;(
+      request as ValuationRequest & {
+        fiscal_inputs?: Record<string, unknown>
+      }
+    ).fiscal_inputs = fiscalInputs
+  }
+
   // BANK-GRADE: Log request structure for diagnostics (only in development)
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     generalLogger.debug('buildValuationRequest: Request structure', {

@@ -9,11 +9,20 @@
  *   request.investment_amount_sought  →  Titan DTO  →  Python engine →
  *   MethodResult.details.cap_table_simulator  →  React simulator + PDF.
  *
- * Default-collapsed: Wintercircus founders without prior rounds skip it
- * in zero clicks.  The block has its own opt-in flag
- * (``capital_history_enabled``) so a founder who toggles it off can
- * keep their inputs in the form-store without them flowing to the
- * engine — same affordance the deal-structure section provides.
+ * The block has its own opt-in flag (``capital_history_enabled``) so a
+ * founder who toggles it off can keep their inputs in the form-store
+ * without them flowing to the engine — same affordance the
+ * deal-structure section provides.
+ *
+ * UX rules pinned by the SaaS UI audit (2026-05-10):
+ *   - All copy goes through next-intl (no inline locale ternaries).
+ *   - Toggle reads "Have you raised capital before this round?" so
+ *     founders never confuse "First round" with "your current round".
+ *   - "Round being raised" lives ABOVE the toggle as the
+ *     always-required primary input — the toggle only gates the
+ *     prior-rounds disclosure.
+ *   - The last-round date sits in a labelled wrapper matching its
+ *     siblings (no raw `<input type="date">` floating in the grid).
  *
  * Persistence: writes through to ``useManualFormStore``.  The
  * ``capital_safe_notes`` array uses stable client-side IDs so React
@@ -33,6 +42,8 @@ import type { SafeNoteInput } from '@/types/valuation'
 import { consumeCapitalHistoryPrefill } from '@/utils/capitalHistoryPrefill'
 
 interface CapitalHistorySectionProps {
+  /** @deprecated Locale comes from next-intl route locale. Kept for
+   *  backwards-compat with any test harness that passes it explicitly. */
   locale?: 'en' | 'nl'
 }
 
@@ -43,7 +54,8 @@ function generateSafeId(): string {
   return `safe_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
 }
 
-export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionProps) {
+export function CapitalHistorySection(_props: CapitalHistorySectionProps) {
+  const t = useTranslations('manualInput.methodSelector.capitalHistory')
   const tSafe = useTranslations('startupStudio.safeNotes')
   const formData = useManualFormStore((s) => s.formData)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
@@ -129,13 +141,9 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
         aria-expanded={expanded}
       >
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-foreground">
-            {locale === 'nl' ? 'Funding tot nu toe' : 'Funding so far'}
-          </h3>
+          <h3 className="text-base font-semibold text-foreground">{t('sectionTitle')}</h3>
           <p className="mt-1 text-xs leading-relaxed text-foreground/60">
-            {locale === 'nl'
-              ? 'Eerdere rondes, openstaande SAFEs en optiepool. Bepaalt de cap-tabel en verwatering in je rapport. Sla over als je nooit eerder hebt opgehaald.'
-              : "Prior rounds, outstanding SAFEs, and the option pool. Drives the cap table + dilution in your report. Skip it if you've never raised before."}
+            {t('sectionDescription')}
           </p>
         </div>
         <ChevronDown
@@ -148,34 +156,33 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
 
       {expanded && (
         <div className="space-y-5 border-t border-foreground/10 px-5 pb-5 pt-5">
-          <SegmentedControl
-            options={[
-              {
-                value: 'no',
-                label: locale === 'nl' ? 'Eerste ronde' : 'First round',
-              },
-              {
-                value: 'yes',
-                label: locale === 'nl' ? 'Eerder kapitaal opgehaald' : 'Raised before',
-              },
-            ]}
-            value={enabled ? 'yes' : 'no'}
-            onChange={(value) => updateFormData({ capital_history_enabled: value === 'yes' })}
-          />
-
+          {/* Always-required primary input — sits ABOVE the toggle so
+              first-round founders never read "First round" + "Round
+              being raised" as a contradiction. */}
           <CurrencyInput
-            label={locale === 'nl' ? 'Op te halen ronde (€)' : 'Round being raised (€)'}
+            label={t('roundLabel')}
             value={roundAmount ?? undefined}
             onChange={(value) => updateFormData({ capital_round_amount: value ?? undefined })}
             placeholder="500.000"
             size="sm"
             truncateLabel={false}
-            description={
-              locale === 'nl'
-                ? 'Drijft de "als ik €X ophaal, hoeveel verwater ik?" simulator op je rapport.'
-                : 'Drives the "if I raise €X, what dilution do I take?" simulator on your report.'
-            }
+            description={t('roundDescription')}
           />
+
+          {/* Toggle gates ONLY the prior-rounds disclosure block. */}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground/55">
+              {t('haveRaisedQuestion')}
+            </p>
+            <SegmentedControl
+              options={[
+                { value: 'no', label: t('haveRaisedNo') },
+                { value: 'yes', label: t('haveRaisedYes') },
+              ]}
+              value={enabled ? 'yes' : 'no'}
+              onChange={(value) => updateFormData({ capital_history_enabled: value === 'yes' })}
+            />
+          </div>
 
           {enabled && (
             <>
@@ -190,7 +197,7 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <AdaptivePercentInput
-                  label={locale === 'nl' ? 'Bestaande optiepool (%)' : 'Existing option pool (%)'}
+                  label={t('optionPoolLabel')}
                   value={optionPoolPct ?? undefined}
                   onChange={(value) =>
                     updateFormData({ capital_option_pool_pct: value ?? undefined })
@@ -198,16 +205,10 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                   placeholder="10"
                   size="sm"
                   truncateLabel={false}
-                  description={
-                    locale === 'nl'
-                      ? 'Reeds gereserveerd voor toekomstige hires.'
-                      : 'Already reserved for future hires.'
-                  }
+                  description={t('optionPoolDescription')}
                 />
                 <CurrencyInput
-                  label={
-                    locale === 'nl' ? 'Vorige ronde — bedrag (€)' : 'Last round — amount (€)'
-                  }
+                  label={t('lastRoundAmountLabel')}
                   value={lastRoundAmount ?? undefined}
                   onChange={(value) =>
                     updateFormData({ capital_last_round_amount: value ?? undefined })
@@ -215,16 +216,10 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                   placeholder="250.000"
                   size="sm"
                   truncateLabel={false}
-                  description={
-                    locale === 'nl' ? 'Optioneel — historische context.' : 'Optional — historical context.'
-                  }
+                  description={t('lastRoundAmountDescription')}
                 />
                 <CurrencyInput
-                  label={
-                    locale === 'nl'
-                      ? 'Vorige ronde — post-money (€)'
-                      : 'Last round — post-money (€)'
-                  }
+                  label={t('lastRoundPostMoneyLabel')}
                   value={lastRoundPostMoney ?? undefined}
                   onChange={(value) =>
                     updateFormData({ capital_last_round_post_money: value ?? undefined })
@@ -233,17 +228,30 @@ export function CapitalHistorySection({ locale = 'en' }: CapitalHistorySectionPr
                   size="sm"
                   truncateLabel={false}
                 />
-                <input
-                  type="date"
-                  value={formData.capital_last_round_date ?? ''}
-                  onChange={(e) =>
-                    updateFormData({
-                      capital_last_round_date: e.target.value || undefined,
-                    })
-                  }
-                  className="block h-9 w-full rounded-md border border-foreground/15 bg-background px-3 text-sm text-foreground/85 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  aria-label={locale === 'nl' ? 'Datum vorige ronde' : 'Last round date'}
-                />
+                {/* Date input wrapped in a labelled block matching its
+                    siblings (no raw `<input>` floating in the grid). */}
+                <div>
+                  <label
+                    htmlFor="capital-last-round-date"
+                    className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foreground/55"
+                  >
+                    {t('lastRoundDateLabel')}
+                  </label>
+                  <input
+                    id="capital-last-round-date"
+                    type="date"
+                    value={formData.capital_last_round_date ?? ''}
+                    onChange={(e) =>
+                      updateFormData({
+                        capital_last_round_date: e.target.value || undefined,
+                      })
+                    }
+                    className="block h-9 w-full rounded-md border border-foreground/15 bg-background px-3 text-sm text-foreground/85 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <p className="mt-1 text-[11px] leading-relaxed text-foreground/55">
+                    {t('lastRoundDateDescription')}
+                  </p>
+                </div>
               </div>
             </>
           )}

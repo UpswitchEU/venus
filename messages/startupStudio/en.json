@@ -10,6 +10,20 @@
 		"report": "Report",
 		"reportLanding": "Preview"
 	},
+	"panelHeader": {
+		"badge": "Pre-seed & seed · pre-revenue",
+		"title": "EV/Revenue valuation",
+		"formula": "pre-money = (Year-5 revenue × exit EV/Revenue) ÷ target ROI − round size",
+		"subtitle": "Three published methods triangulate around the EV/Revenue spine: Berkus de-risks the qualitative side, Bill Payne Scorecard anchors to regional medians, and the VC method (Sahlman 1987) drives the headline.",
+		"liveBlendLabel": "Live blended pre-money",
+		"liveRangeLabel": "Range",
+		"liveEmpty": "Fill in stage, sector and Y5 revenue — the headline appears here as you type.",
+		"jumpToExit": "Edit Y5 / multiple / ROI ↓",
+		"progressChip": "{done}/{total} sections done",
+		"progressAria": "Progress: {done} of {total} sections completed",
+		"progressTitle": "{done} of {total} sections complete",
+		"progressTitleWithPartial": "{done} of {total} complete · {partial} in progress"
+	},
 	"common": {
 		"offline": "offline",
 		"preMoney": "Pre-money",
@@ -37,24 +51,49 @@
 	},
 	"preset": {
 		"quickStartAria": "Quick start templates",
-		"quickStart": "Quick start"
+		"quickStart": "Quick start",
+		"clear": "Clear preset",
+		"clearAria": "Clear the active preset and start with a blank canvas",
+		"clearTooltip": "Reset every preset-managed field (stage, sector, milestones, VC inputs) so you can start with your own data.",
+		"previewLabel": "Hovering",
+		"previewStage": "Stage",
+		"previewSector": "Sector",
+		"previewRaise": "Raise",
+		"previewY5": "Y5 revenue",
+		"previewMilestones": "{count}/10 milestones pre-set"
 	},
 	"milestone": {
 		"weight": "weight",
 		"whatInvestorsLookFor": "What investors look for",
 		"beneluxExamples": "Benelux examples",
-		"yourEvidence": "Your evidence (optional)"
+		"yourEvidence": "Your evidence (optional)",
+		"evidenceCounter": "{count}/280 — appears verbatim in the investor PDF",
+		"evidenceCounterNearLimit": "{count}/280 · {remaining} characters left"
+	},
+	"prefillBadge": {
+		"sectorDefault": "Pre-filled · sector default",
+		"stageDefault": "Pre-filled · stage default",
+		"benchmarkDefault": "Pre-filled · benchmark median",
+		"mercury": "Pre-filled · from Mercury",
+		"yourOverride": "Your override"
 	},
 	"berkus": {
-		"introBefore": "Investors price pre-seed rounds on ",
-		"introHighlight": "how much execution risk you've removed",
-		"introAfter": ". Score five qualitative milestones — each pick unlocks a slice of the regional baseline.",
-		"capLine": "Up to {total} across 5 milestones · {per} per milestone — {country} {stage} benchmark"
+		"introInputPrompt": "Score five risk-reduction milestones.",
+		"introBefore": "",
+		"introHighlight": "",
+		"introAfter": "",
+		"capLine": "Up to {total} across 5 milestones · {per} per milestone — {country} {stage} benchmark",
+		"runningTotalLabel": "Berkus contribution so far",
+		"runningTotalProgress": "{count} of 5 milestones picked"
 	},
 	"scorecard": {
-		"introBefore": "The Scorecard refines the regional median ",
-		"introAfter": " against five weighted defensibility factors (Bill Payne 2024).",
-		"contextLine": "{country} {stage} · {sector}"
+		"introInputPrompt": "Score five defensibility factors against the regional median.",
+		"introBefore": "",
+		"introAfter": "",
+		"contextLine": "{country} {stage} · {sector}",
+		"runningMultiplierLabel": "Live Scorecard multiplier",
+		"runningMultiplierFooter": "Applied to the regional median: {regional}",
+		"runningMultiplierProgress": "{count} of 5 factors picked"
 	},
 	"companyCard": {
 		"operatingCountry": "Operating country",
@@ -68,8 +107,15 @@
 		"businessType": "Business type (sector)",
 		"legalForm": "Legal form",
 		"fundingStage": "Funding stage",
-		"seriesANudge": "At Series A you typically have 2+ years of audited financials. For a comp-based number, select the SaaS valuation (ARR multiple) from the method selector instead—it is usually more precise. Stay on this startup flow if you want the cap-table simulation and fundraising narrative in one place.",
-		"seedRevenueNudge": "At €{mrr}k MRR you are in the post-revenue seed segment. For a multiples-based cross-check, select the SaaS valuation (ARR multiple) from the method selector. You can keep using this startup flow for the cap-table simulation and narrative.",
+		"seriesANudge": "Series A · ARR multiple is usually a better fit at this stage.",
+		"seedRevenueNudge": "€{mrr}k MRR · ARR multiple gives a tighter number.",
+		"switchToArrCta": "Switch to ARR multiple",
+		"switchToArrAria": "Switch the active valuation method to ARR multiple — your inputs are preserved.",
+		"sectorChipLabel": "Engine sector",
+		"sectorChipMultiple": "",
+		"sectorChipChange": "Change",
+		"sectorChipPickHeading": "Pick the sector that best matches your business",
+		"sectorChipPickHint": "Drives the exit multiple, the regional pre-money baseline, and whether the SaaS-forward leg blends in. Pick the closest fit — investors will challenge you if it's off.",
 		"roundRaised": "Round size to raise (€)",
 		"pitchLabel": "One-line pitch (optional)",
 		"pitchPlaceholder": "e.g. \"We help Belgian law firms analyse contracts 10× faster.\"",
@@ -79,24 +125,30 @@
 			"series_a": "Series A"
 		},
 		"stageSubtitles": {
-			"pre_seed": "Idea → first hires, no revenue yet — Berkus-heavy blend.",
-			"seed": "MRR live, hunting product-market fit — balanced 4-leg blend.",
-			"series_a": "~€1M+ ARR, raising to scale — VC + SaaS-forward dominate."
+			"pre_seed": "Idea through first hires, no recurring revenue yet. Risk-reduction milestones drive most of the number.",
+			"seed": "MRR is live, you're hunting product-market fit. Risk-reduction, market defensibility, and forward traction each carry weight.",
+			"series_a": "~€1M+ ARR, raising to scale. Forward traction and the exit-driven number anchor the valuation."
 		}
 	},
 	"traction": {
-		"revenuePrompt": "Are you generating revenue today? Saying \"no\" silently drops the SaaS-forward leg from the blend.",
+		"revenuePrompt": "Are you generating recurring revenue today? Saying \"no\" tells the engine to skip the ARR-multiple math (it isn't informative without revenue).",
 		"noRevenue": "No revenue yet",
 		"yesMrr": "Yes, MRR live",
 		"forwardTitle": "Forward-looking SaaS metrics",
 		"forwardSub": "Feeds the SaaS leg of the valuation with your current unit economics.",
 		"monthlyGrowth": "Monthly growth (%)",
+		"monthlyGrowthHint": "Per-month, compounded. 5%/mo ≈ 80%/year. Most pre-seed SaaS sit at 8–15%/mo.",
+		"monthlyGrowthAnnualEquiv": "= {annualPct}%/year compounded",
+		"monthlyGrowthHotWarn": "Above 20%/month — sustained compounding implies a multi-year doubling cycle most cohorts can't hold. Recheck.",
 		"monthlyChurn": "Monthly churn (%)",
+		"mrrLabel": "MRR (€) — current monthly recurring revenue",
+		"cacLabel": "CAC (€) — fully-loaded acquisition cost per customer",
 		"ltvOptional": "LTV (€) — optional",
+		"ltvCacRatioLabel": "LTV : CAC ratio",
 		"currentArr": "Current ARR",
 		"forwardArr": "Forward 12mo ARR",
 		"payback": "Payback",
-		"ltvCacWarn": "LTV : CAC below 3× is a yellow flag for investors — explore LTV upside or CAC reduction."
+		"ltvCacWarn": "LTV : CAC below 3× — recheck the inputs."
 	},
 	"exitStory": {
 		"y5Title": "Year-5 revenue thesis",
@@ -107,10 +159,30 @@
 		"sectorDefaultHint": "(typical Y5 ARR for {sector} at this stage)",
 		"investorAskTitle": "The investor's required return",
 		"investorAskLead": "What return multiple does the fund need to justify the check? This is the fund-side hurdle, not your own ROI.",
+		"targetRoiPresetLabel": "Use a stage-typical target",
 		"targetRoiLabel": "VC's target return multiple (×)",
 		"targetRoiDesc": "The higher the number, the lower your pre-money. {roi}× means the investor wants €{roi} back for every €1 they put in today — typically 7–10 years later, after several rounds of dilution. Pre-seed ~30×, seed ~20×, Series A ~10×. We pre-filled {roi}× for {stage}.",
 		"impliedExit": "Implied exit EV",
-		"sectorMultipleFoot": "Sector exit multiple: "
+		"sectorMultipleFoot": "Sector exit multiple: ",
+		"y5SanityImpossibleGrowthTitle": "Y5 implies {ratio}× growth from today — investors will challenge this",
+		"y5SanityImpossibleGrowthBody": "At your current ARR ({currentArr}), reaching {y5} in five years implies sustained {monthlyGrowth}%/month growth. Recheck the projection.",
+		"y5SanityBelowCurrentTitle": "Y5 is below your current ARR — recheck this number",
+		"y5SanityBelowCurrentBody": "You're projecting Y5 ({y5}) below your current ARR ({currentArr}). Either ARR is misreported (one-off, gross vs net, etc.) or the projection should be higher than today's run-rate.",
+		"y5SanityPreRevenueTooHighTitle": "Y5 is {ratio}× the sector default — investors will challenge this",
+		"y5SanityPreRevenueTooHighBody": "You projected {y5} for Y5; the sector default for {sector} is {sectorDefault}. Above ~5× the sector default is the moonshot zone — keep the number if you can defend it with a public comparable, otherwise dial back to anchor the rest of the report.",
+		"multipleOverrideTitle": "Exit EV/Revenue multiple",
+		"multipleOverrideLead": "Pre-filled from the sector median. Override if you have a sharper peer set.",
+		"multipleLabel": "Exit EV/Revenue multiple (×)",
+		"multipleDescDefault": "Sector default for {sector}: {mid}× (range {low}–{high}×, Athena Q1 2026). We pre-filled {mid}×.",
+		"multipleDescOverridden": "You overrode the sector default ({mid}×) to {applied}×. Add a one-line rationale below — it appears verbatim on your investor PDF.",
+		"multipleResetBtn": "Reset to sector median ({mid}×)",
+		"multipleRationaleLabel": "Why this multiple? (appears in your PDF)",
+		"multipleRationaleOptionalLabel": "Why this multiple? (optional — appears in your PDF)",
+		"multipleRationaleHint": "One sentence is enough. Investors expect a peer comparable, a recent-deal data point, or a public-comp citation.",
+		"multipleRationalePlaceholder": "e.g. \"Recent Bessemer Cloud Index for vertical SaaS at our ARPU prints 8–10×.\"",
+		"multipleOutOfBandWarn": "Outside the sector P25–P75 band ({low}–{high}×). Add a rationale below.",
+		"exitFooter": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Athena Q1 2026",
+		"exitFooterOffline": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Athena Q1 2026 · offline"
 	},
 	"round": {
 		"kindTitle": "What kind of round are you raising?",
@@ -119,9 +191,9 @@
 		"priced": "Priced round",
 		"safe": "SAFE / convertible",
 		"roundSize": "Round size to raise (€)",
-		"preMoneyTarget": "Target pre-money (€) — optional",
-		"preMoneyPlaceholder": "Blended estimate",
-		"preMoneyTargetDesc": "Leave blank to use the blended valuation from the steps above. Only fill in if you have already agreed a pre-money with a lead investor.",
+		"preMoneyTarget": "Pre-money you're pitching (€)",
+		"preMoneyPlaceholder": "Live blend",
+		"preMoneyTargetDesc": "The number you'll quote to investors. Leave blank to use the live blended valuation from the steps above; fill in once you have a target you want to defend.",
 		"dilutionLabel": "Cumulative dilution to exit (%)",
 		"dilutionDesc": "Expected total founder dilution through exit (median benchmarks — Atomico State of European Tech 2024 · Dealroom Benelux 2024). We start from {pct}% for {stage}. It does not drive the bar chart: this round’s new-investor % is always raise ÷ post-money.",
 		"useStageDefault": "Reset to stage default ({pct}%)",
@@ -132,10 +204,18 @@
 		"capTableTitle": "Cap table post-money",
 		"capTableExplainer": "Ownership after this close (pre-money + raise, with the option pool reserved). New investors ≈ {roundPct}% post-money from this raise alone — separate from the cumulative-to-exit % field.",
 		"roundDilutionHighHint": "~{roundPct}% for new money is a large slice for a single round; many founders aim closer to 10–15% per major cheque. At this raise, about 12% would correspond to pre-money near {preHint} (illustrative — use your actual term sheet).",
+		"foundersBelowFloorHint": "Founders end this close at ~{foundersPct}% — below the ~30% floor most VCs want before they can underwrite the next round. Lower the option pool, lower the raise, or push pre-money up.",
+		"dilutionDefaultsSource": "Source: Atomico SoEU 2024 + Dealroom Benelux 2024 cohort medians.",
+		"raiseSliderLabel": "Try a different round size",
+		"raiseSliderHint": "Drag to see how the cap table shifts at different raise amounts. The bar above and the post-money pill update live.",
+		"raiseSliderResetCta": "Reset to {amount}",
 		"preMoney": "Pre-money",
 		"postMoney": "Post-money"
 	},
 	"report": {
+		"submitJumpLabel": "Ready? Generate the investor PDF",
+		"submitJumpHint": "Takes you to the submit footer below — your inputs are validated and saved.",
+		"submitJumpAria": "Scroll to the submit footer below the panel",
 		"legLabels": {
 			"berkus": "Risk reduction (Berkus)",
 			"vc": "VC method (exit story)",
@@ -162,9 +242,10 @@
 	"health": {
 		"allClear": "All clear — your report is ready to generate.",
 		"mixed": "{blockerCount} blocking and {warningCount, plural, one {# recommended issue} other {# recommended issues}} to resolve",
-		"blockersOnly": "{count, plural, one {# blocking issue} other {# blocking issues}} — resolve with the assistant before PDF",
+		"blockersOnly": "{count, plural, one {# blocking issue} other {# blocking issues}} — resolve before generating the report",
 		"warningsOnly": "{count, plural, one {# recommended improvement} other {# recommended improvements}}",
-		"assistantHint": "The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved."
+		"assistantHint": "The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.",
+		"jumpToStepAria": "Jump to {step} to fix this"
 	},
 	"findingPeek": {
 		"ariaPeek": "Co-pilot suggestion",
@@ -179,6 +260,33 @@
 	"copilot": {
 		"fabToFix": "Co-pilot · {count} to fix",
 		"fabAllClear": "Co-pilot · all clear"
+	},
+	"submit": {
+		"calculating": "Calculating…",
+		"generate": "Generate startup valuation",
+		"hintMissingCompany": "Add the company name above to unlock report generation.",
+		"hintMissingMilestone": "Pick at least one milestone in “Risk reduction” for a defensible valuation.",
+		"hintBlockerIssues": "{count, plural, one {# blocker} other {# blockers}} need fixing before the report can ship — open the assistant to see what."
+	},
+	"reviewGate": {
+		"title": "Review your assumptions before generating",
+		"subtitleWithDefaults": "{count, plural, one {# value is using the engine default} other {# values are using engine defaults}} — make sure you can defend them to investors.",
+		"subtitleAllReviewed": "Every value is your own input — generate the report when you're ready.",
+		"defaultChip": "default",
+		"defaultChipTooltip": "Using the engine's smart-default for your stage / sector. Override if you can defend a different number.",
+		"editBtn": "Edit",
+		"cancelBtn": "Back to wizard",
+		"confirmBtn": "Generate report",
+		"closeAria": "Close review modal",
+		"row": {
+			"stage": "Funding stage",
+			"sector": "Engine sector",
+			"y5": "Year-5 revenue",
+			"exitMultiple": "Exit EV/Revenue multiple",
+			"targetRoi": "Investor target ROI",
+			"investment": "Round size to raise",
+			"dilution": "Cumulative dilution to exit"
+		}
 	},
 	"safeNotes": {
 		"defaultTitle": "SAFE / Convertible notes",
@@ -195,12 +303,13 @@
 		"capitalHistoryDescription": "Convert at the next priced round. Whichever clause is most favourable (cap or discount) applies."
 	},
 	"pedigree": {
-		"introBefore": "Investors price pre-seed not only on ",
-		"introRisk": "how much risk you've removed",
-		"introMid": ", but also on ",
-		"introWho": "who you are on paper",
-		"introAfter": ". This is a separate multiplier on the leg-blend baseline.",
-		"pickDefend": "Only pick what you can defend — investors will verify every claim.",
+		"introInputPrompt": "Tick every claim that applies. Add one-line evidence per claim — only evidenced lifts count.",
+		"introBefore": "",
+		"introRisk": "",
+		"introMid": "",
+		"introWho": "",
+		"introAfter": "",
+		"pickDefend": "",
 		"effectiveMultiplier": "Effective multiplier",
 		"claimedNeutralized": "Claimed: {claimed}× — neutralized by missing evidence",
 		"liftApplied": "Lift applied",
@@ -209,11 +318,13 @@
 		"evidenceLabel": "Evidence (required for the lift to count)",
 		"evidenceMissingEngine": "Without evidence the engine zeroes this pedigree claim (multiplier stays 1.00×).",
 		"evidenceCounter": "{count}/500 — appears verbatim in the report's defensibility table.",
-		"calibrationBefore": "Calibration: Strebulaev (Stanford GSB) ",
-		"calibrationTitle": "Venture Mindset",
-		"calibrationAfter": " 2024, Atomico SoEU 2024, Dealroom Benelux 2024. The multiplier is clamped to ",
-		"calibrationClamp": "0.70× – 1.80×",
-		"calibrationTail": " to keep the overlay inside the empirical envelope.",
+		"liftPendingChipSuffix": "pending evidence",
+		"soloFounderAsymmetry": "",
+		"calibrationBefore": "",
+		"calibrationTitle": "",
+		"calibrationAfter": "",
+		"calibrationClamp": "",
+		"calibrationTail": "",
 		"options": {
 			"prior_exit": {
 				"title": "Prior venture-backed exit (≥€10M)",
@@ -315,8 +426,8 @@
 		"noOverlayChip": "No overlay",
 		"overlayActive": "{lift} · ±{band}%",
 		"defaultBadge": "Default",
-		"whatLensLead": "What the lens does:",
-		"whatLensBody": "It lifts the mid (engine output) AND widens the band (lower P10, higher P90). Honest about increased variance — no false precision. Canonical math comes from ValuationIQ; this lens is a published, peer-reviewed overlay (Hampus Jakobsson 2024 inception thesis, Atomico SoEU 2024).",
+		"whatLensLead": "",
+		"whatLensBody": "",
 		"levels": {
 			"milestones_driven": {
 				"title": "Milestones-driven",

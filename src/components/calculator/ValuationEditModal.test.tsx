@@ -400,8 +400,9 @@ describe('ValuationEditModal', () => {
     expect(
       screen.getByText('Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.'),
     ).toBeInTheDocument()
-    // Exit multiple headline uses fixed two-decimal formatting on the metric card
-    expect(screen.getByText('6.00x')).toBeInTheDocument()
+    // Exit multiple headline uses fixed two-decimal formatting on the metric card.
+    // formatMultiple in ValuationEditModal.tsx:66 emits the Unicode multiplication sign (×, U+00D7).
+    expect(screen.getByText('6.00×')).toBeInTheDocument()
   })
 
   it('hides Zero Draft export when downloads are plan-locked', () => {

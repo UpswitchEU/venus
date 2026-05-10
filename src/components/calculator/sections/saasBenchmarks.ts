@@ -32,8 +32,10 @@ export interface SaasSectorBenchmark {
   monthly_churn_pct: number
   /** Net revenue retention %, sector median (e.g. 110 for SaaS). */
   nrr_pct: number
-  /** Monthly ARR growth %, sector median for early-stage. */
-  monthly_growth_pct: number
+  /** Annual ARR growth %, sector median for early-stage Benelux SMEs.
+   *  Canonical: feeds `saas_arr_growth_pct` which the engine reads as an
+   *  annual fraction (Rule of 40 = annual_growth + gross_margin). */
+  annual_growth_pct: number
 }
 
 export const SAAS_SECTOR_DEFAULTS: Record<StartupSector, SaasSectorBenchmark> = {
@@ -41,48 +43,48 @@ export const SAAS_SECTOR_DEFAULTS: Record<StartupSector, SaasSectorBenchmark> = 
     gross_margin_pct: 78,
     monthly_churn_pct: 3,
     nrr_pct: 110,
-    monthly_growth_pct: 10,
+    annual_growth_pct: 60,
   },
   marketplace: {
     gross_margin_pct: 25,
     monthly_churn_pct: 5,
     nrr_pct: 100,
-    monthly_growth_pct: 12,
+    annual_growth_pct: 80,
   },
   fintech: {
     gross_margin_pct: 65,
     monthly_churn_pct: 2,
     nrr_pct: 105,
-    monthly_growth_pct: 8,
+    annual_growth_pct: 50,
   },
   biotech_healthtech: {
     gross_margin_pct: 70,
     monthly_churn_pct: 2,
     nrr_pct: 105,
-    monthly_growth_pct: 6,
+    annual_growth_pct: 35,
   },
   deeptech_ai: {
     gross_margin_pct: 65,
     monthly_churn_pct: 3,
     nrr_pct: 115,
-    monthly_growth_pct: 12,
+    annual_growth_pct: 80,
   },
   consumer: {
     gross_margin_pct: 35,
     monthly_churn_pct: 7,
     nrr_pct: 95,
-    monthly_growth_pct: 8,
+    annual_growth_pct: 45,
   },
   hardware: {
     gross_margin_pct: 35,
     monthly_churn_pct: 2,
     nrr_pct: 100,
-    monthly_growth_pct: 6,
+    annual_growth_pct: 30,
   },
   other: {
     gross_margin_pct: 60,
     monthly_churn_pct: 4,
     nrr_pct: 100,
-    monthly_growth_pct: 8,
+    annual_growth_pct: 45,
   },
 }

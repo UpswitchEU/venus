@@ -70,6 +70,85 @@ export interface AIChatResponse {
     }
   }>
   normalisationSuggestions?: any[]
+  /**
+   * Pending valuation-run proposals from the AI. Each entry surfaces an inline
+   * "Run valuation now" action card; calculation only fires after the user
+   * approves (consumes 1 credit via the existing /api/v2/valuations/calculate
+   * saga). Status `blocked` means the AI tried to propose but required inputs
+   * are missing — render as a hint, not an action.
+   */
+  valuationRunRequests?: Array<{
+    status: 'pending_approval' | 'blocked'
+    reportId?: string
+    methods?: string[] | null
+    estimatedCredits?: number
+    inputsSummary?: {
+      business_name: string | null
+      business_type: string | null
+      industry: string | null
+      revenue: string | null
+      ebitda: string | null
+      ebitda_normalized: string | null
+      pending_normalizations: number
+      applied_normalizations: number
+    }
+    note?: string | null
+    reason?: string
+    missing?: string[]
+    message?: string
+  }>
+  /**
+   * Pending PDF-report generation proposals from the AI. Each entry surfaces an
+   * inline "Generate PDF" action card; generation only fires after the user
+   * approves and reuses the existing valuation (no extra credit). Status
+   * `blocked` with reason `no_valuation_yet` means the AI tried to propose
+   * before run_valuation produced results — render as a hint to compute first.
+   */
+  reportGenerationRequests?: Array<{
+    status: 'pending_approval' | 'blocked'
+    reportId?: string
+    estimatedCredits?: number
+    resultSummary?: {
+      business_name: string | null
+      business_type: string | null
+      valuation_method: string | null
+      currency: string
+      midpoint: number | null
+      min: number | null
+      max: number | null
+      confidence_score: number | null
+      calculated_at: string | null
+    }
+    note?: string | null
+    reason?: string
+    message?: string
+  }>
+  /**
+   * Pending Sellability-compute proposals from the AI. Each entry surfaces an
+   * inline "Compute now" action card; the compute fires via the Venus proxy at
+   * `/api/sellability/score` (which forwards to Titan's
+   * `/api/v2/sellability/score`). Free (no credit). Status `blocked` with
+   * reason `profile_incomplete` means Q1/Q2/Q3 must be filled in the owner
+   * profile first — render as a hint, not an action.
+   */
+  sellabilityRunRequests?: Array<{
+    status: 'pending_approval' | 'blocked'
+    estimatedCredits?: number
+    answers?: {
+      q1_top3_concentration_pct: number | null
+      q2_contracted_share: string | null
+      q3_books_cleanliness: string | null
+    }
+    currentScore?: {
+      score: number
+      band: string
+      computed_at: string | Date
+    } | null
+    note?: string | null
+    reason?: string
+    missing?: string[]
+    message?: string
+  }>
   fallback?: boolean
   error?: string
 }
@@ -163,6 +242,69 @@ class AIChatServiceImpl {
                 label: update.label,
                 source: 'ai',
                 confidence: update.confidence,
+              })
+            }
+          }
+          if (tr.type === 'valuation_run_request') {
+            if (!aiResponse.valuationRunRequests) aiResponse.valuationRunRequests = []
+            const data = tr.data as any
+            if (data?.status === 'pending_approval' && data.request) {
+              aiResponse.valuationRunRequests.push({
+                status: 'pending_approval',
+                reportId: data.request.report_id,
+                methods: data.request.methods ?? null,
+                estimatedCredits: data.request.estimated_credits,
+                inputsSummary: data.request.inputs_summary,
+                note: data.request.note ?? null,
+                message: data.message,
+              })
+            } else if (data?.status === 'blocked') {
+              aiResponse.valuationRunRequests.push({
+                status: 'blocked',
+                reason: data.reason,
+                missing: data.missing,
+                message: data.message,
+              })
+            }
+          }
+          if (tr.type === 'report_generation_request') {
+            if (!aiResponse.reportGenerationRequests) aiResponse.reportGenerationRequests = []
+            const data = tr.data as any
+            if (data?.status === 'pending_approval' && data.request) {
+              aiResponse.reportGenerationRequests.push({
+                status: 'pending_approval',
+                reportId: data.request.report_id,
+                estimatedCredits: data.request.estimated_credits,
+                resultSummary: data.request.result_summary,
+                note: data.request.note ?? null,
+                message: data.message,
+              })
+            } else if (data?.status === 'blocked') {
+              aiResponse.reportGenerationRequests.push({
+                status: 'blocked',
+                reason: data.reason,
+                message: data.message,
+              })
+            }
+          }
+          if (tr.type === 'sellability_run_request') {
+            if (!aiResponse.sellabilityRunRequests) aiResponse.sellabilityRunRequests = []
+            const data = tr.data as any
+            if (data?.status === 'pending_approval' && data.request) {
+              aiResponse.sellabilityRunRequests.push({
+                status: 'pending_approval',
+                estimatedCredits: data.request.estimated_credits,
+                answers: data.request.answers,
+                currentScore: data.request.current_score ?? null,
+                note: data.request.note ?? null,
+                message: data.message,
+              })
+            } else if (data?.status === 'blocked') {
+              aiResponse.sellabilityRunRequests.push({
+                status: 'blocked',
+                reason: data.reason,
+                missing: data.missing,
+                message: data.message,
               })
             }
           }

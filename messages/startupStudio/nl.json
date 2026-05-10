@@ -10,6 +10,20 @@
 		"report": "Rapport",
 		"reportLanding": "Voorbeeld"
 	},
+	"panelHeader": {
+		"badge": "Pre-seed & seed · pre-revenue",
+		"title": "EV/Omzet waardering",
+		"formula": "pre-money = (Jaar-5 omzet × exit EV/Omzet) ÷ target ROI − rondegrootte",
+		"subtitle": "Drie gepubliceerde methoden trianguleren rond de EV/Omzet-kern: Berkus weegt risicoreductie, de Bill Payne Scorecard verankert aan regionale medianen, en de VC-methode (Sahlman 1987) bepaalt de headline.",
+		"liveBlendLabel": "Live geblende pre-money",
+		"liveRangeLabel": "Bandbreedte",
+		"liveEmpty": "Vul stage, sector en Jaar-5 omzet in — de headline verschijnt hier terwijl je typt.",
+		"jumpToExit": "Bewerk Y5 / multiple / ROI ↓",
+		"progressChip": "{done}/{total} secties klaar",
+		"progressAria": "Voortgang: {done} van {total} secties voltooid",
+		"progressTitle": "{done} van {total} secties voltooid",
+		"progressTitleWithPartial": "{done} van {total} voltooid · {partial} in uitvoering"
+	},
 	"common": {
 		"offline": "offline",
 		"preMoney": "Vóór ronde",
@@ -37,24 +51,49 @@
 	},
 	"preset": {
 		"quickStartAria": "Snelle start templates",
-		"quickStart": "Snelle start"
+		"quickStart": "Snelle start",
+		"clear": "Wis preset",
+		"clearAria": "Wis het actieve preset en begin met een leeg canvas",
+		"clearTooltip": "Reset elk preset-beheerd veld (fase, sector, mijlpalen, VC-inputs) zodat je met je eigen data kunt beginnen.",
+		"previewLabel": "Hover",
+		"previewStage": "Fase",
+		"previewSector": "Sector",
+		"previewRaise": "Op te halen",
+		"previewY5": "Jaar-5 omzet",
+		"previewMilestones": "{count}/10 mijlpalen vooringevuld"
 	},
 	"milestone": {
 		"weight": "gewicht",
 		"whatInvestorsLookFor": "Wat investeerders zoeken",
 		"beneluxExamples": "Benelux-voorbeelden",
-		"yourEvidence": "Jouw bewijs (optioneel)"
+		"yourEvidence": "Jouw bewijs (optioneel)",
+		"evidenceCounter": "{count}/280 — verschijnt letterlijk op de investor-PDF",
+		"evidenceCounterNearLimit": "{count}/280 · nog {remaining} tekens"
+	},
+	"prefillBadge": {
+		"sectorDefault": "Voorgevuld · sector-default",
+		"stageDefault": "Voorgevuld · fase-default",
+		"benchmarkDefault": "Voorgevuld · sector-mediaan",
+		"mercury": "Voorgevuld · vanuit Mercury",
+		"yourOverride": "Door jou aangepast"
 	},
 	"berkus": {
-		"introBefore": "Investeerders waarderen pre-seed rondes op ",
-		"introHighlight": "hoeveel uitvoeringsrisico je hebt weggenomen",
-		"introAfter": ". Score vijf kwalitatieve mijlpalen — elke keuze ontgrendelt een stuk van de regionale baseline.",
-		"capLine": "Tot {total} over 5 mijlpalen · {per} per mijlpaal — {country} {stage} benchmark"
+		"introInputPrompt": "Score vijf risico-reductie mijlpalen.",
+		"introBefore": "",
+		"introHighlight": "",
+		"introAfter": "",
+		"capLine": "Tot {total} over 5 mijlpalen · {per} per mijlpaal — {country} {stage} ijking",
+		"runningTotalLabel": "Berkus-bijdrage tot nu toe",
+		"runningTotalProgress": "{count} van 5 mijlpalen gekozen"
 	},
 	"scorecard": {
-		"introBefore": "De Scorecard verfijnt de regionale mediaan ",
-		"introAfter": " op basis van vijf gewogen defensibility-factoren (Bill Payne 2024).",
-		"contextLine": "{country} {stage} · {sector}"
+		"introInputPrompt": "Score vijf verdedigbaarheidsfactoren tegenover de regionale mediaan.",
+		"introBefore": "",
+		"introAfter": "",
+		"contextLine": "{country} {stage} · {sector}",
+		"runningMultiplierLabel": "Live Scorecard-multiplier",
+		"runningMultiplierFooter": "Toegepast op de regionale mediaan: {regional}",
+		"runningMultiplierProgress": "{count} van 5 factoren gekozen"
 	},
 	"companyCard": {
 		"operatingCountry": "Land van vestiging",
@@ -68,8 +107,15 @@
 		"businessType": "Bedrijfstype (sector)",
 		"legalForm": "Rechtsvorm",
 		"fundingStage": "Financieringsfase",
-		"seriesANudge": "Bij Series A heb je meestal 2+ jaar geauditte cijfers. Voor een comp-based getal: kies in de methodekiezer de SaaS-waardering (ARR multiple)—die is meestal preciezer. Gebruik deze studio-flow wanneer je het cap-tabel- en fundraising-narratief hier wilt houden.",
-		"seedRevenueNudge": "Met €{mrr}k MRR zit je in het post-revenue seed-segment. Voor een multiples-gebaseerde cross-check: kies de SaaS-waardering (ARR multiple) in de methodekiezer. Je kunt deze startup-flow blijven gebruiken voor cap-tabel en narratief.",
+		"seriesANudge": "Series A · ARR multiple past meestal beter bij deze fase.",
+		"seedRevenueNudge": "€{mrr}k MRR · ARR multiple geeft een strakker getal.",
+		"switchToArrCta": "Schakel over naar ARR multiple",
+		"switchToArrAria": "Wissel de actieve waarderingsmethode naar ARR multiple — je inputs blijven behouden.",
+		"sectorChipLabel": "Waarderingssector",
+		"sectorChipMultiple": "",
+		"sectorChipChange": "Wijzigen",
+		"sectorChipPickHeading": "Kies de sector die het beste bij je business past",
+		"sectorChipPickHint": "Bepaalt de exit-multiple, de regionale pre-money basis en of de SaaS-forward methode meedoet. Kies de dichtste match — investeerders gaan dit toetsen.",
 		"roundRaised": "Op te halen ronde (€)",
 		"pitchLabel": "Korte pitch (1 zin, optioneel)",
 		"pitchPlaceholder": "Bv. \"Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren.\"",
@@ -79,24 +125,30 @@
 			"series_a": "Series A"
 		},
 		"stageSubtitles": {
-			"pre_seed": "Idee → eerste hires, nog geen omzet — Berkus-zware blend.",
-			"seed": "MRR live, op zoek naar product-market fit — gebalanceerde 4-leg blend.",
-			"series_a": "~€1M+ ARR, kapitaal voor schaal — VC + SaaS-forward domineren."
+			"pre_seed": "Idee tot eerste hires, nog geen recurring omzet. Risico-reductie mijlpalen sturen het grootste deel van het cijfer.",
+			"seed": "MRR loopt, je zoekt product-market fit. Risico-reductie, marktverdedigbaarheid en forward tractie wegen elk mee.",
+			"series_a": "~€1M+ ARR, kapitaal voor schaal. Forward tractie en de exit-gedreven berekening verankeren de waardering."
 		}
 	},
 	"traction": {
-		"revenuePrompt": "Genereer je vandaag al omzet? Bij \"nee\" valt de SaaS-forward leg automatisch weg uit de blend.",
+		"revenuePrompt": "Genereer je vandaag al recurring omzet? Bij \"nee\" slaan we de ARR-multiple over (zonder omzet voegt die niets toe).",
 		"noRevenue": "Nog geen omzet",
 		"yesMrr": "Ja, MRR live",
 		"forwardTitle": "Forward-looking SaaS-cijfers",
 		"forwardSub": "Voed de SaaS-leg van de waardering met je huidige unit economics.",
 		"monthlyGrowth": "Maandelijkse groei (%)",
+		"monthlyGrowthHint": "Per maand, compounded. 5%/mnd ≈ 80%/jaar. De meeste pre-seed SaaS zitten op 8–15%/mnd.",
+		"monthlyGrowthAnnualEquiv": "= {annualPct}%/jaar compounded",
+		"monthlyGrowthHotWarn": "Boven 20%/maand — aanhoudende compound impliceert een verdubbeling per kwartaal. Controleer.",
 		"monthlyChurn": "Maandelijkse churn (%)",
+		"mrrLabel": "MRR (€) — huidige maandelijkse recurring revenue",
+		"cacLabel": "CAC (€) — fully-loaded acquisitiekosten per klant",
 		"ltvOptional": "LTV (€) — optioneel",
+		"ltvCacRatioLabel": "LTV : CAC-ratio",
 		"currentArr": "Huidige ARR",
 		"forwardArr": "Prognose-ARR (12 mnd)",
 		"payback": "Terugverdientijd",
-		"ltvCacWarn": "LTV : CAC ratio onder 3× wordt door investeerders als zorgwekkend gezien — overweeg LTV-verbeteringen of CAC-reductie."
+		"ltvCacWarn": "LTV : CAC onder 3× — controleer de inputs."
 	},
 	"exitStory": {
 		"y5Title": "Jaar-5 omzetthese",
@@ -107,10 +159,30 @@
 		"sectorDefaultHint": "(typisch Y5 ARR voor {sector} bij deze fase)",
 		"investorAskTitle": "Wat zoekt de investeerder?",
 		"investorAskLead": "Welke return-multiple moet de fund zien om de check te schrijven? Dit is de fund-side hurdle, niet jouw ROI.",
+		"targetRoiPresetLabel": "Kies een stage-typisch doel",
 		"targetRoiLabel": "Doelrendement van de investeerder (×)",
 		"targetRoiDesc": "Hoe hoger het cijfer, hoe lager jouw pre-money. {roi}× betekent: de investeerder wil €{roi} terug per €1 die ze nu storten — typisch 7–10 jaar later, na meerdere rondes verwatering. Pre-seed ~30×, seed ~20×, Series A ~10×. We hebben {roi}× ingevuld voor {stage}.",
 		"impliedExit": "Geïmpliceerde exit EV",
-		"sectorMultipleFoot": "Sector exit-multiple: "
+		"sectorMultipleFoot": "Sector exit-multiple: ",
+		"y5SanityImpossibleGrowthTitle": "Y5 impliceert {ratio}× groei vanaf vandaag — investeerders zullen dit aanvechten",
+		"y5SanityImpossibleGrowthBody": "Met huidige ARR ({currentArr}) impliceert {y5} in vijf jaar een aanhoudende groei van {monthlyGrowth}%/maand. Controleer de prognose.",
+		"y5SanityBelowCurrentTitle": "Y5 ligt onder je huidige ARR — controleer dit cijfer",
+		"y5SanityBelowCurrentBody": "Je projecteert Y5 ({y5}) onder je huidige ARR ({currentArr}). Of de ARR is verkeerd geboekt (eenmalig, bruto vs netto, etc.) of de projectie hoort hoger te liggen dan je run-rate vandaag.",
+		"y5SanityPreRevenueTooHighTitle": "Y5 is {ratio}× de sector-default — investeerders zullen dit aanvechten",
+		"y5SanityPreRevenueTooHighBody": "Je projecteerde {y5} voor Y5; de sector-default voor {sector} is {sectorDefault}. Boven ~5× de sector-default zit je in moonshot-territorium — houd het cijfer als je het kunt staven met een publieke comparable, anders verlaag het om de rest van het rapport te verankeren.",
+		"multipleOverrideTitle": "Exit EV/Omzet-multiple",
+		"multipleOverrideLead": "Voorgevuld vanaf de sector-mediaan. Override als je een scherpere peer-set hebt.",
+		"multipleLabel": "Exit EV/Omzet-multiple (×)",
+		"multipleDescDefault": "Sector-default voor {sector}: {mid}× (bandbreedte {low}–{high}×, Athena Q1 2026). We vulden {mid}× voor je in.",
+		"multipleDescOverridden": "Je hebt de sector-default ({mid}×) overschreven naar {applied}×. Voeg hieronder één regel rationale toe — die verschijnt letterlijk op je investor-PDF.",
+		"multipleResetBtn": "Zet terug naar sector-mediaan ({mid}×)",
+		"multipleRationaleLabel": "Waarom deze multiple? (verschijnt op je PDF)",
+		"multipleRationaleOptionalLabel": "Waarom deze multiple? (optioneel — verschijnt op je PDF)",
+		"multipleRationaleHint": "Eén zin volstaat. Investeerders verwachten een peer-vergelijking, een recent deal-datapunt of een publieke comparable.",
+		"multipleRationalePlaceholder": "bv. \"Recente Bessemer Cloud Index voor vertical SaaS op ons ARPU-segment print 8–10×.\"",
+		"multipleOutOfBandWarn": "Buiten de sector P25–P75-band ({low}–{high}×). Voeg hieronder een onderbouwing toe.",
+		"exitFooter": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Athena Q1 2026",
+		"exitFooterOffline": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Athena Q1 2026 · offline"
 	},
 	"round": {
 		"kindTitle": "Welk soort ronde haal je op?",
@@ -119,9 +191,9 @@
 		"priced": "Prijzenronde (equity)",
 		"safe": "SAFE / convertibel",
 		"roundSize": "Op te halen ronde (€)",
-		"preMoneyTarget": "Streef-pre-money (€) — optioneel",
-		"preMoneyPlaceholder": "Blended schatting",
-		"preMoneyTargetDesc": "Leeg laten = de blended waardering uit de vorige stappen. Alleen invullen als je al een pre-money met een lead investor hebt afgesproken.",
+		"preMoneyTarget": "Pre-money waarmee je pitcht (€)",
+		"preMoneyPlaceholder": "Live blend",
+		"preMoneyTargetDesc": "Het getal waarmee je investeerders aanspreekt. Leeg laten = de live blend uit de vorige stappen; vul in zodra je een streefwaarde hebt die je wil verdedigen.",
 		"dilutionLabel": "Cumulatieve verwatering tot exit (%)",
 		"dilutionDesc": "Verwachte totale founder-verwatering tot en met exit (mediaan — Atomico State of European Tech 2024 · Dealroom Benelux 2024). We starten van {pct}% voor {stage}. Dit veld stuurt de balk niet aan: het aandeel nieuwe investeerders deze ronde is altijd op te halen ÷ post-money.",
 		"useStageDefault": "Terug naar stage-default ({pct}%)",
@@ -132,10 +204,18 @@
 		"capTableTitle": "Cap-tabel post-money",
 		"capTableExplainer": "Eigendom na deze close (pre-money + op te halen bedrag, optiepool gereserveerd). Nieuwe investeerders ≈ {roundPct}% post-money van deze ronde alleen — los van het cumulatief-tot-exit-veld.",
 		"roundDilutionHighHint": "~{roundPct}% voor nieuw geld is een grote hap voor één ronde; veel founders mikken richting 10–15% per grote cheque. Bij deze raise zou ~12% ruwweg pre-money rond {preHint} impliceren (illustratief — volg je term sheet).",
+		"foundersBelowFloorHint": "Oprichters sluiten deze ronde op ~{foundersPct}% — onder de ~30%-vloer die de meeste VC's willen zien om de volgende ronde te kunnen underwriten. Verlaag de optiepool, verlaag het op te halen bedrag, of duw de pre-money omhoog.",
+		"dilutionDefaultsSource": "Bron: Atomico SoEU 2024 + Dealroom Benelux 2024 cohort-medianen.",
+		"raiseSliderLabel": "Probeer een ander op te halen bedrag",
+		"raiseSliderHint": "Sleep om te zien hoe de cap-tabel verschuift bij andere bedragen. De balk hierboven en de post-money pil bewegen live mee.",
+		"raiseSliderResetCta": "Terug naar {amount}",
 		"preMoney": "Vóór ronde",
 		"postMoney": "Na ronde"
 	},
 	"report": {
+		"submitJumpLabel": "Klaar? Genereer de investor-PDF",
+		"submitJumpHint": "Brengt je naar de submit-balk onderaan — je inputs zijn gevalideerd en bewaard.",
+		"submitJumpAria": "Scroll naar de submit-balk onder het paneel",
 		"legLabels": {
 			"berkus": "Risico-reductie (Berkus)",
 			"vc": "VC-methode (exit-verhaal)",
@@ -162,9 +242,10 @@
 	"health": {
 		"allClear": "Alles staat — je rapport is klaar om te genereren.",
 		"mixed": "{blockerCount} blokkerend en {warningCount} aanbevolen issues te fixen",
-		"blockersOnly": "{count, plural, one {# blokkerend issue} other {# blokkerende issues}} — fix met de assistent voor PDF",
+		"blockersOnly": "{count, plural, one {# blokkerend issue} other {# blokkerende issues}} — fix vóór je het rapport genereert",
 		"warningsOnly": "{count, plural, one {# aanbevolen verbetering} other {# aanbevolen verbeteringen}}",
-		"assistantHint": "De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard."
+		"assistantHint": "De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.",
+		"jumpToStepAria": "Spring naar {step} om dit op te lossen"
 	},
 	"findingPeek": {
 		"ariaPeek": "Co-pilot suggestie",
@@ -179,6 +260,33 @@
 	"copilot": {
 		"fabToFix": "Co-pilot · {count} te fixen",
 		"fabAllClear": "Co-pilot · alles in orde"
+	},
+	"submit": {
+		"calculating": "Berekenen…",
+		"generate": "Genereer startup-waardering",
+		"hintMissingCompany": "Vul eerst de bedrijfsnaam bovenaan in om je rapport te genereren.",
+		"hintMissingMilestone": "Kies minstens één mijlpaal in “Risico-reductie” voor een verdedigbare waardering.",
+		"hintBlockerIssues": "{count, plural, one {# blocker} other {# blockers}} moeten worden opgelost voordat het rapport kan worden gegenereerd — open de assistent om te zien wat."
+	},
+	"reviewGate": {
+		"title": "Controleer je aannames vóór je het rapport genereert",
+		"subtitleWithDefaults": "{count, plural, one {# waarde gebruikt nog de motor-default} other {# waarden gebruiken nog motor-defaults}} — zorg dat je ze tegenover een investeerder kunt verdedigen.",
+		"subtitleAllReviewed": "Elke waarde is je eigen invoer — genereer het rapport wanneer je klaar bent.",
+		"defaultChip": "default",
+		"defaultChipTooltip": "Dit is de smart-default van de motor voor jouw fase / sector. Pas aan als je een ander getal kunt onderbouwen.",
+		"editBtn": "Wijzigen",
+		"cancelBtn": "Terug naar wizard",
+		"confirmBtn": "Genereer rapport",
+		"closeAria": "Sluit reviewvenster",
+		"row": {
+			"stage": "Financieringsfase",
+			"sector": "Waarderingssector",
+			"y5": "Jaar-5 omzet",
+			"exitMultiple": "Exit EV/Omzet multiple",
+			"targetRoi": "Doelrendement investeerder",
+			"investment": "Op te halen ronde",
+			"dilution": "Cumulatieve dilutie tot exit"
+		}
 	},
 	"safeNotes": {
 		"defaultTitle": "SAFE- en convertibele notities",
@@ -195,25 +303,28 @@
 		"capitalHistoryDescription": "Converteren bij de volgende prijsronde. Gebruik de meest gunstige clausule (cap of discount)."
 	},
 	"pedigree": {
-		"introBefore": "Investeerders prijzen pre-seed niet alleen op ",
-		"introRisk": "welk risico je hebt weggenomen",
-		"introMid": ", maar ook op ",
-		"introWho": "wie je bent op papier",
-		"introAfter": ". Dit is een aparte multiplier op de leg-blend baseline.",
-		"pickDefend": "Kies alleen wat je kunt onderbouwen — een investeerder verifieert elke claim.",
+		"introInputPrompt": "Vink elke claim aan die van toepassing is. Voeg per claim één regel onderbouwing toe — alleen onderbouwde lifts tellen.",
+		"introBefore": "",
+		"introRisk": "",
+		"introMid": "",
+		"introWho": "",
+		"introAfter": "",
+		"pickDefend": "",
 		"effectiveMultiplier": "Effectieve multiplier",
 		"claimedNeutralized": "Geclaimd: {claimed}× — geneutraliseerd door ontbrekende onderbouwing",
 		"liftApplied": "Lift toegepast",
 		"discountApplied": "Korting toegepast",
 		"noOverlay": "Geen overlay",
 		"evidenceLabel": "Onderbouwing (verplicht voor de lift)",
-		"evidenceMissingEngine": "Zonder onderbouwing wordt deze pedigree-claim door de waarderingsmotor genuld (multiplier blijft 1.00×).",
-		"evidenceCounter": "{count}/500 — verschijnt verbatim in de defensibility-tabel van het rapport.",
-		"calibrationBefore": "Calibratie: Strebulaev (Stanford GSB) ",
-		"calibrationTitle": "Venture Mindset",
-		"calibrationAfter": " 2024, Atomico SoEU 2024, Dealroom Benelux 2024. De multiplier is geclamped op ",
-		"calibrationClamp": "0.70× – 1.80×",
-		"calibrationTail": " om niet-fundbare extremen te voorkomen.",
+		"evidenceMissingEngine": "Zonder onderbouwing wordt deze pedigree-claim door het rekenmodel genuld (multiplier blijft 1.00×).",
+		"evidenceCounter": "{count}/500 — verschijnt letterlijk in de verdedigbaarheidstabel van het rapport.",
+		"liftPendingChipSuffix": "wacht op onderbouwing",
+		"soloFounderAsymmetry": "",
+		"calibrationBefore": "",
+		"calibrationTitle": "",
+		"calibrationAfter": "",
+		"calibrationClamp": "",
+		"calibrationTail": "",
 		"options": {
 			"prior_exit": {
 				"title": "Eerdere venture-backed exit (≥€10M)",
@@ -315,8 +426,8 @@
 		"noOverlayChip": "Geen overlay",
 		"overlayActive": "{lift} · ±{band}%",
 		"defaultBadge": "Standaard",
-		"whatLensLead": "Wat de lens doet:",
-		"whatLensBody": "De lens tilt de mid (engine output) op én verbreedt de band (lower P10, higher P90). Eerlijk over verhoogde variantie — geen valse precisie. Canonieke wiskunde komt van ValuationIQ; deze lens is een gepubliceerde, peer-reviewed overlay (Hampus Jakobsson 2024 inception thesis, Atomico SoEU 2024).",
+		"whatLensLead": "",
+		"whatLensBody": "",
 		"levels": {
 			"milestones_driven": {
 				"title": "Milestones-gedreven",
@@ -543,6 +654,6 @@
 		"benchmarksLabel": "Benchmarks:",
 		"offlineFallback": "offline reserve",
 		"updatedPrefix": "bijgewerkt ",
-		"repro": "Audit-ready cijfer komt van <viq></viq> (Python engine, server-side). Deze preview spiegelt dezelfde wiskunde, maar het canonieke getal — dat in je PDF en op je rapport staat — wordt deterministisch berekend op de server. Identieke inputs ⇒ identiek getal. Geen LLM-hallucinatie, geen verborgen regels."
+		"repro": "Het audit-ready cijfer komt van <viq></viq> (Python rekenmodel, server-side). Deze preview spiegelt dezelfde berekening, maar het canonieke getal — dat in je PDF en je rapport verschijnt — wordt deterministisch op de server berekend. Identieke inputs ⇒ identiek getal. Geen LLM-hallucinatie, geen verborgen regels."
 	}
 }

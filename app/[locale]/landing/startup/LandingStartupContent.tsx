@@ -45,6 +45,7 @@ import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
+import { PanelHeader } from '@/features/startup-studio/components/PanelHeader'
 import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
@@ -72,13 +73,20 @@ interface SectionDef {
   Step: ComponentType<{ locale?: 'en' | 'nl' }>
 }
 
+/**
+ * Section order — leads with the EV/Revenue spine (Profile → Exit Story)
+ * before the qualitative overlays.  Mirrors ``StartupValuationPanel.SECTIONS``
+ * so the anonymous landing and the authenticated panel render the same
+ * shape; if they drift, M&A readers see two different framings of the
+ * same method depending on whether they signed up first.
+ */
 const SECTIONS: SectionDef[] = [
   { id: 'profile', labelKey: 'profile', Step: CompanyCardStep },
+  { id: 'exit_story', labelKey: 'exit_story', Step: ExitStoryStep },
   { id: 'berkus', labelKey: 'berkus', Step: BerkusStep },
   { id: 'scorecard', labelKey: 'scorecard', Step: ScorecardStep },
   { id: 'founder_pedigree', labelKey: 'founder_pedigree', Step: FounderPedigreeStep },
   { id: 'traction', labelKey: 'traction', Step: TractionStep },
-  { id: 'exit_story', labelKey: 'exit_story', Step: ExitStoryStep },
   { id: 'round_simulator', labelKey: 'round_simulator', Step: RoundSimulatorStep },
   { id: 'report', labelKey: 'reportLanding', Step: ReportStep },
 ]
@@ -259,18 +267,28 @@ export function LandingStartupContent() {
       <div className='mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_360px]'>
         <section
           aria-label={tLanding('wizardAriaLabel')}
-          className='space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-2 sm:p-4'
+          className='aurora-theme space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-6'
         >
+          {/* Live blend pill + EV/Revenue method header.  Same component
+              the authenticated `StartupValuationPanel` uses so anonymous
+              founders see the running headline immediately, instead of
+              filling 8 sections before the report step shows a number. */}
+          <PanelHeader />
           {SECTIONS.map((section, idx) => {
             const Step = section.Step
+            // Align section anchor with `PanelHeader`'s jumpAnchor default
+            // (`startup-section-exit`) so the "Edit Y5 / multiple / ROI"
+            // pill button scrolls correctly on the anonymous landing.
+            const anchor = `startup-section-${section.id === 'exit_story' ? 'exit' : section.id}`
             return (
               <motion.section
                 key={section.id}
+                id={anchor}
                 data-landing-step={section.id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, ease: 'easeOut', delay: idx * 0.02 }}
-                className='space-y-5 px-2 pt-2'
+                className='scroll-mt-6 space-y-5 pt-2'
               >
                 <ValuationSectionHeader
                   step={idx + 1}

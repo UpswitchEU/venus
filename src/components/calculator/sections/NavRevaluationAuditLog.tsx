@@ -1,16 +1,35 @@
 'use client'
 
 /**
- * NAV Revaluation Audit Log
- * -------------------------
+ * NAV Revaluation Audit Log — DEPRECATED FOR LEFT-PANEL USE
+ * ---------------------------------------------------------
  * Renders the per-asset-class deferred-tax breakdown returned by the
  * adjusted-NAV engine (`details.deferred_tax_breakdown`) plus the
  * resolved SME-rate eligibility trail.
  *
- * Designed as a defensible artefact a buyer-side accountant can sign
- * off on: each asset class shows the meerwaarde, the rate applied and
- * the rate's source (user override / per-asset default / global rate /
- * SME-rule-resolved default).
+ * Round-6 audit: this is **advisory output** — it consumes engine
+ * results and renders the defensible per-asset table that a buyer-side
+ * accountant signs off on. The data-input/advisory split moved this
+ * surface to the ValuationIQ report:
+ *
+ *   `apps/valuation-iq/src/templates/main_report{,_pdf}/components/_nav_audit_trail.html`
+ *
+ * The Jinja partial above carries the deferred-tax breakdown, SME-rate
+ * eligibility chip, real-estate book→appraisal swap card, and equipment
+ * lifespan card with full locale support. It's the canonical renderer.
+ *
+ * This component is kept in the tree (and its data shapes
+ * `DeferredTaxBreakdownRow`, `RealEstateRevaluation`,
+ * `SmeEligibilityPayload` are still exported from the sections barrel)
+ * because Venus still consumes the types in helpers and tests. The
+ * rendering function itself is no longer barrel-exported — it's only
+ * reachable via the deep `./NavRevaluationAuditLog` path, so any new
+ * import flag-reviews itself.
+ *
+ * Do NOT mount this in any input/data-entry flow. If a future read-only
+ * post-calc preview legitimately needs an inline audit (e.g. an
+ * advisor-mode side panel that doesn't render the full report), use it
+ * there. For the deliverable, use the Jinja partial.
  */
 
 import { useManualPreviewFormatters } from '@/lib/omniPreview'

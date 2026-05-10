@@ -189,6 +189,14 @@ export interface KBOCompany {
   postalCode: string
   city: string
   startDate?: string
+  /**
+   * Registry-supplied incorporation year (parsed from ``startDate`` or
+   * supplied directly by the underlying registry response).  Used by
+   * the startup studio to pre-fill the funding-stage default — see
+   * ``inferStartupStageFromFoundingYear`` and the
+   * ``seedStageFromFoundingYearIfDefault`` action.
+   */
+  foundingYear?: number
   naceCode?: string
   naceDescription?: string
   activityCode?: string

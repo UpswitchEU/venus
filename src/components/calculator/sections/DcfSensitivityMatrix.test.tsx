@@ -62,7 +62,8 @@ describe('DcfSensitivityMatrix', () => {
     )
 
     expect(screen.getByText('WACC / exit')).toBeInTheDocument()
-    expect(screen.getByText('6x')).toBeInTheDocument()
+    // Component uses Unicode multiplication sign (×, U+00D7) — better typography than ASCII x.
+    expect(screen.getByText('6×')).toBeInTheDocument()
     expect(
       screen.getByText('Enterprise value under +/-1 point changes in WACC and exit multiple.')
     ).toBeInTheDocument()

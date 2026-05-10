@@ -85,6 +85,11 @@ export function DcfForecastWorkspace({
   const t = useTranslations('manualInput')
   const { currency } = useManualPreviewFormatters()
   const [tableOpen, setTableOpen] = useState(false)
+  // Inline grid focuses on the 4 primary columns by default (Year | Revenue |
+  // EBITDA | FCFF) — that's the punchline. Percent details (YoY, margin, CapEx%,
+  // D&A%, ΔNWC%) are collapsed behind a toggle so the FCFF column never clips
+  // on a 14" laptop with the right panel open.
+  const [showPercentColumns, setShowPercentColumns] = useState(false)
 
   const sortedRows = useMemo(
     () => [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year)),
@@ -266,24 +271,52 @@ export function DcfForecastWorkspace({
                 <p className="text-[11px] text-muted-foreground">
                   {t('dcfForecastWorkspace.inlineGridFormulaShort')}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setTableOpen(true)}
-                  disabled={disabled}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
-                    hasWarnings && 'border-warning/30 text-warning',
-                    disabled && 'cursor-not-allowed opacity-50'
-                  )}
-                >
-                  <Table2 className="h-3.5 w-3.5" aria-hidden />
-                  {t('dcfProjectionTable.triggerAction')}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPercentColumns((v) => !v)}
+                    disabled={disabled}
+                    aria-pressed={showPercentColumns}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      showPercentColumns
+                        ? 'border-primary/35 text-primary hover:border-primary/45 hover:bg-primary/[0.04]'
+                        : 'border-foreground/10 text-foreground/65 hover:border-foreground/20 hover:text-foreground',
+                      disabled && 'cursor-not-allowed opacity-50',
+                    )}
+                  >
+                    {showPercentColumns
+                      ? t('dcfForecastWorkspace.hidePercentColumns')
+                      : t('dcfForecastWorkspace.showPercentColumns')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTableOpen(true)}
+                    disabled={disabled}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
+                      hasWarnings && 'border-warning/30 text-warning',
+                      disabled && 'cursor-not-allowed opacity-50',
+                    )}
+                  >
+                    <Table2 className="h-3.5 w-3.5" aria-hidden />
+                    {t('dcfProjectionTable.triggerAction')}
+                  </button>
+                </div>
               </div>
             )}
             {projectionRows.length > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]">
-                <table className="w-full min-w-[880px] border-collapse text-sm tabular-nums">
+              <div
+                className={cn(
+                  'overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]',
+                )}
+              >
+                <table
+                  className={cn(
+                    'w-full border-collapse text-sm tabular-nums',
+                    showPercentColumns ? 'min-w-[880px]' : 'min-w-[420px]',
+                  )}
+                >
                   <caption className="sr-only">
                     {t('dcfForecastWorkspace.inlinePreviewAria')}
                   </caption>
@@ -296,26 +329,33 @@ export function DcfForecastWorkspace({
                         {t('dcfProjectionTable.rows.revenue')}
                       </th>
                       <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
-                        {t('dcfForecastWorkspace.colYoY')}
-                      </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
                         {t('dcfProjectionTable.rows.ebitda')}
                       </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
-                        {t('dcfForecastWorkspace.colMarginPct')}
-                      </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
-                        {t('dcfForecastWorkspace.colCapexPct')}
-                      </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
-                        {t('dcfForecastWorkspace.colDaPct')}
-                      </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
-                        {t('dcfForecastWorkspace.colNwcPct')}
-                      </th>
-                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                      <th
+                        scope="col"
+                        className="whitespace-nowrap px-2 py-2.5 sm:px-3 font-semibold text-foreground/85"
+                      >
                         {t('dcfProjectionTable.rows.fcff')}
                       </th>
+                      {showPercentColumns && (
+                        <>
+                          <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                            {t('dcfForecastWorkspace.colYoY')}
+                          </th>
+                          <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                            {t('dcfForecastWorkspace.colMarginPct')}
+                          </th>
+                          <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                            {t('dcfForecastWorkspace.colCapexPct')}
+                          </th>
+                          <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                            {t('dcfForecastWorkspace.colDaPct')}
+                          </th>
+                          <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                            {t('dcfForecastWorkspace.colNwcPct')}
+                          </th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -336,26 +376,30 @@ export function DcfForecastWorkspace({
                             {fmt(row.revenue)}
                           </td>
                           <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
-                            {fmtPct(d?.yoyPct)}
-                          </td>
-                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
                             {fmt(row.ebitda)}
                           </td>
-                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
-                            {fmtPct(d?.marginPct)}
-                          </td>
-                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
-                            {fmtPct(d?.capexPctOfRev)}
-                          </td>
-                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
-                            {fmtPct(d?.daPctOfRev)}
-                          </td>
-                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
-                            {fmtPct(d?.nwcPctOfRev)}
-                          </td>
-                          <td className="whitespace-nowrap px-2 py-2 font-medium text-foreground sm:px-3">
+                          <td className="whitespace-nowrap px-2 py-2 font-semibold text-foreground sm:px-3">
                             {fmt(row.fcff)}
                           </td>
+                          {showPercentColumns && (
+                            <>
+                              <td className="whitespace-nowrap px-2 py-2 text-foreground/65 sm:px-3">
+                                {fmtPct(d?.yoyPct)}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2 text-foreground/65 sm:px-3">
+                                {fmtPct(d?.marginPct)}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2 text-foreground/65 sm:px-3">
+                                {fmtPct(d?.capexPctOfRev)}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2 text-foreground/65 sm:px-3">
+                                {fmtPct(d?.daPctOfRev)}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-2 text-foreground/65 sm:px-3">
+                                {fmtPct(d?.nwcPctOfRev)}
+                              </td>
+                            </>
+                          )}
                         </tr>
                       )
                     })}

@@ -16,7 +16,9 @@
  *   3. Defensibility / verdedigbaarheid — Scorecard 2.0 weighted factor cards
  *   4. Team           — Founder pedigree multiplier
  *   5. Traction       — Forward-looking SaaS metrics (skippable)
- *   6. Exit story     — VC method / TAM-SAM-SOM / exit multiple
+ *   6. Exit story     — VC method / Y5 revenue thesis / exit multiple
+ *                       (TAM/SAM/SOM was removed in the 2026-05-08
+ *                       zombie cull — the engine never read it.)
  *   7. Round          — SAFE vs priced-round simulator
  *   8. Report         — Investor-ready preview (no submit; the
  *                       canonical `StartupSubmitFooter` rendered by
@@ -47,18 +49,24 @@ import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
+import { PanelHeader } from '@/features/startup-studio/components/PanelHeader'
 import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
+import { useStartupPrefill } from '@/features/startup-studio/hooks/useStartupPrefill'
 import { useStartupSessionSync } from '@/features/startup-studio/hooks/useStartupSessionSync'
 import {
   type StudioIssue,
   type StudioStepId,
   useStudioIssues,
 } from '@/features/startup-studio/hooks/useStudioIssues'
-import { type StudioStep, trackStudioStepViewed } from '@/lib/analytics'
+import {
+  type StudioStep,
+  trackStudioStepCompleted,
+  trackStudioStepViewed,
+} from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
@@ -79,19 +87,66 @@ type StudioSectionLabelKey =
   | 'sections.round_simulator'
   | 'sections.report'
 
+/**
+ * Per-section props the panel forwards to every step.  Each step
+ * destructures only the keys it needs — TS keeps the union open so
+ * adding a new flag (e.g. ``compactMode``) doesn't churn every
+ * component signature.
+ */
+interface SectionProps {
+  /**
+   * Some sections (Round simulator, Report) widen their feature
+   * surface for advisors — the panel forwards its ``mode`` so they
+   * can hide advisor-only fields from founders without duplicating
+   * the section.  Founders default to ``false``.
+   */
+  advisorMode?: boolean
+}
+
 interface SectionDef {
   id: StudioStep
   anchor: string
   labelKey: StudioSectionLabelKey
-  Component: ComponentType
+  Component: ComponentType<SectionProps>
 }
 
+/**
+ * Display order for the studio sections.
+ *
+ * The 2026-05-10 audit found that the panel was structured as a
+ * milestone questionnaire (Berkus → Scorecard → Pedigree → Traction)
+ * before the founder ever saw what number their inputs were
+ * producing. The EV/Revenue spine (Y5 × multiple ÷ ROI) was buried
+ * as Section 6, so M&A readers couldn't tell what method the panel
+ * was driving without scrolling halfway down.
+ *
+ * The new order leads with the spine and treats the qualitative
+ * cards as overlays:
+ *   1. Profile           — who you are (KBO/KVK + stage + sector)
+ *   2. Exit Story        — the EV/Revenue math (the headline)
+ *   3. Risk reduction    — Berkus overlay
+ *   4. Defensibility     — Scorecard overlay
+ *   5. Team pedigree     — Founder-pedigree overlay
+ *   6. Traction          — SaaS forward overlay (skippable)
+ *   7. Round             — cap-table simulator
+ *   8. Report            — investor-ready preview
+ *
+ * Section IDs are preserved so the analytics funnel (StudioStep enum
+ * → trackStudioStepViewed) keeps reporting under the same keys.
+ * Only the rendered order changes.
+ */
 const SECTIONS: SectionDef[] = [
   {
     id: 'profile',
     anchor: 'startup-section-profile',
     labelKey: 'sections.profile',
     Component: CompanyCardStep,
+  },
+  {
+    id: 'exit_story',
+    anchor: 'startup-section-exit',
+    labelKey: 'sections.exit_story',
+    Component: ExitStoryStep,
   },
   {
     id: 'berkus',
@@ -116,12 +171,6 @@ const SECTIONS: SectionDef[] = [
     anchor: 'startup-section-traction',
     labelKey: 'sections.traction',
     Component: TractionStep,
-  },
-  {
-    id: 'exit_story',
-    anchor: 'startup-section-exit',
-    labelKey: 'sections.exit_story',
-    Component: ExitStoryStep,
   },
   {
     id: 'round_simulator',
@@ -157,6 +206,7 @@ function useSectionStatuses(): Record<StudioStep, Status> {
   const founderPedigree = useStartupValuationStore((s) => s.founder_pedigree)
   const mrr = useStartupValuationStore((s) => s.mrr)
   const arr = useStartupValuationStore((s) => s.arr)
+  const revenueStatus = useStartupValuationStore((s) => s.revenue_status)
   const y5 = useStartupValuationStore((s) => s.year5_revenue_projection)
   const exitMultiple = useStartupValuationStore((s) => s.exit_revenue_multiple)
   const investment = useStartupValuationStore((s) => s.investment_amount_sought)
@@ -191,7 +241,19 @@ function useSectionStatuses(): Record<StudioStep, Status> {
       berkus: berkusPicked === 0 ? 'empty' : berkusPicked >= 4 ? 'complete' : 'partial',
       scorecard: scorecardPicked === 0 ? 'empty' : scorecardPicked >= 3 ? 'complete' : 'partial',
       founder_pedigree: Object.values(founderPedigree).some(Boolean) ? 'complete' : 'empty',
-      traction: (mrr ?? 0) > 0 || (arr ?? 0) > 0 ? 'complete' : 'partial',
+      // Traction is "complete" when the founder either has a revenue
+      // signal OR explicitly answered "no, pre-revenue" — both are valid
+      // terminal states.  Without the explicit-no path, pre-revenue
+      // founders never lit up the green checkmark and the panel always
+      // looked unfinished.
+      traction:
+        (mrr ?? 0) > 0 || (arr ?? 0) > 0
+          ? 'complete'
+          : revenueStatus === 'no'
+            ? 'complete'
+            : revenueStatus === 'yes'
+              ? 'partial'
+              : 'empty',
       exit_story:
         y5 != null && exitMultiple != null
           ? 'complete'
@@ -212,6 +274,7 @@ function useSectionStatuses(): Record<StudioStep, Status> {
     founderPedigree,
     mrr,
     arr,
+    revenueStatus,
     y5,
     exitMultiple,
     investment,
@@ -258,8 +321,20 @@ export function StartupValuationPanel({
   launcherIssues,
 }: StartupValuationPanelProps) {
   const tStudio = useTranslations('startupStudio')
-  // `mode` is reserved for future advisor vs founder StudioCoPilot scoping.
-  void mode
+  // ``mode`` flows down to each step component as ``advisorMode`` so
+  // advisor-only fields (e.g. cumulative dilution to exit on the Round
+  // simulator) stay hidden from founders without duplicating the
+  // sections.
+
+  // A1 — consume Mercury's bootstrap context (KBO/KVK identity,
+  // accountant-attached customer data, accounting integration metadata)
+  // and seed the Studio store + canonical form-store BEFORE the
+  // session-sync hook starts autosaving.  A founder coming from the
+  // Sellability gate or a partner deep-link never re-types identity
+  // we already know — fully aligned with the input-only / prefill-
+  // everywhere philosophy.  Idempotent + non-destructive: pre-existing
+  // user values are never clobbered.
+  useStartupPrefill()
 
   // Bidirectional bridge between the Studio store and the canonical
   // `useSessionStore` pipeline — restore on mount, autosave on every
@@ -268,6 +343,22 @@ export function StartupValuationPanel({
   useStartupSessionSync()
 
   const statuses = useSectionStatuses()
+  // Section-completion summary surfaced to ``PanelHeader`` so a founder
+  // (or an advisor running this across many clients) can see at a glance
+  // how far through the wizard they are without scrolling.  ``complete``
+  // requires the section's primary inputs; ``partial`` counts toward the
+  // running tally as a half-step (rounded down).
+  const sectionCompletion = useMemo(() => {
+    const total = SECTIONS.length
+    let complete = 0
+    let partial = 0
+    for (const section of SECTIONS) {
+      const status = statuses[section.id]
+      if (status === 'complete') complete++
+      else if (status === 'partial') partial++
+    }
+    return { total, complete, partial }
+  }, [statuses])
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
@@ -328,6 +419,26 @@ export function StartupValuationPanel({
     trackStudioStepViewed(activeId, stage)
   }, [activeId, stage])
 
+  // Section-completion telemetry — fires the first time each section's
+  // derived status flips to 'complete' during this session. Combined
+  // with `venus_studio_step_viewed` this gives the funnel a real
+  // progression metric (viewed → partial → complete), which the
+  // viewed-only event was an incomplete proxy for.
+  // Dedup: ``completedRef`` is a Set of section IDs that have already
+  // fired in this session. Status changes from complete → partial
+  // (e.g. a user clearing a milestone) DO NOT re-fire — this matches
+  // the funnel semantics ("did the user reach 'done' for this section
+  // at least once?") and avoids spurious double-counts on edits.
+  const completedRef = useRef<Set<StudioStep>>(new Set())
+  useEffect(() => {
+    for (const section of SECTIONS) {
+      if (statuses[section.id] === 'complete' && !completedRef.current.has(section.id)) {
+        completedRef.current.add(section.id)
+        trackStudioStepCompleted(section.id, stage)
+      }
+    }
+  }, [statuses, stage])
+
   const handleJumpToStep = (id: StudioStepId) => {
     if (typeof window === 'undefined') return
     const def = SECTIONS.find((s) => s.id === id)
@@ -338,6 +449,16 @@ export function StartupValuationPanel({
 
   return (
     <div className={['aurora-theme space-y-6 p-6', className].filter(Boolean).join(' ')}>
+      {/* EV/Revenue valuation header — single sentence on what this
+          method is + live blended pre-money + a "X of N sections done"
+          progress chip so a founder always sees how close they are to a
+          credible report. Replaces the "8 sections, no headline until
+          you scroll to Section 8" UX. */}
+      <PanelHeader
+        sectionsComplete={sectionCompletion.complete}
+        sectionsPartial={sectionCompletion.partial}
+        sectionsTotal={sectionCompletion.total}
+      />
       {SECTIONS.map((section, idx) => {
         const status = statuses[section.id]
         const SectionBody = section.Component
@@ -361,7 +482,7 @@ export function StartupValuationPanel({
               title={tStudio(section.labelKey)}
               complete={status === 'complete'}
             />
-            <SectionBody />
+            <SectionBody advisorMode={mode === 'advisor'} />
           </motion.section>
         )
       })}
