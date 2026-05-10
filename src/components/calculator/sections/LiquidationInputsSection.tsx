@@ -185,10 +185,15 @@ export interface LiquidationInputsSectionProps {
   liqPaidUpCapital?: number
   liqDeferredTax?: number
   liqPremiseOverride?: string
+  // Tax-bridge advanced inputs (collapsed alongside the rest).
+  liqRealisedCapitalGains?: number
   // Advanced fields (collapsed by default).
   liqTaxableReserves?: number
   liqRunwayMonthsOrderly?: number
+  liqRunwayMonthsForced?: number
   liqDistressWaccOrderly?: number
+  liqDistressWaccForced?: number
+  liqIntangiblesUpliftPct?: number
   liqMultiplesValueOverride?: number
   // Per-tier liability buckets — supplied so the priority cascade
   // page renders the actual debt structure instead of the engine's
@@ -227,9 +232,13 @@ export function LiquidationInputsSection({
   liqPaidUpCapital,
   liqDeferredTax,
   liqPremiseOverride,
+  liqRealisedCapitalGains,
   liqTaxableReserves,
   liqRunwayMonthsOrderly,
+  liqRunwayMonthsForced,
   liqDistressWaccOrderly,
+  liqDistressWaccForced,
+  liqIntangiblesUpliftPct,
   liqMultiplesValueOverride,
   liqLiabilityBuckets,
   liqAssetOverrides,
@@ -332,9 +341,13 @@ export function LiquidationInputsSection({
     for (const field of ESSENTIAL_FIELDS) {
       onFieldChange(field, undefined)
     }
+    onFieldChange('liq_realised_capital_gains', undefined)
     onFieldChange('liq_taxable_reserves', undefined)
     onFieldChange('liq_runway_months_orderly', undefined)
+    onFieldChange('liq_runway_months_forced', undefined)
     onFieldChange('liq_distress_wacc_orderly', undefined)
+    onFieldChange('liq_distress_wacc_forced', undefined)
+    onFieldChange('liq_intangibles_uplift_pct', undefined)
     onFieldChange('liq_multiples_value_override', undefined)
     for (const field of LIABILITY_BUCKET_FORM_KEYS) {
       onFieldChange(field, undefined)
@@ -481,6 +494,24 @@ export function LiquidationInputsSection({
               data-testid="liq-deferred-tax-input"
             />
           </FieldRow>
+          {/* Realised capital gains — drives the meerwaarde leg of
+              the BE tax bridge (Art. 47 WIB at 16.5%) and the Vpb-14a
+              leg of the NL tax bridge (25.8%).  Without it the engine
+              defaults the gains tax to 0 — fine for a holding company,
+              wrong for a manufacturer with depreciated machinery. */}
+          <FieldRow
+            label={t('realisedCapitalGainsLabel')}
+            hint={t('realisedCapitalGainsHint')}
+          >
+            <CurrencyInput
+              value={liqRealisedCapitalGains}
+              onChange={(next) =>
+                onFieldChange('liq_realised_capital_gains', next)
+              }
+              disabled={disabled}
+              data-testid="liq-realised-capital-gains-input"
+            />
+          </FieldRow>
         </div>
       </div>
 
@@ -572,6 +603,29 @@ export function LiquidationInputsSection({
               />
             </FieldRow>
             <FieldRow
+              label={t('runwayMonthsForcedLabel')}
+              hint={t('runwayMonthsForcedHint')}
+            >
+              <input
+                type="number"
+                min={1}
+                max={12}
+                step={1}
+                placeholder={t('runwayMonthsForcedPlaceholder')}
+                value={liqRunwayMonthsForced ?? ''}
+                disabled={disabled}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  onFieldChange(
+                    'liq_runway_months_forced',
+                    raw === '' ? undefined : Math.max(1, Math.floor(Number(raw)))
+                  )
+                }}
+                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                data-testid="liq-runway-months-forced-input"
+              />
+            </FieldRow>
+            <FieldRow
               label={t('distressWaccLabel')}
               hint={t('distressWaccHint')}
             >
@@ -603,6 +657,82 @@ export function LiquidationInputsSection({
                   }}
                   className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   data-testid="liq-distress-wacc-input"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  %
+                </span>
+              </div>
+            </FieldRow>
+            <FieldRow
+              label={t('distressWaccForcedLabel')}
+              hint={t('distressWaccForcedHint')}
+            >
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  placeholder={t('distressWaccForcedPlaceholder')}
+                  // Same decimal round-trip guard as the orderly
+                  // WACC input above (audit P0 #7 echo).
+                  value={
+                    liqDistressWaccForced === undefined
+                      ? ''
+                      : Math.round(Number(liqDistressWaccForced) * 1000) / 10
+                  }
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    onFieldChange(
+                      'liq_distress_wacc_forced',
+                      raw === ''
+                        ? undefined
+                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
+                    )
+                  }}
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  data-testid="liq-distress-wacc-forced-input"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  %
+                </span>
+              </div>
+            </FieldRow>
+            <FieldRow
+              label={t('intangiblesUpliftLabel')}
+              hint={t('intangiblesUpliftHint')}
+            >
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  placeholder={t('intangiblesUpliftPlaceholder')}
+                  // Stored as decimal (0.15 = 15%); UI surfaces percent.
+                  // Drives the M&A replacement-cost ceiling on the
+                  // Statement of Affairs band — see
+                  // `replacement_cost.intangibles_uplift_pct`.  Per
+                  // Reilly & Schweihs (1998) Ch. 16, typical range
+                  // 10-25% of tangible base for SME goodwill.
+                  value={
+                    liqIntangiblesUpliftPct === undefined
+                      ? ''
+                      : Math.round(Number(liqIntangiblesUpliftPct) * 1000) / 10
+                  }
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    onFieldChange(
+                      'liq_intangibles_uplift_pct',
+                      raw === ''
+                        ? undefined
+                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
+                    )
+                  }}
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  data-testid="liq-intangibles-uplift-input"
                 />
                 <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                   %

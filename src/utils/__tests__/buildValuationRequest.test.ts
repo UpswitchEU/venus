@@ -1525,6 +1525,71 @@ describe('buildValuationRequest', () => {
         (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides,
       ).toBeUndefined()
     })
+
+    it('forwards realised_capital_gains when positive (BE meerwaarde / NL Vpb-14a base)', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_realised_capital_gains: 150_000,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains,
+      ).toBe(150_000)
+    })
+
+    it('drops realised_capital_gains when zero or negative', () => {
+      // Engine treats 0 as "no gains"; emitting 0 explicitly is
+      // noise on the wire.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_realised_capital_gains: 0,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains,
+      ).toBeUndefined()
+    })
+
+    it('forwards runway_months_forced + distress_wacc_forced (forced-scenario inputs)', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_runway_months_forced: 4,
+          liq_distress_wacc_forced: 0.30,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      const inputs = result.liquidation_inputs as Record<string, unknown>
+      expect(inputs.runway_months_forced).toBe(4)
+      expect(inputs.distress_wacc_forced).toBe(0.30)
+    })
+
+    it('floors runway_months_forced to a positive integer', () => {
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_runway_months_forced: 4.7,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)?.runway_months_forced,
+      ).toBe(4)
+    })
+
+    it('forwards identifiable_intangibles_uplift_pct as a decimal', () => {
+      // Stored as decimal (0.20 = 20%); engine accepts the decimal form.
+      const result = buildValuationRequest(
+        makeFormData({
+          liq_intangibles_uplift_pct: 0.20,
+        } as unknown as Partial<ValuationFormData>),
+        []
+      )
+      expect(
+        (result.liquidation_inputs as Record<string, unknown>)
+          ?.identifiable_intangibles_uplift_pct,
+      ).toBe(0.20)
+    })
   })
 
   describe('fiscal_inputs (meerwaardebelasting / Art. 90 WIB 92)', () => {

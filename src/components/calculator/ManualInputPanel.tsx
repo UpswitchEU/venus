@@ -4843,9 +4843,13 @@ export function AdaptiveSections({
             liqPaidUpCapital={formData.liq_paid_up_capital as number | undefined}
             liqDeferredTax={formData.liq_deferred_tax as number | undefined}
             liqPremiseOverride={(formData.liq_premise_override as string | undefined) ?? undefined}
+            liqRealisedCapitalGains={formData.liq_realised_capital_gains as number | undefined}
             liqTaxableReserves={formData.liq_taxable_reserves as number | undefined}
             liqRunwayMonthsOrderly={formData.liq_runway_months_orderly as number | undefined}
+            liqRunwayMonthsForced={formData.liq_runway_months_forced as number | undefined}
             liqDistressWaccOrderly={formData.liq_distress_wacc_orderly as number | undefined}
+            liqDistressWaccForced={formData.liq_distress_wacc_forced as number | undefined}
+            liqIntangiblesUpliftPct={formData.liq_intangibles_uplift_pct as number | undefined}
             liqMultiplesValueOverride={formData.liq_multiples_value_override as number | undefined}
             liqLiabilityBuckets={{
               estate_costs: formData.liq_lb_estate_costs as number | undefined,

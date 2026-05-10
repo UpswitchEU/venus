@@ -1053,11 +1053,51 @@ export function buildValuationRequest(
     )
   }
   if (
+    fd.liq_runway_months_forced != null &&
+    Number.isFinite(Number(fd.liq_runway_months_forced))
+  ) {
+    liquidationInputs.runway_months_forced = Math.max(
+      1,
+      Math.floor(Number(fd.liq_runway_months_forced))
+    )
+  }
+  if (
     fd.liq_distress_wacc_orderly != null &&
     Number.isFinite(Number(fd.liq_distress_wacc_orderly))
   ) {
     // Stored as decimal (0.15 = 15%); UI surfaces as percent.
     liquidationInputs.distress_wacc_orderly = Math.max(0, Number(fd.liq_distress_wacc_orderly))
+  }
+  if (
+    fd.liq_distress_wacc_forced != null &&
+    Number.isFinite(Number(fd.liq_distress_wacc_forced))
+  ) {
+    // Stored as decimal (0.25 default for forced); UI surfaces percent.
+    liquidationInputs.distress_wacc_forced = Math.max(0, Number(fd.liq_distress_wacc_forced))
+  }
+  if (
+    fd.liq_realised_capital_gains != null &&
+    Number.isFinite(Number(fd.liq_realised_capital_gains))
+  ) {
+    // BE: meerwaarde-belasting base (Art. 47 WIB at 16.5%).
+    // NL: Vpb-14a base (25.8%).  Engine accepts 0 and treats as "no
+    // gains" — only emit when > 0 so the wire stays clean.
+    const gains = Number(fd.liq_realised_capital_gains)
+    if (gains > 0) {
+      liquidationInputs.realised_capital_gains = gains
+    }
+  }
+  if (
+    fd.liq_intangibles_uplift_pct != null &&
+    Number.isFinite(Number(fd.liq_intangibles_uplift_pct))
+  ) {
+    // Stored as decimal (0.15 = 15%); UI surfaces percent.  Drives
+    // `replacement_cost.identifiable_intangibles_uplift_pct` on the
+    // M&A buyer ceiling (Reilly & Schweihs 1998 Ch. 16).
+    liquidationInputs.identifiable_intangibles_uplift_pct = Math.max(
+      0,
+      Number(fd.liq_intangibles_uplift_pct)
+    )
   }
   if (
     fd.liq_multiples_value_override != null &&
