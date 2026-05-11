@@ -287,6 +287,41 @@ export interface ValuationRequest {
     [key: string]: unknown
   }
 
+  /** Flat UI form fields for `LiquidationInputsSection` — bundled into
+   * `liquidation_inputs` by `buildValuationRequest` before dispatch. */
+  liq_headcount?: number
+  liq_monthly_rent?: number
+  liq_paid_up_capital?: number
+  liq_deferred_tax?: number
+  liq_premise_override?: 'orderly_liquidation' | 'forced_liquidation'
+  liq_realised_capital_gains?: number
+  liq_taxable_reserves?: number
+  liq_runway_months_orderly?: number
+  liq_runway_months_forced?: number
+  liq_distress_wacc_orderly?: number
+  liq_distress_wacc_forced?: number
+  liq_intangibles_uplift_pct?: number
+  liq_multiples_value_override?: number
+  liq_lb_super_preferent_employees?: number
+  liq_lb_preferent_tax?: number
+  liq_lb_preferent_other?: number
+  liq_lb_secured?: number
+  liq_lb_unsecured?: number
+  liq_lb_subordinated?: number
+  liq_lb_estate_costs?: number
+  liq_ao_land?: number
+  liq_ao_buildings?: number
+  liq_ao_machinery_equipment?: number
+  liq_ao_vehicles?: number
+  liq_ao_it_equipment?: number
+  liq_ao_intangibles?: number
+  liq_ao_inventory_raw?: number
+  liq_ao_inventory_wip?: number
+  liq_ao_inventory_finished?: number
+  liq_ao_trade_receivables?: number
+  liq_ao_other_receivables?: number
+  liq_ao_cash?: number
+
   /**
    * Free-form caller metadata forwarded to ValuationIQ's `request.metadata`.
    *
@@ -614,6 +649,12 @@ export interface YearlyFinancials {
   normalizedEbitda?: number
   /** Explicit FCFF per forecast year (“zonder EBITDA”). */
   free_cash_flow?: number
+  /** Annual rent expense — used to prefill `liq_monthly_rent` in the Liquidation form. */
+  rent_expense?: number
+  /** Paid-up capital — used to prefill `liq_paid_up_capital` in the Liquidation form. */
+  paid_up_capital?: number
+  /** Deferred tax liabilities — used to prefill `liq_deferred_tax` in the Liquidation form. */
+  deferred_tax_liabilities?: number
   isForecast?: boolean
 }
 

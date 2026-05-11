@@ -97,7 +97,7 @@ export function useStartupPrefill(): void {
     // method does.  buildStartupValuationRequest reads from this store
     // for the company envelope, so the Studio store doesn't need to
     // duplicate identity fields.
-    const currentForm = useManualFormStore.getState().formData as Record<string, unknown>
+    const currentForm = useManualFormStore.getState().formData as unknown as Record<string, unknown>
     const formPatch: Record<string, unknown> = {}
     const company = pf.companyInfo
     const kbo = pf.kboData

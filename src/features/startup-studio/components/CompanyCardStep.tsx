@@ -113,11 +113,11 @@ const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<string, ReadonlyArray<{ value: strin
   ],
 } as const
 
-function getLegalFormOptions(countryCode: string): ReadonlyArray<{ value: string; label: string }> {
+function getLegalFormOptions(countryCode: string): Array<{ value: string; label: string }> {
   return (
     LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
     LEGAL_FORM_OPTIONS_BY_COUNTRY.BE
-  )
+  ) as Array<{ value: string; label: string }>
 }
 
 export function CompanyCardStep(_props: CompanyCardStepProps) {

@@ -15,7 +15,8 @@ export interface ValuationSectionHeaderProps {
   title: ReactNode
   /** Step index always uses primary (Aurora Teal); `complete` adds ring + stronger fill, not a different hue. */
   step: string | number
-  complete: boolean
+  complete?: boolean
+  subtitle?: ReactNode
   badge?: ReactNode
   className?: string
   titleAs?: 'h3' | 'span'
@@ -51,7 +52,7 @@ export function SectionStatusCircle({
 export function ValuationSectionHeader({
   title,
   step,
-  complete,
+  complete = false,
   badge,
   className,
   titleAs: Title = 'h3',
