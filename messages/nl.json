@@ -1247,6 +1247,7 @@
 			"normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
 			"adjustmentSuffix": "aanpassing",
 			"fictiveRentInlineLabel": "fictieve huur (vastgoed-carve-out)",
+			"ebitdaMarginInlineLabel": "EBITDA-marge",
 			"nbbSource": "Geïmporteerd uit NBB-jaarrekening",
 			"grossMarginFallback": "Omzet niet publiek; brutomarge als basis",
 			"resetToNbb": "Herstel naar NBB-waarden",
@@ -2251,15 +2252,15 @@
 		"detectedValuesDesc": "Deze waarden worden automatisch voorgesteld na verzenden",
 		"addFile": "Bestand toevoegen",
 		"askAboutField": "Vraag over {field}...",
-		"askOrCommand": "Stel een vraag of geef een opdracht...",
+		"askOrCommand": "Geef een opdracht, bv. 'normaliseer eigenaarssalaris'…",
 		"chatInput": "Chat invoer",
 		"send": "Verzenden",
 		"sendHint": "↵ om te verzenden",
 		"helpWithField": "Hulp bij {field}",
-		"analysisFor": "Analyse voor {company}",
-		"howCanIHelp": "Hoe kan ik helpen?",
+		"analysisFor": "Aan het werk voor {company}",
+		"howCanIHelp": "Wat wil je vandaag doen?",
 		"contextPrefix": "Context:",
-		"askOrUpload": "Stel vragen of upload documenten voor analyse.",
+		"askOrUpload": "Geef een opdracht of stel een vraag. Ik kan jaarrekeningen lezen, normalisaties voorstellen, waarderingen draaien en rapporten genereren.",
 		"aiSuggestion": "AI suggestie",
 		"registrySource": "Register",
 		"reliable": "Betrouwbaar",
@@ -2328,14 +2329,14 @@
 		},
 		"proposalCards": {
 			"common": {
-				"buttonCancel": "Annuleer",
-				"statusCancelled": "Geannuleerd",
+				"buttonCancel": "Niet nu",
+				"statusCancelled": "Afgewezen",
 				"missingPrefix": "Ontbrekend: ",
 				"creditsConsumed": "Verbruikt",
 				"creditsLabel": "{count, plural, one {# credit} other {# credits}}"
 			},
 			"valuation": {
-				"header": "Voorstel: waardering berekenen",
+				"header": "Klaar om te waarderen",
 				"titlePending": "Waardering berekenen",
 				"titlePendingWithName": "Waardering berekenen — {name}",
 				"titleBlocked": "Kan nog niet berekenen",
@@ -2347,7 +2348,7 @@
 				"statusStarted": "Berekening gestart"
 			},
 			"report": {
-				"header": "Voorstel: PDF rapport",
+				"header": "Klaar om de PDF te genereren",
 				"titlePending": "PDF rapport genereren",
 				"titlePendingWithName": "PDF rapport — {name}",
 				"titleBlocked": "PDF nog niet beschikbaar",
@@ -2360,7 +2361,7 @@
 				"statusStarted": "PDF genereren gestart"
 			},
 			"sellability": {
-				"header": "Voorstel: Sellability score",
+				"header": "Klaar om sellability te berekenen",
 				"titlePending": "Verkoopbaarheidsscore berekenen",
 				"titleBlocked": "Profielgegevens ontbreken",
 				"computedTitle": "Sellability berekend: {score}/100 ({band})",

@@ -214,7 +214,18 @@ export class ReportService {
           reportReady: saveResponse.reportReady ?? authoritativeSession?.reportReady ?? null,
         })
 
-        globalSessionCache.remove(reportId)
+        // Resilience: never invalidate the cache *before* we have a replacement
+        // in hand. The save succeeded — the page is on a valid reportId that
+        // shouldn't briefly look stateless.
+        //
+        // History: Titan used to occasionally return PUT /result with `session`
+        // omitted (e.g. the rpt_<uuid> session-key UUID-cast regression in
+        // SessionService.findOne). When we cleared the cache unconditionally
+        // here and the follow-up loadSession also degraded, the page lost all
+        // session state and the bootstrap fallback minted a fresh
+        // `val_<timestamp>_v<rand>` reportId. The browser then polled
+        // `/reports/by-session/<new-val-id>` forever and the skeleton never
+        // resolved.
         if (authoritativeSession) {
           globalSessionCache.set(reportId, authoritativeSession)
           useSessionStore.getState().hydrateSession(authoritativeSession)
@@ -235,6 +246,12 @@ export class ReportService {
           })
         } else {
           const reloadStartTime = performance.now()
+          // loadSession is cache-first; force a fresh fetch by removing the
+          // stale entry first. We restore it below if the reload succeeds,
+          // and leave the previous (pre-save) cache intact if the reload
+          // fails so the page can keep rendering the same reportId.
+          const preSaveCache = globalSessionCache.get(reportId)
+          globalSessionCache.remove(reportId)
           let freshSession = await sessionService.loadSession(reportId)
 
           if (freshSession && freshSession.reportReady === false) {
@@ -255,7 +272,16 @@ export class ReportService {
               reportReady: freshSession.reportReady ?? null,
             })
           } else {
-            logger.error('[ReportService] Failed to reload session after report save', { reportId })
+            // Reload failed — restore the pre-save cache so the page keeps
+            // its session state and we don't trigger the bootstrap fallback
+            // that mints a fresh `val_<timestamp>_v<rand>` reportId.
+            if (preSaveCache) {
+              globalSessionCache.set(reportId, preSaveCache)
+            }
+            logger.error(
+              '[ReportService] Failed to reload session after report save — restored pre-save cache',
+              { reportId, hadPreSaveCache: !!preSaveCache },
+            )
           }
         }
       } catch (cacheError) {

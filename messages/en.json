@@ -1247,6 +1247,7 @@
 			"normalizedEbitdaLabel": "Normalized EBITDA:",
 			"adjustmentSuffix": "adjustment",
 			"fictiveRentInlineLabel": "fictive rent (RE carve-out)",
+			"ebitdaMarginInlineLabel": "EBITDA margin",
 			"nbbSource": "Imported from NBB filing",
 			"grossMarginFallback": "Revenue not public; using Gross Margin as base",
 			"resetToNbb": "Reset to NBB values",
@@ -2251,15 +2252,15 @@
 		"detectedValuesDesc": "These values will be suggested automatically after sending",
 		"addFile": "Add file",
 		"askAboutField": "Ask about {field}...",
-		"askOrCommand": "Ask a question or give a command...",
+		"askOrCommand": "Give an instruction, e.g. 'normalize owner salary'…",
 		"chatInput": "Chat input",
 		"send": "Send",
 		"sendHint": "↵ to send",
 		"helpWithField": "Help with {field}",
-		"analysisFor": "Analysis for {company}",
-		"howCanIHelp": "How can I help?",
+		"analysisFor": "Working on {company}",
+		"howCanIHelp": "What do you want to do?",
 		"contextPrefix": "Context:",
-		"askOrUpload": "Ask questions or upload documents for analysis.",
+		"askOrUpload": "Give an instruction or ask a question. I can read financials, suggest normalisations, run valuations and generate reports.",
 		"aiSuggestion": "AI suggestion",
 		"registrySource": "Registry",
 		"reliable": "Reliable",
@@ -2328,14 +2329,14 @@
 		},
 		"proposalCards": {
 			"common": {
-				"buttonCancel": "Cancel",
-				"statusCancelled": "Cancelled",
+				"buttonCancel": "Not now",
+				"statusCancelled": "Dismissed",
 				"missingPrefix": "Missing: ",
 				"creditsConsumed": "Consumes",
 				"creditsLabel": "{count, plural, one {# credit} other {# credits}}"
 			},
 			"valuation": {
-				"header": "Suggestion: calculate valuation",
+				"header": "Ready to run a valuation",
 				"titlePending": "Calculate valuation",
 				"titlePendingWithName": "Calculate valuation — {name}",
 				"titleBlocked": "Cannot calculate yet",
@@ -2347,7 +2348,7 @@
 				"statusStarted": "Calculation started"
 			},
 			"report": {
-				"header": "Suggestion: PDF report",
+				"header": "Ready to generate the PDF",
 				"titlePending": "Generate PDF report",
 				"titlePendingWithName": "PDF report — {name}",
 				"titleBlocked": "PDF not yet available",
@@ -2360,7 +2361,7 @@
 				"statusStarted": "PDF generation started"
 			},
 			"sellability": {
-				"header": "Suggestion: Sellability score",
+				"header": "Ready to compute sellability",
 				"titlePending": "Calculate sellability score",
 				"titleBlocked": "Profile data missing",
 				"computedTitle": "Sellability calculated: {score}/100 ({band})",
