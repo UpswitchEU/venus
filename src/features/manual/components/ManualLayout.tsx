@@ -229,6 +229,10 @@ import {
 } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import {
+  extractErrorMessage,
+  parseSellabilityScoreResponse,
+} from '../utils/tool-card-response-parsers'
 // `selectCapTableSimulatorResult` import removed alongside the React slider
 // mount — the canonical Jinja report is now the single source of truth.
 // The selector helper itself is intentionally kept on disk for the future.
@@ -4065,6 +4069,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               conversationStore.setConversationId(responseConversationId)
             }
           },
+          onQuotaExhausted: (_credits) => {
+            streamCleanupRef.current = null
+            conversationStore.setToolInProgress(null)
+            setIsChatGenerating(false)
+
+            setChatMessages((prev) =>
+              prev.map((m) =>
+                m.id === streamingMsgId
+                  ? { ...m, content: t('quotaExhausted'), isError: true }
+                  : m
+              )
+            )
+          },
           onError: (error) => {
             streamCleanupRef.current = null
             conversationStore.setToolInProgress(null)
@@ -4075,6 +4092,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             aiChatService
               .sendMessage({ ...aiRequest, stream: false })
               .then((aiResponse) => {
+                // Quota exhaustion from the non-streaming fallback — show the
+                // upgrade copy instead of the fake local response. This
+                // matches what onQuotaExhausted does for the streaming path.
+                if (aiResponse.requires_upgrade) {
+                  setChatMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === streamingMsgId
+                        ? { ...m, content: t('quotaExhausted'), isError: true }
+                        : m
+                    )
+                  )
+                  return
+                }
+
                 if (aiResponse.conversationId && !conversationStore.conversationId) {
                   conversationStore.setConversationId(aiResponse.conversationId)
                 }
@@ -6143,16 +6174,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           credentials: 'include',
           body: JSON.stringify({}),
         })
-        const json = (await resp.json().catch(() => ({}))) as {
-          success?: boolean
-          data?: { score?: number; band?: string; confidence?: string }
-          error?: string
+        const json: unknown = await resp.json().catch(() => ({}))
+        if (!resp.ok || (json as { success?: boolean })?.success === false) {
+          throw new Error(extractErrorMessage(json, resp.status))
         }
-        if (!resp.ok || json.success === false) {
-          throw new Error(json.error || `HTTP ${resp.status}`)
-        }
-        const data = json.data ?? (json as any)
-        if (data && typeof data.score === 'number') {
+        const parsed = parseSellabilityScoreResponse(json)
+        if (parsed) {
           setChatMessages((prev) =>
             prev.map((m) => ({
               ...m,
@@ -6161,9 +6188,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   ? {
                       ...r,
                       computedScore: {
-                        score: data.score!,
-                        band: data.band ?? 'unknown',
-                        confidence: data.confidence,
+                        score: parsed.score,
+                        band: parsed.band,
+                        confidence: parsed.confidence,
                       },
                     }
                   : r
@@ -6172,7 +6199,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           )
           toast.success(
             // TODO i18n
-            `Sellability: ${data.score}/100 (${data.band ?? 'n/a'})`
+            `Sellability: ${parsed.score}/100 (${parsed.band})`
           )
         } else {
           toast.info(/* TODO i18n */ 'Sellability berekend.')

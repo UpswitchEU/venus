@@ -2044,6 +2044,7 @@
 		"persistFailedDesc": "EBITDA-correcties konden niet worden opgeslagen vóór berekening. Probeer het opnieuw.",
 		"aiUnavailableDesc": "Lokale suggesties worden gebruikt.",
 		"chatError": "Er is een fout opgetreden. Probeer het opnieuw.",
+		"quotaExhausted": "U heeft al uw AI-credits voor deze periode gebruikt. Upgrade uw abonnement om door te gaan.",
 		"suggestionRejected": "Suggestie afgewezen",
 		"pdfGenerating": "PDF wordt gegenereerd...",
 		"pdfServerUnavailable": "Server PDF niet beschikbaar, lokale PDF wordt gegenereerd",
@@ -2324,6 +2325,54 @@
 			"suggestion2": "Analyseer deze jaarrekening",
 			"suggestion3": "Normaliseer eigenaarssalaris",
 			"suggestion4": "Genereer concept rapport"
+		},
+		"proposalCards": {
+			"common": {
+				"buttonCancel": "Annuleer",
+				"statusCancelled": "Geannuleerd",
+				"missingPrefix": "Ontbrekend: ",
+				"creditsConsumed": "Verbruikt",
+				"creditsLabel": "{count, plural, one {# credit} other {# credits}}"
+			},
+			"valuation": {
+				"header": "Voorstel: waardering berekenen",
+				"titlePending": "Waardering berekenen",
+				"titlePendingWithName": "Waardering berekenen — {name}",
+				"titleBlocked": "Kan nog niet berekenen",
+				"labelRevenue": "Omzet",
+				"labelSector": "Sector",
+				"labelAppliedNormalisations": "Toegepaste normalisaties",
+				"labelPendingNormalisations": "in afwachting",
+				"actionLabel": "Bereken nu",
+				"statusStarted": "Berekening gestart"
+			},
+			"report": {
+				"header": "Voorstel: PDF rapport",
+				"titlePending": "PDF rapport genereren",
+				"titlePendingWithName": "PDF rapport — {name}",
+				"titleBlocked": "PDF nog niet beschikbaar",
+				"labelMidpoint": "Indicatieve waarde",
+				"labelRange": "Range",
+				"labelMethod": "Methode",
+				"labelConfidence": "Betrouwbaarheid",
+				"noExtraCreditHint": "Geen extra credit — hergebruikt bestaande berekening",
+				"actionLabel": "Genereer PDF",
+				"statusStarted": "PDF genereren gestart"
+			},
+			"sellability": {
+				"header": "Voorstel: Sellability score",
+				"titlePending": "Verkoopbaarheidsscore berekenen",
+				"titleBlocked": "Profielgegevens ontbreken",
+				"computedTitle": "Sellability berekend: {score}/100 ({band})",
+				"computedStatus": "Berekend: {score}/100 ({band})",
+				"labelQ1": "Q1 — Top-3 klantconcentratie",
+				"labelQ2": "Q2 — Gecontracteerde omzet",
+				"labelQ3": "Q3 — Boekhoud-netheid",
+				"labelCurrentScore": "Huidige score",
+				"noCreditHint": "Geen credit — herberekent op basis van bestaand profiel",
+				"actionLabel": "Bereken nu",
+				"statusStarted": "Berekening gestart"
+			}
 		}
 	},
 	"normalizationHub": {

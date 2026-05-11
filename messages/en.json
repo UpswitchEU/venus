@@ -2044,6 +2044,7 @@
 		"persistFailedDesc": "EBITDA adjustments could not be saved before calculation. Please try again.",
 		"aiUnavailableDesc": "Local suggestions are being used.",
 		"chatError": "An error occurred. Please try again.",
+		"quotaExhausted": "You've used all your AI credits for this period. Upgrade your plan to continue.",
 		"suggestionRejected": "Suggestion rejected",
 		"pdfGenerating": "PDF is being generated...",
 		"pdfServerUnavailable": "Server PDF not available, generating local PDF",
@@ -2324,6 +2325,54 @@
 			"suggestion2": "Analyze this annual report",
 			"suggestion3": "Normalize owner salary",
 			"suggestion4": "Generate draft report"
+		},
+		"proposalCards": {
+			"common": {
+				"buttonCancel": "Cancel",
+				"statusCancelled": "Cancelled",
+				"missingPrefix": "Missing: ",
+				"creditsConsumed": "Consumes",
+				"creditsLabel": "{count, plural, one {# credit} other {# credits}}"
+			},
+			"valuation": {
+				"header": "Suggestion: calculate valuation",
+				"titlePending": "Calculate valuation",
+				"titlePendingWithName": "Calculate valuation — {name}",
+				"titleBlocked": "Cannot calculate yet",
+				"labelRevenue": "Revenue",
+				"labelSector": "Sector",
+				"labelAppliedNormalisations": "Applied normalisations",
+				"labelPendingNormalisations": "pending",
+				"actionLabel": "Calculate now",
+				"statusStarted": "Calculation started"
+			},
+			"report": {
+				"header": "Suggestion: PDF report",
+				"titlePending": "Generate PDF report",
+				"titlePendingWithName": "PDF report — {name}",
+				"titleBlocked": "PDF not yet available",
+				"labelMidpoint": "Indicative value",
+				"labelRange": "Range",
+				"labelMethod": "Method",
+				"labelConfidence": "Confidence",
+				"noExtraCreditHint": "No extra credit — reuses existing calculation",
+				"actionLabel": "Generate PDF",
+				"statusStarted": "PDF generation started"
+			},
+			"sellability": {
+				"header": "Suggestion: Sellability score",
+				"titlePending": "Calculate sellability score",
+				"titleBlocked": "Profile data missing",
+				"computedTitle": "Sellability calculated: {score}/100 ({band})",
+				"computedStatus": "Computed: {score}/100 ({band})",
+				"labelQ1": "Q1 — Top-3 customer concentration",
+				"labelQ2": "Q2 — Contracted revenue",
+				"labelQ3": "Q3 — Books cleanliness",
+				"labelCurrentScore": "Current score",
+				"noCreditHint": "No credit — recalculates based on existing profile",
+				"actionLabel": "Calculate now",
+				"statusStarted": "Calculation started"
+			}
 		}
 	},
 	"normalizationHub": {

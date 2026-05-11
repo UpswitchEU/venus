@@ -66,7 +66,21 @@ function generateMessageId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
-function pruneMessages(messages: Message[]): Message[] {
+/**
+ * Pure-function pruner exported for unit testing. The store calls this
+ * when the message buffer crosses PRUNE_THRESHOLD; once pruned we drop
+ * back to ~MAX_MESSAGES of "important" context (the first KEEP_FIRST
+ * messages preserve the conversation's opening setup + the last
+ * KEEP_RECENT preserve the active thread).
+ *
+ * Dedup-by-id is critical: when a conversation is shorter than
+ * KEEP_FIRST + KEEP_RECENT, the two slices overlap. Naively
+ * concatenating them duplicates the overlapping messages — which would
+ * cascade into duplicate React keys, double-renders, and very surprising
+ * UI behavior. The filter step removes the duplicates from the recent
+ * slice (keeping the first-slice order canonical).
+ */
+export function pruneMessages(messages: Message[]): Message[] {
   if (messages.length <= MAX_MESSAGES) {
     return messages
   }

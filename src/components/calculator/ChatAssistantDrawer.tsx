@@ -2122,7 +2122,7 @@ function MessageBubble({
         {message.valuationRunRequests && message.valuationRunRequests.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {/* TODO i18n */} Voorstel: waardering berekenen
+              {ca('proposalCards.valuation.header')}
             </p>
             {message.valuationRunRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
@@ -2157,10 +2157,10 @@ function MessageBubble({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
                         {isBlocked
-                          ? /* TODO i18n */ 'Kan nog niet berekenen'
+                          ? ca('proposalCards.valuation.titleBlocked')
                           : summary?.business_name
-                            ? `Waardering berekenen — ${summary.business_name}`
-                            : /* TODO i18n */ 'Waardering berekenen'}
+                            ? ca('proposalCards.valuation.titlePendingWithName', { name: summary.business_name })
+                            : ca('proposalCards.valuation.titlePending')}
                       </p>
                       {req.note && (
                         <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
@@ -2174,7 +2174,7 @@ function MessageBubble({
                       )}
                       {isBlocked && req.missing && req.missing.length > 0 && (
                         <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
-                          {/* TODO i18n */ 'Ontbrekend: '}
+                          {ca('proposalCards.common.missingPrefix')}
                           {req.missing.join(', ')}
                         </p>
                       )}
@@ -2182,7 +2182,7 @@ function MessageBubble({
                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-[10px]">
                           {revenueNum !== null && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Omzet'}:{' '}
+                              {ca('proposalCards.valuation.labelRevenue')}:{' '}
                               <span className="font-mono text-foreground/80">
                                 €{revenueNum.toLocaleString(currencyLocale)}
                               </span>
@@ -2198,27 +2198,27 @@ function MessageBubble({
                           )}
                           {summary.business_type && (
                             <div className="text-foreground/50 col-span-2">
-                              {/* TODO i18n */ 'Sector'}:{' '}
+                              {ca('proposalCards.valuation.labelSector')}:{' '}
                               <span className="text-foreground/80">{summary.business_type}</span>
                             </div>
                           )}
                           {summary.applied_normalizations > 0 && (
                             <div className="text-foreground/50 col-span-2">
-                              {/* TODO i18n */ 'Toegepaste normalisaties'}:{' '}
+                              {ca('proposalCards.valuation.labelAppliedNormalisations')}:{' '}
                               <span className="text-foreground/80">{summary.applied_normalizations}</span>
                               {summary.pending_normalizations > 0 && (
                                 <span className="text-foreground/40">
                                   {' '}
-                                  (+{summary.pending_normalizations} {/* TODO i18n */ 'in afwachting'})
+                                  (+{summary.pending_normalizations} {ca('proposalCards.valuation.labelPendingNormalisations')})
                                 </span>
                               )}
                             </div>
                           )}
                           {req.estimatedCredits != null && (
                             <div className="text-foreground/50 col-span-2 mt-1">
-                              {/* TODO i18n */ 'Verbruikt'}:{' '}
+                              {ca('proposalCards.common.creditsConsumed')}:{' '}
                               <span className="text-foreground/80">
-                                {req.estimatedCredits} {req.estimatedCredits === 1 ? 'credit' : 'credits'}
+                                {ca('proposalCards.common.creditsLabel', { count: req.estimatedCredits })}
                               </span>
                             </div>
                           )}
@@ -2243,7 +2243,7 @@ function MessageBubble({
                       >
                         <X className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Annuleer'}
+                          {ca('proposalCards.common.buttonCancel')}
                         </span>
                       </button>
                       <button
@@ -2259,7 +2259,7 @@ function MessageBubble({
                       >
                         <Check className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Bereken nu'}
+                          {ca('proposalCards.valuation.actionLabel')}
                         </span>
                       </button>
                     </div>
@@ -2274,8 +2274,8 @@ function MessageBubble({
                       )}
                     >
                       {isApproved
-                        ? /* TODO i18n */ 'Berekening gestart'
-                        : /* TODO i18n */ 'Geannuleerd'}
+                        ? ca('proposalCards.valuation.statusStarted')
+                        : ca('proposalCards.common.statusCancelled')}
                     </div>
                   )}
                 </motion.div>
@@ -2288,7 +2288,7 @@ function MessageBubble({
         {message.reportGenerationRequests && message.reportGenerationRequests.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {/* TODO i18n */} Voorstel: PDF rapport
+              {ca('proposalCards.report.header')}
             </p>
             {message.reportGenerationRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
@@ -2326,10 +2326,10 @@ function MessageBubble({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
                         {isBlocked
-                          ? /* TODO i18n */ 'PDF nog niet beschikbaar'
+                          ? ca('proposalCards.report.titleBlocked')
                           : result?.business_name
-                            ? `PDF rapport — ${result.business_name}`
-                            : /* TODO i18n */ 'PDF rapport genereren'}
+                            ? ca('proposalCards.report.titlePendingWithName', { name: result.business_name })
+                            : ca('proposalCards.report.titlePending')}
                       </p>
                       {req.note && (
                         <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
@@ -2345,7 +2345,7 @@ function MessageBubble({
                         <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
                           {midpoint && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Indicatieve waarde'}:{' '}
+                              {ca('proposalCards.report.labelMidpoint')}:{' '}
                               <span className="font-mono font-semibold text-foreground/90">
                                 {midpoint}
                               </span>
@@ -2353,7 +2353,7 @@ function MessageBubble({
                           )}
                           {(min || max) && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Range'}:{' '}
+                              {ca('proposalCards.report.labelRange')}:{' '}
                               <span className="font-mono text-foreground/80">
                                 {min ?? '—'} – {max ?? '—'}
                               </span>
@@ -2361,18 +2361,18 @@ function MessageBubble({
                           )}
                           {result.valuation_method && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Methode'}:{' '}
+                              {ca('proposalCards.report.labelMethod')}:{' '}
                               <span className="text-foreground/80">{result.valuation_method}</span>
                             </div>
                           )}
                           {result.confidence_score != null && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Betrouwbaarheid'}:{' '}
+                              {ca('proposalCards.report.labelConfidence')}:{' '}
                               <span className="text-foreground/80">{result.confidence_score}%</span>
                             </div>
                           )}
                           <div className="text-foreground/50 mt-1">
-                            {/* TODO i18n */ 'Geen extra credit — hergebruikt bestaande berekening'}
+                            {ca('proposalCards.report.noExtraCreditHint')}
                           </div>
                         </div>
                       )}
@@ -2395,7 +2395,7 @@ function MessageBubble({
                       >
                         <X className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Annuleer'}
+                          {ca('proposalCards.common.buttonCancel')}
                         </span>
                       </button>
                       <button
@@ -2411,7 +2411,7 @@ function MessageBubble({
                       >
                         <Check className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Genereer PDF'}
+                          {ca('proposalCards.report.actionLabel')}
                         </span>
                       </button>
                     </div>
@@ -2426,8 +2426,8 @@ function MessageBubble({
                       )}
                     >
                       {isApproved
-                        ? /* TODO i18n */ 'PDF genereren gestart'
-                        : /* TODO i18n */ 'Geannuleerd'}
+                        ? ca('proposalCards.report.statusStarted')
+                        : ca('proposalCards.common.statusCancelled')}
                     </div>
                   )}
                 </motion.div>
@@ -2440,7 +2440,7 @@ function MessageBubble({
         {message.sellabilityRunRequests && message.sellabilityRunRequests.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {/* TODO i18n */} Voorstel: Sellability score
+              {ca('proposalCards.sellability.header')}
             </p>
             {message.sellabilityRunRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
@@ -2472,10 +2472,10 @@ function MessageBubble({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
                         {isBlocked
-                          ? /* TODO i18n */ 'Profielgegevens ontbreken'
+                          ? ca('proposalCards.sellability.titleBlocked')
                           : computed
-                            ? /* TODO i18n */ `Sellability berekend: ${computed.score}/100 (${computed.band})`
-                            : /* TODO i18n */ 'Verkoopbaarheidsscore berekenen'}
+                            ? ca('proposalCards.sellability.computedTitle', { score: computed.score, band: computed.band })
+                            : ca('proposalCards.sellability.titlePending')}
                       </p>
                       {req.note && (
                         <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
@@ -2489,7 +2489,7 @@ function MessageBubble({
                       )}
                       {isBlocked && req.missing && req.missing.length > 0 && (
                         <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
-                          {/* TODO i18n */ 'Ontbrekend: '}
+                          {ca('proposalCards.common.missingPrefix')}
                           {req.missing.join(', ')}
                         </p>
                       )}
@@ -2497,7 +2497,7 @@ function MessageBubble({
                         <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
                           {answers.q1_top3_concentration_pct != null && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Q1 — Top-3 klantconcentratie'}:{' '}
+                              {ca('proposalCards.sellability.labelQ1')}:{' '}
                               <span className="font-mono text-foreground/80">
                                 {answers.q1_top3_concentration_pct}%
                               </span>
@@ -2505,26 +2505,26 @@ function MessageBubble({
                           )}
                           {answers.q2_contracted_share && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Q2 — Gecontracteerde omzet'}:{' '}
+                              {ca('proposalCards.sellability.labelQ2')}:{' '}
                               <span className="text-foreground/80">{answers.q2_contracted_share}</span>
                             </div>
                           )}
                           {answers.q3_books_cleanliness && (
                             <div className="text-foreground/50">
-                              {/* TODO i18n */ 'Q3 — Boekhoud-netheid'}:{' '}
+                              {ca('proposalCards.sellability.labelQ3')}:{' '}
                               <span className="text-foreground/80">{answers.q3_books_cleanliness}</span>
                             </div>
                           )}
                           {cur && (
                             <div className="text-foreground/50 mt-1">
-                              {/* TODO i18n */ 'Huidige score'}:{' '}
+                              {ca('proposalCards.sellability.labelCurrentScore')}:{' '}
                               <span className="font-mono font-semibold text-foreground/80">
                                 {cur.score}/100 ({cur.band})
                               </span>
                             </div>
                           )}
                           <div className="text-foreground/50 mt-1">
-                            {/* TODO i18n */ 'Geen credit — herberekent op basis van bestaand profiel'}
+                            {ca('proposalCards.sellability.noCreditHint')}
                           </div>
                         </div>
                       )}
@@ -2547,7 +2547,7 @@ function MessageBubble({
                       >
                         <X className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Annuleer'}
+                          {ca('proposalCards.common.buttonCancel')}
                         </span>
                       </button>
                       <button
@@ -2563,7 +2563,7 @@ function MessageBubble({
                       >
                         <Check className="w-5 h-5 sm:w-4 sm:h-4" />
                         <span className="text-sm sm:text-xs font-medium">
-                          {/* TODO i18n */ 'Bereken nu'}
+                          {ca('proposalCards.sellability.actionLabel')}
                         </span>
                       </button>
                     </div>
@@ -2579,9 +2579,9 @@ function MessageBubble({
                     >
                       {isApproved
                         ? computed
-                          ? /* TODO i18n */ `Berekend: ${computed.score}/100 (${computed.band})`
-                          : /* TODO i18n */ 'Berekening gestart'
-                        : /* TODO i18n */ 'Geannuleerd'}
+                          ? ca('proposalCards.sellability.computedStatus', { score: computed.score, band: computed.band })
+                          : ca('proposalCards.sellability.statusStarted')
+                        : ca('proposalCards.common.statusCancelled')}
                     </div>
                   )}
                 </motion.div>

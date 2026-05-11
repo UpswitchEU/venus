@@ -14,6 +14,11 @@
 
 import { createContextLogger } from '../../utils/logger'
 import { useClientContext } from '../../stores/clientContext'
+import {
+  dispatchAIChatChunk,
+  makeChunkDispatchState,
+  parseAIChatToolResults,
+} from './tool-results-parser'
 
 const logger = createContextLogger('AIChatService')
 
@@ -56,6 +61,10 @@ export interface AIChatResponse {
   success: boolean
   content: string
   conversationId?: string
+  /** Set when the server returned 402 (quota exhausted). */
+  requires_upgrade?: boolean
+  ai_credits_remaining?: number
+  ai_credits_limit?: number
   fieldUpdates?: Array<{
     field: string
     value: number
@@ -159,6 +168,8 @@ export interface StreamCallbacks {
   onToolResult?: (toolName: string, result: unknown) => void
   onDone?: (conversationId?: string) => void
   onError?: (error: string) => void
+  /** Called instead of onError when the server returns 402 (quota exhausted). */
+  onQuotaExhausted?: (credits: { remaining: number; limit: number }) => void
 }
 
 // ─────────────────────────────────────────
@@ -208,6 +219,24 @@ class AIChatServiceImpl {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
 
+        // 402: quota exhausted — never fall back to fake local content.
+        // Return a structured response so callers can show the upgrade CTA.
+        if (response.status === 402 && errorData.requires_upgrade) {
+          logger.info('[AIChatService] AI quota exhausted (402), returning upgrade signal')
+          return {
+            success: false,
+            content: '',
+            requires_upgrade: true,
+            ai_credits_remaining: typeof errorData.ai_credits_remaining === 'number'
+              ? errorData.ai_credits_remaining
+              : 0,
+            ai_credits_limit: typeof errorData.ai_credits_limit === 'number'
+              ? errorData.ai_credits_limit
+              : 0,
+            error: errorData.message || 'AI credit limit reached. Upgrade your plan to continue.',
+          }
+        }
+
         if (errorData.fallback || response.status === 503) {
           logger.info('[AIChatService] AI unavailable, using local fallback')
           return this.generateLocalResponse(request)
@@ -225,89 +254,25 @@ class AIChatServiceImpl {
         fallback: false,
       }
 
-      // Extract tool results for normalization suggestions and field updates
+      // Extract tool results — pure-function parser tested in
+      // tool-results-parser.test.ts. Locks the 5-kind envelope contract +
+      // defensive drops for malformed payloads.
       if (data.toolResults) {
-        for (const tr of data.toolResults) {
-          if (tr.type === 'normalization_suggestion') {
-            if (!aiResponse.normalisationSuggestions) aiResponse.normalisationSuggestions = []
-            aiResponse.normalisationSuggestions.push(tr.data)
-          }
-          if (tr.type === 'field_update') {
-            if (!aiResponse.fieldUpdates) aiResponse.fieldUpdates = []
-            const update = (tr.data as any)?.update
-            if (update) {
-              aiResponse.fieldUpdates.push({
-                field: update.field,
-                value: update.value,
-                label: update.label,
-                source: 'ai',
-                confidence: update.confidence,
-              })
-            }
-          }
-          if (tr.type === 'valuation_run_request') {
-            if (!aiResponse.valuationRunRequests) aiResponse.valuationRunRequests = []
-            const data = tr.data as any
-            if (data?.status === 'pending_approval' && data.request) {
-              aiResponse.valuationRunRequests.push({
-                status: 'pending_approval',
-                reportId: data.request.report_id,
-                methods: data.request.methods ?? null,
-                estimatedCredits: data.request.estimated_credits,
-                inputsSummary: data.request.inputs_summary,
-                note: data.request.note ?? null,
-                message: data.message,
-              })
-            } else if (data?.status === 'blocked') {
-              aiResponse.valuationRunRequests.push({
-                status: 'blocked',
-                reason: data.reason,
-                missing: data.missing,
-                message: data.message,
-              })
-            }
-          }
-          if (tr.type === 'report_generation_request') {
-            if (!aiResponse.reportGenerationRequests) aiResponse.reportGenerationRequests = []
-            const data = tr.data as any
-            if (data?.status === 'pending_approval' && data.request) {
-              aiResponse.reportGenerationRequests.push({
-                status: 'pending_approval',
-                reportId: data.request.report_id,
-                estimatedCredits: data.request.estimated_credits,
-                resultSummary: data.request.result_summary,
-                note: data.request.note ?? null,
-                message: data.message,
-              })
-            } else if (data?.status === 'blocked') {
-              aiResponse.reportGenerationRequests.push({
-                status: 'blocked',
-                reason: data.reason,
-                message: data.message,
-              })
-            }
-          }
-          if (tr.type === 'sellability_run_request') {
-            if (!aiResponse.sellabilityRunRequests) aiResponse.sellabilityRunRequests = []
-            const data = tr.data as any
-            if (data?.status === 'pending_approval' && data.request) {
-              aiResponse.sellabilityRunRequests.push({
-                status: 'pending_approval',
-                estimatedCredits: data.request.estimated_credits,
-                answers: data.request.answers,
-                currentScore: data.request.current_score ?? null,
-                note: data.request.note ?? null,
-                message: data.message,
-              })
-            } else if (data?.status === 'blocked') {
-              aiResponse.sellabilityRunRequests.push({
-                status: 'blocked',
-                reason: data.reason,
-                missing: data.missing,
-                message: data.message,
-              })
-            }
-          }
+        const parsed = parseAIChatToolResults(data.toolResults)
+        if (parsed.normalisationSuggestions.length > 0) {
+          aiResponse.normalisationSuggestions = parsed.normalisationSuggestions
+        }
+        if (parsed.fieldUpdates.length > 0) {
+          aiResponse.fieldUpdates = parsed.fieldUpdates as any
+        }
+        if (parsed.valuationRunRequests.length > 0) {
+          aiResponse.valuationRunRequests = parsed.valuationRunRequests as any
+        }
+        if (parsed.reportGenerationRequests.length > 0) {
+          aiResponse.reportGenerationRequests = parsed.reportGenerationRequests as any
+        }
+        if (parsed.sellabilityRunRequests.length > 0) {
+          aiResponse.sellabilityRunRequests = parsed.sellabilityRunRequests as any
         }
       }
 
@@ -354,6 +319,26 @@ class AIChatServiceImpl {
         })
 
         if (!response.ok || !response.body) {
+          // 402: quota exhausted — call onQuotaExhausted if wired, otherwise
+          // fall through to onError so existing callers aren't broken.
+          if (response.status === 402) {
+            const errorData = await response.json().catch(() => ({}))
+            if (errorData.requires_upgrade && callbacks.onQuotaExhausted) {
+              callbacks.onQuotaExhausted({
+                remaining: typeof errorData.ai_credits_remaining === 'number'
+                  ? errorData.ai_credits_remaining
+                  : 0,
+                limit: typeof errorData.ai_credits_limit === 'number'
+                  ? errorData.ai_credits_limit
+                  : 0,
+              })
+              return
+            }
+            callbacks.onError?.(
+              (errorData as any).message || 'AI credit limit reached. Upgrade your plan to continue.'
+            )
+            return
+          }
           callbacks.onError?.('AI service unavailable')
           return
         }
@@ -361,8 +346,10 @@ class AIChatServiceImpl {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
-        let doneReceived = false
-        let resolvedConversationId = ''
+        // State + callback-dispatcher are extracted to `tool-results-parser`
+        // so the 5-type chunk routing + conversationId capture + done-flag
+        // accounting are pinned by tests rather than inline-untested code.
+        const state = makeChunkDispatchState()
 
         while (true) {
           const { done, value } = await reader.read()
@@ -380,34 +367,14 @@ class AIChatServiceImpl {
 
             try {
               const chunk = JSON.parse(dataStr)
-
-              switch (chunk.type) {
-                case 'text':
-                  if (chunk.conversationId) resolvedConversationId = chunk.conversationId
-                  if (chunk.content) callbacks.onText?.(chunk.content)
-                  break
-                case 'tool_start':
-                  callbacks.onToolStart?.(chunk.toolName)
-                  break
-                case 'tool_result':
-                  callbacks.onToolResult?.(chunk.toolName, chunk.toolResult)
-                  break
-                case 'done':
-                  doneReceived = true
-                  callbacks.onDone?.(chunk.conversationId || resolvedConversationId)
-                  break
-                case 'error':
-                  doneReceived = true
-                  callbacks.onError?.(chunk.error || 'Unknown error')
-                  break
-              }
+              dispatchAIChatChunk(chunk, state, callbacks)
             } catch {
               // Skip malformed JSON chunks
             }
           }
         }
 
-        if (!doneReceived) callbacks.onDone?.(resolvedConversationId || undefined)
+        if (!state.doneReceived) callbacks.onDone?.(state.resolvedConversationId || undefined)
       } catch (error) {
         if (controller.signal.aborted) return
         callbacks.onError?.(error instanceof Error ? error.message : 'Stream failed')
