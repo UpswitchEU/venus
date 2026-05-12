@@ -47,8 +47,9 @@
  */
 
 import { motion } from 'framer-motion'
+import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { AuroraInput } from '@/design-system'
 import { cn } from '@/design-system/utils'
@@ -314,6 +315,14 @@ export function LiquidationInputsSection({
   const [rentWasPrefilled, setRentWasPrefilled] = useState(false)
   const [paidUpCapitalWasPrefilled, setPaidUpCapitalWasPrefilled] = useState(false)
   const [deferredTaxWasPrefilled, setDeferredTaxWasPrefilled] = useState(false)
+  // Disclosure-panel ids — needed so each toggle's `aria-controls`
+  // points to the panel it expands. `useId()` gives us a stable prefix
+  // that survives re-renders; suffixes keep the three panels distinct
+  // without paying for three separate hook calls.
+  const disclosureIdBase = useId()
+  const advancedPanelId = `${disclosureIdBase}-advanced`
+  const liabilityBucketsPanelId = `${disclosureIdBase}-liability-buckets`
+  const assetOverridesPanelId = `${disclosureIdBase}-asset-overrides`
 
   const essentialsFilled = [
     liqHeadcount,
@@ -607,10 +616,13 @@ export function LiquidationInputsSection({
           open={showAdvanced}
           onToggle={() => setShowAdvanced((prev) => !prev)}
           title={t('advancedToggle')}
+          panelId={advancedPanelId}
           testId="liq-advanced-toggle"
         />
         {showAdvanced ? (
           <motion.div
+            id={advancedPanelId}
+            role="region"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
@@ -709,10 +721,13 @@ export function LiquidationInputsSection({
             filled: liabilityBucketsFilled,
             total: LIABILITY_BUCKET_TIERS.length,
           })}
+          panelId={liabilityBucketsPanelId}
           testId="liq-liability-buckets-toggle"
         />
         {showLiabilityBuckets ? (
           <motion.div
+            id={liabilityBucketsPanelId}
+            role="region"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
@@ -758,10 +773,13 @@ export function LiquidationInputsSection({
             filled: assetOverridesFilled,
             total: ASSET_CLASSES.length,
           })}
+          panelId={assetOverridesPanelId}
           testId="liq-asset-overrides-toggle"
         />
         {showAssetOverrides ? (
           <motion.div
+            id={assetOverridesPanelId}
+            role="region"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
@@ -816,20 +834,28 @@ export function LiquidationInputsSection({
  * Disclosure toggle for an inline panel inside the section card.
  *
  * Sits flush against the parent card edges (no own border) so the card
- * still reads as a single grouped surface. The chevron uses the same
- * "+/−" idiom the previous design relied on so muscle memory transfers.
+ * still reads as a single grouped surface. The chevron rotates 180° on
+ * open so the open/closed state reads at a glance — matches the Aurora
+ * disclosure idiom used elsewhere in the panel.
+ *
+ * Accessibility: pairs `aria-expanded` + `aria-controls` (pointing at
+ * `panelId`) so assistive tech treats the toggle + panel as a single
+ * disclosure widget. The keyboard `focus-visible` ring uses the Aurora
+ * primary tint so it doesn't get lost against the card background.
  */
 function CollapsibleToggle({
   open,
   onToggle,
   title,
   subtitle,
+  panelId,
   testId,
 }: {
   open: boolean
   onToggle: () => void
   title: string
   subtitle?: string
+  panelId: string
   testId?: string
 }) {
   return (
@@ -837,9 +863,11 @@ function CollapsibleToggle({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
+      aria-controls={panelId}
       className={cn(
         'flex w-full items-center justify-between gap-3 border-b border-foreground/[0.06] px-4 py-3 text-left',
         'transition-colors hover:bg-foreground/[0.02]',
+        'focus-visible:relative focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset',
         'last:border-b-0'
       )}
       data-testid={testId}
@@ -850,9 +878,13 @@ function CollapsibleToggle({
           <span className="text-[10px] font-normal text-foreground/50">{subtitle}</span>
         ) : null}
       </span>
-      <span className="select-none text-base font-medium text-foreground/40" aria-hidden="true">
-        {open ? '−' : '+'}
-      </span>
+      <ChevronDown
+        aria-hidden="true"
+        className={cn(
+          'h-4 w-4 shrink-0 text-foreground/45 transition-transform duration-200',
+          open && 'rotate-180'
+        )}
+      />
     </button>
   )
 }
