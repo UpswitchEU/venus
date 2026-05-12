@@ -17,8 +17,10 @@ export const SECTION_HEADER_ROW_CLASS = 'flex min-h-8 items-center gap-2'
  * the reading hierarchy (parent → children) shows up at a glance without
  * each call site having to opt in.
  */
-function isSubStep(step: string | number): boolean {
+function isSubStep(step: string | number | null | undefined): boolean {
+  if (step == null) return false
   if (typeof step === 'number') return false
+  if (typeof step !== 'string') return false
   return /^\d+[a-z]$/i.test(step.trim())
 }
 
