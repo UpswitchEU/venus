@@ -417,6 +417,11 @@ describe('methodFieldConfig', () => {
       expect(isActionableQualityWarningType('ebitda_benchmark_deviation')).toBe(true)
       expect(isActionableQualityWarningType('owner_compensation_estimated')).toBe(true)
       expect(isActionableQualityWarningType('book_equity_unavailable')).toBe(true)
+      // Yuki audit (May 2026): impossible_margin must route through the
+      // assistant CTA so the Venus drawer rail can render a guided fix —
+      // otherwise the typed warning falls back to the generic disclosure
+      // and the Vastgoed carve-out hint is lost.
+      expect(isActionableQualityWarningType('impossible_margin')).toBe(true)
       expect(isActionableQualityWarningType('some_generic_engine_warning')).toBe(false)
       expect(isActionableQualityWarningType(null)).toBe(false)
     })

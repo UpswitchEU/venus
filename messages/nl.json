@@ -2261,6 +2261,8 @@
 		"qualityCtaOwnerCompEstimatedPrompt": "De eigenaarsvergoeding is geschat in plaats van expliciet aangeleverd. Help me het werkelijke bedrag (of marktconforme vervangingskost) in te vullen zodat de genormaliseerde EBITDA verdedigbaar is.",
 		"qualityCtaBookEquityLabel": "Eigen vermogen aanvullen",
 		"qualityCtaBookEquityPrompt": "Boekhoudkundig eigen vermogen ontbreekt, waardoor de Belgische fiscale referentieberekening niet volledig sluit. Help me totaal eigen vermogen (of totaal activa en totale schuld) aan te vullen vanuit de meest recente jaarrekening.",
+		"qualityCtaImpossibleMarginLabel": "EBITDA-marge verifiëren",
+		"qualityCtaImpossibleMarginPrompt": "Eén of meer jaren tonen een genormaliseerde EBITDA-marge ≥ 100% — dat is wiskundig onmogelijk voor een operationele entiteit. Help me het probleem te identificeren: (1) een fout in de EBITDA-mapping, (2) te agressieve normalisaties, of (3) een operationele NV met vastgoed binnen dezelfde entiteit (waarbij de Vastgoed carve-out toggle vermoedelijk aangezet moet worden).",
 		"insightSeverity": "Inzicht",
 		"normCommandDetected": "Normalisatie commando gedetecteerd",
 		"normCommandDesc": "Dit wordt direct toegepast in het formulier",

@@ -2261,6 +2261,8 @@
 		"qualityCtaOwnerCompEstimatedPrompt": "Owner compensation was estimated instead of explicitly provided. Help me enter the actual amount (or market replacement cost) so normalized EBITDA is defensible.",
 		"qualityCtaBookEquityLabel": "Add book equity",
 		"qualityCtaBookEquityPrompt": "Book equity is missing, so the Belgian fiscal-reference calculation cannot fully close. Help me add total equity (or total assets and total debt) from the latest filed accounts.",
+		"qualityCtaImpossibleMarginLabel": "Verify EBITDA margin",
+		"qualityCtaImpossibleMarginPrompt": "One or more years show a normalised EBITDA margin ≥ 100% — mathematically impossible for an operating entity. Help me identify the cause: (1) a mapping error on the EBITDA column, (2) over-aggressive normalisations, or (3) an operating NV with property inside the same entity (in which case the Vastgoed carve-out toggle should likely be enabled).",
 		"insightSeverity": "Insight",
 		"normCommandDetected": "Normalization command detected",
 		"normCommandDesc": "This will be applied directly to the form",

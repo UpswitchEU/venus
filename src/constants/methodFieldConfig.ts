@@ -310,6 +310,11 @@ export const QUALITY_WARNING_ASSISTANT_CTA_KEYS = [
   'net_debt_unavailable',
   'owner_compensation_estimated',
   'book_equity_unavailable',
+  // Yuki audit (May 2026): emitted by the business-logic validator when any
+  // year shows normalised EBITDA ≥ 100% of revenue. The CTA opens a guided
+  // remediation flow in the assistant (verify EBITDA mapping; suggest the
+  // Vastgoed carve-out toggle when the entity holds its property).
+  'impossible_margin',
 ] as const
 
 export type QualityWarningAssistantCtaKey = (typeof QUALITY_WARNING_ASSISTANT_CTA_KEYS)[number]
@@ -355,6 +360,15 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   book_equity_unavailable: {
     labelKey: 'qualityCtaBookEquityLabel',
     promptKey: 'qualityCtaBookEquityPrompt',
+  },
+  // ``impossible_margin`` — emitted when any year shows normalised EBITDA
+  // margin ≥ 100% of revenue. The prompt walks the user through the three
+  // most common culprits: aggressive normalisations, non-revenue income
+  // (rental / intercompany), or an operating entity that holds property
+  // inside the same NV (Vastgoed carve-out toggle is the right fix).
+  impossible_margin: {
+    labelKey: 'qualityCtaImpossibleMarginLabel',
+    promptKey: 'qualityCtaImpossibleMarginPrompt',
   },
 } as const satisfies Record<QualityWarningAssistantCtaKey, { labelKey: string; promptKey: string }>
 
