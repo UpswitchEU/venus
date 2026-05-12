@@ -1215,13 +1215,28 @@
 		},
 		"fiscalInputs": {
 			"title": "Capital-gains tax — Acquisition value",
+			"subtitle": "Highest of four anchors wins (Wet 22/12/2024). Anchor 1 is required; anchors 2–4 are optional.",
+			"progress": "{filled} of {total} anchors provided",
+			"anchor1Eyebrow": "Anchor 1",
+			"anchor1Label": "Notarial acquisition value (31/12/2025)",
+			"anchor1Placeholder": "1,500,000",
+			"anchor1Hint": "Historical cost basis of the shares. Source: notarial deed, KBO publication of share capital, or subsequent capital increases on the balance sheet.",
 			"acquisitionCostLabel": "Acquisition value 31/12/2025 (EUR)",
 			"acquisitionCostHint": "Historical cost basis of the seller's shares. Found in the notarial purchase deed, the KBO publication of the share capital, or subsequent capital increases recorded on the balance sheet.",
+			"alternativeAnchorsToggle": "Alternative anchors",
+			"alternativeAnchorsCount": "{filled} of 3",
+			"alternativeAnchorsHint": "Fill in only if a valid anchor exists. The highest wins.",
 			"anchorsTitle": "Three alternative statutory anchors",
+			"anchor2Eyebrow": "Anchor 2",
+			"anchor2Short": "Contractual formula",
 			"anchor2Label": "Anchor 2 — Contractual formula (EUR)",
 			"anchor2Hint": "Value from a valuation formula in a shareholders' agreement in force on 31/12/2025.",
+			"anchor3Eyebrow": "Anchor 3",
+			"anchor3Short": "2025 market transaction",
 			"anchor3Label": "Anchor 3 — 2025 market transaction (EUR)",
 			"anchor3Hint": "Price from an arm's-length transaction with independent third parties in 2025 (same or comparable share class).",
+			"anchor4Eyebrow": "Anchor 4",
+			"anchor4Short": "Independent valuation report",
 			"anchor4Label": "Anchor 4 — Independent valuation report (EUR)",
 			"anchor4Hint": "Value from an independent valuation report by a qualified professional (deadline 31/12/2027)."
 		},
@@ -1310,8 +1325,10 @@
 		"dcfInputMode": {
 			"label": "How do you want to enter the forecast?",
 			"ebitda": "Build from EBITDA",
+			"ebitdaShort": "From EBITDA",
 			"ebitdaHint": "Recommended — we compute FCFF from your growth, margin, CapEx, D&A, and ΔNWC.",
 			"fcffOnly": "Enter free cash flow directly",
+			"fcffOnlyShort": "Direct FCFF",
 			"fcffOnlyHint": "Use when you have FCFF off-system and just want it discounted."
 		},
 		"dcfFcffOnlyTable": {
@@ -1626,6 +1643,8 @@
 				"navGroupDeductions": "Deductions",
 				"navGroupDeductionsHint": "Tax latency on capital gains and off-balance-sheet obligations",
 				"navDefaultsButton": "Apply sector defaults",
+				"navDefaultsButtonTitle": "Apply sector defaults ({sector})",
+				"navDefaultsButtonDescription": "Zero out the lines that are usually irrelevant for your sector — you only fill the ones that matter.",
 				"navDefaultsApplied": "Defaults applied based on your business type",
 				"sdeOwnerCompensation": "SDE — Owner compensation",
 				"realEstateCarveOut": "Real estate carve-out",
@@ -1950,16 +1969,13 @@
 				"title": "Imported SaaS snapshot",
 				"description": "Pre-filled from {provider} for fiscal year {year} with {confidence}% confidence. Values are derived from recurring-looking revenue in your imported ledger—not subscription-system analytics. You can still adjust any field manually before running the valuation."
 			},
-			"saasBenchmark": {
-				"title": "Pre-filled with sector benchmarks",
-				"description": "We've filled {count} fields (gross margin, churn, NRR, growth) with the typical numbers for your sector. Replace each with your own as you go.",
-				"clearCta": "Clear"
-			},
 			"prefillSource": {
 				"benchmark": "Sector benchmark",
 				"benchmarkTooltip": "Pre-filled from sector medians. Replace with your own value to make the report defensible.",
 				"history": "From your revenue history",
-				"historyTooltip": "Computed from the year-over-year delta in the historical revenue grid you already filled in."
+				"historyTooltip": "Computed from the year-over-year delta in the historical revenue grid you already filled in.",
+				"derived": "Auto-calculated",
+				"derivedTooltip": "Auto-calculated from another value you entered (e.g. MRR = ARR / 12). Replace with your own figure if it differs."
 			},
 			"saasFormulas": {
 				"ruleOf40": "ARR growth (annual %) + gross margin %",

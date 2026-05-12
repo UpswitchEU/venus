@@ -9,21 +9,22 @@
  * creditor letters, strategic buyer scenarios). Engine defaults fire
  * when fields are blank — the report flags every estimated bucket.
  *
- * UX notes (rebuild 2026-05-10):
- * - Headcount auto-prefills from `formData.number_of_employees` on
- *   first mount (the chain doesn't yet run for blank essentials, so
- *   the prefill is what makes the UX a no-brainer for ~80% of cases).
- * - Two-tier disclosure: 4 essentials always visible; 4 advanced
- *   inputs collapsed behind a "Show advanced" toggle. The advanced
- *   block surfaces taxable_reserves, runway_months_orderly,
- *   distress_wacc_orderly, multiples_value_override.
- * - Status chip: "X of 4 essentials filled — engine fills the rest"
- *   so the advisor knows what's auto-defaulted.
- * - Per-field "what this drives" hints + (when prefilled) a "From
- *   company profile" tag so the user knows the source of truth.
- * - Bilingual EN+NL via `manualInput.liquidationInputs.*` keys.
- * - "Reset to engine defaults" at the bottom — clears all liq_*
- *   fields back to undefined.
+ * Aurora Clarity rebuild 2026-05-12:
+ * - Outer chrome matches `NavRealEstateAppraisalSection` (rounded-xl
+ *   neutral card + description band on top + grouped panels separated
+ *   by `border-foreground/[0.06]`). The previous heavy `primary/0.03`
+ *   tint diverged from every other left-panel section.
+ * - Every numeric input now uses the design-system primitives
+ *   (`CurrencyInput`, `IntegerInput`, `AuroraInput`) — they ship with
+ *   proper `<label htmlFor>` association, so clicking *any* label
+ *   focuses its input. The previous bespoke `FieldRow` shipped raw
+ *   `<label>` elements without `htmlFor`, so labels were decorative.
+ * - "Prefilled" provenance moves from a bare dot to the shared
+ *   `PrefilledBadge` so it reads the same as NAV equipment / accountant
+ *   prefill across the panel.
+ * - Auto-prefill behaviour (headcount, rent, paid-up capital, DTL),
+ *   advanced toggle, liability buckets, asset overrides, and reset
+ *   are all preserved — UX surface is identical, only the shell changes.
  *
  * Field-to-engine mapping (set in `buildValuationRequest`):
  *   Essentials:
@@ -35,7 +36,10 @@
  *     - liq_premise_override        → owner_premise_override
  *     - liq_taxable_reserves        → taxable_reserves
  *     - liq_runway_months_orderly   → runway_months_orderly
+ *     - liq_runway_months_forced    → runway_months_forced
  *     - liq_distress_wacc_orderly   → distress_wacc_orderly
+ *     - liq_distress_wacc_forced    → distress_wacc_forced
+ *     - liq_intangibles_uplift_pct  → intangibles_uplift_pct
  *     - liq_multiples_value_override → multiples_value_override
  *
  * Sources: IVS 104 §60–80, IVS 105 §60–90, USPAP STANDARD 9, AICPA
@@ -44,9 +48,13 @@
 
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 
+import { AuroraInput } from '@/design-system'
+import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
+import { IntegerInput } from './IntegerInput'
+import { PrefilledBadge } from './PrefilledBadge'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 // `going_concern` is intentionally NOT exposed here.  Liquidation
@@ -137,49 +145,85 @@ const ASSET_OVERRIDE_FORM_KEYS = ASSET_CLASSES.map(
 )
 
 /**
- * Minimal data-input row.  Label + (optional) prefill marker + field +
- * (optional) inline unit hint.  Deliberately lean — the left panel is
- * for data input, not for advisor narrative.  Anything explaining what
- * a field "drives" or what statute it cites belongs in the
- * `liquidation_disclosure.html` report section, not in the form.
+ * Decimal-percent input used for the advanced WACC / uplift fields.
+ *
+ * The engine stores these as decimals (0.15 = 15 %) but the advisor
+ * thinks in whole percent. We round to a single decimal on display so
+ * the float-multiply round-trip (0.155 → 15.500000000000002) doesn't
+ * leak garbage digits on re-render.
  */
-function FieldRow({
+function PercentInput({
+  name,
   label,
-  hint,
-  prefilled,
-  children,
+  description,
+  placeholder,
+  value,
+  onChange,
+  disabled,
+  min = 0,
+  max = 100,
+  step = 0.5,
+  testId,
 }: {
+  name: string
   label: string
-  /** Short unit/format guidance like "EUR / month" or "FTE".  Avoid
-   * citations or methodology copy here — that belongs in the report. */
-  hint?: string
-  /** When true, renders a single dot next to the label indicating the
-   * value was auto-filled from the company profile / filings.  No
-   * explanatory copy — the user sees the value, the dot signals
-   * provenance.  Disappears the moment the user types. */
-  prefilled?: boolean
-  children: ReactNode
+  description?: string
+  placeholder?: string
+  value?: number
+  onChange: (next: number | undefined) => void
+  disabled?: boolean
+  min?: number
+  max?: number
+  step?: number
+  testId?: string
 }) {
+  const display =
+    value === undefined || value === null
+      ? ''
+      : String(Math.round(Number(value) * 1000) / 10)
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-foreground/80">{label}</label>
-        {prefilled ? (
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60"
-            aria-label="prefilled"
-            data-testid="liq-prefill-badge"
-          />
-        ) : null}
-      </div>
+    <AuroraInput
+      id={name}
+      name={name}
+      label={label}
+      description={description}
+      type="number"
+      inputMode="decimal"
+      size="sm"
+      truncateLabel={false}
+      placeholder={placeholder}
+      min={min}
+      max={max}
+      step={step}
+      value={display}
+      disabled={disabled}
+      onChange={(e) => {
+        const raw = e.target.value
+        onChange(
+          raw === '' ? undefined : Math.max(0, Math.round(Number(raw) * 10) / 1000)
+        )
+      }}
+      rightIcon={<span className="select-none text-xs font-medium text-foreground/40">%</span>}
+      data-testid={testId}
+      className="tabular-nums"
+    />
+  )
+}
+
+/** Visual divider between grouped panels inside the section card. */
+const PANEL_GROUP = 'space-y-3 border-b border-foreground/[0.06] px-4 py-3 last:border-b-0'
+
+/** Compact eyebrow heading for each panel group ("Afbouw", "Belastingbrug", …). */
+function PanelEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
       {children}
-      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
-    </div>
+    </h4>
   )
 }
 
 export interface LiquidationInputsSectionProps {
-  step: number
+  step: string | number
   liqHeadcount?: number
   liqMonthlyRent?: number
   liqPaidUpCapital?: number
@@ -251,6 +295,7 @@ export function LiquidationInputsSection({
   disabled,
 }: LiquidationInputsSectionProps) {
   const t = useTranslations('manualInput.liquidationInputs')
+  const tPrefill = useTranslations('manualInput.methodSelector.prefill')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showLiabilityBuckets, setShowLiabilityBuckets] = useState(false)
   const [showAssetOverrides, setShowAssetOverrides] = useState(false)
@@ -269,6 +314,14 @@ export function LiquidationInputsSection({
   const [rentWasPrefilled, setRentWasPrefilled] = useState(false)
   const [paidUpCapitalWasPrefilled, setPaidUpCapitalWasPrefilled] = useState(false)
   const [deferredTaxWasPrefilled, setDeferredTaxWasPrefilled] = useState(false)
+
+  const essentialsFilled = [
+    liqHeadcount,
+    liqMonthlyRent,
+    liqPaidUpCapital,
+    liqDeferredTax,
+  ].filter((v) => v !== undefined).length
+  const sectionComplete = essentialsFilled === ESSENTIAL_FIELDS.length
 
   // Auto-prefill headcount from base company profile.
   // Runs whenever (a) liqHeadcount is undefined AND (b) the source
@@ -364,82 +417,75 @@ export function LiquidationInputsSection({
     setDeferredTaxWasPrefilled(false)
   }
 
+  const prefillBadge = <PrefilledBadge label={tPrefill('badge')} />
+
   return (
     <motion.section
       key="liquidation_inputs"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18 }}
-      className="space-y-3 rounded-xl border border-primary/10 bg-primary/[0.03] p-3"
+      className="mt-6 space-y-4 pt-2"
       data-testid="liquidation-inputs-section"
+      aria-label={t('title')}
     >
-      <ValuationSectionHeader step={step} title={t('title')} subtitle={t('subtitle')} />
+      <ValuationSectionHeader
+        step={step}
+        complete={sectionComplete}
+        title={t('title')}
+        subtitle={t('subtitle')}
+      />
 
-      {/* Essentials-filled status chip — surfaces the four-of-four
-          progress hinted at in the file-header comment.  Engine fires
-          defaults on blank fields so the chip mirrors what the report's
-          "estimated bucket" warnings will say (audit P0 #6).  Counts
-          *defined* values rather than *non-prefilled* so the bar reads
-          the same whether the data came from a filing or from typing. */}
-      <div
-        className="flex items-center gap-2 rounded-md bg-primary/[0.06] px-2.5 py-1.5 text-[11px] text-foreground/70"
-        data-testid="liq-essentials-progress"
-      >
-        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-primary/70" />
-        {t('essentialsProgress', {
-          filled: [liqHeadcount, liqMonthlyRent, liqPaidUpCapital, liqDeferredTax].filter(
-            (v) => v !== undefined
-          ).length,
-          total: ESSENTIAL_FIELDS.length,
-        })}
-      </div>
+      <div className="rounded-xl border border-foreground/[0.08] bg-background">
+        {/* Description / progress band — replaces the previous standalone
+            chip so the chrome matches `NavRealEstateAppraisalSection` and
+            its siblings. */}
+        <div
+          className="flex items-start justify-between gap-3 border-b border-foreground/[0.06] px-4 py-3"
+          data-testid="liq-essentials-progress"
+        >
+          <p className="text-[11px] leading-snug text-foreground/55">
+            {t('essentialsProgress', {
+              filled: essentialsFilled,
+              total: ESSENTIAL_FIELDS.length,
+            })}
+          </p>
+          <span
+            className={cn(
+              'mt-0.5 inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
+              sectionComplete ? 'bg-emerald-500' : 'bg-primary/60'
+            )}
+            aria-hidden="true"
+          />
+        </div>
 
-      {/* Wind-down panel — bottom-up cost inputs. */}
-      <div className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-          {t('windDownTitle')}
-        </h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FieldRow
-            label={t('headcountLabel')}
-            hint={t('headcountHint')}
-            prefilled={headcountWasPrefilled && liqHeadcount !== undefined}
-          >
-            {/* Right-aligned suffix "FTE" matches the CurrencyInput visual
-                pattern (suffix in muted-foreground at right edge) for visual
-                consistency across the form. */}
-            <div className="relative">
-              <input
-                type="number"
-                min={0}
-                step={1}
-                placeholder={t('headcountPlaceholder')}
-                value={liqHeadcount ?? ''}
-                disabled={disabled}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  onFieldChange(
-                    'liq_headcount',
-                    raw === '' ? undefined : Math.max(0, Math.floor(Number(raw)))
-                  )
-                  if (raw !== '' && headcountWasPrefilled) {
-                    setHeadcountWasPrefilled(false)
-                  }
-                }}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                data-testid="liq-headcount-input"
-              />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                FTE
-              </span>
-            </div>
-          </FieldRow>
-          <FieldRow
-            label={t('monthlyRentLabel')}
-            hint={t('monthlyRentHint')}
-            prefilled={rentWasPrefilled && liqMonthlyRent !== undefined}
-          >
+        {/* Wind-down panel — bottom-up cost inputs. */}
+        <div className={PANEL_GROUP}>
+          <PanelEyebrow>{t('windDownTitle')}</PanelEyebrow>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <IntegerInput
+              label={t('headcountLabel')}
+              description={t('headcountHint')}
+              value={liqHeadcount}
+              onChange={(next) => {
+                onFieldChange('liq_headcount', next)
+                if (next !== undefined && headcountWasPrefilled) {
+                  setHeadcountWasPrefilled(false)
+                }
+              }}
+              min={0}
+              max={10_000}
+              placeholder={t('headcountPlaceholder')}
+              disabled={disabled}
+              trailingLabelAccessory={
+                headcountWasPrefilled && liqHeadcount !== undefined ? prefillBadge : undefined
+              }
+            />
             <CurrencyInput
+              id="liq_monthly_rent"
+              name="liq_monthly_rent"
+              label={t('monthlyRentLabel')}
+              description={t('monthlyRentHint')}
               value={liqMonthlyRent}
               onChange={(next) => {
                 onFieldChange('liq_monthly_rent', next)
@@ -448,24 +494,23 @@ export function LiquidationInputsSection({
                 }
               }}
               disabled={disabled}
-              data-testid="liq-monthly-rent-input"
+              truncateLabel={false}
+              trailingLabelAccessory={
+                rentWasPrefilled && liqMonthlyRent !== undefined ? prefillBadge : undefined
+              }
             />
-          </FieldRow>
+          </div>
         </div>
-      </div>
 
-      {/* Tax bridge panel. */}
-      <div className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-          {t('taxBridgeTitle')}
-        </h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FieldRow
-            label={t('paidUpCapitalLabel')}
-            hint={t('paidUpCapitalHint')}
-            prefilled={paidUpCapitalWasPrefilled && liqPaidUpCapital !== undefined}
-          >
+        {/* Tax bridge panel. */}
+        <div className={PANEL_GROUP}>
+          <PanelEyebrow>{t('taxBridgeTitle')}</PanelEyebrow>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <CurrencyInput
+              id="liq_paid_up_capital"
+              name="liq_paid_up_capital"
+              label={t('paidUpCapitalLabel')}
+              description={t('paidUpCapitalHint')}
               value={liqPaidUpCapital}
               onChange={(next) => {
                 onFieldChange('liq_paid_up_capital', next)
@@ -474,15 +519,18 @@ export function LiquidationInputsSection({
                 }
               }}
               disabled={disabled}
-              data-testid="liq-paid-up-capital-input"
+              truncateLabel={false}
+              trailingLabelAccessory={
+                paidUpCapitalWasPrefilled && liqPaidUpCapital !== undefined
+                  ? prefillBadge
+                  : undefined
+              }
             />
-          </FieldRow>
-          <FieldRow
-            label={t('deferredTaxLabel')}
-            hint={t('deferredTaxHint')}
-            prefilled={deferredTaxWasPrefilled && liqDeferredTax !== undefined}
-          >
             <CurrencyInput
+              id="liq_deferred_tax"
+              name="liq_deferred_tax"
+              label={t('deferredTaxLabel')}
+              description={t('deferredTaxHint')}
               value={liqDeferredTax}
               onChange={(next) => {
                 onFieldChange('liq_deferred_tax', next)
@@ -491,402 +539,320 @@ export function LiquidationInputsSection({
                 }
               }}
               disabled={disabled}
-              data-testid="liq-deferred-tax-input"
-            />
-          </FieldRow>
-          {/* Realised capital gains — drives the meerwaarde leg of
-              the BE tax bridge (Art. 47 WIB at 16.5%) and the Vpb-14a
-              leg of the NL tax bridge (25.8%).  Without it the engine
-              defaults the gains tax to 0 — fine for a holding company,
-              wrong for a manufacturer with depreciated machinery. */}
-          <FieldRow
-            label={t('realisedCapitalGainsLabel')}
-            hint={t('realisedCapitalGainsHint')}
-          >
-            <CurrencyInput
-              value={liqRealisedCapitalGains}
-              onChange={(next) =>
-                onFieldChange('liq_realised_capital_gains', next)
+              truncateLabel={false}
+              trailingLabelAccessory={
+                deferredTaxWasPrefilled && liqDeferredTax !== undefined ? prefillBadge : undefined
               }
-              disabled={disabled}
-              data-testid="liq-realised-capital-gains-input"
             />
-          </FieldRow>
-        </div>
-      </div>
-
-      {/* Premise override. */}
-      <div className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-          {t('premiseTitle')}
-        </h4>
-        <FieldRow
-          label={t('premiseLabel')}
-          hint={t('premiseHint')}
-        >
-          <select
-            value={liqPremiseOverride ?? ''}
-            disabled={disabled}
-            onChange={(e) => {
-              const raw = e.target.value
-              if (onAnyFieldChange) {
-                onAnyFieldChange(
-                  'liq_premise_override',
-                  raw === '' ? undefined : raw
-                )
-              }
-            }}
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            data-testid="liq-premise-override-select"
-          >
-            {PREMISE_OPTIONS.map((opt) => (
-              <option key={opt.value || 'auto'} value={opt.value}>
-                {t(`premiseOption.${opt.i18nKey}`)}
-              </option>
-            ))}
-          </select>
-        </FieldRow>
-      </div>
-
-      {/* Advanced toggle — collapses 4 power-user inputs. */}
-      <button
-        type="button"
-        onClick={() => setShowAdvanced((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-lg border border-primary/10 bg-background/60 px-3 py-2 text-xs font-medium text-foreground/80 hover:bg-primary/[0.05]"
-        data-testid="liq-advanced-toggle"
-      >
-        <span>{t('advancedToggle')}</span>
-        <span className="text-muted-foreground">{showAdvanced ? '−' : '+'}</span>
-      </button>
-
-      {showAdvanced ? (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.15 }}
-          className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3"
-          data-testid="liq-advanced-section"
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FieldRow
-              label={t('taxableReservesLabel')}
-              hint={t('taxableReservesHint')}
-            >
+            {/* Realised capital gains — drives the meerwaarde leg of
+                the BE tax bridge (Art. 47 WIB at 16.5%) and the Vpb-14a
+                leg of the NL tax bridge (25.8%).  Without it the engine
+                defaults the gains tax to 0 — fine for a holding company,
+                wrong for a manufacturer with depreciated machinery. */}
+            <div className="sm:col-span-2">
               <CurrencyInput
+                id="liq_realised_capital_gains"
+                name="liq_realised_capital_gains"
+                label={t('realisedCapitalGainsLabel')}
+                description={t('realisedCapitalGainsHint')}
+                value={liqRealisedCapitalGains}
+                onChange={(next) => onFieldChange('liq_realised_capital_gains', next)}
+                disabled={disabled}
+                truncateLabel={false}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Premise override. */}
+        <div className={PANEL_GROUP}>
+          <PanelEyebrow>{t('premiseTitle')}</PanelEyebrow>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="liq_premise_override"
+              className="block text-[12px] font-medium leading-snug text-foreground/70"
+            >
+              {t('premiseLabel')}
+            </label>
+            <select
+              id="liq_premise_override"
+              name="liq_premise_override"
+              value={liqPremiseOverride ?? ''}
+              disabled={disabled}
+              onChange={(e) => {
+                const raw = e.target.value
+                if (onAnyFieldChange) {
+                  onAnyFieldChange('liq_premise_override', raw === '' ? undefined : raw)
+                }
+              }}
+              className={cn(
+                'h-11 w-full rounded-xl border border-foreground/[0.10] bg-foreground/[0.04] px-3 text-sm shadow-sm',
+                'transition-colors hover:border-foreground/[0.20]',
+                'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
+              )}
+              data-testid="liq-premise-override-select"
+            >
+              {PREMISE_OPTIONS.map((opt) => (
+                <option key={opt.value || 'auto'} value={opt.value}>
+                  {t(`premiseOption.${opt.i18nKey}`)}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-foreground/45">{t('premiseHint')}</p>
+          </div>
+        </div>
+
+        {/* Advanced toggle — collapses power-user inputs. */}
+        <CollapsibleToggle
+          open={showAdvanced}
+          onToggle={() => setShowAdvanced((prev) => !prev)}
+          title={t('advancedToggle')}
+          testId="liq-advanced-toggle"
+        />
+        {showAdvanced ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            transition={{ duration: 0.15 }}
+            className={PANEL_GROUP}
+            data-testid="liq-advanced-section"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CurrencyInput
+                id="liq_taxable_reserves"
+                name="liq_taxable_reserves"
+                label={t('taxableReservesLabel')}
+                description={t('taxableReservesHint')}
                 value={liqTaxableReserves}
                 onChange={(next) => onFieldChange('liq_taxable_reserves', next)}
                 disabled={disabled}
-                data-testid="liq-taxable-reserves-input"
+                truncateLabel={false}
               />
-            </FieldRow>
-            <FieldRow
-              label={t('runwayMonthsLabel')}
-              hint={t('runwayMonthsHint')}
-            >
-              <input
-                type="number"
+              <IntegerInput
+                label={t('runwayMonthsLabel')}
+                description={t('runwayMonthsHint')}
+                value={liqRunwayMonthsOrderly}
+                onChange={(next) => onFieldChange('liq_runway_months_orderly', next)}
                 min={1}
                 max={24}
-                step={1}
                 placeholder={t('runwayMonthsPlaceholder')}
-                value={liqRunwayMonthsOrderly ?? ''}
                 disabled={disabled}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  onFieldChange(
-                    'liq_runway_months_orderly',
-                    raw === '' ? undefined : Math.max(1, Math.floor(Number(raw)))
-                  )
-                }}
-                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                data-testid="liq-runway-months-input"
               />
-            </FieldRow>
-            <FieldRow
-              label={t('runwayMonthsForcedLabel')}
-              hint={t('runwayMonthsForcedHint')}
-            >
-              <input
-                type="number"
+              <IntegerInput
+                label={t('runwayMonthsForcedLabel')}
+                description={t('runwayMonthsForcedHint')}
+                value={liqRunwayMonthsForced}
+                onChange={(next) => onFieldChange('liq_runway_months_forced', next)}
                 min={1}
                 max={12}
-                step={1}
                 placeholder={t('runwayMonthsForcedPlaceholder')}
-                value={liqRunwayMonthsForced ?? ''}
                 disabled={disabled}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  onFieldChange(
-                    'liq_runway_months_forced',
-                    raw === '' ? undefined : Math.max(1, Math.floor(Number(raw)))
-                  )
-                }}
-                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                data-testid="liq-runway-months-forced-input"
               />
-            </FieldRow>
-            <FieldRow
-              label={t('distressWaccLabel')}
-              hint={t('distressWaccHint')}
-            >
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  placeholder={t('distressWaccPlaceholder')}
-                  // Stored as decimal (0.15 = 15%); UI surfaces percent.
-                  // Round to 1 decimal on display so the float-multiply
-                  // round-trip (0.155 → 15.500000000000002) doesn't leak
-                  // garbage digits on re-render (audit P0 #7).
-                  value={
-                    liqDistressWaccOrderly === undefined
-                      ? ''
-                      : Math.round(Number(liqDistressWaccOrderly) * 1000) / 10
-                  }
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    onFieldChange(
-                      'liq_distress_wacc_orderly',
-                      raw === ''
-                        ? undefined
-                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
-                    )
-                  }}
-                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  data-testid="liq-distress-wacc-input"
-                />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                  %
-                </span>
-              </div>
-            </FieldRow>
-            <FieldRow
-              label={t('distressWaccForcedLabel')}
-              hint={t('distressWaccForcedHint')}
-            >
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  placeholder={t('distressWaccForcedPlaceholder')}
-                  // Same decimal round-trip guard as the orderly
-                  // WACC input above (audit P0 #7 echo).
-                  value={
-                    liqDistressWaccForced === undefined
-                      ? ''
-                      : Math.round(Number(liqDistressWaccForced) * 1000) / 10
-                  }
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    onFieldChange(
-                      'liq_distress_wacc_forced',
-                      raw === ''
-                        ? undefined
-                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
-                    )
-                  }}
-                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  data-testid="liq-distress-wacc-forced-input"
-                />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                  %
-                </span>
-              </div>
-            </FieldRow>
-            <FieldRow
-              label={t('intangiblesUpliftLabel')}
-              hint={t('intangiblesUpliftHint')}
-            >
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  placeholder={t('intangiblesUpliftPlaceholder')}
-                  // Stored as decimal (0.15 = 15%); UI surfaces percent.
-                  // Drives the M&A replacement-cost ceiling on the
-                  // Statement of Affairs band — see
-                  // `replacement_cost.intangibles_uplift_pct`.  Per
-                  // Reilly & Schweihs (1998) Ch. 16, typical range
-                  // 10-25% of tangible base for SME goodwill.
-                  value={
-                    liqIntangiblesUpliftPct === undefined
-                      ? ''
-                      : Math.round(Number(liqIntangiblesUpliftPct) * 1000) / 10
-                  }
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    onFieldChange(
-                      'liq_intangibles_uplift_pct',
-                      raw === ''
-                        ? undefined
-                        : Math.max(0, Math.round(Number(raw) * 10) / 1000)
-                    )
-                  }}
-                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 pr-7 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  data-testid="liq-intangibles-uplift-input"
-                />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                  %
-                </span>
-              </div>
-            </FieldRow>
-            <FieldRow
-              label={t('multiplesValueLabel')}
-              hint={t('multiplesValueHint')}
-            >
-              <CurrencyInput
-                value={liqMultiplesValueOverride}
-                onChange={(next) =>
-                  onFieldChange('liq_multiples_value_override', next)
-                }
+              <PercentInput
+                name="liq_distress_wacc_orderly"
+                label={t('distressWaccLabel')}
+                description={t('distressWaccHint')}
+                placeholder={t('distressWaccPlaceholder')}
+                value={liqDistressWaccOrderly}
+                onChange={(next) => onFieldChange('liq_distress_wacc_orderly', next)}
                 disabled={disabled}
-                data-testid="liq-multiples-value-input"
+                testId="liq-distress-wacc-input"
               />
-            </FieldRow>
-          </div>
-        </motion.div>
-      ) : null}
+              <PercentInput
+                name="liq_distress_wacc_forced"
+                label={t('distressWaccForcedLabel')}
+                description={t('distressWaccForcedHint')}
+                placeholder={t('distressWaccForcedPlaceholder')}
+                value={liqDistressWaccForced}
+                onChange={(next) => onFieldChange('liq_distress_wacc_forced', next)}
+                disabled={disabled}
+                testId="liq-distress-wacc-forced-input"
+              />
+              <PercentInput
+                name="liq_intangibles_uplift_pct"
+                label={t('intangiblesUpliftLabel')}
+                description={t('intangiblesUpliftHint')}
+                placeholder={t('intangiblesUpliftPlaceholder')}
+                value={liqIntangiblesUpliftPct}
+                onChange={(next) => onFieldChange('liq_intangibles_uplift_pct', next)}
+                disabled={disabled}
+                testId="liq-intangibles-uplift-input"
+              />
+              <div className="sm:col-span-2">
+                <CurrencyInput
+                  id="liq_multiples_value_override"
+                  name="liq_multiples_value_override"
+                  label={t('multiplesValueLabel')}
+                  description={t('multiplesValueHint')}
+                  value={liqMultiplesValueOverride}
+                  onChange={(next) => onFieldChange('liq_multiples_value_override', next)}
+                  disabled={disabled}
+                  truncateLabel={false}
+                />
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
 
-      {/* Per-tier liability buckets — supplying these kills the
-          engine's "estimated from jurisdiction defaults" warning that
-          fires on every cascade page.  Defaults match the BE Boek XX /
-          NL Faillissementswet tier order.  Hidden behind a separate
-          toggle (not the generic "Show advanced") because the chip
-          shows progress: "0 of 7 tiers" → "7 of 7 tiers" — the advisor
-          knows exactly how much of the cascade is real. */}
-      <button
-        type="button"
-        onClick={() => setShowLiabilityBuckets((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-lg border border-primary/10 bg-background/60 px-3 py-2 text-xs font-medium text-foreground/80 hover:bg-primary/[0.05]"
-        data-testid="liq-liability-buckets-toggle"
-      >
-        <span className="flex flex-col items-start gap-0.5">
-          <span>{t('liabilityBucketsTitle')}</span>
-          <span className="text-[10px] font-normal text-muted-foreground">
-            {t('liabilityBucketsProgress', {
-              filled: liabilityBucketsFilled,
-              total: LIABILITY_BUCKET_TIERS.length,
-            })}
-          </span>
-        </span>
-        <span className="text-muted-foreground">{showLiabilityBuckets ? '−' : '+'}</span>
-      </button>
-
-      {showLiabilityBuckets ? (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.15 }}
-          className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3"
-          data-testid="liq-liability-buckets-section"
-        >
-          <p className="text-[11px] text-muted-foreground">
-            {t('liabilityBucketsSubtitle')}
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {LIABILITY_BUCKET_TIERS.map((tier) => {
-              const formKey = `liq_lb_${tier.code}` as const
-              const current = liqLiabilityBuckets?.[tier.code]
-              return (
-                <FieldRow
-                  key={tier.code}
-                  label={t(`liabilityBucketLabel.${tier.i18nKey}`)}
-                  hint={t(`liabilityBucketHint.${tier.i18nKey}`)}
-                >
+        {/* Per-tier liability buckets — supplying these kills the
+            engine's "estimated from jurisdiction defaults" warning that
+            fires on every cascade page.  Defaults match the BE Boek XX /
+            NL Faillissementswet tier order.  Hidden behind a separate
+            toggle (not the generic "Show advanced") because the chip
+            shows progress: "0 of 7 tiers" → "7 of 7 tiers" — the advisor
+            knows exactly how much of the cascade is real. */}
+        <CollapsibleToggle
+          open={showLiabilityBuckets}
+          onToggle={() => setShowLiabilityBuckets((prev) => !prev)}
+          title={t('liabilityBucketsTitle')}
+          subtitle={t('liabilityBucketsProgress', {
+            filled: liabilityBucketsFilled,
+            total: LIABILITY_BUCKET_TIERS.length,
+          })}
+          testId="liq-liability-buckets-toggle"
+        />
+        {showLiabilityBuckets ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            transition={{ duration: 0.15 }}
+            className={PANEL_GROUP}
+            data-testid="liq-liability-buckets-section"
+          >
+            <p className="text-[11px] leading-snug text-foreground/55">
+              {t('liabilityBucketsSubtitle')}
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {LIABILITY_BUCKET_TIERS.map((tier) => {
+                const formKey = `liq_lb_${tier.code}` as const
+                const current = liqLiabilityBuckets?.[tier.code]
+                return (
                   <CurrencyInput
+                    key={tier.code}
+                    id={formKey}
+                    name={formKey}
+                    label={t(`liabilityBucketLabel.${tier.i18nKey}`)}
+                    description={t(`liabilityBucketHint.${tier.i18nKey}`)}
                     value={current}
                     onChange={(next) => onFieldChange(formKey, next)}
                     disabled={disabled}
-                    data-testid={`liq-lb-${tier.code}-input`}
+                    truncateLabel={false}
                   />
-                </FieldRow>
-              )
-            })}
-          </div>
-        </motion.div>
-      ) : null}
+                )
+              })}
+            </div>
+          </motion.div>
+        ) : null}
 
-      {/* Per-asset-class adjusted-FMV overrides — turns the
-          realisation schedule from a book-value rollforward into an
-          appraiser-grade working paper (audit P0 #9).  Hidden behind a
-          separate toggle from the liability buckets; the progress hint
-          tells the advisor how many classes carry appraiser values.
-          Engine falls back to balance-sheet derivation for blanks. */}
-      <button
-        type="button"
-        onClick={() => setShowAssetOverrides((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-lg border border-primary/10 bg-background/60 px-3 py-2 text-xs font-medium text-foreground/80 hover:bg-primary/[0.05]"
-        data-testid="liq-asset-overrides-toggle"
-      >
-        <span className="flex flex-col items-start gap-0.5">
-          <span>{t('assetOverridesTitle')}</span>
-          <span className="text-[10px] font-normal text-muted-foreground">
-            {t('assetOverridesProgress', {
-              filled: assetOverridesFilled,
-              total: ASSET_CLASSES.length,
-            })}
-          </span>
-        </span>
-        <span className="text-muted-foreground">{showAssetOverrides ? '−' : '+'}</span>
-      </button>
-
-      {showAssetOverrides ? (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.15 }}
-          className="space-y-3 rounded-lg border border-primary/10 bg-background/60 p-3"
-          data-testid="liq-asset-overrides-section"
-        >
-          <p className="text-[11px] text-muted-foreground">
-            {t('assetOverridesSubtitle')}
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {ASSET_CLASSES.map((cls) => {
-              const formKey = `liq_ao_${cls.code}` as const
-              const current = liqAssetOverrides?.[cls.code]
-              return (
-                <FieldRow
-                  key={cls.code}
-                  label={t(`assetClassLabel.${cls.i18nKey}`)}
-                  hint={t('assetOverridesHint')}
-                >
+        {/* Per-asset-class adjusted-FMV overrides — turns the
+            realisation schedule from a book-value rollforward into an
+            appraiser-grade working paper (audit P0 #9).  Hidden behind a
+            separate toggle from the liability buckets; the progress hint
+            tells the advisor how many classes carry appraiser values.
+            Engine falls back to balance-sheet derivation for blanks. */}
+        <CollapsibleToggle
+          open={showAssetOverrides}
+          onToggle={() => setShowAssetOverrides((prev) => !prev)}
+          title={t('assetOverridesTitle')}
+          subtitle={t('assetOverridesProgress', {
+            filled: assetOverridesFilled,
+            total: ASSET_CLASSES.length,
+          })}
+          testId="liq-asset-overrides-toggle"
+        />
+        {showAssetOverrides ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            transition={{ duration: 0.15 }}
+            className={PANEL_GROUP}
+            data-testid="liq-asset-overrides-section"
+          >
+            <p className="text-[11px] leading-snug text-foreground/55">
+              {t('assetOverridesSubtitle')}
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {ASSET_CLASSES.map((cls) => {
+                const formKey = `liq_ao_${cls.code}` as const
+                const current = liqAssetOverrides?.[cls.code]
+                return (
                   <CurrencyInput
+                    key={cls.code}
+                    id={formKey}
+                    name={formKey}
+                    label={t(`assetClassLabel.${cls.i18nKey}`)}
+                    description={t('assetOverridesHint')}
                     value={current}
                     onChange={(next) => onFieldChange(formKey, next)}
                     disabled={disabled}
-                    data-testid={`liq-ao-${cls.code}-input`}
+                    truncateLabel={false}
                   />
-                </FieldRow>
-              )
-            })}
-          </div>
-        </motion.div>
-      ) : null}
+                )
+              })}
+            </div>
+          </motion.div>
+        ) : null}
+      </div>
 
-      {/* Reset action — data affordance, not narrative.  Clears all
+      {/* Reset action — data affordance, not narrative. Clears all
           liq_* fields back to undefined so the engine falls through to
           its cohort defaults. */}
-      <div className="flex justify-end pt-1">
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={handleReset}
           disabled={disabled}
-          className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           data-testid="liq-reset-button"
         >
           {t('resetButton')}
         </button>
       </div>
     </motion.section>
+  )
+}
+
+/**
+ * Disclosure toggle for an inline panel inside the section card.
+ *
+ * Sits flush against the parent card edges (no own border) so the card
+ * still reads as a single grouped surface. The chevron uses the same
+ * "+/−" idiom the previous design relied on so muscle memory transfers.
+ */
+function CollapsibleToggle({
+  open,
+  onToggle,
+  title,
+  subtitle,
+  testId,
+}: {
+  open: boolean
+  onToggle: () => void
+  title: string
+  subtitle?: string
+  testId?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={cn(
+        'flex w-full items-center justify-between gap-3 border-b border-foreground/[0.06] px-4 py-3 text-left',
+        'transition-colors hover:bg-foreground/[0.02]',
+        'last:border-b-0'
+      )}
+      data-testid={testId}
+    >
+      <span className="flex min-w-0 flex-col items-start gap-0.5">
+        <span className="text-xs font-medium text-foreground/80">{title}</span>
+        {subtitle ? (
+          <span className="text-[10px] font-normal text-foreground/50">{subtitle}</span>
+        ) : null}
+      </span>
+      <span className="select-none text-base font-medium text-foreground/40" aria-hidden="true">
+        {open ? '−' : '+'}
+      </span>
+    </button>
   )
 }

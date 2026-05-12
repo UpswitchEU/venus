@@ -63,7 +63,7 @@ const baseMetrics: Fiscal4xPreviewMetrics = {
 }
 
 describe('FiscalReferencePreviewCard', () => {
-  it('shows weighted EBITDA disclosure when fiscal preview uses weighted historical source', () => {
+  it('exposes the weighted EBITDA disclosure through a header help tooltip when relevant', () => {
     render(
       <FiscalReferencePreviewCard
         fiscalPreview={{
@@ -75,7 +75,26 @@ describe('FiscalReferencePreviewCard', () => {
       />
     )
 
+    // The disclosure moved out of the number rail and into a tooltip
+    // anchored to a header HelpCircle so it stops crowding the formula.
+    const helpButton = screen.getByTestId('fiscal-preview-ebitda-basis-help')
+    expect(helpButton).toHaveAttribute('aria-label', 'fields.fiscalPreviewEbitdaBasisWeighted')
     expect(screen.getByText('fields.fiscalPreviewEbitdaBasisWeighted')).toBeTruthy()
+  })
+
+  it('omits the EBITDA-basis tooltip when the engine used the raw single-year source', () => {
+    render(
+      <FiscalReferencePreviewCard
+        fiscalPreview={{
+          ...baseMetrics,
+          ebitdaSource: 'reported_latest_complete_year',
+        }}
+        previewCurrencyFormatter={fmt}
+        unavailableMessage={null}
+      />
+    )
+
+    expect(screen.queryByTestId('fiscal-preview-ebitda-basis-help')).toBeNull()
   })
 
   it('renders the formula trio when the engine returns a fully available preview', () => {
@@ -157,7 +176,7 @@ describe('FiscalReferencePreviewCard', () => {
     expect(screen.queryByTestId('fiscal-preview-formula')).toBeNull()
   })
 
-  it('renders the formula and a warning when the anchor is known but book equity is missing', () => {
+  it('renders a single hero anchor card + actionable callout when book equity is missing', () => {
     render(
       <FiscalReferencePreviewCard
         fiscalPreview={{
@@ -175,13 +194,18 @@ describe('FiscalReferencePreviewCard', () => {
       />
     )
 
-    // Formula stays visible so the user can see what they unlocked
-    // (anchor) and what's still needed (book equity → implied EV).
+    // Previous design rendered three cards with two em-dashes; that
+    // read as "calculator broken" instead of "anchor available, equity
+    // pending." Now we render the anchor as a primary hero card and
+    // surface the missing-equity callout as a dedicated action block,
+    // and the 3-card formula must NOT render.
+    expect(screen.queryByTestId('fiscal-preview-formula')).toBeNull()
+    const anchorOnly = screen.getByTestId('fiscal-preview-anchor-only')
+    expect(anchorOnly).toBeTruthy()
     const cards = screen.getAllByTestId('metric-card')
-    expect(cards).toHaveLength(3)
+    expect(cards).toHaveLength(1)
     expect(cards[0]).toHaveTextContent('fields.fiscalPreviewAnchor:€380,000')
-    expect(cards[1]).toHaveTextContent('fields.fiscalPreviewBookEquity:—')
-    expect(cards[2]).toHaveTextContent('fields.fiscalPreviewImpliedEquity:—')
+    expect(cards[0]).toHaveAttribute('data-emphasis', 'primary')
     expect(screen.getByTestId('fiscal-preview-warning')).toHaveTextContent(
       'Eigen vermogen ontbreekt.'
     )
@@ -204,7 +228,7 @@ describe('FiscalReferencePreviewCard', () => {
     expect(formula).toHaveAttribute('aria-label', 'fields.fiscalPreviewFormulaA11y')
   })
 
-  it('renders em-dash placeholders instead of NaN/Infinity when values are not finite', () => {
+  it('does not leak NaN/Infinity to the DOM when the engine emits degenerate floats', () => {
     render(
       <FiscalReferencePreviewCard
         fiscalPreview={{
@@ -221,9 +245,14 @@ describe('FiscalReferencePreviewCard', () => {
       />
     )
 
+    // With NaN book equity, the formula collapses to anchor-only mode.
+    // The infinite anchor is rendered as an em-dash (not "Infinity")
+    // so the UI never leaks raw IEEE-754 sentinels.
     const cards = screen.getAllByTestId('metric-card')
+    expect(cards).toHaveLength(1)
     expect(cards[0]).toHaveTextContent('fields.fiscalPreviewAnchor:—')
-    expect(cards[1]).toHaveTextContent('fields.fiscalPreviewBookEquity:—')
-    expect(cards[2]).toHaveTextContent('fields.fiscalPreviewImpliedEquity:€500,000')
+    // No formula and no `Infinity`/`NaN` substrings anywhere in the card.
+    expect(screen.queryByTestId('fiscal-preview-formula')).toBeNull()
+    expect(screen.queryByText(/Infinity|NaN/)).toBeNull()
   })
 })

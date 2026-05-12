@@ -1215,13 +1215,28 @@
 		},
 		"fiscalInputs": {
 			"title": "Meerwaardebelasting — aanschaffingswaarde",
+			"subtitle": "De hoogste van vier ankers telt (Wet 22/12/2024). Anker 1 is verplicht; ankers 2–4 zijn optioneel.",
+			"progress": "{filled} van {total} ankers ingevuld",
+			"anchor1Eyebrow": "Anker 1",
+			"anchor1Label": "Notariële aanschaffingswaarde (31/12/2025)",
+			"anchor1Placeholder": "1.500.000",
+			"anchor1Hint": "Historische kostprijs van de aandelen. Bron: notariële akte, KBO-publicatie van het kapitaal, of latere kapitaalverhogingen op de balans.",
 			"acquisitionCostLabel": "Aanschaffingswaarde 31/12/2025 (EUR)",
 			"acquisitionCostHint": "Historische kostprijs van de aandelen voor de overdrager. Te vinden in de notariële akte van aankoop, de KBO-publicatie van het kapitaal, of latere kapitaalverhogingen geregistreerd op de balans.",
+			"alternativeAnchorsToggle": "Alternatieve ankers",
+			"alternativeAnchorsCount": "{filled} van 3",
+			"alternativeAnchorsHint": "Vul alleen in als er een geldig anker bestaat. De hoogste wint.",
 			"anchorsTitle": "Drie alternatieve wettelijke ankers",
+			"anchor2Eyebrow": "Anker 2",
+			"anchor2Short": "Contractuele formule",
 			"anchor2Label": "Anker 2 — Contractuele formule (EUR)",
 			"anchor2Hint": "Waarde volgens een geldende waarderingsformule in een aandeelhoudersovereenkomst per 31/12/2025.",
+			"anchor3Eyebrow": "Anker 3",
+			"anchor3Short": "Markttransactie 2025",
 			"anchor3Label": "Anker 3 — Markttransactie 2025 (EUR)",
 			"anchor3Hint": "Prijs uit een objectieve transactie met onafhankelijke derden in 2025 (zelfde of vergelijkbare aandelenklasse).",
+			"anchor4Eyebrow": "Anker 4",
+			"anchor4Short": "Onafhankelijk verslag",
 			"anchor4Label": "Anker 4 — Onafhankelijk verslag (EUR)",
 			"anchor4Hint": "Waarde uit een onafhankelijk waarderingsverslag door een bevoegde professional (deadline 31/12/2027)."
 		},
@@ -1310,8 +1325,10 @@
 		"dcfInputMode": {
 			"label": "Hoe wil je de prognose invoeren?",
 			"ebitda": "Opbouwen vanuit EBITDA",
+			"ebitdaShort": "Vanuit EBITDA",
 			"ebitdaHint": "Aanbevolen — we berekenen FCFF uit groei, marge, CapEx, afschrijvingen en ΔNWC.",
 			"fcffOnly": "Vrije kasstroom direct invoeren",
+			"fcffOnlyShort": "Direct FCFF",
 			"fcffOnlyHint": "Gebruik dit als je FCFF buiten het systeem hebt berekend."
 		},
 		"dcfFcffOnlyTable": {
@@ -1626,6 +1643,8 @@
 				"navGroupDeductions": "Aftrekposten",
 				"navGroupDeductionsHint": "Belastinglatenties op meerwaarden en niet-balansverplichtingen",
 				"navDefaultsButton": "Sectorstandaarden toepassen",
+				"navDefaultsButtonTitle": "Sectorstandaarden toepassen ({sector})",
+				"navDefaultsButtonDescription": "Vul alles in dat normaal nul is voor je sector — je hoeft enkel de relevante velden zelf in te vullen.",
 				"navDefaultsApplied": "Standaarden toegepast op basis van je bedrijfstype",
 				"sdeOwnerCompensation": "SDE — Eigenaarsbezoldiging",
 				"realEstateCarveOut": "Vastgoed carve-out",
@@ -1950,16 +1969,13 @@
 				"title": "Geïmporteerde SaaS-snapshot",
 				"description": "Vooraf ingevuld vanuit {provider} voor boekjaar {year} met {confidence}% betrouwbaarheid. Waarden zijn afgeleid uit terugkerende omzet in je geïmporteerde grootboek—niet uit live subscription-analytics. Je kunt elk veld nog handmatig aanpassen vóór de waardering."
 			},
-			"saasBenchmark": {
-				"title": "Vooraf ingevuld met sector-benchmarks",
-				"description": "We hebben {count} velden (brutomarge, churn, NRR, groei) ingevuld met typische cijfers voor jouw sector. Vervang elk veld door je eigen cijfer terwijl je verder werkt.",
-				"clearCta": "Wissen"
-			},
 			"prefillSource": {
 				"benchmark": "Sector-benchmark",
 				"benchmarkTooltip": "Vooraf ingevuld vanuit sector-medians. Vervang door je eigen cijfer om het rapport verdedigbaar te maken.",
 				"history": "Uit jouw omzetgeschiedenis",
-				"historyTooltip": "Berekend uit de jaar-op-jaar omzetdelta in het historische omzetraster dat je al invulde."
+				"historyTooltip": "Berekend uit de jaar-op-jaar omzetdelta in het historische omzetraster dat je al invulde.",
+				"derived": "Automatisch berekend",
+				"derivedTooltip": "Automatisch berekend uit een andere waarde die je hebt ingevuld (bv. MRR = ARR / 12). Pas zelf aan als jouw cijfer afwijkt."
 			},
 			"saasFormulas": {
 				"ruleOf40": "ARR-groei (jaarlijks %) + brutomarge %",

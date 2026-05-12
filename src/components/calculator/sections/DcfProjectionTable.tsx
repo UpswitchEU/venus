@@ -11,7 +11,7 @@ import {
 } from '@/design-system/components/Modal'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
-import { CurrencyInput } from '../CurrencyInput'
+import { InlineCurrencyInput } from '../InlineCurrencyInput'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 
@@ -272,15 +272,16 @@ export function DcfProjectionTable({
 
                     if (isEditing && editableField) {
                       return (
-                        <td key={fRow.year} className="px-2 py-1">
-                          <CurrencyInput
-                            value={value !== 0 ? value : undefined}
-                            onChange={(v) => handleCellChange(fRow.year, editableField, v)}
-                            size="sm"
-                            className="min-w-[100px]"
-                            allowNegative={wRow.key === 'nwcChange'}
-                            ariaLabel={`${wRow.labelKey} ${fRow.year}`}
-                          />
+                        <td key={fRow.year} className="px-2 py-1 align-middle">
+                          <div className="ml-auto flex w-full max-w-[140px] justify-end">
+                            <InlineCurrencyInput
+                              value={value !== 0 ? value : undefined}
+                              onChange={(v) => handleCellChange(fRow.year, editableField, v)}
+                              allowNegative={wRow.key === 'nwcChange'}
+                              ariaLabel={`${wRow.labelKey} ${fRow.year}`}
+                              maxWidthClass="max-w-[140px]"
+                            />
+                          </div>
                           <button type="button" className="sr-only" onFocus={handleCellBlur} />
                         </td>
                       )

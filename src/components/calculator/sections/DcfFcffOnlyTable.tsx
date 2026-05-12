@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
-import { CurrencyInput } from '../CurrencyInput'
+import { InlineCurrencyInput } from '../InlineCurrencyInput'
 import type { DcfForecastRow } from './DcfForecastTypes'
 
 interface DcfFcffOnlyTableProps {
@@ -25,14 +25,20 @@ export function DcfFcffOnlyTable({
   const sorted = [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year))
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-foreground/[0.08]">
-      <table className="w-full min-w-[280px] border-collapse text-sm">
+    <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]">
+      <table className="w-full min-w-[280px] border-collapse text-sm tabular-nums">
         <thead>
-          <tr className="border-b border-foreground/[0.08] bg-foreground/[0.02]">
-            <th className="px-3 py-2 text-left text-xs font-medium text-foreground/60">
+          <tr className="border-b border-foreground/[0.08]">
+            <th
+              scope="col"
+              className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-foreground/55"
+            >
               {t('dcfFcffOnlyTable.year')}
             </th>
-            <th className="px-3 py-2 text-right text-xs font-medium text-foreground/60">
+            <th
+              scope="col"
+              className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-foreground/55"
+            >
               {t('dcfFcffOnlyTable.freeCashFlow')}
             </th>
           </tr>
@@ -41,41 +47,45 @@ export function DcfFcffOnlyTable({
           {sorted.map((row) => {
             const v = row.free_cash_flow
             const numericValue = typeof v === 'number' && Number.isFinite(v) ? v : undefined
-            const hasErr = !!fieldValidation?.errors[`fcff-${row.year}`]
-            const hasWarn = !!fieldValidation?.warnings[`fcff-${row.year}`]
+            const errMsg = fieldValidation?.errors[`fcff-${row.year}`]
+            const warnMsg = fieldValidation?.warnings[`fcff-${row.year}`]
+            const state: 'default' | 'warning' | 'error' = errMsg
+              ? 'error'
+              : warnMsg
+                ? 'warning'
+                : 'default'
             return (
               <tr key={row.year} className="border-b border-foreground/[0.06] last:border-0">
-                <td className="px-3 py-2 font-mono text-xs text-foreground/80">{row.year}</td>
-                <td className="px-3 py-2 text-right">
-                  <div
-                    className={cn(
-                      'mx-auto w-full max-w-[160px]',
-                      hasErr && '[&_input]:border-destructive/50',
-                      hasWarn && !hasErr && '[&_input]:border-warning/40',
-                    )}
-                  >
-                    <CurrencyInput
+                <th
+                  scope="row"
+                  className="whitespace-nowrap px-3 py-2 text-left align-middle font-medium text-foreground/85"
+                >
+                  {row.year}
+                </th>
+                <td className="px-3 py-2 text-right align-middle">
+                  <div className="ml-auto flex w-full max-w-[160px] flex-col items-end">
+                    <InlineCurrencyInput
                       value={numericValue}
-                      onChange={(next) => onChange(row.year, next)}
-                      ariaLabel={t('dcfFcffOnlyTable.inputAria', { year: row.year })}
-                      size="sm"
-                      // FCFF can be negative in early forecast years (turnaround,
-                      // heavy CapEx) — allow it explicitly.
+                      // FCFF can be negative in early forecast years
+                      // (turnaround / heavy CapEx) — allow it explicitly.
                       allowNegative
                       disabled={disabled}
+                      state={state}
+                      ariaLabel={t('dcfFcffOnlyTable.inputAria', { year: row.year })}
+                      onChange={(next) => onChange(row.year, next)}
                     />
+                    {(errMsg || warnMsg) && (
+                      <p
+                        className={cn(
+                          'mt-1 text-[10px] leading-tight',
+                          state === 'error' ? 'text-destructive' : 'text-warning'
+                        )}
+                        role={state === 'error' ? 'alert' : undefined}
+                      >
+                        {errMsg || warnMsg}
+                      </p>
+                    )}
                   </div>
-                  {(hasErr || hasWarn) && (
-                    <p
-                      className={cn(
-                        'mt-1 text-[10px]',
-                        hasErr ? 'text-destructive' : 'text-warning',
-                      )}
-                    >
-                      {fieldValidation?.errors[`fcff-${row.year}`] ||
-                        fieldValidation?.warnings[`fcff-${row.year}`]}
-                    </p>
-                  )}
                 </td>
               </tr>
             )

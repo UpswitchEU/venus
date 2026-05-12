@@ -309,7 +309,6 @@ export type StudioStep =
   | 'traction'
   | 'exit_story'
   | 'round_simulator'
-  | 'report'
 
 /**
 /**

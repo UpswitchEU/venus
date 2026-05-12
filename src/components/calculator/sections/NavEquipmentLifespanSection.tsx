@@ -23,6 +23,8 @@ import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { CurrencyInput } from '../CurrencyInput'
+import { IntegerInput } from './IntegerInput'
+import { PrefilledBadge } from './PrefilledBadge'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 export interface NavEquipmentLifespanSectionProps {
@@ -36,6 +38,12 @@ export interface NavEquipmentLifespanSectionProps {
     economic_book_value?: number
   }
   reportingYear?: number
+  /**
+   * Field-keyed prefill flags. When true AND the form value still equals
+   * the system-applied default, a "Prefilled" badge is shown on the
+   * stacked label so the user knows they can edit it freely.
+   */
+  prefilled?: Partial<Record<'acquisition_year' | 'economic_useful_life_years', boolean>>
   onChange: (next: NonNullable<NavEquipmentLifespanSectionProps['value']>) => void
   disabled?: boolean
   className?: string
@@ -77,11 +85,13 @@ export function NavEquipmentLifespanSection({
   step,
   value,
   reportingYear,
+  prefilled,
   onChange,
   disabled,
   className,
 }: NavEquipmentLifespanSectionProps) {
   const t = useTranslations('manualInput.methodSelector.navEquipment')
+  const tPrefill = useTranslations('manualInput.methodSelector.prefill')
   const { currency } = useManualPreviewFormatters()
   const v = value ?? {}
 
@@ -162,45 +172,32 @@ export function NavEquipmentLifespanSection({
             disabled={disabled}
             truncateLabel={false}
           />
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
-              {t('acquisitionYearLabel')}
-            </span>
-            <input
-              type="number"
-              min={1980}
-              max={(reportingYear ?? new Date().getFullYear()) + 0}
-              value={v.acquisition_year ?? ''}
-              onChange={(e) =>
-                update({
-                  acquisition_year: e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
-              placeholder="2018"
-              disabled={disabled}
-              className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
-              {t('usefulLifeLabel')}
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={v.economic_useful_life_years ?? ''}
-              onChange={(e) =>
-                update({
-                  economic_useful_life_years:
-                    e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
-              placeholder="10"
-              disabled={disabled}
-              className="rounded-lg border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-[13px] tabular-nums focus:border-primary/60 focus:outline-none"
-            />
-          </label>
+          <IntegerInput
+            label={t('acquisitionYearLabel')}
+            value={v.acquisition_year}
+            onChange={(n) => update({ acquisition_year: n })}
+            min={1980}
+            max={reportingYear ?? new Date().getFullYear()}
+            placeholder="2018"
+            disabled={disabled}
+            trailingLabelAccessory={
+              prefilled?.acquisition_year ? <PrefilledBadge label={tPrefill('badge')} /> : undefined
+            }
+          />
+          <IntegerInput
+            label={t('usefulLifeLabel')}
+            value={v.economic_useful_life_years}
+            onChange={(n) => update({ economic_useful_life_years: n })}
+            min={1}
+            max={50}
+            placeholder="10"
+            disabled={disabled}
+            trailingLabelAccessory={
+              prefilled?.economic_useful_life_years
+                ? <PrefilledBadge label={tPrefill('badge')} />
+                : undefined
+            }
+          />
           <CurrencyInput
             label={t('economicBookOverrideLabel')}
             value={v.economic_book_value}

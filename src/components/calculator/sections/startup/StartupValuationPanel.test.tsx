@@ -1,12 +1,13 @@
 /**
  * StartupValuationPanel — unified-shell render contract.
  *
- * Locks in the **canonical 8-section stacked layout** the panel renders
+ * Locks in the **canonical 7-section stacked layout** the panel renders
  * inside `ManualLayout`'s left rail when `selected_method=startup_valuation`.
- * The panel hosts the same 7 Studio sections (CompanyCard, Berkus,
- * Scorecard, Pedigree, Traction, Exit, Round) plus the investor-ready
- * preview Report section, all visible at once with Aurora-Teal numbered
- * step headers — the same rhythm DCF / SaaS / NAV / Adaptive use.
+ * The panel hosts the 7 Studio sections (CompanyCard, Berkus, Scorecard,
+ * Pedigree, Traction, Exit, Round), all visible at once with Aurora-Teal
+ * numbered step headers — the same rhythm DCF / SaaS / NAV / Adaptive use.
+ * The retired 8th "Report" preview section duplicated the StudioCoPilot
+ * + sticky StartupSubmitFooter and was removed 2026-05-12.
  *
  * The submit button is intentionally NOT here; it lives in the canonical
  * `StartupSubmitFooter` rendered by `StartupAwareInputPanel` directly
@@ -31,7 +32,6 @@ vi.mock('next-intl', () => ({
       'sections.traction': 'Traction',
       'sections.exit_story': 'Exit story',
       'sections.round_simulator': 'Round',
-      'sections.report': 'Report',
     }
     return sectionTitles[key] ?? key
   },
@@ -74,11 +74,6 @@ vi.mock('@/features/startup-studio/components/ExitStoryStep', () => ({
 vi.mock('@/features/startup-studio/components/RoundSimulatorStep', () => ({
   RoundSimulatorStep: () => (
     <div data-testid="section-round" data-locale={intlLocaleMock.current} />
-  ),
-}))
-vi.mock('@/features/startup-studio/components/ReportStep', () => ({
-  ReportStep: () => (
-    <div data-testid="section-report" data-locale={intlLocaleMock.current} />
   ),
 }))
 vi.mock('@/features/startup-studio/components/StudioCoPilot', () => ({
@@ -129,14 +124,17 @@ describe('StartupValuationPanel — unified shell', () => {
     useStartupValuationStore.getState().reset()
   })
 
-  it('renders all 8 canonical sections in order on first paint', () => {
+  it('renders all 7 canonical sections in order on first paint', () => {
     render(<StartupValuationPanel />)
 
     // Order matters — the panel was reordered 2026-05-10 to lead with the
     // EV/Revenue spine (Exit Story) so M&A readers see the headline math
     // immediately, with Berkus / Scorecard / Pedigree / Traction framed
     // as overlays around it.  Mirrors the SECTIONS array in
-    // ``StartupValuationPanel.tsx``.
+    // ``StartupValuationPanel.tsx``.  The 8th "Report" section was
+    // retired 2026-05-12 — its banner + jump CTA duplicated the
+    // StudioCoPilot FAB / FindingPeek and the sticky StartupSubmitFooter
+    // (Aurora "one canonical surface per decision").
     const order = [
       'section-company-card',  // 1. Profile
       'section-exit',          // 2. Exit story (the EV/Revenue spine)
@@ -145,7 +143,6 @@ describe('StartupValuationPanel — unified shell', () => {
       'section-pedigree',      // 5. Team pedigree overlay
       'section-traction',      // 6. Traction overlay
       'section-round',         // 7. Round simulator
-      'section-report',        // 8. Report preview
     ] as const
 
     for (const id of order) {
@@ -173,7 +170,7 @@ describe('StartupValuationPanel — unified shell', () => {
   it('passes the resolved locale through to every Studio section (default = en)', () => {
     render(<StartupValuationPanel />)
     expect(screen.getByTestId('section-company-card').getAttribute('data-locale')).toBe('en')
-    expect(screen.getByTestId('section-report').getAttribute('data-locale')).toBe('en')
+    expect(screen.getByTestId('section-round').getAttribute('data-locale')).toBe('en')
   })
 
   it('uses nl locale when the Next.js route locale is nl (not operating country)', () => {

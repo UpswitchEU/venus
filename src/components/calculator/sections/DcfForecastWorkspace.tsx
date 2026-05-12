@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Plus, Table2 } from 'lucide-react'
+import { Percent, Plus, Table2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
 import { coalesceFiniteNumber, useManualPreviewFormatters } from '@/lib/omniPreview'
@@ -164,8 +164,8 @@ export function DcfForecastWorkspace({
 
   const modeSegmentOptions = useMemo(
     () => [
-      { value: 'ebitda' as const, label: t('dcfInputMode.ebitda') },
-      { value: 'fcff_only' as const, label: t('dcfInputMode.fcffOnly') },
+      { value: 'ebitda' as const, label: t('dcfInputMode.ebitdaShort') },
+      { value: 'fcff_only' as const, label: t('dcfInputMode.fcffOnlyShort') },
     ],
     [t]
   )
@@ -237,8 +237,8 @@ export function DcfForecastWorkspace({
         )}
 
         {showModeToggle && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs font-medium text-foreground/70">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
               {t('dcfInputMode.label')}
             </span>
             <SegmentedControl
@@ -247,7 +247,8 @@ export function DcfForecastWorkspace({
               options={modeSegmentOptions}
               disabled={disabled}
               size="sm"
-              className="max-w-md"
+              fullWidth
+              aria-label={t('dcfInputMode.label')}
             />
           </div>
         )}
@@ -267,24 +268,25 @@ export function DcfForecastWorkspace({
         ) : (
           <div className="space-y-3">
             {projectionRows.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] text-muted-foreground">
+              <div className="space-y-2">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
                   {t('dcfForecastWorkspace.inlineGridFormulaShort')}
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setShowPercentColumns((v) => !v)}
                     disabled={disabled}
                     aria-pressed={showPercentColumns}
                     className={cn(
-                      'inline-flex shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2.5 text-xs font-medium transition-colors',
                       showPercentColumns
                         ? 'border-primary/35 text-primary hover:border-primary/45 hover:bg-primary/[0.04]'
                         : 'border-foreground/10 text-foreground/65 hover:border-foreground/20 hover:text-foreground',
                       disabled && 'cursor-not-allowed opacity-50',
                     )}
                   >
+                    <Percent className="h-3.5 w-3.5" aria-hidden />
                     {showPercentColumns
                       ? t('dcfForecastWorkspace.hidePercentColumns')
                       : t('dcfForecastWorkspace.showPercentColumns')}
@@ -294,7 +296,7 @@ export function DcfForecastWorkspace({
                     onClick={() => setTableOpen(true)}
                     disabled={disabled}
                     className={cn(
-                      'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
+                      'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
                       hasWarnings && 'border-warning/30 text-warning',
                       disabled && 'cursor-not-allowed opacity-50',
                     )}

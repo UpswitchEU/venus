@@ -6,9 +6,7 @@
 		"founder_pedigree": "Team",
 		"traction": "Tractie",
 		"exit_story": "Exit-verhaal",
-		"round_simulator": "Ronde",
-		"report": "Rapport",
-		"reportLanding": "Voorbeeld"
+		"round_simulator": "Ronde"
 	},
 	"panelHeader": {
 		"badge": "Pre-seed & seed · pre-revenue",
@@ -211,41 +209,6 @@
 		"raiseSliderResetCta": "Terug naar {amount}",
 		"preMoney": "Vóór ronde",
 		"postMoney": "Na ronde"
-	},
-	"report": {
-		"submitJumpLabel": "Klaar? Genereer de investor-PDF",
-		"submitJumpHint": "Brengt je naar de submit-balk onderaan — je inputs zijn gevalideerd en bewaard.",
-		"submitJumpAria": "Scroll naar de submit-balk onder het paneel",
-		"legLabels": {
-			"berkus": "Risico-reductie (Berkus)",
-			"vc": "VC-methode (exit-verhaal)",
-			"saas_forward": "SaaS forward (ARR)",
-			"scorecard": "Scorecard (regionaal)"
-		},
-		"readyForDeck": "Klaar voor je deck",
-		"pedigreeIncluded": "Inclusief founder-pedigree multiplier {mult}× op de leg-blend baseline ({mid}).",
-		"copyAria": "Kopieer naar klembord",
-		"copy": "Kopieer",
-		"copied": "Gekopieerd",
-		"range": "Bandbreedte: ",
-		"footballFieldTitle": "Waarderingsband per methode",
-		"yourEvidence": "Jouw onderbouwing",
-		"evidenceHint": "Deze zinnen verschijnen onder elke kaart in de investor PDF.",
-		"pitch": "Je pitch",
-		"deckPreOnly": "Pre-money waardering: {preF} ({stage} · {sector} · {country}).",
-		"deckFull": "{preF} pre-money · op te halen {askF} · post-money {postF} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country}).",
-		"dilutionDefinition": "Dit % is het aandeel van nieuwe investeerders bij deze priced round alleen (op te halen ÷ post-money). Het is niet het cumulatief-tot-exit-% op de Ronde-stap.",
-		"preMoneySourceBlended": "Pre-money is de live blend van de methodes hieronder tot je een term-sheetbedrag invult onder Ronde → Pre-money doel. Die blend schat de ondernemingswaarde, geen 10–15% dilutiedoel voor je op te halen bedrag.",
-		"preMoneySourceOverride": "Pre-money volgt het doel dat je op de Ronde-stap hebt ingevuld.",
-		"safeNotesPricedRoundNote": "Je hebt SAFEs of converteerbare instrumenten staan. Het post-money % hieronder veronderstelt een eenvoudige priced equity close; conversiemechanica kan het effectieve eigendom wijzigen."
-	},
-	"health": {
-		"allClear": "Alles staat — je rapport is klaar om te genereren.",
-		"mixed": "{blockerCount} blokkerend en {warningCount} aanbevolen issues te fixen",
-		"blockersOnly": "{count, plural, one {# blokkerend issue} other {# blokkerende issues}} — fix vóór je het rapport genereert",
-		"warningsOnly": "{count, plural, one {# aanbevolen verbetering} other {# aanbevolen verbeteringen}}",
-		"assistantHint": "De assistent kan elk issue met je oplossen — tik op de knop rechtsonder. Jouw inputs blijven bewaard.",
-		"jumpToStepAria": "Spring naar {step} om dit op te lossen"
 	},
 	"findingPeek": {
 		"ariaPeek": "Co-pilot suggestie",

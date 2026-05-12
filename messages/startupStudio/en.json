@@ -6,9 +6,7 @@
 		"founder_pedigree": "Team pedigree",
 		"traction": "Traction",
 		"exit_story": "Exit story",
-		"round_simulator": "Round",
-		"report": "Report",
-		"reportLanding": "Preview"
+		"round_simulator": "Round"
 	},
 	"panelHeader": {
 		"badge": "Pre-seed & seed · pre-revenue",
@@ -211,41 +209,6 @@
 		"raiseSliderResetCta": "Reset to {amount}",
 		"preMoney": "Pre-money",
 		"postMoney": "Post-money"
-	},
-	"report": {
-		"submitJumpLabel": "Ready? Generate the investor PDF",
-		"submitJumpHint": "Takes you to the submit footer below — your inputs are validated and saved.",
-		"submitJumpAria": "Scroll to the submit footer below the panel",
-		"legLabels": {
-			"berkus": "Risk reduction (Berkus)",
-			"vc": "VC method (exit story)",
-			"saas_forward": "SaaS forward (ARR)",
-			"scorecard": "Scorecard (regional)"
-		},
-		"readyForDeck": "Ready for your deck",
-		"pedigreeIncluded": "Includes founder-pedigree multiplier {mult}× on the leg-blend baseline ({mid}).",
-		"copyAria": "Copy to clipboard",
-		"copy": "Copy",
-		"copied": "Copied",
-		"range": "Range: ",
-		"footballFieldTitle": "Football field per method",
-		"yourEvidence": "Your evidence",
-		"evidenceHint": "These sentences appear under each card in the investor PDF.",
-		"pitch": "Pitch",
-		"deckPreOnly": "Pre-money valuation: {preF} ({stage} · {sector} · {country}).",
-		"deckFull": "{preF} pre-money · raising {askF} · post-money {postF} · ~{dilution}% to new investors this round ({stage} · {sector} · {country}).",
-		"dilutionDefinition": "This % is new investors' stake from this priced round only (raise ÷ post-money). It is not the cumulative dilution-to-exit % on the Round step.",
-		"preMoneySourceBlended": "Pre-money is the live method blend below until you set a term-sheet value under Round → Pre-money target. The blend estimates company value, not a 10–15% dilution goal for your ask.",
-		"preMoneySourceOverride": "Pre-money matches the target you set on the Round step.",
-		"safeNotesPricedRoundNote": "You have SAFEs or convertibles recorded. The post-money % below assumes a simple priced equity close; conversion mechanics can change effective ownership."
-	},
-	"health": {
-		"allClear": "All clear — your report is ready to generate.",
-		"mixed": "{blockerCount} blocking and {warningCount, plural, one {# recommended issue} other {# recommended issues}} to resolve",
-		"blockersOnly": "{count, plural, one {# blocking issue} other {# blocking issues}} — resolve before generating the report",
-		"warningsOnly": "{count, plural, one {# recommended improvement} other {# recommended improvements}}",
-		"assistantHint": "The assistant can walk you through each issue — tap the button in the bottom-right. Your inputs are preserved.",
-		"jumpToStepAria": "Jump to {step} to fix this"
 	},
 	"findingPeek": {
 		"ariaPeek": "Co-pilot suggestion",

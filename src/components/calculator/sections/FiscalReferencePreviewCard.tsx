@@ -18,21 +18,22 @@ import { PreviewMetricCard } from './previewMetricCards'
  * "Fiscal reference preview" card shown above the manual valuation method
  * sections when the engine routes through the Belgian forfait-4× branch.
  *
- * Design notes (matters for non-trivial label widths in NL/DE):
- *   - Renders a calculator-style formula `anchor + book = implied EV` so the
- *     relationship between the three numbers is obvious at a glance, instead
- *     of a flat 4-card grid that mixed long labels with the meta "ownership"
- *     value and overflowed at narrow widths.
- *   - The "valued ownership stake" was demoted from a peer card to a small
- *     header badge with a tooltip — it is almost always 100% in the manual
- *     flow, and its long explanatory hint dominated the visual hierarchy.
- *   - When the preview is unavailable (non-BE / missing EBITDA / missing
- *     book equity), we render a single empty-state row with the message
- *     instead of a wall of dashes.
+ * Design (rebuild 2026-05-12):
+ * - Calculator-style formula `anchor + book = implied EV` renders only
+ *   when the full triple is available. When book equity is missing the
+ *   card collapses to a single hero anchor card + an inline callout —
+ *   the previous "anchor + — = —" rendering read as broken rather than
+ *   informative.
+ * - EBITDA-basis disclosure moved from a stacked paragraph into a
+ *   header HelpCircle tooltip so it stays discoverable without
+ *   crowding the numbers it qualifies.
+ * - Ownership-stake demoted to a small header badge with a tooltip;
+ *   the manual flow is almost always 100% and the long hint was
+ *   dominating the visual hierarchy.
  *
- * The component is intentionally presentation-only. All math lives in
- * `computeFiscal4xPreview` (apps/venus/src/lib/omniPreview/fiscalPreviewMetrics.ts)
- * so this card stays cheap to re-render and trivial to test in isolation.
+ * All math lives in `computeFiscal4xPreview`
+ * (apps/venus/src/lib/omniPreview/fiscalPreviewMetrics.ts) so this
+ * component stays cheap to re-render and trivial to test in isolation.
  */
 export function FiscalReferencePreviewCard({
   fiscalPreview,
@@ -55,10 +56,17 @@ export function FiscalReferencePreviewCard({
       ? Math.round(fiscalPreview.ownershipMultiplierApplied * 100)
       : null
 
-  // We can render the formula whenever the base anchor is known. Even when
-  // book equity is still missing the formula remains pedagogical (anchor +
-  // ? = ?) and the missing-book message tells the user what to fill in next.
-  const showFormula = fiscalPreview.fiscalAnchor != null
+  const hasAnchor = fiscalPreview.fiscalAnchor != null
+  const hasBookEquity =
+    fiscalPreview.bookEquityUsed != null && Number.isFinite(fiscalPreview.bookEquityUsed)
+  // We render the full a + b = c formula only when both operands are
+  // numeric. Otherwise the formula gets replaced with a single hero
+  // anchor card + a callout — see comment above the early-return below.
+  const showFormula = hasAnchor && hasBookEquity
+  const showAnchorOnly = hasAnchor && !hasBookEquity
+  const showEmptyState = !hasAnchor
+  const showEbitdaBasis =
+    hasAnchor && fiscalPreview.ebitdaSource === 'weighted_normalized_historical'
 
   return (
     <div
@@ -70,18 +78,35 @@ export function FiscalReferencePreviewCard({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-foreground">
-              {t('sections.fiscalDerivedMetrics')}
-            </h4>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-sm font-semibold text-foreground">
+                {t('sections.fiscalDerivedMetrics')}
+              </h4>
+              {showEbitdaBasis && (
+                <TooltipProvider delayDuration={150}>
+                  <TooltipRoot>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="fiscal-preview-ebitda-basis-help"
+                        aria-label={t('fields.fiscalPreviewEbitdaBasisWeighted')}
+                        className="inline-flex shrink-0 items-center justify-center rounded-full text-foreground/40 transition-colors hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                      >
+                        <HelpCircle aria-hidden className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-xs">
+                      <p className="text-[11px] leading-snug">
+                        {t('fields.fiscalPreviewEbitdaBasisWeighted')}
+                      </p>
+                    </TooltipContent>
+                  </TooltipRoot>
+                </TooltipProvider>
+              )}
+            </div>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               {t('fields.fiscalPreviewFootnote')}
             </p>
-            {fiscalPreview.fiscalAnchor != null &&
-              fiscalPreview.ebitdaSource === 'weighted_normalized_historical' && (
-                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground/90">
-                  {t('fields.fiscalPreviewEbitdaBasisWeighted')}
-                </p>
-              )}
           </div>
           {ownershipPct != null && (
             <TooltipProvider delayDuration={150}>
@@ -115,7 +140,7 @@ export function FiscalReferencePreviewCard({
           )}
         </div>
 
-        {!showFormula ? (
+        {showEmptyState && (
           <div
             data-testid="fiscal-preview-empty-state"
             className="rounded-lg border border-dashed border-foreground/[0.15] bg-background/40 px-4 py-5 text-center"
@@ -128,16 +153,48 @@ export function FiscalReferencePreviewCard({
               {unavailableMessage ?? '—'}
             </p>
           </div>
-        ) : (
+        )}
+
+        {showAnchorOnly && (
+          // Single hero anchor card + an inline action callout.  The
+          // previous design rendered all three operand cards with two
+          // em-dashes — visually it read as "this calculator is
+          // broken," which obscured that the anchor itself is already a
+          // useful number on its own.
+          <div className="space-y-2" data-testid="fiscal-preview-anchor-only">
+            <PreviewMetricCard
+              label={t('fields.fiscalPreviewAnchor')}
+              value={fmt(fiscalPreview.fiscalAnchor)}
+              emphasis="primary"
+            />
+            <div
+              data-testid="fiscal-preview-warning"
+              className="rounded-lg border border-dashed border-foreground/[0.15] bg-background/40 px-3 py-2"
+            >
+              {unavailableMessage && (
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  {unavailableMessage}
+                </p>
+              )}
+              {fiscalPreview.unavailableReason === 'missing_book_equity' && (
+                <p className="mt-1 text-[11px] leading-snug text-foreground/70">
+                  {t('fields.fiscalPreviewMissingEquityAction')}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showFormula && (
           <>
             {unavailableMessage && (
-              <div data-testid="fiscal-preview-warning" className="space-y-1">
-                <p className="text-[11px] leading-snug text-muted-foreground">{unavailableMessage}</p>
-                {fiscalPreview.unavailableReason === 'missing_book_equity' && (
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    {t('fields.fiscalPreviewMissingEquityAction')}
-                  </p>
-                )}
+              <div
+                data-testid="fiscal-preview-warning"
+                className="rounded-lg border border-dashed border-foreground/[0.15] bg-background/40 px-3 py-2"
+              >
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  {unavailableMessage}
+                </p>
               </div>
             )}
             <div

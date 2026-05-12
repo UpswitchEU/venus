@@ -198,7 +198,7 @@ export function SegmentedControl<T extends string = string>({
             )}
           >
             {option.icon && <span className={cn(config.icon, 'flex-shrink-0')}>{option.icon}</span>}
-            <span>{option.label}</span>
+            <span className="whitespace-nowrap">{option.label}</span>
           </button>
         )
       })}

@@ -183,8 +183,20 @@ export interface AuroraInputProps
   description?: string
   /** Input ref */
   inputRef?: React.RefObject<HTMLInputElement>
-  /** When false, long labels wrap (line-clamp-2) instead of ellipsis — for dense i18n */
+  /**
+   * When false, the label renders ABOVE the input as a stacked block label
+   * (Aurora Clarity dense-form pattern). Use for long finance / accountant
+   * labels where the default floating treatment would clip or overlap the
+   * value. Defaults to `true` (floating label).
+   */
   truncateLabel?: boolean
+  /**
+   * Optional accessory rendered on the right side of a stacked label (e.g.
+   * a "Prefilled" badge, info trigger, or unit hint). Only shown in
+   * stacked-label mode (`truncateLabel={false}`); ignored when the label
+   * floats inside the input.
+   */
+  trailingLabelAccessory?: React.ReactNode
 }
 
 export interface PasswordInputProps extends Omit<AuroraInputProps, 'type'> {
@@ -247,6 +259,8 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
       description,
       inputRef,
       truncateLabel = true,
+      trailingLabelAccessory,
+      placeholder: placeholderProp,
       ...props
     },
     ref
@@ -316,14 +330,51 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             : 'default'
 
     const shouldTruncateLabel = truncateLabel
-    /** When labels are long i18n, keep compact floated styling even when empty so text can wrap. */
-    const isLabelFloated = isFocused || hasValue || !shouldTruncateLabel
+    /**
+     * Stacked-label mode: when `truncateLabel={false}`, render the label as
+     * a block element ABOVE the input instead of as a floating label inside.
+     * This is the Aurora Clarity pattern for dense finance/accountant forms
+     * where labels are long and the floating treatment would clip or
+     * overlap the value.
+     */
+    const useStackedLabel = label != null && !shouldTruncateLabel
+    /** Floating-label state only matters when we're rendering one. */
+    const isLabelFloated = isFocused || hasValue
     const hasLeftIcon = Boolean(leftIcon)
     const showClearButton = clearable && hasValue && !disabled
     const showStateIcon = (hasError || success) && !showClearButton
+    const stackedLabelState = disabled
+      ? 'text-foreground/40'
+      : hasError
+        ? 'text-destructive'
+        : isFocused
+          ? 'text-primary'
+          : 'text-foreground/70'
 
     return (
       <div className={cn(inputContainerVariants({ size }), containerClassName)}>
+        {/* Stacked Label — block above the input, no clipping, no overlap. */}
+        {useStackedLabel && (
+          <div className="mb-1.5 flex items-start justify-between gap-2">
+            <label
+              htmlFor={props.id || props.name}
+              className={cn(
+                'block text-[12px] font-medium leading-snug transition-colors',
+                stackedLabelState
+              )}
+            >
+              {label}
+              {required && (
+                <span className="ml-0.5 text-destructive" aria-label="required">
+                  *
+                </span>
+              )}
+            </label>
+            {trailingLabelAccessory && (
+              <div className="shrink-0">{trailingLabelAccessory}</div>
+            )}
+          </div>
+        )}
         <motion.div
           className={cn(inputGroupVariants({ state, size }))}
           animate={shouldShake ? 'shake' : undefined}
@@ -354,6 +405,12 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
                 iconPosition: hasLeftIcon ? 'left' : 'right',
               }),
               hasLeftIcon && (showStateIcon || showClearButton || Boolean(rightIcon)) && 'pr-11',
+              // In stacked mode the label is gone from the input box, so we
+              // can use the full vertical room for the value (no top padding
+              // reservation). Drop pt-6/pt-7 and re-center.
+              useStackedLabel && size === 'sm' && 'h-11 pt-2',
+              useStackedLabel && size === 'md' && 'h-12 pt-2',
+              useStackedLabel && size === 'lg' && 'h-14 pt-2.5',
               className
             )}
             disabled={disabled}
@@ -365,32 +422,27 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             aria-invalid={Boolean(hasError)}
             aria-required={required}
             aria-describedby={hasError ? `${props.id || props.name}-error` : undefined}
-            placeholder=" "
+            placeholder={
+              // Floating-label mode relies on the placeholder being a single
+              // whitespace so the label can float when empty. Stacked mode
+              // shows the caller's placeholder directly.
+              useStackedLabel ? (placeholderProp ?? '') : (placeholderProp ?? ' ')
+            }
             {...props}
           />
 
-          {/* Floating Label — truncate by default; truncateLabel=false wraps (line-clamp-3) for long i18n */}
-          {label && (
+          {/* Floating Label — only when truncateLabel is true (default). */}
+          {label && !useStackedLabel && (
             <label
               htmlFor={props.id || props.name}
               title={typeof label === 'string' ? label : undefined}
               className={cn(
                 floatingLabelVariants({ state, floated: isLabelFloated, size }),
                 hasLeftIcon ? 'left-11 right-12' : 'left-4 right-12',
-                'flex min-w-0 gap-0.5',
-                shouldTruncateLabel ? 'items-center' : 'items-start pt-0.5'
+                'flex min-w-0 items-center gap-0.5'
               )}
             >
-              <span
-                className={cn(
-                  'min-w-0 flex-1',
-                  shouldTruncateLabel
-                    ? 'truncate'
-                    : 'whitespace-normal break-words line-clamp-3 leading-tight text-left'
-                )}
-              >
-                {label}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{label}</span>
               {required && (
                 <span className="flex-shrink-0 text-destructive" aria-label="required">
                   *

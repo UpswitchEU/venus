@@ -75,7 +75,17 @@ export type NavPrefillProvenanceSource =
   | 'balance_sheet' // direct read from yearlyFinancials
   | 'sector_default' // sector-typical bands (B5)
 
-export type NavPrefillField = 'nav_tax_latency_pct' | 'nav_real_estate_book_value'
+export type NavPrefillField =
+  | 'nav_tax_latency_pct'
+  | 'nav_real_estate_book_value'
+  // Equipment lifespan (5c) — numeric defaults that let the section render
+  // a defensible economic-book estimate the moment the user lands on it.
+  | 'nav_equipment_acquisition_year'
+  | 'nav_equipment_useful_life_years'
+  // Deal structure (5d) — numeric advisor inputs that drive the buyer
+  // tax-shield NPV + the share-vs-asset comparison.
+  | 'deal_buyer_discount_rate_pct'
+  | 'deal_registration_duty_pct'
 
 export interface NavPrefillProvenance {
   source: NavPrefillProvenanceSource
@@ -99,10 +109,20 @@ export interface NavPrefillInputs {
   countryCode?: string | null
   /** Real-estate carve-out value the user entered for the EBITDA flow. */
   realEstateCarveOutBookValue?: number | null
+  /**
+   * Latest complete reporting year — used to seed equipment acquisition
+   * year (= reporting_year − 6, the SME-fleet midpoint per Vlaamse
+   * Bedrijfsbarometer 2024). Falls back to `new Date().getFullYear()`.
+   */
+  reportingYear?: number | null
   /** Existing form values — never overwrite a value the user has already typed. */
   existing: {
     nav_tax_latency_pct?: number | null
     nav_real_estate_book_value?: number | null
+    nav_equipment_acquisition_year?: number | null
+    nav_equipment_useful_life_years?: number | null
+    deal_buyer_discount_rate_pct?: number | null
+    deal_registration_duty_pct?: number | null
   }
 }
 
@@ -166,7 +186,92 @@ export function computeNavPrefill(input: NavPrefillInputs): NavPrefillSnapshot {
     }
   }
 
+  // ── 3. Equipment lifespan defaults (5c) ─────────────────────────────
+  // Seed the section with the SME-fleet midpoint so the user lands on a
+  // panel that already estimates an economic book value — a defensible
+  // starting position they can refine, not eight blank fields.
+  const refYear = isFiniteNumber(input.reportingYear)
+    ? (input.reportingYear as number)
+    : new Date().getFullYear()
+  if (!isFiniteNumber(input.existing.nav_equipment_acquisition_year)) {
+    values.nav_equipment_acquisition_year = refYear - NAV_EQUIPMENT_DEFAULT_AGE_YEARS
+    provenance.nav_equipment_acquisition_year = {
+      source: 'sector_default',
+      captionKey: 'equipmentAcquisitionYearFromSector',
+    }
+  }
+  if (!isFiniteNumber(input.existing.nav_equipment_useful_life_years)) {
+    values.nav_equipment_useful_life_years = NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS
+    provenance.nav_equipment_useful_life_years = {
+      source: 'sector_default',
+      captionKey: 'equipmentUsefulLifeFromSector',
+    }
+  }
+
+  // ── 4. Deal-structure defaults (5d) ─────────────────────────────────
+  // Buyer discount = 10% per the round-1 prior; registration duty is
+  // country-specific (BE 12.5% on movable assets per W. Reg. 2.10.1.0.1;
+  // NL 0% unless real estate is involved). These prefill so the
+  // comparison panel runs end-to-end the moment the user lands on it.
+  if (!isFiniteNumber(input.existing.deal_buyer_discount_rate_pct)) {
+    values.deal_buyer_discount_rate_pct = DEAL_BUYER_DISCOUNT_DEFAULT_PCT
+    provenance.deal_buyer_discount_rate_pct = {
+      source: 'sector_default',
+      captionKey: 'dealBuyerDiscountDefault',
+    }
+  }
+  if (!isFiniteNumber(input.existing.deal_registration_duty_pct)) {
+    const dutyRate = resolveCountryRegistrationDutyPct(input.countryCode)
+    if (dutyRate != null) {
+      values.deal_registration_duty_pct = dutyRate
+      provenance.deal_registration_duty_pct = {
+        source: 'country_default',
+        captionKey: 'dealRegistrationDutyFromCountry',
+        context: {
+          country: (input.countryCode ?? '').trim().toUpperCase().slice(0, 2),
+        },
+      }
+    }
+  }
+
   return { values, provenance }
+}
+
+// ─── Equipment lifespan defaults ──────────────────────────────────────
+/**
+ * Midpoint of typical SME machinery age in the Vlaamse Bedrijfsbarometer
+ * 2024 sample (3–10 years, distribution centered on 6). Used to seed
+ * the acquisition-year field on the equipment lifespan card.
+ */
+export const NAV_EQUIPMENT_DEFAULT_AGE_YEARS = 6
+/**
+ * Typical economic useful life for SME industrial equipment per IAS 16
+ * §57 + Belgian K.B. 12/06/1996 indicative tables (machinery class).
+ */
+export const NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS = 10
+
+// ─── Deal-structure defaults ──────────────────────────────────────────
+/**
+ * Default buyer discount rate (cost-of-capital proxy for the goodwill
+ * amortisation tax shield NPV). 10% matches mid-market Belgian SME
+ * acquirers per BVMD 2024 benchmark.
+ */
+export const DEAL_BUYER_DISCOUNT_DEFAULT_PCT = 10
+/** BE movable-assets registration duty (Vlaams Wetboek Registratierechten Art. 2.10.1.0.1). */
+export const DEAL_REGISTRATION_DUTY_BE_PCT = 12.5
+/** NL movable-assets transfer duty (no overdrachtsbelasting on non-immovable assets). */
+export const DEAL_REGISTRATION_DUTY_NL_PCT = 0
+
+/**
+ * Resolve the country-default registration-duty rate for movable assets
+ * in an asset-deal. Returns `null` when the country isn't recognised.
+ */
+export function resolveCountryRegistrationDutyPct(countryCode?: string | null): number | null {
+  if (!countryCode) return null
+  const code = countryCode.trim().toUpperCase().slice(0, 2)
+  if (code === 'BE') return DEAL_REGISTRATION_DUTY_BE_PCT
+  if (code === 'NL') return DEAL_REGISTRATION_DUTY_NL_PCT
+  return null
 }
 
 /**

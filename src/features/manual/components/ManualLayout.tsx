@@ -5834,7 +5834,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       traction: { en: 'Traction', nl: 'Tractie' },
       exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },
       round_simulator: { en: 'Round', nl: 'Ronde' },
-      report: { en: 'Report', nl: 'Rapport' },
     }
     return startupRawIssues
       .filter((issue) => issue.severity !== 'info')
@@ -6046,7 +6045,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         traction: 'startup-section-traction',
         exit_story: 'startup-section-exit',
         round_simulator: 'startup-section-round',
-        report: 'startup-section-report',
       }
       const anchor = anchorByStep[issue.step]
       if (!anchor) return

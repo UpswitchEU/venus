@@ -1,17 +1,21 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { Wand2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import {
   countFilledNavProgressFields,
+  NAV_SECTOR_DEFAULTS,
   type NavBookReferenceSnapshot,
   type NavPrefillProvenanceMap,
+  resolveNavSectorKey,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { PrefilledBadge } from './PrefilledBadge'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 function NavPanel({
@@ -46,20 +50,6 @@ function BookReferenceChip({ label, value }: { label: string; value: string }) {
     <span className="inline-flex items-center gap-1 rounded-md bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-foreground/55 tabular-nums">
       <span className="uppercase tracking-wide text-[9px] text-foreground/45">{label}</span>
       {value}
-    </span>
-  )
-}
-
-/**
- * "Prefilled" badge for fields auto-derived from the balance sheet or
- * country profile. Different colour to the regular preview chips so the
- * user knows it was *suggested* — they can edit it freely.
- */
-function PrefilledBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/[0.10] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
-      <span aria-hidden="true">●</span>
-      {label}
     </span>
   )
 }
@@ -146,7 +136,7 @@ export function NavAssetScheduleSection({
   navOffBalanceItems,
   totalAssets,
   totalLiabilities,
-  businessType: _businessType, // reserved for B5 industry-band copy (T-23)
+  businessType,
   countryCode,
   realEstateAppraisalMeerwaarde,
   equipmentRevaluationMeerwaarde,
@@ -206,6 +196,33 @@ export function NavAssetScheduleSection({
   const taxLatencyPrefilled =
     prefillProvenance?.nav_tax_latency_pct != null && navTaxLatencyPct != null
 
+  // ── Quick-start: NACE sector defaults ───────────────────────────────
+  // Restore the main-branch CTA that seeds the schedule with sector-typical
+  // zeros for fields that are usually irrelevant (e.g. retail → no real
+  // estate uplift, services → no inventory). Only shown when the form is
+  // still empty AND we can resolve a sector — otherwise the button does
+  // nothing useful.
+  const sectorKey = useMemo(() => resolveNavSectorKey(businessType), [businessType])
+  const sectorDefaults = sectorKey ? NAV_SECTOR_DEFAULTS[sectorKey] : undefined
+  const canApplySectorDefaults = sectorDefaults != null && filledCount === 0
+  const applySectorDefaults = useCallback(() => {
+    if (!sectorDefaults) return
+    const fieldMap: Record<string, string> = {
+      navRealEstateAdjustment: 'nav_real_estate_adjustment',
+      navInventoryAdjustment: 'nav_inventory_adjustment',
+      navHiddenReserves: 'nav_hidden_reserves',
+      navGoodwillWriteoff: 'nav_goodwill_writeoff',
+      navReceivablesAdjustment: 'nav_receivables_adjustment',
+      navOtherRevaluations: 'nav_other_revaluations',
+    }
+    for (const [camel, val] of Object.entries(sectorDefaults)) {
+      const snakeKey = fieldMap[camel]
+      if (snakeKey != null && val != null && Number.isFinite(val)) {
+        onFieldChange(snakeKey, val as number)
+      }
+    }
+  }, [sectorDefaults, onFieldChange])
+
   // Round-3 fix B4: per-asset tax-rate disclosure. Defaults closed
   // because 95% of users want a single rate (the global is fine); the
   // 5% who need precision (BE participation exemption on shares,
@@ -240,6 +257,41 @@ export function NavAssetScheduleSection({
         complete={sectionComplete}
         title={t('sections.navAssetSchedule')}
       />
+
+      {/*
+        Quick-start CTA — restored 2026-05-12.
+        Seeds zero values for the schedule fields that are typically
+        irrelevant for the resolved sector (retail → no real estate,
+        services → no inventory, …). One click acknowledges those fields
+        so the user only fills the boxes that actually matter. We hide it
+        once any field has a value to keep the panel uncluttered for the
+        editing flow.
+      */}
+      {canApplySectorDefaults && (
+        <button
+          type="button"
+          onClick={applySectorDefaults}
+          disabled={disabled}
+          className={cn(
+            'group flex w-full items-center gap-2 rounded-xl border border-primary/20',
+            'bg-primary/[0.04] px-3 py-2.5 text-left text-[12px]',
+            'transition-colors hover:border-primary/40 hover:bg-primary/[0.08]',
+            'focus:outline-none focus:ring-2 focus:ring-primary/30',
+            'disabled:cursor-not-allowed disabled:opacity-50'
+          )}
+        >
+          <Wand2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="flex-1">
+            <span className="block font-semibold text-foreground/85">
+              {t('sections.navDefaultsButtonTitle', { sector: sectorKey ?? '' })}
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-foreground/55">
+              {t('sections.navDefaultsButtonDescription')}
+            </span>
+          </span>
+        </button>
+      )}
+
       {/* Section quickstart panel removed 2026-05-10 — the "Recommended
           for NAV" chip, the data-source-confidence chip, the navLead /
           navQuickStart explainer paragraphs, the progress bar with
@@ -410,8 +462,10 @@ export function NavAssetScheduleSection({
               disabled={disabled}
               description={t('fields.navTaxLatencyPctDesc')}
               truncateLabel={false}
+              trailingLabelAccessory={
+                taxLatencyPrefilled ? <PrefilledBadge label={t('prefill.badge')} /> : undefined
+              }
             />
-            {taxLatencyPrefilled && <PrefilledBadge label={t('prefill.badge')} />}
           </div>
 
           {/*

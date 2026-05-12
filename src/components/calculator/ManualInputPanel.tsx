@@ -140,7 +140,10 @@ import {
 } from '../../utils/normalizationMath'
 import { hasUsableOfficialFinancialsContent } from '../../utils/officialFinancialsContent'
 import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
-import { getAnnualFictiveRentDeductionForDisplay } from '../../utils/realEstateCarveOutDisplay'
+import {
+  getAnnualFictiveRentDeductionForDisplay,
+  realEstateCarveOutAppliesTo,
+} from '../../utils/realEstateCarveOutDisplay'
 import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import {} from '../../utils/shareholding'
 import { buildCurrentYearData } from '../../utils/yearData'
@@ -1667,6 +1670,27 @@ export function ManualInputPanel({
     }
   }, [synthesisMethodsForPanel.length])
   const hasDcfSelected = effectiveMethods.includes('dcf')
+  /**
+   * Whether the real-estate carve-out toggle should be rendered.
+   *
+   * The carve-out is a going-concern equity-bridge concern — only meaningful
+   * for methods that consume EBITDA or run the EV→Equity bridge (DCF,
+   * EBITDA-multiple, SDE-multiple, Adaptive). For revenue-multiple / ARR /
+   * Adjusted NAV (has own RE section) / fiscal_4x / startup / liquidation
+   * the toggle is either a no-op or conceptually wrong — hide it so the
+   * advisor doesn't fill in numbers that won't move the report.
+   *
+   * If the user already turned the toggle ON in a previous method set and
+   * then narrowed selection to a non-applicable method, we still surface
+   * the panel so they can see (and clear) the stored values rather than
+   * having silent state hidden by the UI.
+   */
+  const hasCarveOutData =
+    Boolean(formData.exclude_real_estate) ||
+    formData.real_estate_book_value != null ||
+    formData.estimated_market_rent != null
+  const showRealEstateCarveOut =
+    realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
   const prevMethodRef = useRef<string | null>(null)
@@ -2331,8 +2355,8 @@ export function ManualInputPanel({
 
   const dcfModeSegmentOptions = useMemo(
     () => [
-      { value: 'ebitda' as const, label: mi('dcfInputMode.ebitda') },
-      { value: 'fcff_only' as const, label: mi('dcfInputMode.fcffOnly') },
+      { value: 'ebitda' as const, label: mi('dcfInputMode.ebitdaShort') },
+      { value: 'fcff_only' as const, label: mi('dcfInputMode.fcffOnlyShort') },
     ],
     [mi]
   )
@@ -3936,8 +3960,10 @@ export function ManualInputPanel({
               </motion.section>
             )}
 
-            {/* Real estate carve-out: sibling section after Financiële historie so DCF forecast/WACC content does not bury it */}
-            {selectedCompany && hasBusinessType && hasFinancials && (
+            {/* Real estate carve-out: sibling section after Financiële historie so DCF forecast/WACC content does not bury it.
+                Gated on method intent — the carve-out only changes a number on the report for EBITDA-income methods
+                (DCF, EBITDA, SDE, Adaptive). See realEstateCarveOutAppliesTo for the rationale per method. */}
+            {selectedCompany && hasBusinessType && hasFinancials && showRealEstateCarveOut && (
               <div className="mt-4">
                 <RealEstateCarveOutSection
                   step={balanceSheetCarveOutStep}
@@ -4410,9 +4436,12 @@ export function AdaptiveSections({
         countryCode: formData.country,
         realEstateCarveOutBookValue:
           (formData.real_estate_book_value as number | undefined) ?? null,
+        reportingYear: latestCompleteYearlyFinancial
+          ? Number(latestCompleteYearlyFinancial.year)
+          : null,
         existing: {},
       }),
-    [formData.country, formData.real_estate_book_value]
+    [formData.country, formData.real_estate_book_value, latestCompleteYearlyFinancial]
   )
 
   // Track each prefilled field's *applied value* and its *provenance*.
@@ -4431,6 +4460,19 @@ export function AdaptiveSections({
   // unrelated form fields change.
   const _navTaxLatencyPctValue = formData.nav_tax_latency_pct as number | undefined
   const _navRealEstateBookValue = formData.nav_real_estate_book_value as number | undefined
+  const _navEquipmentRevaluation = formData.nav_equipment_revaluation as
+    | {
+        original_cost?: number
+        acquisition_year?: number
+        tax_book_value?: number
+        economic_useful_life_years?: number
+        economic_book_value?: number
+      }
+    | undefined
+  const _navEquipmentAcquisitionYear = _navEquipmentRevaluation?.acquisition_year
+  const _navEquipmentUsefulLifeYears = _navEquipmentRevaluation?.economic_useful_life_years
+  const _dealBuyerDiscountRatePct = formData.deal_buyer_discount_rate_pct as number | undefined
+  const _dealRegistrationDutyPct = formData.deal_registration_duty_pct as number | undefined
 
   useEffect(() => {
     if (!navIsActiveSection) return
@@ -4438,6 +4480,32 @@ export function AdaptiveSections({
     const currentByField: Record<NavPrefillField, number | undefined> = {
       nav_tax_latency_pct: _navTaxLatencyPctValue,
       nav_real_estate_book_value: _navRealEstateBookValue,
+      nav_equipment_acquisition_year: _navEquipmentAcquisitionYear,
+      nav_equipment_useful_life_years: _navEquipmentUsefulLifeYears,
+      deal_buyer_discount_rate_pct: _dealBuyerDiscountRatePct,
+      deal_registration_duty_pct: _dealRegistrationDutyPct,
+    }
+    // Field-key → form-state write path. Top-level paths use onFieldChange;
+    // nested equipment fields merge into the single nav_equipment_revaluation
+    // object so they survive each other's writes.
+    const writeField = (field: NavPrefillField, desired: number) => {
+      if (field === 'nav_equipment_acquisition_year') {
+        if (!onAnyFieldChange) return
+        onAnyFieldChange('nav_equipment_revaluation', {
+          ...(_navEquipmentRevaluation ?? {}),
+          acquisition_year: desired,
+        })
+        return
+      }
+      if (field === 'nav_equipment_useful_life_years') {
+        if (!onAnyFieldChange) return
+        onAnyFieldChange('nav_equipment_revaluation', {
+          ...(_navEquipmentRevaluation ?? {}),
+          economic_useful_life_years: desired,
+        })
+        return
+      }
+      onFieldChange(field, desired)
     }
     for (const [field, desired] of Object.entries(values)) {
       if (desired == null || !Number.isFinite(desired)) continue
@@ -4451,7 +4519,7 @@ export function AdaptiveSections({
       // Skip the no-op case (current already equals desired).
       if (current === desired) continue
 
-      onFieldChange(field, desired)
+      writeField(typedField, desired)
       navPrefillAppliedRef.current[typedField] = desired
       navPrefillProvenanceRef.current[typedField] = provenance[typedField]
     }
@@ -4460,7 +4528,13 @@ export function AdaptiveSections({
     navDesiredPrefill,
     _navTaxLatencyPctValue,
     _navRealEstateBookValue,
+    _navEquipmentAcquisitionYear,
+    _navEquipmentUsefulLifeYears,
+    _navEquipmentRevaluation,
+    _dealBuyerDiscountRatePct,
+    _dealRegistrationDutyPct,
     onFieldChange,
+    onAnyFieldChange,
   ])
 
   const navBookReferences = useMemo<NavBookReferenceSnapshot>(
@@ -4495,9 +4569,16 @@ export function AdaptiveSections({
     const result: NavPrefillProvenanceMap = {}
     const applied = navPrefillAppliedRef.current
     const provenance = navPrefillProvenanceRef.current
+    const equipment = formData.nav_equipment_revaluation as
+      | { acquisition_year?: number; economic_useful_life_years?: number }
+      | undefined
     const currentValues: Record<NavPrefillField, number | undefined> = {
       nav_tax_latency_pct: formData.nav_tax_latency_pct as number | undefined,
       nav_real_estate_book_value: formData.nav_real_estate_book_value as number | undefined,
+      nav_equipment_acquisition_year: equipment?.acquisition_year,
+      nav_equipment_useful_life_years: equipment?.economic_useful_life_years,
+      deal_buyer_discount_rate_pct: formData.deal_buyer_discount_rate_pct as number | undefined,
+      deal_registration_duty_pct: formData.deal_registration_duty_pct as number | undefined,
     }
     for (const [field, appliedValue] of Object.entries(applied)) {
       const typedField = field as NavPrefillField
@@ -4510,7 +4591,13 @@ export function AdaptiveSections({
       }
     }
     return result
-  }, [formData.nav_tax_latency_pct, formData.nav_real_estate_book_value])
+  }, [
+    formData.nav_tax_latency_pct,
+    formData.nav_real_estate_book_value,
+    formData.nav_equipment_revaluation,
+    formData.deal_buyer_discount_rate_pct,
+    formData.deal_registration_duty_pct,
+  ])
 
   const fiscalPreview = useMemo(() => {
     const row = latestCompleteYearlyFinancial
@@ -4818,6 +4905,12 @@ export function AdaptiveSections({
                   ? Number(latestCompleteYearlyFinancial.year)
                   : undefined
               }
+              prefilled={{
+                acquisition_year:
+                  navPrefillProvenance.nav_equipment_acquisition_year != null,
+                economic_useful_life_years:
+                  navPrefillProvenance.nav_equipment_useful_life_years != null,
+              }}
               onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
               disabled={disabled}
             />
@@ -4835,6 +4928,12 @@ export function AdaptiveSections({
                 sellerIsIndividual: formData.deal_seller_is_individual ?? true,
                 buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
                 registrationDutyPct: formData.deal_registration_duty_pct,
+              }}
+              prefilled={{
+                buyer_discount_rate_pct:
+                  navPrefillProvenance.deal_buyer_discount_rate_pct != null,
+                registration_duty_pct:
+                  navPrefillProvenance.deal_registration_duty_pct != null,
               }}
               onChange={(field, value) => {
                 if (typeof value === 'number' || value === undefined) {
@@ -4856,7 +4955,16 @@ export function AdaptiveSections({
         {sections.includes('liquidation_inputs') && (
           <LiquidationInputsSection
             key="liquidation_inputs"
-            step={sectionHeaderSteps.nav ?? 0}
+            // When NAV mounts alongside (the canonical case for
+            // `liquidation_analysis`), NAV already owns steps 5 / 5b / 5c /
+            // 5d — so this section gets `5e` instead of colliding with the
+            // NAV step circle. When NAV is absent we fall back to the bare
+            // numeral so the badge keeps a sensible reading order.
+            step={
+              sectionHeaderSteps.nav != null && sections.includes('nav_asset_schedule')
+                ? `${sectionHeaderSteps.nav}e`
+                : (sectionHeaderSteps.nav ?? 0)
+            }
             liqHeadcount={formData.liq_headcount as number | undefined}
             liqMonthlyRent={formData.liq_monthly_rent as number | undefined}
             liqPaidUpCapital={formData.liq_paid_up_capital as number | undefined}

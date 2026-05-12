@@ -42,6 +42,8 @@ export interface CurrencyInputProps {
   truncateLabel?: boolean
   /** Shows required asterisk on floating label (maps to `required` on the input). */
   required?: boolean
+  /** Pass-through to AuroraInput (stacked-label mode only). */
+  trailingLabelAccessory?: React.ReactNode
 }
 
 export function CurrencyInput({
@@ -60,6 +62,7 @@ export function CurrencyInput({
   description,
   truncateLabel,
   required,
+  trailingLabelAccessory,
 }: CurrencyInputProps) {
   const locale = useLocale()
   const inputId = useId()
@@ -145,6 +148,7 @@ export function CurrencyInput({
         description={description}
         truncateLabel={truncateLabel}
         required={required}
+        trailingLabelAccessory={trailingLabelAccessory}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
         rightIcon={rightIcon}
       />

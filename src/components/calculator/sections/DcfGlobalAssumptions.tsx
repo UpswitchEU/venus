@@ -390,8 +390,8 @@ export function DcfGlobalAssumptions({
         variant === 'forecastDefaultsOnly' &&
         dcfModeSegmentOptions &&
         onDcfInputModeChange && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs font-medium text-foreground/70">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
               {t('dcfInputModeLabelEmbedded')}
             </span>
             <SegmentedControl
@@ -400,8 +400,14 @@ export function DcfGlobalAssumptions({
               options={dcfModeSegmentOptions}
               disabled={disabled}
               size="sm"
-              className="max-w-md"
+              fullWidth
+              aria-label={t('dcfInputModeLabelEmbedded')}
             />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {dcfInputMode === 'fcff_only'
+                ? t('dcfInputMode.fcffOnlyHint')
+                : t('dcfInputMode.ebitdaHint')}
+            </p>
           </div>
         )}
 

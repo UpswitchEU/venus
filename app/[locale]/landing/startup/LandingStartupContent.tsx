@@ -46,7 +46,6 @@ import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCar
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
 import { PanelHeader } from '@/features/startup-studio/components/PanelHeader'
-import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
@@ -65,7 +64,6 @@ type LandingWizardLabelKey =
   | 'traction'
   | 'exit_story'
   | 'round_simulator'
-  | 'reportLanding'
 
 interface SectionDef {
   id: string
@@ -88,7 +86,6 @@ const SECTIONS: SectionDef[] = [
   { id: 'founder_pedigree', labelKey: 'founder_pedigree', Step: FounderPedigreeStep },
   { id: 'traction', labelKey: 'traction', Step: TractionStep },
   { id: 'round_simulator', labelKey: 'round_simulator', Step: RoundSimulatorStep },
-  { id: 'report', labelKey: 'reportLanding', Step: ReportStep },
 ]
 
 /** Order matches ``landing.methodology.cards`` in messages. */
@@ -272,7 +269,7 @@ export function LandingStartupContent() {
           {/* Live blend pill + EV/Revenue method header.  Same component
               the authenticated `StartupValuationPanel` uses so anonymous
               founders see the running headline immediately, instead of
-              filling 8 sections before the report step shows a number. */}
+              filling every section before any number shows up. */}
           <PanelHeader />
           {SECTIONS.map((section, idx) => {
             const Step = section.Step

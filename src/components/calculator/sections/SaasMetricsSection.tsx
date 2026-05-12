@@ -76,19 +76,28 @@ function SaasPanel({
  * audience trusted the pre-2026 sector banner less than this
  * per-field signal. The chip's `title` carries the tooltip copy.
  */
+type PrefillSource = 'benchmark' | 'history' | 'derived'
+
 function PrefilledFieldChip({
   source,
   label,
   tooltip,
 }: {
-  source: 'benchmark' | 'history'
+  source: PrefillSource
   label: string
   tooltip: string
 }) {
+  // Two visual tones:
+  //   - amber  → sector benchmark (numbers we made up from medians;
+  //              founder MUST tune for the report to be defensible)
+  //   - emerald → derived from the founder's own input (history grid
+  //              YoY, or arithmetic identity like ARR / 12); already
+  //              defensible, just labelled so it's not mistaken for a
+  //              guess.
   const tone =
-    source === 'history'
-      ? 'border-emerald-300/60 bg-emerald-50/70 text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-200'
-      : 'border-amber-300/60 bg-amber-50/70 text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200'
+    source === 'benchmark'
+      ? 'border-amber-300/60 bg-amber-50/70 text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200'
+      : 'border-emerald-300/60 bg-emerald-50/70 text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-200'
   return (
     <span
       className={cn(
@@ -116,7 +125,7 @@ function FieldWithSourceChip({
   children,
 }: {
   prefilled: boolean
-  source: 'benchmark' | 'history' | null
+  source: PrefillSource | null
   label: string
   tooltip: string
   children: ReactNode
@@ -213,7 +222,7 @@ export function SaasMetricsSection({
     [yearlyFinancials],
   )
   const prefilledKeysRef = useRef<Set<string>>(new Set())
-  const prefilledSourceRef = useRef<Map<string, 'benchmark' | 'history'>>(new Map())
+  const prefilledSourceRef = useRef<Map<string, PrefillSource>>(new Map())
   const prefilledRanRef = useRef(false)
   const [prefilledKeys, setPrefilledKeys] = useState<readonly string[]>([])
 
@@ -225,7 +234,7 @@ export function SaasMetricsSection({
     if (importedSaasProvenance) return
     prefilledRanRef.current = true
     const filled: string[] = []
-    const sources = new Map<string, 'benchmark' | 'history'>()
+    const sources = new Map<string, PrefillSource>()
     if (benchmark && saasGrossMarginPct == null) {
       onFieldChange('saas_gross_margin_pct', benchmark.gross_margin_pct)
       filled.push('saas_gross_margin_pct')
@@ -241,6 +250,21 @@ export function SaasMetricsSection({
       filled.push('saas_nrr_pct')
       sources.set('saas_nrr_pct', 'benchmark')
     }
+    if (benchmark && saasCustomerChurnPct == null) {
+      onFieldChange('saas_customer_churn_pct', benchmark.customer_churn_pct)
+      filled.push('saas_customer_churn_pct')
+      sources.set('saas_customer_churn_pct', 'benchmark')
+    }
+    if (benchmark && saasExpansionRevenuePct == null) {
+      onFieldChange('saas_expansion_revenue_pct', benchmark.expansion_revenue_pct)
+      filled.push('saas_expansion_revenue_pct')
+      sources.set('saas_expansion_revenue_pct', 'benchmark')
+    }
+    // NOTE: MRR is intentionally NOT seeded here.  ARR / 12 is a live
+    // identity that has to react to founder input mid-session, so it
+    // lives in a dedicated effect below.  Keeping it out of this one-
+    // shot effect avoids a double-dispatch race when ARR happens to be
+    // present at mount.
     if (saasArrGrowthPct == null) {
       // saas_arr_growth_pct is an ANNUAL fraction end-to-end:
       // - Engine: Rule of 40 = arr_growth + gross_margin (both annual)
@@ -270,23 +294,11 @@ export function SaasMetricsSection({
     saasGrossMarginPct,
     saasChurnPct,
     saasNrrPct,
+    saasCustomerChurnPct,
+    saasExpansionRevenuePct,
     saasArrGrowthPct,
     onFieldChange,
   ])
-
-  const clearBenchmarkPrefill = () => {
-    // Only clear values the founder has not edited since the prefill —
-    // tracked via `editedSinceFillRef`. Anything the founder typed
-    // (even if it now equals the benchmark) is the founder's number,
-    // not ours.
-    for (const key of prefilledKeysRef.current) {
-      if (editedSinceFillRef.current.has(key)) continue
-      onFieldChange(key, undefined)
-    }
-    prefilledKeysRef.current = new Set()
-    prefilledSourceRef.current = new Map()
-    setPrefilledKeys([])
-  }
 
   // ─── Per-field "still-prefilled" tracking ───────────────────────
   // A field counts as "prefilled" only while the founder has not
@@ -313,7 +325,25 @@ export function SaasMetricsSection({
     [onFieldChange],
   )
 
-  const showBenchmarkBanner = prefilledKeys.length > 0 && !importedSaasProvenance
+  // ─── Live ARR → MRR derivation ─────────────────────────────────
+  // The benchmark prefill effect only runs once at mount, so a founder
+  // who types ARR mid-session would otherwise be left with an empty
+  // MRR field even though it's a universal SaaS identity (ARR / 12).
+  // This second, lightweight effect closes that gap: whenever ARR is
+  // present and MRR is empty (and the founder hasn't cleared it since
+  // a prior prefill), seed MRR and tag it so the chip surfaces.
+  useEffect(() => {
+    if (saasArr == null || !Number.isFinite(saasArr)) return
+    if (saasMrr != null) return
+    if (importedSaasProvenance) return
+    if (editedSinceFillRef.current.has('saas_mrr')) return
+    const derivedMrr = Math.round(saasArr / 12)
+    onFieldChange('saas_mrr', derivedMrr)
+    prefilledKeysRef.current.add('saas_mrr')
+    prefilledSourceRef.current.set('saas_mrr', 'derived')
+    setPrefilledKeys((prev) => (prev.includes('saas_mrr') ? prev : [...prev, 'saas_mrr']))
+  }, [saasArr, saasMrr, importedSaasProvenance, onFieldChange])
+
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
@@ -425,26 +455,6 @@ export function SaasMetricsSection({
         </div>
       )}
 
-      {showBenchmarkBanner && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-300/50 bg-amber-50/60 px-3 py-2.5 dark:border-amber-700/40 dark:bg-amber-950/25">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
-              {t('saasBenchmark.title')}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-800/85 dark:text-amber-300/85">
-              {t('saasBenchmark.description', { count: prefilledKeys.length })}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={clearBenchmarkPrefill}
-            className="shrink-0 rounded-md border border-amber-400/60 bg-background/60 px-2 py-1 text-[11px] font-medium text-amber-900 transition hover:bg-amber-100/60 dark:text-amber-200 dark:hover:bg-amber-900/30"
-          >
-            {t('saasBenchmark.clearCta')}
-          </button>
-        </div>
-      )}
-
       <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
         <div className="space-y-1">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
@@ -495,16 +505,23 @@ export function SaasMetricsSection({
             description={t('fieldHints.saasArr')}
             truncateLabel={false}
           />
-          <CurrencyInput
-            label={t('fields.saasMrr')}
-            value={saasMrr}
-            onChange={(v) => onFieldChange('saas_mrr', v)}
-            size="sm"
-            placeholder="42.000"
-            disabled={disabled}
-            description={t('fieldHints.saasMrr')}
-            truncateLabel={false}
-          />
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_mrr')}
+            source={prefilledSourceRef.current.get('saas_mrr') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_mrr') ?? 'derived'}`)}
+            tooltip={t('prefillSource.derivedTooltip')}
+          >
+            <CurrencyInput
+              label={t('fields.saasMrr')}
+              value={saasMrr}
+              onChange={(v) => handleFieldChange('saas_mrr', v)}
+              size="sm"
+              placeholder="42.000"
+              disabled={disabled}
+              description={t('fieldHints.saasMrr')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_arr_growth_pct')}
             source={prefilledSourceRef.current.get('saas_arr_growth_pct') ?? null}
@@ -561,24 +578,38 @@ export function SaasMetricsSection({
               truncateLabel={false}
             />
           </FieldWithSourceChip>
-          <AdaptivePercentInput
-            label={t('fields.saasCustomerChurnPct')}
-            value={saasCustomerChurnPct}
-            onChange={(v) => onFieldChange('saas_customer_churn_pct', v)}
-            placeholder="8"
-            disabled={disabled}
-            description={t('fieldHints.saasCustomerChurnPct')}
-            truncateLabel={false}
-          />
-          <AdaptivePercentInput
-            label={t('fields.saasExpansionRevenuePct')}
-            value={saasExpansionRevenuePct}
-            onChange={(v) => onFieldChange('saas_expansion_revenue_pct', v)}
-            placeholder="12"
-            disabled={disabled}
-            description={t('fieldHints.saasExpansionRevenuePct')}
-            truncateLabel={false}
-          />
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_customer_churn_pct')}
+            source={prefilledSourceRef.current.get('saas_customer_churn_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_customer_churn_pct') ?? 'benchmark'}`)}
+            tooltip={t('prefillSource.benchmarkTooltip')}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasCustomerChurnPct')}
+              value={saasCustomerChurnPct}
+              onChange={(v) => handleFieldChange('saas_customer_churn_pct', v)}
+              placeholder="8"
+              disabled={disabled}
+              description={t('fieldHints.saasCustomerChurnPct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
+          <FieldWithSourceChip
+            prefilled={isStillPrefilled('saas_expansion_revenue_pct')}
+            source={prefilledSourceRef.current.get('saas_expansion_revenue_pct') ?? null}
+            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_expansion_revenue_pct') ?? 'benchmark'}`)}
+            tooltip={t('prefillSource.benchmarkTooltip')}
+          >
+            <AdaptivePercentInput
+              label={t('fields.saasExpansionRevenuePct')}
+              value={saasExpansionRevenuePct}
+              onChange={(v) => handleFieldChange('saas_expansion_revenue_pct', v)}
+              placeholder="12"
+              disabled={disabled}
+              description={t('fieldHints.saasExpansionRevenuePct')}
+              truncateLabel={false}
+            />
+          </FieldWithSourceChip>
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_gross_margin_pct')}
             source={prefilledSourceRef.current.get('saas_gross_margin_pct') ?? null}

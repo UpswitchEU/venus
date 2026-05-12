@@ -2,10 +2,31 @@ import { describe, expect, it } from 'vitest'
 import {
   computeNavBookReferences,
   computeNavPrefill,
+  DEAL_BUYER_DISCOUNT_DEFAULT_PCT,
+  DEAL_REGISTRATION_DUTY_BE_PCT,
+  DEAL_REGISTRATION_DUTY_NL_PCT,
+  NAV_EQUIPMENT_DEFAULT_AGE_YEARS,
+  NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS,
   NAV_TAX_LATENCY_DEFAULT_BE_PCT,
   NAV_TAX_LATENCY_DEFAULT_NL_PCT,
+  resolveCountryRegistrationDutyPct,
   resolveCountryTaxLatencyPct,
 } from './navPrefill'
+
+const emptyExisting = {
+  nav_tax_latency_pct: undefined,
+  nav_real_estate_book_value: undefined,
+  nav_equipment_acquisition_year: undefined,
+  nav_equipment_useful_life_years: undefined,
+  deal_buyer_discount_rate_pct: undefined,
+  deal_registration_duty_pct: undefined,
+}
+
+const appliedExisting = {
+  nav_equipment_acquisition_year: 9999, // any finite value blocks the seed
+  nav_equipment_useful_life_years: NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS,
+  deal_buyer_discount_rate_pct: DEAL_BUYER_DISCOUNT_DEFAULT_PCT,
+}
 
 describe('resolveCountryTaxLatencyPct', () => {
   it.each([
@@ -36,7 +57,7 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: null,
-      existing: { nav_tax_latency_pct: undefined, nav_real_estate_book_value: undefined },
+      existing: emptyExisting,
     })
     expect(snapshot.values.nav_tax_latency_pct).toBe(25)
     expect(snapshot.provenance.nav_tax_latency_pct).toMatchObject({
@@ -50,7 +71,7 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'NL',
       realEstateCarveOutBookValue: null,
-      existing: { nav_tax_latency_pct: undefined, nav_real_estate_book_value: undefined },
+      existing: emptyExisting,
     })
     expect(snapshot.values.nav_tax_latency_pct).toBe(25.8)
   })
@@ -59,7 +80,7 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: null,
-      existing: { nav_tax_latency_pct: 0, nav_real_estate_book_value: undefined },
+      existing: { ...emptyExisting, nav_tax_latency_pct: 0 },
     })
     expect(snapshot.values.nav_tax_latency_pct).toBeUndefined()
     expect(snapshot.provenance.nav_tax_latency_pct).toBeUndefined()
@@ -69,7 +90,7 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: 750_000,
-      existing: { nav_tax_latency_pct: 25, nav_real_estate_book_value: undefined },
+      existing: { ...emptyExisting, nav_tax_latency_pct: 25 },
     })
     expect(snapshot.values.nav_real_estate_book_value).toBe(750_000)
     expect(snapshot.provenance.nav_real_estate_book_value).toMatchObject({
@@ -83,7 +104,7 @@ describe('computeNavPrefill', () => {
       computeNavPrefill({
         countryCode: 'BE',
         realEstateCarveOutBookValue: 0,
-        existing: { nav_tax_latency_pct: 25, nav_real_estate_book_value: undefined },
+        existing: { ...emptyExisting, nav_tax_latency_pct: 25 },
       }).values.nav_real_estate_book_value
     ).toBeUndefined()
 
@@ -91,7 +112,7 @@ describe('computeNavPrefill', () => {
       computeNavPrefill({
         countryCode: 'BE',
         realEstateCarveOutBookValue: null,
-        existing: { nav_tax_latency_pct: 25, nav_real_estate_book_value: undefined },
+        existing: { ...emptyExisting, nav_tax_latency_pct: 25 },
       }).values.nav_real_estate_book_value
     ).toBeUndefined()
   })
@@ -100,19 +121,95 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: 750_000,
-      existing: { nav_tax_latency_pct: 25, nav_real_estate_book_value: 500_000 },
+      existing: {
+        ...emptyExisting,
+        nav_tax_latency_pct: 25,
+        nav_real_estate_book_value: 500_000,
+      },
     })
     expect(snapshot.values.nav_real_estate_book_value).toBeUndefined()
   })
 
-  it('returns an empty snapshot when the country is unrecognised and no carve-out exists', () => {
+  it('seeds equipment + deal defaults even when the country is unrecognised', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'FR',
       realEstateCarveOutBookValue: null,
-      existing: { nav_tax_latency_pct: undefined, nav_real_estate_book_value: undefined },
+      reportingYear: 2024,
+      existing: emptyExisting,
     })
-    expect(snapshot.values).toEqual({})
-    expect(snapshot.provenance).toEqual({})
+    // Tax latency + registration duty are country-gated — none here.
+    expect(snapshot.values.nav_tax_latency_pct).toBeUndefined()
+    expect(snapshot.values.deal_registration_duty_pct).toBeUndefined()
+    // Equipment + buyer-discount defaults are sector-typical, country-free.
+    expect(snapshot.values.nav_equipment_acquisition_year).toBe(
+      2024 - NAV_EQUIPMENT_DEFAULT_AGE_YEARS
+    )
+    expect(snapshot.values.nav_equipment_useful_life_years).toBe(
+      NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS
+    )
+    expect(snapshot.values.deal_buyer_discount_rate_pct).toBe(DEAL_BUYER_DISCOUNT_DEFAULT_PCT)
+  })
+
+  it('seeds equipment acquisition year off the latest reporting year', () => {
+    const snapshot = computeNavPrefill({
+      countryCode: 'BE',
+      realEstateCarveOutBookValue: null,
+      reportingYear: 2023,
+      existing: emptyExisting,
+    })
+    expect(snapshot.values.nav_equipment_acquisition_year).toBe(
+      2023 - NAV_EQUIPMENT_DEFAULT_AGE_YEARS
+    )
+    expect(snapshot.provenance.nav_equipment_acquisition_year).toMatchObject({
+      source: 'sector_default',
+    })
+  })
+
+  it('falls back to current year when reportingYear is missing', () => {
+    const now = new Date().getFullYear()
+    const snapshot = computeNavPrefill({
+      countryCode: 'BE',
+      realEstateCarveOutBookValue: null,
+      existing: emptyExisting,
+    })
+    expect(snapshot.values.nav_equipment_acquisition_year).toBe(
+      now - NAV_EQUIPMENT_DEFAULT_AGE_YEARS
+    )
+  })
+
+  it('seeds BE registration duty at 12.5% movable-assets rate', () => {
+    const snapshot = computeNavPrefill({
+      countryCode: 'BE',
+      realEstateCarveOutBookValue: null,
+      existing: emptyExisting,
+    })
+    expect(snapshot.values.deal_registration_duty_pct).toBe(DEAL_REGISTRATION_DUTY_BE_PCT)
+    expect(snapshot.provenance.deal_registration_duty_pct).toMatchObject({
+      source: 'country_default',
+      captionKey: 'dealRegistrationDutyFromCountry',
+      context: { country: 'BE' },
+    })
+  })
+
+  it('seeds NL registration duty at 0% (movable assets are exempt)', () => {
+    const snapshot = computeNavPrefill({
+      countryCode: 'NL',
+      realEstateCarveOutBookValue: null,
+      existing: emptyExisting,
+    })
+    expect(snapshot.values.deal_registration_duty_pct).toBe(DEAL_REGISTRATION_DUTY_NL_PCT)
+  })
+
+  it('respects user-typed equipment year and useful life (never overwrites)', () => {
+    const snapshot = computeNavPrefill({
+      countryCode: 'BE',
+      realEstateCarveOutBookValue: null,
+      reportingYear: 2024,
+      existing: { ...emptyExisting, ...appliedExisting },
+    })
+    expect(snapshot.values.nav_equipment_acquisition_year).toBeUndefined()
+    expect(snapshot.values.nav_equipment_useful_life_years).toBeUndefined()
+    expect(snapshot.values.deal_buyer_discount_rate_pct).toBeUndefined()
   })
 
   // Round-5: the helper itself ignores `existing` when called with an
@@ -125,35 +222,69 @@ describe('computeNavPrefill', () => {
     const snapshot = computeNavPrefill({
       countryCode: 'NL',
       realEstateCarveOutBookValue: 750_000,
+      reportingYear: 2024,
       existing: {}, // round-5: caller passes empty existing
     })
     expect(snapshot.values.nav_tax_latency_pct).toBe(25.8)
     expect(snapshot.values.nav_real_estate_book_value).toBe(750_000)
+    expect(snapshot.values.nav_equipment_acquisition_year).toBe(2018)
+    expect(snapshot.values.deal_buyer_discount_rate_pct).toBe(DEAL_BUYER_DISCOUNT_DEFAULT_PCT)
+    expect(snapshot.values.deal_registration_duty_pct).toBe(DEAL_REGISTRATION_DUTY_NL_PCT)
   })
 
   // Round-3 fix verification: once the user types into the field the
   // snapshot must drop the prefill (no overwrite, no stale badge upstream).
-  it('idempotency — second call after the value lands writes nothing more', () => {
+  it('idempotency — second call after every value lands writes nothing more', () => {
     // 1st call: nothing exists yet → prefill applies
     const first = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: 750_000,
-      existing: { nav_tax_latency_pct: undefined, nav_real_estate_book_value: undefined },
+      reportingYear: 2024,
+      existing: emptyExisting,
     })
     expect(first.values.nav_tax_latency_pct).toBe(25)
     expect(first.values.nav_real_estate_book_value).toBe(750_000)
+    expect(first.values.nav_equipment_useful_life_years).toBe(
+      NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS
+    )
 
-    // 2nd call: caller has applied the values and now passes them as `existing`
-    // (mirrors how the React effect re-runs after onFieldChange takes effect).
+    // 2nd call: caller has applied every value back into `existing` (mirrors
+    // how the React effect re-runs after onFieldChange takes effect).
     // The snapshot must be empty so the effect is a no-op.
     const second = computeNavPrefill({
       countryCode: 'BE',
       realEstateCarveOutBookValue: 750_000,
-      existing: { nav_tax_latency_pct: 25, nav_real_estate_book_value: 750_000 },
+      reportingYear: 2024,
+      existing: {
+        nav_tax_latency_pct: 25,
+        nav_real_estate_book_value: 750_000,
+        nav_equipment_acquisition_year: 2018,
+        nav_equipment_useful_life_years: NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS,
+        deal_buyer_discount_rate_pct: DEAL_BUYER_DISCOUNT_DEFAULT_PCT,
+        deal_registration_duty_pct: DEAL_REGISTRATION_DUTY_BE_PCT,
+      },
     })
     expect(second.values).toEqual({})
     expect(second.provenance).toEqual({})
   })
+})
+
+describe('resolveCountryRegistrationDutyPct', () => {
+  it.each([
+    ['BE', DEAL_REGISTRATION_DUTY_BE_PCT],
+    [' be ', DEAL_REGISTRATION_DUTY_BE_PCT],
+    ['NL', DEAL_REGISTRATION_DUTY_NL_PCT],
+    ['NLD', DEAL_REGISTRATION_DUTY_NL_PCT],
+  ])('returns the country default for %s', (code, expected) => {
+    expect(resolveCountryRegistrationDutyPct(code)).toBe(expected)
+  })
+
+  it.each([null, undefined, '', 'FR', 'DE', 'US'])(
+    'returns null for unsupported / blank input %p',
+    (input) => {
+      expect(resolveCountryRegistrationDutyPct(input)).toBeNull()
+    }
+  )
 })
 
 describe('computeNavBookReferences', () => {

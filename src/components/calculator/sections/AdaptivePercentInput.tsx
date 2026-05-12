@@ -23,6 +23,8 @@ interface AdaptivePercentInputProps {
   required?: boolean
   /** Matches AuroraInput / CurrencyInput density in the same form row */
   size?: 'sm' | 'md' | 'lg'
+  /** Pass-through to AuroraInput (stacked-label mode only). */
+  trailingLabelAccessory?: React.ReactNode
 }
 
 export function AdaptivePercentInput({
@@ -36,6 +38,7 @@ export function AdaptivePercentInput({
   truncateLabel,
   required,
   size = 'sm',
+  trailingLabelAccessory,
   step: _step,
 }: AdaptivePercentInputProps) {
   const {
@@ -62,6 +65,7 @@ export function AdaptivePercentInput({
       description={description}
       truncateLabel={truncateLabel}
       required={required}
+      trailingLabelAccessory={trailingLabelAccessory}
       className={cn(
         'tabular-nums',
         readOnly && 'cursor-default',

@@ -34,6 +34,11 @@ export { METHOD_PREVIEW_AUDIT } from './methodPreviewAudit'
 export {
   computeNavBookReferences,
   computeNavPrefill,
+  DEAL_BUYER_DISCOUNT_DEFAULT_PCT,
+  DEAL_REGISTRATION_DUTY_BE_PCT,
+  DEAL_REGISTRATION_DUTY_NL_PCT,
+  NAV_EQUIPMENT_DEFAULT_AGE_YEARS,
+  NAV_EQUIPMENT_DEFAULT_USEFUL_LIFE_YEARS,
   NAV_TAX_LATENCY_DEFAULT_BE_PCT,
   NAV_TAX_LATENCY_DEFAULT_NL_PCT,
   type NavBookReferenceInputs,
@@ -44,6 +49,7 @@ export {
   type NavPrefillProvenanceMap,
   type NavPrefillProvenanceSource,
   type NavPrefillSnapshot,
+  resolveCountryRegistrationDutyPct,
   resolveCountryTaxLatencyPct,
 } from './navPrefill'
 export {

@@ -5,25 +5,28 @@
  * ---------------------
  *
  * Self-contained left-rail panel for the 9th valuation method
- * (`startup_valuation`).  Renders the canonical eight Studio sections
+ * (`startup_valuation`).  Renders the canonical seven Studio sections
  * stacked top-to-bottom inside `ManualLayout`'s ManualInputPanel slot,
  * matching the rhythm of every other method (DCF, SaaS, NAV, Adaptive):
  * a numbered Aurora-Teal section header per block, no Next/Back wizard,
  * no separate page, scroll-and-edit.
  *
  *   1. Profile        — canonical company card (KBO/KVK + business types)
- *   2. Risk reduction — Berkus 2.0 milestone cards
- *   3. Defensibility / verdedigbaarheid — Scorecard 2.0 weighted factor cards
- *   4. Team           — Founder pedigree multiplier
- *   5. Traction       — Forward-looking SaaS metrics (skippable)
- *   6. Exit story     — VC method / Y5 revenue thesis / exit multiple
- *                       (TAM/SAM/SOM was removed in the 2026-05-08
- *                       zombie cull — the engine never read it.)
+ *   2. Exit story     — VC method / Y5 revenue thesis / exit multiple
+ *                       (the EV/Revenue spine — leads the rhythm so the
+ *                       headline math is visible before the overlays)
+ *   3. Risk reduction — Berkus 2.0 milestone cards
+ *   4. Defensibility / verdedigbaarheid — Scorecard 2.0 weighted factor cards
+ *   5. Team           — Founder pedigree multiplier
+ *   6. Traction       — Forward-looking SaaS metrics (skippable)
  *   7. Round          — SAFE vs priced-round simulator
- *   8. Report         — Investor-ready preview (no submit; the
- *                       canonical `StartupSubmitFooter` rendered by
- *                       `StartupAwareInputPanel` owns the submit and
- *                       the round-trip to `valuationService`).
+ *
+ * Submit lives in the sticky `StartupSubmitFooter` directly under the
+ * panel; remediation lives in the floating `StudioCoPilot` (FAB +
+ * FindingPeek + Assistent drawer).  The wizard owns inputs only — it
+ * no longer carries a "Report" step (retired 2026-05-12; it duplicated
+ * the FAB's issue feed and pointed a scroll-CTA at a button already
+ * pinned on screen).
  *
  * The panel writes through to `useStartupValuationStore` and to
  * `useManualFormStore` (via `CompanyCardStep`).  `buildManualValuationRequest`
@@ -50,7 +53,6 @@ import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCar
 import { ExitStoryStep } from '@/features/startup-studio/components/ExitStoryStep'
 import { FounderPedigreeStep } from '@/features/startup-studio/components/FounderPedigreeStep'
 import { PanelHeader } from '@/features/startup-studio/components/PanelHeader'
-import { ReportStep } from '@/features/startup-studio/components/ReportStep'
 import { RoundSimulatorStep } from '@/features/startup-studio/components/RoundSimulatorStep'
 import { ScorecardStep } from '@/features/startup-studio/components/ScorecardStep'
 import { StudioCoPilot } from '@/features/startup-studio/components/StudioCoPilot'
@@ -85,7 +87,6 @@ type StudioSectionLabelKey =
   | 'sections.traction'
   | 'sections.exit_story'
   | 'sections.round_simulator'
-  | 'sections.report'
 
 /**
  * Per-section props the panel forwards to every step.  Each step
@@ -95,10 +96,10 @@ type StudioSectionLabelKey =
  */
 interface SectionProps {
   /**
-   * Some sections (Round simulator, Report) widen their feature
-   * surface for advisors — the panel forwards its ``mode`` so they
-   * can hide advisor-only fields from founders without duplicating
-   * the section.  Founders default to ``false``.
+   * Some sections (e.g. Round simulator) widen their feature surface
+   * for advisors — the panel forwards its ``mode`` so they can hide
+   * advisor-only fields from founders without duplicating the
+   * section.  Founders default to ``false``.
    */
   advisorMode?: boolean
 }
@@ -129,11 +130,14 @@ interface SectionDef {
  *   5. Team pedigree     — Founder-pedigree overlay
  *   6. Traction          — SaaS forward overlay (skippable)
  *   7. Round             — cap-table simulator
- *   8. Report            — investor-ready preview
  *
- * Section IDs are preserved so the analytics funnel (StudioStep enum
- * → trackStudioStepViewed) keeps reporting under the same keys.
- * Only the rendered order changes.
+ * The retired 8th "Report" section was dropped 2026-05-12 — it
+ * duplicated the StudioCoPilot issue feed and the sticky
+ * StartupSubmitFooter (Aurora "one surface per decision").
+ *
+ * The remaining seven section IDs are preserved so the analytics
+ * funnel (StudioStep enum → trackStudioStepViewed) keeps reporting
+ * under the same keys.  Only the rendered order changes.
  */
 const SECTIONS: SectionDef[] = [
   {
@@ -178,12 +182,6 @@ const SECTIONS: SectionDef[] = [
     labelKey: 'sections.round_simulator',
     Component: RoundSimulatorStep,
   },
-  {
-    id: 'report',
-    anchor: 'startup-section-report',
-    labelKey: 'sections.report',
-    Component: ReportStep,
-  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -202,7 +200,6 @@ function useSectionStatuses(): Record<StudioStep, Status> {
   const sector = useStartupValuationStore((s) => s.sector)
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const maturity = useStartupValuationStore((s) => s.maturity)
-  const evidenceNotes = useStartupValuationStore((s) => s.evidence_notes)
   const founderPedigree = useStartupValuationStore((s) => s.founder_pedigree)
   const mrr = useStartupValuationStore((s) => s.mrr)
   const arr = useStartupValuationStore((s) => s.arr)
@@ -232,10 +229,6 @@ function useSectionStatuses(): Record<StudioStep, Status> {
     ] as const
     const scorecardPicked = scorecardKeys.filter((k) => maturity[k] !== 'none').length
 
-    const evidenceCount = Object.values(evidenceNotes).filter(
-      (v) => typeof v === 'string' && v.trim().length > 0
-    ).length
-
     return {
       profile: profileComplete ? 'complete' : companyName.trim() ? 'partial' : 'empty',
       berkus: berkusPicked === 0 ? 'empty' : berkusPicked >= 4 ? 'complete' : 'partial',
@@ -261,7 +254,6 @@ function useSectionStatuses(): Record<StudioStep, Status> {
             ? 'partial'
             : 'empty',
       round_simulator: investment != null && investment > 0 ? 'complete' : 'empty',
-      report: evidenceCount > 0 ? 'partial' : 'empty',
     }
   }, [
     companyName,
@@ -270,7 +262,6 @@ function useSectionStatuses(): Record<StudioStep, Status> {
     country,
     businessTypeId,
     maturity,
-    evidenceNotes,
     founderPedigree,
     mrr,
     arr,
@@ -363,9 +354,10 @@ export function StartupValuationPanel({
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
   const { benchmark } = useStartupBenchmark(country, stage, sector)
-  // Health-check feed for the floating Co-pilot.  The same hook drives
-  // the `ReportStep` summary block and the Co-pilot rail, keeping the
-  // single source of truth for "things to fix before PDF".
+  // Health-check feed for the floating Co-pilot — single source of
+  // truth for "things to fix before PDF".  Surfaces through the FAB
+  // badge and the FindingPeek nudge; the assistant drawer owns
+  // remediation.  No inline list lives in the panel anymore.
   const { issues } = useStudioIssues(benchmark)
   const activeLauncherIssues = launcherIssues ?? issues
 
@@ -452,8 +444,9 @@ export function StartupValuationPanel({
       {/* EV/Revenue valuation header — single sentence on what this
           method is + live blended pre-money + a "X of N sections done"
           progress chip so a founder always sees how close they are to a
-          credible report. Replaces the "8 sections, no headline until
-          you scroll to Section 8" UX. */}
+          credible report.  The headline number is computed live from
+          the inputs below; there's no buried "preview" section to
+          scroll to. */}
       <PanelHeader
         sectionsComplete={sectionCompletion.complete}
         sectionsPartial={sectionCompletion.partial}

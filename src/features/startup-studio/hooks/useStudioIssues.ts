@@ -54,7 +54,6 @@ export type StudioStepId =
   | 'traction'
   | 'exit_story'
   | 'round_simulator'
-  | 'report'
 
 export interface StudioIssueCopy {
   en: string
@@ -491,7 +490,7 @@ function pickIssues(
     issues.push({
       id: 'benchmark_offline',
       severity: 'info',
-      step: 'report',
+      step: 'profile',
       title: {
         en: 'Regional benchmark is from offline cache',
         nl: 'Regionale benchmark komt uit offline cache',
