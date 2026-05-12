@@ -24,6 +24,68 @@ import { sessionService } from '../../index'
 import type { FlowType, ISessionEngine } from '../SessionEngine'
 
 /**
+ * Backend-computed fields that must NOT round-trip through autosave PATCHes.
+ *
+ * The session blob the engine holds in memory mirrors what Titan returns —
+ * including the heavy server-rendered artifacts (``valuation_result``, the
+ * HTML report, the PDF-HTML report, and their underscore-prefixed mirrors).
+ * Sending them back in every PATCH causes:
+ *   1. **Multi-MB payloads** — METANOUS revisit shipped 13.9MB per autosave
+ *      (Titan log: `content-length: 13920316`), which spent ~5.5s on the
+ *      wire and twice triggered "Premature close" 500s.
+ *   2. **Race-condition data loss** — every PATCH overwrites the server's
+ *      authoritative ``valuation_result`` with the engine's stale copy.
+ *      If a parallel backend update fired (PDF gen, normalization,
+ *      benchmark refresh), our PATCH would clobber it.
+ *
+ * These keys are produced server-side and never edited by the form, so
+ * the autosave PATCH can safely omit them. The next GET pulls the
+ * authoritative blob back if the in-memory copy needed refreshing.
+ */
+const BACKEND_COMPUTED_SESSION_KEYS = new Set<string>([
+  'valuation_result',
+  'valuationResult',
+  '_valuationResult',
+  'html_report',
+  'htmlReport',
+  '_htmlReport',
+  'pdf_html_report',
+  'pdfHtmlReport',
+  '_pdfHtmlReport',
+  'report_context',
+])
+
+function stripBackendComputedFields(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const stripped: Record<string, unknown> = {}
+  let removedCount = 0
+  let removedBytes = 0
+  for (const [key, value] of Object.entries(payload)) {
+    if (BACKEND_COMPUTED_SESSION_KEYS.has(key)) {
+      removedCount += 1
+      // Best-effort size estimate so the log is informative — JSON.stringify
+      // on the value is bounded by the keys we're stripping (kBs at most for
+      // metadata, but valuation_result + html_report can be MB-class).
+      try {
+        removedBytes += JSON.stringify(value)?.length ?? 0
+      } catch {
+        /* unstringifiable — skip the byte count, keep the strip */
+      }
+      continue
+    }
+    stripped[key] = value
+  }
+  if (removedCount > 0) {
+    generalLogger.debug('[AuthenticatedSessionEngine] Stripped backend-computed keys from autosave', {
+      removedCount,
+      approxBytesRemoved: removedBytes,
+    })
+  }
+  return stripped
+}
+
+/**
  * Authenticated Session Engine
  *
  * Full backend integration - wraps existing SessionService
@@ -334,9 +396,18 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        const updates = {
+        // Strip server-rendered artifacts (valuation_result, html_report,
+        // pdf_html_report) before shipping the PATCH. These are produced
+        // backend-side and don't need to round-trip — leaving them in
+        // turned the autosave into a multi-MB upload that triggered
+        // ``Premature close`` 500s on the METANOUS revisit (Titan log
+        // content-length: 13920316). See BACKEND_COMPUTED_SESSION_KEYS.
+        const mergedPayload = {
           ...(this.currentSession.sessionData || {}),
           ...(this.currentSession.partialData || {}),
+        }
+        const updates = {
+          ...stripBackendComputedFields(mergedPayload),
           currentView: this.currentSession.currentView,
           ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
         }

@@ -3522,20 +3522,39 @@ export function ManualInputPanel({
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-semibold text-foreground">
                             {yearData.year}
+                            {/*
+                             * Explicit JSX space between the calendar year and
+                             * the role chip — the visual gap comes from
+                             * ``ml-1.5`` on the span, but copy/paste and AT
+                             * read the text content without any margin, which
+                             * surfaced as "2025(Basis)" with no separator
+                             * (METANOUS bug report). Mirror the Python
+                             * report formatter (filing_year_labels.py) which
+                             * emits "2025 (Base)" with a real space.
+                             */}
                             {!yearData.isForecast && histOffset === 0 && (
-                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                                ({mi('filingYearColumnBase')})
-                              </span>
+                              <>
+                                {' '}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  ({mi('filingYearColumnBase')})
+                                </span>
+                              </>
                             )}
                             {!yearData.isForecast && histOffset !== null && histOffset > 0 && (
-                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                                ({mi('filingYearColumnBaseMinus', { n: histOffset })})
-                              </span>
+                              <>
+                                {' '}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  ({mi('filingYearColumnBaseMinus', { n: histOffset })})
+                                </span>
+                              </>
                             )}
                             {yearData.isForecast && (
-                              <span className="ml-1.5 text-xs font-normal text-primary/60">
-                                ({mi('forecastLabel')})
-                              </span>
+                              <>
+                                {' '}
+                                <span className="text-xs font-normal text-primary/60">
+                                  ({mi('forecastLabel')})
+                                </span>
+                              </>
                             )}
                           </span>
                           {(normCount > 0 ||
@@ -3749,7 +3768,7 @@ export function ManualInputPanel({
                             return (
                               <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">
                                 {margin.toFixed(1)}%{' '}
-                                <span className="font-sans">{mi('ebitdaMarginInlineLabel')}</span>
+                                <span className="font-sans">{mi('fields.ebitdaMarginInlineLabel')}</span>
                               </p>
                             )
                           })()}
