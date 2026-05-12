@@ -75,6 +75,26 @@ export class ReportAPI extends HttpClient {
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status
         if (isBySession && status === 404 && attempt < maxAttempts - 1) {
+          // Short-circuit: Titan tags by-session 404s with
+          // ``transient: false`` when the report is deleted, soft-
+          // deleted, access-denied, or the session row doesn't exist.
+          // Retrying can't help; without this the cascade wastes ~6.9s
+          // (sum of BY_SESSION_404_BACKOFF_MS) per navigation to a
+          // deleted/never-existed report.
+          const body = (error as { response?: { data?: unknown } })?.response?.data
+          if (
+            body &&
+            typeof body === 'object' &&
+            'transient' in body &&
+            (body as { transient?: unknown }).transient === false
+          ) {
+            apiLogger.debug('Report by-session permanently unavailable, skipping retries', {
+              reportId,
+              attempt,
+              reason: (body as { reason?: unknown }).reason,
+            })
+            this.handleReportError(error, 'get report')
+          }
           apiLogger.debug('Report by-session not ready yet, retrying', { reportId, attempt })
           continue
         }

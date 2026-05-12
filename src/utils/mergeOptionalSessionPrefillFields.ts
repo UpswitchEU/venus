@@ -381,9 +381,21 @@ function sessionEnvelopeKeyCount(record: Record<string, unknown>): number {
   let n = 0
   for (const k of Object.keys(record)) {
     if (k.startsWith('_bootstrap')) continue
-    if (k.startsWith('_')) {
-      if (!TRACKED_SESSION_UNDERSCORE_KEYS.has(k)) continue
-    }
+    // Skip every underscore-prefixed key from the cardinality count.
+    // The count is compared between form and session signatures inside
+    // ``areFormAndSessionDataEqualForAutosync``; forms never carry the
+    // session-only envelope keys (``_businessInfo``, ``_taxLatencies``,
+    // ``_normalizations``, etc.), so counting them on the session side
+    // made every flattened session look fatter than the equivalent form
+    // and triggered a spurious PATCH on every bootstrap hydration that
+    // included Mercury card data (METANOUS revisit regression). Each
+    // tracked underscore key already has its own dedicated signature
+    // piece below (tax_latencies, _normalizations, _financial_data_source,
+    // _import_quality, _imported_ledger_analysis, _imported_saas_metrics,
+    // _pre_selected_valuation_methods, _internal_*), so dropping them
+    // from the cardinality doesn't lose change-detection — it only stops
+    // double-counting + restores form/session signature symmetry.
+    if (k.startsWith('_')) continue
     n++
   }
   return n

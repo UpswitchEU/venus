@@ -143,8 +143,21 @@ export function areFormAndSessionDataEqualForAutosync(
   const fcSessStr = JSON.stringify(fingerprintHistoricalSlice(sessFc))
   if (fcFormStr !== fcSessStr) return false
 
+  // Inject the store-side tax latencies into the form-side signature
+  // surface so the signature comparison stays symmetric with the session
+  // (which carries ``_taxLatencies`` directly). Without this, a session
+  // with tax latencies always looked "richer" than the form (which holds
+  // tax latencies in a separate Zustand store, not on ``formData``), and
+  // the signature mismatch fired a spurious PATCH on every bootstrap
+  // hydration where Mercury supplied tax latencies. The dedicated
+  // ``taxLatenciesEqualForAutosync`` check below still catches a real
+  // delta — this only restores form/session signature parity.
+  const fdForSig =
+    taxLatencyItems !== undefined && Array.isArray(taxLatencyItems) && taxLatencyItems.length > 0
+      ? { ...fd, _taxLatencies: taxLatencyItems }
+      : fd
   if (
-    stableOptionalPrefillSourceSignature(fd) !==
+    stableOptionalPrefillSourceSignature(fdForSig) !==
     stableOptionalPrefillSourceSignature(sessionSurface)
   ) {
     return false
