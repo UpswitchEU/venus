@@ -819,6 +819,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Back off PDF stale polling while report row is not linked for val_* session keys (expected 404). */
   const pdfStaleBySessionBackoffUntilRef = useRef(0)
   const pdfStaleBySession404StreakRef = useRef(0)
+  /**
+   * Count of consecutive polls where the report row came back with the same
+   * (null) pdf_generated_at — i.e. the PDF job ran but produced nothing new.
+   * The existing 60s setTimeout-based pdfWaitTimedOut handles the *time*
+   * dimension but doesn't account for permanently-failing jobs (e.g. the
+   * May 14 startup_valuation incident where the PDF job re-rendered, the
+   * render returned `html_report: null` from safety-net, the processor
+   * threw "missing usable html", and the row stayed forever at
+   * pdf_generated_at=null). Without this streak, the UI polls for the full
+   * 60s producing 24 wasted /reports/{id} round-trips (1.3–1.8s each).
+   * After ~20s of identical responses we surface the retry banner so the
+   * user can act and we stop hammering the backend.
+   */
+  const pdfStaleUnchangedStreakRef = useRef(0)
 
   // Venus infrastructure
   const { user } = useAuth()
@@ -2534,6 +2548,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setPdfPollErrorCount(0)
       pdfStaleBySessionBackoffUntilRef.current = 0
       pdfStaleBySession404StreakRef.current = 0
+      pdfStaleUnchangedStreakRef.current = 0
       return
     }
     setPdfWaitTimedOut(false)
@@ -2542,7 +2557,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [pdfStale, report?.reportUpdatedAt, report?.pdfGeneratedAt])
 
   useEffect(() => {
-    if (!pdfStale || !persistedReportLookupId) return
+    // Stop polling when the stalled banner is showing: either the 60s
+    // setTimeout fired or the unchanged-response streak guard kicked in.
+    // The user now sees the retry CTA — keeping the 2.5s interval running
+    // just wastes their bandwidth and the backend's Prisma+Python budget.
+    if (!pdfStale || !persistedReportLookupId || pdfWaitTimedOut) return
     const id = setInterval(async () => {
       if (pdfStalePollInFlightRef.current) return
       if (
@@ -2594,6 +2613,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
         pdfStaleBySession404StreakRef.current = 0
         setPdfPollErrorCount(0)
+        // Permanent-failure detection: if the PDF row keeps coming back with
+        // null pdf_generated_at, the backend isn't producing anything. After
+        // ~20s of identical responses, surface the "stalled — retry" banner
+        // and stop hammering /reports/{id}. Without this guard the user sees
+        // ~24 wasted 1.5s round-trips before the 60s timeout fires.
+        const stillNoPdf =
+          fresh.pdf_generated_at == null || String(fresh.pdf_generated_at) === ''
+        if (stillNoPdf) {
+          const streak = ++pdfStaleUnchangedStreakRef.current
+          if (streak >= 8) {
+            setPdfWaitTimedOut(true)
+          }
+        } else {
+          pdfStaleUnchangedStreakRef.current = 0
+        }
       } catch (err) {
         const isSession404 =
           err instanceof APIError &&
@@ -2628,7 +2662,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       clearTimeout(max)
       pdfStalePollInFlightRef.current = false
     }
-  }, [pdfStale, persistedReportLookupId, setResult, canDownloadPdf])
+  }, [pdfStale, persistedReportLookupId, setResult, canDownloadPdf, pdfWaitTimedOut])
 
   const handleRetryPdfStalled = useCallback(async () => {
     if (!persistedReportLookupId) return
@@ -2637,6 +2671,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return
     }
     setIsPdfRetrying(true)
+    // Reset streak + wait state so the poll loop re-arms if the retry kicks
+    // off a successful job. Without this reset, the user clicks retry, a
+    // fresh PDF job runs, but Venus stays in the stalled state and never
+    // polls for the new pdf_generated_at.
+    pdfStaleUnchangedStreakRef.current = 0
+    setPdfWaitTimedOut(false)
     try {
       await generatePdf()
       const fresh = await backendAPI.getReport(persistedReportLookupId)

@@ -43,6 +43,35 @@ import { UtilityAPI } from './api/utility'
 import { ValuationAPI } from './api/valuation'
 
 /**
+ * Shape of getUserPlan response — mirrors what CreditAPI.getUserPlan
+ * returns, declared here so the dedup wrapper has a single source of
+ * truth for the type instead of duplicating an inline object literal.
+ */
+type UserPlanResponse = {
+  id: string
+  user_id: string
+  plan_type: string
+  credits_per_period: number
+  credits_used: number
+  credits_remaining: number
+  created_at: string
+  allowed_methods?: string[] | null
+  yearly_discount_percent?: number
+  plan_features?: {
+    ebitda_normalization: boolean
+    tax_latencies: boolean
+    version_control: boolean
+    audit_trail: boolean
+    integrations_enabled: boolean
+    valuation_synthesis: boolean
+    valuation_download?: boolean
+    live_benelux_sector_multiples?: boolean
+    team_seat_addons?: boolean
+  }
+  bonus_valuations?: number
+}
+
+/**
  * Refactored BackendAPI - Clean orchestrator for API operations
  *
  * This maintains the same external interface while internally
@@ -56,6 +85,19 @@ class BackendAPI {
   private creditAPI: CreditAPI
   private profileAPI: ProfileAPI
   private utilityAPI: UtilityAPI
+
+  /**
+   * Dedup + short-TTL cache for getUserPlan. Without this, every Venus
+   * hook that needs plan-tier gating (useCredits — at minimum the
+   * Bootstrap, ManualLayout, ReportPanel branches) does its own
+   * /api/v2/credits/plan round-trip on mount, each ~900-1100 ms.
+   * Plan tier changes via Stripe webhook on subscription change; a
+   * 60s TTL with in-flight sharing is the right shape. Consumers
+   * that need fresh data (after upgrade flows) call
+   * `refreshCredits()` which falls through the dedup via {force:true}.
+   */
+  private getUserPlanInflight: Promise<UserPlanResponse> | null = null
+  private getUserPlanCache: { value: UserPlanResponse; expiresAt: number } | null = null
 
   constructor() {
     // Initialize all API services
@@ -201,29 +243,28 @@ class BackendAPI {
     return this.creditAPI.getCreditStatus()
   }
 
-  async getUserPlan(): Promise<{
-    id: string
-    user_id: string
-    plan_type: string
-    credits_per_period: number
-    credits_used: number
-    credits_remaining: number
-    created_at: string
-    allowed_methods?: string[] | null
-    yearly_discount_percent?: number
-    plan_features?: {
-      ebitda_normalization: boolean
-      tax_latencies: boolean
-      version_control: boolean
-      audit_trail: boolean
-      integrations_enabled: boolean
-      valuation_synthesis: boolean
-      valuation_download?: boolean
-      live_benelux_sector_multiples?: boolean
-      team_seat_addons?: boolean
+  async getUserPlan(options: { forceRefresh?: boolean } = {}): Promise<UserPlanResponse> {
+    const now = Date.now()
+    if (
+      !options.forceRefresh &&
+      this.getUserPlanCache &&
+      this.getUserPlanCache.expiresAt > now
+    ) {
+      return this.getUserPlanCache.value
     }
-  }> {
-    return this.creditAPI.getUserPlan()
+    if (this.getUserPlanInflight) {
+      return this.getUserPlanInflight
+    }
+    this.getUserPlanInflight = (async () => {
+      try {
+        const value = (await this.creditAPI.getUserPlan()) as UserPlanResponse
+        this.getUserPlanCache = { value, expiresAt: Date.now() + 60_000 }
+        return value
+      } finally {
+        this.getUserPlanInflight = null
+      }
+    })()
+    return this.getUserPlanInflight
   }
 
   async saveValuation(
