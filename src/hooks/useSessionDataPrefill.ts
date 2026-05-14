@@ -15,7 +15,11 @@
 
 import { useEffect, useRef } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
-import { looksLikeNaceCode, naceBusinessTypeService } from '../services/naceBusinessTypeService'
+import {
+  isLegalFormBusinessTypeValue,
+  looksLikeNaceCode,
+  naceBusinessTypeService,
+} from '../services/naceBusinessTypeService'
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
@@ -273,7 +277,7 @@ export function useSessionDataPrefill() {
               }
             )
           }
-        } else {
+        } else if (!isLegalFormBusinessTypeValue(rawBusinessType)) {
           updates.business_type_id = rawBusinessType
         }
       }

@@ -13,6 +13,25 @@ export function looksLikeNaceCode(value: string): boolean {
   return /^(?:\d{4,6}|\d{2}\.\d{2,3})$/.test(String(value || '').trim())
 }
 
+const LEGAL_FORM_BUSINESS_TYPE_VALUES = new Set([
+  'company',
+  'corporation',
+  'limitedcompany',
+  'limitedliabilitycompany',
+  'partnership',
+  'soleproprietorship',
+  'bv',
+  'nv',
+  'bvba',
+])
+
+/** True when a value is a legal structure, not a canonical sector/business type id. */
+export function isLegalFormBusinessTypeValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  const compact = value.trim().toLowerCase().replace(/[\s.\-_'()/]/g, '')
+  return LEGAL_FORM_BUSINESS_TYPE_VALUES.has(compact)
+}
+
 import { Building2 } from 'lucide-react'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes

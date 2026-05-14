@@ -121,7 +121,10 @@ import {
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { backendAPI } from '../../../services/backendApi'
-import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
+import {
+  isLegalFormBusinessTypeValue,
+  looksLikeNaceCode,
+} from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import {
@@ -2057,7 +2060,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const sessionIndustry = merged.industry as string
     // Skip NACE-shaped values: session may have "56.101" in business_type_id; let bootstrap/NACE lookup handle it
     const shouldUseSessionBusinessType =
-      sessionBusinessType && !looksLikeNaceCode(sessionBusinessType)
+      sessionBusinessType &&
+      !looksLikeNaceCode(sessionBusinessType) &&
+      !isLegalFormBusinessTypeValue(sessionBusinessType)
 
     // Sync to form store: only fill missing fields to avoid overwriting user input or bootstrap data
     const formUpdates: Record<string, unknown> = {}

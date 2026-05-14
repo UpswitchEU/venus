@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { looksLikeNaceCode } from './naceBusinessTypeService'
+import { isLegalFormBusinessTypeValue, looksLikeNaceCode } from './naceBusinessTypeService'
 
 describe('looksLikeNaceCode', () => {
   it('accepts dotted NACE codes', () => {
@@ -15,5 +15,18 @@ describe('looksLikeNaceCode', () => {
   it('rejects non-NACE values', () => {
     expect(looksLikeNaceCode('mix-media')).toBe(false)
     expect(looksLikeNaceCode('abc123')).toBe(false)
+  })
+})
+
+describe('isLegalFormBusinessTypeValue', () => {
+  it('detects legal structure values that must not become business_type_id', () => {
+    expect(isLegalFormBusinessTypeValue('company')).toBe(true)
+    expect(isLegalFormBusinessTypeValue('BV')).toBe(true)
+    expect(isLegalFormBusinessTypeValue('limited liability company')).toBe(true)
+  })
+
+  it('does not flag sector ids', () => {
+    expect(isLegalFormBusinessTypeValue('restaurant')).toBe(false)
+    expect(isLegalFormBusinessTypeValue('consulting-it')).toBe(false)
   })
 })

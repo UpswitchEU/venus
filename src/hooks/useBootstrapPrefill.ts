@@ -33,6 +33,7 @@ import {
 } from '../utils/fiscalYear'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
+import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
 import {
@@ -793,7 +794,12 @@ function applyPrefillToForm(
       (mergedSession.business_type_id as string | undefined) ??
       (mergedSession.businessTypeId as string | undefined) ??
       (mergedSession.business_type as string | undefined)
-    if (!allData.business_type_id && typeof businessTypeId === 'string' && businessTypeId.trim()) {
+    if (
+      !allData.business_type_id &&
+      typeof businessTypeId === 'string' &&
+      businessTypeId.trim() &&
+      !isLegalFormBusinessTypeValue(businessTypeId)
+    ) {
       allData.business_type_id = businessTypeId
     }
 

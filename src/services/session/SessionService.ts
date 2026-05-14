@@ -48,6 +48,7 @@ import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionRep
 import { validateSessionData } from '../../utils/sessionValidation'
 import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
 import { backendAPI } from '../backendApi'
+import { isLegalFormBusinessTypeValue } from '../naceBusinessTypeService'
 
 const logger = createContextLogger('SessionService')
 
@@ -318,12 +319,14 @@ async function fetchBusinessCardData(clientUserId: string): Promise<Record<strin
 
     // Map business card fields to session format
     if (businessCard.company_name) data.company_name = businessCard.company_name
-    if (businessCard.business_type) {
-      data.business_type_id = businessCard.business_type
-      data.business_type = businessCard.business_type
-    }
     if (businessCard.business_type_id && !data.business_type_id) {
       data.business_type_id = businessCard.business_type_id
+    }
+    if (businessCard.business_type) {
+      data.business_type = businessCard.business_type
+      if (!data.business_type_id && !isLegalFormBusinessTypeValue(businessCard.business_type)) {
+        data.business_type_id = businessCard.business_type
+      }
     }
     if (businessCard.industry) data.industry = businessCard.industry
     if (businessCard.location || businessCard.city) {
