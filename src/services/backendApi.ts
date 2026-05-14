@@ -87,17 +87,20 @@ class BackendAPI {
   private utilityAPI: UtilityAPI
 
   /**
-   * Dedup + short-TTL cache for getUserPlan. Without this, every Venus
-   * hook that needs plan-tier gating (useCredits — at minimum the
-   * Bootstrap, ManualLayout, ReportPanel branches) does its own
-   * /api/v2/credits/plan round-trip on mount, each ~900-1100 ms.
-   * Plan tier changes via Stripe webhook on subscription change; a
-   * 60s TTL with in-flight sharing is the right shape. Consumers
-   * that need fresh data (after upgrade flows) call
-   * `refreshCredits()` which falls through the dedup via {force:true}.
+   * In-flight dedup for getUserPlan. Without this, multiple Venus
+   * consumers that need plan-tier gating (useCredits across Bootstrap,
+   * ManualLayout, ReportPanel) fire concurrent /api/v2/credits/plan
+   * round-trips on mount (~900-1100 ms each). Sharing one in-flight
+   * Promise collapses the burst to a single network call.
+   *
+   * No time-based TTL cache: Mercury fires `upswitch-plan-refresh`
+   * postMessage on Stripe webhook / plan flip, and Venus's
+   * useCredits handler calls loadCredits() in response. A TTL would
+   * silently serve the old plan to that refresh, defeating the
+   * cross-app refresh signal. In-flight-only dedup gives the
+   * burst-collapse benefit without the staleness regression.
    */
   private getUserPlanInflight: Promise<UserPlanResponse> | null = null
-  private getUserPlanCache: { value: UserPlanResponse; expiresAt: number } | null = null
 
   constructor() {
     // Initialize all API services
@@ -243,23 +246,13 @@ class BackendAPI {
     return this.creditAPI.getCreditStatus()
   }
 
-  async getUserPlan(options: { forceRefresh?: boolean } = {}): Promise<UserPlanResponse> {
-    const now = Date.now()
-    if (
-      !options.forceRefresh &&
-      this.getUserPlanCache &&
-      this.getUserPlanCache.expiresAt > now
-    ) {
-      return this.getUserPlanCache.value
-    }
+  async getUserPlan(): Promise<UserPlanResponse> {
     if (this.getUserPlanInflight) {
       return this.getUserPlanInflight
     }
     this.getUserPlanInflight = (async () => {
       try {
-        const value = (await this.creditAPI.getUserPlan()) as UserPlanResponse
-        this.getUserPlanCache = { value, expiresAt: Date.now() + 60_000 }
-        return value
+        return (await this.creditAPI.getUserPlan()) as UserPlanResponse
       } finally {
         this.getUserPlanInflight = null
       }

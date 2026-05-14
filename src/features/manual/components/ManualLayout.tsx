@@ -2552,6 +2552,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return
     }
     setPdfWaitTimedOut(false)
+    // Reset the unchanged-response streak whenever a new stale cycle begins
+    // (a fresh edit bumps `reportUpdatedAt`, this effect re-runs). Without
+    // this reset, a streak that accumulated against a prior edit's failed
+    // job would carry into the new cycle and prematurely surface "stalled".
+    pdfStaleUnchangedStreakRef.current = 0
     const tid = setTimeout(() => setPdfWaitTimedOut(true), 60_000)
     return () => clearTimeout(tid)
   }, [pdfStale, report?.reportUpdatedAt, report?.pdfGeneratedAt])
@@ -2622,7 +2627,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           fresh.pdf_generated_at == null || String(fresh.pdf_generated_at) === ''
         if (stillNoPdf) {
           const streak = ++pdfStaleUnchangedStreakRef.current
-          if (streak >= 8) {
+          // 12 polls × 2.5s interval = 30s of unchanged responses before
+          // we surface the retry banner. Picked conservatively above the
+          // typical PDF generation budget (engine /pdf takes 1-2s; Bull
+          // worker round-trip + Prisma update brings end-to-end to ~5-10s
+          // under normal load). 30s of "still null" almost certainly means
+          // the worker is stuck, the job threw `pdf_blocked_*`, or the
+          // re-render returned safety-net HTML that the gate rejected.
+          // Lower thresholds (we tried 8) false-positive on slow-but-OK
+          // PDFs and frustrate the user with a retry button they didn't
+          // need.
+          if (streak >= 12) {
             setPdfWaitTimedOut(true)
           }
         } else {
