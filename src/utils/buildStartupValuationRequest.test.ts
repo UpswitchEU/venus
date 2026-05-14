@@ -141,6 +141,18 @@ describe('buildStartupValuationRequest', () => {
     expect(req.business_type).toBe('private_company')
   })
 
+  it('does not send legal forms as business_type_id', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Acme',
+      businessTypeId: 'company',
+      businessType: 'company',
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.business_type_id).toBeUndefined()
+    expect(req.business_type).toBe('company')
+  })
+
   it('omits locale when not provided', () => {
     const req = buildStartupValuationRequest({
       companyName: 'Acme',
@@ -170,8 +182,7 @@ describe('buildStartupValuationRequest', () => {
       locale: 'en',
     })
 
-    const url = (req.metadata as Record<string, string> | undefined)
-      ?.startup_advisor_cta_url
+    const url = (req.metadata as Record<string, string> | undefined)?.startup_advisor_cta_url
     expect(url).toBeTruthy()
     expect(url).toContain('/en/client/dashboard')
     expect(url).toContain('source=startup_report')
@@ -184,8 +195,7 @@ describe('buildStartupValuationRequest', () => {
       startupInputs: baseStartupInputs,
     })
 
-    const url = (req.metadata as Record<string, string> | undefined)
-      ?.startup_advisor_cta_url
+    const url = (req.metadata as Record<string, string> | undefined)?.startup_advisor_cta_url
     expect(url).toContain('/nl/client/dashboard')
   })
 })

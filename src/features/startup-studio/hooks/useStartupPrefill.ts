@@ -45,6 +45,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { isLegalFormBusinessTypeValue } from '@/services/naceBusinessTypeService'
 import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFromNace'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
@@ -107,8 +108,7 @@ export function useStartupPrefill(): void {
     // re-deriving "is this still my pre-fill?" by value comparison.
     const touched: string[] = []
 
-    const incomingName =
-      (kbo?.companyName?.trim() || company?.companyName?.trim() || '') as string
+    const incomingName = (kbo?.companyName?.trim() || company?.companyName?.trim() || '') as string
     if (incomingName && !(currentForm.company_name as string | undefined)?.trim()) {
       formPatch.company_name = incomingName.slice(0, 120)
       touched.push('company_name')
@@ -154,13 +154,25 @@ export function useStartupPrefill(): void {
     }
 
     // Business type — Titan-resolved id from the registry enrichment.
-    const incomingBtId = pf.businessType?.id || kbo?.businessTypeId
-    if (incomingBtId && !currentForm.business_type_id) {
+    // Legal forms like "company" can arrive from the business card/profile
+    // surface; they are not enrichment ids and must not block the KBO/NACE id.
+    const incomingBtIdCandidate =
+      pf.businessType?.id || kbo?.businessTypeId || company?.businessTypeId
+    const incomingBtId =
+      incomingBtIdCandidate && !isLegalFormBusinessTypeValue(incomingBtIdCandidate)
+        ? incomingBtIdCandidate
+        : undefined
+    const currentBusinessTypeId =
+      typeof currentForm.business_type_id === 'string' ? currentForm.business_type_id : ''
+    const shouldApplyBusinessType =
+      !!incomingBtId &&
+      (!currentBusinessTypeId.trim() || isLegalFormBusinessTypeValue(currentBusinessTypeId))
+    if (shouldApplyBusinessType) {
       formPatch.business_type_id = incomingBtId
       touched.push('business_type_id')
-      const incomingCategory = pf.businessType?.category
-      if (incomingCategory && !currentForm.industry) {
-        formPatch.industry = incomingCategory
+      const incomingIndustry = pf.businessType?.industry || pf.businessType?.category
+      if (incomingIndustry && (!currentForm.industry || currentForm.industry === 'services')) {
+        formPatch.industry = incomingIndustry
       }
     }
 

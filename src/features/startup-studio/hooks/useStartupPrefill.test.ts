@@ -4,13 +4,36 @@
  * defensive parsing primitives so a regression in one of them can't
  * silently let bad URL/KBO data into the store.
  */
-import { describe, expect, it } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { useStartupPrefill } from './useStartupPrefill'
 import {
   parseFoundingYear,
   parseRoundSize,
   ROUND_SIZE_MAX,
   ROUND_SIZE_MIN,
 } from './useStartupPrefill.helpers'
+import { resetStartupPrefilledKeys } from './useStartupPrefilledKeys'
+
+vi.mock('@/lib/bootstrap/BootstrapProvider', () => ({
+  useBootstrapSafe: vi.fn(),
+}))
+
+const mockUseBootstrapSafe = vi.mocked(useBootstrapSafe)
+type BootstrapSafeValue = Exclude<ReturnType<typeof useBootstrapSafe>, null | undefined>
+type ManualFormPatch = Parameters<
+  ReturnType<typeof useManualFormStore.getState>['updateFormData']
+>[0]
+
+beforeEach(() => {
+  useManualFormStore.getState().resetForm()
+  useStartupValuationStore.getState().reset()
+  resetStartupPrefilledKeys()
+  mockUseBootstrapSafe.mockReset()
+})
 
 describe('parseFoundingYear', () => {
   it('extracts the year from an ISO yyyy-mm-dd', () => {
@@ -69,5 +92,43 @@ describe('parseRoundSize', () => {
   it('accepts the exact min and max bounds', () => {
     expect(parseRoundSize(String(ROUND_SIZE_MIN))).toBe(ROUND_SIZE_MIN)
     expect(parseRoundSize(String(ROUND_SIZE_MAX))).toBe(ROUND_SIZE_MAX)
+  })
+})
+
+describe('useStartupPrefill', () => {
+  it('replaces a legal-form business_type_id with the registry-enriched business type', async () => {
+    useManualFormStore.getState().updateFormData({
+      business_type_id: 'company',
+      business_type: 'company',
+    } as unknown as ManualFormPatch)
+
+    mockUseBootstrapSafe.mockReturnValue({
+      prefillData: {
+        companyInfo: {
+          companyName: 'Upswitch BV',
+          countryCode: 'BE',
+          businessTypeId: 'fintech_lending_credit',
+        },
+        kboData: {
+          kboNumber: '1012345678',
+          businessTypeId: 'fintech_lending_credit',
+          naceCode: '63.9',
+        },
+        businessType: {
+          id: 'fintech_lending_credit',
+          title: 'Fintech — Lending & Credit',
+          industry: 'financial_services',
+          category: 'fintech',
+        },
+      },
+    } as unknown as BootstrapSafeValue)
+
+    renderHook(() => useStartupPrefill())
+
+    await waitFor(() => {
+      expect(useManualFormStore.getState().formData.business_type_id).toBe('fintech_lending_credit')
+    })
+    expect(useManualFormStore.getState().formData.industry).toBe('financial_services')
+    expect(useManualFormStore.getState().formData.business_type).toBe('company')
   })
 })
