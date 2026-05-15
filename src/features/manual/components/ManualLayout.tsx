@@ -25,7 +25,6 @@
  * here — see the roadmap comment on ImportReviewContent (Mercury).
  */
 
-import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -52,7 +51,6 @@ import {
   type FieldContext,
   type FieldHelpContext,
   FullscreenReportModal,
-  HistoryPanel,
   isImportedLedgerNormalizationItem,
   ManualInputPanel,
   type NormalizationItem,
@@ -66,14 +64,11 @@ import { StartupAwareInputPanel } from '../../../components/calculator/sections/
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
-import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
-import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import {
   filterPreSelectableMethodsForOwnerFounder,
   showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
 import { AuroraButton } from '../../../design-system/components/Button'
-import { springDefault } from '../../../design-system/components/motion'
 // Design System
 import {
   ResizableHandle,
@@ -121,7 +116,6 @@ import type { YearDataInput } from '../../../types/valuation'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
 import { getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
-import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
@@ -207,7 +201,8 @@ import {
   ManualStarterPaywallModal,
   type ManualStarterPaywallReason,
 } from './ManualStarterPaywallModal'
-import { PanelSkeleton, useManualLayoutIsMobile } from './manualLayoutShell'
+import { ManualReportWorkspace } from './ManualReportWorkspace'
+import { useManualLayoutIsMobile } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
 // `selectCapTableSimulatorResult` import removed alongside the React slider
 // mount — the canonical Jinja report is now the single source of truth.
@@ -349,7 +344,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setNormalizationToastMessages((key) => t(key))
     return () => setNormalizationToastMessages(null)
   }, [t])
-  const reportPanelRef = useRef<HTMLDivElement>(null)
   // PDF-staleness lifecycle (4 refs + 3 useState + 3 effects + retry callback)
   // is owned by `usePdfStalenessLifecycle`, instantiated below once
   // `report` / `usePdfGeneration` outputs are available.
@@ -2310,187 +2304,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             {/* Right Panel: Report / Preview / History */}
             {/* Design system: bg-background for theme consistency. Report HTML has its own light styling. */}
             <ResizablePanel defaultSize={65} minSize={40}>
-              <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    {rightPanelView === 'preview' ? (
-                      <motion.div
-                        key="preview"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={springDefault}
-                        className="valuation-report-container h-full overflow-y-auto bg-background"
-                      >
-                        {report?.htmlReport ? (
-                          <div className="relative">
-                            {isMethodSwitchRendering && (
-                              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
-                                <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
-                                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                  <span className="text-sm text-foreground/70">
-                                    {t('updatingReport')}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                            {liveMultipleReportPreview && (
-                              <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
-                                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                      {t('previewEquityValue')}
-                                    </p>
-                                    <p className="text-sm text-foreground/70">
-                                      {t('previewEquityBlurb')}
-                                    </p>
-                                  </div>
-                                  <div className="text-left md:text-right">
-                                    <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                                      €
-                                      {(
-                                        liveMultipleReportPreview.previewEquity / 1_000_000
-                                      ).toFixed(2)}
-                                      M
-                                    </p>
-                                    <p className="text-[11px] font-mono tabular-nums text-foreground/55">
-                                      {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
-                                      {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(
-                                        0
-                                      )}
-                                      K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            {/* Cap-table simulator was previously rendered here as a
-                              React slider above the HTML report. The same data is now
-                              the single source of truth in the canonical Jinja report
-                              (`startup_one_pager.html` + `startup_cap_table.html`), so
-                              the duplicate mount has been removed to give founders a
-                              clean, single-source result surface. */}
-                            <div className="valuation-report">
-                              <div
-                                dangerouslySetInnerHTML={{
-                                  __html: HTMLProcessor.sanitize(report.htmlReport),
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : isGenerating || isCalculating ? (
-                          <div className="h-full flex flex-col bg-background">
-                            <div className="flex items-center justify-center gap-2 py-4">
-                              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                              <span className="text-sm text-foreground/70">
-                                {tReport('generating.title')}
-                              </span>
-                            </div>
-                            <ReportSkeleton />
-                          </div>
-                        ) : (
-                          <ReportPlaceholder />
-                        )}
-                      </motion.div>
-                    ) : rightPanelView === 'history' ? (
-                      <motion.div
-                        key="history"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={springDefault}
-                        className="h-full bg-background"
-                      >
-                        <Suspense fallback={<PanelSkeleton />}>
-                          <HistoryPanel
-                            report={report}
-                            reportId={reportId}
-                            onVersionRestore={handleVersionRestore}
-                          />
-                        </Suspense>
-                      </motion.div>
-                    ) : report?.htmlReport ? (
-                      <motion.div
-                        key="html-report"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={springDefault}
-                        className="valuation-report-container h-full overflow-y-auto bg-background relative"
-                      >
-                        {isMethodSwitchRendering && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
-                            <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
-                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                              <span className="text-sm text-foreground/70">
-                                {t('updatingReport')}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {liveMultipleReportPreview && (
-                          <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
-                            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                  {t('previewEquityValue')}
-                                </p>
-                                <p className="text-sm text-foreground/70">
-                                  {t('previewEquityBlurb')}
-                                </p>
-                              </div>
-                              <div className="text-left md:text-right">
-                                <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                                  €
-                                  {(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}
-                                  M
-                                </p>
-                                <p className="text-[11px] font-mono tabular-nums text-foreground/55">
-                                  {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
-                                  {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K
-                                  · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {/* Cap-table simulator deliberately omitted — the canonical
-                          Jinja report (`startup_one_pager.html` + `startup_cap_table.html`)
-                          is the single source of truth for the simulator card. */}
-                        <div className="valuation-report">
-                          <div
-                            dangerouslySetInnerHTML={{
-                              __html: HTMLProcessor.sanitize(report.htmlReport),
-                            }}
-                          />
-                        </div>
-                      </motion.div>
-                    ) : isGenerating || isCalculating ? (
-                      <motion.div
-                        key="report"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={springDefault}
-                        className="h-full bg-background"
-                      >
-                        <ReportSkeleton />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="placeholder"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={springDefault}
-                        className="h-full bg-background"
-                      >
-                        <ReportPlaceholder />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
+              <ManualReportWorkspace
+                isCalculating={isCalculating}
+                isGenerating={isGenerating}
+                isMethodSwitchRendering={isMethodSwitchRendering}
+                liveMultipleReportPreview={liveMultipleReportPreview}
+                onVersionRestore={handleVersionRestore}
+                report={report}
+                reportId={reportId}
+                rightPanelView={rightPanelView}
+                translate={t}
+                translateReport={tReport}
+              />
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>

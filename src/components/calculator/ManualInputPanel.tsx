@@ -13,41 +13,17 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, AlertTriangle, Building2, HelpCircle, Lock, Plus, X } from 'lucide-react'
+import { AlertCircle, Building2, Lock, Plus, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
-import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
-import { OctopusImportModal } from '@/components/integrations/OctopusImportModal'
+import type { ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
-import {
-  type BusinessType,
-  BusinessTypeSearchInput,
-  categoryIcons,
-  type KBOCompany,
-  KBOSearchInput,
-} from '@/design-system'
+import { type BusinessType, categoryIcons, type KBOCompany } from '@/design-system'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
-import {
-  Modal,
-  ModalContent,
-  ModalDescription,
-  ModalFooter,
-  ModalHeader,
-  ModalTitle,
-} from '@/design-system/components/Modal'
-import { AuroraSelect } from '@/design-system/components/Select'
-import {
-  TooltipContent,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-} from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
-import { TARGET_COUNTRIES } from '../../config/countries'
 
 import {
   type GetBonusSectionsSaasSignals,
@@ -65,14 +41,11 @@ import { useCanSave } from '../../hooks/useCanSave'
 import { useSyncOfficialVarianceFromForm } from '../../hooks/useSyncOfficialVarianceFromForm'
 import { methodKeyRequiresForecastYears, selectionRequiresForecastYears } from '../../lib/methods'
 import { dcfSmartDefaultsFromForm, useDcfForecastSync } from '../../lib/methods/dcf'
-import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
-import { useSessionStore } from '../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
   ManualValuationFormData,
@@ -80,7 +53,6 @@ import type {
   OfficialVarianceAnalysis,
   OfficialVerificationBadge,
   ValuationMethodResult,
-  YearDataInput,
   YearlyFinancials,
 } from '../../types/valuation'
 import {
@@ -103,13 +75,11 @@ import {
 } from '../../utils/forecastYears'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
   countNormalizationsBoundToFiscalYear,
   removeNormalizationsForRemovedFiscalYear,
 } from '../../utils/normalizationMath'
 import { hasUsableOfficialFinancialsContent } from '../../utils/officialFinancialsContent'
-import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
 import {
   getAnnualFictiveRentDeductionForDisplay,
   realEstateCarveOutAppliesTo,
@@ -118,18 +88,20 @@ import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import {} from '../../utils/shareholding'
 import { buildCurrentYearData } from '../../utils/yearData'
 import {
-  getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
   hasExplicitNumericValue as hasExplicitFinancialValue,
   historicalYearRowNeedsRemovalWarning,
   isCompleteYearlyFinancial,
   yearlyFinancialRowHasNonPlaceholderData,
-  yearlyFinancialsContainsNonPlaceholderData,
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
+import { type FieldHelpContext, FieldHelpTrigger } from './FieldHelpTrigger'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import { useManualAccountingImportController } from './hooks/useManualAccountingImportController'
+import { useManualInputFormDataSync } from './hooks/useManualInputFormDataSync'
+import { useManualInputPrefillSync } from './hooks/useManualInputPrefillSync'
 import { useManualNaceBusinessTypePrefill } from './hooks/useManualNaceBusinessTypePrefill'
+import { ManualInputPanelModals } from './ManualInputPanelModals'
 import {
   // BelgianSmeAuditPanel — moved to the ValuationIQ report (advisory output)
   DcfForecastWorkspace,
@@ -139,6 +111,18 @@ import {
   SynthesisWeightingSection,
 } from './sections'
 import { AdaptiveSections } from './sections/AdaptiveSections'
+import { CompanyIdentificationSection } from './sections/CompanyIdentificationSection'
+import { NbbResetHint } from './sections/NbbResetHint'
+import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
+import {
+  generateDefaultYearlyFinancials,
+  getSeedBaseFilingYear,
+  getSeedCurrentYearData,
+  getSeedYearlyFinancials,
+  hasMeaningfulYearlyFinancials,
+  isSessionSeedYearStale,
+} from './utils/manualFinancialSeeds'
+import { buildManualInputFieldValidation } from './utils/manualInputFieldValidation'
 
 const DcfGlobalAssumptions = lazy(() =>
   import('./sections/DcfGlobalAssumptions').then((m) => ({
@@ -178,51 +162,17 @@ import {
 } from './sections/dcfProjectionPreview'
 import { deriveDcfSmartDefaults, deriveWaccSectorBand } from './sections/dcfSmartDefaults'
 
-function NbbResetHint({
-  fiscalYear,
-  currentRevenue,
-  currentEbitda,
-  onReset,
-}: {
-  fiscalYear: string
-  currentRevenue: number
-  currentEbitda: number
-  onReset: (field: 'revenue' | 'ebitda', value: number) => void
-}) {
-  const t = useTranslations('manualInput')
-  const snap = useNbbPrefillStore((s) => s.getYearSnapshot(fiscalYear))
-  if (!snap) return null
-
-  const safeRev = Number.isFinite(currentRevenue) ? currentRevenue : null
-  const safeEbitda = Number.isFinite(currentEbitda) ? currentEbitda : null
-  const revDiffers =
-    snap.revenue != null && (safeRev == null || Math.abs(safeRev - snap.revenue) > 0.01)
-  const ebitdaDiffers =
-    snap.ebitda != null && (safeEbitda == null || Math.abs(safeEbitda - snap.ebitda) > 0.01)
-
-  if (!revDiffers && !ebitdaDiffers) return null
-
-  return (
-    <div className="mt-1.5 flex items-center gap-2 text-[10px] text-blue-500">
-      <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-      <button
-        type="button"
-        onClick={() => {
-          if (revDiffers && snap.revenue != null) onReset('revenue', snap.revenue)
-          if (ebitdaDiffers && snap.ebitda != null) onReset('ebitda', snap.ebitda)
-        }}
-        className="underline underline-offset-2 hover:text-blue-600 transition-colors"
-      >
-        {t('resetToNbb')}
-      </button>
-    </div>
-  )
-}
-
 // Types — `ManualValuationFormData` = `Partial<` canonical `ValuationFormData` + `ManualValuationFormUiBase` (`src/types/valuation.ts`)
 export type { ManualValuationFormData, YearlyFinancials }
 /** Back-compat name used throughout this file and `calculator` exports. */
 export type ValuationFormData = ManualValuationFormData
+export { venusLiveBatchImportProvider } from './hooks/useManualAccountingImportController'
+export {
+  getSeedBaseFilingYear,
+  getSeedYearlyFinancials,
+  isSessionSeedYearStale,
+  shouldAutoConfirmPrefilledFilingYear,
+} from './utils/manualFinancialSeeds'
 
 export interface ImportedLedgerAnalysisSummary {
   latest_fiscal_year?: number
@@ -282,17 +232,6 @@ export function getSelectedBelgianAuditEntries({
   return out
 }
 
-// Field help context for AI assistant integration
-export interface FieldHelpContext {
-  field: string
-  label: string
-  value?: number | string
-  grootboekCode?: string
-  category?: string
-  hint?: string
-  normalizationType?: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'other'
-}
-
 interface ManualInputPanelProps {
   onSubmit: (data: ValuationFormData) => void
   onCSVImportComplete?: (
@@ -325,307 +264,6 @@ interface ManualInputPanelProps {
   synthesisValuationResults?: Record<string, ValuationMethodResult> | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
-}
-
-// Options
-const businessStructures = [
-  { value: 'bv', label: 'BV' },
-  { value: 'nv', label: 'NV' },
-  { value: 'eenmanszaak', label: 'Eenmanszaak' },
-  { value: 'vof', label: 'VOF' },
-  { value: 'cvba', label: 'CVBA' },
-  { value: 'vzw', label: 'VZW' },
-]
-
-// Inline FieldHelpTrigger component for contextual AI assistance
-function FieldHelpTrigger({
-  context,
-  onTrigger,
-  className,
-}: {
-  context: FieldHelpContext
-  onTrigger?: (context: FieldHelpContext) => void
-  className?: string
-}) {
-  const mi = useTranslations('manualInput')
-  if (!onTrigger) return null
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onTrigger(context)
-  }
-
-  return (
-    <TooltipProvider delayDuration={300}>
-      <TooltipRoot>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={handleClick}
-            className={cn(
-              'inline-flex items-center justify-center rounded-md transition-all',
-              'text-foreground/30 hover:text-primary hover:bg-primary/10',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20',
-              'w-5 h-5',
-              className
-            )}
-            aria-label={mi('askAi', { label: context.label })}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[200px] text-xs">
-          <p>{mi('askAiAbout', { label: context.label.toLowerCase() })}</p>
-          {context.grootboekCode && (
-            <p className="text-foreground/50 mt-0.5 font-mono text-[10px]">
-              {mi('ledger')}: {context.grootboekCode}
-            </p>
-          )}
-        </TooltipContent>
-      </TooltipRoot>
-    </TooltipProvider>
-  )
-}
-
-const generateDefaultYearlyFinancials = (
-  baseFilingYear: number = getCurrentFilingYear()
-): YearlyFinancials[] =>
-  getHistoricalYearRange(baseFilingYear, 3).map((year) => ({
-    year: String(year),
-    revenue: 0,
-    ebitda: 0,
-  }))
-
-const hasMeaningfulYearlyFinancials = (yearlyFinancials?: YearlyFinancials[]): boolean =>
-  yearlyFinancialsContainsNonPlaceholderData(yearlyFinancials)
-
-/** True when stored session fields contain any non-placeholder revenue/EBITDA (or FCFF). */
-const sessionHasNonPlaceholderFinancials = (d: Partial<ValuationFormData>): boolean => {
-  if (hasMeaningfulYearlyFinancials(d.yearlyFinancials)) {
-    return true
-  }
-  const cyd = d.current_year_data
-  if (cyd && cyd.year != null) {
-    if (
-      yearlyFinancialRowHasNonPlaceholderData({
-        year: cyd.year,
-        revenue: cyd.revenue,
-        ebitda: cyd.ebitda,
-        free_cash_flow: cyd.free_cash_flow,
-      })
-    ) {
-      return true
-    }
-  }
-  const h = d.historical_years_data
-  if (Array.isArray(h)) {
-    for (const row of h) {
-      if (
-        row &&
-        yearlyFinancialRowHasNonPlaceholderData({
-          year: row.year,
-          revenue: row.revenue,
-          ebitda: row.ebitda,
-          free_cash_flow: row.free_cash_flow,
-        })
-      ) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
-export const getSeedBaseFilingYear = (
-  initialData: Partial<ValuationFormData>,
-  now: Date = new Date()
-): number => {
-  const filingYear = getCurrentFilingYear(now)
-  const maxSelectableYear = Math.min(Math.max(now.getFullYear() - 1, 2000), 2100)
-  if (
-    !sessionHasNonPlaceholderFinancials(initialData) &&
-    !isFilingYearConfirmedValue(initialData.filingYearConfirmed)
-  ) {
-    return filingYear
-  }
-  const explicitYear = Number(initialData.current_year_data?.year)
-  if (!Number.isFinite(explicitYear) || explicitYear < 2000) {
-    return filingYear
-  }
-
-  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed)
-    ? maxSelectableYear
-    : filingYear
-  return Math.min(explicitYear, maxSeedYear)
-}
-
-/**
- * A session is "stale-seeded" when it carries a confirmed `current_year_data.year`
- * older than the live filing year *and no real numbers have been entered yet*.
- * This happens to sessions started in Jan–Mar (when {@link getCurrentFilingYear}
- * returns `year − 2`) that were never edited before the April rollover: their
- * persisted year sticks at e.g. 2024 even though by May it should be 2025.
- *
- * On detection, the seed wrappers regenerate `yearlyFinancials`, bump
- * `current_year_data.year`, and clear `filingYearConfirmed` so the
- * {@link FilingYearPrompt} re-appears and the user can re-confirm (or pick
- * "Other" to keep the older year deliberately).
- */
-export const isSessionSeedYearStale = (
-  initialData: Partial<ValuationFormData>,
-  now: Date = new Date()
-): boolean => {
-  if (sessionHasNonPlaceholderFinancials(initialData)) return false
-  const explicitYear = Number(initialData.current_year_data?.year)
-  if (!Number.isFinite(explicitYear) || explicitYear < 2000) return false
-  return explicitYear < getCurrentFilingYear(now)
-}
-
-/**
- * Merge `current_year_data` and `historical_years_data` (the bootstrap-prefill /
- * Mercury-sync surface) into a `yearlyFinancials` array (what the panel and the
- * normalization modal's Origineel/Genormaliseerd tiles read from). Defense-in-depth
- * for prefill paths that don't already write `yearlyFinancials` directly.
- */
-const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
-  baseRows: YearlyFinancials[],
-  d: Partial<ValuationFormData>,
-  maxYear: number
-): YearlyFinancials[] => {
-  const out = [...baseRows]
-  const passthroughKeys = [
-    'capex',
-    'depreciation',
-    'tax_expense',
-    'cash',
-    'total_debt',
-    'current_assets',
-    'current_liabilities',
-    'accounts_receivable',
-    'accounts_payable',
-    'inventory',
-    'short_term_debt',
-    'nwc_change',
-    'free_cash_flow',
-  ] as const
-  const upsert = (rawYear: unknown, src: Record<string, unknown>) => {
-    if (rawYear == null) return
-    const yearNum = Number(rawYear)
-    if (!Number.isFinite(yearNum) || yearNum < 2000 || yearNum > 2100 || yearNum > maxYear) return
-    const yearStr = String(yearNum)
-    const existing = out.find((r) => r.year === yearStr)
-    const baseRow: Record<string, unknown> = existing
-      ? { ...(existing as unknown as Record<string, unknown>) }
-      : { year: yearStr, revenue: 0, ebitda: 0 }
-    baseRow.year = yearStr
-    baseRow.revenue = Number.isFinite(Number(src.revenue))
-      ? Number(src.revenue)
-      : (existing?.revenue ?? 0)
-    baseRow.ebitda = Number.isFinite(Number(src.ebitda))
-      ? Number(src.ebitda)
-      : (existing?.ebitda ?? 0)
-    for (const key of passthroughKeys) {
-      const v = src[key]
-      if (v != null && Number.isFinite(Number(v))) {
-        baseRow[key] = Number(v)
-      }
-    }
-    const nextRow = baseRow as unknown as YearlyFinancials
-    if (existing) {
-      out[out.indexOf(existing)] = nextRow
-    } else {
-      out.push(nextRow)
-    }
-  }
-  if (d.current_year_data) {
-    upsert(d.current_year_data.year, d.current_year_data as unknown as Record<string, unknown>)
-  }
-  if (Array.isArray(d.historical_years_data)) {
-    for (const row of d.historical_years_data) {
-      if (row) upsert(row.year, row as unknown as Record<string, unknown>)
-    }
-  }
-  return out.sort((a, b) => Number(b.year) - Number(a.year))
-}
-
-export const getSeedYearlyFinancials = (
-  initialData: Partial<ValuationFormData>,
-  now: Date = new Date()
-): YearlyFinancials[] => {
-  // Stale Jan–Mar seed (confirmed older year, no real numbers yet) — regenerate
-  // from the live filing year so the panel's "Basis" matches the calendar.
-  if (isSessionSeedYearStale(initialData, now)) {
-    return generateDefaultYearlyFinancials(getCurrentFilingYear(now))
-  }
-
-  const initialYearlyFinancials = initialData.yearlyFinancials
-  const initialIsArray =
-    Array.isArray(initialYearlyFinancials) && initialYearlyFinancials.length > 0
-  const initialIsMeaningful =
-    initialIsArray && hasMeaningfulYearlyFinancials(initialYearlyFinancials)
-
-  // Already populated with real data — nothing to bridge.
-  if (initialIsMeaningful) return initialYearlyFinancials
-
-  // Placeholder array but bootstrap/sync wrote real cyd / historical figures —
-  // bridge them in so Origineel / Genormaliseerd tiles in the normalization modal
-  // reflect the imported numbers instead of the placeholder €0s.
-  if (sessionHasNonPlaceholderFinancials(initialData)) {
-    const baseYear = getSeedBaseFilingYear(initialData, now)
-    const baseRows = initialIsArray
-      ? initialYearlyFinancials
-      : generateDefaultYearlyFinancials(baseYear)
-    return bridgeNonPlaceholderFinancialsIntoYearlyArray(baseRows, initialData, baseYear)
-  }
-
-  // No data anywhere — treat placeholder rows as stale bootstrap defaults and
-  // re-seed from the filing-safe year.
-  return generateDefaultYearlyFinancials(getSeedBaseFilingYear(initialData, now))
-}
-
-const getSeedCurrentYearData = (
-  initialData: Partial<ValuationFormData>,
-  now: Date = new Date()
-): YearDataInput | undefined => {
-  if (!initialData.current_year_data) {
-    return undefined
-  }
-
-  // Stale Jan–Mar seed (see isSessionSeedYearStale) — bump to the live filing
-  // year so the "current year" base label matches the freshly regenerated
-  // yearlyFinancials rows.
-  if (isSessionSeedYearStale(initialData, now)) {
-    return {
-      ...initialData.current_year_data,
-      year: getCurrentFilingYear(now),
-    }
-  }
-
-  return {
-    ...initialData.current_year_data,
-    year: getSeedBaseFilingYear(initialData, now),
-  }
-}
-
-export const shouldAutoConfirmPrefilledFilingYear = (
-  initialData: Partial<ValuationFormData>,
-  currentFilingYear: number
-): boolean => {
-  // Stale Jan–Mar seed must NOT auto-confirm — the panel resets
-  // `filingYearConfirmed` to false on mount so the prompt re-appears, and this
-  // effect would otherwise immediately flip it back to true and re-hide it.
-  if (isSessionSeedYearStale(initialData)) return false
-
-  const explicitInitialYear = Number(initialData.current_year_data?.year)
-
-  return (
-    hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
-    isFilingYearConfirmedValue(initialData.filingYearConfirmed) ||
-    (Number.isFinite(explicitInitialYear) &&
-      explicitInitialYear >= 2000 &&
-      explicitInitialYear <= currentFilingYear)
-  )
 }
 
 const getLatestHistoricalYearlyFinancial = (
@@ -952,7 +590,7 @@ export function ManualInputPanel({
         applyPrefill(prev, updates, 'fteEmployees', prefill.fteEmployees)
         if (
           prefill.yearlyFinancials?.length &&
-          yearlyFinancialsContainsNonPlaceholderData(prefill.yearlyFinancials)
+          hasMeaningfulYearlyFinancials(prefill.yearlyFinancials)
         ) {
           const currentIsDefault = prev.yearlyFinancials.every(
             (yf) => yf.revenue === 0 && yf.ebitda === 0
@@ -1034,164 +672,12 @@ export function ManualInputPanel({
     return () => clearTimeout(timer)
   }, [autoAdvancePastPrefilledSteps, formData.companyName, formData.businessType])
 
-  // Sync form data to parent for AI context and normalization modal originalEBITDA
-  // Immediate sync on mount/deps change (avoids 300ms race when opening modal quickly)
-  // Debounced 300ms prevents spamming on rapid edits
-  const onFormDataChangeRef = useRef(onFormDataChange)
-  onFormDataChangeRef.current = onFormDataChange
-  const syncFormData = useCallback(() => {
-    if (!onFormDataChangeRef.current) return
-    const current = latestCompleteYearlyFinancial
-    // Registry + NACE/SBI: must flow to ManualLayout → Zustand on every change so session
-    // autosave and refresh never race ahead with stale kbo/nace (canonical vs display).
-    onFormDataChangeRef.current({
-      companyName: formData.companyName,
-      kboNumber: formData.kboNumber,
-      legalForm: formData.legalForm,
-      address: formData.address,
-      naceCode: formData.naceCode,
-      canonicalNaceCode: formData.canonicalNaceCode,
-      naceDescription: formData.naceDescription,
-      industry: formData.industry,
-      country: formData.country,
-      businessModel: formData.business_model ?? storeBusinessModel,
-      yearFounded: formData.yearFounded,
-      ownerManagers: formData.ownerManagers,
-      fteEmployees: formData.fteEmployees,
-      businessType: formData.businessType,
-      revenue: current?.revenue,
-      ebitda: current?.ebitda,
-      yearlyFinancials: formData.yearlyFinancials,
-      historical_years_data: formData.historical_years_data,
-      forecast_years_data: formData.forecast_years_data,
-      dcf_input_mode: formData.dcf_input_mode,
-      current_year_data: current
-        ? buildCurrentYearData({
-            year: parseInt(current.year, 10),
-            revenue: current.revenue,
-            ebitda: current.ebitda,
-            currentYearData: formData.current_year_data,
-          })
-        : formData.current_year_data,
-      nav_real_estate_adjustment: formData.nav_real_estate_adjustment,
-      nav_inventory_adjustment: formData.nav_inventory_adjustment,
-      nav_hidden_reserves: formData.nav_hidden_reserves,
-      nav_goodwill_writeoff: formData.nav_goodwill_writeoff,
-      nav_receivables_adjustment: formData.nav_receivables_adjustment,
-      nav_other_revaluations: formData.nav_other_revaluations,
-      nav_tax_latency_pct: formData.nav_tax_latency_pct,
-      nav_off_balance_items: formData.nav_off_balance_items,
-      dcf_revenue_growth_pct: formData.dcf_revenue_growth_pct,
-      dcf_ebitda_margin_pct: formData.dcf_ebitda_margin_pct,
-      dcf_capex_pct: formData.dcf_capex_pct,
-      dcf_da_pct: formData.dcf_da_pct,
-      dcf_nwc_pct: formData.dcf_nwc_pct,
-      dcf_tax_rate_pct: formData.dcf_tax_rate_pct,
-      dcf_wacc_pct: formData.dcf_wacc_pct,
-      dcf_terminal_growth_pct: formData.dcf_terminal_growth_pct,
-      dcf_exit_multiple: formData.dcf_exit_multiple,
-      dcf_risk_free_rate_pct: formData.dcf_risk_free_rate_pct,
-      dcf_equity_risk_premium_pct: formData.dcf_equity_risk_premium_pct,
-      dcf_beta: formData.dcf_beta,
-      dcf_cost_of_debt_pct: formData.dcf_cost_of_debt_pct,
-      dcf_debt_equity_pct: formData.dcf_debt_equity_pct,
-      dcf_tax_shield_pct: formData.dcf_tax_shield_pct,
-      dcf_terminal_value_method: formData.dcf_terminal_value_method,
-      saas_arr: formData.saas_arr,
-      saas_mrr: formData.saas_mrr,
-      saas_arr_growth_pct: formData.saas_arr_growth_pct,
-      saas_churn_pct: formData.saas_churn_pct,
-      saas_customer_churn_pct: formData.saas_customer_churn_pct,
-      saas_nrr_pct: formData.saas_nrr_pct,
-      saas_gross_margin_pct: formData.saas_gross_margin_pct,
-      saas_cac: formData.saas_cac,
-      saas_customer_concentration_pct: formData.saas_customer_concentration_pct,
-      saas_expansion_revenue_pct: formData.saas_expansion_revenue_pct,
-      saas_sm_spend: formData.saas_sm_spend,
-      exclude_real_estate: formData.exclude_real_estate,
-      real_estate_book_value: formData.real_estate_book_value,
-      estimated_market_rent: formData.estimated_market_rent,
-      rev_recurring_pct: formData.rev_recurring_pct,
-      rev_recurring_amount: formData.rev_recurring_amount,
-      rev_top_client_concentration_pct: formData.rev_top_client_concentration_pct,
-      rev_top_client_amount: formData.rev_top_client_amount,
-      rev_contract_backlog: formData.rev_contract_backlog,
-      rev_gross_churn_pct: formData.rev_gross_churn_pct,
-      owner_salary_addback: formData.owner_salary_addback,
-    })
-  }, [
-    formData.companyName,
-    formData.kboNumber,
-    formData.legalForm,
-    formData.address,
-    formData.naceCode,
-    formData.canonicalNaceCode,
-    formData.naceDescription,
-    formData.industry,
-    formData.country,
-    formData.business_model,
-    storeBusinessModel,
-    formData.yearFounded,
-    formData.ownerManagers,
-    formData.fteEmployees,
-    formData.businessType,
-    formData.yearlyFinancials,
-    formData.historical_years_data,
-    formData.forecast_years_data,
-    formData.dcf_input_mode,
-    formData.current_year_data,
+  useManualInputFormDataSync({
+    formData,
     latestCompleteYearlyFinancial,
-    formData.nav_real_estate_adjustment,
-    formData.nav_inventory_adjustment,
-    formData.nav_hidden_reserves,
-    formData.nav_goodwill_writeoff,
-    formData.nav_receivables_adjustment,
-    formData.nav_other_revaluations,
-    formData.nav_tax_latency_pct,
-    formData.nav_off_balance_items,
-    formData.dcf_revenue_growth_pct,
-    formData.dcf_ebitda_margin_pct,
-    formData.dcf_capex_pct,
-    formData.dcf_da_pct,
-    formData.dcf_nwc_pct,
-    formData.dcf_tax_rate_pct,
-    formData.dcf_wacc_pct,
-    formData.dcf_terminal_growth_pct,
-    formData.dcf_exit_multiple,
-    formData.dcf_risk_free_rate_pct,
-    formData.dcf_equity_risk_premium_pct,
-    formData.dcf_beta,
-    formData.dcf_cost_of_debt_pct,
-    formData.dcf_debt_equity_pct,
-    formData.dcf_tax_shield_pct,
-    formData.dcf_terminal_value_method,
-    formData.saas_arr,
-    formData.saas_mrr,
-    formData.saas_arr_growth_pct,
-    formData.saas_churn_pct,
-    formData.saas_customer_churn_pct,
-    formData.saas_nrr_pct,
-    formData.saas_gross_margin_pct,
-    formData.saas_cac,
-    formData.saas_customer_concentration_pct,
-    formData.saas_expansion_revenue_pct,
-    formData.saas_sm_spend,
-    formData.exclude_real_estate,
-    formData.real_estate_book_value,
-    formData.estimated_market_rent,
-    formData.rev_recurring_pct,
-    formData.rev_recurring_amount,
-    formData.rev_top_client_concentration_pct,
-    formData.rev_top_client_amount,
-    formData.rev_contract_backlog,
-    formData.rev_gross_churn_pct,
-    formData.owner_salary_addback,
-  ])
-  useEffect(() => {
-    syncFormData()
-    const t = setTimeout(syncFormData, 300)
-    return () => clearTimeout(t)
-  }, [syncFormData])
+    onFormDataChange,
+    storeBusinessModel,
+  })
 
   // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)
   // Only updates when companySearchValue is empty to avoid overwriting user input
@@ -1578,61 +1064,10 @@ export function ManualInputPanel({
     translate: mi,
   })
 
-  // ─── Field-level Validation ───
-  const fieldValidation = useMemo(() => {
-    const warnings: Record<string, string> = {}
-    const errors: Record<string, string> = {}
-    const currentYear = new Date().getFullYear()
-
-    // Validate yearly financials
-    for (const yf of formData.yearlyFinancials) {
-      if (Number.isFinite(yf.revenue) && yf.revenue > 1_000_000_000) {
-        warnings[`revenue-${yf.year}`] = mi('validation.revenueOver1B')
-      }
-      if (
-        formData.dcf_input_mode === 'fcff_only' &&
-        yf.isForecast &&
-        (typeof yf.free_cash_flow !== 'number' || !Number.isFinite(yf.free_cash_flow))
-      ) {
-        errors[`fcff-${yf.year}`] = mi('validation.fcffRequired')
-      }
-      if (yf.ebitda !== 0) {
-        if (yf.ebitda < -100_000_000) errors[`ebitda-${yf.year}`] = mi('validation.ebitdaBelow100M')
-        else if (yf.ebitda > 500_000_000)
-          errors[`ebitda-${yf.year}`] = mi('validation.ebitdaAbove500M')
-        if (Number.isFinite(yf.revenue) && yf.revenue !== 0) {
-          const margin = (yf.ebitda / yf.revenue) * 100
-          if (margin < -50)
-            warnings[`margin-${yf.year}`] = mi('validation.marginLow', {
-              margin: margin.toFixed(0),
-            })
-          else if (margin > 80)
-            warnings[`margin-${yf.year}`] = mi('validation.marginHigh', {
-              margin: margin.toFixed(0),
-            })
-        }
-      }
-    }
-
-    // Owner managers
-    if (formData.ownerManagers < 0) errors.ownerManagers = mi('validation.minZero')
-    // FTE Employees (0 is valid for owner-only; required when owner count > 0)
-    if (formData.ownerManagers > 0 && formData.fteEmployees === undefined) {
-      errors.fteEmployees = mi('validation.fteRequired')
-    } else if (formData.fteEmployees !== undefined) {
-      if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero')
-      else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k')
-    }
-    // Year founded
-    if (
-      formData.yearFounded &&
-      (Number(formData.yearFounded) < 1800 || Number(formData.yearFounded) > currentYear)
-    ) {
-      errors.yearFounded = mi('validation.yearRange', { year: currentYear })
-    }
-
-    return { warnings, errors, hasErrors: Object.keys(errors).length > 0 }
-  }, [formData])
+  const fieldValidation = useMemo(
+    () => buildManualInputFieldValidation(formData, mi),
+    [formData, mi]
+  )
 
   const sortedYearlyFinancials = useMemo(
     () => [...formData.yearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year)),
@@ -1646,99 +1081,32 @@ export function ManualInputPanel({
     [hasDcfSelected, sortedYearlyFinancials]
   )
   const baseFilingYearForLabels = useMemo(() => getSeedBaseFilingYear(formData), [formData])
-  const dcfForecastRows = useMemo(
-    () =>
-      hasDcfSelected
-        ? [...sortedYearlyFinancials.filter((year) => year.isForecast)].sort(
-            (a, b) => Number(a.year) - Number(b.year)
-          )
-        : [],
-    [hasDcfSelected, sortedYearlyFinancials]
-  )
-  // Most recent non-forecast row with at least one finite financial figure (revenue may be 0;
-  // exclude rows where both are missing / non-finite so DCF defaults still see EBITDA-only history).
-  const { latestHistoricalRevenue, latestHistoricalEbitda } = useMemo(() => {
-    const historical = sortedYearlyFinancials.filter(
-      (y) =>
-        !y.isForecast && (Number.isFinite(Number(y.revenue)) || Number.isFinite(Number(y.ebitda)))
-    )
-    if (historical.length === 0) {
-      return {
-        latestHistoricalRevenue: undefined as number | undefined,
-        latestHistoricalEbitda: undefined as number | undefined,
-      }
-    }
-    const row = historical[0]
-    const r = row.revenue
-    const e = row.ebitda
-    return {
-      latestHistoricalRevenue: typeof r === 'number' && Number.isFinite(r) ? r : undefined,
-      latestHistoricalEbitda: typeof e === 'number' && Number.isFinite(e) ? e : undefined,
-    }
-  }, [sortedYearlyFinancials])
-
-  /** CFA-style defaults from historical CAGR, margins, and sector WACC base (Mercury/Titan-aligned). */
-  const dcfSmartDefaultsFromHistory = useMemo(
-    () =>
-      deriveDcfSmartDefaults({
-        yearlyFinancials: formData.yearlyFinancials,
-        businessCategory:
-          selectedBusinessType?.category ?? formData.industry ?? formData.businessType,
-      }),
-    [
-      formData.yearlyFinancials,
-      selectedBusinessType?.category,
-      formData.industry,
-      formData.businessType,
-    ]
-  )
-
-  /** CapEx % of revenue from Titan/accounting suggested_capex (bulk import / Mercury sync). */
-  const integrationDerivedCapexPct = useMemo(() => {
-    const raw = formData.business_context?._imported_ledger_analysis
-    const persisted =
-      raw && typeof raw === 'object' && !Array.isArray(raw)
-        ? (raw as ImportedLedgerAnalysisSummary).dcf_defaults?.suggested_capex
-        : undefined
-    const suggested = importBatchData?.dcf_defaults?.suggested_capex ?? persisted
-    const rev = latestHistoricalRevenue
-    if (suggested == null || !Number.isFinite(suggested) || rev == null || rev <= 0) return null
-    const pct = (suggested / rev) * 100
-    return Math.round(Math.min(8, Math.max(2, pct)) * 10) / 10
-  }, [importBatchData, formData.business_context, latestHistoricalRevenue])
-
-  /** D&A % of revenue from ledger average depreciation (same integration pipeline as bulk valuation). */
-  const integrationDerivedDaPct = useMemo(() => {
-    const raw = formData.business_context?._imported_ledger_analysis
-    const persisted =
-      raw && typeof raw === 'object' && !Array.isArray(raw)
-        ? (raw as ImportedLedgerAnalysisSummary).dcf_defaults?.average_depreciation
-        : undefined
-    const avgDep = importBatchData?.dcf_defaults?.average_depreciation ?? persisted
-    const rev = latestHistoricalRevenue
-    if (avgDep == null || !Number.isFinite(avgDep) || rev == null || rev <= 0) return null
-    const pct = (avgDep / rev) * 100
-    return Math.round(Math.min(5, Math.max(2, pct)) * 10) / 10
-  }, [importBatchData, formData.business_context, latestHistoricalRevenue])
-
-  /** Sector WACC band (Damodaran 2026 EU SMB cohort) — anchors the WACC input and flags out-of-band values. */
-  const waccSectorBand = useMemo(
-    () =>
-      deriveWaccSectorBand(
-        selectedBusinessType?.category ?? formData.industry ?? formData.businessType
-      ),
-    [selectedBusinessType?.category, formData.industry, formData.businessType]
-  )
-
-  /** Forecast-defaults badge: history/sector model vs accounting import (Titan — same defaults as Mercury bulk). */
-  const dcfDefaultsProvenance = useMemo((): 'none' | 'integration' | 'history' | 'both' => {
-    const hasSmart = dcfSmartDefaultsFromHistory != null
-    const hasImport = integrationDerivedCapexPct != null || integrationDerivedDaPct != null
-    if (hasImport && hasSmart) return 'both'
-    if (hasImport) return 'integration'
-    if (hasSmart) return 'history'
-    return 'none'
-  }, [dcfSmartDefaultsFromHistory, integrationDerivedCapexPct, integrationDerivedDaPct])
+  const {
+    canApplyDcfProjectionAutofill,
+    dcfDefaultsProvenance,
+    dcfForecastRows,
+    dcfModeSegmentOptions,
+    dcfProjectionAutofillRows,
+    dcfSmartDefaultsFromHistory,
+    handleApplyDcfProjectionAutofill,
+    handleDcfInputModeChange,
+    handleTerminalValueMethodChange,
+    hasDcfForecastWorkspace,
+    integrationDerivedCapexPct,
+    integrationDerivedDaPct,
+    latestHistoricalEbitda,
+    latestHistoricalRevenue,
+    terminalValueMethod,
+    waccSectorBand,
+  } = useManualDcfForecastController({
+    formData,
+    setFormData,
+    hasDcfSelected,
+    importBatchData,
+    selectedBusinessCategory: selectedBusinessType?.category,
+    sortedYearlyFinancials,
+    translate: mi,
+  })
 
   const saasSignalsForBonusSections: GetBonusSectionsSaasSignals = useMemo(() => {
     const business_model =
@@ -1766,8 +1134,6 @@ export function ManualInputPanel({
       ),
     [selectedBusinessType?.id, formData.businessType, storeBusinessTypeId]
   )
-
-  const hasDcfForecastWorkspace = hasDcfSelected && dcfForecastRows.length > 0
 
   const adaptiveHeaderSteps = useMemo(() => {
     const bonus =
@@ -2457,278 +1823,46 @@ export function ManualInputPanel({
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex flex-col">
-            {/* Step 1: Company Identification */}
-            <section className="space-y-4">
-              <div className={SECTION_HEADER_ROW_CLASS}>
-                <SectionStatusCircle step={1} complete={!!selectedCompany} className="flex" />
-                <h3 className="text-sm font-medium text-foreground">
-                  {mi('sections.companyDetails')}
-                </h3>
-              </div>
+            <CompanyIdentificationSection
+              formData={formData}
+              initialData={initialData}
+              readOnlyKbo={readOnlyKbo}
+              isCalculating={isCalculating}
+              selectedCompany={selectedCompany}
+              setSelectedCompany={setSelectedCompany}
+              companySearchValue={companySearchValue}
+              setCompanySearchValue={setCompanySearchValue}
+              countryUserOverrideRef={countryUserOverrideRef}
+              updateField={updateField}
+              updateFormData={updateFormData}
+              localizeActivityCodeCopy={localizeActivityCodeCopy}
+              searchCountry={searchCountry}
+              kboSearchFn={kboSearchFn}
+              handleCompanySelect={handleCompanySelect}
+              handleClearCompany={handleClearCompany}
+              showChangeCompanyWarning={showChangeCompanyWarning}
+              prefillCompanyRef={prefillCompanyRef}
+              setShowChangeCompanyWarning={setShowChangeCompanyWarning}
+              executeClearCompany={executeClearCompany}
+              businessTypesForSearch={businessTypesForSearch}
+              businessTypesLoading={businessTypesLoading}
+              businessTypesError={businessTypesError}
+              refetchBusinessTypes={refetchBusinessTypes}
+              nacePrefillError={nacePrefillError}
+              retryNacePrefill={retryNacePrefill}
+              selectedBusinessType={selectedBusinessType}
+              effectiveMethods={effectiveMethods}
+              handleBusinessTypeSelect={handleBusinessTypeSelect}
+            />
 
-              <AuroraSelect
-                label={mi('fields.operatingCountry')}
-                options={TARGET_COUNTRIES.map((c) => ({
-                  value: c.code,
-                  label: `${c.flag} ${c.name} (${c.currencySymbol})`,
-                }))}
-                value={formData.country || initialData.country || 'BE'}
-                onChange={(val) => {
-                  countryUserOverrideRef.current = true
-                  const prev = formData.country || initialData.country || 'BE'
-                  updateField('country', val)
-                  const cc = String(val).trim().toUpperCase().substring(0, 2)
-                  if (cc) updateFormData({ country_code: cc })
-                  if (val !== prev) {
-                    setSelectedCompany(null)
-                    setCompanySearchValue('')
-                  }
-                }}
-                helpText={mi('fields.operatingCountryHelp')}
-                helpTextPlacement="below"
-                size="sm"
-                disabled={isCalculating}
-              />
-
-              {readOnlyKbo && selectedCompany ? (
-                <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">
-                  <p className="text-xs text-foreground/50 mb-0.5">
-                    {localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
-                  </p>
-                  <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
-                  {selectedCompany.kboNumber && (
-                    <p className="text-xs text-foreground/40 font-mono mt-0.5">
-                      {searchCountry === 'NL' ? 'KVK' : 'KBO'} {selectedCompany.kboNumber}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <KBOSearchInput
-                  label={localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
-                  value={companySearchValue}
-                  onChange={setCompanySearchValue}
-                  onCompanySelect={handleCompanySelect}
-                  selectedCompany={selectedCompany}
-                  onClear={handleClearCompany}
-                  searchFn={kboSearchFn}
-                  minQueryLength={2}
-                  debounceMs={400}
-                  size="sm"
-                  disabled={isCalculating}
-                  countryCode={searchCountry}
-                  description={searchCountry === 'NL' ? mi('registryNlSearchHint') : undefined}
-                  noResultsHint={searchCountry === 'NL' ? mi('registryNlNoResults') : undefined}
-                />
-              )}
-
-              <AnimatePresence>
-                {showChangeCompanyWarning && selectedCompany && prefillCompanyRef.current && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3.5 py-3 text-sm">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-foreground/70 text-xs leading-relaxed">
-                          {mi('changeCompanyWarning.message', {
-                            companyName: prefillCompanyRef.current.name,
-                          })}
-                        </p>
-                        <div className="mt-2.5 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowChangeCompanyWarning(false)}
-                            className="rounded-lg border border-foreground/10 bg-background px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted"
-                          >
-                            {mi('changeCompanyWarning.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={executeClearCompany}
-                            className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
-                          >
-                            {mi('changeCompanyWarning.confirm')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {selectedCompany && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-3 overflow-hidden"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-start gap-1.5">
-                        <div className="flex-1 min-w-0">
-                          <BusinessTypeSearchInput
-                            label={mi('fields.businessType')}
-                            value={formData.businessType}
-                            onChange={handleBusinessTypeSelect}
-                            types={
-                              businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined
-                            }
-                            loading={businessTypesLoading}
-                            loadError={businessTypesError}
-                            onRetryLoad={refetchBusinessTypes}
-                            naceMatchedTypeId={
-                              selectedCompany?.naceCode &&
-                              formData.businessType?.trim() &&
-                              !looksLikeNaceCode(formData.businessType)
-                                ? formData.businessType.trim()
-                                : undefined
-                            }
-                            size="sm"
-                            disabled={isCalculating}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    {nacePrefillError && (
-                      <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/20 -mt-1">
-                        <p className="text-[11px] text-destructive/80">{nacePrefillError}</p>
-                        <button
-                          type="button"
-                          onClick={retryNacePrefill}
-                          className="text-[11px] font-medium text-primary hover:text-primary/80 shrink-0"
-                        >
-                          {tKbo('retry')}
-                        </button>
-                      </div>
-                    )}
-                    {selectedBusinessType && (
-                      <div className="-mt-1 space-y-1">
-                        <p className="text-[11px] text-foreground/40">{mi('businessTypeHint')}</p>
-                        {effectiveMethods.includes('arr_multiple') ? (
-                          <p className="text-[11px] text-foreground/40">
-                            {mi('businessTypeArrMethodNote')}
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
-
-                    <AuroraSelect
-                      label={mi('fields.legalForm')}
-                      options={businessStructures}
-                      value={formData.businessStructure}
-                      onChange={(val) => updateField('businessStructure', val)}
-                      size="sm"
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
-
-            {/* Step 2: Ownership & Structure */}
-            {selectedCompany && hasBusinessType && (
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4 pt-2"
-              >
-                <div className={SECTION_HEADER_ROW_CLASS}>
-                  <SectionStatusCircle
-                    step={2}
-                    complete={
-                      formData.ownerManagers > 0 &&
-                      formData.fteEmployees !== undefined &&
-                      formData.fteEmployees >= 0
-                    }
-                    className="flex"
-                  />
-                  <h3 className="text-sm font-medium text-foreground">
-                    {mi('sections.ownershipStructure')}
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="relative">
-                    <AuroraInput
-                      label={mi('fields.ownerManagers')}
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={formData.ownerManagers || ''}
-                      onChange={(e) => updateField('ownerManagers', Number(e.target.value))}
-                      size="sm"
-                      placeholder="1"
-                      truncateLabel={false}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-                      <FieldHelpTrigger
-                        context={{
-                          field: 'ownerManagers',
-                          label: mi('fields.ownerManagers'),
-                          value: formData.ownerManagers,
-                          hint: mi('ownerManagersHint'),
-                        }}
-                        onTrigger={onFieldHelpRequest}
-                      />
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <AuroraInput
-                      label={mi('fields.totalFte')}
-                      type="number"
-                      min={0}
-                      value={
-                        formData.fteEmployees !== undefined && formData.fteEmployees !== null
-                          ? String(formData.fteEmployees)
-                          : ''
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value
-                        const value =
-                          raw === ''
-                            ? undefined
-                            : (() => {
-                                const n = Number(raw)
-                                return !isNaN(n) && n >= 0 ? n : undefined
-                              })()
-                        updateField('fteEmployees', value)
-                      }}
-                      size="sm"
-                      placeholder="0"
-                      truncateLabel={false}
-                    />
-                    {/* FTE help-trigger added so the help affordance is symmetric
-                        with `ownerManagers` next to it — the size-discount inputs
-                        are paired and the user expects parity. */}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-                      <FieldHelpTrigger
-                        context={{
-                          field: 'fteEmployees',
-                          label: mi('fields.totalFte'),
-                          value: formData.fteEmployees,
-                          hint: mi('totalFteHint'),
-                        }}
-                        onTrigger={onFieldHelpRequest}
-                      />
-                    </div>
-                    {(fieldValidation.errors.fteEmployees ||
-                      fieldValidation.warnings.fteEmployees) && (
-                      <p
-                        className={`text-[10px] mt-0.5 ${fieldValidation.errors.fteEmployees ? 'text-destructive' : 'text-warning'}`}
-                      >
-                        {fieldValidation.errors.fteEmployees ||
-                          fieldValidation.warnings.fteEmployees}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-[11px] text-foreground/40">{mi('ownershipHint')}</p>
-              </motion.section>
-            )}
+            <OwnershipStructureSection
+              formData={formData}
+              selectedCompany={selectedCompany}
+              hasBusinessType={hasBusinessType}
+              fieldValidation={fieldValidation}
+              updateField={updateField}
+              onFieldHelpRequest={onFieldHelpRequest}
+            />
 
             {/* Step 3: Multi-Year Financials */}
             {selectedCompany && hasBusinessType && (
@@ -3553,144 +2687,27 @@ export function ManualInputPanel({
         </div>
       </div>
 
-      {/* CSV Upload Modal */}
-      <Modal open={showCSVUpload} onOpenChange={setShowCSVUpload}>
-        <ModalContent className="max-w-2xl">
-          <ModalHeader>
-            <ModalTitle>{mi('importModal.title')}</ModalTitle>
-            <ModalDescription>{mi('importModal.description')}</ModalDescription>
-          </ModalHeader>
-
-          <div className="py-4">
-            <CSVUploadCard
-              onFileSelected={handleCSVFileSelected}
-              onSkip={() => setShowCSVUpload(false)}
-            />
-          </div>
-        </ModalContent>
-      </Modal>
-
-      <BizzcontrolImportModal
-        open={bizzcontrolImport.open}
-        onOpenChange={bizzcontrolImport.setOpen}
-        isLoadingCompanies={bizzcontrolImport.isLoadingCompanies}
-        isImporting={bizzcontrolImport.isImporting}
-        error={bizzcontrolImport.error}
-        companies={bizzcontrolImport.companies}
-        selectedCompanyId={bizzcontrolImport.selectedCompanyId}
-        onSelectedCompanyIdChange={bizzcontrolImport.setSelectedCompanyId}
-        historyRange={bizzcontrolImport.historyRange}
-        onHistoryRangeChange={bizzcontrolImport.setHistoryRange}
-        onImport={bizzcontrolImport.handleConfirmImport}
-        manualOverride={bizzcontrolImport.manualOverride}
-        onManualOverrideChange={bizzcontrolImport.setManualOverride}
-      />
-
-      <OctopusImportModal
-        open={octopusImport.open}
-        onOpenChange={octopusImport.setOpen}
-        isLoadingCompanies={octopusImport.isLoadingCompanies}
-        isImporting={octopusImport.isImporting}
-        error={octopusImport.error}
-        companies={octopusImport.companies}
-        selectedCompanyId={octopusImport.selectedCompanyId}
-        onSelectedCompanyIdChange={octopusImport.setSelectedCompanyId}
-        historyRange={octopusImport.historyRange}
-        onHistoryRangeChange={octopusImport.setHistoryRange}
-        onImport={octopusImport.handleConfirmImport}
-        manualOverride={octopusImport.manualOverride}
-        onManualOverrideChange={octopusImport.setManualOverride}
-      />
-
-      {/* Historical year removal (data / normalizations) */}
-      <Modal
-        open={historicalYearPendingRemove !== null}
-        onOpenChange={(open) => {
-          if (!open) setHistoricalYearPendingRemove(null)
+      <ManualInputPanelModals
+        showCSVUpload={showCSVUpload}
+        setShowCSVUpload={setShowCSVUpload}
+        handleCSVFileSelected={handleCSVFileSelected}
+        bizzcontrolImport={bizzcontrolImport}
+        octopusImport={octopusImport}
+        historicalYearPendingRemove={historicalYearPendingRemove}
+        setHistoricalYearPendingRemove={setHistoricalYearPendingRemove}
+        commitRemoveHistoricalYear={commitRemoveHistoricalYear}
+        showForecastRemovalConfirm={showForecastRemovalConfirm}
+        setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
+        setSelectedMethod={setSelectedMethod}
+        markDcfForecastSyncPrevMethod={markDcfForecastSyncPrevMethod}
+        onConfirmRemoveForecastYears={() => {
+          setFormData((current) => ({
+            ...current,
+            yearlyFinancials: removeForecastYears(current.yearlyFinancials),
+          }))
+          setShowForecastRemovalConfirm(false)
         }}
-      >
-        <ModalContent className="max-w-sm">
-          <ModalHeader>
-            <ModalTitle>
-              {historicalYearPendingRemove !== null
-                ? mi('removeHistoricalYearConfirmTitle', { year: historicalYearPendingRemove })
-                : ''}
-            </ModalTitle>
-            <ModalDescription>
-              {historicalYearPendingRemove !== null
-                ? mi('removeHistoricalYearConfirmDescription', {
-                    year: historicalYearPendingRemove,
-                  })
-                : ''}
-            </ModalDescription>
-          </ModalHeader>
-          <ModalFooter>
-            <button
-              type="button"
-              onClick={() => setHistoricalYearPendingRemove(null)}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-foreground/10 text-foreground hover:bg-foreground/[0.03] transition-colors"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (historicalYearPendingRemove !== null) {
-                  commitRemoveHistoricalYear(historicalYearPendingRemove)
-                }
-              }}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-            >
-              {t('common.actions.confirm')}
-            </button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Forecast Removal Confirmation Modal */}
-      <Modal
-        open={showForecastRemovalConfirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedMethod('dcf')
-            markDcfForecastSyncPrevMethod('dcf')
-          }
-          setShowForecastRemovalConfirm(open)
-        }}
-      >
-        <ModalContent className="max-w-sm">
-          <ModalHeader>
-            <ModalTitle>{mi('removeForecastPrompt')}</ModalTitle>
-            <ModalDescription>{mi('removeForecastDescription')}</ModalDescription>
-          </ModalHeader>
-          <ModalFooter>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedMethod('dcf')
-                markDcfForecastSyncPrevMethod('dcf')
-                setShowForecastRemovalConfirm(false)
-              }}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-foreground/10 text-foreground hover:bg-foreground/[0.03] transition-colors"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFormData((current) => ({
-                  ...current,
-                  yearlyFinancials: removeForecastYears(current.yearlyFinancials),
-                }))
-                setShowForecastRemovalConfirm(false)
-              }}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-            >
-              {t('common.actions.confirm')}
-            </button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      />
     </>
   )
 }

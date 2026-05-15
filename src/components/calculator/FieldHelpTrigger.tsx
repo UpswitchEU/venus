@@ -23,7 +23,7 @@ export interface FieldHelpContext {
 
 export interface FieldHelpTriggerProps {
   context: FieldHelpContext
-  onTrigger: (context: FieldHelpContext) => void
+  onTrigger?: (context: FieldHelpContext) => void
   className?: string
   size?: 'sm' | 'md'
 }
@@ -35,6 +35,8 @@ export function FieldHelpTrigger({
   size = 'sm',
 }: FieldHelpTriggerProps) {
   const t = useTranslations('fieldHelp')
+  if (!onTrigger) return null
+
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()

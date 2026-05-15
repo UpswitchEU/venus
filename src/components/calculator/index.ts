@@ -59,6 +59,7 @@ export type {
   DataField,
 } from './DataCompletenessRing'
 export { DataCompletenessRing } from './DataCompletenessRing'
+export type { FieldHelpContext } from './FieldHelpTrigger'
 export { FieldHelpTrigger } from './FieldHelpTrigger'
 export { FilingYearPrompt } from './FilingYearPrompt'
 export type { FullscreenReportModalProps } from './FullscreenReportModal'
@@ -75,7 +76,6 @@ export { HistoryPanel } from './HistoryPanel'
 export type { IntegrationStepPanelProps } from './IntegrationStepPanel'
 export { IntegrationStepPanel } from './IntegrationStepPanel'
 export type {
-  FieldHelpContext,
   ManualValuationFormData,
   ValuationFormData,
   YearlyFinancials,
