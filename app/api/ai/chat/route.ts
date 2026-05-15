@@ -54,6 +54,10 @@ interface NormalizationItem {
   status?: string
 }
 
+function resolveAudience(raw: unknown): 'advisor' | 'owner' {
+  return raw === 'advisor' || raw === 'owner' ? raw : 'owner'
+}
+
 export async function POST(request: NextRequest) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -106,7 +110,11 @@ export async function POST(request: NextRequest) {
       needsNormalization: !!norms.some((n) => n.status === 'pending'),
     }
 
-    const titanPayload: Record<string, unknown> = { messages, context }
+    const titanPayload: Record<string, unknown> = {
+      messages,
+      context,
+      audience: resolveAudience(body.audience),
+    }
     if (body.conversationId) {
       titanPayload.conversationId = body.conversationId
     }

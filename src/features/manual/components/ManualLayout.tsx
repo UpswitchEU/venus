@@ -100,6 +100,8 @@ import {
   useIsMountedRef,
   useLatestRef,
   useManualLayoutResets,
+  useManualSubmitRunGuard,
+  useManualSynthesisController,
   usePdfStalenessLifecycle,
   useRestorationGate,
   useResultToReportBridge,
@@ -128,7 +130,6 @@ import {
 } from '../../../lib/methods'
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import {
-  bestBlendedValue,
   evaluateSynthesisBlend,
   shouldWarnSynthesisSkipped,
 } from '../../../lib/synthesis/synthesisEngine'
@@ -184,9 +185,6 @@ import type {
   ValuationFormData as VenusFormData,
   YearDataInput,
 } from '../../../types/valuation'
-import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
-import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
-import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
@@ -226,7 +224,6 @@ import {
   getRenderableReportHtml,
   getRenderableReportHtmlFromCurrentOrFallback,
 } from '../../../utils/safetyNetReportHtml'
-import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
 import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
@@ -236,16 +233,22 @@ import {
 import {
   areChangesSignificant,
   detectVersionChanges,
-  generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
 import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData'
 import {
   getCompleteYearlyFinancialsDesc,
   getLatestCompleteYearlyFinancial,
-  yearlyFinancialRowHasNonPlaceholderData,
 } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { buildSubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
+import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
+import { buildManualReportAssets } from '../utils/manualReportAssets'
+import {
+  getManualSubmitValidationIssue,
+  MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
+} from '../utils/manualSubmitValidation'
+import { planManualCalculationVersioning } from '../utils/manualVersioningDecision'
 import {
   extractErrorMessage,
   parseSellabilityScoreResponse,
@@ -823,12 +826,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setSelectedMethod,
     preSelectedMethod,
     setPreSelectedMethod,
-    preSelectedMethods,
     togglePreSelectedMethod,
-    userWeights,
-    userWeightJustification,
-    setUserWeights,
-    setUserWeightJustification,
     trySetCalculating,
     setCalculating,
     setResult,
@@ -841,12 +839,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setSelectedMethod: s.setSelectedMethod,
       preSelectedMethod: s.preSelectedMethod,
       setPreSelectedMethod: s.setPreSelectedMethod,
-      preSelectedMethods: s.preSelectedMethods,
       togglePreSelectedMethod: s.togglePreSelectedMethod,
-      userWeights: s.userWeights,
-      userWeightJustification: s.userWeightJustification,
-      setUserWeights: s.setUserWeights,
-      setUserWeightJustification: s.setUserWeightJustification,
       trySetCalculating: s.trySetCalculating,
       setCalculating: s.setCalculating,
       setResult: s.setResult,
@@ -1058,6 +1051,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Report & Generation State ───
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const {
+    preSelectedMethods,
+    userWeights,
+    userWeightJustification,
+    setUserWeights,
+    setUserWeightJustification,
+    selection: synthesisSelection,
+    evaluation: synthesisEvaluation,
+    valuationResults: synthesisValuationResults,
+    navValuationSummary,
+  } = useManualSynthesisController({ result, report })
   // `isMethodSwitchRendering` is now derived from the persistence coordinator
   // declared below — see `persistCoordinator.isPersisting`.
   const liveMultipleReportPreview = useMemo(() => {
@@ -2235,25 +2239,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [versions, report, selectedMethod, t])
 
-  const navValuationSummary = React.useMemo(() => {
-    if (!report) return undefined
-    const blend = evaluateSynthesisBlend({ result, preSelectedMethods, userWeights })
-    const primaryValue =
-      bestBlendedValue(blend) ?? report.recommendedAskingPrice ?? report.valuation
-    return {
-      priceRange: {
-        min: report.valuationLow ?? Math.round(report.valuation * 0.85),
-        max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
-      },
-      askPrice: primaryValue,
-      confidence: 'high' as const,
-    }
-  }, [report, result, userWeights, preSelectedMethods])
-
-  const synthesisValuationResults = useMemo(() => {
-    return getHydratedValuationResults(result) ?? null
-  }, [result])
-
   // Cap-table simulator React mount removed: the canonical Jinja report
   // (`startup_one_pager.html` + `startup_cap_table.html`) is now the
   // single source of truth for the simulator card. Founders see one
@@ -2595,8 +2580,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   useEffect(() => {
     if (!result) return
-    const blend = evaluateSynthesisBlend({ result, preSelectedMethods, userWeights })
-    if (!shouldWarnSynthesisSkipped(blend)) return
+    if (!shouldWarnSynthesisSkipped(synthesisEvaluation)) return
 
     const runKey = valuationResultRunKey(result)
     if (runKey === lastSynthesisBlendSkippedRunKeyRef.current) return
@@ -2605,7 +2589,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     toast.warning(t('synthesisBlendSkippedTitle'), {
       description: t('synthesisBlendSkippedDesc'),
     })
-  }, [result, preSelectedMethods, userWeights, t])
+  }, [result, synthesisEvaluation, t])
 
   // Enqueue a method-change persist when the user picks a new method. The
   // coordinator dedups against the last-persisted baseline at execution
@@ -2716,6 +2700,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
+  const endManualSubmitLoading = useCallback(() => {
+    setCalculating(false)
+    setIsGenerating(false)
+  }, [setCalculating])
+  const beginManualSubmitRun = useManualSubmitRunGuard({
+    lookupId: resolvedReportId || reportId,
+    endLoading: endManualSubmitLoading,
+  })
 
   // ─── Recalculation Confirmation Modal (intercept CTA when changes detected) ───
   const [showRecalculateConfirmation, setShowRecalculateConfirmation] = useState(false)
@@ -2740,24 +2732,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const effectiveMethod =
         useManualResultsStore.getState().preSelectedMethod ??
         useManualResultsStore.getState().selectedMethod
-      const isStartupRoute = isVenturePathMethodKey(effectiveMethod)
-
-      if (!data.companyName?.trim()) {
-        toast.warning(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
-        return
-      }
-      if (!isStartupRoute && !data.businessType?.trim()) {
-        toast.warning(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
-        return
-      }
-      if (!isStartupRoute && !getLatestCompleteYearlyFinancial(data.yearlyFinancials || [])) {
-        toast.warning(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
+      const validationIssue = getManualSubmitValidationIssue(data, effectiveMethod)
+      if (validationIssue) {
+        const toastKeys = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[validationIssue]
+        toast.warning(t(toastKeys.title), { description: t(toastKeys.description) })
         return
       }
 
       // Prevent double submission
       const wasSet = trySetCalculating()
       if (!wasSet) return
+
+      const submitRun = beginManualSubmitRun()
 
       // Store for retry capability
       lastSubmittedDataRef.current = data
@@ -2789,27 +2775,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // React `formStoreData` here can be one frame stale vs. the synchronous store update.
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildManualValuationRequest(
-          storeSnapshot,
-          undefined,
-          validLocale as 'nl' | 'en'
-        )
-        ;(request as any).dataSource = 'manual'
-        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
-        if (selectedMethodForRequest) {
-          request.selected_method = selectedMethodForRequest
-        }
-
-        attachSynthesisWeightsToValuationRequest(request)
+        const request = buildManualCalculationRequest({
+          formData: storeSnapshot,
+          locale: validLocale as 'nl' | 'en',
+          selectedMethod: preSelectedMethod ?? selectedMethod,
+          identifiers: calculationRequestIdentifiers,
+          synthesisSelection,
+        })
 
         const idForApi = linkedIdentifier
-        if (calculationRequestIdentifiers.reportId) {
-          ;(request as any).reportId = calculationRequestIdentifiers.reportId
-        }
-        if (calculationRequestIdentifiers.sessionKey) {
-          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
-        }
-
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prep = usePreparerMultipleStore.getState()
         if (
@@ -2827,11 +2801,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               prep.benchmarkMedian,
               mv0?.p25_ebitda_multiple,
               mv0?.p75_ebitda_multiple
-            ) &&
+          ) &&
             !prep.acknowledgedExtreme
           ) {
-            setCalculating(false)
-            setIsGenerating(false)
+            submitRun.endLoading()
             toast.error(tPreparer('extremeWarning'))
             return
           }
@@ -2855,9 +2828,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Step 3.5: Persist all normalizations to Titan BEFORE calculation (UX-critical)
         if (idForApi) {
           const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request as any)
+          if (!submitRun.isStillTarget()) {
+            submitRun.endLoading()
+            generalLogger.info('[ManualLayout] Dropping stale manual calculation before submit', {
+              ...submitRun.staleContext(),
+            })
+            return
+          }
           if (!persistOk) {
-            setCalculating(false)
-            setIsGenerating(false)
+            submitRun.endLoading()
             generalLogger.warn('[ManualLayout] Pre-calculate normalization persist failed')
             toast.error(t('persistFailed'), {
               description: t('persistFailedDesc'),
@@ -2882,10 +2861,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
         const calcResult = await valuationService.calculateValuation(request)
         const calculationDuration = Date.now() - calcStartTime
+        if (!submitRun.isStillTarget()) {
+          submitRun.endLoading()
+          generalLogger.info('[ManualLayout] Dropping stale manual calculation result', {
+            ...submitRun.staleContext(),
+          })
+          return
+        }
 
         if (!calcResult) {
-          setCalculating(false)
-          setIsGenerating(false)
+          submitRun.endLoading()
           toast.error(t('calculationFailed'), {
             description: t('calculationFailedNoResult'),
             action: {
@@ -2932,68 +2917,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         // Step 5: Store result (triggers useEffect bridge → report state)
         setResult(calcResult)
-        setCalculating(false)
-        setIsGenerating(false)
+        submitRun.endLoading()
         setDraftStatus('saved')
         setLastSaved(new Date())
         setIsDirty(false)
-        const cyd = (request as any).current_year_data
-        const hy = (request as any).historical_years_data || []
-        const fy = (request as any).forecast_years_data || []
-        const allYf = [
-          ...(cyd
-            ? [
-                {
-                  year: String(cyd.year),
-                  revenue: cyd.revenue,
-                  ebitda: cyd.ebitda,
-                  capex: cyd.capex,
-                  nwc_change: cyd.nwc_change,
-                },
-              ]
-            : []),
-          ...hy.map((h: any) => ({
-            year: String(h.year),
-            revenue: h.revenue,
-            ebitda: h.ebitda,
-            capex: h.capex,
-            nwc_change: h.nwc_change,
-          })),
-          ...fy.map((f: any) => ({
-            year: String(f.year),
-            revenue: f.revenue,
-            ebitda: f.ebitda,
-            capex: f.capex,
-            nwc_change: f.nwc_change,
-            isForecast: true,
-          })),
-        ]
-          .filter((y: any) => yearlyFinancialRowHasNonPlaceholderData(y))
-          .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
-        lastSubmittedFinancialSnapshotRef.current = {
-          revenue: cyd?.revenue ?? (request as any).revenue,
-          ebitda: cyd?.ebitda ?? (request as any).ebitda,
-          yearlyFinancials: allYf,
-        }
+        lastSubmittedFinancialSnapshotRef.current = buildSubmittedFinancialSnapshot(request)
 
         // Step 6: Save the authoritative report package first.
         let durableSaveSucceeded = !idForApi
         if (idForApi) {
           const saveStartDirtyVersion = useSessionStore.getState().dirtyVersion
           try {
-            await reportService.saveReportAssets(idForApi, {
-              sessionData: mergeSessionDataForReportAssets(
-                storeSnapshot as unknown as Record<string, unknown>,
-                request as unknown as Record<string, unknown>,
-                useTaxLatencyStore.getState().items
-              ),
-              valuationResult: calcResult,
-              htmlReport: getRenderableReportHtml(calcResult.html_report),
-              name: sessionName,
-            })
+            await reportService.saveReportAssets(
+              idForApi,
+              buildManualReportAssets({
+                sessionData: storeSnapshot as unknown as Record<string, unknown>,
+                request: request as unknown as Record<string, unknown>,
+                taxLatencyItems: useTaxLatencyStore.getState().items,
+                valuationResult: calcResult,
+                name: sessionName,
+              })
+            )
+            if (!submitRun.isStillTarget()) return
             useSessionStore.getState().markSaved(saveStartDirtyVersion)
             durableSaveSucceeded = true
           } catch (saveError) {
+            if (!submitRun.isStillTarget()) return
             const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
             generalLogger.error('[ManualLayout] Failed to save report assets', {
               reportId: idForApi,
@@ -3014,8 +2963,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           let latestAfterFetch: { versionNumber: number } | null = null
           try {
             await useVersionHistoryStore.getState().fetchVersions(idForApi)
+            if (!submitRun.isStillTarget()) return
             latestAfterFetch = useVersionHistoryStore.getState().getLatestVersion(idForApi)
           } catch (fetchErr) {
+            if (!submitRun.isStillTarget()) return
             const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
             generalLogger.warn('[ManualLayout] fetchVersions failed', {
               reportId: idForApi,
@@ -3027,66 +2978,55 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           if (latestAfterFetch !== null) {
             try {
-              // Log regeneration when Titan created version (first calculation)
-              if (!previousVersion && latestAfterFetch) {
+              const versioningDecision = planManualCalculationVersioning({
+                previousVersion,
+                latestVersion: latestAfterFetch,
+                request,
+              })
+
+              if (versioningDecision.firstTitanVersionAudit) {
                 valuationAuditService.logRegeneration(
                   idForApi,
-                  latestAfterFetch.versionNumber,
-                  { totalChanges: 0, significantChanges: [] },
+                  versioningDecision.firstTitanVersionAudit.versionNumber,
+                  versioningDecision.firstTitanVersionAudit.changes,
                   calculationDuration,
                   user?.id
                 )
               }
 
-              if (previousVersion) {
-                // Re-calculation: a version existed BEFORE we called calculate.
-                // Titan created a new version server-side. Check if Venus should
-                // also snapshot (only if the changes are significant vs the pre-calc state).
-                const effectivePrevious = latestAfterFetch ?? previousVersion
-                const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
-
-                // Log when Titan created new version (effectivePrevious > previousVersion)
-                if (effectivePrevious.versionNumber > previousVersion.versionNumber) {
-                  valuationAuditService.logRegeneration(
-                    idForApi,
-                    effectivePrevious.versionNumber,
-                    effectiveChanges,
-                    calculationDuration,
-                    user?.id
-                  )
-                }
-
-                // Only create a Venus-side version when there are significant form-data changes
-                // relative to the version that existed BEFORE the calculation.
-                if (
-                  areChangesSignificant(effectiveChanges) &&
-                  effectivePrevious.versionNumber === previousVersion.versionNumber
-                ) {
-                  const newVersion = await createVersion({
-                    reportId: idForApi,
-                    formData: request,
-                    valuationResult: calcResult,
-                    htmlReport: getRenderableReportHtml(calcResult.html_report),
-                    changesSummary: effectiveChanges,
-                    versionLabel: generateAutoLabel(
-                      effectivePrevious.versionNumber + 1,
-                      effectiveChanges
-                    ),
-                  })
-                  await snapshotNormalizationsToVersion(idForApi, newVersion.id)
-
-                  // Log regeneration to audit trail (accountant compliance)
-                  valuationAuditService.logRegeneration(
-                    idForApi,
-                    newVersion.versionNumber,
-                    effectiveChanges,
-                    calculationDuration,
-                    user?.id
-                  )
-                }
+              if (versioningDecision.titanRegenerationAudit) {
+                valuationAuditService.logRegeneration(
+                  idForApi,
+                  versioningDecision.titanRegenerationAudit.versionNumber,
+                  versioningDecision.titanRegenerationAudit.changes,
+                  calculationDuration,
+                  user?.id
+                )
               }
-              // else: first calculation — Titan already created V1, nothing to do
+
+              if (versioningDecision.venusVersionCreate) {
+                const newVersion = await createVersion({
+                  reportId: idForApi,
+                  formData: request,
+                  valuationResult: calcResult,
+                  htmlReport: getRenderableReportHtml(calcResult.html_report),
+                  changesSummary: versioningDecision.venusVersionCreate.changes,
+                  versionLabel: versioningDecision.venusVersionCreate.versionLabel,
+                })
+                await snapshotNormalizationsToVersion(idForApi, newVersion.id)
+                if (!submitRun.isStillTarget()) return
+
+                // Log regeneration to audit trail (accountant compliance)
+                valuationAuditService.logRegeneration(
+                  idForApi,
+                  newVersion.versionNumber,
+                  versioningDecision.venusVersionCreate.changes,
+                  calculationDuration,
+                  user?.id
+                )
+              }
             } catch (versionError) {
+              if (!submitRun.isStillTarget()) return
               versionCreationFailed = true
               const errMsg =
                 versionError instanceof Error ? versionError.message : String(versionError)
@@ -3109,11 +3049,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // Re-sync version history from backend after calculation so panels show latest
           if (versionSyncTimeoutRef.current) clearTimeout(versionSyncTimeoutRef.current)
           versionSyncTimeoutRef.current = setTimeout(() => {
+            if (!submitRun.isStillTarget()) return
             versionSyncTimeoutRef.current = null
             useVersionHistoryStore
               .getState()
               .fetchVersions(idForApi)
               .catch((err) => {
+                if (!submitRun.isStillTarget()) return
                 generalLogger.warn('[ManualLayout] Version history sync failed', {
                   error: err instanceof Error ? err.message : String(err),
                 })
@@ -3129,11 +3071,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         if (!versionCreationFailed) {
+          if (!submitRun.isStillTarget()) return
           toast.success(t('calculationComplete'))
         }
       } catch (error) {
-        setCalculating(false)
-        setIsGenerating(false)
+        if (!submitRun.isStillTarget()) {
+          submitRun.endLoading()
+          generalLogger.info('[ManualLayout] Dropping stale manual calculation error', {
+            ...submitRun.staleContext(),
+          })
+          return
+        }
+        submitRun.endLoading()
         if (error instanceof ValidationError && error.context?.code === 'EXTREME_MULTIPLE') {
           toast.error(tPreparer('extremeServerToast'), {
             description: error.message,
@@ -3206,6 +3155,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       result,
       preSelectedMethod,
       selectedMethod,
+      synthesisSelection,
+      beginManualSubmitRun,
     ]
   )
 
@@ -3275,19 +3226,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         updateFormData(venusFormData)
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildManualValuationRequest(
-          storeSnapshot,
-          undefined,
-          validLocale as 'nl' | 'en'
-        )
-        ;(request as any).dataSource = 'manual'
-        ;(request as any).reportId = idForVersions
-        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
-        if (selectedMethodForRequest) {
-          request.selected_method = selectedMethodForRequest
-        }
-
-        attachSynthesisWeightsToValuationRequest(request)
+        const request = buildManualCalculationRequest({
+          formData: storeSnapshot,
+          locale: validLocale as 'nl' | 'en',
+          selectedMethod: preSelectedMethod ?? selectedMethod,
+          identifiers: { reportId: idForVersions },
+          synthesisSelection,
+        })
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
@@ -3341,6 +3286,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       tHistory,
       preSelectedMethod,
       selectedMethod,
+      synthesisSelection,
     ]
   )
 
@@ -4843,25 +4789,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           revenue: latestFinancialOverrides.revenue ?? formStoreData.revenue,
           ebitda: latestFinancialOverrides.ebitda ?? formStoreData.ebitda,
         } as VenusFormData
-        const request = buildManualValuationRequest(
-          requestSource,
+        const request = buildManualCalculationRequest({
+          formData: requestSource,
           normalizations,
-          recalcLocale as 'nl' | 'en'
-        )
-        ;(request as any).dataSource = 'manual'
-        const selectedMethodForRequest = preSelectedMethod ?? selectedMethod
-        if (selectedMethodForRequest) {
-          request.selected_method = selectedMethodForRequest
-        }
-
-        attachSynthesisWeightsToValuationRequest(request)
-
-        if (calculationRequestIdentifiers.reportId) {
-          ;(request as any).reportId = calculationRequestIdentifiers.reportId
-        }
-        if (calculationRequestIdentifiers.sessionKey) {
-          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
-        }
+          locale: recalcLocale as 'nl' | 'en',
+          selectedMethod: preSelectedMethod ?? selectedMethod,
+          identifiers: calculationRequestIdentifiers,
+          synthesisSelection,
+        })
 
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prepN = usePreparerMultipleStore.getState()
@@ -4899,16 +4834,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setDraftStatus('saved')
           setLastSaved(new Date())
           try {
-            await reportService.saveReportAssets(idForApi, {
-              sessionData: mergeSessionDataForReportAssets(
-                requestSource as unknown as Record<string, unknown>,
-                request as unknown as Record<string, unknown>,
-                useTaxLatencyStore.getState().items
-              ),
-              valuationResult: calcResult,
-              htmlReport: getRenderableReportHtml(calcResult.html_report),
-              name: sessionName,
-            })
+            await reportService.saveReportAssets(
+              idForApi,
+              buildManualReportAssets({
+                sessionData: requestSource as unknown as Record<string, unknown>,
+                request: request as unknown as Record<string, unknown>,
+                taxLatencyItems: useTaxLatencyStore.getState().items,
+                valuationResult: calcResult,
+                name: sessionName,
+              })
+            )
           } catch (saveError) {
             generalLogger.warn(
               '[ManualLayout] Failed to sync recalculated normalization report assets',
@@ -4936,7 +4871,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       reportId,
       resolvedReportId,
       formStoreData,
-      buildValuationRequest,
       valuationService,
       setResult,
       sessionName,
@@ -4950,6 +4884,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       t,
       preSelectedMethod,
       selectedMethod,
+      synthesisSelection,
     ]
   )
 
@@ -5921,333 +5856,266 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
 
-  // ═══════════════════════════════════════
-  // MOBILE LAYOUT
-  // ═══════════════════════════════════════
-  if (isMobile) {
-    return (
-      <div className="aurora-theme flex flex-col h-[100dvh] bg-background">
-        <CalculatorNav
-          companyName={displayCompanyName}
-          onBack={handleBack}
-          onDownload={handleExport}
-          onPreview={handlePreview}
-          onFullscreen={handleFullscreen}
-          onShowHistory={handleShowHistory}
-          hasReport={!!report}
-          rightPanelView={rightPanelView}
-          userName={
-            isAccountantMode && accountantDisplayName
-              ? accountantDisplayName
-              : user?.name || user?.email || t('guest')
-          }
-          userInitials={getUserInitials(
-            isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
-          )}
-          userEmail={user?.email}
-          avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
-          onOpenAssistant={handleOpenAssistant}
-          isAssistantOpen={chatDrawerOpen}
-          onOpenNormalization={
-            showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
-          }
-          // Hub badge surfaces PENDING work, not ACCEPTED progress: the
-          // button's job is "here's what needs your review." When
-          // `pendingNormalizationCount` was removed from the Assistant
-          // badge (it didn't render content inside that drawer), pending
-          // normalizations lost their visible signal entirely — a user
-          // with 4 pending and 0 accepted saw no badge at all. Pivoting
-          // to pending count restores the notification semantics. The
-          // accepted count is still derivable inside the Hub panel itself
-          // (where progress feedback belongs).
-          normalizationCount={pendingNormalizationCount}
-          // Badge counts actionables across the unified assistant surface:
-          // pending field updates + engine quality warnings + startup
-          // studio issues (for startup_valuation routes).
-          openTasksCount={assistantOpenTasksCount}
-          isExporting={isExporting || isMethodSwitchRendering}
-          recentValuations={recentValuations}
-          activeReportId={resolvedReportId || reportId}
-          onNewValuation={handleNewValuation}
-          isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
-          onSelectValuation={handleSelectValuation}
-          onDeleteValuation={handleDeleteValuation}
-          deletingValuationId={deletingValuationId}
-          onLogout={handleLogout}
-          onAccountSettings={handleAccountSettings}
-          onSwitchWorkspace={handleSwitchWorkspace}
-          onNavigateToDashboard={handleNavigateToDashboard}
-          onNavigateToBilling={handleNavigateToBilling}
-          onNavigateToHelp={handleNavigateToHelp}
-          isAccountantMode={isAccountantMode}
-          onExitClientView={handleExitClientView}
-          showSourceDataToggle={false}
-          onOpenValuationEdit={() => setShowValuationEditModal(true)}
-          preSelectedMethod={preSelectedMethod ?? undefined}
-          preSelectedMethods={preSelectedMethods}
-          onPreSelectMethod={handlePreSelectMethod}
-          onToggleMethod={togglePreSelectedMethodWithPlanGate}
-          firmCountryCode={user?.firm_country_code}
-          preSelectableMethodsForNav={preSelectableMethodsForNav}
-          planLockedMethodKeys={planLockedMethodKeys}
-          onPlanLockedMethodAction={handlePlanLockedMethodAction}
-          normalizationFeatureLocked={showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false}
-          onNormalizationFeatureLocked={
-            showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
-          }
-          versionControlFeatureLocked={showFullAdvisorMethodNav ? versionControlLocked : false}
-          onVersionControlFeatureLocked={
-            showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
-          }
-          canDownloadPdf={canDownloadPdf}
-          valuationSummary={navValuationSummary}
-        />
+  // ─── Shared CalculatorNav (mobile + desktop converge on the same nav element) ───
+  // Mobile-only prop: `deletingValuationId` (the row-spinner indicator).
+  // Desktop-only props: `downloadHistory`, `onRedownload`, `valuationVersions`,
+  // `selectedVersionId`, `onSelectVersion`, `onContinueToListing`. Divergent
+  // values are gated via `isMobile` so the CalculatorNav component receives
+  // `undefined` (omitted) on the wrong viewport.
+  const calculatorNavEl = (
+    <CalculatorNav
+      companyName={displayCompanyName}
+      onBack={handleBack}
+      onDownload={handleExport}
+      onPreview={handlePreview}
+      onFullscreen={handleFullscreen}
+      onShowHistory={handleShowHistory}
+      hasReport={!!report}
+      rightPanelView={rightPanelView}
+      userName={
+        isAccountantMode && accountantDisplayName
+          ? accountantDisplayName
+          : user?.name || user?.email || t('guest')
+      }
+      userInitials={getUserInitials(
+        isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
+      )}
+      userEmail={user?.email}
+      avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
+      onOpenAssistant={handleOpenAssistant}
+      isAssistantOpen={chatDrawerOpen}
+      onOpenNormalization={
+        showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
+      }
+      // Hub badge surfaces PENDING work, not ACCEPTED progress: the button's
+      // job is "here's what needs your review." `pendingNormalizationCount`
+      // alone restores the notification semantics that were lost when this
+      // count was wired to the Assistant badge (which didn't render the
+      // count inside the drawer). The accepted count is still derivable
+      // inside the Hub panel itself, where progress feedback belongs.
+      normalizationCount={pendingNormalizationCount}
+      // Badge counts actionables across the unified assistant surface:
+      // pending field updates + engine quality warnings + startup studio issues.
+      openTasksCount={assistantOpenTasksCount}
+      isExporting={isExporting || isMethodSwitchRendering}
+      downloadHistory={isMobile ? undefined : downloadHistory}
+      onRedownload={
+        isMobile
+          ? undefined
+          : (item: any) => {
+              if (!canDownloadPdf) {
+                openStarterPaywall('pdf_download')
+                return
+              }
+              if (item.url) {
+                window.open(item.url, '_blank')
+              } else {
+                toast.info(t('pdfRegenerating'), { description: t('pdfRegeneratingDesc') })
+              }
+            }
+      }
+      onNavigateToDashboard={handleNavigateToDashboard}
+      onNavigateToBilling={handleNavigateToBilling}
+      onNavigateToHelp={handleNavigateToHelp}
+      valuationSummary={navValuationSummary}
+      valuationVersions={isMobile ? undefined : versionHistoryForNav}
+      selectedVersionId={isMobile ? undefined : selectedVersionId}
+      onSelectVersion={isMobile ? undefined : handleSelectVersion}
+      onContinueToListing={
+        isMobile
+          ? undefined
+          : () => {
+              trackReturnToMercury()
+              const mercuryBaseUrl = getMercuryUrl()
+              const basePath = clientContextId
+                ? `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
+                : `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients`
+              const hasCompletedValuation =
+                (!!report &&
+                  typeof report.valuation === 'number' &&
+                  Number.isFinite(report.valuation)) ||
+                !!(session?.valuationResult || session?.htmlReport)
+              const returnPath = getSafeMercuryReturnUrl(basePath, {
+                clientContextId: clientContextId ?? undefined,
+                locale: mercuryLocale,
+                sourceApp: 'mercury',
+                celebrateMercuryReturn: hasCompletedValuation,
+              })
+              window.location.href = returnPath
+            }
+      }
+      recentValuations={recentValuations}
+      activeReportId={resolvedReportId || reportId}
+      onNewValuation={handleNewValuation}
+      isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
+      onSelectValuation={handleSelectValuation}
+      onDeleteValuation={handleDeleteValuation}
+      // Mobile-only: shows a spinner on the row currently being deleted.
+      deletingValuationId={isMobile ? deletingValuationId : undefined}
+      onLogout={handleLogout}
+      onAccountSettings={handleAccountSettings}
+      onSwitchWorkspace={handleSwitchWorkspace}
+      isAccountantMode={isAccountantMode}
+      onExitClientView={handleExitClientView}
+      showSourceDataToggle={false}
+      onOpenValuationEdit={() => setShowValuationEditModal(true)}
+      preSelectedMethod={preSelectedMethod ?? undefined}
+      preSelectedMethods={preSelectedMethods}
+      onPreSelectMethod={handlePreSelectMethod}
+      onToggleMethod={togglePreSelectedMethodWithPlanGate}
+      firmCountryCode={user?.firm_country_code}
+      preSelectableMethodsForNav={preSelectableMethodsForNav}
+      planLockedMethodKeys={planLockedMethodKeys}
+      onPlanLockedMethodAction={handlePlanLockedMethodAction}
+      normalizationFeatureLocked={showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false}
+      onNormalizationFeatureLocked={
+        showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
+      }
+      versionControlFeatureLocked={showFullAdvisorMethodNav ? versionControlLocked : false}
+      onVersionControlFeatureLocked={
+        showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
+      }
+      canDownloadPdf={canDownloadPdf}
+    />
+  )
 
-        {pdfStaleBannerEl}
-
-        {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
-        {isAccountantMode && (clientContextName || collectedData.companyName) && (
-          <ContextBar
-            clientName={clientContextName?.split(' ')[0]}
-            businessName={collectedData.companyName}
-            draftStatus={draftStatus}
-            lastSaved={lastSaved}
-            onClientClick={() => {
-              if (clientContextId) {
+  // ─── Shared ContextBar (accountant-mode only, identical on both viewports) ───
+  const contextBarEl =
+    isAccountantMode && (clientContextName || collectedData.companyName) ? (
+      <ContextBar
+        clientName={clientContextName?.split(' ')[0]}
+        businessName={collectedData.companyName}
+        draftStatus={draftStatus}
+        lastSaved={lastSaved}
+        onClientClick={() => {
+          if (clientContextId) {
+            const mercuryUrl = getMercuryUrl()
+            window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
+          }
+        }}
+        onBusinessClick={
+          clientContextId
+            ? () => {
                 const mercuryUrl = getMercuryUrl()
                 window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
               }
-            }}
-            onBusinessClick={
-              clientContextId
-                ? () => {
-                    const mercuryUrl = getMercuryUrl()
-                    window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-                  }
-                : undefined
-            }
-            clientApprovalStatus="none"
-            onResendApproval={() => toast.info(t('reminderSent'))}
-            pendingNormalisations={pendingNormalizationCount}
-            onShowNormalisationReview={handleShowNormalisationReview}
-          />
-        )}
+            : undefined
+        }
+        clientApprovalStatus="none"
+        onResendApproval={() => toast.info(t('reminderSent'))}
+        pendingNormalisations={pendingNormalizationCount}
+        onShowNormalisationReview={handleShowNormalisationReview}
+      />
+    ) : null
 
+  // ─── Shared modal stack (rendered once, mounted in both mobile + desktop) ───
+  // Lifted out of the mobile/desktop fork bodies as PR2.5 Phase 1. The five
+  // modals here had byte-identical props on both sides; the only real diff
+  // between forks at this layer is `ValuationEditModal` + the inline plan
+  // paywall, which the mobile fork was silently missing. Both are below.
+  const modalsEl = (
+    <>
+      <FullscreenReportModal
+        open={showFullscreenModal}
+        onOpenChange={setShowFullscreenModal}
+        report={report}
+        onDownload={handleExport}
+        onShare={
+          isAccountantMode && clientContextId
+            ? () => {
+                setShowFullscreenModal(false)
+                handleOpenMercuryClientForInvite()
+              }
+            : undefined
+        }
+      />
+
+      <RecalculateConfirmationPopup
+        isOpen={showRecalculateConfirmation}
+        currentVersion={currentVersionNumber}
+        onConfirm={handleConfirmRecalculate}
+        onCancel={() => {
+          recalculateConfirmationOpenRef.current = false
+          setShowRecalculateConfirmation(false)
+          pendingSubmitDataRef.current = null
+        }}
+        isCreating={isGenerating || isCalculating}
+        hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
+        hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
+      />
+
+      <NewValuationModal
+        isOpen={showNewValuationModal}
+        onConfirm={handleConfirmNewValuation}
+        onCancel={() => setShowNewValuationModal(false)}
+        isConfirming={isConfirmingNewValuation}
+      />
+
+      <NormalisationSuggestionModal
+        open={showNormalisationModal}
+        onOpenChange={setShowNormalisationModal}
+        suggestion={currentNormalisationSuggestion}
+        onAccept={handleNormalisationSuggestionAccept}
+        onReject={handleNormalisationSuggestionReject}
+        companyName={collectedData.companyName}
+      />
+
+      <UnifiedNormalizationModal
+        open={showUnifiedNormalizationModal}
+        onOpenChange={handleUnifiedNormalizationModalOpenChange}
+        companyName={collectedData.companyName || t('company')}
+        currentYear={lastFullYear}
+        originalEBITDA={getOriginalEbitdaForDisplay()}
+        originalEBITDAByYear={originalEBITDAByYear}
+        normalizations={normalizationItems}
+        onNormalizationsChange={handleNormalizationsChange}
+        countryCode={formCountry || 'BE'}
+        hasUploadedData={hasImportedNormalizationData}
+        onUploadClick={() => {}}
+        financialYears={financialYears}
+        initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
+        initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}
+        fallbackFormDataRef={
+          latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
+        }
+      />
+    </>
+  )
+
+  // ═══════════════════════════════════════
+  // UNIFIED LAYOUT (mobile + desktop)
+  // ═══════════════════════════════════════
+  // Single return for both viewports. The fork used to be two separate
+  // `if (isMobile)` branches that shared CalculatorNav + ContextBar + 5
+  // modals byte-for-byte but were drifting (mobile silently dropped
+  // ValuationEditModal + the plan-paywall modal, so mobile users hitting a
+  // feature gate clicked through to nothing). After PR2.5 the only diffs
+  // are: outer wrapper className and body layout. CalculatorNav prop
+  // divergence (desktop-only download-history / version-list /
+  // continue-to-listing affordances) is `isMobile`-gated inside
+  // `calculatorNavEl` above.
+  return (
+    <div
+      className={
+        isMobile
+          ? 'aurora-theme flex flex-col h-[100dvh] bg-background'
+          : 'aurora-theme flex flex-col h-screen bg-background overflow-hidden'
+      }
+    >
+      {calculatorNavEl}
+
+      {pdfStaleBannerEl}
+
+      {contextBarEl}
+
+      {isMobile ? (
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto">
             <StartupAwareInputPanel key={reportId} {...manualInputProps} />
           </div>
         </div>
-
-        <ChatAssistantDrawer {...chatDrawerProps} />
-
-        <FullscreenReportModal
-          open={showFullscreenModal}
-          onOpenChange={setShowFullscreenModal}
-          report={report}
-          onDownload={handleExport}
-          onShare={
-            isAccountantMode && clientContextId
-              ? () => {
-                  setShowFullscreenModal(false)
-                  handleOpenMercuryClientForInvite()
-                }
-              : undefined
-          }
-        />
-
-        <RecalculateConfirmationPopup
-          isOpen={showRecalculateConfirmation}
-          currentVersion={currentVersionNumber}
-          onConfirm={handleConfirmRecalculate}
-          onCancel={() => {
-            recalculateConfirmationOpenRef.current = false
-            setShowRecalculateConfirmation(false)
-            pendingSubmitDataRef.current = null
-          }}
-          isCreating={isGenerating || isCalculating}
-          hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
-          hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
-        />
-
-        <NewValuationModal
-          isOpen={showNewValuationModal}
-          onConfirm={handleConfirmNewValuation}
-          onCancel={() => setShowNewValuationModal(false)}
-          isConfirming={isConfirmingNewValuation}
-        />
-
-        <NormalisationSuggestionModal
-          open={showNormalisationModal}
-          onOpenChange={setShowNormalisationModal}
-          suggestion={currentNormalisationSuggestion}
-          onAccept={handleNormalisationSuggestionAccept}
-          onReject={handleNormalisationSuggestionReject}
-          companyName={collectedData.companyName}
-        />
-
-        <UnifiedNormalizationModal
-          open={showUnifiedNormalizationModal}
-          onOpenChange={handleUnifiedNormalizationModalOpenChange}
-          companyName={collectedData.companyName || t('company')}
-          currentYear={lastFullYear}
-          originalEBITDA={getOriginalEbitdaForDisplay()}
-          originalEBITDAByYear={originalEBITDAByYear}
-          normalizations={normalizationItems}
-          onNormalizationsChange={handleNormalizationsChange}
-          countryCode={formCountry || 'BE'}
-          hasUploadedData={hasImportedNormalizationData}
-          onUploadClick={() => {}}
-          financialYears={financialYears}
-          initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
-          initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}
-          fallbackFormDataRef={
-            latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
-          }
-        />
-      </div>
-    )
-  }
-
-  // ═══════════════════════════════════════
-  // DESKTOP LAYOUT (Resizable Panels)
-  // ═══════════════════════════════════════
-  return (
-    <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
-      <CalculatorNav
-        companyName={displayCompanyName}
-        onBack={handleBack}
-        onDownload={handleExport}
-        onFullscreen={handleFullscreen}
-        onPreview={handlePreview}
-        onShowHistory={handleShowHistory}
-        hasReport={!!report}
-        rightPanelView={rightPanelView}
-        userName={
-          isAccountantMode && accountantDisplayName
-            ? accountantDisplayName
-            : user?.name || user?.email || t('guest')
-        }
-        userInitials={getUserInitials(
-          isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
-        )}
-        userEmail={user?.email}
-        avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
-        onOpenAssistant={handleOpenAssistant}
-        isAssistantOpen={chatDrawerOpen}
-        onOpenNormalization={
-          showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
-        }
-        // See sibling site for full rationale on why Hub badge is `pending`,
-        // not `accepted`, and Assistant badge is `pendingUpdates` only.
-        normalizationCount={pendingNormalizationCount}
-        // Pass-9: badge surfaces unread items in the drawer — pending
-        // field-update cards + unacknowledged engine warnings (chat
-        // bubbles). Single counter, single source of friction-free signal.
-        // Same unified assistant task count on desktop nav.
-        openTasksCount={assistantOpenTasksCount}
-        isExporting={isExporting || isMethodSwitchRendering}
-        downloadHistory={downloadHistory}
-        onRedownload={(item: any) => {
-          if (!canDownloadPdf) {
-            openStarterPaywall('pdf_download')
-            return
-          }
-          if (item.url) {
-            window.open(item.url, '_blank')
-          } else {
-            toast.info(t('pdfRegenerating'), { description: t('pdfRegeneratingDesc') })
-          }
-        }}
-        onNavigateToDashboard={handleNavigateToDashboard}
-        onNavigateToBilling={handleNavigateToBilling}
-        onNavigateToHelp={handleNavigateToHelp}
-        valuationSummary={navValuationSummary}
-        valuationVersions={versionHistoryForNav}
-        selectedVersionId={selectedVersionId}
-        onSelectVersion={handleSelectVersion}
-        onContinueToListing={() => {
-          trackReturnToMercury()
-          const mercuryBaseUrl = getMercuryUrl()
-          const basePath = clientContextId
-            ? `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-            : `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients`
-          const hasCompletedValuation =
-            (!!report &&
-              typeof report.valuation === 'number' &&
-              Number.isFinite(report.valuation)) ||
-            !!(session?.valuationResult || session?.htmlReport)
-          const returnPath = getSafeMercuryReturnUrl(basePath, {
-            clientContextId: clientContextId ?? undefined,
-            locale: mercuryLocale,
-            sourceApp: 'mercury',
-            celebrateMercuryReturn: hasCompletedValuation,
-          })
-          window.location.href = returnPath
-        }}
-        recentValuations={recentValuations}
-        activeReportId={resolvedReportId || reportId}
-        onNewValuation={handleNewValuation}
-        isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
-        onSelectValuation={handleSelectValuation}
-        onDeleteValuation={handleDeleteValuation}
-        onLogout={handleLogout}
-        onAccountSettings={handleAccountSettings}
-        onSwitchWorkspace={handleSwitchWorkspace}
-        isAccountantMode={isAccountantMode}
-        onExitClientView={handleExitClientView}
-        showSourceDataToggle={false}
-        onOpenValuationEdit={() => setShowValuationEditModal(true)}
-        preSelectedMethod={preSelectedMethod ?? undefined}
-        preSelectedMethods={preSelectedMethods}
-        onPreSelectMethod={handlePreSelectMethod}
-        onToggleMethod={togglePreSelectedMethodWithPlanGate}
-        firmCountryCode={user?.firm_country_code}
-        preSelectableMethodsForNav={preSelectableMethodsForNav}
-        planLockedMethodKeys={planLockedMethodKeys}
-        onPlanLockedMethodAction={handlePlanLockedMethodAction}
-        normalizationFeatureLocked={showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false}
-        onNormalizationFeatureLocked={
-          showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
-        }
-        versionControlFeatureLocked={showFullAdvisorMethodNav ? versionControlLocked : false}
-        onVersionControlFeatureLocked={
-          showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
-        }
-        canDownloadPdf={canDownloadPdf}
-      />
-
-      {pdfStaleBannerEl}
-
-      {/* Context Bar - Accountant Mode (Clarity parity) */}
-      {isAccountantMode && (clientContextName || collectedData.companyName) && (
-        <ContextBar
-          clientName={clientContextName?.split(' ')[0]}
-          businessName={collectedData.companyName}
-          draftStatus={draftStatus}
-          lastSaved={lastSaved}
-          onClientClick={() => {
-            if (clientContextId) {
-              const mercuryUrl = getMercuryUrl()
-              window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-            }
-          }}
-          onBusinessClick={
-            clientContextId
-              ? () => {
-                  const mercuryUrl = getMercuryUrl()
-                  window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-                }
-              : undefined
-          }
-          clientApprovalStatus="none"
-          onResendApproval={() => toast.info(t('reminderSent'))}
-          pendingNormalisations={pendingNormalizationCount}
-          onShowNormalisationReview={handleShowNormalisationReview}
-        />
-      )}
-
-      {/* Main Content: Resizable Panels */}
+      ) : (
+      /* Desktop body: Resizable left input + right report/preview/history. */
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
         <ResizablePanelGroup className="h-full w-full">
           {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
@@ -6448,80 +6316,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      )}
 
-      {/* Chat Co-pilot Drawer (Suspense-wrapped for lazy loading UX) */}
       <Suspense fallback={null}>
         <ChatAssistantDrawer {...chatDrawerProps} />
       </Suspense>
 
-      {/* Fullscreen Report Modal */}
-      <FullscreenReportModal
-        open={showFullscreenModal}
-        onOpenChange={setShowFullscreenModal}
-        report={report}
-        onDownload={handleExport}
-        onShare={
-          isAccountantMode && clientContextId
-            ? () => {
-                setShowFullscreenModal(false)
-                handleOpenMercuryClientForInvite()
-              }
-            : undefined
-        }
-      />
-
-      {/* Recalculation Confirmation (when user changes EBITDA/form and clicks recalculate) */}
-      <RecalculateConfirmationPopup
-        isOpen={showRecalculateConfirmation}
-        currentVersion={currentVersionNumber}
-        onConfirm={handleConfirmRecalculate}
-        onCancel={() => {
-          recalculateConfirmationOpenRef.current = false
-          setShowRecalculateConfirmation(false)
-          pendingSubmitDataRef.current = null
-        }}
-        isCreating={isGenerating || isCalculating}
-        hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
-        hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
-      />
-
-      <NewValuationModal
-        isOpen={showNewValuationModal}
-        onConfirm={handleConfirmNewValuation}
-        onCancel={() => setShowNewValuationModal(false)}
-        isConfirming={isConfirmingNewValuation}
-      />
-
-      {/* Normalisation Suggestion Modal */}
-      <NormalisationSuggestionModal
-        open={showNormalisationModal}
-        onOpenChange={setShowNormalisationModal}
-        suggestion={currentNormalisationSuggestion}
-        onAccept={handleNormalisationSuggestionAccept}
-        onReject={handleNormalisationSuggestionReject}
-        companyName={collectedData.companyName}
-      />
-
-      {/* Unified Normalization Modal — single source of truth for all normalization entry points */}
-      <UnifiedNormalizationModal
-        open={showUnifiedNormalizationModal}
-        onOpenChange={handleUnifiedNormalizationModalOpenChange}
-        companyName={collectedData.companyName || t('company')}
-        currentYear={lastFullYear}
-        originalEBITDA={getOriginalEbitdaForDisplay()}
-        originalEBITDAByYear={originalEBITDAByYear}
-        normalizations={normalizationItems}
-        onNormalizationsChange={handleNormalizationsChange}
-        countryCode={formCountry || 'BE'}
-        hasUploadedData={hasImportedNormalizationData}
-        onUploadClick={() => {}}
-        financialYears={financialYears}
-        initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
-        initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}
-        fallbackFormDataRef={
-          latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
-        }
-      />
+      {modalsEl}
 
       <ValuationEditModal
         open={showValuationEditModal}

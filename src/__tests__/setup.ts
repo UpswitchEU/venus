@@ -4,10 +4,30 @@
  * Global test configuration and mocks for Next.js 13+ App Router
  */
 
+import diagnosticsChannel from 'node:diagnostics_channel'
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
 import React from 'react'
 import { afterEach, vi } from 'vitest'
+
+const diagnosticsChannelCompat = diagnosticsChannel as typeof diagnosticsChannel & {
+  tracingChannel?: (name: string) => {
+    hasSubscribers: boolean
+    traceSync: <T>(
+      fn: (...args: unknown[]) => T,
+      store: unknown,
+      thisArg: unknown,
+      ...args: unknown[]
+    ) => T
+  }
+}
+
+if (typeof diagnosticsChannelCompat.tracingChannel !== 'function') {
+  diagnosticsChannelCompat.tracingChannel = () => ({
+    hasSubscribers: false,
+    traceSync: (fn, _store, thisArg, ...args) => fn.apply(thisArg, args),
+  })
+}
 
 // Cleanup after each test
 afterEach(() => {
@@ -84,20 +104,22 @@ vi.mock('next/link', () => ({
   },
 }))
 
-// Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-})
+// Mock window.matchMedia when the current test environment provides a DOM.
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(), // deprecated
+      removeListener: vi.fn(), // deprecated
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+}
 
 // Mock ResizeObserver
 global.ResizeObserver = vi.fn().mockImplementation(() => ({

@@ -16,6 +16,7 @@
  *   - Bearer (parsed from cookie) + Cookie + client-context headers forwarded
  *   - Both canonical AND legacy client-context inputs map to canonical-only output
  *   - Message concatenation: history + current user message
+ *   - Audience scoping: defaults to owner, forwards explicit advisor/owner claim
  *   - Context derives hasRevenue / hasEbitda / hasOwnerSalary / needsNormalization
  *   - Titan non-OK → fallback envelope with err.message
  *   - Streaming response → text/event-stream pass-through
@@ -267,6 +268,39 @@ describe('Titan payload', () => {
       { role: 'assistant', content: 'second' },
       { role: 'user', content: 'follow-up' },
     ])
+  })
+
+  it('defaults Titan audience to owner scope', async () => {
+    await POST(request({ message: 'hi' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body.audience).toBe('owner')
+  })
+
+  it('forwards an explicit advisor audience claim', async () => {
+    await POST(request({ message: 'hi', audience: 'advisor' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body.audience).toBe('advisor')
+  })
+
+  it('coerces invalid audience claims to owner scope', async () => {
+    await POST(request({ message: 'hi', audience: 'admin' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body.audience).toBe('owner')
   })
 
   it('derives hasRevenue / hasEbitda from formData', async () => {

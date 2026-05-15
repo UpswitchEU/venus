@@ -51,6 +51,8 @@ export interface AIChatRequest {
   normalizations?: any[]
   formData?: any
   stream?: boolean
+  /** Titan tool-scope claim. Venus defaults to owner-scope in the BFF. */
+  audience?: 'advisor' | 'owner'
   /** Locale for fallback responses when AI is unavailable (en | nl) */
   locale?: 'en' | 'nl'
   /** Previous messages for conversation context (used as fallback if server history unavailable) */
@@ -212,6 +214,7 @@ class AIChatServiceImpl {
           normalizations: request.normalizations,
           formData: request.formData,
           stream: request.stream === true ? true : false,
+          audience: request.audience,
           history: request.history,
         }),
       })
@@ -255,8 +258,8 @@ class AIChatServiceImpl {
       }
 
       // Extract tool results — pure-function parser tested in
-      // tool-results-parser.test.ts. Locks the 5-kind envelope contract +
-      // defensive drops for malformed payloads.
+      // tool-results-parser.test.ts. Locks the Venus-rendered envelope
+      // contract + defensive drops for malformed payloads.
       if (data.toolResults) {
         const parsed = parseAIChatToolResults(data.toolResults)
         if (parsed.normalisationSuggestions.length > 0) {
@@ -313,6 +316,7 @@ class AIChatServiceImpl {
             normalizations: request.normalizations,
             formData: request.formData,
             stream: true,
+            audience: request.audience,
             history: request.history,
           }),
           signal: controller.signal,
