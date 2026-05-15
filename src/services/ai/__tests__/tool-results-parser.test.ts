@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * Tests for `parseAIChatToolResults` — the Venus-side tool-results
  * parser that builds the AIChatResponse arrays consumed by the
@@ -27,6 +29,11 @@ describe('parseAIChatToolResults — input tolerance', () => {
       valuationRunRequests: [],
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
+      belgianCompanyBootstraps: [],
+      methodReadinessPreviews: [],
+      listingPreviews: [],
+      listingCreateRequests: [],
+      buyerProfilePreviews: [],
     }
     expect(parseAIChatToolResults(undefined)).toEqual(empty)
     expect(parseAIChatToolResults(null)).toEqual(empty)
@@ -42,6 +49,11 @@ describe('parseAIChatToolResults — input tolerance', () => {
       valuationRunRequests: [],
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
+      belgianCompanyBootstraps: [],
+      methodReadinessPreviews: [],
+      listingPreviews: [],
+      listingCreateRequests: [],
+      buyerProfilePreviews: [],
     })
   })
 
@@ -423,9 +435,7 @@ describe('sellability_run_request', () => {
         data: { status: 'pending_approval', request: {} },
       },
     ])
-    expect(
-      (result.sellabilityRunRequests[0] as { currentScore?: unknown }).currentScore,
-    ).toBeNull()
+    expect((result.sellabilityRunRequests[0] as { currentScore?: unknown }).currentScore).toBeNull()
   })
 
   it('parses blocked branch (profile_incomplete) with missing array', () => {
@@ -446,6 +456,433 @@ describe('sellability_run_request', () => {
         reason: 'profile_incomplete',
         missing: ['q1_top3_concentration_pct', 'q3_books_cleanliness'],
         message: 'Fill Q1 + Q3 first',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// belgian_company_bootstrap
+// ---------------------------------------------------------------------
+
+describe('belgian_company_bootstrap', () => {
+  it('parses public Belgian company bootstrap cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'belgian_company_bootstrap',
+        data: {
+          status: 'ok',
+          identity: {
+            legal_name: 'Decostere NV',
+            legal_form: 'NV',
+            kbo_number: 'BE0400.378.485',
+            address: 'Markt 1',
+            city: 'Kortrijk',
+            postal_code: '8500',
+            nace_code: '22220',
+            nace_description: 'Plastic packaging manufacturing',
+            foundation_date: '1986-02-01',
+            is_active: true,
+          },
+          benchmark: {
+            status: 'matched',
+            business_type_title: 'Manufacturing',
+            ev_ebitda_median: 5.6,
+            confidence: 'medium',
+          },
+          filing_summary: {
+            status: 'ok',
+            source: 'nbb_cbso',
+            filing_year: 2024,
+            years_available: 3,
+            revenue: 4_500_000,
+            ebitda: 620_000,
+            data_health_message: 'Official filing data available.',
+          },
+          valuation_preview: {
+            status: 'ok',
+            method: 'ev_ebitda_public',
+            ebitda_used: 620_000,
+            ebitda_year: 2024,
+            ev_mid: 3_472_000,
+            equity_mid: 3_100_000,
+          },
+          message: 'Public data found.',
+        },
+      },
+    ])
+
+    expect(result.belgianCompanyBootstraps).toEqual([
+      {
+        status: 'ok',
+        reason: undefined,
+        message: 'Public data found.',
+        identity: {
+          legalName: 'Decostere NV',
+          legalForm: 'NV',
+          kboNumber: 'BE0400.378.485',
+          address: 'Markt 1',
+          city: 'Kortrijk',
+          postalCode: '8500',
+          naceCode: '22220',
+          naceDescription: 'Plastic packaging manufacturing',
+          foundationDate: '1986-02-01',
+          isActive: true,
+        },
+        benchmark: {
+          status: 'matched',
+          businessTypeTitle: 'Manufacturing',
+          evEbitdaMedian: 5.6,
+          confidence: 'medium',
+        },
+        filingSummary: {
+          status: 'ok',
+          source: 'nbb_cbso',
+          filingYear: 2024,
+          yearsAvailable: 3,
+          revenue: 4_500_000,
+          ebitda: 620_000,
+          dataHealthMessage: 'Official filing data available.',
+        },
+        valuationPreview: {
+          status: 'ok',
+          method: 'ev_ebitda_public',
+          ebitdaUsed: 620_000,
+          ebitdaYear: 2024,
+          evMid: 3_472_000,
+          equityMid: 3_100_000,
+        },
+      },
+    ])
+  })
+
+  it('parses failed bootstrap cards so the drawer can show a blocked state', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'belgian_company_bootstrap',
+        data: {
+          status: 'failed',
+          reason: 'upstream_unavailable',
+          message: 'Belgian company enrichment is temporarily unavailable.',
+        },
+      },
+    ])
+
+    expect(result.belgianCompanyBootstraps).toEqual([
+      {
+        status: 'failed',
+        reason: 'upstream_unavailable',
+        message: 'Belgian company enrichment is temporarily unavailable.',
+        identity: null,
+        benchmark: null,
+        filingSummary: null,
+        valuationPreview: null,
+      },
+    ])
+  })
+
+  it('drops malformed bootstrap statuses', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'belgian_company_bootstrap',
+        data: { status: 'unknown_status', identity: { legal_name: 'Decostere NV' } },
+      },
+    ])
+
+    expect(result.belgianCompanyBootstraps).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------
+// method_readiness
+// ---------------------------------------------------------------------
+
+describe('method_readiness', () => {
+  it('parses read-only valuation method readiness cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'method_readiness',
+        data: {
+          status: 'ok',
+          report_id: 'rep-uuid',
+          business_name: 'Acme',
+          readiness_source: 'hermes_raw',
+          ready_methods: ['ebitda_multiple', 'sde_multiple'],
+          blocked_methods: ['dcf'],
+          message: 'Two methods can run today.',
+        },
+      },
+    ])
+
+    expect(result.methodReadinessPreviews).toEqual([
+      {
+        status: 'ok',
+        reportId: 'rep-uuid',
+        businessName: 'Acme',
+        readinessSource: 'hermes_raw',
+        readyMethods: ['ebitda_multiple', 'sde_multiple'],
+        blockedMethods: ['dcf'],
+        message: 'Two methods can run today.',
+      },
+    ])
+  })
+
+  it('parses non-ok method readiness statuses as blocked cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'method_readiness',
+        data: {
+          status: 'pipeline_not_run',
+          message: 'Import financials first.',
+          ready_methods: [],
+          blocked_methods: ['ebitda_multiple', 'dcf'],
+        },
+      },
+    ])
+
+    expect(result.methodReadinessPreviews).toEqual([
+      {
+        status: 'blocked',
+        businessName: null,
+        readinessSource: null,
+        readyMethods: [],
+        blockedMethods: ['ebitda_multiple', 'dcf'],
+        reason: 'pipeline_not_run',
+        message: 'Import financials first.',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// listing_preview
+// ---------------------------------------------------------------------
+
+describe('listing_preview', () => {
+  it('parses read-only anonymized listing previews', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'listing_preview',
+        data: {
+          status: 'ok',
+          report_id: 'rep-uuid',
+          source_business_name: 'Acme',
+          missing_fields: ['province'],
+          next_action_hint: 'Review buyer profiles.',
+          preview: {
+            anonymized_title: 'Profitable software services firm',
+            business_type: 'Services',
+            sector: 'Technology',
+            industry: 'B2B Software',
+            region: 'Flanders',
+            province: 'Antwerp',
+            year_commenced: 2008,
+            employee_range: '11-50',
+            revenue_range: '€2M-€5M',
+            equity_stake: 'Majority',
+            ownership_structure: 'Founder-owned',
+            owner_managers_count: 1,
+            status: 'draft',
+            featured: false,
+            nda_required: true,
+            view_count: 0,
+            has_verified_valuation: true,
+          },
+          message: 'Listing preview is ready.',
+        },
+      },
+    ])
+
+    expect(result.listingPreviews).toEqual([
+      {
+        status: 'ok',
+        reportId: 'rep-uuid',
+        sourceBusinessName: 'Acme',
+        missingFields: ['province'],
+        nextActionHint: 'Review buyer profiles.',
+        preview: {
+          title: 'Profitable software services firm',
+          businessType: 'Services',
+          sector: 'Technology',
+          industry: 'B2B Software',
+          region: 'Flanders',
+          province: 'Antwerp',
+          yearCommenced: 2008,
+          employeeRange: '11-50',
+          revenueRange: '€2M-€5M',
+          equityStake: 'Majority',
+          ownershipStructure: 'Founder-owned',
+          ownerManagersCount: 1,
+          status: 'draft',
+          featured: false,
+          ndaRequired: true,
+          viewCount: 0,
+          hasVerifiedValuation: true,
+        },
+        message: 'Listing preview is ready.',
+      },
+    ])
+  })
+
+  it('parses non-ok listing preview statuses as blocked cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'listing_preview',
+        data: {
+          status: 'preview_failed',
+          report_id: 'rep-uuid',
+          message: 'Could not anonymize listing yet.',
+        },
+      },
+    ])
+
+    expect(result.listingPreviews).toEqual([
+      {
+        status: 'blocked',
+        reportId: 'rep-uuid',
+        reason: 'preview_failed',
+        message: 'Could not anonymize listing yet.',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// listing_create_request
+// ---------------------------------------------------------------------
+
+describe('listing_create_request', () => {
+  it('parses pending_approval with report, client, visibility, and valuation summary', () => {
+    const valuation_summary = {
+      business_name: 'Acme',
+      business_type: 'Software',
+      industry: 'B2B SaaS',
+      currency: 'EUR',
+      midpoint: '1000000',
+      min: '800000',
+      max: '1200000',
+    }
+    const result = parseAIChatToolResults([
+      {
+        type: 'listing_create_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            report_id: 'rep-uuid',
+            accountant_customer_id: 'client-uuid',
+            visibility: 'private',
+            valuation_summary,
+            note: 'Ready for advisor review',
+          },
+          message: 'Ready to create listing',
+        },
+      },
+    ])
+
+    expect(result.listingCreateRequests).toEqual([
+      {
+        status: 'pending_approval',
+        reportId: 'rep-uuid',
+        accountantCustomerId: 'client-uuid',
+        visibility: 'private',
+        valuationSummary: valuation_summary,
+        note: 'Ready for advisor review',
+        message: 'Ready to create listing',
+      },
+    ])
+  })
+
+  it('parses blocked branch', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'listing_create_request',
+        data: {
+          status: 'blocked',
+          reason: 'no_valuation_yet',
+          message: 'Generate a valuation first',
+        },
+      },
+    ])
+
+    expect(result.listingCreateRequests).toEqual([
+      {
+        status: 'blocked',
+        reason: 'no_valuation_yet',
+        message: 'Generate a valuation first',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// buyer_profile_preview
+// ---------------------------------------------------------------------
+
+describe('buyer_profile_preview', () => {
+  it('parses read-only buyer profile previews', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'buyer_profile_preview',
+        data: {
+          status: 'ok',
+          report_id: 'rep-uuid',
+          source_business_name: 'Acme',
+          listing_readiness: {
+            status: 'needs_review',
+            missing_fields: ['country'],
+          },
+          buyer_segments: [
+            {
+              id: 'strategic_acquirer',
+              label: 'Strategic acquirer',
+              fit_score: 91,
+              recommended_angle: 'Lead with strategic fit.',
+            },
+          ],
+          message: 'Likely buyer audiences, not real matches.',
+        },
+      },
+    ])
+
+    expect(result.buyerProfilePreviews).toEqual([
+      {
+        status: 'ok',
+        reportId: 'rep-uuid',
+        sourceBusinessName: 'Acme',
+        listingReadiness: {
+          status: 'needs_review',
+          missingFields: ['country'],
+        },
+        buyerSegments: [
+          {
+            id: 'strategic_acquirer',
+            label: 'Strategic acquirer',
+            fitScore: 91,
+            recommendedAngle: 'Lead with strategic fit.',
+          },
+        ],
+        message: 'Likely buyer audiences, not real matches.',
+      },
+    ])
+  })
+
+  it('parses blocked buyer profile previews', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'buyer_profile_preview',
+        data: {
+          status: 'blocked',
+          reason: 'valuation_incomplete',
+          message: 'Run the valuation first.',
+        },
+      },
+    ])
+
+    expect(result.buyerProfilePreviews).toEqual([
+      {
+        status: 'blocked',
+        reason: 'valuation_incomplete',
+        message: 'Run the valuation first.',
       },
     ])
   })
@@ -478,12 +915,36 @@ describe('combined output', () => {
         type: 'sellability_run_request',
         data: { status: 'blocked', reason: 'profile_incomplete' },
       },
+      {
+        type: 'belgian_company_bootstrap',
+        data: { status: 'ok', identity: { legal_name: 'Acme NV' } },
+      },
+      {
+        type: 'method_readiness',
+        data: {
+          status: 'ok',
+          ready_methods: ['ebitda_multiple'],
+          blocked_methods: ['dcf'],
+        },
+      },
+      {
+        type: 'listing_preview',
+        data: { status: 'ok', preview: { anonymized_title: 'Acme listing' } },
+      },
+      {
+        type: 'listing_create_request',
+        data: { status: 'pending_approval', request: { report_id: 'r1' } },
+      },
     ])
     expect(result.normalisationSuggestions).toHaveLength(1)
     expect(result.fieldUpdates).toHaveLength(1)
     expect(result.valuationRunRequests).toHaveLength(1)
     expect(result.reportGenerationRequests).toHaveLength(1)
     expect(result.sellabilityRunRequests).toHaveLength(1)
+    expect(result.belgianCompanyBootstraps).toHaveLength(1)
+    expect(result.methodReadinessPreviews).toHaveLength(1)
+    expect(result.listingPreviews).toHaveLength(1)
+    expect(result.listingCreateRequests).toHaveLength(1)
   })
 
   it('accumulates multiple entries of the same kind in order', () => {
@@ -504,7 +965,7 @@ describe('combined output', () => {
     expect(result.normalisationSuggestions).toHaveLength(3)
     expect((result.normalisationSuggestions[0] as { category: string }).category).toBe('rent')
     expect((result.normalisationSuggestions[2] as { category: string }).category).toBe(
-      'advisor_fees',
+      'advisor_fees'
     )
   })
 })
@@ -544,7 +1005,7 @@ describe('dispatchAIChatChunk — input tolerance', () => {
     dispatchAIChatChunk(
       { type: 'future_chunk_kind', content: 'data' },
       makeChunkDispatchState(),
-      cb,
+      cb
     )
     expect(cb.onText).not.toHaveBeenCalled()
   })
@@ -572,27 +1033,15 @@ describe('dispatchAIChatChunk — text chunks', () => {
   it('captures conversationId from text chunk into state (used as done fallback)', () => {
     const cb = freshCallbacks()
     const state = makeChunkDispatchState()
-    dispatchAIChatChunk(
-      { type: 'text', conversationId: 'cv-from-text', content: 'hi' },
-      state,
-      cb,
-    )
+    dispatchAIChatChunk({ type: 'text', conversationId: 'cv-from-text', content: 'hi' }, state, cb)
     expect(state.resolvedConversationId).toBe('cv-from-text')
   })
 
   it('does NOT overwrite captured conversationId when subsequent text chunk has empty conversationId', () => {
     const cb = freshCallbacks()
     const state = makeChunkDispatchState()
-    dispatchAIChatChunk(
-      { type: 'text', conversationId: 'cv-first', content: 'hi' },
-      state,
-      cb,
-    )
-    dispatchAIChatChunk(
-      { type: 'text', conversationId: '', content: 'more' },
-      state,
-      cb,
-    )
+    dispatchAIChatChunk({ type: 'text', conversationId: 'cv-first', content: 'hi' }, state, cb)
+    dispatchAIChatChunk({ type: 'text', conversationId: '', content: 'more' }, state, cb)
     expect(state.resolvedConversationId).toBe('cv-first')
   })
 })
@@ -603,7 +1052,7 @@ describe('dispatchAIChatChunk — tool chunks', () => {
     dispatchAIChatChunk(
       { type: 'tool_start', toolName: 'run_valuation' },
       makeChunkDispatchState(),
-      cb,
+      cb
     )
     expect(cb.onToolStart).toHaveBeenCalledWith('run_valuation')
   })
@@ -620,7 +1069,7 @@ describe('dispatchAIChatChunk — tool chunks', () => {
     dispatchAIChatChunk(
       { type: 'tool_result', toolName: 'suggest_normalization', toolResult: result },
       makeChunkDispatchState(),
-      cb,
+      cb
     )
     expect(cb.onToolResult).toHaveBeenCalledWith('suggest_normalization', result)
   })
@@ -630,7 +1079,7 @@ describe('dispatchAIChatChunk — tool chunks', () => {
     dispatchAIChatChunk(
       { type: 'tool_result', toolName: 'noop_tool' },
       makeChunkDispatchState(),
-      cb,
+      cb
     )
     expect(cb.onToolResult).toHaveBeenCalledWith('noop_tool', undefined)
   })
@@ -641,11 +1090,7 @@ describe('dispatchAIChatChunk — terminal chunks', () => {
     const cb = freshCallbacks()
     const state = makeChunkDispatchState()
     state.resolvedConversationId = 'cv-from-earlier-text'
-    dispatchAIChatChunk(
-      { type: 'done', conversationId: 'cv-from-done' },
-      state,
-      cb,
-    )
+    dispatchAIChatChunk({ type: 'done', conversationId: 'cv-from-done' }, state, cb)
     expect(cb.onDone).toHaveBeenCalledWith('cv-from-done')
     expect(state.doneReceived).toBe(true)
   })
@@ -696,18 +1141,14 @@ describe('dispatchAIChatChunk — state threading across multiple chunks', () =>
   it('preserves captured conversationId across text → done sequence', () => {
     const cb = freshCallbacks()
     const state = makeChunkDispatchState()
-    dispatchAIChatChunk(
-      { type: 'text', conversationId: 'cv-x', content: 'streaming' },
-      state,
-      cb,
-    )
+    dispatchAIChatChunk({ type: 'text', conversationId: 'cv-x', content: 'streaming' }, state, cb)
     dispatchAIChatChunk({ type: 'text', content: 'more text' }, state, cb)
     dispatchAIChatChunk({ type: 'done' }, state, cb)
 
     expect(cb.onDone).toHaveBeenCalledWith('cv-x')
   })
 
-  it('handles missing optional callbacks gracefully (consumer didn\'t wire them)', () => {
+  it("handles missing optional callbacks gracefully (consumer didn't wire them)", () => {
     // The dispatcher uses optional chaining — passing partial callbacks
     // should be a non-throwing no-op for unhandled chunk types.
     const onlyText = { onText: vi.fn() }

@@ -315,6 +315,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 initialTab={initialTab}
                 urlAction={urlAction}
                 initialDrawerOpen={urlParams.drawer === 'open'}
+                initialAgentNext={urlParams.agent_next}
                 guidedResolution={{
                   spotlight: urlParams.spotlight,
                   focusField: urlParams.focusField,

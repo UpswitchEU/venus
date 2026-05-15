@@ -76,3 +76,43 @@ export function getManualSessionKey(session: unknown): string | null {
   const sessionIdentifiers = getManualSessionIdentifier(session)
   return nonEmptyString(sessionIdentifiers?.key) ?? nonEmptyString(sessionIdentifiers?.session_key)
 }
+
+export function resolveManualCanonicalReportId(args: {
+  targetReportId?: string | null
+  session: unknown
+  resolvedReportId?: string | null
+  routeReportId?: string | null
+  resultValuationId?: string | null
+  activeSessionKey?: string | null
+}): string | null {
+  const targetReportId = nonEmptyString(args.targetReportId)
+  if (targetReportId && isUuid(targetReportId)) return targetReportId
+
+  const sessionIdentifiers = getManualSessionIdentifier(args.session)
+  const uuidCandidates = [
+    sessionIdentifiers?.reportId,
+    args.resolvedReportId,
+    args.resultValuationId,
+    args.routeReportId,
+  ]
+  for (const candidate of uuidCandidates) {
+    if (typeof candidate === 'string' && isUuid(candidate)) return candidate
+  }
+
+  if (targetReportId && targetReportId !== 'new' && !isSessionKey(targetReportId)) {
+    return targetReportId
+  }
+
+  const sessionCandidates = [
+    args.activeSessionKey,
+    sessionIdentifiers?.key,
+    sessionIdentifiers?.session_key,
+    args.routeReportId,
+    targetReportId,
+  ]
+  for (const candidate of sessionCandidates) {
+    if (typeof candidate === 'string' && isSessionKey(candidate)) return candidate
+  }
+
+  return null
+}

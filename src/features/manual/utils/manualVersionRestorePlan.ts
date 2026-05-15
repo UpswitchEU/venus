@@ -24,6 +24,10 @@ function readVersionNumber(version: Record<string, unknown>): number | undefined
   return Number.isFinite(numeric) ? numeric : undefined
 }
 
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 export function buildManualVersionRestorePlan(version: unknown): ManualVersionRestorePlan | null {
   const versionRecord = asRecord(version)
   if (!versionRecord) return null
@@ -36,8 +40,8 @@ export function buildManualVersionRestorePlan(version: unknown): ManualVersionRe
     ? ({
         ...valuationResultRecord,
         html_report: getFirstRenderableReportHtml(
-          valuationResultRecord.html_report,
-          versionRecord.htmlReport
+          readString(valuationResultRecord.html_report),
+          readString(versionRecord.htmlReport)
         ),
       } as ValuationResponse)
     : undefined

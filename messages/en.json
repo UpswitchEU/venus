@@ -2377,6 +2377,55 @@
 				"actionLabel": "Generate PDF",
 				"statusStarted": "PDF generation started"
 			},
+			"listing": {
+				"titlePending": "Create marketplace listing",
+				"titlePendingWithName": "Create listing — {name}",
+				"titleBlocked": "Listing not ready yet",
+				"labelVisibility": "Visibility",
+				"labelMidpoint": "Indicative value",
+				"privateVisibility": "Private",
+				"publicVisibility": "Public",
+				"actionLabel": "Open listing wizard",
+				"statusStarted": "Opening listing wizard"
+			},
+			"belgianBootstrap": {
+				"titleReady": "Public data found",
+				"titleBlocked": "Public data unavailable",
+				"identityTitle": "Company identity",
+				"active": "Active",
+				"inactive": "Inactive",
+				"filingYear": "filing {year}",
+				"equityPreview": "equity preview",
+				"filingTitle": "NBB/CBSO",
+				"benchmarkTitle": "Benchmark",
+				"previewTitle": "Public preview",
+				"noFiling": "No filing data",
+				"noBenchmark": "No mapped benchmark",
+				"noPreview": "Not enough data"
+			},
+			"methodReadiness": {
+				"titleReady": "Valuation methods ready",
+				"titleBlocked": "Valuation methods need data",
+				"readyCount": "{count} method(s) ready",
+				"blockedCount": "{count} need more data",
+				"readyLabel": "Ready",
+				"blockedLabel": "Needs data"
+			},
+			"listingPreview": {
+				"titleReady": "Listing preview ready",
+				"titleBlocked": "Listing preview not ready",
+				"missingPrefix": "Review: {fields}",
+				"untitled": "Untitled listing",
+				"verified": "Verified",
+				"nda": "NDA"
+			},
+			"buyerProfile": {
+				"titleReady": "Buyer profile ready",
+				"titleBlocked": "Buyer profile not ready",
+				"segmentCount": "{count} buyer profiles",
+				"missingPrefix": "Review: {fields}",
+				"ready": "listing-ready"
+			},
 			"sellability": {
 				"header": "Ready to compute sellability",
 				"titlePending": "Calculate sellability score",

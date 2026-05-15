@@ -40,4 +40,13 @@ describe('buildPreservedReportBootstrapQueryString', () => {
     })
     expect(q).toBe('?selected_method=startup_valuation&prefill_from=landing')
   })
+
+  it('preserves the Mercury advisor agent_next handoff intent', () => {
+    const q = buildPreservedReportBootstrapQueryString({
+      drawer: 'open',
+      agent_next: 'run_valuation',
+      source: 'mercury',
+    })
+    expect(q).toBe('?source=mercury&drawer=open&agent_next=run_valuation')
+  })
 })

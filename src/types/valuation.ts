@@ -675,6 +675,8 @@ export interface ManualValuationFormUiBase {
   canonicalNaceCode?: string
   businessType: string
   businessTypeCode?: string
+  /** Back-compat camelCase alias emitted by the manual panel; API field is `business_model`. */
+  businessModel?: string
   industry: string
   country: string
   country_code?: string

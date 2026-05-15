@@ -1,5 +1,6 @@
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
 import type { RecentValuation } from '../../../components/calculator'
+import { buildManualSafeMercuryReturnUrl } from './manualMercuryNavigation'
 
 interface DeleteValuationEntryParams {
   valuation: RecentValuation
@@ -14,6 +15,36 @@ interface BuildPostDeleteNewValuationUrlParams {
   kboNumber?: string | null
   vatNumber?: string | null
   currentSearch?: string | URLSearchParams | null
+}
+
+interface BuildPostDeleteCurrentReportRedirectUrlParams {
+  postDeleteNewValuationUrl?: string | null
+  isAccountantMode: boolean
+  returnUrl?: string | null
+  sourceApp?: string | null
+  clientContextId?: string | null
+  currentLocale: string
+}
+
+interface BuildCurrentReportDeletedMercuryMessageParams {
+  reportId: string
+  currentLocale: string
+  clientContextId?: string | null
+  hasRemainingValuations: boolean
+}
+
+interface BuildSidebarReportDeletedMercuryMessageParams {
+  reportId: string
+  clientContextId?: string | null
+}
+
+export interface ManualReportDeletedMercuryMessage {
+  type: 'venus-report-deleted'
+  reportId: string
+  keepOpen: boolean
+  source: 'venus'
+  clientId?: string
+  redirectTo?: string
 }
 
 function normalizeText(value?: string | null): string | null {
@@ -65,6 +96,77 @@ export function buildPostDeleteNewValuationUrl({
 
   const query = params.toString()
   return query ? `/${locale}/reports/new?${query}` : `/${locale}/reports/new`
+}
+
+export function buildPostDeleteCurrentReportRedirectUrl({
+  postDeleteNewValuationUrl,
+  isAccountantMode,
+  returnUrl = null,
+  sourceApp = null,
+  clientContextId = null,
+  currentLocale,
+}: BuildPostDeleteCurrentReportRedirectUrlParams): string {
+  if (postDeleteNewValuationUrl) return postDeleteNewValuationUrl
+
+  if (isAccountantMode) {
+    return buildManualSafeMercuryReturnUrl({
+      returnUrl,
+      clientContextId,
+      currentLocale,
+      sourceApp,
+    })
+  }
+
+  return `/${currentLocale}/reports/new`
+}
+
+function buildDeletedMessageBase({
+  reportId,
+  clientContextId,
+  keepOpen,
+}: {
+  reportId: string
+  clientContextId?: string | null
+  keepOpen: boolean
+}): ManualReportDeletedMercuryMessage {
+  return {
+    type: 'venus-report-deleted',
+    reportId,
+    keepOpen,
+    source: 'venus',
+    ...(clientContextId ? { clientId: clientContextId } : {}),
+  }
+}
+
+export function buildCurrentReportDeletedMercuryMessage({
+  reportId,
+  currentLocale,
+  clientContextId,
+  hasRemainingValuations,
+}: BuildCurrentReportDeletedMercuryMessageParams): ManualReportDeletedMercuryMessage {
+  const redirectTo = clientContextId
+    ? `/${currentLocale}/advisor/clients/${encodeURIComponent(clientContextId)}`
+    : `/${currentLocale}/advisor/dashboard`
+
+  return {
+    ...buildDeletedMessageBase({
+      reportId,
+      clientContextId,
+      keepOpen: hasRemainingValuations,
+    }),
+    redirectTo,
+  }
+}
+
+export function buildSidebarReportDeletedMercuryMessage({
+  reportId,
+  clientContextId,
+}: BuildSidebarReportDeletedMercuryMessageParams): ManualReportDeletedMercuryMessage {
+  return buildDeletedMessageBase({
+    reportId,
+    clientContextId,
+    keepOpen: true,
+  })
 }
 
 /**

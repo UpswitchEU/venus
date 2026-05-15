@@ -18,6 +18,10 @@ import {
   dispatchAIChatChunk,
   makeChunkDispatchState,
   parseAIChatToolResults,
+  type BelgianCompanyBootstrap,
+  type BuyerProfilePreview,
+  type ListingPreview,
+  type MethodReadinessPreview,
 } from './tool-results-parser'
 
 const logger = createContextLogger('AIChatService')
@@ -160,6 +164,36 @@ export interface AIChatResponse {
     missing?: string[]
     message?: string
   }>
+  /** Read-only Belgian KBO/NBB/CBSO public-data bootstrap cards. */
+  belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  /** Read-only valuation-method readiness before a paid ValuationIQ run. */
+  methodReadinessPreviews?: MethodReadinessPreview[]
+  /** Read-only anonymized marketplace-listing drafts from get_listing_preview. */
+  listingPreviews?: ListingPreview[]
+  /**
+   * Pending marketplace-listing proposals from Titan's advisor-scoped
+   * create_listing tool. Approve navigates back to Mercury's publish wizard;
+   * the tool itself never writes a listing row.
+   */
+  listingCreateRequests?: Array<{
+    status: 'pending_approval' | 'auto_approved' | 'blocked'
+    reportId?: string
+    accountantCustomerId?: string | null
+    visibility?: 'public' | 'private'
+    valuationSummary?: {
+      business_name?: string | null
+      business_type?: string | null
+      industry?: string | null
+      currency?: string
+      midpoint?: string | null
+      min?: string | null
+      max?: string | null
+    }
+    note?: string | null
+    reason?: string
+    message?: string
+  }>
+  buyerProfilePreviews?: BuyerProfilePreview[]
   fallback?: boolean
   error?: string
 }
@@ -230,12 +264,12 @@ class AIChatServiceImpl {
             success: false,
             content: '',
             requires_upgrade: true,
-            ai_credits_remaining: typeof errorData.ai_credits_remaining === 'number'
-              ? errorData.ai_credits_remaining
-              : 0,
-            ai_credits_limit: typeof errorData.ai_credits_limit === 'number'
-              ? errorData.ai_credits_limit
-              : 0,
+            ai_credits_remaining:
+              typeof errorData.ai_credits_remaining === 'number'
+                ? errorData.ai_credits_remaining
+                : 0,
+            ai_credits_limit:
+              typeof errorData.ai_credits_limit === 'number' ? errorData.ai_credits_limit : 0,
             error: errorData.message || 'AI credit limit reached. Upgrade your plan to continue.',
           }
         }
@@ -276,6 +310,21 @@ class AIChatServiceImpl {
         }
         if (parsed.sellabilityRunRequests.length > 0) {
           aiResponse.sellabilityRunRequests = parsed.sellabilityRunRequests as any
+        }
+        if (parsed.belgianCompanyBootstraps.length > 0) {
+          aiResponse.belgianCompanyBootstraps = parsed.belgianCompanyBootstraps
+        }
+        if (parsed.methodReadinessPreviews.length > 0) {
+          aiResponse.methodReadinessPreviews = parsed.methodReadinessPreviews
+        }
+        if (parsed.listingPreviews.length > 0) {
+          aiResponse.listingPreviews = parsed.listingPreviews
+        }
+        if (parsed.listingCreateRequests.length > 0) {
+          aiResponse.listingCreateRequests = parsed.listingCreateRequests as any
+        }
+        if (parsed.buyerProfilePreviews.length > 0) {
+          aiResponse.buyerProfilePreviews = parsed.buyerProfilePreviews
         }
       }
 
@@ -329,17 +378,18 @@ class AIChatServiceImpl {
             const errorData = await response.json().catch(() => ({}))
             if (errorData.requires_upgrade && callbacks.onQuotaExhausted) {
               callbacks.onQuotaExhausted({
-                remaining: typeof errorData.ai_credits_remaining === 'number'
-                  ? errorData.ai_credits_remaining
-                  : 0,
-                limit: typeof errorData.ai_credits_limit === 'number'
-                  ? errorData.ai_credits_limit
-                  : 0,
+                remaining:
+                  typeof errorData.ai_credits_remaining === 'number'
+                    ? errorData.ai_credits_remaining
+                    : 0,
+                limit:
+                  typeof errorData.ai_credits_limit === 'number' ? errorData.ai_credits_limit : 0,
               })
               return
             }
             callbacks.onError?.(
-              (errorData as any).message || 'AI credit limit reached. Upgrade your plan to continue.'
+              (errorData as any).message ||
+                'AI credit limit reached. Upgrade your plan to continue.'
             )
             return
           }

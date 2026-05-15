@@ -1,0 +1,48 @@
+import type { QualityWarning } from '@/components/calculator'
+import {
+  isActionableQualityWarningType,
+  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
+} from '@/constants/methodFieldConfig'
+import { getDataQualityWarningsFromResult } from '@/utils/dataQualityWarnings'
+
+export type ManualQualityWarningTranslator = (key: string, fallback: string) => string
+
+export interface BuildManualQualityWarningsParams {
+  result: unknown
+  acknowledgedTypes: ReadonlySet<string>
+  translateCta: ManualQualityWarningTranslator
+}
+
+export function buildManualQualityWarnings({
+  result,
+  acknowledgedTypes,
+  translateCta,
+}: BuildManualQualityWarningsParams): QualityWarning[] {
+  const rawWarnings = getDataQualityWarningsFromResult(result)
+  if (rawWarnings.length === 0) return []
+
+  return rawWarnings
+    .filter((warning) => String(warning.severity ?? '').toLowerCase() === 'high')
+    .filter((warning) => !!warning.type && !acknowledgedTypes.has(warning.type))
+    .map((warning) => {
+      const type = warning.type ?? ''
+      const cta = isActionableQualityWarningType(type)
+        ? QUALITY_WARNING_ASSISTANT_CTA_CONFIG[type]
+        : undefined
+      // Fall back gracefully when a new engine warning type ships before
+      // the catalog is updated: show the warning, no guided CTA copy.
+      const labelDefault = 'Open in chat'
+      const promptDefault =
+        (warning.message ?? '') + (warning.recommendation ? ` ${warning.recommendation}` : '')
+
+      return {
+        type,
+        severity: warning.severity ?? 'high',
+        message: warning.message,
+        recommendation: warning.recommendation,
+        step_number: warning.step_number,
+        cta_label: cta ? translateCta(cta.labelKey, labelDefault) : labelDefault,
+        cta_prompt: cta ? translateCta(cta.promptKey, promptDefault) : promptDefault,
+      }
+    })
+}

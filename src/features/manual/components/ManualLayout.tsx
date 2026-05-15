@@ -15,7 +15,7 @@
  *   │ ManualInput│ Report (HTML) / Preview / History       │
  *   └────────────┴──────────────────────────────────────────┘
  *   + ChatAssistantDrawer (slide-in from right)
- *   + FullscreenReportModal, NormalisationSuggestionModal, UnifiedNormalizationModal
+ *   + FullscreenReportModal, UnifiedNormalizationModal
  *
  * @module features/manual/components/ManualLayout
  *
@@ -40,10 +40,9 @@ import React, {
 } from 'react'
 import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
+import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
   trackAIFieldUpdate,
-  trackAINormalizationAccept,
-  trackNormalizationOpen,
   trackPreviewOpen,
   trackReturnToMercury,
   trackVersionHistoryOpen,
@@ -55,20 +54,20 @@ import {
   ChatAssistantDrawer,
   type ChatMessage,
   ContextBar,
+  type DownloadHistoryItem,
   type FieldContext,
+  type FieldHelpContext,
   FullscreenReportModal,
   HistoryPanel,
   isImportedLedgerNormalizationItem,
   ManualInputPanel,
-  type NormalisationSuggestion,
-  NormalisationSuggestionModal,
   type NormalizationItem,
   type ParsedCommand,
   type ParsedValue,
-  type RecentValuation,
   type RightPanelView,
   type SuggestedNormalisation,
   UnifiedNormalizationModal,
+  type ValuationFormData,
   type ValuationReportData,
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
@@ -81,13 +80,7 @@ import {
   filterPreSelectableMethodsForOwnerFounder,
   showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
-import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
-import {
-  isActionableQualityWarningType,
-  isUpfrontMethodAllowedForNav,
-  QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
-  type QualityWarningAssistantCtaKey,
-} from '../../../constants/methodFieldConfig'
+import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '../../../constants/methodLabels'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -98,24 +91,10 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '../../../design-system/components/Resizable'
-// Venus infrastructure (auth, session, stores, services)
-import {
-  useIsMountedRef,
-  useLatestRef,
-  useManualLayoutResets,
-  useManualSubmitRunGuard,
-  useManualSynthesisController,
-  usePdfStalenessLifecycle,
-  useRestorationGate,
-  useResultToReportBridge,
-  useValuationPersistenceCoordinator,
-  type PersistIntent,
-} from '../hooks'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useCredits } from '../../../hooks/useCredits'
-import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
@@ -123,7 +102,6 @@ import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMe
 import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
-import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import {
   isAdaptiveMethodKey,
@@ -136,11 +114,6 @@ import {
   evaluateSynthesisBlend,
   shouldWarnSynthesisSkipped,
 } from '../../../lib/synthesis/synthesisEngine'
-import {
-  fallbackDashboardForSource,
-  getSafeMercuryReturnUrl,
-  isLegacyReturnUrl,
-} from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { backendAPI } from '../../../services/backendApi'
@@ -157,20 +130,15 @@ import {
 } from '../../../store/manual/usePreparerMultipleStore'
 import { useConversationStore } from '../../../store/useConversationStore'
 import { useImportQualityStore } from '../../../store/useImportQualityStore'
-import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import {
   enableNormalizationAutoPersist,
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import {
-  enableTaxLatencyAutoPersist,
-  useTaxLatencyStore,
-} from '../../../store/useTaxLatencyStore'
+import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
-import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
   APIError,
   AuthenticationError,
@@ -179,33 +147,17 @@ import {
   RateLimitError,
   ValidationError,
 } from '../../../types/errors'
-import type {
-  ValuationMethodResult,
-  ValuationResponse,
-  YearDataInput,
-} from '../../../types/valuation'
-import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
+import type { ValuationResponse, YearDataInput } from '../../../types/valuation'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
 import { isAuthError } from '../../../utils/errorDetection'
-import {
-  getValuationMethodResultForKey,
-  hydrateClientValuationResultsMap,
-} from '../../../utils/extractValuationResultsMap'
-import {
-  getCurrentFilingYear,
-} from '../../../utils/fiscalYear'
+import { getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
-import {
-  isSessionKey,
-  isUuid,
-  isValuationIdSameAsActiveReport,
-} from '../../../utils/identifiers'
+import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
-import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
-import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
   persistNormalizationsBeforeCalculate,
   persistOrDeleteNormalizationsForYears,
@@ -222,21 +174,40 @@ import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
 } from '../../../utils/versionConfirmation'
-import {
-  areChangesSignificant,
-  detectVersionChanges,
-} from '../../../utils/versionDiffDetection'
+import { areChangesSignificant, detectVersionChanges } from '../../../utils/versionDiffDetection'
 import { getLatestCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
-import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
-import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
+// Venus infrastructure (auth, session, stores, services)
 import {
-  addIdsToManualChatToolCards,
-  applyManualChatSellabilityComputedScore,
-  appendManualChatToolCardsToMessages,
-  markManualChatProposalDecision,
-  parseManualChatStreamToolResult,
-} from '../utils/manualChatToolCards'
+  type PersistIntent,
+  useIsMountedRef,
+  useLatestRef,
+  useManualLayoutResets,
+  useManualMercuryNavigationActions,
+  useManualNewValuationFlow,
+  useManualNormalizationModalController,
+  useManualNormalizationReviewActions,
+  useManualPdfExportController,
+  useManualRecentValuationDeletion,
+  useManualRecentValuations,
+  useManualSubmitRunGuard,
+  useManualSynthesisController,
+  usePdfStalenessLifecycle,
+  useRestorationGate,
+  useResultToReportBridge,
+  useValuationPersistenceCoordinator,
+} from '../hooks'
+import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import {
+  MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT,
+  isManualAgentNextRunValuation,
+  MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT,
+  stripAgentNextFromHref,
+} from '../utils/manualAgentNextHandoff'
+import {
+  buildManualAiNormalizationSuggestions,
+  buildManualImportedNormalizationSuggestions,
+  MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS,
+} from '../utils/manualAiNormalizationSuggestions'
 import {
   buildManualChatRetryPlan,
   buildPendingUpdatesFromDetectedValues,
@@ -248,76 +219,85 @@ import {
   formatManualChatFieldUpdateValue,
 } from '../utils/manualChatFieldUpdate'
 import {
-  buildManualAIChatRequest,
-  getManualChatVersionCount,
-} from '../utils/manualChatRequestContext'
-import {
   buildManualAssistantChatMessage,
   buildManualSystemChatMessage,
   buildManualUserChatMessage,
   patchManualChatMessage,
 } from '../utils/manualChatMessages'
 import {
-  buildManualAiNormalizationSuggestions,
-  buildManualImportedNormalizationSuggestions,
-  MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS,
-  updateSuggestedNormalisationStatus,
-} from '../utils/manualAiNormalizationSuggestions'
-import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
-import { buildSubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
-import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
-import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizationRecalcSource'
-import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
+  buildManualAIChatRequest,
+  getManualChatVersionCount,
+} from '../utils/manualChatRequestContext'
 import {
-  buildManualRecentValuations,
-  filterRemainingRecentValuationsAfterDelete,
-  mapReportsResponseToRecentValuations,
-} from '../utils/manualRecentValuations'
+  addIdsToManualChatToolCards,
+  appendManualChatToolCardsToMessages,
+  applyManualChatSellabilityComputedScore,
+  markManualChatProposalDecision,
+  parseManualChatStreamToolResult,
+} from '../utils/manualChatToolCards'
+import { buildManualFieldContext, buildManualFieldHelpQuestion } from '../utils/manualFieldHelp'
+import { buildSubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
+import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
+import {
+  buildManualInputInitialData,
+  buildManualLiveValuationSubmitData,
+} from '../utils/manualInputData'
+import {
+  getManualHydratedValuationResults,
+  getManualModalEditPersistToast,
+  getManualUserInitials,
+  serializeManualPreparerPayload,
+} from '../utils/manualLayoutAdapters'
+import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
+import { buildManualLiveYearlyFinancials } from '../utils/manualLiveYearlyFinancials'
+import {
+  buildManualListingWizardUrl,
+  buildManualMercuryBusinessDashboardUrl,
+  buildManualMercuryPricingUrl,
+  resolveManualListingRelationshipId,
+} from '../utils/manualMercuryNavigation'
+import {
+  buildAcceptedNormalizationSignature,
+  buildManualNormalizationPersistenceYears,
+} from '../utils/manualNormalizationPersistence'
+import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizationRecalcSource'
+import { getManualOriginalEbitdaForDisplay } from '../utils/manualOriginalEbitdaDisplay'
+import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
+import { buildManualQualityWarnings } from '../utils/manualQualityWarnings'
 import { saveManualCalculationReportAssets } from '../utils/manualReportAssetSave'
 import { buildManualReportAssets } from '../utils/manualReportAssets'
-import { formatManualStartupAssistantPrompt } from '../utils/manualStartupAssistantPrompt'
+import { hasManualRestorableReport } from '../utils/manualRestorableReport'
+import { buildManualRestoredFinancialSnapshot } from '../utils/manualRestoredFinancialSnapshot'
+import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import {
   getManualSessionKey,
   manualSessionMatchesReport,
+  resolveManualCanonicalReportId,
   resolveManualPersistedReportLookupId,
   resolveManualReportHydrationLookupId,
   resolveManualReportId,
 } from '../utils/manualSessionIdentifiers'
+import { formatManualStartupAssistantPrompt } from '../utils/manualStartupAssistantPrompt'
+import {
+  getManualStartupIssueAnchor,
+  getManualStartupLauncherScopeId,
+} from '../utils/manualStartupAssistantSurface'
 import {
   getManualSubmitValidationIssue,
   MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
 } from '../utils/manualSubmitValidation'
+import { buildManualTaxLatencySignature } from '../utils/manualTaxLatencySignature'
+import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
 import { scheduleManualVersionHistorySync } from '../utils/manualVersionHistorySync'
 import { runManualCalculationVersioning } from '../utils/manualVersioningExecutor'
+import { buildManualVersionHistoryForNav } from '../utils/manualVersionNav'
 import { buildManualVersionRestorePlan } from '../utils/manualVersionRestorePlan'
-import {
-  extractErrorMessage,
-  parseSellabilityScoreResponse,
-} from '../utils/tool-card-response-parsers'
+import { PanelSkeleton, useManualLayoutIsMobile } from './manualLayoutShell'
+import type { ManualLayoutProps } from './manualLayoutTypes'
 // `selectCapTableSimulatorResult` import removed alongside the React slider
 // mount — the canonical Jinja report is now the single source of truth.
 // The selector helper itself is intentionally kept on disk for the future.
-import {
-  deriveManualReportPresentation,
-  deriveNavPricesForVersionNav,
-} from './manualReportPresentation'
-
-interface GuidedNormalizationPrefill {
-  initialSearchQuery: string
-  initialYearFilter: number | null
-}
-
-/**
- * When Mercury passes `focusField` / `flagYear` query params, seed the unified normalization
- * modal search without requiring importQuality in the store (Hermes may not have hydrated yet).
- */
-const MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS: Record<string, string> = {
-  owner_director_compensation: '620',
-  personnel_costs: '62',
-  rent_expense: '610',
-  depreciation: '63',
-  operating_expenses: '61',
-}
+import { deriveManualReportPresentation } from './manualReportPresentation'
 
 function getHttpStatusFromError(err: unknown): number | undefined {
   if (err instanceof APIError) return err.statusCode
@@ -335,9 +315,6 @@ function isRetryableReportHydrationError(err: unknown): boolean {
 /** Poll while PDF is stale; extend max window so slow jobs can still complete */
 const PDF_STALE_POLL_INTERVAL_MS = 2500
 const PDF_STALE_POLL_MAX_MS = 120_000
-
-/** Titan import-review handoff keys; keep aligned with Mercury `sanitizeImportReviewSessionKeyFromUrl`. */
-const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
 
 // `isDcfOrHybridMethodSignal` + `resultHasWeightedSynthesisSignal` moved
 // into `features/manual/utils/mapValuationResultToReport` as part of the
@@ -407,123 +384,16 @@ interface CollectedData {
   forecast_years_data?: YearDataInput[]
 }
 
-/** Compute display initials from user name (Titan/Mercury profile) */
-function getUserInitials(user: { name?: string; email?: string } | null): string {
-  if (!user?.name) return (user?.email?.[0] || 'G').toUpperCase()
-  const names = user.name.trim().split(/\s+/)
-  if (names.length >= 2) return `${names[0][0]}${names[1][0]}`.toUpperCase()
-  return user.name.substring(0, 2).toUpperCase()
-}
-
-function getHydratedValuationResults(
-  result:
-    | Pick<
-        ValuationResponse,
-        'valuation_results' | 'valuation_result' | 'selected_valuation_method'
-      >
-    | null
-    | undefined
-) {
-  return hydrateClientValuationResultsMap(result)
-}
-
-function serializePreparerPayload(
-  payload: {
-    preparer_ev_ebitda_median: number
-    preparer_ev_ebitda_override: {
-      reason_key: string
-      note?: string
-      acknowledged_extreme?: boolean
-    }
-  } | null
-) {
-  return payload ? JSON.stringify(payload) : 'none'
-}
-
-function axiosLikeErrorMessage(err: unknown): string {
-  const e = err as { response?: { data?: { message?: unknown } }; message?: string }
-  const raw = e?.response?.data?.message
-  if (typeof raw === 'string') return raw
-  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string').join(' ')
-  if (typeof e?.message === 'string') return e.message
-  return ''
-}
-
 /** Titan modal-edit failures — same messages as Mercury OmniCalcSummary mapping */
 function toastModalEditPersistError(err: unknown, tToast: (key: string) => string) {
-  const msg = axiosLikeErrorMessage(err)
-  if (msg.includes('Stored valuation inputs not found')) {
-    toast.error(tToast('modalEditInputsMissing'))
+  const toastConfig = getManualModalEditPersistToast(err)
+  if (toastConfig.descriptionKey) {
+    toast.error(tToast(toastConfig.titleKey), {
+      description: tToast(toastConfig.descriptionKey),
+    })
     return
   }
-  if (msg.includes('Stored valuation inputs are incomplete')) {
-    toast.error(tToast('modalEditInputsIncomplete'))
-    return
-  }
-  toast.error(tToast('persistFailed'), { description: tToast('persistFailedDesc') })
-}
-
-// ─────────────────────────────────────────
-// MOBILE HOOK
-// ─────────────────────────────────────────
-
-// ─────────────────────────────────────────
-// SUSPENSE FALLBACK
-// ─────────────────────────────────────────
-
-function PanelSkeleton() {
-  return (
-    <div className="h-full flex items-center justify-center">
-      <div className="animate-pulse flex flex-col items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-foreground/10" />
-        <div className="w-24 h-3 rounded bg-foreground/10" />
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────
-// MOBILE HOOK
-// ─────────────────────────────────────────
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-  return isMobile
-}
-
-// ─────────────────────────────────────────
-// PROPS
-// ─────────────────────────────────────────
-
-interface ManualLayoutProps {
-  reportId: string
-  onComplete: (result: ValuationResponse) => void
-  initialVersion?: number
-  initialMode?: 'edit' | 'view'
-  initialTab?: 'preview' | 'history'
-  urlAction?: string
-  /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
-  initialDrawerOpen?: boolean
-  /**
-   * Mercury STP: `focusField` + optional `flagYear` open the normalization modal once with
-   * a ledger search hint (`spotlight` is ignored; kept for URL compatibility).
-   */
-  guidedResolutionUrl?: {
-    spotlight?: string
-    focusField?: string
-    flagYear?: string
-  }
-  /**
-   * Optional `selected_method` query param (e.g. Mercury → Venus). Seeds the top-bar method
-   * when session has no stored preference yet and there is no valuation result.
-   */
-  initialSelectedMethodFromUrl?: string
+  toast.error(tToast(toastConfig.titleKey))
 }
 
 // ─────────────────────────────────────────
@@ -538,6 +408,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
+  initialAgentNext,
   guidedResolutionUrl,
   initialSelectedMethodFromUrl,
 }) => {
@@ -548,7 +419,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
-  const isMobile = useIsMobile()
+  const isMobile = useManualLayoutIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
   useLayoutEffect(() => {
@@ -674,6 +545,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const resolvedReportId = useMemo(() => {
     return resolveManualReportId(reportId, session)
   }, [reportId, session])
+  const manualChatReportId = useMemo(() => {
+    return (
+      resolveManualCanonicalReportId({
+        session,
+        resolvedReportId,
+        routeReportId: reportId,
+        resultValuationId: result?.valuation_id,
+        activeSessionKey,
+      }) ??
+      resolvedReportId ??
+      reportId
+    )
+  }, [activeSessionKey, reportId, resolvedReportId, result?.valuation_id, session])
 
   const {
     state: pdfGenerationState,
@@ -855,19 +739,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // is declared (it's one of the hook's params).
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
-    !report &&
-    !isGenerating &&
-    !!session &&
-    (() => {
-      const sd = (session.sessionData || session) as any
-      const hasRenderableHtml = !!getFirstRenderableReportHtml(
-        session.htmlReport,
-        sd._htmlReport,
-        sd.htmlReport,
-        sd.html_report
-      )
-      return !!(sd.valuationResult || sd.valuation_result || hasRenderableHtml)
-    })()
+    !report && !isGenerating && !!session && hasManualRestorableReport(session)
   // Unblock UI as soon as SessionRestorationService signals completion.
   // `useRestorationGate` owns the 5s safety-timeout fallback used when the
   // service never emits the completion signal (defense-in-depth).
@@ -876,18 +748,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     restorationComplete,
   })
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
-  const [isExporting, setIsExporting] = useState(false)
-  const pdfExportAbortRef = useRef<AbortController | null>(null)
-  useEffect(() => {
-    return () => {
-      pdfExportAbortRef.current?.abort()
-    }
-  }, [])
-  const [downloadHistory, setDownloadHistory] = useState<
-    { id: string; fileName: string; timestamp: Date; size: string }[]
-  >([])
-  const [showNewValuationModal, setShowNewValuationModal] = useState(false)
-  const [isConfirmingNewValuation, setIsConfirmingNewValuation] = useState(false)
   /** Effective fiscal PDF flag from Titan (matches PDF + branding); gates Omni-Calc 4× EBITDA row */
   const [showFiscalReferenceForOmni, setShowFiscalReferenceForOmni] = useState<boolean | null>(null)
   const [isHydratingEditModalData, setIsHydratingEditModalData] = useState(false)
@@ -916,7 +776,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return
     }
     const existingResult = useManualResultsStore.getState().result
-    const needsMethodHydration = !getHydratedValuationResults(existingResult)
+    const needsMethodHydration = !getManualHydratedValuationResults(existingResult)
     setIsHydratingEditModalData(needsMethodHydration)
     setReportMethodHydrationError(null)
     let cancelled = false
@@ -927,7 +787,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       const latestExistingResult = useManualResultsStore.getState().result
       const nextValuationResults =
-        getHydratedValuationResults(r) ?? getHydratedValuationResults(latestExistingResult)
+        getManualHydratedValuationResults(r) ??
+        getManualHydratedValuationResults(latestExistingResult)
       const mergedResult: ValuationResponse = {
         ...(latestExistingResult || {}),
         ...r,
@@ -955,11 +816,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const finishFailure = (lastError: unknown) => {
       if (cancelled) return
       const current = useManualResultsStore.getState().result
-      if (!getHydratedValuationResults(current)) {
+      if (!getManualHydratedValuationResults(current)) {
         setShowFiscalReferenceForOmni(false)
       }
       setIsHydratingEditModalData(false)
-      const stillMissingMethods = !getHydratedValuationResults(current)
+      const stillMissingMethods = !getManualHydratedValuationResults(current)
       const transient = stillMissingMethods && isRetryableReportHydrationError(lastError)
       const status = getHttpStatusFromError(lastError)
       if (transient) {
@@ -1033,6 +894,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }))
   )
   const streamCleanupRef = useRef<(() => void) | null>(null)
+  const agentNextConsumedRef = useRef(false)
   const tCa = useTranslations('chatAssistant')
 
   // Pass-7: track which engine-emitted high-severity warnings the advisor
@@ -1055,14 +917,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
   useEffect(() => {
     const needsLoad =
-      reportId &&
+      manualChatReportId &&
       chatDrawerOpen &&
       !isLoadingHistory &&
-      conversationStore.lastLoadedReportId !== reportId
+      conversationStore.lastLoadedReportId !== manualChatReportId
     if (needsLoad) {
       setIsLoadingHistory(true)
       conversationStore
-        .loadHistory(reportId)
+        .loadHistory(manualChatReportId)
         .then(() => {
           const storeMessages = useConversationStore.getState().messages
           setChatMessages(
@@ -1079,7 +941,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
         .finally(() => setIsLoadingHistory(false))
     }
-  }, [reportId, chatDrawerOpen, conversationStore.lastLoadedReportId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [manualChatReportId, chatDrawerOpen, conversationStore.lastLoadedReportId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup streaming on unmount
   useEffect(() => {
@@ -1172,154 +1034,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   ])
 
   const getLiveYearlyFinancials = useCallback(() => {
-    const latestYearlyFinancials = Array.isArray(latestFormDataRef.current?.yearlyFinancials)
-      ? (latestFormDataRef.current?.yearlyFinancials as Array<{
-          year: string
-          revenue: number
-          ebitda: number
-          capex?: number
-          depreciation?: number
-          tax_expense?: number
-          cash?: number
-          total_debt?: number
-          current_assets?: number
-          current_liabilities?: number
-          accounts_receivable?: number
-          accounts_payable?: number
-          inventory?: number
-          short_term_debt?: number
-          nwc_change?: number
-          isForecast?: boolean
-        }>)
-      : []
-    if (latestYearlyFinancials.length > 0) {
-      return [...latestYearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year))
-    }
-
-    const allYears: Array<{
-      year: string
-      revenue: number
-      ebitda: number
-      capex?: number
-      depreciation?: number
-      tax_expense?: number
-      cash?: number
-      total_debt?: number
-      current_assets?: number
-      current_liabilities?: number
-      accounts_receivable?: number
-      accounts_payable?: number
-      inventory?: number
-      short_term_debt?: number
-      nwc_change?: number
-      isForecast?: boolean
-    }> = []
-    const cyd = formStoreData.current_year_data as
-      | {
-          year?: number
-          revenue?: number
-          ebitda?: number
-          capex?: number
-          depreciation?: number
-          tax_expense?: number
-          cash?: number
-          total_debt?: number
-          current_assets?: number
-          current_liabilities?: number
-          accounts_receivable?: number
-          accounts_payable?: number
-          inventory?: number
-          short_term_debt?: number
-          nwc_change?: number
-        }
-      | undefined
-    if (cyd?.year && cyd.year >= 2000 && cyd.year <= 2100) {
-      allYears.push({
-        year: String(cyd.year),
-        revenue: coalesceFiniteNumber(cyd.revenue),
-        ebitda: coalesceFiniteNumber(cyd.ebitda),
-        capex: typeof cyd.capex === 'number' ? cyd.capex : undefined,
-        depreciation: typeof cyd.depreciation === 'number' ? cyd.depreciation : undefined,
-        tax_expense: typeof cyd.tax_expense === 'number' ? cyd.tax_expense : undefined,
-        cash: typeof cyd.cash === 'number' ? cyd.cash : undefined,
-        total_debt: typeof cyd.total_debt === 'number' ? cyd.total_debt : undefined,
-        current_assets: typeof cyd.current_assets === 'number' ? cyd.current_assets : undefined,
-        current_liabilities:
-          typeof cyd.current_liabilities === 'number' ? cyd.current_liabilities : undefined,
-        accounts_receivable:
-          typeof cyd.accounts_receivable === 'number' ? cyd.accounts_receivable : undefined,
-        accounts_payable:
-          typeof cyd.accounts_payable === 'number' ? cyd.accounts_payable : undefined,
-        inventory: typeof cyd.inventory === 'number' ? cyd.inventory : undefined,
-        short_term_debt: typeof cyd.short_term_debt === 'number' ? cyd.short_term_debt : undefined,
-        nwc_change: typeof cyd.nwc_change === 'number' ? cyd.nwc_change : undefined,
-      })
-    }
-    if (formStoreData.historical_years_data?.length) {
-      for (const y of formStoreData.historical_years_data as any[]) {
-        if (
-          y.year >= 2000 &&
-          y.year <= 2100 &&
-          !allYears.some((existing) => existing.year === String(y.year))
-        ) {
-          allYears.push({
-            year: String(y.year),
-            revenue: coalesceFiniteNumber(y.revenue),
-            ebitda: coalesceFiniteNumber(y.ebitda),
-            capex: typeof y.capex === 'number' ? y.capex : undefined,
-            depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
-            tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
-            cash: typeof y.cash === 'number' ? y.cash : undefined,
-            total_debt: typeof y.total_debt === 'number' ? y.total_debt : undefined,
-            current_assets: typeof y.current_assets === 'number' ? y.current_assets : undefined,
-            current_liabilities:
-              typeof y.current_liabilities === 'number' ? y.current_liabilities : undefined,
-            accounts_receivable:
-              typeof y.accounts_receivable === 'number' ? y.accounts_receivable : undefined,
-            accounts_payable:
-              typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
-            inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
-            short_term_debt: typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
-            nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
-          })
-        }
-      }
-    }
-
-    const forecastPersisted = formStoreData.forecast_years_data
-    if (forecastPersisted?.length) {
-      for (const y of forecastPersisted) {
-        if (
-          y.year >= 2000 &&
-          y.year <= 2100 &&
-          !allYears.some((existing) => existing.year === String(y.year))
-        ) {
-          allYears.push({
-            year: String(y.year),
-            revenue: coalesceFiniteNumber(y.revenue),
-            ebitda: coalesceFiniteNumber(y.ebitda),
-            capex: typeof y.capex === 'number' ? y.capex : undefined,
-            depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
-            tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
-            cash: typeof y.cash === 'number' ? y.cash : undefined,
-            total_debt: typeof y.total_debt === 'number' ? y.total_debt : undefined,
-            current_assets: typeof y.current_assets === 'number' ? y.current_assets : undefined,
-            current_liabilities:
-              typeof y.current_liabilities === 'number' ? y.current_liabilities : undefined,
-            accounts_receivable:
-              typeof y.accounts_receivable === 'number' ? y.accounts_receivable : undefined,
-            accounts_payable:
-              typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
-            inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
-            short_term_debt: typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
-            nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
-            isForecast: true,
-          })
-        }
-      }
-    }
-
-    return allYears.sort((a, b) => Number(b.year) - Number(a.year))
+    return buildManualLiveYearlyFinancials({
+      latestYearlyFinancials: latestFormDataRef.current?.yearlyFinancials,
+      formData: formStoreData,
+    })
   }, [
     formStoreData.current_year_data,
     formStoreData.historical_years_data,
@@ -1375,18 +1093,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // report.ebitda is the normalized value used in valuation — using it would show wrong
   // Origineel (e.g. €99K instead of €100K) and double-apply adjustments.
   const getOriginalEbitdaForDisplay = useCallback(() => {
-    const year = getCurrentFilingYear()
-    return getReportedEbitdaBaseline({
-      year,
+    return getManualOriginalEbitdaForDisplay({
+      year: getCurrentFilingYear(),
       originalEBITDAByYear,
-      fallbackCandidates: [
-        formStoreData?.current_year_data?.ebitda,
-        latestFormDataRef.current?.current_year_data?.ebitda,
-        latestFormDataRef.current?.ebitda,
-        (result as any)?.current_year_data?.ebitda_normalization_metadata?.reported_ebitda,
-        (result as any)?.reported_ebitda,
-        (report as any)?.reportedEbitda ?? (report as any)?.reported_ebitda,
-      ],
+      formCurrentEbitda: formStoreData?.current_year_data?.ebitda,
+      latestFormData: latestFormDataRef.current,
+      result,
+      report,
     })
   }, [
     formStoreData?.current_year_data?.ebitda,
@@ -1433,13 +1146,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     showRetryFailureToast: (title, options) => toast.error(title, options),
     translate: (key) => t(key),
   })
-
-  const [showNormalisationModal, setShowNormalisationModal] = useState(false)
-  const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
-  const [guidedNormalizationPrefill, setGuidedNormalizationPrefill] =
-    useState<GuidedNormalizationPrefill | null>(null)
-  const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] =
-    useState<NormalisationSuggestion | null>(null)
 
   // ─── Draft State ───
   const [draftStatus, setDraftStatus] = useState<'draft' | 'saved' | 'saving'>('draft')
@@ -1637,62 +1343,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // When report is restored (e.g. from URL) without our submit, set baseline from form store so we can detect edits
   useEffect(() => {
     if (!result || lastSubmittedFinancialSnapshotRef.current) return
-    const cyd = formStoreData.current_year_data as
-      | { year?: number; revenue?: number; ebitda?: number; capex?: number; nwc_change?: number }
-      | undefined
-    const hy = (formStoreData.historical_years_data || []) as Array<{
-      year: number
-      revenue: number
-      ebitda: number
-    }>
-    const fy = (formStoreData.forecast_years_data || []) as Array<{
-      year: number
-      revenue: number
-      ebitda: number
-      capex?: number
-      nwc_change?: number
-    }>
-    const hasFinancials =
-      (cyd && ((cyd.revenue ?? 0) > 0 || (cyd.ebitda ?? 0) !== 0)) ||
-      hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0) ||
-      fy.some(
-        (f) =>
-          (f.revenue ?? 0) > 0 || (f.ebitda ?? 0) !== 0 || f.capex != null || f.nwc_change != null
-      )
-    if (!hasFinancials) return
-    const allYf = [
-      ...(cyd
-        ? [
-            {
-              year: String(cyd.year),
-              revenue: cyd.revenue ?? 0,
-              ebitda: cyd.ebitda ?? 0,
-              capex: cyd.capex,
-              nwc_change: cyd.nwc_change,
-            },
-          ]
-        : []),
-      ...hy.map((h) => ({
-        year: String(h.year),
-        revenue: h.revenue,
-        ebitda: h.ebitda,
-        capex: (h as any).capex,
-        nwc_change: (h as any).nwc_change,
-      })),
-      ...fy.map((f) => ({
-        year: String(f.year),
-        revenue: f.revenue,
-        ebitda: f.ebitda,
-        capex: f.capex,
-        nwc_change: f.nwc_change,
-        isForecast: true,
-      })),
-    ].sort((a, b) => parseInt(b.year) - parseInt(a.year))
-    lastSubmittedFinancialSnapshotRef.current = {
-      revenue: cyd?.revenue ?? formStoreData.revenue,
-      ebitda: cyd?.ebitda ?? formStoreData.ebitda,
-      yearlyFinancials: allYf,
-    }
+    const restoredSnapshot = buildManualRestoredFinancialSnapshot(formStoreData)
+    if (!restoredSnapshot) return
+    lastSubmittedFinancialSnapshotRef.current = restoredSnapshot
     setIsDirty(false)
   }, [
     result,
@@ -1916,34 +1569,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Map versions to CalculatorNav format
   const versionHistoryForNav = React.useMemo(() => {
-    if (versions.length === 0 && report) {
-      return [
-        {
-          id: 'current',
-          label: t('currentVersion'),
-          priceRange: {
-            min: report.valuationLow ?? Math.round(report.valuation * 0.85),
-            max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
-          },
-          askPrice: report.recommendedAskingPrice ?? report.valuation,
-          timestamp: report.generatedAt,
-          isActive: true,
-        },
-      ]
-    }
-    return versions.map((v) => {
-      const method =
-        (v.formData as { selected_valuation_method?: string } | undefined)
-          ?.selected_valuation_method ?? selectedMethod
-      const { priceRange, askPrice } = deriveNavPricesForVersionNav(v.valuationResult, method)
-      return {
-        id: v.id,
-        label: v.versionLabel,
-        priceRange,
-        askPrice,
-        timestamp: v.createdAt,
-        isActive: v.isActive,
-      }
+    return buildManualVersionHistoryForNav({
+      versions,
+      report,
+      selectedMethod,
+      currentVersionLabel: t('currentVersion'),
     })
   }, [versions, report, selectedMethod, t])
 
@@ -2006,15 +1636,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const prevSelectedMethodRef = useRef(selectedMethod)
   useEffect(() => {
     if (!report) return
-    const hydrated = getHydratedValuationResults(result) ?? {}
+    const hydrated = getManualHydratedValuationResults(result) ?? {}
     if (!Object.keys(hydrated).length) return
     if (selectedMethod === prevSelectedMethodRef.current) return
     prevSelectedMethodRef.current = selectedMethod
 
-    const methodData = getValuationMethodResultForKey(
-      hydrated as Record<string, ValuationMethodResult>,
-      selectedMethod
-    )
+    const methodData = getValuationMethodResultForKey(hydrated, selectedMethod)
     const rawVal = methodData?.value
     const n = rawVal == null ? NaN : Number(rawVal)
     if (!methodData?.available || !Number.isFinite(n)) return
@@ -2050,7 +1677,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const fresh = await backendAPI.getReport(persistedReportLookupId)
         const latestExistingResult = useManualResultsStore.getState().result
         const nextValuationResults =
-          getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
+          getManualHydratedValuationResults(fresh) ??
+          getManualHydratedValuationResults(latestExistingResult)
         const mergedResult: ValuationResponse = {
           ...(latestExistingResult || {}),
           ...fresh,
@@ -2214,7 +1842,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     reportId: persistedReportLookupId ?? null,
     initialBaseline: {
       method: selectedMethod,
-      preparerSignature: serializePreparerPayload(
+      preparerSignature: serializeManualPreparerPayload(
         buildPersistedPreparerMultiplePayload(result)
       ),
     },
@@ -2271,10 +1899,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Sync the preparer baseline from server-confirmed `result` so the dedup
   // reflects the latest persisted state (replaces the legacy
-  // `lastPersistedPreparerRef = serializePreparerPayload(...)` effect).
+  // `lastPersistedPreparerRef = serializeManualPreparerPayload(...)` effect).
   useEffect(() => {
     persistCoordinator.setBaseline({
-      preparerSignature: serializePreparerPayload(
+      preparerSignature: serializeManualPreparerPayload(
         buildPersistedPreparerMultiplePayload(result)
       ),
     })
@@ -2346,7 +1974,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       method: selectedMethod,
       payload: currentPayload as Record<string, unknown> | null,
       clear: currentPayload == null,
-      signature: serializePreparerPayload(currentPayload),
+      signature: serializeManualPreparerPayload(currentPayload),
     })
   }, [
     persistCoordinator,
@@ -2407,7 +2035,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [preSelectableMethodsForNav, preSelectedMethod, setPreSelectedMethod])
 
   // Store last submitted data for retry capability
-  const lastSubmittedDataRef = useRef<any>(null)
+  const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
+  const postValuationListingHandoffPendingRef = useRef(false)
+  const [pendingPostValuationAgentPrompt, setPendingPostValuationAgentPrompt] = useState<
+    string | null
+  >(null)
   const endManualSubmitLoading = useCallback(() => {
     setCalculating(false)
     setIsGenerating(false)
@@ -2419,7 +2051,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Recalculation Confirmation Modal (intercept CTA when changes detected) ───
   const [showRecalculateConfirmation, setShowRecalculateConfirmation] = useState(false)
-  const pendingSubmitDataRef = useRef<any>(null)
+  const pendingSubmitDataRef = useRef<ValuationFormData | null>(null)
   const pendingPopupFlagsRef = useRef<{ hasFormChanges: boolean; hasNormalizations: boolean }>({
     hasFormChanges: false,
     hasNormalizations: false,
@@ -2429,7 +2061,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
   const handleManualSubmit = useCallback(
-    async (data: any) => {
+    async (data: ValuationFormData) => {
       // Validation — companyName is universally required (it shows up
       // on every report). The SME-only checks (businessType + a
       // complete historical year) are bypassed for the venture path
@@ -2504,23 +2136,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // Step 3: Detect version changes for M&A workflow (use resolved UUID for version API)
-        let previousVersion: any = null
-        let changes: any = null
-        if (idForApi) {
-          previousVersion = getLatestVersion(idForApi)
-          if (previousVersion) {
-            changes = detectVersionChanges(previousVersion.formData, request)
-            generalLogger.info('Regeneration detected', {
-              reportId,
-              previousVersion: previousVersion.versionNumber,
-              totalChanges: changes.totalChanges,
-            })
-          }
+        const previousVersion = idForApi ? getLatestVersion(idForApi) : null
+        if (idForApi && previousVersion) {
+          const changes = detectVersionChanges(previousVersion.formData, request)
+          generalLogger.info('Regeneration detected', {
+            reportId,
+            previousVersion: previousVersion.versionNumber,
+            totalChanges: changes.totalChanges,
+          })
         }
 
         // Step 3.5: Persist all normalizations to Titan BEFORE calculation (UX-critical)
         if (idForApi) {
-          const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request as any)
+          const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request)
           if (!submitRun.isStillTarget()) {
             submitRun.endLoading()
             generalLogger.info('[ManualLayout] Dropping stale manual calculation before submit', {
@@ -2730,6 +2358,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (!versionCreationFailed) {
           if (!submitRun.isStillTarget()) return
           toast.success(t('calculationComplete'))
+          if (postValuationListingHandoffPendingRef.current) {
+            postValuationListingHandoffPendingRef.current = false
+            if (isAccountantMode) {
+              setPendingPostValuationAgentPrompt(MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT)
+            }
+          }
         }
       } catch (error) {
         if (!submitRun.isStillTarget()) {
@@ -2814,6 +2448,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       selectedMethod,
       synthesisSelection,
       beginManualSubmitRun,
+      isAccountantMode,
     ]
   )
 
@@ -2824,7 +2459,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const hasExistingValuation = hasExistingValuationVersion(currentVersion)
 
   const wrappedOnSubmit = useCallback(
-    async (data: any) => {
+    async (data: ValuationFormData) => {
       if (recalculateConfirmationOpenRef.current || submitInProgressRef.current) {
         return
       }
@@ -3035,7 +2670,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const { aiChatService } = await import('../../../services/ai/AIChatService')
         const aiRequest = buildManualAIChatRequest({
           message: content,
-          reportId: reportId || undefined,
+          reportId: manualChatReportId || undefined,
           currentLocale,
           collectedData: collectedData as Record<string, unknown>,
           latestFormData: latestFormDataRef.current,
@@ -3045,8 +2680,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           chatMessages,
           versionCount: getManualChatVersionCount(
             useVersionHistoryStore.getState().versions,
-            resolvedReportId || reportId
+            manualChatReportId || resolvedReportId || reportId
           ),
+          audience: isAccountantMode ? 'advisor' : 'owner',
         })
 
         // Use streaming for real-time response + tool indicators
@@ -3191,6 +2827,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       collectedData,
       handleApplyFieldUpdate,
       reportId,
+      manualChatReportId,
+      resolvedReportId,
       fieldContext,
       normalizationItems,
       chatMessages,
@@ -3199,6 +2837,77 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       currentLocale,
     ] // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  useEffect(() => {
+    if (!isManualAgentNextRunValuation(initialAgentNext)) return
+    if (agentNextConsumedRef.current) return
+    if (!manualChatReportId) return
+
+    if (!chatDrawerOpen) {
+      setChatDrawerOpen(true)
+      return
+    }
+
+    if (
+      isChatGenerating ||
+      isLoadingHistory ||
+      conversationStore.lastLoadedReportId !== manualChatReportId
+    ) {
+      return
+    }
+
+    agentNextConsumedRef.current = true
+
+    if (typeof window !== 'undefined') {
+      if (new URL(window.location.href).searchParams.has('agent_next')) {
+        window.history.replaceState(
+          window.history.state,
+          '',
+          stripAgentNextFromHref(window.location.href)
+        )
+      }
+    }
+
+    void handleChatMessage(MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT)
+  }, [
+    initialAgentNext,
+    manualChatReportId,
+    chatDrawerOpen,
+    isChatGenerating,
+    isLoadingHistory,
+    conversationStore.lastLoadedReportId,
+    handleChatMessage,
+  ])
+
+  useEffect(() => {
+    if (!pendingPostValuationAgentPrompt) return
+    if (!manualChatReportId) return
+
+    if (!chatDrawerOpen) {
+      setChatDrawerOpen(true)
+      return
+    }
+
+    if (
+      isChatGenerating ||
+      isLoadingHistory ||
+      conversationStore.lastLoadedReportId !== manualChatReportId
+    ) {
+      return
+    }
+
+    const prompt = pendingPostValuationAgentPrompt
+    setPendingPostValuationAgentPrompt(null)
+    void handleChatMessage(prompt)
+  }, [
+    pendingPostValuationAgentPrompt,
+    manualChatReportId,
+    chatDrawerOpen,
+    isChatGenerating,
+    isLoadingHistory,
+    conversationStore.lastLoadedReportId,
+    handleChatMessage,
+  ])
 
   // AI suggestions: add as pending; Titan persist happens on accept (handleAcceptNormalisation)
   const handleNormalisationSuggestions = useCallback(
@@ -3263,244 +2972,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     conversationStore.setConversationId(null)
   }, [conversationStore])
 
-  // ─── Export Handler (server-side only — no client-side fallbacks) ───
-  const handleExport = useCallback(async () => {
-    if (!report) return
-    if (!canDownloadPdf) {
-      openStarterPaywall('pdf_download')
-      return
-    }
-    if (pdfStale) {
-      toast.warning(t('downloadPdfStaleHint'))
-      return
-    }
-    setIsExporting(true)
-    pdfExportAbortRef.current?.abort()
-    const abortController = new AbortController()
-    pdfExportAbortRef.current = abortController
-
-    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}-${Date.now()}.pdf`
-
-    const idForPdf = resolvedReportId ?? reportId
-    if (
-      !idForPdf ||
-      idForPdf === 'new' ||
-      (typeof idForPdf === 'string' && idForPdf.trim() === '')
-    ) {
-      toast.error(t('pdfExportFailed'), {
-        description: t('pdfExportFailedDesc'),
-      })
-      setIsExporting(false)
-      return
-    }
-
-    toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-
-    try {
-      // Single path: BFF `/pdf/download` runs Titan GET + optional POST generate + storage.
-      // Avoids client/UI drift (`isPdfReady` vs server) and duplicate generation hops.
-      await downloadPdf(undefined, filename, abortController.signal)
-
-      setDownloadHistory((prev) => [
-        {
-          id: crypto.randomUUID(),
-          fileName: filename,
-          timestamp: new Date(),
-          size: 'PDF',
-        },
-        ...prev,
-      ])
-      toast.success(t('pdfDownloaded'))
-    } catch (error) {
-      if (error instanceof APIError && error.statusCode === 402) {
-        openStarterPaywall('pdf_download')
-        return
-      }
-      if (error instanceof Error && error.name === 'AbortError') {
-        return
-      }
-      generalLogger.error('[ManualLayout] PDF export failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
-    } finally {
-      toast.dismiss('pdf-gen')
-      setIsExporting(false)
-    }
-  }, [
+  const openPdfPaywall = useCallback(() => openStarterPaywall('pdf_download'), [openStarterPaywall])
+  const { isExporting, downloadHistory, handleExport } = useManualPdfExportController({
     report,
     reportId,
     resolvedReportId,
-    downloadPdf,
-    tReport,
-    t,
-    pdfStale,
-    openStarterPaywall,
     canDownloadPdf,
-  ])
-
-  // ─── Navigation Handlers ───
-  const handleExitClientView = useCallback(() => {
-    try {
-      import('../../../stores/clientContext')
-        .then(({ useClientContext }) => {
-          const ctx = useClientContext.getState()
-          ctx.clearClientContext()
-        })
-        .catch((err) => {
-          generalLogger.warn('[ManualLayout] Client context cleanup failed', {
-            error: err instanceof Error ? err.message : String(err),
-          })
-        })
-
-      // Try to close embedded mode (sends postMessage to parent)
-      try {
-        window.parent?.postMessage(
-          { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
-          '*'
-        )
-      } catch {}
-
-      const validLocale =
-        currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-      let returnUrl: string | null = null
-      let sourceApp: string | null = null
-      try {
-        const urlParams = new URLSearchParams(window.location.search)
-        returnUrl = sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
-        sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
-      } catch {}
-
-      // Mirror the `onContinueToListing` heuristic so seller exits emit the
-      // `?from=valuation` celebration marker only when an actual valuation
-      // has been produced. Without this, Mercury's seller dashboard would
-      // never refresh the freshly-saved business-card snapshot until the
-      // 60s React Query staleTime elapsed (cache key: ['client','context']).
-      const hasCompletedValuation =
-        (!!report && typeof report.valuation === 'number' && Number.isFinite(report.valuation)) ||
-        !!(session?.valuationResult || session?.htmlReport)
-
-      const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
-      const clientDetailFallback = clientContextId
-        ? `${mercuryBaseUrl}/${validLocale}/advisor/clients/${clientContextId}`
-        : null
-
-      const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? clientDetailFallback, {
-        clientContextId: clientContextId ?? undefined,
-        locale: validLocale,
-        sourceApp: sourceApp ?? undefined,
-        celebrateMercuryReturn: hasCompletedValuation,
-      })
-      window.location.href = targetUrl
-    } catch (error) {
-      generalLogger.error('[ManualLayout] handleExitClientView failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      // Fallback uses the same source-aware dashboard helper as the happy
-      // path so a seller never lands on `/advisor/dashboard` when the
-      // primary navigation throws (sessionStorage unavailable, etc.).
-      try {
-        const loc =
-          currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-        let sourceApp: string | null = null
-        try {
-          sourceApp = sessionStorage.getItem('upswitch_source')
-        } catch {}
-        window.location.href = clientContextId
-          ? `${getMercuryUrl().replace(/\/$/, '')}/${loc}/advisor/clients/${clientContextId}`
-          : fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
-      } catch {}
-    }
-  }, [clientContextId, currentLocale, report, session])
-
-  const handleContinueImportReview = useCallback(() => {
-    const relId =
-      clientContextId ?? ctxRelationshipId ?? useClientContext.getState()?.relationshipId
-    if (!relId || typeof window === 'undefined') {
-      handleExitClientView()
-      return
-    }
-    const loc =
-      currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-    const mercuryBaseUrl = getMercuryUrl().replace(/\/$/, '')
-    const pendingImportReviewKey =
-      typeof resolvedReportId === 'string' &&
-      MERCURY_IMPORT_REVIEW_SESSION_KEY_RE.test(resolvedReportId.trim())
-        ? resolvedReportId.trim()
-        : null
-    const qs = new URLSearchParams({ import_review: '1' })
-    if (pendingImportReviewKey) {
-      qs.set('session_key', pendingImportReviewKey)
-    }
-    const targetPath = `/${loc}/advisor/clients/${encodeURIComponent(relId)}?${qs}`
-    const targetUrl = `${mercuryBaseUrl}${targetPath}`
-    let isEmbedded = false
-    try {
-      isEmbedded =
-        sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
-    } catch {
-      // Cross-origin access to `window.top` can throw; in that case we are in an iframe.
-      isEmbedded = true
-    }
-
-    if (isEmbedded) {
-      window.parent.postMessage(
-        {
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
-          source: 'venus',
-          data: { url: targetPath },
-        },
-        '*'
-      )
-      // Rolling-deploy fallback: if an older Mercury shell does not yet
-      // understand `venus-navigate-mercury`, at least move the iframe to the
-      // recovery URL instead of leaving the CTA as a no-op. When Mercury handles
-      // the message, it closes/unmounts this iframe before the fallback fires.
-      window.setTimeout(() => {
-        window.location.href = targetUrl
-      }, 750)
-      return
-    }
-
-    window.location.href = targetUrl
-  }, [clientContextId, ctxRelationshipId, currentLocale, handleExitClientView, resolvedReportId])
-
-  /**
-   * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.
-   * Prefer explicit navigation to Mercury — `router.back()` is unreliable when
-   * history is shallow, the tab was opened directly, or Next.js added internal
-   * entries (feels like a reload). When no stored return URL, fall back to
-   * browser history.
-   */
-  const handleBack = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const urlParams = new URLSearchParams(window.location.search)
-        const returnUrl =
-          sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
-        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
-          handleExitClientView()
-          return
-        }
-        if (clientContextId) {
-          handleExitClientView()
-          return
-        }
-        if (window.history.length <= 1) {
-          const sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
-          const loc =
-            currentLocale && (currentLocale === 'en' || currentLocale === 'nl')
-              ? currentLocale
-              : 'en'
-          window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
-          return
-        }
-      } catch {
-        /* sessionStorage unavailable */
-      }
-    }
-    router.back()
-  }, [clientContextId, currentLocale, router, handleExitClientView])
+    pdfStale,
+    downloadPdf,
+    openPdfPaywall,
+    defaultFilename: tReport('defaultFilename'),
+    pdfSuffix: tReport('pdfSuffix'),
+    staleHint: t('downloadPdfStaleHint'),
+    exportFailedTitle: t('pdfExportFailed'),
+    exportFailedDescription: t('pdfExportFailedDesc'),
+    generatingTitle: t('pdfGenerating'),
+    downloadedTitle: t('pdfDownloaded'),
+  })
 
   const handlePreview = useCallback(() => {
     trackPreviewOpen()
@@ -3514,46 +3002,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleOpenAssistant = useCallback(() => setChatDrawerOpen((prev) => !prev), [])
 
   // ─── Session Navigation (New, Select, Recent) ───
-  const [rawRecentValuations, setRawRecentValuations] = useState<RecentValuation[]>([])
-
-  const fetchRecentValuations = useCallback(() => {
-    const headers: HeadersInit = {}
-    try {
-      const ctx = useClientContext.getState()
-      if (ctx.isActingAsClient && ctx.getContextHeaders) {
-        Object.assign(headers, ctx.getContextHeaders())
-      }
-    } catch {
-      /* clientContext not available */
-    }
-
-    fetch('/api/reports?limit=5&offset=0', {
-      credentials: 'include',
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-    })
-      .then((res) => (res.ok ? res.json() : { reports: [] }))
-      .then((data) => {
-        setRawRecentValuations(
-          mapReportsResponseToRecentValuations(data, { unnamedLabel: t('unnamed') })
-        )
-      })
-      .catch((err) => {
-        generalLogger.warn('[ManualLayout] Failed to load recent valuations', {
-          error: err instanceof Error ? err.message : String(err),
-        })
-      })
-  }, [t])
-
-  useEffect(() => {
-    fetchRecentValuations()
-  }, [fetchRecentValuations])
-
-  // Augment with current session when it's not in the reports list (e.g. pre-first-calculation or session_key vs UUID)
-  // CRITICAL: Always show current valuation in dropdown - prevents "Geen recente schattingen" when viewing one
-  // Prefer session.reportId (UUID) over session.key - Titan returns UUIDs, session key causes 404
-  const recentValuations = useMemo(() => {
-    return buildManualRecentValuations({
-      rawRecentValuations,
+  const { rawRecentValuations, setRawRecentValuations, fetchRecentValuations, recentValuations } =
+    useManualRecentValuations({
       reportId,
       resolvedReportId,
       sessionReportId: session?.reportId,
@@ -3567,82 +3017,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       clientCompanyName: identity.clientContext?.clientCompanyName,
       unnamedLabel: t('unnamed'),
     })
-  }, [
-    rawRecentValuations,
-    reportId,
-    resolvedReportId,
-    session?.reportId,
-    activeSessionKey,
-    session?.name,
-    session?.updatedAt,
-    session?.createdAt,
-    collectedData.companyName,
-    isAccountantFlow,
-    identity.clientContext?.clientCompanyName,
-    report,
-    t,
-  ])
 
-  const handleNewValuation = useCallback(() => {
-    setShowNewValuationModal(true)
-  }, [])
-
-  const handleConfirmNewValuation = useCallback(() => {
-    setIsConfirmingNewValuation(true)
-    const prefilled =
-      collectedData.companyName?.trim() ||
-      (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim())
-    try {
-      // Snapshot current form for "Nieuwe schatting" prefill. The helper
-      // attaches a KBO/VAT/company-name fingerprint so a stale snapshot for
-      // company A cannot poison a later bootstrap for company B (the
-      // client-side twin of the orphaned-seller bug we fixed in Titan's
-      // bootstrap.service buildPrefill precedence).
-      try {
-        const formData = useManualFormStore.getState().formData
-        const normItems = useNormalizationStore
-          .getState()
-          .items.filter((n) => n.status === 'accepted')
-        writeNewValuationPrefill(formData as unknown as Record<string, unknown>, {
-          normCount: normItems.length,
-        })
-      } catch {
-        /* sessionStorage unavailable or serialization failed */
-      }
-      // Reset all local state so user can start fresh without being stuck
-      useSessionStore.getState().clearSession()
-      useManualFormStore.getState().resetForm()
-      useManualResultsStore.getState().clearResults()
-      useManualResultsStore.getState().setCalculating(false)
-      useNormalizationStore.getState().clear()
-      // Programmatic clear during abandon — must not trigger the latency auto-recalc
-      // subscription (would attempt a recalc against a stale/cleared form).
-      useTaxLatencyStore.getState().clear({ source: 'system' })
-      useNbbPrefillStore.getState().clear()
-      if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
-      setShowNewValuationModal(false)
-      // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
-      const ctx = useClientContext.getState()
-      const relId = clientContextId ?? ctx?.relationshipId
-      const currentSearch = typeof window !== 'undefined' ? window.location.search : undefined
-      window.location.href = buildPostDeleteNewValuationUrl({
-        locale: currentLocale,
-        clientId: (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
-        companyName: prefilled || undefined,
-        currentSearch,
-      })
-    } finally {
-      setIsConfirmingNewValuation(false)
-    }
-  }, [
+  const {
+    showNewValuationModal,
+    isConfirmingNewValuation,
+    handleNewValuation,
+    handleConfirmNewValuation,
+    handleCancelNewValuation,
+  } = useManualNewValuationFlow({
     currentLocale,
     reportId,
-    collectedData.companyName,
+    collectedCompanyName: collectedData.companyName,
     isAccountantFlow,
-    identity.clientContext?.clientCompanyName,
+    clientCompanyName: identity.clientContext?.clientCompanyName,
     isAccountantMode,
     clientContextId,
-  ])
+  })
 
   const handleSelectValuation = useCallback(
     (id: string) => {
@@ -3651,389 +3041,75 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [router, currentLocale]
   )
 
-  const [deletingValuationId, setDeletingValuationId] = useState<string | null>(null)
-  const deleteInProgressRef = useRef<string | null>(null)
+  const { deletingValuationId, handleDeleteValuation } = useManualRecentValuationDeletion({
+    reportId,
+    resolvedReportId,
+    sessionReportId: session?.reportId,
+    activeSessionKey,
+    rawRecentValuations,
+    setRawRecentValuations,
+    fetchRecentValuations,
+    isAccountantMode,
+    clientContextId,
+    collectedCompanyName: collectedData.companyName,
+    clientCompanyName: identity.clientContext?.clientCompanyName,
+    router,
+    currentLocale,
+    deleteReportFailedTitle: tReport('deleteReportFailed'),
+  })
 
-  const handleDeleteValuation = useCallback(
-    async (valuation: RecentValuation) => {
-      const { id, isDraft } = valuation
-      // Guard: prevent concurrent delete (ref is synchronous; state is async and can race)
-      if (deleteInProgressRef.current === id) return
-      deleteInProgressRef.current = id
-      setDeletingValuationId(id)
-      try {
-        const isCurrentReport = isValuationIdSameAsActiveReport(id, {
-          reportId,
-          resolvedReportId,
-          sessionReportId: session?.reportId,
-          sessionKey: activeSessionKey ?? undefined,
-        })
-        let postDeleteNewValuationUrl: string | null = null
-        if (isCurrentReport) {
-          try {
-            const formData = useManualFormStore.getState().formData
-            const normItems = useNormalizationStore
-              .getState()
-              .items.filter((n) => n.status === 'accepted')
-            writeNewValuationPrefill(formData as unknown as Record<string, unknown>, {
-              normCount: normItems.length,
-            })
-
-            const ctx = useClientContext.getState()
-            const relId = clientContextId ?? ctx?.relationshipId
-            const currentSearch = typeof window !== 'undefined' ? window.location.search : undefined
-            postDeleteNewValuationUrl = buildPostDeleteNewValuationUrl({
-              locale: currentLocale,
-              clientId: (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
-              companyName:
-                formData.company_name ||
-                collectedData.companyName ||
-                identity.clientContext?.clientCompanyName,
-              kboNumber: formData.kbo_number,
-              vatNumber: (formData as unknown as { vat_number?: string | null }).vat_number,
-              currentSearch,
-            })
-          } catch (snapshotErr) {
-            generalLogger.warn('[ManualLayout] Failed to snapshot current report before delete', {
-              reportId: id,
-              error: snapshotErr instanceof Error ? snapshotErr.message : String(snapshotErr),
-            })
-          }
-        }
-
-        await deleteValuationEntry({
-          valuation,
-          deleteDraftSession: (sessionId) => backendAPI.deleteValuationSession(sessionId),
-          deleteReport: (reportId) => reportService.deleteReport(reportId),
-        })
-        // Clear session cache so deleted report doesn't reappear from localStorage
-        try {
-          const { globalSessionCache } = await import('../../../utils/sessionCacheManager')
-          globalSessionCache.remove(id)
-        } catch {
-          // Non-fatal
-        }
-        if (isCurrentReport) {
-          useSessionStore.getState().clearSession()
-          const idLink = {
-            sessionReportId: session?.reportId,
-            sessionKey: activeSessionKey ?? undefined,
-          }
-          const remaining = filterRemainingRecentValuationsAfterDelete({
-            rawRecentValuations,
-            deletedId: id,
-            sessionReportId: idLink.sessionReportId,
-            sessionKey: idLink.sessionKey,
-          })
-          const isEmbedded =
-            isAccountantMode &&
-            typeof window !== 'undefined' &&
-            sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
-
-          // Always notify Mercury when embedded so it invalidates cache (avoids stale "1 bedrijfsschatting")
-          if (isEmbedded && typeof window !== 'undefined') {
-            const redirectTo = clientContextId
-              ? `/${currentLocale}/advisor/clients/${clientContextId}`
-              : `/${currentLocale}/advisor/dashboard`
-            window.parent.postMessage(
-              {
-                type: 'venus-report-deleted',
-                redirectTo,
-                clientId: clientContextId ?? undefined,
-                reportId: id,
-                keepOpen: remaining.length > 0, // Don't close if more valuations remain
-                source: 'venus',
-              },
-              '*'
-            )
-          }
-
-          if (remaining.length > 0) {
-            // Navigate to most recent remaining valuation (both accountant and client)
-            router.push(`/${currentLocale}/reports/${remaining[0].id}`)
-          } else {
-            // No valuations left: continue with a fresh valuation for the same company/client.
-            // CRITICAL: Redirect immediately to avoid "stuck" state (e.g. concept-only delete, embedded parent not responding)
-            let redirectUrl: string
-            if (postDeleteNewValuationUrl) {
-              redirectUrl = postDeleteNewValuationUrl
-            } else if (isAccountantMode) {
-              try {
-                const returnUrl =
-                  typeof window !== 'undefined'
-                    ? sessionStorage.getItem('upswitch_return_url')
-                    : null
-                const sourceApp =
-                  typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
-                redirectUrl = getSafeMercuryReturnUrl(returnUrl, {
-                  clientContextId: clientContextId ?? undefined,
-                  locale: currentLocale,
-                  sourceApp: sourceApp ?? undefined,
-                })
-              } catch {
-                redirectUrl = `${getMercuryUrl()}/${currentLocale}/advisor/dashboard`
-              }
-            } else {
-              redirectUrl = `/${currentLocale}/reports/new`
-            }
-            window.location.href = redirectUrl
-          }
-        } else {
-          setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
-          fetchRecentValuations() // Refetch to sync with backend
-          // Notify Mercury when embedded (delete from sidebar) so it invalidates valuations list
-          const isEmbedded =
-            isAccountantMode &&
-            typeof window !== 'undefined' &&
-            sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
-          if (isEmbedded) {
-            window.parent.postMessage(
-              {
-                type: 'venus-report-deleted',
-                reportId: id,
-                clientId: clientContextId ?? undefined,
-                keepOpen: true, // Stay open - we're viewing a different report
-                source: 'venus',
-              },
-              '*'
-            )
-          }
-        }
-      } catch (err) {
-        toast.error(tReport('deleteReportFailed'), {
-          description: err instanceof Error ? err.message : undefined,
-        })
-      } finally {
-        deleteInProgressRef.current = null
-        setDeletingValuationId(null)
-      }
-    },
-    [
-      reportId,
-      resolvedReportId,
-      session?.reportId,
-      activeSessionKey,
-      rawRecentValuations,
-      isAccountantMode,
-      clientContextId,
-      collectedData.companyName,
-      identity.clientContext?.clientCompanyName,
-      router,
-      currentLocale,
-      tReport,
-      fetchRecentValuations,
-    ]
-  )
-
-  const handleLogout = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    const postLogoutUrl = `${mercuryBaseUrl}/${currentLocale}/auth/login?returnUrl=${encodeURIComponent(`${window.location.origin}/${currentLocale}/reports/new`)}`
-    void useAuthStore.getState().logout({ postLogoutUrl })
-  }, [currentLocale])
-
-  const handleAccountSettings = useCallback(() => {
-    // Settings page lives in Mercury (cross-app navigation)
-    const mercuryBaseUrl = getMercuryUrl()
-    const locale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'en'
-    window.location.href = `${mercuryBaseUrl}/${locale}/advisor/settings`
-  }, [currentLocale])
-
-  const handleSwitchWorkspace = useCallback(() => {
-    // When embedded from Mercury (return_url exists), go to Mercury clients; else Venus home
-    if (typeof window !== 'undefined') {
-      try {
-        const returnUrl = sessionStorage.getItem('upswitch_return_url')
-        const sourceApp = sessionStorage.getItem('upswitch_source')
-        if (returnUrl && !isLegacyReturnUrl(returnUrl) && sourceApp?.includes('mercury')) {
-          const { relationshipId } = useClientContext.getState()
-          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-            clientContextId: relationshipId ?? undefined,
-            locale: currentLocale,
-            sourceApp: sourceApp ?? undefined,
-          })
-          window.location.href = targetUrl
-          return
-        }
-      } catch (error) {
-        generalLogger.warn(
-          '[ManualLayout] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home',
-          {
-            error: error instanceof Error ? error.message : String(error),
-          }
-        )
-      }
-    }
-    router.push(`/${currentLocale}/home`)
-  }, [router, currentLocale])
-
-  // Accountant dropdown navigation (Mercury parity)
-  // Venus locales (en, nl) map 1:1 to Mercury; fallback to 'en' for robustness
-  const mercuryLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'en'
-
-  const handleNavigateToDashboard = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/advisor/dashboard`
-  }, [mercuryLocale])
-
-  const handleNavigateToBilling = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/advisor/settings?tab=billing`
-  }, [mercuryLocale])
-
-  const handleNavigateToHelp = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/help`
-  }, [mercuryLocale])
-
-  /** Client invite / share: Mercury client detail (SendInvitationModal), not Venus nav CTA */
-  const handleOpenMercuryClientForInvite = useCallback(() => {
-    if (!clientContextId) return
-    window.location.href = `${getMercuryUrl()}/${mercuryLocale}/advisor/clients/${clientContextId}`
-  }, [clientContextId, mercuryLocale])
+  const {
+    mercuryLocale,
+    handleBack,
+    handleExitClientView,
+    handleContinueImportReview,
+    handleContinueToListing,
+    handleLogout,
+    handleAccountSettings,
+    handleSwitchWorkspace,
+    handleNavigateToDashboard,
+    handleNavigateToBilling,
+    handleNavigateToHelp,
+    handleOpenMercuryClientForInvite,
+  } = useManualMercuryNavigationActions({
+    clientContextId,
+    contextRelationshipId: ctxRelationshipId,
+    currentLocale,
+    report,
+    session,
+    resolvedReportId,
+    router,
+  })
 
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
-    (context: any) => {
-      setFieldContext({
-        field: context.field,
-        label: context.label,
-        value: context.value,
-        hint: context.hint,
-      })
+    (context: FieldHelpContext) => {
+      setFieldContext(buildManualFieldContext(context))
       setChatDrawerOpen(true)
 
-      const label = (context.label || '').toLowerCase()
-      const isEN = currentLocale === 'en'
-
-      const getContextualQuestion = (): string => {
-        if (context.normalizationType) {
-          switch (context.normalizationType) {
-            case 'salary':
-              return isEN
-                ? `What is a market-rate salary for ${label}?`
-                : `Wat is een marktconform salaris voor ${label}?`
-            case 'rent':
-              return isEN
-                ? `Is the rent for ${label} at market rate?`
-                : `Is de huurprijs voor ${label} marktconform?`
-            case 'vehicle':
-              return isEN
-                ? `How much private use can be normalized for ${label}?`
-                : `Hoeveel privégebruik kan genormaliseerd worden voor ${label}?`
-            case 'one-time':
-              return isEN
-                ? `Is ${label} a one-time cost that should be normalized?`
-                : `Is ${label} een eenmalige kost die genormaliseerd moet worden?`
-            case 'personal':
-              return isEN
-                ? `What portion of ${label} is personal?`
-                : `Welk deel van ${label} is privégerelateerd?`
-          }
-        }
-        switch (context.field) {
-          case 'ownerManagers':
-            return isEN
-              ? 'How many owner-managers is typical for this type of business?'
-              : 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
-          case 'ebitda':
-            return isEN
-              ? `Which normalizations are relevant for the EBITDA of ${context.label}?`
-              : `Welke normalisaties zijn relevant voor de EBITDA van ${context.label}?`
-          case 'ownerSalary':
-            return isEN
-              ? 'What is a market-rate owner salary for this business?'
-              : 'Wat is een marktconform eigenaarssalaris voor dit bedrijf?'
-          case 'rent':
-            return isEN ? 'Is this rent at market rate?' : 'Is deze huurprijs marktconform?'
-          case 'vehicle':
-            return isEN
-              ? 'How much private use can be normalized for vehicle costs?'
-              : 'Hoeveel privégebruik kan genormaliseerd worden voor autokosten?'
-          default:
-            if (context.grootboekCode) {
-              return isEN
-                ? `Analyze ledger account ${context.grootboekCode} (${context.label}) for normalization`
-                : `Analyseer grootboekrekening ${context.grootboekCode} (${context.label}) voor normalisatie`
-            }
-            return isEN ? `Help me with ${label}` : `Help me met ${label}`
-        }
-      }
-
-      setTimeout(() => handleChatMessage(getContextualQuestion()), 300)
+      setTimeout(() => handleChatMessage(buildManualFieldHelpQuestion(context, currentLocale)), 300)
     },
     [handleChatMessage, currentLocale]
   )
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
-  const openUnifiedNormalizationModal = useCallback(
-    (opts?: {
-      prefill?: GuidedNormalizationPrefill | null
-      closeChat?: boolean
-      track?: boolean
-    }) => {
-      if (planFeatures && !planFeatures.ebitda_normalization) {
-        openStarterPaywall('normalization')
-        return
-      }
-      setGuidedNormalizationPrefill(opts?.prefill ?? null)
-      if (opts?.track !== false) {
-        trackNormalizationOpen()
-      }
-      setShowUnifiedNormalizationModal(true)
-      if (opts?.closeChat) {
-        setChatDrawerOpen(false)
-      }
-    },
-    [planFeatures, openStarterPaywall]
+  const openNormalizationPaywall = useCallback(
+    () => openStarterPaywall('normalization'),
+    [openStarterPaywall]
   )
-
-  useEffect(() => {
-    const focus = guidedResolutionUrl?.focusField?.trim()
-    if (!focus) return
-    // `useCredits().planFeatures` is `null` until the plan is loaded (not `undefined`).
-    if (planFeatures === null) return
-    if (!planFeatures.ebitda_normalization) return
-    const rawYear = guidedResolutionUrl?.flagYear
-    const storageKey = `venus:guided-norm-handled:${reportId}:${focus}:${rawYear ?? ''}`
-    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(storageKey)) return
-
-    const yearParsed =
-      rawYear != null && String(rawYear).length > 0
-        ? Number.parseInt(String(rawYear), 10)
-        : Number.NaN
-    const initialYearFilter = Number.isFinite(yearParsed) ? yearParsed : null
-    const initialSearchQuery = MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS[focus] ?? ''
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(storageKey, '1')
-    }
-    openUnifiedNormalizationModal({
-      prefill: { initialSearchQuery, initialYearFilter },
-      track: false,
-    })
-  }, [reportId, guidedResolutionUrl, openUnifiedNormalizationModal, planFeatures])
-
-  const handleUnifiedNormalizationModalOpenChange = useCallback((open: boolean) => {
-    setShowUnifiedNormalizationModal(open)
-    if (!open) {
-      setGuidedNormalizationPrefill(null)
-    }
-  }, [])
-
-  const handleShowNormalisationReview = useCallback(() => {
-    openUnifiedNormalizationModal()
-  }, [openUnifiedNormalizationModal])
-
-  const getYearsToPersist = useCallback(
-    (item: NormalizationItem): number[] => {
-      const allDataYears = financialYears
-      return item.applyAllYears
-        ? allDataYears
-        : item.applyYears?.length
-          ? item.applyYears
-          : [item.year]
-    },
-    [financialYears]
-  )
+  const {
+    showUnifiedNormalizationModal,
+    guidedNormalizationPrefill,
+    openUnifiedNormalizationModal,
+    handleUnifiedNormalizationModalOpenChange,
+    handleShowNormalisationReview,
+  } = useManualNormalizationModalController({
+    reportId,
+    guidedResolutionUrl,
+    planFeatures,
+    openNormalizationPaywall,
+    setChatDrawerOpen,
+  })
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
   // IMPORTANT: Do NOT manually mutate EBITDA here. buildValuationRequest reads accepted
@@ -4065,10 +3141,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       try {
         // Pass normalizations directly to avoid a redundant store read
         const recalcLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const latestFinancialOverrides = mapClarityFormToVenusStore({
-          ...collectedData,
-          ...latestFormDataRef.current,
-        }, formStoreData)
+        const latestFinancialOverrides = mapClarityFormToVenusStore(
+          {
+            ...collectedData,
+            ...latestFormDataRef.current,
+          },
+          formStoreData
+        )
         const requestSource = buildManualNormalizationRecalcSource({
           formStoreData,
           latestFinancialOverrides,
@@ -4159,34 +3238,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const previousItems = useNormalizationStore.getState().items
       useNormalizationStore.getState().setItems(norms)
 
-      const acceptedSignature = (items: NormalizationItem[]) =>
-        JSON.stringify(
-          items
-            .filter((item) => item.status === 'accepted')
-            .map((item) => ({
-              id: item.id,
-              type: item.type,
-              value: item.value,
-              adjustment: item.adjustment,
-              year: item.year,
-              applyAllYears: item.applyAllYears,
-              applyYears: item.applyYears ?? [],
-            }))
-            .sort((a, b) => a.id.localeCompare(b.id))
-        )
-
-      if (acceptedSignature(previousItems) === acceptedSignature(norms)) return
+      if (
+        buildAcceptedNormalizationSignature(previousItems) ===
+        buildAcceptedNormalizationSignature(norms)
+      ) {
+        return
+      }
 
       const idForApi = resolvedReportId || reportId
       if (!idForApi) return
 
-      const allYears = Array.from(
-        new Set([
-          ...financialYears,
-          ...previousItems.flatMap((item) => getYearsToPersist(item)),
-          ...norms.flatMap((item) => getYearsToPersist(item)),
-        ])
-      ).filter((year) => Number.isFinite(year))
+      const allYears = buildManualNormalizationPersistenceYears({
+        financialYears,
+        previousItems,
+        nextItems: norms,
+      })
 
       try {
         await persistOrDeleteNormalizationsForYears(idForApi, allYears, originalEBITDAByYear, norms)
@@ -4205,7 +3271,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       reportId,
       resolvedReportId,
       recalculateWithNormalizations,
-      getYearsToPersist,
     ]
   )
 
@@ -4229,7 +3294,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (!report) return
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    let lastSignature = JSON.stringify(useTaxLatencyStore.getState().items)
+    let lastSignature = buildManualTaxLatencySignature(useTaxLatencyStore.getState().items)
     let lastMutationSeq = useTaxLatencyStore.getState()._mutationSeq
 
     // Concurrency guard: serialise recalcs and use a generation counter so a
@@ -4266,24 +3331,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
     }
 
-    const signatureFor = (items: ReturnType<typeof useTaxLatencyStore.getState>['items']) =>
-      JSON.stringify(
-        items
-          .map((item) => ({
-            id: item.id,
-            type: item.type,
-            temporaryDifference: item.temporaryDifference,
-            taxRate: item.taxRate,
-          }))
-          .sort((a, b) => a.id.localeCompare(b.id))
-      )
-
     const unsub = useTaxLatencyStore.subscribe((state) => {
       // Only react to mutations (state ref changes from devtools etc. shouldn't fire us).
       if (state._mutationSeq === lastMutationSeq) return
       lastMutationSeq = state._mutationSeq
 
-      const signature = signatureFor(state.items)
+      const signature = buildManualTaxLatencySignature(state.items)
       const changed = signature !== lastSignature
       // Update baseline unconditionally so a no-op programmatic set() (e.g. clear()
       // when items are already empty, or version-restore to the same snapshot)
@@ -4335,97 +3388,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     // return), so the boolean carries all the information we actually need.
   }, [Boolean(report)])
 
-  const handleAcceptNormalisation = useCallback(
-    async (id: string) => {
-      trackAINormalizationAccept()
-      normalizationActions.acceptItem(id)
-      setSuggestedNormalisations((prev) =>
-        updateSuggestedNormalisationStatus(prev, id, 'accepted')
-      )
-      const idForApi = resolvedReportId || reportId
-      if (idForApi) {
-        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-        if (item) {
-          const years = getYearsToPersist(item)
-          try {
-            await persistOrDeleteNormalizationsForYears(
-              idForApi,
-              years,
-              originalEBITDAByYear,
-              useNormalizationStore.getState().items
-            )
-          } catch (error) {
-            generalLogger.warn('[ManualLayout] Titan persist failed after accept — rolling back', {
-              id,
-              error: error instanceof Error ? error.message : String(error),
-            })
-            normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev) =>
-              updateSuggestedNormalisationStatus(prev, id, 'pending')
-            )
-            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-            return
-          }
-        }
-      }
-      await recalculateWithNormalizations(useNormalizationStore.getState().items)
-    },
-    [
+  const { handleAcceptNormalisation, handleRejectNormalisation } =
+    useManualNormalizationReviewActions({
       reportId,
       resolvedReportId,
       normalizationActions,
-      getYearsToPersist,
+      setSuggestedNormalisations,
+      financialYears,
       originalEBITDAByYear,
-      t,
       recalculateWithNormalizations,
-    ]
-  )
-
-  const handleRejectNormalisation = useCallback(
-    async (id: string) => {
-      normalizationActions.rejectItem(id)
-      setSuggestedNormalisations((prev) =>
-        updateSuggestedNormalisationStatus(prev, id, 'rejected')
-      )
-      const idForApi = resolvedReportId || reportId
-      if (idForApi) {
-        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-        if (item) {
-          const years = getYearsToPersist(item)
-          const norms = useNormalizationStore.getState().items
-          try {
-            await persistOrDeleteNormalizationsForYears(
-              idForApi,
-              years,
-              originalEBITDAByYear,
-              norms
-            )
-          } catch (error) {
-            generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {
-              id,
-              error: error instanceof Error ? error.message : String(error),
-            })
-            normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev) =>
-              updateSuggestedNormalisationStatus(prev, id, 'pending')
-            )
-            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-            return
-          }
-        }
-      }
-      await recalculateWithNormalizations(useNormalizationStore.getState().items)
-    },
-    [
-      reportId,
-      resolvedReportId,
-      normalizationActions,
-      getYearsToPersist,
-      originalEBITDAByYear,
-      t,
-      recalculateWithNormalizations,
-    ]
-  )
+      persistFailedTitle: t('persistFailed'),
+      persistFailedDescription: t('persistFailedDesc'),
+    })
 
   // ─── Version Restore ───
   // Receives full ValuationVersion from HistoryPanel (looked up from store)
@@ -4457,7 +3431,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         // 2. Hydrate form with version's form data (ValuationVersion.formData)
         if (restorePlan.formData) {
-          updateFormData(restorePlan.formData)
+          updateFormData(restorePlan.formData as Parameters<typeof updateFormData>[0])
         }
 
         // 3. Set valuation result with htmlReport merged from version
@@ -4492,7 +3466,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         setRightPanelView('preview')
-        toast.success(t('versionRestored', { version: versionNumber }))
+        toast.success(t('versionRestored', { version: versionNumber ?? '' }))
       } catch (error) {
         generalLogger.warn('[ManualLayout] Version restore failed', {
           error: error instanceof Error ? error.message : String(error),
@@ -4574,30 +3548,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [reportId, resolvedReportId, collectedData, normalizationActions, t]
   )
 
-  // ─── Normalisation Suggestion Modal ───
-  const handleNormalisationSuggestionAccept = useCallback(
-    (suggestion: NormalisationSuggestion, customValue?: number) => {
-      const value = customValue !== undefined ? customValue : suggestion.suggestedValue
-      handleApplyFieldUpdate(suggestion.field, value)
-      setShowNormalisationModal(false)
-      setCurrentNormalisationSuggestion(null)
-      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
-      toast.success(
-        t('normNormalized', {
-          label: suggestion.label,
-          value: value.toLocaleString(currencyLocale),
-        })
-      )
-    },
-    [handleApplyFieldUpdate, currentLocale, t]
-  )
-
-  const handleNormalisationSuggestionReject = useCallback(() => {
-    setShowNormalisationModal(false)
-    setCurrentNormalisationSuggestion(null)
-    toast.info(t('suggestionRejected'))
-  }, [t])
-
   // ─── Shared Chat Drawer Props ───
   const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
   const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
@@ -4618,21 +3568,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // consolidated reset hook can read them. The venture-path assistant data
   // (benchmark fetch, studio issues, filter/map/locale logic) is owned by
   // `useStartupAssistantSurface`.
-  const { startupIssues, startupLauncherIssues, startupIssueById } =
-    useStartupAssistantSurface({
-      isStartupAssistantRoute,
-      acknowledgedStartupIssues,
-      assistantLocale,
-      formatStartupAssistantPrompt,
-    })
+  const { startupIssues, startupLauncherIssues, startupIssueById } = useStartupAssistantSurface({
+    isStartupAssistantRoute,
+    acknowledgedStartupIssues,
+    assistantLocale,
+    formatStartupAssistantPrompt,
+  })
   const startupLauncherScopeId = useMemo(() => {
-    const sessionIdCandidate =
-      ((session as unknown as { id?: string; key?: string; session_key?: string })?.id ??
-        (session as unknown as { id?: string; key?: string; session_key?: string })?.key ??
-        (session as unknown as { id?: string; key?: string; session_key?: string })
-          ?.session_key) ||
-      ''
-    return resolvedReportId || sessionIdCandidate || reportId || 'studio-launcher'
+    return getManualStartupLauncherScopeId({ session, resolvedReportId, reportId })
   }, [reportId, resolvedReportId, session])
 
   // ─── Shared ManualInputPanel Props ───
@@ -4653,35 +3596,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     synthesisUnlocked,
     synthesisValuationResults,
     onSynthesisPaywall: () => openStarterPaywall('synthesis'),
-    initialData: {
-      companyName: collectedData.companyName,
-      kboNumber: collectedData.kboNumber,
-      legalForm: collectedData.legalForm,
-      businessStructure:
-        collectedData.businessStructure ||
-        mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
-      address: collectedData.address,
-      naceCode: formActivityCode || formNaceCode || collectedData.naceCode,
-      canonicalNaceCode: formNaceCode || '',
-      naceDescription: collectedData.naceDescription,
-      businessType: collectedData.businessType,
-      industry: collectedData.industry,
-      country: collectedData.country,
-      yearFounded: collectedData.yearFounded,
-      // Same store-first pattern as `fteEmployees`: trust whatever was set
-      // upstream (session restore / BusinessCard / assistant CTA), only fall
-      // back to `collectedData.ownerManagers` when the store is empty.
-      ownerManagers:
-        typeof formStoreData.number_of_owners === 'number' && formStoreData.number_of_owners > 0
-          ? formStoreData.number_of_owners
-          : collectedData.ownerManagers,
-      fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
-      current_year_data: formStoreData.current_year_data ?? collectedData.current_year_data,
-      historical_years_data: formStoreData.historical_years_data,
-      forecast_years_data: formStoreData.forecast_years_data,
-      filingYearConfirmed: formStoreData.filing_year_confirmed,
-      yearlyFinancials: restoredYearlyFinancials,
-    },
+    initialData: buildManualInputInitialData({
+      collectedData,
+      formStoreData,
+      formActivityCode,
+      formNaceCode,
+      restoredYearlyFinancials,
+    }),
     isAssistantOpen: chatDrawerOpen,
     onOpenAssistant: () => setChatDrawerOpen(true),
     onResolveIssueWithAssistant: (issue: StudioIssue) => {
@@ -4697,7 +3618,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     startupLauncherScopeId,
   }
 
-  const rawQualityWarnings = useMemo(() => getDataQualityWarningsFromResult(result), [result])
+  const buildLiveValuationSubmitData = useCallback((): ValuationFormData => {
+    return buildManualLiveValuationSubmitData({
+      initialData: manualInputProps.initialData,
+      liveData: latestFormDataRef.current,
+      fallbackYearlyFinancials: getLiveYearlyFinancials(),
+    })
+  }, [manualInputProps.initialData, getLiveYearlyFinancials])
 
   // ─── Quality Warning Rail (Pass-7) ───────────────────────────────────────
   // Surface engine-emitted high-severity warnings inside the assistant so
@@ -4705,39 +3632,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // once warnings are resolved or acknowledged. See engine-side Pass-3
   // aggregation that produces `result.data_quality_warnings`.
   const qualityWarnings = useMemo(() => {
-    if (!rawQualityWarnings || rawQualityWarnings.length === 0) return []
-    // Per warning type: a localized CTA label and a prefilled assistant prompt.
-    return rawQualityWarnings
-      .filter((w) => String(w.severity ?? '').toLowerCase() === 'high')
-      .filter((w) => !!w.type && !acknowledgedQualityWarnings.has(w.type!))
-      .map((w) => {
-        const cta =
-          w.type && isActionableQualityWarningType(w.type)
-            ? QUALITY_WARNING_ASSISTANT_CTA_CONFIG[w.type as QualityWarningAssistantCtaKey]
-            : undefined
-        // Fall back gracefully when a new engine warning type ships before
-        // the catalog is updated — show the warning, no CTA.
-        const labelDefault = 'Open in chat'
-        const promptDefault = (w.message ?? '') + (w.recommendation ? ` ${w.recommendation}` : '')
-        return {
-          type: w.type!,
-          severity: w.severity ?? 'high',
-          message: w.message,
-          recommendation: w.recommendation,
-          step_number: w.step_number,
-          cta_label: cta
-            ? tCa(cta.labelKey as never, { default: labelDefault } as never)
-            : labelDefault,
-          cta_prompt: cta
-            ? tCa(
-                cta.promptKey as never,
-                {
-                  default: promptDefault,
-                } as never
-              )
-            : promptDefault,
-        }
-      })
+    return buildManualQualityWarnings({
+      result,
+      acknowledgedTypes: acknowledgedQualityWarnings,
+      translateCta: (key, fallback) => tCa(key as never, { default: fallback } as never),
+    })
   }, [result, acknowledgedQualityWarnings, tCa])
 
   const handleResolveQualityWarning = useCallback(
@@ -4790,16 +3689,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     (issueId: string) => {
       const issue = startupIssueById.get(issueId)
       if (!issue || typeof window === 'undefined') return
-      const anchorByStep: Record<StudioIssue['step'], string> = {
-        profile: 'startup-section-profile',
-        berkus: 'startup-section-berkus',
-        scorecard: 'startup-section-scorecard',
-        founder_pedigree: 'startup-section-pedigree',
-        traction: 'startup-section-traction',
-        exit_story: 'startup-section-exit',
-        round_simulator: 'startup-section-round',
-      }
-      const anchor = anchorByStep[issue.step]
+      const anchor = getManualStartupIssueAnchor(issue.step)
       if (!anchor) return
       const el = document.getElementById(anchor)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -4829,16 +3719,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setChatMessages((prev) =>
         markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
       )
-      if (lastSubmittedDataRef.current) {
-        handleManualSubmit(lastSubmittedDataRef.current)
-      } else {
-        toast.info(
-          // TODO i18n
-          'Klik op "Bereken" in het formulier om de eerste waardering te starten — daarna kan ik herrekeningen vanuit de chat starten.'
-        )
-      }
+      const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
+      postValuationListingHandoffPendingRef.current = true
+      void handleManualSubmit(submitData)
     },
-    [handleManualSubmit, setChatMessages]
+    [buildLiveValuationSubmitData, handleManualSubmit, setChatMessages]
   )
 
   const handleRejectValuationRun = useCallback(
@@ -4894,28 +3779,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'approved')
       )
       try {
-        const resp = await fetch('/api/sellability/score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({}),
-        })
-        const json: unknown = await resp.json().catch(() => ({}))
-        if (!resp.ok || (json as { success?: boolean })?.success === false) {
-          throw new Error(extractErrorMessage(json, resp.status))
-        }
-        const parsed = parseSellabilityScoreResponse(json)
-        if (parsed) {
+        const sellability = await runManualSellabilityScore()
+        if (sellability.kind === 'scored') {
           setChatMessages((prev) =>
             applyManualChatSellabilityComputedScore(prev, proposalId, {
-              score: parsed.score,
-              band: parsed.band,
-              confidence: parsed.confidence,
+              score: sellability.score,
+              band: sellability.band,
+              confidence: sellability.confidence,
             })
           )
           toast.success(
             // TODO i18n
-            `Sellability: ${parsed.score}/100 (${parsed.band})`
+            `Sellability: ${sellability.score}/100 (${sellability.band})`
           )
         } else {
           toast.info(/* TODO i18n */ 'Sellability berekend.')
@@ -4937,6 +3812,66 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     (proposalId: string) => {
       setChatMessages((prev) =>
         markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'rejected')
+      )
+    },
+    [setChatMessages]
+  )
+
+  const handleApproveListingCreate = useCallback(
+    (proposalId: string, targetReportId?: string, targetAccountantCustomerId?: string | null) => {
+      setChatMessages((prev) =>
+        markManualChatProposalDecision(prev, 'listingCreateRequests', proposalId, 'approved')
+      )
+
+      const reportIdForListing = resolveManualCanonicalReportId({
+        targetReportId,
+        session,
+        resolvedReportId,
+        routeReportId: reportId,
+        resultValuationId: result?.valuation_id,
+        activeSessionKey,
+      })
+      if (!reportIdForListing) {
+        toast.error(
+          // TODO i18n
+          'Geen waarderingsrapport gevonden om de listing voor te bereiden.'
+        )
+        return
+      }
+
+      const relationshipId = resolveManualListingRelationshipId({
+        targetAccountantCustomerId,
+        clientContextId,
+        contextRelationshipId: ctxRelationshipId,
+        fallbackRelationshipId: useClientContext.getState()?.relationshipId,
+      })
+
+      trackReturnToMercury()
+      window.location.href = buildManualListingWizardUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+        reportId: reportIdForListing,
+        relationshipId,
+      })
+    },
+    [
+      activeSessionKey,
+      clientContextId,
+      ctxRelationshipId,
+      mercuryLocale,
+      reportId,
+      result?.valuation_id,
+      resolvedReportId,
+      session,
+      session?.reportId,
+      setChatMessages,
+    ]
+  )
+
+  const handleRejectListingCreate = useCallback(
+    (proposalId: string) => {
+      setChatMessages((prev) =>
+        markManualChatProposalDecision(prev, 'listingCreateRequests', proposalId, 'rejected')
       )
     },
     [setChatMessages]
@@ -4972,11 +3907,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onRejectReportGeneration: handleRejectReportGeneration,
     onApproveSellabilityRun: handleApproveSellabilityRun,
     onRejectSellabilityRun: handleRejectSellabilityRun,
+    onApproveListingCreate: handleApproveListingCreate,
+    onRejectListingCreate: handleRejectListingCreate,
     toolInProgress: conversationStore.toolInProgress,
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,
   }
-  const assistantOpenTasksCount = pendingUpdates.length + qualityWarnings.length + startupIssues.length
+  const assistantOpenTasksCount =
+    pendingUpdates.length + qualityWarnings.length + startupIssues.length
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
@@ -5002,7 +3940,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ? accountantDisplayName
           : user?.name || user?.email || t('guest')
       }
-      userInitials={getUserInitials(
+      userInitials={getManualUserInitials(
         isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
       )}
       userEmail={user?.email}
@@ -5027,7 +3965,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       onRedownload={
         isMobile
           ? undefined
-          : (item: any) => {
+          : (item: DownloadHistoryItem) => {
               if (!canDownloadPdf) {
                 openStarterPaywall('pdf_download')
                 return
@@ -5046,29 +3984,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       valuationVersions={isMobile ? undefined : versionHistoryForNav}
       selectedVersionId={isMobile ? undefined : selectedVersionId}
       onSelectVersion={isMobile ? undefined : handleSelectVersion}
-      onContinueToListing={
-        isMobile
-          ? undefined
-          : () => {
-              trackReturnToMercury()
-              const mercuryBaseUrl = getMercuryUrl()
-              const basePath = clientContextId
-                ? `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-                : `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients`
-              const hasCompletedValuation =
-                (!!report &&
-                  typeof report.valuation === 'number' &&
-                  Number.isFinite(report.valuation)) ||
-                !!(session?.valuationResult || session?.htmlReport)
-              const returnPath = getSafeMercuryReturnUrl(basePath, {
-                clientContextId: clientContextId ?? undefined,
-                locale: mercuryLocale,
-                sourceApp: 'mercury',
-                celebrateMercuryReturn: hasCompletedValuation,
-              })
-              window.location.href = returnPath
-            }
-      }
+      onContinueToListing={isMobile ? undefined : handleContinueToListing}
       recentValuations={recentValuations}
       activeReportId={resolvedReportId || reportId}
       onNewValuation={handleNewValuation}
@@ -5114,15 +4030,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         lastSaved={lastSaved}
         onClientClick={() => {
           if (clientContextId) {
-            const mercuryUrl = getMercuryUrl()
-            window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
+            handleOpenMercuryClientForInvite()
           }
         }}
         onBusinessClick={
           clientContextId
             ? () => {
-                const mercuryUrl = getMercuryUrl()
-                window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
+                handleOpenMercuryClientForInvite()
               }
             : undefined
         }
@@ -5172,17 +4086,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <NewValuationModal
         isOpen={showNewValuationModal}
         onConfirm={handleConfirmNewValuation}
-        onCancel={() => setShowNewValuationModal(false)}
+        onCancel={handleCancelNewValuation}
         isConfirming={isConfirmingNewValuation}
-      />
-
-      <NormalisationSuggestionModal
-        open={showNormalisationModal}
-        onOpenChange={setShowNormalisationModal}
-        suggestion={currentNormalisationSuggestion}
-        onAccept={handleNormalisationSuggestionAccept}
-        onReject={handleNormalisationSuggestionReject}
-        companyName={collectedData.companyName}
       />
 
       <UnifiedNormalizationModal
@@ -5240,207 +4145,211 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           </div>
         </div>
       ) : (
-      /* Desktop body: Resizable left input + right report/preview/history. */
-      <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup className="h-full w-full">
-          {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
-          <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <div className="h-full flex flex-col min-h-0">
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                <StartupAwareInputPanel key={reportId} {...manualInputProps} />
+        /* Desktop body: Resizable left input + right report/preview/history. */
+        <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
+          <ResizablePanelGroup className="h-full w-full">
+            {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
+            <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+              <div className="h-full flex flex-col min-h-0">
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <StartupAwareInputPanel key={reportId} {...manualInputProps} />
+                </div>
               </div>
-            </div>
-          </ResizablePanel>
+            </ResizablePanel>
 
-          {/* Resize Handle */}
-          <ResizableHandle
-            withHandle
-            className="w-px bg-foreground/[0.06] hover:bg-primary/30 data-[state=dragging]:bg-primary/50 transition-colors"
-          />
+            {/* Resize Handle */}
+            <ResizableHandle
+              withHandle
+              className="w-px bg-foreground/[0.06] hover:bg-primary/30 data-[state=dragging]:bg-primary/50 transition-colors"
+            />
 
-          {/* Right Panel: Report / Preview / History */}
-          {/* Design system: bg-background for theme consistency. Report HTML has its own light styling. */}
-          <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <AnimatePresence mode="wait">
-                  {rightPanelView === 'preview' ? (
-                    <motion.div
-                      key="preview"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto bg-background"
-                    >
-                      {report?.htmlReport ? (
-                        <div className="relative">
-                          {isMethodSwitchRendering && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
-                              <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
-                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                <span className="text-sm text-foreground/70">
-                                  {t('updatingReport')}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {liveMultipleReportPreview && (
-                            <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
-                              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                                <div>
-                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                    {t('previewEquityValue')}
-                                  </p>
-                                  <p className="text-sm text-foreground/70">
-                                    {t('previewEquityBlurb')}
-                                  </p>
-                                </div>
-                                <div className="text-left md:text-right">
-                                  <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                                    €
-                                    {(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(
-                                      2
-                                    )}
-                                    M
-                                  </p>
-                                  <p className="text-[11px] font-mono tabular-nums text-foreground/55">
-                                    {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
-                                    {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}
-                                    K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
-                                  </p>
+            {/* Right Panel: Report / Preview / History */}
+            {/* Design system: bg-background for theme consistency. Report HTML has its own light styling. */}
+            <ResizablePanel defaultSize={65} minSize={40}>
+              <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    {rightPanelView === 'preview' ? (
+                      <motion.div
+                        key="preview"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={springDefault}
+                        className="valuation-report-container h-full overflow-y-auto bg-background"
+                      >
+                        {report?.htmlReport ? (
+                          <div className="relative">
+                            {isMethodSwitchRendering && (
+                              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+                                <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
+                                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                  <span className="text-sm text-foreground/70">
+                                    {t('updatingReport')}
+                                  </span>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                          {/* Cap-table simulator was previously rendered here as a
+                            )}
+                            {liveMultipleReportPreview && (
+                              <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
+                                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+                                      {t('previewEquityValue')}
+                                    </p>
+                                    <p className="text-sm text-foreground/70">
+                                      {t('previewEquityBlurb')}
+                                    </p>
+                                  </div>
+                                  <div className="text-left md:text-right">
+                                    <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                                      €
+                                      {(
+                                        liveMultipleReportPreview.previewEquity / 1_000_000
+                                      ).toFixed(2)}
+                                      M
+                                    </p>
+                                    <p className="text-[11px] font-mono tabular-nums text-foreground/55">
+                                      {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
+                                      {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(
+                                        0
+                                      )}
+                                      K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {/* Cap-table simulator was previously rendered here as a
                               React slider above the HTML report. The same data is now
                               the single source of truth in the canonical Jinja report
                               (`startup_one_pager.html` + `startup_cap_table.html`), so
                               the duplicate mount has been removed to give founders a
                               clean, single-source result surface. */}
-                          <div className="valuation-report">
-                            <div
-                              dangerouslySetInnerHTML={{
-                                __html: HTMLProcessor.sanitize(report.htmlReport),
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ) : isGenerating || isCalculating ? (
-                        <div className="h-full flex flex-col bg-background">
-                          <div className="flex items-center justify-center gap-2 py-4">
-                            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <span className="text-sm text-foreground/70">
-                              {tReport('generating.title')}
-                            </span>
-                          </div>
-                          <ReportSkeleton />
-                        </div>
-                      ) : (
-                        <ReportPlaceholder />
-                      )}
-                    </motion.div>
-                  ) : rightPanelView === 'history' ? (
-                    <motion.div
-                      key="history"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={springDefault}
-                      className="h-full bg-background"
-                    >
-                      <Suspense fallback={<PanelSkeleton />}>
-                        <HistoryPanel
-                          report={report}
-                          reportId={reportId}
-                          onVersionRestore={handleVersionRestore}
-                        />
-                      </Suspense>
-                    </motion.div>
-                  ) : report?.htmlReport ? (
-                    <motion.div
-                      key="html-report"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto bg-background relative"
-                    >
-                      {isMethodSwitchRendering && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
-                          <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
-                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <span className="text-sm text-foreground/70">
-                              {t('updatingReport')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {liveMultipleReportPreview && (
-                        <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
-                          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                {t('previewEquityValue')}
-                              </p>
-                              <p className="text-sm text-foreground/70">
-                                {t('previewEquityBlurb')}
-                              </p>
-                            </div>
-                            <div className="text-left md:text-right">
-                              <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                                €{(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}M
-                              </p>
-                              <p className="text-[11px] font-mono tabular-nums text-foreground/55">
-                                {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
-                                {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K ·{' '}
-                                {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
-                              </p>
+                            <div className="valuation-report">
+                              <div
+                                dangerouslySetInnerHTML={{
+                                  __html: HTMLProcessor.sanitize(report.htmlReport),
+                                }}
+                              />
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {/* Cap-table simulator deliberately omitted — the canonical
+                        ) : isGenerating || isCalculating ? (
+                          <div className="h-full flex flex-col bg-background">
+                            <div className="flex items-center justify-center gap-2 py-4">
+                              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-foreground/70">
+                                {tReport('generating.title')}
+                              </span>
+                            </div>
+                            <ReportSkeleton />
+                          </div>
+                        ) : (
+                          <ReportPlaceholder />
+                        )}
+                      </motion.div>
+                    ) : rightPanelView === 'history' ? (
+                      <motion.div
+                        key="history"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={springDefault}
+                        className="h-full bg-background"
+                      >
+                        <Suspense fallback={<PanelSkeleton />}>
+                          <HistoryPanel
+                            report={report}
+                            reportId={reportId}
+                            onVersionRestore={handleVersionRestore}
+                          />
+                        </Suspense>
+                      </motion.div>
+                    ) : report?.htmlReport ? (
+                      <motion.div
+                        key="html-report"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={springDefault}
+                        className="valuation-report-container h-full overflow-y-auto bg-background relative"
+                      >
+                        {isMethodSwitchRendering && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+                            <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-foreground/70">
+                                {t('updatingReport')}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {liveMultipleReportPreview && (
+                          <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
+                            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+                                  {t('previewEquityValue')}
+                                </p>
+                                <p className="text-sm text-foreground/70">
+                                  {t('previewEquityBlurb')}
+                                </p>
+                              </div>
+                              <div className="text-left md:text-right">
+                                <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                                  €
+                                  {(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}
+                                  M
+                                </p>
+                                <p className="text-[11px] font-mono tabular-nums text-foreground/55">
+                                  {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
+                                  {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K
+                                  · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}×
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {/* Cap-table simulator deliberately omitted — the canonical
                           Jinja report (`startup_one_pager.html` + `startup_cap_table.html`)
                           is the single source of truth for the simulator card. */}
-                      <div className="valuation-report">
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: HTMLProcessor.sanitize(report.htmlReport),
-                          }}
-                        />
-                      </div>
-                    </motion.div>
-                  ) : isGenerating || isCalculating ? (
-                    <motion.div
-                      key="report"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={springDefault}
-                      className="h-full bg-background"
-                    >
-                      <ReportSkeleton />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="placeholder"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={springDefault}
-                      className="h-full bg-background"
-                    >
-                      <ReportPlaceholder />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                        <div className="valuation-report">
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html: HTMLProcessor.sanitize(report.htmlReport),
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    ) : isGenerating || isCalculating ? (
+                      <motion.div
+                        key="report"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={springDefault}
+                        className="h-full bg-background"
+                      >
+                        <ReportSkeleton />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="placeholder"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={springDefault}
+                        className="h-full bg-background"
+                      >
+                        <ReportPlaceholder />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       )}
 
       <Suspense fallback={null}>
@@ -5455,7 +4364,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           if (isMethodSwitchRendering) return
           setShowValuationEditModal(false)
         }}
-        valuationResults={getHydratedValuationResults(result) ?? {}}
+        valuationResults={getManualHydratedValuationResults(result) ?? {}}
         isHydratingMethods={isHydratingEditModalData}
         methodDataLoadError={reportMethodHydrationError}
         onRetryMethodDataLoad={() => setReportHydrationRetryNonce((n) => n + 1)}
@@ -5502,8 +4411,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       {methodPaywallOpen &&
         (() => {
           const isBusinessOwnerAudience = !showFullAdvisorMethodNav
-          const businessDashboardUrl = `${getMercuryUrl()}/${currentLocale}/business/dashboard`
-          const advisorPricingUrl = `${getMercuryUrl()}/${currentLocale}/pricing`
+          const mercuryUrl = getMercuryUrl()
+          const businessDashboardUrl = buildManualMercuryBusinessDashboardUrl({
+            mercuryUrl,
+            locale: currentLocale,
+          })
+          const advisorPricingUrl = buildManualMercuryPricingUrl({
+            mercuryUrl,
+            locale: currentLocale,
+          })
 
           const titleNl =
             methodPaywallReason === 'methods'

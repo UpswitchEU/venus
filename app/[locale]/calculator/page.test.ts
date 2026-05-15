@@ -28,12 +28,13 @@ describe('venus /calculator redirect', () => {
         spotlight: '1',
         focusField: 'ebitda',
         flagYear: '2024',
+        agent_next: 'run_valuation',
         source: 'mercury',
       }),
     });
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/en/reports/new?clientId=client-123&source=mercury&spotlight=1&focusField=ebitda&flagYear=2024',
+      '/en/reports/new?clientId=client-123&source=mercury&agent_next=run_valuation&spotlight=1&focusField=ebitda&flagYear=2024',
     );
   });
 

@@ -97,6 +97,7 @@ export function buildManualAIChatRequest(args: {
   conversationId?: string | null
   chatMessages: ChatMessage[]
   versionCount: number
+  audience?: AIChatRequest['audience']
 }): AIChatRequest {
   return {
     message: args.message,
@@ -112,6 +113,7 @@ export function buildManualAIChatRequest(args: {
       normalizationItems: args.normalizationItems,
       versionCount: args.versionCount,
     }),
+    audience: args.audience,
     locale: getManualChatLocale(args.currentLocale),
     history: buildManualChatHistory(args.chatMessages),
   }

@@ -58,6 +58,8 @@ interface ValuationFlowSelectorProps {
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
   initialDrawerOpen?: boolean
+  /** One-shot assistant intent forwarded from Mercury. */
+  initialAgentNext?: string
   /** Mercury deep link: guided resolution query params */
   guidedResolution?: {
     spotlight?: string
@@ -166,6 +168,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     initialTab = 'preview',
     urlAction,
     initialDrawerOpen = false,
+    initialAgentNext,
     guidedResolution,
     initialSelectedMethodFromUrl,
   }) => {
@@ -233,6 +236,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 initialTab={initialTab}
                 urlAction={urlAction}
                 initialDrawerOpen={initialDrawerOpen}
+                initialAgentNext={initialAgentNext}
                 guidedResolution={guidedResolution}
                 initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
               />
@@ -274,6 +278,11 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       prevProps.onComplete === nextProps.onComplete &&
       prevProps.initialMode === nextProps.initialMode &&
       prevProps.initialVersion === nextProps.initialVersion &&
+      prevProps.initialTab === nextProps.initialTab &&
+      prevProps.urlAction === nextProps.urlAction &&
+      prevProps.initialDrawerOpen === nextProps.initialDrawerOpen &&
+      prevProps.initialAgentNext === nextProps.initialAgentNext &&
+      prevProps.initialSelectedMethodFromUrl === nextProps.initialSelectedMethodFromUrl &&
       prevProps.onRetry === nextProps.onRetry &&
       prevProps.onStartOver === nextProps.onStartOver &&
       prevProps.guidedResolution?.spotlight === nextProps.guidedResolution?.spotlight &&

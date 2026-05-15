@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getManualSessionKey,
   manualSessionMatchesReport,
+  resolveManualCanonicalReportId,
   resolveManualPersistedReportLookupId,
   resolveManualReportHydrationLookupId,
   resolveManualReportId,
@@ -72,5 +73,39 @@ describe('manualSessionIdentifiers', () => {
     expect(getManualSessionKey({ key: sessionKey })).toBe(sessionKey)
     expect(getManualSessionKey({ session_key: sessionKey })).toBe(sessionKey)
     expect(getManualSessionKey({ key: '   ' })).toBeNull()
+  })
+
+  it('keeps an explicit UUID target when opening downstream listing flows', () => {
+    expect(
+      resolveManualCanonicalReportId({
+        targetReportId: otherUuid,
+        session: { reportId: uuid, key: sessionKey },
+        resolvedReportId: uuid,
+        routeReportId: sessionKey,
+      })
+    ).toBe(otherUuid)
+  })
+
+  it('upgrades val session targets to the canonical UUID when known', () => {
+    expect(
+      resolveManualCanonicalReportId({
+        targetReportId: sessionKey,
+        session: { reportId: uuid, key: sessionKey },
+        resolvedReportId: sessionKey,
+        routeReportId: sessionKey,
+      })
+    ).toBe(uuid)
+  })
+
+  it('falls back to the active session key before a UUID report exists', () => {
+    expect(
+      resolveManualCanonicalReportId({
+        targetReportId: null,
+        session: { key: sessionKey },
+        resolvedReportId: null,
+        routeReportId: 'new',
+        activeSessionKey: sessionKey,
+      })
+    ).toBe(sessionKey)
   })
 })

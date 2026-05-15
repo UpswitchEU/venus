@@ -19,9 +19,7 @@ export interface ManualPanelYearlyFinancial {
   isForecast?: boolean
 }
 
-type ManualFormMapperRaw = Partial<ManualValuationFormData> & {
-  businessModel?: string
-}
+type ManualFormMapperRaw = Partial<ManualValuationFormData>
 
 /**
  * Maps ManualInputPanel's camelCase/multi-year payload into the Venus store's
@@ -29,7 +27,7 @@ type ManualFormMapperRaw = Partial<ManualValuationFormData> & {
  * so partial panel updates do not wipe prefilled business model/country values.
  */
 export function mapClarityFormToVenusStore(
-  raw: Record<string, unknown>,
+  raw: Partial<ManualValuationFormData> | Record<string, unknown>,
   storeForm: VenusFormData
 ): Partial<VenusFormData> {
   const panelRaw = raw as ManualFormMapperRaw

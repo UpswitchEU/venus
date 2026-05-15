@@ -196,7 +196,12 @@ function parseFinancialValues(text: string): ParsedValue[] {
     { pattern: /huur|rent|kantoor|pand/i, field: 'rent', label: 'Huurkosten', code: '610' },
     { pattern: /auto|voertuig|car|wagen/i, field: 'vehicle', label: 'Autokosten', code: '614' },
     { pattern: /juridisch|legal/i, field: 'oneTime', label: 'Juridische kosten', code: '647' },
-    { pattern: /advies|advieskosten|vergoeding/i, field: 'oneTime', label: 'Advieskosten', code: '613' },
+    {
+      pattern: /advies|advieskosten|vergoeding/i,
+      field: 'oneTime',
+      label: 'Advieskosten',
+      code: '613',
+    },
     { pattern: /eenmalig/i, field: 'oneTime', label: 'Eenmalige kosten', code: '644' },
     { pattern: /privé|familie|persoon/i, field: 'personal', label: 'Privékosten', code: '649' },
   ]
@@ -372,6 +377,144 @@ export interface SellabilityRunRequest {
   computedScore?: { score: number; band: string; confidence?: string } | null
 }
 
+/**
+ * Read-only Belgian public-data bootstrap from Titan's
+ * bootstrap_belgian_company tool. This gives the advisor/owner a fast KBO +
+ * NBB/CBSO context card before they connect integrations or upload CSV data.
+ */
+export interface BelgianCompanyBootstrap {
+  id: string
+  status: 'ok' | 'partial' | 'blocked' | 'failed'
+  reason?: string
+  message?: string
+  identity?: {
+    legalName?: string | null
+    legalForm?: string | null
+    kboNumber?: string | null
+    address?: string | null
+    city?: string | null
+    postalCode?: string | null
+    naceCode?: string | null
+    naceDescription?: string | null
+    foundationDate?: string | null
+    isActive?: boolean | null
+  } | null
+  benchmark?: {
+    status?: string | null
+    businessTypeTitle?: string | null
+    evEbitdaMedian?: number | null
+    confidence?: string | null
+  } | null
+  filingSummary?: {
+    status?: string | null
+    source?: string | null
+    filingYear?: number | null
+    yearsAvailable?: number | null
+    revenue?: number | null
+    ebitda?: number | null
+    dataHealthMessage?: string | null
+  } | null
+  valuationPreview?: {
+    status?: string | null
+    method?: string | null
+    ebitdaUsed?: number | null
+    ebitdaYear?: number | null
+    evMid?: number | null
+    equityMid?: number | null
+  } | null
+}
+
+/**
+ * Read-only anonymized listing preview from Titan's get_listing_preview tool.
+ * Shows the marketplace-facing draft before buyer profiling and publish.
+ */
+export interface ListingPreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  missingFields?: string[]
+  nextActionHint?: string | null
+  preview?: {
+    title?: string | null
+    businessType?: string | null
+    sector?: string | null
+    industry?: string | null
+    region?: string | null
+    province?: string | null
+    yearCommenced?: number | null
+    employeeRange?: string | null
+    revenueRange?: string | null
+    equityStake?: string | null
+    ownershipStructure?: string | null
+    ownerManagersCount?: number | null
+    status?: string | null
+    featured?: boolean | null
+    ndaRequired?: boolean | null
+    viewCount?: number | null
+    hasVerifiedValuation?: boolean | null
+  } | null
+}
+
+export interface MethodReadinessPreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  businessName?: string | null
+  readinessSource?: string | null
+  readyMethods: string[]
+  blockedMethods: string[]
+  reason?: string
+  message?: string
+}
+
+/**
+ * Pending marketplace-listing proposal from Titan's advisor-scoped
+ * create_listing tool. Approve returns the advisor to Mercury's canonical
+ * publish wizard; this card never writes a listing directly.
+ */
+export interface ListingCreateRequest {
+  id: string
+  status: 'pending_approval' | 'auto_approved' | 'blocked'
+  reportId?: string
+  accountantCustomerId?: string | null
+  visibility?: 'public' | 'private'
+  valuationSummary?: {
+    business_name?: string | null
+    business_type?: string | null
+    industry?: string | null
+    currency?: string
+    midpoint?: string | null
+    min?: string | null
+    max?: string | null
+  }
+  note?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+export interface BuyerProfilePreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  listingReadiness?: {
+    status?: string | null
+    missingFields: string[]
+  } | null
+  buyerSegments?: Array<{
+    id?: string
+    label: string
+    fitScore?: number | null
+    recommendedAngle?: string | null
+  }>
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -389,6 +532,16 @@ export interface ChatMessage {
   reportGenerationRequests?: ReportGenerationRequest[]
   // AI-proposed Sellability computes (from run_sellability tool) — propose-only, user clicks Compute
   sellabilityRunRequests?: SellabilityRunRequest[]
+  // AI-generated Belgian public-data bootstrap cards (KBO + NBB/CBSO + benchmark preview)
+  belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  // AI-generated valuation-method readiness cards (read-only; pre-ValuationIQ run)
+  methodReadinessPreviews?: MethodReadinessPreview[]
+  // AI-generated listing previews (read-only anonymized marketplace draft)
+  listingPreviews?: ListingPreview[]
+  // AI-proposed marketplace listings (from create_listing tool) — propose-only, user opens wizard
+  listingCreateRequests?: ListingCreateRequest[]
+  // AI-generated buyer profile previews (read-only; not real matched buyers)
+  buyerProfilePreviews?: BuyerProfilePreview[]
   // Task-driven: open tasks the user can complete
   tasks?: {
     id: string
@@ -497,6 +650,13 @@ interface ChatAssistantDrawerProps {
   // Sellability-compute proposal handlers (propose-only AI tool — see run_sellability.tool.ts)
   onApproveSellabilityRun?: (proposalId: string) => void
   onRejectSellabilityRun?: (proposalId: string) => void
+  // Listing proposal handlers (propose-only AI tool — see create_listing.tool.ts)
+  onApproveListingCreate?: (
+    proposalId: string,
+    reportId?: string,
+    accountantCustomerId?: string | null
+  ) => void
+  onRejectListingCreate?: (proposalId: string) => void
   // Quick suggestion pills for common normalizations
   showQuickNormalizations?: boolean
   // Command pill click handler - auto-fills and sends
@@ -516,12 +676,7 @@ const PAD_KEY = 'suggestions.askQuestion'
 type SuggestionItem = { key: string; params?: Record<string, string> }
 
 const getContextualSuggestionKeys = (ctx: SuggestionContext): SuggestionItem[] => {
-  const {
-    fieldContext,
-    hasReport = false,
-    hasEbitda = false,
-    pendingNormalizationsCount = 0,
-  } = ctx
+  const { fieldContext, hasReport = false, hasEbitda = false, pendingNormalizationsCount = 0 } = ctx
 
   const items: SuggestionItem[] = []
 
@@ -545,9 +700,10 @@ const getContextualSuggestionKeys = (ctx: SuggestionContext): SuggestionItem[] =
 
   // EBITDA explanation: only when EBITDA has a value
   if (hasEbitda) {
-    const yearMatch = fieldContext?.field === 'ebitda' && fieldContext?.label
-      ? fieldContext.label.match(/\b(20\d{2})\b/)
-      : null
+    const yearMatch =
+      fieldContext?.field === 'ebitda' && fieldContext?.label
+        ? fieldContext.label.match(/\b(20\d{2})\b/)
+        : null
     const year = yearMatch?.[1]
     if (year) {
       items.push({ key: 'suggestions.explainEbitdaFor', params: { year } })
@@ -594,6 +750,8 @@ export function ChatAssistantDrawer({
   onRejectReportGeneration,
   onApproveSellabilityRun,
   onRejectSellabilityRun,
+  onApproveListingCreate,
+  onRejectListingCreate,
   showQuickNormalizations = false,
   onCommandPillClick,
   toolInProgress,
@@ -781,9 +939,7 @@ export function ChatAssistantDrawer({
                 does so via an insight, not via permanent header chrome. */}
             <div className="shrink-0 px-5 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-medium text-foreground/80">
-                  {ca('title')}
-                </h2>
+                <h2 className="text-sm font-medium text-foreground/80">{ca('title')}</h2>
                 {fieldContext && (
                   <p className="text-xs text-foreground/45 truncate mt-0.5">
                     {fieldContext.label || ''}
@@ -852,9 +1008,7 @@ export function ChatAssistantDrawer({
                       <div className="ml-2 flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() =>
-                            onResolveStartupIssue?.(issue.id, issue.ctaPrompt)
-                          }
+                          onClick={() => onResolveStartupIssue?.(issue.id, issue.ctaPrompt)}
                           className="rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3 py-1 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation"
                         >
                           {issue.ctaLabel}
@@ -942,9 +1096,7 @@ export function ChatAssistantDrawer({
                       {w.cta_label && w.cta_prompt ? (
                         <button
                           type="button"
-                          onClick={() =>
-                            onResolveQualityWarning?.(w.type, w.cta_prompt!)
-                          }
+                          onClick={() => onResolveQualityWarning?.(w.type, w.cta_prompt!)}
                           className="rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3 py-1 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation"
                         >
                           {w.cta_label}
@@ -1051,6 +1203,8 @@ export function ChatAssistantDrawer({
                         onRejectReportGeneration={onRejectReportGeneration}
                         onApproveSellabilityRun={onApproveSellabilityRun}
                         onRejectSellabilityRun={onRejectSellabilityRun}
+                        onApproveListingCreate={onApproveListingCreate}
+                        onRejectListingCreate={onRejectListingCreate}
                         onCommandPillClick={handleCommandPillClick}
                         onRetry={onRetry}
                       />
@@ -1133,8 +1287,8 @@ export function ChatAssistantDrawer({
                         <span key={index} className="font-mono">
                           {index > 0 && <span className="text-foreground/25 mx-1.5">·</span>}
                           {nh(`fieldLabels.${item.field}` as any) || item.label}
-                          <span className="text-foreground/35"> → </span>
-                          €{item.value.toLocaleString(currencyLocale)}
+                          <span className="text-foreground/35"> → </span>€
+                          {item.value.toLocaleString(currencyLocale)}
                         </span>
                       )
                     )}
@@ -1183,9 +1337,7 @@ export function ChatAssistantDrawer({
                   'flex items-end gap-2 rounded-2xl px-3 py-2',
                   'border border-foreground/[0.08]',
                   'transition-colors duration-150',
-                  isInputFocused
-                    ? 'border-foreground/[0.16]'
-                    : 'hover:border-foreground/[0.12]'
+                  isInputFocused ? 'border-foreground/[0.16]' : 'hover:border-foreground/[0.12]'
                 )}
               >
                 <button
@@ -1364,6 +1516,8 @@ function MessageBubble({
   onRejectReportGeneration,
   onApproveSellabilityRun,
   onRejectSellabilityRun,
+  onApproveListingCreate,
+  onRejectListingCreate,
   onCommandPillClick,
   onRetry,
 }: {
@@ -1378,6 +1532,12 @@ function MessageBubble({
   onRejectReportGeneration?: (proposalId: string) => void
   onApproveSellabilityRun?: (proposalId: string) => void
   onRejectSellabilityRun?: (proposalId: string) => void
+  onApproveListingCreate?: (
+    proposalId: string,
+    reportId?: string,
+    accountantCustomerId?: string | null
+  ) => void
+  onRejectListingCreate?: (proposalId: string) => void
   onCommandPillClick?: (command: string) => void
   onRetry?: (messageId: string) => void
 }) {
@@ -1769,8 +1929,9 @@ function MessageBubble({
               const isApproved = req.decision === 'approved'
               const summary = req.inputsSummary
               const revenueNum = summary?.revenue ? Number(summary.revenue) : null
-              const ebitdaNormNum =
-                summary?.ebitda_normalized ? Number(summary.ebitda_normalized) : null
+              const ebitdaNormNum = summary?.ebitda_normalized
+                ? Number(summary.ebitda_normalized)
+                : null
               const ebitdaNum = summary?.ebitda ? Number(summary.ebitda) : null
               const ebitdaForDisplay = ebitdaNormNum ?? ebitdaNum
 
@@ -1807,12 +1968,12 @@ function MessageBubble({
                     {isBlocked
                       ? ca('proposalCards.valuation.titleBlocked')
                       : summary?.business_name
-                        ? ca('proposalCards.valuation.titlePendingWithName', { name: summary.business_name })
+                        ? ca('proposalCards.valuation.titlePendingWithName', {
+                            name: summary.business_name,
+                          })
                         : ca('proposalCards.valuation.titlePending')}
                   </p>
-                  {req.note && (
-                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
-                  )}
+                  {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
                   {isBlocked && req.message && (
                     <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
                   )}
@@ -1823,9 +1984,7 @@ function MessageBubble({
                     </p>
                   )}
                   {isPending && summaryBits.length > 0 && (
-                    <p className="text-foreground/55 text-xs mt-0.5">
-                      {summaryBits.join(' · ')}
-                    </p>
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
                   )}
                   {isPending && (
                     <div className="mt-1.5 flex items-center gap-3 text-xs">
@@ -1896,19 +2055,17 @@ function MessageBubble({
                     {isBlocked
                       ? ca('proposalCards.report.titleBlocked')
                       : result?.business_name
-                        ? ca('proposalCards.report.titlePendingWithName', { name: result.business_name })
+                        ? ca('proposalCards.report.titlePendingWithName', {
+                            name: result.business_name,
+                          })
                         : ca('proposalCards.report.titlePending')}
                   </p>
-                  {req.note && (
-                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
-                  )}
+                  {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
                   {isBlocked && req.message && (
                     <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
                   )}
                   {isPending && summaryBits.length > 0 && (
-                    <p className="text-foreground/55 text-xs mt-0.5">
-                      {summaryBits.join(' · ')}
-                    </p>
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
                   )}
                   {isPending && (
                     <div className="mt-1.5 flex items-center gap-3 text-xs">
@@ -1932,6 +2089,481 @@ function MessageBubble({
                     <p className="mt-1 text-xs text-foreground/45">
                       {isApproved
                         ? ca('proposalCards.report.statusStarted')
+                        : ca('proposalCards.common.statusCancelled')}
+                    </p>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Belgian public-data bootstrap — read-only KBO/NBB context before data connection. */}
+        {message.belgianCompanyBootstraps && message.belgianCompanyBootstraps.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.belgianCompanyBootstraps.map((bootstrap) => {
+              const isBlocked = bootstrap.status === 'blocked' || bootstrap.status === 'failed'
+              const fmtEuros = (value: number | null | undefined) =>
+                value != null && Number.isFinite(Number(value))
+                  ? `€${Number(value).toLocaleString(currencyLocale)}`
+                  : null
+              const summaryBits: string[] = []
+              if (bootstrap.identity?.legalName) summaryBits.push(bootstrap.identity.legalName)
+              if (bootstrap.identity?.kboNumber) summaryBits.push(bootstrap.identity.kboNumber)
+              if (bootstrap.identity?.city) summaryBits.push(bootstrap.identity.city)
+              if (!isBlocked && bootstrap.filingSummary?.filingYear) {
+                summaryBits.push(
+                  ca('proposalCards.belgianBootstrap.filingYear', {
+                    year: bootstrap.filingSummary.filingYear,
+                  })
+                )
+              }
+              const revenue = fmtEuros(bootstrap.filingSummary?.revenue)
+              const ebitda = fmtEuros(bootstrap.filingSummary?.ebitda)
+              const equity = fmtEuros(bootstrap.valuationPreview?.equityMid)
+              if (revenue)
+                summaryBits.push(`${ca('proposalCards.valuation.labelRevenue')} ${revenue}`)
+              if (ebitda) summaryBits.push(`EBITDA ${ebitda}`)
+              if (equity)
+                summaryBits.push(`${ca('proposalCards.belgianBootstrap.equityPreview')} ${equity}`)
+
+              return (
+                <motion.div
+                  key={bootstrap.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
+                >
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.belgianBootstrap.titleBlocked')
+                      : ca('proposalCards.belgianBootstrap.titleReady')}
+                  </p>
+                  {bootstrap.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{bootstrap.message}</p>
+                  )}
+                  {summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
+                  )}
+                  {!isBlocked && (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground/80 truncate">
+                            {bootstrap.identity?.legalName ??
+                              bootstrap.identity?.kboNumber ??
+                              ca('proposalCards.belgianBootstrap.identityTitle')}
+                          </span>
+                          {bootstrap.identity?.isActive != null && (
+                            <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
+                              {bootstrap.identity.isActive
+                                ? ca('proposalCards.belgianBootstrap.active')
+                                : ca('proposalCards.belgianBootstrap.inactive')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-foreground/55">
+                          {bootstrap.identity?.kboNumber && (
+                            <span>{bootstrap.identity.kboNumber}</span>
+                          )}
+                          {bootstrap.identity?.legalForm && (
+                            <span>{bootstrap.identity.legalForm}</span>
+                          )}
+                          {bootstrap.identity?.city && <span>{bootstrap.identity.city}</span>}
+                          {bootstrap.identity?.naceDescription && (
+                            <span>{bootstrap.identity.naceDescription}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                        <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
+                          <p className="text-[10px] font-medium uppercase text-foreground/35">
+                            {ca('proposalCards.belgianBootstrap.filingTitle')}
+                          </p>
+                          <p className="mt-0.5 text-foreground/65 leading-snug">
+                            {bootstrap.filingSummary?.filingYear
+                              ? ca('proposalCards.belgianBootstrap.filingYear', {
+                                  year: bootstrap.filingSummary.filingYear,
+                                })
+                              : ca('proposalCards.belgianBootstrap.noFiling')}
+                          </p>
+                          {bootstrap.filingSummary?.dataHealthMessage && (
+                            <p className="mt-0.5 text-[10px] text-foreground/45">
+                              {bootstrap.filingSummary.dataHealthMessage}
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
+                          <p className="text-[10px] font-medium uppercase text-foreground/35">
+                            {ca('proposalCards.belgianBootstrap.benchmarkTitle')}
+                          </p>
+                          <p className="mt-0.5 text-foreground/65 leading-snug">
+                            {bootstrap.benchmark?.businessTypeTitle ??
+                              ca('proposalCards.belgianBootstrap.noBenchmark')}
+                          </p>
+                          {bootstrap.benchmark?.evEbitdaMedian != null && (
+                            <p className="mt-0.5 font-mono text-[10px] text-foreground/45">
+                              {Number(bootstrap.benchmark.evEbitdaMedian).toFixed(1)}x
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
+                          <p className="text-[10px] font-medium uppercase text-foreground/35">
+                            {ca('proposalCards.belgianBootstrap.previewTitle')}
+                          </p>
+                          <p className="mt-0.5 text-foreground/65 leading-snug">
+                            {fmtEuros(bootstrap.valuationPreview?.equityMid) ??
+                              ca('proposalCards.belgianBootstrap.noPreview')}
+                          </p>
+                          {bootstrap.valuationPreview?.ebitdaYear && (
+                            <p className="mt-0.5 font-mono text-[10px] text-foreground/45">
+                              EBITDA {bootstrap.valuationPreview.ebitdaYear}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Method-readiness previews — read-only ValuationIQ method coverage. */}
+        {message.methodReadinessPreviews && message.methodReadinessPreviews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.methodReadinessPreviews.map((preview) => {
+              const isBlocked = preview.status === 'blocked'
+              const formatMethodName = (method: string) =>
+                method
+                  .split('_')
+                  .filter(Boolean)
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(' ')
+              const summaryBits: string[] = []
+              if (preview.businessName) summaryBits.push(preview.businessName)
+              if (!isBlocked) {
+                summaryBits.push(
+                  ca('proposalCards.methodReadiness.readyCount', {
+                    count: preview.readyMethods.length,
+                  })
+                )
+                if (preview.blockedMethods.length > 0) {
+                  summaryBits.push(
+                    ca('proposalCards.methodReadiness.blockedCount', {
+                      count: preview.blockedMethods.length,
+                    })
+                  )
+                }
+              } else if (preview.message) {
+                summaryBits.push(preview.message)
+              }
+
+              return (
+                <motion.div
+                  key={preview.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    'rounded-xl border p-3 text-sm',
+                    isBlocked
+                      ? 'border-amber-500/25 bg-amber-500/[0.04]'
+                      : 'border-primary/15 bg-primary/[0.04]'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground/90">
+                        {isBlocked
+                          ? ca('proposalCards.methodReadiness.titleBlocked')
+                          : ca('proposalCards.methodReadiness.titleReady')}
+                      </p>
+                      {summaryBits.length > 0 && (
+                        <p className="mt-0.5 text-xs text-foreground/55 leading-snug">
+                          {summaryBits.join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isBlocked && (
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase text-foreground/35">
+                          {ca('proposalCards.methodReadiness.readyLabel')}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {preview.readyMethods.slice(0, 6).map((method) => (
+                            <span
+                              key={method}
+                              className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] text-success/90"
+                            >
+                              {formatMethodName(method)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-foreground/[0.025] px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase text-foreground/35">
+                          {ca('proposalCards.methodReadiness.blockedLabel')}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {preview.blockedMethods.slice(0, 6).map((method) => (
+                            <span
+                              key={method}
+                              className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55"
+                            >
+                              {formatMethodName(method)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Listing previews — read-only anonymized marketplace draft. */}
+        {message.listingPreviews && message.listingPreviews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.listingPreviews.map((listingPreview) => {
+              const isBlocked = listingPreview.status === 'blocked'
+              const preview = listingPreview.preview
+              const summaryBits: string[] = []
+              if (preview?.title) summaryBits.push(preview.title)
+              else if (listingPreview.sourceBusinessName)
+                summaryBits.push(listingPreview.sourceBusinessName)
+              if (preview?.sector) summaryBits.push(preview.sector)
+              else if (preview?.industry) summaryBits.push(preview.industry)
+              if (preview?.region) summaryBits.push(preview.region)
+              else if (preview?.province) summaryBits.push(preview.province)
+              if (preview?.revenueRange) summaryBits.push(preview.revenueRange)
+              if (preview?.employeeRange) summaryBits.push(preview.employeeRange)
+              if (!isBlocked && listingPreview.missingFields?.length) {
+                summaryBits.push(
+                  ca('proposalCards.listingPreview.missingPrefix', {
+                    fields: listingPreview.missingFields.join(', '),
+                  })
+                )
+              }
+
+              return (
+                <motion.div
+                  key={listingPreview.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
+                >
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.listingPreview.titleBlocked')
+                      : ca('proposalCards.listingPreview.titleReady')}
+                  </p>
+                  {listingPreview.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{listingPreview.message}</p>
+                  )}
+                  {summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
+                  )}
+                  {!isBlocked && preview && (
+                    <div className="mt-2 rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground/80 truncate">
+                          {preview.title ??
+                            listingPreview.sourceBusinessName ??
+                            ca('proposalCards.listingPreview.untitled')}
+                        </span>
+                        <div className="shrink-0 flex items-center gap-1">
+                          {preview.hasVerifiedValuation && (
+                            <span className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] text-success/90">
+                              {ca('proposalCards.listingPreview.verified')}
+                            </span>
+                          )}
+                          {preview.ndaRequired && (
+                            <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
+                              {ca('proposalCards.listingPreview.nda')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-foreground/55">
+                        {preview.businessType && <span>{preview.businessType}</span>}
+                        {preview.sector && <span>{preview.sector}</span>}
+                        {preview.region && <span>{preview.region}</span>}
+                        {preview.revenueRange && <span>{preview.revenueRange}</span>}
+                        {preview.employeeRange && <span>{preview.employeeRange}</span>}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Buyer-profile previews — read-only bridge before listing approval. */}
+        {message.buyerProfilePreviews && message.buyerProfilePreviews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.buyerProfilePreviews.map((preview) => {
+              const isBlocked = preview.status === 'blocked'
+              const missing = preview.listingReadiness?.missingFields ?? []
+              const summaryBits: string[] = []
+              if (preview.sourceBusinessName) summaryBits.push(preview.sourceBusinessName)
+              if (!isBlocked && preview.buyerSegments?.length) {
+                summaryBits.push(
+                  ca('proposalCards.buyerProfile.segmentCount', {
+                    count: preview.buyerSegments.length,
+                  })
+                )
+              }
+              if (!isBlocked) {
+                summaryBits.push(
+                  missing.length > 0
+                    ? ca('proposalCards.buyerProfile.missingPrefix', {
+                        fields: missing.join(', '),
+                      })
+                    : ca('proposalCards.buyerProfile.ready')
+                )
+              }
+
+              return (
+                <motion.div
+                  key={preview.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
+                >
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.buyerProfile.titleBlocked')
+                      : ca('proposalCards.buyerProfile.titleReady')}
+                  </p>
+                  {preview.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{preview.message}</p>
+                  )}
+                  {summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
+                  )}
+                  {!isBlocked && preview.buyerSegments && preview.buyerSegments.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {preview.buyerSegments.slice(0, 3).map((segment) => (
+                        <div
+                          key={segment.id ?? segment.label}
+                          className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-foreground/80 truncate">
+                              {segment.label}
+                            </span>
+                            {segment.fitScore != null && (
+                              <span className="shrink-0 font-mono text-foreground/45">
+                                {segment.fitScore}/100
+                              </span>
+                            )}
+                          </div>
+                          {segment.recommendedAngle && (
+                            <p className="mt-0.5 text-foreground/55">{segment.recommendedAngle}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Listing-create proposals — advisor handoff back to Mercury's listing wizard. */}
+        {message.listingCreateRequests && message.listingCreateRequests.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.listingCreateRequests.map((req) => {
+              const isPending =
+                (req.status === 'pending_approval' || req.status === 'auto_approved') &&
+                !req.decision
+              const isBlocked = req.status === 'blocked'
+              const isApproved = req.decision === 'approved'
+              const summary = req.valuationSummary
+              const ccy = summary?.currency ?? 'EUR'
+              const fmt = (value: string | number | null | undefined) => {
+                if (value == null || value === '') return null
+                const n = Number(value)
+                if (Number.isFinite(n)) {
+                  return `${ccy === 'EUR' ? '€' : `${ccy} `}${n.toLocaleString(currencyLocale)}`
+                }
+                return String(value)
+              }
+              const midpoint = fmt(summary?.midpoint)
+              const min = fmt(summary?.min)
+              const max = fmt(summary?.max)
+              const visibility =
+                req.visibility === 'public'
+                  ? ca('proposalCards.listing.publicVisibility')
+                  : ca('proposalCards.listing.privateVisibility')
+
+              const summaryBits: string[] = []
+              if (midpoint)
+                summaryBits.push(`${ca('proposalCards.listing.labelMidpoint')} ${midpoint}`)
+              if (min || max) summaryBits.push(`${min ?? '—'}–${max ?? '—'}`)
+              if (summary?.business_type) summaryBits.push(summary.business_type)
+              if (summary?.industry) summaryBits.push(summary.industry)
+              summaryBits.push(`${ca('proposalCards.listing.labelVisibility')} ${visibility}`)
+
+              return (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
+                >
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.listing.titleBlocked')
+                      : summary?.business_name
+                        ? ca('proposalCards.listing.titlePendingWithName', {
+                            name: summary.business_name,
+                          })
+                        : ca('proposalCards.listing.titlePending')}
+                  </p>
+                  {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
+                  {isBlocked && req.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
+                  )}
+                  {isPending && summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
+                  )}
+                  {isPending && (
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onApproveListingCreate?.(req.id, req.reportId, req.accountantCustomerId)
+                        }
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      >
+                        {ca('proposalCards.listing.actionLabel')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectListingCreate?.(req.id)}
+                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      >
+                        {ca('proposalCards.common.buttonCancel')}
+                      </button>
+                    </div>
+                  )}
+                  {!isPending && !isBlocked && (
+                    <p className="mt-1 text-xs text-foreground/45">
+                      {isApproved
+                        ? ca('proposalCards.listing.statusStarted')
                         : ca('proposalCards.common.statusCancelled')}
                     </p>
                   )}
@@ -1979,12 +2611,13 @@ function MessageBubble({
                     {isBlocked
                       ? ca('proposalCards.sellability.titleBlocked')
                       : computed
-                        ? ca('proposalCards.sellability.computedTitle', { score: computed.score, band: computed.band })
+                        ? ca('proposalCards.sellability.computedTitle', {
+                            score: computed.score,
+                            band: computed.band,
+                          })
                         : ca('proposalCards.sellability.titlePending')}
                   </p>
-                  {req.note && (
-                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
-                  )}
+                  {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
                   {isBlocked && req.message && (
                     <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
                   )}
@@ -1995,9 +2628,7 @@ function MessageBubble({
                     </p>
                   )}
                   {isPending && summaryBits.length > 0 && (
-                    <p className="text-foreground/55 text-xs mt-0.5">
-                      {summaryBits.join(' · ')}
-                    </p>
+                    <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
                   )}
                   {isPending && (
                     <div className="mt-1.5 flex items-center gap-3 text-xs">
@@ -2021,7 +2652,10 @@ function MessageBubble({
                     <p className="mt-1 text-xs text-foreground/45">
                       {isApproved
                         ? computed
-                          ? ca('proposalCards.sellability.computedStatus', { score: computed.score, band: computed.band })
+                          ? ca('proposalCards.sellability.computedStatus', {
+                              score: computed.score,
+                              band: computed.band,
+                            })
                           : ca('proposalCards.sellability.statusStarted')
                         : ca('proposalCards.common.statusCancelled')}
                     </p>

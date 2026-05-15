@@ -26,6 +26,8 @@ export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   'guestSessionId',
   'embedded',
   'drawer',
+  /** One-shot assistant intent, e.g. Mercury approved "start valuation" → Venus auto-prompts. */
+  'agent_next',
   'spotlight',
   'focusField',
   'flagYear',

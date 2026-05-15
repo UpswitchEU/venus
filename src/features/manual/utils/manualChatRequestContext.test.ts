@@ -121,6 +121,7 @@ describe('manualChatRequestContext', () => {
         message('assistant', 'answer', 3),
       ],
       versionCount: 2,
+      audience: 'advisor',
     })
 
     expect(request).toMatchObject({
@@ -130,6 +131,7 @@ describe('manualChatRequestContext', () => {
       companyName: 'Acme',
       conversationId: 'conversation-1',
       fieldContext: { field: 'ebitda', label: 'EBITDA' },
+      audience: 'advisor',
       locale: 'en',
       history: [
         { role: 'user', content: 'previous' },

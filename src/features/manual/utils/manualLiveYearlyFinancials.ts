@@ -1,0 +1,100 @@
+import { coalesceFiniteNumber } from '@/lib/omniPreview'
+
+export interface ManualLiveYearlyFinancial {
+  year: string
+  revenue: number
+  ebitda: number
+  capex?: number
+  depreciation?: number
+  tax_expense?: number
+  cash?: number
+  total_debt?: number
+  current_assets?: number
+  current_liabilities?: number
+  accounts_receivable?: number
+  accounts_payable?: number
+  inventory?: number
+  short_term_debt?: number
+  nwc_change?: number
+  isForecast?: boolean
+}
+
+interface BuildManualLiveYearlyFinancialsParams {
+  latestYearlyFinancials?: unknown
+  formData: unknown
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function readFiniteOptional(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function isValidYear(value: unknown): boolean {
+  const year = Number(value)
+  return Number.isFinite(year) && year >= 2000 && year <= 2100
+}
+
+function toLiveYear(row: Record<string, unknown>, isForecast = false): ManualLiveYearlyFinancial {
+  return {
+    year: String(row.year),
+    revenue: coalesceFiniteNumber(row.revenue),
+    ebitda: coalesceFiniteNumber(row.ebitda),
+    capex: readFiniteOptional(row.capex),
+    depreciation: readFiniteOptional(row.depreciation),
+    tax_expense: readFiniteOptional(row.tax_expense),
+    cash: readFiniteOptional(row.cash),
+    total_debt: readFiniteOptional(row.total_debt),
+    current_assets: readFiniteOptional(row.current_assets),
+    current_liabilities: readFiniteOptional(row.current_liabilities),
+    accounts_receivable: readFiniteOptional(row.accounts_receivable),
+    accounts_payable: readFiniteOptional(row.accounts_payable),
+    inventory: readFiniteOptional(row.inventory),
+    short_term_debt: readFiniteOptional(row.short_term_debt),
+    nwc_change: readFiniteOptional(row.nwc_change),
+    ...(isForecast ? { isForecast: true } : {}),
+  }
+}
+
+export function buildManualLiveYearlyFinancials({
+  latestYearlyFinancials,
+  formData,
+}: BuildManualLiveYearlyFinancialsParams): ManualLiveYearlyFinancial[] {
+  if (Array.isArray(latestYearlyFinancials) && latestYearlyFinancials.length > 0) {
+    return [...(latestYearlyFinancials as ManualLiveYearlyFinancial[])].sort(
+      (a, b) => Number(b.year) - Number(a.year)
+    )
+  }
+
+  const formRecord = asRecord(formData)
+  const allYears: ManualLiveYearlyFinancial[] = []
+  const pushUniqueYear = (row: Record<string, unknown>, isForecast = false) => {
+    if (!isValidYear(row.year)) return
+    const year = String(row.year)
+    if (allYears.some((existing) => existing.year === year)) return
+    allYears.push(toLiveYear(row, isForecast))
+  }
+
+  const currentYearData = asRecord(formRecord?.current_year_data)
+  if (currentYearData) pushUniqueYear(currentYearData)
+
+  const historicalYearsData = formRecord?.historical_years_data
+  if (Array.isArray(historicalYearsData)) {
+    for (const row of historicalYearsData) {
+      const record = asRecord(row)
+      if (record) pushUniqueYear(record)
+    }
+  }
+
+  const forecastYearsData = formRecord?.forecast_years_data
+  if (Array.isArray(forecastYearsData)) {
+    for (const row of forecastYearsData) {
+      const record = asRecord(row)
+      if (record) pushUniqueYear(record, true)
+    }
+  }
+
+  return allYears.sort((a, b) => Number(b.year) - Number(a.year))
+}

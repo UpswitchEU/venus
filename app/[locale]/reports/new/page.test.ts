@@ -126,15 +126,17 @@ describe('/reports/new param preservation', () => {
     expect(u.searchParams.get('version')).toBe('3')
   })
 
-  it('preserves guided-resolution drawer params (drawer, spotlight, focusField, flagYear)', async () => {
+  it('preserves guided-resolution drawer params and advisor agent intent', async () => {
     const url = await callPage({
       drawer: 'normalisation',
+      agent_next: 'run_valuation',
       spotlight: 'salary',
       focusField: 'owner_compensation',
       flagYear: '2024',
     })
     const u = new URL(url, 'https://example.com')
     expect(u.searchParams.get('drawer')).toBe('normalisation')
+    expect(u.searchParams.get('agent_next')).toBe('run_valuation')
     expect(u.searchParams.get('spotlight')).toBe('salary')
     expect(u.searchParams.get('focusField')).toBe('owner_compensation')
     expect(u.searchParams.get('flagYear')).toBe('2024')

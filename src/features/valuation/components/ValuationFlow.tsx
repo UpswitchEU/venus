@@ -23,6 +23,7 @@ interface ValuationFlowProps {
   initialTab?: 'preview' | 'history'
   urlAction?: string
   initialDrawerOpen?: boolean
+  initialAgentNext?: string
   guidedResolution?: {
     spotlight?: string
     focusField?: string
@@ -46,6 +47,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
+  initialAgentNext,
   guidedResolution,
   initialSelectedMethodFromUrl,
 }) => {
@@ -58,6 +60,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
       initialTab={initialTab}
       urlAction={urlAction}
       initialDrawerOpen={initialDrawerOpen}
+      initialAgentNext={initialAgentNext}
       guidedResolutionUrl={guidedResolution}
       initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
     />

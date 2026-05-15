@@ -2377,6 +2377,55 @@
 				"actionLabel": "Genereer PDF",
 				"statusStarted": "PDF genereren gestart"
 			},
+			"listing": {
+				"titlePending": "Marketplace-listing aanmaken",
+				"titlePendingWithName": "Listing aanmaken — {name}",
+				"titleBlocked": "Listing nog niet klaar",
+				"labelVisibility": "Zichtbaarheid",
+				"labelMidpoint": "Indicatieve waarde",
+				"privateVisibility": "Privé",
+				"publicVisibility": "Publiek",
+				"actionLabel": "Open listing wizard",
+				"statusStarted": "Listing wizard openen"
+			},
+			"belgianBootstrap": {
+				"titleReady": "Publieke data gevonden",
+				"titleBlocked": "Publieke data niet beschikbaar",
+				"identityTitle": "Bedrijfsidentiteit",
+				"active": "Actief",
+				"inactive": "Inactief",
+				"filingYear": "boekjaar {year}",
+				"equityPreview": "equity-preview",
+				"filingTitle": "NBB/CBSO",
+				"benchmarkTitle": "Benchmark",
+				"previewTitle": "Publieke preview",
+				"noFiling": "Geen jaarrekeningdata",
+				"noBenchmark": "Geen gekoppelde benchmark",
+				"noPreview": "Nog onvoldoende data"
+			},
+			"methodReadiness": {
+				"titleReady": "Waarderingsmethodes klaar",
+				"titleBlocked": "Waarderingsmethodes hebben data nodig",
+				"readyCount": "{count} methode(s) klaar",
+				"blockedCount": "{count} hebben meer data nodig",
+				"readyLabel": "Klaar",
+				"blockedLabel": "Heeft data nodig"
+			},
+			"listingPreview": {
+				"titleReady": "Listing-preview klaar",
+				"titleBlocked": "Listing-preview nog niet klaar",
+				"missingPrefix": "Controleer: {fields}",
+				"untitled": "Listing zonder titel",
+				"verified": "Geverifieerd",
+				"nda": "NDA"
+			},
+			"buyerProfile": {
+				"titleReady": "Kopersprofiel klaar",
+				"titleBlocked": "Kopersprofiel nog niet klaar",
+				"segmentCount": "{count} kopersprofielen",
+				"missingPrefix": "Controleer: {fields}",
+				"ready": "listing-klaar"
+			},
 			"sellability": {
 				"header": "Klaar om sellability te berekenen",
 				"titlePending": "Verkoopbaarheidsscore berekenen",

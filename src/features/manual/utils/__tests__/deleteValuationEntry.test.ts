@@ -1,6 +1,11 @@
+// @vitest-environment node
+
 import { describe, expect, it, vi } from 'vitest'
 import {
+  buildCurrentReportDeletedMercuryMessage,
+  buildPostDeleteCurrentReportRedirectUrl,
   buildPostDeleteNewValuationUrl,
+  buildSidebarReportDeletedMercuryMessage,
   buildStaleReportRecoveryUrl,
   deleteValuationEntry,
 } from '../deleteValuationEntry'
@@ -96,6 +101,75 @@ describe('buildPostDeleteNewValuationUrl', () => {
     ).toBe(
       '/en/reports/new?prefilledQuery=Safe+Co&return_url=%2Fen%2Fadvisor%2Fclients%2Fclient-123'
     )
+  })
+})
+
+describe('buildPostDeleteCurrentReportRedirectUrl', () => {
+  it('prefers the snapshotted fresh-valuation URL when available', () => {
+    expect(
+      buildPostDeleteCurrentReportRedirectUrl({
+        postDeleteNewValuationUrl: '/nl/reports/new?clientId=c1',
+        isAccountantMode: true,
+        returnUrl: 'https://upswitch.app/nl/advisor/dashboard',
+        currentLocale: 'nl',
+      })
+    ).toBe('/nl/reports/new?clientId=c1')
+  })
+
+  it('returns Mercury safely for accountant deletes without a fresh-valuation snapshot', () => {
+    expect(
+      buildPostDeleteCurrentReportRedirectUrl({
+        isAccountantMode: true,
+        returnUrl: 'https://upswitch.app/en/advisor/settings',
+        sourceApp: 'mercury',
+        clientContextId: 'client-1',
+        currentLocale: 'nl',
+      })
+    ).toContain('/nl/advisor/settings')
+  })
+
+  it('returns a local new-report URL for non-accountant deletes', () => {
+    expect(
+      buildPostDeleteCurrentReportRedirectUrl({
+        isAccountantMode: false,
+        currentLocale: 'en',
+      })
+    ).toBe('/en/reports/new')
+  })
+})
+
+describe('Mercury report-deleted messages', () => {
+  it('builds current-report delete messages with redirect and remaining-state intent', () => {
+    expect(
+      buildCurrentReportDeletedMercuryMessage({
+        reportId: 'report-1',
+        currentLocale: 'nl',
+        clientContextId: 'client 1',
+        hasRemainingValuations: false,
+      })
+    ).toEqual({
+      type: 'venus-report-deleted',
+      reportId: 'report-1',
+      clientId: 'client 1',
+      keepOpen: false,
+      source: 'venus',
+      redirectTo: '/nl/advisor/clients/client%201',
+    })
+  })
+
+  it('builds sidebar delete messages without forcing parent navigation', () => {
+    expect(
+      buildSidebarReportDeletedMercuryMessage({
+        reportId: 'report-2',
+        clientContextId: 'client-1',
+      })
+    ).toEqual({
+      type: 'venus-report-deleted',
+      reportId: 'report-2',
+      clientId: 'client-1',
+      keepOpen: true,
+      source: 'venus',
+    })
   })
 })
 

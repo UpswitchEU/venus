@@ -122,6 +122,158 @@ describe('manualChatToolCards', () => {
       estimatedCredits: 0,
       currentScore: null,
     })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'bootstrap_belgian_company',
+        {
+          status: 'ok',
+          identity: {
+            legal_name: 'Decostere NV',
+            kbo_number: 'BE0400.378.485',
+            city: 'Kortrijk',
+            is_active: true,
+          },
+          filing_summary: {
+            filing_year: 2024,
+            revenue: 4_500_000,
+            ebitda: 620_000,
+          },
+          valuation_preview: {
+            equity_mid: 3_100_000,
+          },
+        },
+        createId
+      )?.belgianCompanyBootstraps?.[0]
+    ).toMatchObject({
+      id: 'id-5',
+      status: 'ok',
+      identity: {
+        legalName: 'Decostere NV',
+        kboNumber: 'BE0400.378.485',
+        city: 'Kortrijk',
+        isActive: true,
+      },
+      filingSummary: {
+        filingYear: 2024,
+        revenue: 4_500_000,
+        ebitda: 620_000,
+      },
+      valuationPreview: {
+        equityMid: 3_100_000,
+      },
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'get_method_readiness',
+        {
+          status: 'ok',
+          report_id: 'report-1',
+          business_name: 'Decostere NV',
+          readiness_source: 'hermes_raw',
+          ready_methods: ['ebitda_multiple', 'sde_multiple'],
+          blocked_methods: ['dcf'],
+        },
+        createId
+      )?.methodReadinessPreviews?.[0]
+    ).toMatchObject({
+      id: 'id-6',
+      status: 'ok',
+      reportId: 'report-1',
+      businessName: 'Decostere NV',
+      readinessSource: 'hermes_raw',
+      readyMethods: ['ebitda_multiple', 'sde_multiple'],
+      blockedMethods: ['dcf'],
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'get_listing_preview',
+        {
+          status: 'ok',
+          report_id: 'report-1',
+          source_business_name: 'Acme',
+          preview: {
+            anonymized_title: 'Profitable services firm',
+            sector: 'Technology',
+            region: 'Flanders',
+            revenue_range: '€2M-€5M',
+            has_verified_valuation: true,
+          },
+        },
+        createId
+      )?.listingPreviews?.[0]
+    ).toMatchObject({
+      id: 'id-7',
+      status: 'ok',
+      reportId: 'report-1',
+      sourceBusinessName: 'Acme',
+      preview: {
+        title: 'Profitable services firm',
+        sector: 'Technology',
+        region: 'Flanders',
+        revenueRange: '€2M-€5M',
+        hasVerifiedValuation: true,
+      },
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'create_listing',
+        {
+          status: 'pending_approval',
+          request: {
+            report_id: 'report-1',
+            accountant_customer_id: 'client-1',
+            visibility: 'private',
+            valuation_summary: { business_name: 'Acme', midpoint: '1000000' },
+          },
+          message: 'Ready to list',
+        },
+        createId
+      )?.listingCreateRequests?.[0]
+    ).toMatchObject({
+      id: 'id-8',
+      status: 'pending_approval',
+      reportId: 'report-1',
+      accountantCustomerId: 'client-1',
+      visibility: 'private',
+      message: 'Ready to list',
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'get_buyer_profile_preview',
+        {
+          status: 'ok',
+          report_id: 'report-1',
+          source_business_name: 'Acme',
+          buyer_segments: [
+            {
+              id: 'strategic_acquirer',
+              label: 'Strategic acquirer',
+              fit_score: 91,
+              recommended_angle: 'Lead with strategic fit.',
+            },
+          ],
+        },
+        createId
+      )?.buyerProfilePreviews?.[0]
+    ).toMatchObject({
+      id: 'id-9',
+      status: 'ok',
+      reportId: 'report-1',
+      sourceBusinessName: 'Acme',
+      buyerSegments: [
+        {
+          id: 'strategic_acquirer',
+          label: 'Strategic acquirer',
+          fitScore: 91,
+          recommendedAngle: 'Lead with strategic fit.',
+        },
+      ],
+    })
   })
 
   it('returns null for non-renderable stream tool results', () => {
@@ -157,6 +309,12 @@ describe('manualChatToolCards', () => {
     const next = appendManualChatToolCardsToMessages(messages, 'message-1', {
       fieldUpdates: [{ field: 'revenue', value: 2, label: 'Revenue' }],
       reportGenerationRequests: [{ id: 'report-card', status: 'blocked' }],
+      belgianCompanyBootstraps: [{ id: 'bootstrap-card', status: 'ok' }],
+      methodReadinessPreviews: [
+        { id: 'methods-card', status: 'ok', readyMethods: ['ebitda'], blockedMethods: [] },
+      ],
+      listingPreviews: [{ id: 'listing-preview-card', status: 'ok' }],
+      buyerProfilePreviews: [{ id: 'buyer-card', status: 'ok' }],
     })
 
     expect(next[0]).toBe(messages[0])
@@ -165,6 +323,12 @@ describe('manualChatToolCards', () => {
       { field: 'revenue', value: 2, label: 'Revenue' },
     ])
     expect(next[1].reportGenerationRequests).toEqual([{ id: 'report-card', status: 'blocked' }])
+    expect(next[1].belgianCompanyBootstraps).toEqual([{ id: 'bootstrap-card', status: 'ok' }])
+    expect(next[1].methodReadinessPreviews).toEqual([
+      { id: 'methods-card', status: 'ok', readyMethods: ['ebitda'], blockedMethods: [] },
+    ])
+    expect(next[1].listingPreviews).toEqual([{ id: 'listing-preview-card', status: 'ok' }])
+    expect(next[1].buyerProfilePreviews).toEqual([{ id: 'buyer-card', status: 'ok' }])
   })
 
   it('marks proposal decisions in a selected card bucket', () => {
