@@ -28,6 +28,8 @@ export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   'drawer',
   /** One-shot assistant intent, e.g. Mercury approved "start valuation" → Venus auto-prompts. */
   'agent_next',
+  /** Alias used by assistant-driven links in Mercury/Titan. */
+  'ai_next',
   'spotlight',
   'focusField',
   'flagYear',
@@ -61,7 +63,7 @@ export type PreservedReportBootstrapParamKey =
  * Omits empty strings; uses first entry when the value is an array.
  */
 export function buildPreservedReportBootstrapQueryString(
-  sp: Record<string, string | string[] | undefined>,
+  sp: Record<string, string | string[] | undefined>
 ): string {
   const segments: string[] = []
   for (const key of PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS) {

@@ -1,12 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
 
-const redirectMock = vi.hoisted(() => vi.fn());
+const redirectMock = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   redirect: redirectMock,
-}));
+}))
 
-import CalculatorPage from './page';
+import CalculatorPage from './page'
 
 describe('venus /calculator redirect', () => {
   it('preserves token on /calculator → /reports/new', async () => {
@@ -31,12 +31,27 @@ describe('venus /calculator redirect', () => {
         agent_next: 'run_valuation',
         source: 'mercury',
       }),
-    });
+    })
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/en/reports/new?clientId=client-123&source=mercury&agent_next=run_valuation&spotlight=1&focusField=ebitda&flagYear=2024',
-    );
-  });
+      '/en/reports/new?clientId=client-123&source=mercury&agent_next=run_valuation&spotlight=1&focusField=ebitda&flagYear=2024'
+    )
+  })
+
+  it('preserves assistant action aliases when redirecting to reports/new', async () => {
+    await CalculatorPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({
+        drawer: 'open',
+        ai_next: 'profileBuyers',
+        source: 'mercury',
+      }),
+    })
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/en/reports/new?source=mercury&drawer=open&ai_next=profileBuyers'
+    )
+  })
 
   it('strips non-allowlisted params when redirecting to reports/new', async () => {
     await CalculatorPage({
@@ -64,7 +79,7 @@ describe('venus /calculator redirect', () => {
     })
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/nl/reports/c61f49cf-3320-41d8-84c5-e4f874edaad2?clientId=rel_1&session_key=val_1700000000000_abc',
+      '/nl/reports/c61f49cf-3320-41d8-84c5-e4f874edaad2?clientId=rel_1&session_key=val_1700000000000_abc'
     )
   })
 
@@ -79,7 +94,7 @@ describe('venus /calculator redirect', () => {
     })
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/en/reports/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?clientId=c1&version=2',
+      '/en/reports/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?clientId=c1&version=2'
     )
   })
 })

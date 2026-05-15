@@ -40,13 +40,7 @@ import React, {
 } from 'react'
 import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
-import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
-import {
-  trackAIFieldUpdate,
-  trackPreviewOpen,
-  trackReturnToMercury,
-  trackVersionHistoryOpen,
-} from '@/lib/analytics'
+import { trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
 // Calculator Components (full Clarity parity)
 import {
   CalculatorNav,
@@ -80,7 +74,6 @@ import {
   filterPreSelectableMethodsForOwnerFounder,
   showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
-import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '../../../constants/methodLabels'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -104,7 +97,6 @@ import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOption
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import {
-  isAdaptiveMethodKey,
   isVenturePathMethodKey,
   methodKeyAcceptsPreparerMultipleOverride,
   useStartupAssistantSurface,
@@ -181,8 +173,13 @@ import {
   type PersistIntent,
   useIsMountedRef,
   useLatestRef,
+  useManualAgentPromptHandoff,
+  useManualAiProposalActions,
+  useManualAssistantIssueActions,
+  useManualChatFieldUpdateActions,
   useManualLayoutResets,
   useManualMercuryNavigationActions,
+  useManualMethodSelectionActions,
   useManualNewValuationFlow,
   useManualNormalizationModalController,
   useManualNormalizationReviewActions,
@@ -197,12 +194,7 @@ import {
   useValuationPersistenceCoordinator,
 } from '../hooks'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import {
-  MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT,
-  isManualAgentNextRunValuation,
-  MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT,
-  stripAgentNextFromHref,
-} from '../utils/manualAgentNextHandoff'
+import { MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT } from '../utils/manualAgentNextHandoff'
 import {
   buildManualAiNormalizationSuggestions,
   buildManualImportedNormalizationSuggestions,
@@ -215,12 +207,7 @@ import {
   type ManualPendingFieldUpdate,
 } from '../utils/manualChatCommandHandling'
 import {
-  buildManualChatFieldUpdateBridge,
-  formatManualChatFieldUpdateValue,
-} from '../utils/manualChatFieldUpdate'
-import {
   buildManualAssistantChatMessage,
-  buildManualSystemChatMessage,
   buildManualUserChatMessage,
   patchManualChatMessage,
 } from '../utils/manualChatMessages'
@@ -231,8 +218,6 @@ import {
 import {
   addIdsToManualChatToolCards,
   appendManualChatToolCardsToMessages,
-  applyManualChatSellabilityComputedScore,
-  markManualChatProposalDecision,
   parseManualChatStreamToolResult,
 } from '../utils/manualChatToolCards'
 import { buildManualFieldContext, buildManualFieldHelpQuestion } from '../utils/manualFieldHelp'
@@ -251,10 +236,8 @@ import {
 import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { buildManualLiveYearlyFinancials } from '../utils/manualLiveYearlyFinancials'
 import {
-  buildManualListingWizardUrl,
   buildManualMercuryBusinessDashboardUrl,
   buildManualMercuryPricingUrl,
-  resolveManualListingRelationshipId,
 } from '../utils/manualMercuryNavigation'
 import {
   buildAcceptedNormalizationSignature,
@@ -268,7 +251,6 @@ import { saveManualCalculationReportAssets } from '../utils/manualReportAssetSav
 import { buildManualReportAssets } from '../utils/manualReportAssets'
 import { hasManualRestorableReport } from '../utils/manualRestorableReport'
 import { buildManualRestoredFinancialSnapshot } from '../utils/manualRestoredFinancialSnapshot'
-import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import {
   getManualSessionKey,
   manualSessionMatchesReport,
@@ -278,10 +260,7 @@ import {
   resolveManualReportId,
 } from '../utils/manualSessionIdentifiers'
 import { formatManualStartupAssistantPrompt } from '../utils/manualStartupAssistantPrompt'
-import {
-  getManualStartupIssueAnchor,
-  getManualStartupLauncherScopeId,
-} from '../utils/manualStartupAssistantSurface'
+import { getManualStartupLauncherScopeId } from '../utils/manualStartupAssistantSurface'
 import {
   getManualSubmitValidationIssue,
   MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
@@ -894,7 +873,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }))
   )
   const streamCleanupRef = useRef<(() => void) | null>(null)
-  const agentNextConsumedRef = useRef(false)
   const tCa = useTranslations('chatAssistant')
 
   // Pass-7: track which engine-emitted high-severity warnings the advisor
@@ -1989,50 +1967,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     showValuationEditModal,
   ])
 
-  const handleSelectMethodWithOverride = useCallback(
-    (method: string, overrideReason?: string, overrideNote?: string) => {
-      pendingOverrideRef.current = { reason: overrideReason, note: overrideNote }
-      setSelectedMethod(method)
-    },
-    []
-  )
-
-  const handlePlanLockedMethodAction = useCallback(() => {
-    openStarterPaywall('methods')
-  }, [openStarterPaywall])
-
-  const togglePreSelectedMethodWithPlanGate = useCallback(
-    (method: string) => {
-      if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
-        openStarterPaywall('methods')
-        return
-      }
-      togglePreSelectedMethod(method)
-    },
-    [allowedMethodKeys, togglePreSelectedMethod, openStarterPaywall]
-  )
-
-  const handlePreSelectMethod = useCallback(
-    (method: string) => {
-      if (!isUpfrontMethodAllowedForNav(method, preSelectableMethodsForNav)) return
-      if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
-        openStarterPaywall('methods')
-        return
-      }
-      setPreSelectedMethod(isAdaptiveMethodKey(method) ? null : method)
-    },
-    [setPreSelectedMethod, preSelectableMethodsForNav, allowedMethodKeys, openStarterPaywall]
-  )
-
-  // Sync persisted pre-selection when allowed list changes (firm, turnover, hydration).
-  useEffect(() => {
-    if (
-      preSelectedMethod &&
-      !isUpfrontMethodAllowedForNav(preSelectedMethod, preSelectableMethodsForNav)
-    ) {
-      setPreSelectedMethod(null)
-    }
-  }, [preSelectableMethodsForNav, preSelectedMethod, setPreSelectedMethod])
+  const {
+    handleSelectMethodWithOverride,
+    handlePlanLockedMethodAction,
+    togglePreSelectedMethodWithPlanGate,
+    handlePreSelectMethod,
+  } = useManualMethodSelectionActions({
+    allowedMethodKeys,
+    openStarterPaywall,
+    pendingOverrideRef,
+    preSelectableMethodsForNav,
+    preSelectedMethod,
+    setPreSelectedMethod,
+    setSelectedMethod,
+    togglePreSelectedMethod,
+  })
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
@@ -2838,76 +2787,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  useEffect(() => {
-    if (!isManualAgentNextRunValuation(initialAgentNext)) return
-    if (agentNextConsumedRef.current) return
-    if (!manualChatReportId) return
-
-    if (!chatDrawerOpen) {
-      setChatDrawerOpen(true)
-      return
-    }
-
-    if (
-      isChatGenerating ||
-      isLoadingHistory ||
-      conversationStore.lastLoadedReportId !== manualChatReportId
-    ) {
-      return
-    }
-
-    agentNextConsumedRef.current = true
-
-    if (typeof window !== 'undefined') {
-      if (new URL(window.location.href).searchParams.has('agent_next')) {
-        window.history.replaceState(
-          window.history.state,
-          '',
-          stripAgentNextFromHref(window.location.href)
-        )
-      }
-    }
-
-    void handleChatMessage(MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT)
-  }, [
+  useManualAgentPromptHandoff({
+    chatDrawerOpen,
+    handleChatMessage,
     initialAgentNext,
-    manualChatReportId,
-    chatDrawerOpen,
     isChatGenerating,
     isLoadingHistory,
-    conversationStore.lastLoadedReportId,
-    handleChatMessage,
-  ])
-
-  useEffect(() => {
-    if (!pendingPostValuationAgentPrompt) return
-    if (!manualChatReportId) return
-
-    if (!chatDrawerOpen) {
-      setChatDrawerOpen(true)
-      return
-    }
-
-    if (
-      isChatGenerating ||
-      isLoadingHistory ||
-      conversationStore.lastLoadedReportId !== manualChatReportId
-    ) {
-      return
-    }
-
-    const prompt = pendingPostValuationAgentPrompt
-    setPendingPostValuationAgentPrompt(null)
-    void handleChatMessage(prompt)
-  }, [
+    lastLoadedReportId: conversationStore.lastLoadedReportId,
+    manualChatReportId,
     pendingPostValuationAgentPrompt,
-    manualChatReportId,
-    chatDrawerOpen,
-    isChatGenerating,
-    isLoadingHistory,
-    conversationStore.lastLoadedReportId,
-    handleChatMessage,
-  ])
+    setChatDrawerOpen,
+    setPendingPostValuationAgentPrompt,
+  })
 
   // AI suggestions: add as pending; Titan persist happens on accept (handleAcceptNormalisation)
   const handleNormalisationSuggestions = useCallback(
@@ -3578,6 +3469,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return getManualStartupLauncherScopeId({ session, resolvedReportId, reportId })
   }, [reportId, resolvedReportId, session])
 
+  const {
+    handleResolveStartupLauncherIssue,
+    handleResolveQualityWarning,
+    handleDismissQualityWarning,
+    handleResolveStartupIssue,
+    handleDismissStartupIssue,
+    handleJumpToStartupIssue,
+  } = useManualAssistantIssueActions({
+    assistantLocale,
+    formatStartupAssistantPrompt,
+    handleChatMessage,
+    setAcknowledgedQualityWarnings,
+    setAcknowledgedStartupIssues,
+    setChatDrawerOpen,
+    startupIssueById,
+  })
+
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {
     onSubmit: wrappedOnSubmit,
@@ -3605,15 +3513,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }),
     isAssistantOpen: chatDrawerOpen,
     onOpenAssistant: () => setChatDrawerOpen(true),
-    onResolveIssueWithAssistant: (issue: StudioIssue) => {
-      setChatDrawerOpen(true)
-      handleChatMessage(formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]))
-      setAcknowledgedStartupIssues((prev) => {
-        const next = new Set(prev)
-        next.add(issue.id)
-        return next
-      })
-    },
+    onResolveIssueWithAssistant: handleResolveStartupLauncherIssue,
     startupLauncherIssues,
     startupLauncherScopeId,
   }
@@ -3639,243 +3539,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [result, acknowledgedQualityWarnings, tCa])
 
-  const handleResolveQualityWarning = useCallback(
-    (warningType: string, prompt: string) => {
-      // Open the assistant if not already open and forward the prefilled
-      // prompt. We mark the warning acknowledged here too: the advisor has
-      // explicitly engaged with it. If the underlying issue persists, a
-      // re-run will surface the warning again.
-      setChatDrawerOpen(true)
-      handleChatMessage(prompt)
-      setAcknowledgedQualityWarnings((prev) => {
-        const next = new Set(prev)
-        next.add(warningType)
-        return next
-      })
-    },
-    [handleChatMessage, setChatDrawerOpen]
-  )
-
-  const handleDismissQualityWarning = useCallback((warningType: string) => {
-    setAcknowledgedQualityWarnings((prev) => {
-      const next = new Set(prev)
-      next.add(warningType)
-      return next
-    })
-  }, [])
-
-  const handleResolveStartupIssue = useCallback(
-    (issueId: string, prompt: string) => {
-      setChatDrawerOpen(true)
-      handleChatMessage(prompt)
-      setAcknowledgedStartupIssues((prev) => {
-        const next = new Set(prev)
-        next.add(issueId)
-        return next
-      })
-    },
-    [handleChatMessage]
-  )
-
-  const handleDismissStartupIssue = useCallback((issueId: string) => {
-    setAcknowledgedStartupIssues((prev) => {
-      const next = new Set(prev)
-      next.add(issueId)
-      return next
-    })
-  }, [])
-
-  const handleJumpToStartupIssue = useCallback(
-    (issueId: string) => {
-      const issue = startupIssueById.get(issueId)
-      if (!issue || typeof window === 'undefined') return
-      const anchor = getManualStartupIssueAnchor(issue.step)
-      if (!anchor) return
-      const el = document.getElementById(anchor)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    },
-    [startupIssueById]
-  )
-
-  // ─────────────────────────────────────────
-  // AI propose-only action handlers (run_valuation, generate_report)
-  //
-  // These respond to inline action cards rendered by the chat drawer when the
-  // assistant's tool registry returns a `pending_approval` payload.
-  // - Approve `run_valuation` → fire the existing `handleManualSubmit` with the
-  //   cached request payload (matches the user clicking Calculate). If the user
-  //   hasn't submitted yet this session, fall back to a toast pointing them at
-  //   the form's primary Calculate button.
-  // - Approve `generate_report` → fire the existing `generatePdf` flow. No
-  //   extra credit is consumed (the PDF reuses the persisted valuation result).
-  // - Reject (both) → mark the proposal locally so the card greys out; no
-  //   server-side state changes.
-  //
-  // Decision is stored on the message's request entry, NOT in a separate store,
-  // so a refresh re-fetches history and re-renders proposals as fresh pending.
-  // ─────────────────────────────────────────
-  const handleApproveValuationRun = useCallback(
-    (proposalId: string, _reportId?: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
-      )
-      const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
-      postValuationListingHandoffPendingRef.current = true
-      void handleManualSubmit(submitData)
-    },
-    [buildLiveValuationSubmitData, handleManualSubmit, setChatMessages]
-  )
-
-  const handleRejectValuationRun = useCallback(
-    (proposalId: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'rejected')
-      )
-    },
-    [setChatMessages]
-  )
-
-  const handleApproveReportGeneration = useCallback(
-    (proposalId: string, _reportId?: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'approved')
-      )
-      if (generatePdf) {
-        generatePdf().catch((err: unknown) => {
-          generalLogger.warn('[ManualLayout] AI-approved PDF generation failed', {
-            error: err instanceof Error ? err.message : String(err),
-          })
-          toast.error(
-            // TODO i18n
-            'PDF generatie mislukt. Probeer opnieuw via de download-knop in het rapport.'
-          )
-        })
-      } else {
-        toast.info(
-          // TODO i18n
-          'PDF generatie nog niet beschikbaar — bereken eerst de waardering.'
-        )
-      }
-    },
-    [generatePdf, setChatMessages]
-  )
-
-  const handleRejectReportGeneration = useCallback(
-    (proposalId: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'rejected')
-      )
-    },
-    [setChatMessages]
-  )
-
-  // Sellability compute fires through Venus's /api/sellability/score proxy
-  // (which forwards to Titan). Free — no credit. On success we surface the
-  // new score on the inline card AND raise a toast so it's visible whether or
-  // not the chat drawer is scrolled to the proposal.
-  const handleApproveSellabilityRun = useCallback(
-    async (proposalId: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'approved')
-      )
-      try {
-        const sellability = await runManualSellabilityScore()
-        if (sellability.kind === 'scored') {
-          setChatMessages((prev) =>
-            applyManualChatSellabilityComputedScore(prev, proposalId, {
-              score: sellability.score,
-              band: sellability.band,
-              confidence: sellability.confidence,
-            })
-          )
-          toast.success(
-            // TODO i18n
-            `Sellability: ${sellability.score}/100 (${sellability.band})`
-          )
-        } else {
-          toast.info(/* TODO i18n */ 'Sellability berekend.')
-        }
-      } catch (err) {
-        generalLogger.warn('[ManualLayout] AI-approved sellability compute failed', {
-          error: err instanceof Error ? err.message : String(err),
-        })
-        toast.error(
-          // TODO i18n
-          'Sellability berekening mislukt. Probeer het opnieuw via je owner profile in Mercury.'
-        )
-      }
-    },
-    [setChatMessages]
-  )
-
-  const handleRejectSellabilityRun = useCallback(
-    (proposalId: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'rejected')
-      )
-    },
-    [setChatMessages]
-  )
-
-  const handleApproveListingCreate = useCallback(
-    (proposalId: string, targetReportId?: string, targetAccountantCustomerId?: string | null) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'listingCreateRequests', proposalId, 'approved')
-      )
-
-      const reportIdForListing = resolveManualCanonicalReportId({
-        targetReportId,
-        session,
-        resolvedReportId,
-        routeReportId: reportId,
-        resultValuationId: result?.valuation_id,
-        activeSessionKey,
-      })
-      if (!reportIdForListing) {
-        toast.error(
-          // TODO i18n
-          'Geen waarderingsrapport gevonden om de listing voor te bereiden.'
-        )
-        return
-      }
-
-      const relationshipId = resolveManualListingRelationshipId({
-        targetAccountantCustomerId,
-        clientContextId,
-        contextRelationshipId: ctxRelationshipId,
-        fallbackRelationshipId: useClientContext.getState()?.relationshipId,
-      })
-
-      trackReturnToMercury()
-      window.location.href = buildManualListingWizardUrl({
-        mercuryUrl: getMercuryUrl(),
-        locale: mercuryLocale,
-        reportId: reportIdForListing,
-        relationshipId,
-      })
-    },
-    [
-      activeSessionKey,
-      clientContextId,
-      ctxRelationshipId,
-      mercuryLocale,
-      reportId,
-      result?.valuation_id,
-      resolvedReportId,
-      session,
-      session?.reportId,
-      setChatMessages,
-    ]
-  )
-
-  const handleRejectListingCreate = useCallback(
-    (proposalId: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'listingCreateRequests', proposalId, 'rejected')
-      )
-    },
-    [setChatMessages]
-  )
+  const {
+    handleApproveValuationRun,
+    handleRejectValuationRun,
+    handleApproveReportGeneration,
+    handleRejectReportGeneration,
+    handleApproveSellabilityRun,
+    handleRejectSellabilityRun,
+    handleApproveListingCreate,
+    handleRejectListingCreate,
+  } = useManualAiProposalActions({
+    activeSessionKey,
+    buildLiveValuationSubmitData,
+    clientContextId,
+    contextRelationshipId: ctxRelationshipId,
+    generatePdf,
+    handleManualSubmit,
+    lastSubmittedDataRef,
+    mercuryLocale,
+    postValuationListingHandoffPendingRef,
+    reportId,
+    resolvedReportId,
+    resultValuationId: result?.valuation_id,
+    session,
+    setChatMessages,
+  })
 
   const chatDrawerProps = {
     open: chatDrawerOpen,

@@ -5,6 +5,25 @@
  */
 
 export {
+  type UseManualAgentPromptHandoffParams,
+  useManualAgentPromptHandoff,
+} from './useManualAgentPromptHandoff'
+export {
+  type UseManualAiProposalActionsParams,
+  type UseManualAiProposalActionsResult,
+  useManualAiProposalActions,
+} from './useManualAiProposalActions'
+export {
+  type UseManualAssistantIssueActionsParams,
+  type UseManualAssistantIssueActionsResult,
+  useManualAssistantIssueActions,
+} from './useManualAssistantIssueActions'
+export {
+  type UseManualChatFieldUpdateActionsParams,
+  type UseManualChatFieldUpdateActionsResult,
+  useManualChatFieldUpdateActions,
+} from './useManualChatFieldUpdateActions'
+export {
   type ManualLayoutResetRefs,
   type UseManualLayoutResetsParams,
   useManualLayoutResets,
@@ -14,6 +33,11 @@ export {
   type UseManualMercuryNavigationActionsResult,
   useManualMercuryNavigationActions,
 } from './useManualMercuryNavigationActions'
+export {
+  type UseManualMethodSelectionActionsParams,
+  type UseManualMethodSelectionActionsResult,
+  useManualMethodSelectionActions,
+} from './useManualMethodSelectionActions'
 export {
   type UseManualNewValuationFlowParams,
   type UseManualNewValuationFlowResult,

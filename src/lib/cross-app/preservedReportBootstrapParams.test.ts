@@ -9,14 +9,12 @@ describe('buildPreservedReportBootstrapQueryString', () => {
       source: 'mercury',
       utm_source: 'drop-me',
     })
-    expect(q).toBe(
-      '?clientId=c1&session_key=val_x&source=mercury',
-    )
+    expect(q).toBe('?clientId=c1&session_key=val_x&source=mercury')
   })
 
   it('preserves benchmark_contribution=0 (opt-out)', () => {
     expect(buildPreservedReportBootstrapQueryString({ benchmark_contribution: '0' })).toBe(
-      '?benchmark_contribution=0',
+      '?benchmark_contribution=0'
     )
   })
 
@@ -48,5 +46,14 @@ describe('buildPreservedReportBootstrapQueryString', () => {
       source: 'mercury',
     })
     expect(q).toBe('?source=mercury&drawer=open&agent_next=run_valuation')
+  })
+
+  it('preserves the assistant handoff alias used by Titan workflow actions', () => {
+    const q = buildPreservedReportBootstrapQueryString({
+      drawer: 'open',
+      ai_next: 'profileBuyers',
+      source: 'mercury',
+    })
+    expect(q).toBe('?source=mercury&drawer=open&ai_next=profileBuyers')
   })
 })

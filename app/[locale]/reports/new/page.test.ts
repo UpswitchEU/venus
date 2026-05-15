@@ -142,6 +142,18 @@ describe('/reports/new param preservation', () => {
     expect(u.searchParams.get('flagYear')).toBe('2024')
   })
 
+  it('preserves assistant action alias links into completed valuation reports', async () => {
+    const url = await callPage({
+      drawer: 'open',
+      ai_next: 'profileBuyers',
+      source: 'mercury',
+    })
+    const u = new URL(url, 'https://example.com')
+    expect(u.searchParams.get('source')).toBe('mercury')
+    expect(u.searchParams.get('drawer')).toBe('open')
+    expect(u.searchParams.get('ai_next')).toBe('profileBuyers')
+  })
+
   it('preserves the founder dashboard startup_stage hint', async () => {
     const url = await callPage({ startup_stage: 'seed' })
     expect(url).toContain('startup_stage=seed')

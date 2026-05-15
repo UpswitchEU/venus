@@ -125,20 +125,13 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       if (!isBootstrapSynced || sessionReportTrackedRef.current) return
       sessionReportTrackedRef.current = true
 
-      const source =
-        urlParams.source ||
-        (urlParams.embedded === 'true' ? 'embedded' : 'direct')
+      const source = urlParams.source || (urlParams.embedded === 'true' ? 'embedded' : 'direct')
       trackSessionStart(source)
 
       if (reportId && reportId !== 'new' && isValidReportId(reportId)) {
         trackReportOpen(reportId)
       }
-    }, [
-      isBootstrapSynced,
-      reportId,
-      urlParams.source,
-      urlParams.embedded,
-    ])
+    }, [isBootstrapSynced, reportId, urlParams.source, urlParams.embedded])
 
     /** Set when valuation completes; used for optional silent anonymized benchmark contribution */
     const [completedResult, setCompletedResult] = React.useState<ValuationResponse | null>(null)
@@ -315,7 +308,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 initialTab={initialTab}
                 urlAction={urlAction}
                 initialDrawerOpen={urlParams.drawer === 'open'}
-                initialAgentNext={urlParams.agent_next}
+                initialAgentNext={urlParams.agent_next || urlParams.ai_next}
                 guidedResolution={{
                   spotlight: urlParams.spotlight,
                   focusField: urlParams.focusField,
@@ -326,7 +319,6 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
             )}
           </ValuationSessionManager>
         </Suspense>
-
       </div>
     )
   }
