@@ -2240,7 +2240,6 @@
 	},
 	"chatAssistant": {
 		"title": "Assistant",
-		"openHub": "Open Hub",
 		"close": "Close",
 		"suggestedUpdates": "Suggested updates",
 		"qualityWarningsTitle": "Resolve before sharing the report",

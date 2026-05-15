@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
 import { APIError } from '../types/errors'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
@@ -68,7 +69,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const hasCheckedSessionRef = useRef(false)
-  const mountedRef = useRef(true)
+  const mountedRef = useIsMountedRef()
   const isGeneratingRef = useRef(false)
 
   // Get session data to check existing PDF
@@ -93,11 +94,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   // Keep isGeneratingRef in sync with status
   isGeneratingRef.current = state.status === 'generating'
 
-  // Cleanup on unmount
+  // Cleanup on unmount — mount tracking is owned by useIsMountedRef above;
+  // this effect handles the polling-interval + abort-controller teardown.
   useEffect(() => {
-    mountedRef.current = true
     return () => {
-      mountedRef.current = false
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
       }

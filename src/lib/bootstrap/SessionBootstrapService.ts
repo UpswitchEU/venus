@@ -413,8 +413,11 @@ export class SessionBootstrapService {
     const { useAuthStore } = await import('../auth')
     const { useClientContext } = await import('../../stores/clientContext')
     const start = Date.now()
-    // When clientToken present, client context exchange must complete - wait longer
-    const effectiveMaxWait = hasClientToken ? 5000 : maxWaitMs
+    // When clientToken/needs-context present, client context exchange must complete.
+    // 3000ms is enough headroom: get-client-context is a single round-trip that
+    // typically completes in 500–2000ms. The previous 5000ms cap routinely added
+    // dead-air on Mercury→Venus accountant opens when context arrived in <1s.
+    const effectiveMaxWait = hasClientToken ? 3000 : maxWaitMs
 
     const isAuthAndContextReady = (): boolean => {
       const authState = useAuthStore.getState()

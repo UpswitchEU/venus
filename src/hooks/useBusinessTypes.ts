@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
 import {
   BusinessType,
   BusinessTypeOption,
@@ -46,7 +47,7 @@ export function useBusinessTypes(): UseBusinessTypesState {
   const [businessTypeOptions, setBusinessTypeOptions] = useState<BusinessTypeOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const mountedRef = useRef(true)
+  const mountedRef = useIsMountedRef()
   const inFlightRef = useRef<AbortController | null>(null)
 
   const fetchBusinessTypes = useCallback(async () => {
@@ -97,11 +98,11 @@ export function useBusinessTypes(): UseBusinessTypesState {
     await fetchBusinessTypes()
   }, [fetchBusinessTypes])
 
+  // Mount tracking owned by useIsMountedRef above; this effect handles the
+  // fetch kickoff and in-flight abort.
   useEffect(() => {
-    mountedRef.current = true
     fetchBusinessTypes()
     return () => {
-      mountedRef.current = false
       inFlightRef.current?.abort()
     }
   }, [fetchBusinessTypes])

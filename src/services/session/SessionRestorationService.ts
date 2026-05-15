@@ -33,7 +33,6 @@ import {
 import { useSessionStore } from '../../store/useSessionStore'
 import {
   recoverPendingTaxLatencies,
-  suppressNextLatencyRecalc,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
@@ -1095,14 +1094,14 @@ class SessionRestorationServiceImpl {
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
           // Priority: localStorage recovery (beforeunload buffer) > package formData.
-          // Suppress the latency auto-recalc subscription for this hydration — at this
-          // point ManualLayout's recalc subscription may already be active, and a fresh
-          // calc would either race with the page-load valuation fetch or overwrite it.
+          // Both branches pass `{ source: 'system' }` so the latency auto-recalc
+          // subscription in ManualLayout skips them — at this point that
+          // subscription may already be active, and a fresh calc would either
+          // race with the page-load valuation fetch or overwrite it.
           try {
             const recoveredTL = recoverPendingTaxLatencies(reportId)
             if (recoveredTL && recoveredTL.length > 0) {
-              suppressNextLatencyRecalc()
-              useTaxLatencyStore.getState().setItems(recoveredTL)
+              useTaxLatencyStore.getState().setItems(recoveredTL, { source: 'system' })
             } else if (
               Array.isArray(
                 (
@@ -1116,7 +1115,6 @@ class SessionRestorationServiceImpl {
                   (raw as { taxLatencies?: unknown }).taxLatencies
               )
             ) {
-              suppressNextLatencyRecalc()
               const rawTaxLatencies =
                 (
                   raw as {
@@ -1127,7 +1125,9 @@ class SessionRestorationServiceImpl {
                 )._taxLatencies ??
                 (raw as { tax_latencies?: unknown }).tax_latencies ??
                 (raw as { taxLatencies?: unknown }).taxLatencies
-              useTaxLatencyStore.getState().setItems(rawTaxLatencies as any)
+              useTaxLatencyStore
+                .getState()
+                .setItems(rawTaxLatencies as any, { source: 'system' })
             }
           } catch {
             // Non-critical

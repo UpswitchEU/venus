@@ -21,6 +21,23 @@ import { generalLogger } from '../utils/logger'
 
 export type TaxLatencyType = 'active' | 'passive'
 
+/**
+ * Provenance of the most recent store mutation. Subscribers that drive
+ * side effects (e.g. auto-recalculating the valuation) gate on `'user'` —
+ * `'system'` covers version restore, session hydration, crash recovery, and
+ * the abandon-flow clear, none of which should retrigger a fresh calc.
+ *
+ * Replaces the previous out-of-band `suppressNextLatencyRecalc()` counter:
+ * the source is now part of the state mutation itself, so there is no
+ * pre-mount leak window and no chance of a queued skip applying to the
+ * wrong mutation.
+ */
+export type TaxLatencyMutationSource = 'user' | 'system'
+
+export interface TaxLatencyMutationOptions {
+  source?: TaxLatencyMutationSource
+}
+
 export interface TaxLatencyItem {
   id: string
   type: TaxLatencyType
@@ -133,13 +150,26 @@ interface TaxLatencyStore {
   items: TaxLatencyItem[]
   candidates: TaxLatencyCandidate[]
 
+  /**
+   * Provenance of the most recent mutation. Subscribers driving side effects
+   * (e.g. the valuation auto-recalc in `ManualLayout`) gate on `'user'`.
+   */
+  _lastMutationSource: TaxLatencyMutationSource | null
+  /**
+   * Monotonic counter incremented on every mutation. Lets subscribers detect
+   * "a mutation happened" even when the resulting `items` array is reference-
+   * or content-equal to the previous one (e.g. a programmatic `clear()` when
+   * items were already empty).
+   */
+  _mutationSeq: number
+
   addItem: (item: TaxLatencyItem) => void
   removeItem: (id: string) => void
   updateItem: (id: string, partial: Partial<TaxLatencyItem>) => void
-  setItems: (items: TaxLatencyItem[]) => void
+  setItems: (items: TaxLatencyItem[], options?: TaxLatencyMutationOptions) => void
   setCandidates: (candidates: TaxLatencyCandidate[]) => void
   dismissCandidate: (id: string) => void
-  clear: () => void
+  clear: (options?: TaxLatencyMutationOptions) => void
 
   persistToSession: (reportId: string) => Promise<void>
   loadFromSession: (sessionData: any) => void
@@ -158,51 +188,16 @@ let pendingVisibilityFlushReportId: string | null = null
 let lastItemsJson = ''
 
 // ─────────────────────────────────────────
-// AUTO-RECALC SUPPRESSION
+// AUTO-RECALC GATING
 // Programmatic mutations (version restore, session hydration, abandon-clear) must
-// NOT trigger the post-valuation auto-recalculation in ManualLayout, because that
-// would overwrite the restored/hydrated valuation result with a fresh calc.
+// NOT trigger the post-valuation auto-recalculation in ManualLayout — that would
+// overwrite the restored/hydrated valuation result with a fresh calc.
 //
-// Callers about to perform a non-user mutation increment the suppression counter,
-// then call the mutation; the recalc subscription decrements + skips. The counter
-// is on module scope so it survives across any subscriber instance.
+// Every mutation stamps `state._lastMutationSource`. Subscribers gate on it
+// directly. No out-of-band counter, no pre-mount leak window: the source is
+// part of the same state update the subscriber observes, so there is no
+// timing seam between "mark intent" and "perform mutation."
 // ─────────────────────────────────────────
-
-let pendingRecalcSuppressions = 0
-
-/**
- * Suppress the next N mutations from triggering the latency auto-recalc subscription.
- * Call this immediately BEFORE a programmatic store update (e.g. setItems from a
- * version restore). N defaults to 1 — pass a higher value when a single restore
- * sequence performs multiple mutations (e.g. setItems + setCandidates).
- */
-export function suppressNextLatencyRecalc(count = 1): void {
-  pendingRecalcSuppressions += Math.max(0, count)
-}
-
-/**
- * Internal: read-and-decrement helper used by the ManualLayout recalc subscription.
- * Returns true when the current change should be skipped (suppression was active).
- */
-export function consumeLatencyRecalcSuppression(): boolean {
-  if (pendingRecalcSuppressions > 0) {
-    pendingRecalcSuppressions -= 1
-    return true
-  }
-  return false
-}
-
-/**
- * Drop any pending suppressions. Called by the recalc-subscription effect on mount
- * so that bumps emitted BEFORE a subscriber was listening (e.g. session hydration
- * that ran while `report` was still undefined) cannot leak into the first user
- * edit observed by the new subscription. A pre-mount bump cannot possibly relate
- * to a mutation that this fresh subscriber will observe — only post-mount bumps
- * matter for it.
- */
-export function resetLatencyRecalcSuppression(): void {
-  pendingRecalcSuppressions = 0
-}
 
 const LS_PENDING_PREFIX = '_taxlat_pending_'
 
@@ -249,6 +244,8 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
     (set, get) => ({
       items: [],
       candidates: [],
+      _lastMutationSource: null,
+      _mutationSeq: 0,
 
       addItem: (item) =>
         set(
@@ -257,13 +254,23 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
               (candidate): candidate is TaxLatencyItem => candidate !== null
             ),
             candidates: state.candidates.filter((candidate) => candidate.id !== item.id),
+            _lastMutationSource: 'user',
+            _mutationSeq: state._mutationSeq + 1,
           }),
           false,
           'addItem'
         ),
 
       removeItem: (id) =>
-        set((state) => ({ items: state.items.filter((i) => i.id !== id) }), false, 'removeItem'),
+        set(
+          (state) => ({
+            items: state.items.filter((i) => i.id !== id),
+            _lastMutationSource: 'user',
+            _mutationSeq: state._mutationSeq + 1,
+          }),
+          false,
+          'removeItem'
+        ),
 
       updateItem: (id, partial) =>
         set(
@@ -277,12 +284,23 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
               const merged = { ...i, ...partial }
               return normalizeTaxLatencyItem(merged) ?? i
             }),
+            _lastMutationSource: 'user',
+            _mutationSeq: state._mutationSeq + 1,
           }),
           false,
           'updateItem'
         ),
 
-      setItems: (items) => set({ items: normalizeTaxLatencyItems(items) }, false, 'setItems'),
+      setItems: (items, options) =>
+        set(
+          (state) => ({
+            items: normalizeTaxLatencyItems(items),
+            _lastMutationSource: options?.source ?? 'user',
+            _mutationSeq: state._mutationSeq + 1,
+          }),
+          false,
+          'setItems'
+        ),
 
       setCandidates: (candidates) =>
         set(
@@ -334,12 +352,17 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
               if (item) promoted.push(item)
             }
 
+            const baseTag = {
+              _lastMutationSource: 'user' as TaxLatencyMutationSource,
+              _mutationSeq: state._mutationSeq + 1,
+            }
             if (promoted.length === 0) {
-              return { candidates: remaining }
+              return { candidates: remaining, ...baseTag }
             }
             return {
               items: [...state.items, ...promoted],
               candidates: remaining,
+              ...baseTag,
             }
           },
           false,
@@ -350,12 +373,24 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
         set(
           (state) => ({
             candidates: state.candidates.filter((candidate) => candidate.id !== id),
+            _lastMutationSource: 'user',
+            _mutationSeq: state._mutationSeq + 1,
           }),
           false,
           'dismissCandidate'
         ),
 
-      clear: () => set({ items: [], candidates: [] }, false, 'clear'),
+      clear: (options) =>
+        set(
+          (state) => ({
+            items: [],
+            candidates: [],
+            _lastMutationSource: options?.source ?? 'user',
+            _mutationSeq: state._mutationSeq + 1,
+          }),
+          false,
+          'clear'
+        ),
 
       persistToSession: async (reportId) => {
         if (!reportId) return
@@ -372,7 +407,15 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
         if (!sessionData?._taxLatencies) return
         const stored = normalizeTaxLatencyItems(sessionData._taxLatencies)
         if (stored.length > 0) {
-          set({ items: stored })
+          set(
+            (state) => ({
+              items: stored,
+              _lastMutationSource: 'system',
+              _mutationSeq: state._mutationSeq + 1,
+            }),
+            false,
+            'loadFromSession'
+          )
           generalLogger.debug('[TaxLatencyStore] Loaded from session data', {
             count: stored.length,
           })

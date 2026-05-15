@@ -84,7 +84,7 @@ describe('AdaptiveSections', () => {
     },
   }
 
-  it('renders SaaS metrics on adaptive when business_model signals SaaS (no saas in type id)', () => {
+  it('renders SaaS metrics on adaptive when business_model signals SaaS (no saas in type id)', async () => {
     render(
       <AdaptiveSections
         {...baseProps}
@@ -98,10 +98,12 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+    // findBy* (not getBy*) — section components are lazy-loaded under Suspense,
+    // so the first render shows the fallback until the chunk resolves.
+    expect(await screen.findByText('sections.saasMetrics')).toBeInTheDocument()
   })
 
-  it('renders the DCF and SaaS sections together when both rules apply', () => {
+  it('renders the DCF and SaaS sections together when both rules apply', async () => {
     render(
       <AdaptiveSections
         {...baseProps}
@@ -111,8 +113,10 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
-    expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
+      expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+    })
     expect(screen.getByText('fields.saasArrGrowthPct')).toBeInTheDocument()
     expect(screen.getByText('fields.saasGrossMarginPct')).toBeInTheDocument()
     expect(screen.getByText('fields.ruleOf40Score')).toBeInTheDocument()
@@ -172,7 +176,7 @@ describe('AdaptiveSections', () => {
     expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
   })
 
-  it('renders revenue quality inputs when omzet multiple is pre-selected', () => {
+  it('renders revenue quality inputs when omzet multiple is pre-selected', async () => {
     render(
       <AdaptiveSections
         {...baseProps}
@@ -182,10 +186,11 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.revenueQuality')).toBeInTheDocument()
+    // Section components are lazy-loaded under Suspense; await chunk resolution.
+    expect(await screen.findByText('sections.revenueQuality')).toBeInTheDocument()
   })
 
-  it('renders the NAV section with the cleaned-up fields when adjusted NAV is selected', () => {
+  it('renders the NAV section with the cleaned-up fields when adjusted NAV is selected', async () => {
     render(
       <AdaptiveSections
         {...baseProps}
@@ -195,7 +200,8 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.navAssetSchedule')).toBeInTheDocument()
+    // Section components are lazy-loaded under Suspense; await chunk resolution.
+    expect(await screen.findByText('sections.navAssetSchedule')).toBeInTheDocument()
     // `fields.navLead` and the navProgress chrome were stripped 2026-05-10
     // (left panel = data input only; advisor copy lives in
     // `adjusted_nav_valuation.html`).  Verify the data fields still render.

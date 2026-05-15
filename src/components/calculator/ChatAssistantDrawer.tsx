@@ -11,11 +11,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  AlertTriangle,
-  Bot,
-  Check,
   CheckCheck,
-  ChevronRight,
   Copy,
   ExternalLink,
   FileText,
@@ -30,7 +26,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AuroraButton } from '@/design-system/components/Button'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { useScrollLock } from '@/hooks/useScrollLock'
@@ -506,9 +501,6 @@ interface ChatAssistantDrawerProps {
   showQuickNormalizations?: boolean
   // Command pill click handler - auto-fills and sends
   onCommandPillClick?: (command: string) => void
-  // Open Normalization Hub - redirects to central hub when CSV is uploaded
-  onOpenNormalizationHub?: () => void
-  hasUploadedData?: boolean
   // Tool execution indicator (Claude is fetching data)
   toolInProgress?: string | null
   // Retry failed message
@@ -604,8 +596,6 @@ export function ChatAssistantDrawer({
   onRejectSellabilityRun,
   showQuickNormalizations = false,
   onCommandPillClick,
-  onOpenNormalizationHub,
-  hasUploadedData = false,
   toolInProgress,
   onRetry,
   onNewConversation,
@@ -760,7 +750,7 @@ export function ChatAssistantDrawer({
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
+          {/* Backdrop — softer, no blur (matches Cursor/Lovable). */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -768,68 +758,45 @@ export function ChatAssistantDrawer({
             transition={springDefault}
             onClick={() => onOpenChange(false)}
             onTouchMove={(e) => e.preventDefault()}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm touch-none overscroll-none"
+            className="fixed inset-0 z-40 bg-black/30 touch-none overscroll-none"
           />
 
-          {/* Drawer Panel */}
+          {/* Drawer Panel — plain surface, no decorative border. */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={springDefault}
             className={cn(
-              // Base: Full screen on mobile for immersive experience
               'fixed right-0 top-0 bottom-0 z-50',
               'w-full h-full p-0 flex flex-col',
-              // Tablet+: Balanced width - not too narrow, not too wide
               'sm:w-[440px] md:w-[480px] lg:w-[520px]',
-              // Premium styling
-              'bg-background border-l border-foreground/[0.08]',
-              // Safe area for mobile notches/home indicators
+              'bg-background',
               'pb-[env(safe-area-inset-bottom)]'
             )}
           >
-            {/* Header - Minimal, premium design with close button on right */}
-            <div className="shrink-0 px-5 sm:px-6 py-4 sm:py-5 border-b border-foreground/[0.06] bg-background/80 backdrop-blur-xl">
-              <div className="flex items-center gap-4">
-                {/* Title - now on the left */}
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg sm:text-base font-semibold text-foreground tracking-tight">
-                    {ca('title')}
-                  </h2>
-                  {fieldContext && (
-                    <p className="text-sm sm:text-xs text-foreground/50 truncate mt-0.5">
-                      {fieldContext.label || ''}
-                    </p>
-                  )}
-                </div>
-                {/* Hub Button - when CSV data is uploaded */}
-                {hasUploadedData && onOpenNormalizationHub && (
-                  <AuroraButton
-                    variant="secondary"
-                    size="sm"
-                    onClick={onOpenNormalizationHub}
-                    className="shrink-0 gap-1.5 text-xs"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                    {ca('openHub')}
-                  </AuroraButton>
+            {/* Header — minimal: title + close. No CTAs.
+                The normalisation modal stays reachable from the main form UI;
+                if the assistant needs to surface "review normalisations" it
+                does so via an insight, not via permanent header chrome. */}
+            <div className="shrink-0 px-5 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-medium text-foreground/80">
+                  {ca('title')}
+                </h2>
+                {fieldContext && (
+                  <p className="text-xs text-foreground/45 truncate mt-0.5">
+                    {fieldContext.label || ''}
+                  </p>
                 )}
-                {/* Close button */}
-                <button
-                  onClick={() => onOpenChange(false)}
-                  className={cn(
-                    'shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg',
-                    'flex items-center justify-center',
-                    'text-foreground/40 hover:text-foreground/70',
-                    'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
-                    'transition-colors touch-manipulation'
-                  )}
-                  aria-label={ca('close')}
-                >
-                  <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                </button>
               </div>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04] transition-colors touch-manipulation"
+                aria-label={ca('close')}
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Hidden file input */}
@@ -844,91 +811,70 @@ export function ChatAssistantDrawer({
 
             {startupIssues.length > 0 && (
               <div
-                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-3"
+                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-4"
                 data-testid="assistant-startup-issues"
               >
                 {startupIssues.map((issue) => {
-                  const severityLabel =
+                  const accentClass =
                     issue.severity === 'block'
-                      ? locale === 'nl'
-                        ? 'Te fixen'
-                        : 'Must fix'
+                      ? 'border-l-rose-500/70'
                       : issue.severity === 'warn'
-                        ? locale === 'nl'
-                          ? 'Aanbevolen'
-                          : 'Recommended'
-                        : locale === 'nl'
-                          ? 'Let op'
-                          : 'Insight'
-                  const severityDotClass =
-                    issue.severity === 'block'
-                      ? 'bg-rose-500'
-                      : issue.severity === 'warn'
-                        ? 'bg-amber-500'
-                        : 'bg-sky-500'
+                        ? 'border-l-amber-500/70'
+                        : 'border-l-sky-500/70'
                   return (
                     <motion.div
                       key={issue.id}
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                      className="flex gap-3"
+                      className="flex flex-col items-start gap-2"
                     >
-                      <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
-                        <Bot className="w-4 h-4 text-primary" />
-                      </div>
                       <div
                         className={cn(
-                          'max-w-[85%] sm:max-w-[82%] flex-1 min-w-0',
+                          'max-w-[88%] min-w-0',
                           'rounded-2xl rounded-tl-md',
                           'px-4 py-3',
-                          'bg-card/60 backdrop-blur-sm',
-                          'border border-border/40',
-                          'shadow-sm'
+                          'bg-foreground/[0.03]',
+                          'border border-foreground/[0.08]',
+                          'border-l-2',
+                          accentClass
                         )}
                       >
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/75">
-                            <span
-                              className={cn('h-1.5 w-1.5 rounded-full', severityDotClass)}
-                              aria-hidden
-                            />
-                            {severityLabel}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-foreground leading-snug">
+                        <p className="text-[15px] sm:text-sm leading-relaxed text-foreground">
                           {issue.title}
                         </p>
-                        <p className="text-sm text-foreground/65 mt-1 leading-snug">{issue.body}</p>
-                        <p className="text-xs text-foreground/55 mt-1.5">{issue.action}</p>
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        {issue.body && (
+                          <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/70 mt-1.5">
+                            {issue.body}
+                          </p>
+                        )}
+                      </div>
+                      <div className="ml-2 flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onResolveStartupIssue?.(issue.id, issue.ctaPrompt)
+                          }
+                          className="rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3 py-1 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation"
+                        >
+                          {issue.ctaLabel}
+                        </button>
+                        {issue.jumpLabel && (
                           <button
                             type="button"
-                            onClick={() =>
-                              onResolveStartupIssue?.(issue.id, issue.ctaPrompt)
-                            }
-                            className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
+                            onClick={() => onJumpToStartupIssue?.(issue.id)}
+                            className="rounded-full hover:bg-foreground/[0.04] px-3 py-1 text-xs text-foreground/55 hover:text-foreground/80 transition-colors touch-manipulation"
                           >
-                            {issue.ctaLabel}
+                            {issue.jumpLabel}
                           </button>
-                          {issue.jumpLabel && (
-                            <button
-                              type="button"
-                              onClick={() => onJumpToStartupIssue?.(issue.id)}
-                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
-                            >
-                              {issue.jumpLabel}
-                              <ChevronRight className="w-3 h-3" />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onDismissStartupIssue?.(issue.id)}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
-                          >
-                            {ca('dismissWarning', { default: 'Dismiss' })}
-                          </button>
-                        </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onDismissStartupIssue?.(issue.id)}
+                          className="rounded-full hover:bg-foreground/[0.04] px-3 py-1 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation"
+                        >
+                          {ca('dismissWarning')}
+                        </button>
                       </div>
                     </motion.div>
                   )
@@ -959,117 +905,112 @@ export function ChatAssistantDrawer({
             */}
             {qualityWarnings.length > 0 && (
               <div
-                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-3"
+                className="shrink-0 px-4 sm:px-5 pt-4 pb-2 space-y-4"
                 data-testid="assistant-engine-insights"
               >
                 {qualityWarnings.map((w) => (
                   <motion.div
                     key={w.type}
-                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                    className="flex gap-3"
+                    className="flex flex-col items-start gap-2"
                   >
-                    {/* Assistant avatar — same shape as message bubbles so
-                        the insight reads as the assistant speaking. */}
-                    <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
-                      <Bot className="w-4 h-4 text-primary" />
-                    </div>
                     <div
                       className={cn(
-                        'max-w-[85%] sm:max-w-[82%] flex-1 min-w-0',
+                        'max-w-[88%] min-w-0',
                         'rounded-2xl rounded-tl-md',
                         'px-4 py-3',
-                        'bg-card/60 backdrop-blur-sm',
-                        'border border-border/40',
-                        'shadow-sm'
+                        'bg-foreground/[0.03]',
+                        'border border-foreground/[0.08]',
+                        'border-l-2 border-l-amber-500/60'
                       )}
                       role="status"
                     >
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
-                          {ca('insightSeverity', { default: 'Insight' })}
-                        </span>
-                      </div>
                       {w.message ? (
-                        <p className="text-sm font-medium text-foreground leading-snug">
+                        <p className="text-[15px] sm:text-sm leading-relaxed text-foreground">
                           {w.message}
                         </p>
                       ) : null}
                       {w.recommendation ? (
-                        <p className="text-sm text-foreground/65 mt-1 leading-snug">
+                        <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/70 mt-1.5">
                           {w.recommendation}
                         </p>
                       ) : null}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        {w.cta_label && w.cta_prompt ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onResolveQualityWarning?.(w.type, w.cta_prompt!)
-                            }
-                            className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 active:scale-95 transition-all whitespace-nowrap touch-manipulation"
-                          >
-                            {w.cta_label}
-                          </button>
-                        ) : null}
+                    </div>
+                    <div className="ml-2 flex flex-wrap items-center gap-1.5">
+                      {w.cta_label && w.cta_prompt ? (
                         <button
                           type="button"
-                          onClick={() => onDismissQualityWarning?.(w.type)}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/80 active:scale-95 transition-all touch-manipulation"
+                          onClick={() =>
+                            onResolveQualityWarning?.(w.type, w.cta_prompt!)
+                          }
+                          className="rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3 py-1 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation"
                         >
-                          {ca('dismissWarning', { default: 'Dismiss' })}
+                          {w.cta_label}
                         </button>
-                      </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => onDismissQualityWarning?.(w.type)}
+                        className="rounded-full hover:bg-foreground/[0.04] px-3 py-1 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation"
+                      >
+                        {ca('dismissWarning')}
+                      </button>
                     </div>
                   </motion.div>
                 ))}
               </div>
             )}
 
-            {/* Pending Field Updates - Bi-directional sync UI */}
+            {/* Pending Field Updates — reshaped as an inline assistant turn.
+                Conversational: "I'd like to apply these updates", then a tight
+                list of plain text rows with subtle accept / reject text actions.
+                No panel chrome, no primary tint, no oversized icon buttons. */}
             {pendingUpdates.length > 0 && (
-              <div className="shrink-0 px-4 sm:px-5 py-3 sm:py-4 border-b border-foreground/[0.06] bg-primary/5">
-                <p className="text-sm sm:text-xs font-medium text-primary mb-2.5 sm:mb-2">
-                  {ca('suggestedUpdates')}
-                </p>
-                <div className="space-y-2.5 sm:space-y-2">
-                  {pendingUpdates.map((update) => (
-                    <div
-                      key={update.field}
-                      className="flex items-center justify-between gap-3 p-3 sm:p-2.5 rounded-xl sm:rounded-lg bg-background border border-primary/20"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm sm:text-xs font-medium text-foreground truncate">
+              <div className="shrink-0 px-4 sm:px-5 pt-4 pb-2 flex flex-col items-start gap-2">
+                <div className="max-w-[88%] rounded-2xl rounded-tl-md px-4 py-3 bg-foreground/[0.03] border border-foreground/[0.08]">
+                  <p className="text-[15px] sm:text-sm leading-relaxed text-foreground mb-2">
+                    {ca('suggestedUpdates')}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {pendingUpdates.map((update) => (
+                      <li
+                        key={update.field}
+                        className="flex items-baseline justify-between gap-3 text-sm"
+                      >
+                        <span className="min-w-0 flex-1 text-foreground/80 truncate">
+                          <span className="text-foreground/45 mr-1.5">→</span>
                           {update.label}
-                        </p>
-                        <p className="text-sm sm:text-xs text-foreground/50 font-mono">
-                          →{' '}
+                        </span>
+                        <span className="font-mono text-foreground/65 tabular-nums">
                           {typeof update.value === 'number'
                             ? `€${update.value.toLocaleString(currencyLocale)}`
                             : update.value}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
-                        <button
-                          onClick={() => onRejectUpdate?.(update.field)}
-                          className="p-2.5 sm:p-2 rounded-lg sm:rounded hover:bg-foreground/[0.06] text-foreground/40 active:scale-95 transition-transform touch-manipulation"
-                        >
-                          <X className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            onApplyFieldUpdate?.(update.field, update.value)
-                            onAcceptUpdate?.(update.field)
-                          }}
-                          className="p-2.5 sm:p-2 rounded-lg sm:rounded bg-primary/10 hover:bg-primary/20 text-primary active:scale-95 transition-transform touch-manipulation"
-                        >
-                          <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                        </span>
+                        <span className="flex items-center gap-2 text-xs shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApplyFieldUpdate?.(update.field, update.value)
+                              onAcceptUpdate?.(update.field)
+                            }}
+                            className="text-primary/85 hover:text-primary transition-colors"
+                          >
+                            {ca('accept')}
+                          </button>
+                          <span className="text-foreground/20">·</span>
+                          <button
+                            type="button"
+                            onClick={() => onRejectUpdate?.(update.field)}
+                            className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                          >
+                            {ca('dismissWarning')}
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             )}
@@ -1118,83 +1059,44 @@ export function ChatAssistantDrawer({
 
                   {showLoadingSkeleton && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                      className="flex items-start gap-3"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center gap-2 px-1 py-2 text-foreground/55"
                     >
-                      {/* AI Avatar - matches message bubble */}
-                      <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-primary animate-pulse" />
-                      </div>
-                      {/* Streaming skeleton */}
-                      <div className="flex-1 max-w-[82%] space-y-2">
-                        <div className="rounded-2xl rounded-tl-md px-5 py-4 bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02] border border-foreground/[0.08] backdrop-blur-sm space-y-3">
-                          {/* Tool execution indicator */}
-                          {toolInProgress ? (
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-                              <span className="text-xs text-primary/80 font-medium">
-                                {ca.has(`tools.${toolInProgress}`)
-                                  ? ca(`tools.${toolInProgress}` as any)
-                                  : ca('tools.default')}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <motion.div
-                                className="w-2 h-2 rounded-full bg-primary"
-                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
-                              />
-                              <motion.div
-                                className="w-2 h-2 rounded-full bg-primary"
-                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{
-                                  duration: 1,
-                                  repeat: Infinity,
-                                  ease: 'easeInOut',
-                                  delay: 0.15,
-                                }}
-                              />
-                              <motion.div
-                                className="w-2 h-2 rounded-full bg-primary"
-                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{
-                                  duration: 1,
-                                  repeat: Infinity,
-                                  ease: 'easeInOut',
-                                  delay: 0.3,
-                                }}
-                              />
-                              <span className="ml-2 text-xs text-foreground/40">
-                                {ca('typing')}
-                              </span>
-                            </div>
-                          )}
-                          {/* Content skeleton lines */}
-                          <div className="space-y-2">
-                            <motion.div
-                              className="h-3 bg-foreground/[0.06] rounded-full"
-                              style={{ width: '85%' }}
-                              animate={{ opacity: [0.5, 0.8, 0.5] }}
-                              transition={{ duration: 1.5, repeat: Infinity }}
+                      {/* Inline thinking indicator — no bubble, no skeleton bars.
+                          Three dots + a one-word label, mirroring Cursor's "Thinking…". */}
+                      {toolInProgress ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="text-xs">
+                            {ca.has(`tools.${toolInProgress}`)
+                              ? ca(`tools.${toolInProgress}` as any)
+                              : ca('tools.default')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="inline-flex gap-0.5 items-center">
+                            <motion.span
+                              className="w-1 h-1 rounded-full bg-foreground/50"
+                              animate={{ opacity: [0.3, 1, 0.3] }}
+                              transition={{ duration: 1.1, repeat: Infinity }}
                             />
-                            <motion.div
-                              className="h-3 bg-foreground/[0.06] rounded-full"
-                              style={{ width: '70%' }}
-                              animate={{ opacity: [0.5, 0.8, 0.5] }}
-                              transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                            <motion.span
+                              className="w-1 h-1 rounded-full bg-foreground/50"
+                              animate={{ opacity: [0.3, 1, 0.3] }}
+                              transition={{ duration: 1.1, repeat: Infinity, delay: 0.18 }}
                             />
-                            <motion.div
-                              className="h-3 bg-foreground/[0.06] rounded-full"
-                              style={{ width: '55%' }}
-                              animate={{ opacity: [0.5, 0.8, 0.5] }}
-                              transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                            <motion.span
+                              className="w-1 h-1 rounded-full bg-foreground/50"
+                              animate={{ opacity: [0.3, 1, 0.3] }}
+                              transition={{ duration: 1.1, repeat: Infinity, delay: 0.36 }}
                             />
-                          </div>
-                        </div>
-                      </div>
+                          </span>
+                          <span className="text-xs">{ca('typing')}</span>
+                        </>
+                      )}
                     </motion.div>
                   )}
 
@@ -1205,285 +1107,164 @@ export function ChatAssistantDrawer({
 
             {/* Contextual suggestions consolidated into input area pills */}
 
-            {/* Input Area - Premium Glassmorphism Design with safe area */}
-            <div className="shrink-0 p-4 sm:p-5 border-t border-foreground/[0.06] bg-background/80 backdrop-blur-xl">
-              {/* Command Detection Indicator */}
+            {/* Composer — Cursor/Lovable style: a quiet text field, no panel,
+                no glassmorphism, no shadow glow. Detected commands / values
+                surface inline above the textarea as plain monospace echoes.
+                Quick suggestions render as text chips, not pills with chrome. */}
+            <div className="shrink-0 px-4 sm:px-5 pb-4 sm:pb-5 pt-2">
+              {/* Inline detection echo — one quiet line, monospace, no panel */}
               <AnimatePresence>
-                {detectedCommands.length > 0 && (
+                {(detectedCommands.length > 0 || detectedValues.length > 0) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-primary/10 border border-primary/20"
+                    transition={{ duration: 0.12 }}
+                    className="mb-2 px-1 text-xs text-foreground/55 leading-relaxed"
                   >
-                    <p className="text-xs sm:text-[10px] font-medium text-primary mb-2 sm:mb-1.5 uppercase tracking-wide">
-                      {ca('normCommandDetected')}
-                    </p>
-                    <div className="flex flex-wrap gap-2.5 sm:gap-2">
-                      {detectedCommands.map((cmd, index) => (
-                        <div
-                          key={index}
-                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-primary/15 border border-primary/25"
-                        >
-                          <span className="text-sm sm:text-xs font-medium text-primary">
-                            {nh(`fieldLabels.${cmd.field}` as any) || cmd.label}
-                          </span>
-                          <span className="text-sm sm:text-xs text-foreground/60">→</span>
-                          <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
-                            €{cmd.value.toLocaleString(currencyLocale)}
-                          </span>
-                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs sm:text-[10px] text-primary/70 mt-2 sm:mt-1.5">
-                      {ca('normCommandDesc')}
-                    </p>
+                    <span className="text-foreground/35 mr-1.5">
+                      {detectedCommands.length > 0
+                        ? ca('normCommandDetected')
+                        : ca('detectedValues')}
+                      :
+                    </span>
+                    {(detectedCommands.length > 0 ? detectedCommands : detectedValues).map(
+                      (item, index) => (
+                        <span key={index} className="font-mono">
+                          {index > 0 && <span className="text-foreground/25 mx-1.5">·</span>}
+                          {nh(`fieldLabels.${item.field}` as any) || item.label}
+                          <span className="text-foreground/35"> → </span>
+                          €{item.value.toLocaleString(currencyLocale)}
+                        </span>
+                      )
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Smart Number Detection Indicator */}
+              {/* Attachment preview — quiet inline chips */}
               <AnimatePresence>
-                {detectedValues.length > 0 && detectedCommands.length === 0 && (
+                {attachments.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-success/10 border border-success/20"
+                    transition={{ duration: 0.12 }}
+                    className="flex gap-1.5 mb-2 flex-wrap"
                   >
-                    <p className="text-xs sm:text-[10px] font-medium text-success mb-2 sm:mb-1.5 uppercase tracking-wide">
-                      {ca('detectedValues')}
-                    </p>
-                    <div className="flex flex-wrap gap-2.5 sm:gap-2">
-                      {detectedValues.map((detected, index) => (
-                        <div
-                          key={index}
-                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-success/15 border border-success/25"
+                    {attachments.map((file, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.04] text-xs text-foreground/70"
+                      >
+                        {file.type.startsWith('image/') ? (
+                          <ImageIcon className="w-3 h-3" />
+                        ) : (
+                          <FileText className="w-3 h-3" />
+                        )}
+                        <span className="truncate max-w-[120px]">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="text-foreground/40 hover:text-foreground/70"
+                          aria-label="Remove attachment"
                         >
-                          <span className="text-sm sm:text-xs font-medium text-success">
-                            {nh(`fieldLabels.${detected.field}` as any) || detected.label}
-                          </span>
-                          <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
-                            €{detected.value.toLocaleString(currencyLocale)}
-                          </span>
-                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs sm:text-[10px] text-success/70 mt-2 sm:mt-1.5">
-                      {ca('detectedValuesDesc')}
-                    </p>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Premium Input Container */}
-              <motion.div
-                initial={false}
-                animate={{
-                  borderColor: isInputFocused
-                    ? 'hsl(var(--foreground) / 0.12)'
-                    : 'hsl(var(--foreground) / 0.08)',
-                }}
+              {/* Composer row — one subtle border, no panel container. */}
+              <div
                 className={cn(
-                  'relative w-full flex flex-col rounded-2xl sm:rounded-xl',
-                  'p-3.5 sm:p-3',
-                  'bg-foreground/[0.03] backdrop-blur-xl',
+                  'flex items-end gap-2 rounded-2xl px-3 py-2',
                   'border border-foreground/[0.08]',
-                  'transition-[box-shadow] duration-300',
-                  !isInputFocused && 'hover:bg-foreground/[0.04]'
+                  'transition-colors duration-150',
+                  isInputFocused
+                    ? 'border-foreground/[0.16]'
+                    : 'hover:border-foreground/[0.12]'
                 )}
-                style={{
-                  boxShadow: isInputFocused
-                    ? '0 0 20px -8px hsl(var(--foreground) / 0.08), 0 4px 20px -8px hsl(var(--background) / 0.3)'
-                    : '0 4px 20px -8px hsl(var(--background) / 0.3)',
-                }}
               >
-                {/* Attachments Preview */}
-                <AnimatePresence>
-                  {attachments.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="flex gap-2.5 sm:gap-2 mb-3 sm:mb-2 pb-3 sm:pb-2 flex-wrap border-b border-foreground/[0.06]"
-                    >
-                      {attachments.map((file, index) => (
-                        <motion.span
-                          key={index}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ duration: 0.15 }}
-                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-2 sm:py-1 rounded-xl sm:rounded-lg bg-foreground/[0.06] text-sm sm:text-xs text-foreground/70"
-                        >
-                          {file.type.startsWith('image/') ? (
-                            <ImageIcon className="w-4 h-4 sm:w-3 sm:h-3" />
-                          ) : (
-                            <FileText className="w-4 h-4 sm:w-3 sm:h-3" />
-                          )}
-                          <span className="truncate max-w-[120px] sm:max-w-[100px]">
-                            {file.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(index)}
-                            className="p-1 sm:p-0.5 rounded-md sm:rounded hover:bg-foreground/[0.08] text-foreground/40 hover:text-destructive touch-manipulation"
-                          >
-                            <X className="w-4 h-4 sm:w-3 sm:h-3" />
-                          </button>
-                        </motion.span>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04] transition-colors touch-manipulation"
+                  aria-label={ca('addFile')}
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
 
-                {/* Textarea Row */}
-                <div className="flex items-end gap-2.5 sm:gap-2">
-                  {/* Attach Button - 48px touch target on mobile */}
-                  <motion.button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={cn(
-                      'shrink-0 rounded-xl sm:rounded-lg transition-colors touch-manipulation',
-                      'w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center',
-                      'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]',
-                      'active:bg-foreground/[0.08]'
-                    )}
-                    aria-label={ca('addFile')}
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    fieldContext
+                      ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
+                      : ca('askOrCommand')
+                  }
+                  rows={1}
+                  className={cn(
+                    'flex-1 w-full bg-transparent border-0 outline-none resize-none',
+                    'focus:outline-none focus:ring-0 focus:border-0',
+                    'text-base sm:text-sm min-h-[36px] leading-relaxed py-1.5',
+                    'text-foreground placeholder:text-foreground/35'
+                  )}
+                  disabled={isGenerating}
+                  aria-label={ca('chatInput')}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => handleSubmit()}
+                  disabled={(!input.trim() && attachments.length === 0) || isGenerating}
+                  className={cn(
+                    'shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-colors touch-manipulation',
+                    (input.trim() || attachments.length > 0) && !isGenerating
+                      ? 'text-foreground hover:bg-foreground/[0.06]'
+                      : 'text-foreground/25 cursor-not-allowed',
+                    isGenerating && 'text-foreground/40'
+                  )}
+                  aria-label={ca('send')}
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+
+              {/* Quick suggestions — plain text chips, only when empty */}
+              <AnimatePresence>
+                {!input.trim() && !isGenerating && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="mt-2 flex sm:flex-wrap items-center gap-x-3 gap-y-1 overflow-x-auto sm:overflow-visible scrollbar-hide px-1"
                   >
-                    <Paperclip className="w-5 h-5 sm:w-4 sm:h-4" />
-                  </motion.button>
-
-                  {/* Textarea - text-base prevents iOS zoom */}
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onFocus={() => setIsInputFocused(true)}
-                    onBlur={() => setIsInputFocused(false)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={
-                      fieldContext
-                        ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
-                        : ca('askOrCommand')
-                    }
-                    rows={1}
-                    className={cn(
-                      'flex-1 w-full bg-transparent border-none outline-none resize-none',
-                      'focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent',
-                      // text-base on mobile prevents iOS auto-zoom
-                      'text-base sm:text-sm min-h-[48px] sm:min-h-[44px] leading-relaxed',
-                      'text-foreground placeholder:text-foreground/40',
-                      'transition-colors duration-200'
-                    )}
-                    disabled={isGenerating}
-                    aria-label={ca('chatInput')}
-                  />
-
-                  {/* Send Button - 48px touch target on mobile */}
-                  <motion.button
-                    type="button"
-                    onClick={() => handleSubmit()}
-                    disabled={(!input.trim() && attachments.length === 0) || isGenerating}
-                    whileHover={{ scale: input.trim() || attachments.length > 0 ? 1.05 : 1 }}
-                    whileTap={{ scale: input.trim() || attachments.length > 0 ? 0.95 : 1 }}
-                    className={cn(
-                      'shrink-0 w-12 h-12 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center',
-                      'transition-all duration-200 touch-manipulation',
-                      // Enabled with value
-                      (input.trim() || attachments.length > 0) &&
-                        !isGenerating && [
-                          'bg-primary text-primary-foreground',
-                          'shadow-md shadow-primary/20',
-                          'hover:shadow-lg hover:shadow-primary/30',
-                          'active:scale-95',
-                        ],
-                      // Disabled/empty
-                      !input.trim() &&
-                        attachments.length === 0 &&
-                        !isGenerating && [
-                          'bg-foreground/[0.06] text-foreground/30',
-                          'cursor-not-allowed',
-                        ],
-                      // Loading
-                      isGenerating && 'bg-primary/70 text-primary-foreground cursor-wait'
-                    )}
-                    aria-label={ca('send')}
-                  >
-                    {isGenerating ? (
-                      <Loader2 className="w-5 h-5 sm:w-4 sm:h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5 sm:w-4 sm:h-4" />
-                    )}
-                  </motion.button>
-                </div>
-
-                {/* Quick Suggestion Pills (when empty) - Horizontal scroll on mobile */}
-                <AnimatePresence>
-                  {!input.trim() && !isGenerating && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="mt-3 sm:mt-3 pt-3 sm:pt-3 border-t border-foreground/[0.06]"
-                    >
-                      {/* On mobile: horizontal scroll, on desktop: wrap */}
-                      <div className="flex sm:flex-wrap items-center gap-2.5 sm:gap-2 overflow-x-auto sm:overflow-visible scrollbar-hide pb-1 sm:pb-0">
-                        {suggestions.slice(0, 4).map((suggestion, index) => (
-                          <motion.button
-                            key={index}
-                            type="button"
-                            initial={{ opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.15, delay: 0.02 + index * 0.03 }}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => handleCommandPillClick(suggestion)}
-                            disabled={isGenerating}
-                            className={cn(
-                              'shrink-0 sm:shrink',
-                              // Mobile: Larger touch targets
-                              'px-4 py-2.5 sm:px-3 sm:py-1.5',
-                              'rounded-full inline-flex items-center gap-1.5',
-                              'bg-foreground/[0.05] backdrop-blur-sm',
-                              'border border-foreground/[0.08]',
-                              'text-sm sm:text-xs font-medium text-foreground/60',
-                              'hover:bg-foreground/[0.08] hover:border-foreground/[0.12] hover:text-foreground/80',
-                              'active:scale-95 transition-all duration-150 touch-manipulation whitespace-nowrap',
-                              isGenerating && 'opacity-50 cursor-not-allowed'
-                            )}
-                          >
-                            {suggestion}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Keyboard Hint */}
-                <AnimatePresence>
-                  {isInputFocused && input.trim() && !isGenerating && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute bottom-2 right-14 text-[10px] text-foreground/25 hidden md:block"
-                    >
-                      {ca('sendHint')}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.div>
+                    {suggestions.slice(0, 4).map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleCommandPillClick(suggestion)}
+                        disabled={isGenerating}
+                        className="shrink-0 sm:shrink text-xs text-foreground/45 hover:text-foreground/75 transition-colors whitespace-nowrap touch-manipulation"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         </>
@@ -1526,16 +1307,6 @@ function EmptyState({
       </div>
     </div>
   )
-}
-
-// Category icons for normalization suggestions
-const categoryIcons: Record<string, string> = {
-  salary: '👤',
-  rent: '🏢',
-  vehicle: '🚗',
-  'one-time': '⚡',
-  personal: '🏠',
-  other: '📊',
 }
 
 // Code Block with copy button
@@ -1638,41 +1409,33 @@ function MessageBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-      className={cn('flex gap-3 group/msg', isUser ? 'justify-end' : 'justify-start')}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className={cn('flex group/msg', isUser ? 'justify-end' : 'justify-start')}
     >
-      {/* AI Avatar - Premium minimal design */}
-      {!isUser && (
-        <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
-          <Bot className="w-4 h-4 text-primary" />
-        </div>
-      )}
+      {/* No avatar — bubble shape + alignment carry the role distinction
+          (Cursor / Lovable / Ilara pattern). */}
 
       <div
         className={cn(
-          // Responsive bubble sizing with premium shapes
-          'max-w-[85%] sm:max-w-[82%]',
+          'max-w-[88%]',
           isUser
-            ? // User bubble: Teal tint with dark text for readability
+            ? // User bubble: tinted accent
               [
                 'rounded-2xl rounded-tr-md',
                 'px-4 py-3',
-                'bg-gradient-to-br from-primary/15 via-primary/12 to-primary/8',
+                'bg-primary/12',
                 'text-foreground',
-                'border border-primary/25',
-                'shadow-sm',
+                'border border-primary/20',
               ]
-            : // AI bubble: Glassmorphism with depth
+            : // Assistant bubble: surface, no chrome
               [
                 'rounded-2xl rounded-tl-md',
                 'px-5 py-4',
-                'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
+                'bg-foreground/[0.03]',
                 'border border-foreground/[0.08]',
-                'backdrop-blur-sm',
                 'text-foreground',
-                'shadow-sm',
               ]
         )}
       >
@@ -1876,241 +1639,120 @@ function MessageBubble({
           </div>
         )}
 
-        {/* YC-Standard: Structured Cards with Impact Framing */}
+        {/* Field updates — flattened. Each one is a single text line:
+            "label  €value  · source · confidence  · Apply". No card,
+            no header bar, no nested impact panel. */}
         {message.fieldUpdates && message.fieldUpdates.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            {message.fieldUpdates.map((update) => (
-              <div
-                key={update.field}
-                className="rounded-xl sm:rounded-lg border border-foreground/[0.08] bg-foreground/[0.02] overflow-hidden"
-              >
-                {/* Header with source badge */}
-                <div className="flex items-center justify-between px-4 sm:px-3 py-2.5 sm:py-2 bg-foreground/[0.02] border-b border-foreground/[0.04]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm sm:text-xs font-medium text-foreground">
-                      {update.label}
-                    </span>
-                    {update.grootboekCode && (
-                      <span className="text-xs sm:text-[9px] font-mono text-foreground/40 bg-foreground/[0.04] px-2 sm:px-1.5 py-0.5 rounded">
-                        {update.grootboekCode}
-                      </span>
-                    )}
-                  </div>
-                  {update.source && (
-                    <span
-                      className={cn(
-                        'text-xs sm:text-[9px] font-medium px-2 sm:px-1.5 py-0.5 rounded',
-                        update.source === 'yuki'
-                          ? 'bg-primary/10 text-primary'
-                          : update.source === 'ai'
-                            ? 'bg-primary/10 text-primary'
-                            : update.source === 'kbo'
-                              ? 'bg-success/10 text-success'
-                              : 'bg-foreground/[0.06] text-foreground/50'
-                      )}
-                    >
-                      {update.source === 'ai'
-                        ? ca('aiSuggestion')
-                        : update.source === 'yuki'
-                          ? 'Yuki'
-                          : update.source === 'kbo'
-                            ? ca('registrySource') ?? 'Registry'
-                            : update.source}
-                    </span>
-                  )}
-                </div>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-2.5">
+            {message.fieldUpdates.map((update) => {
+              const sourceLabel =
+                update.source === 'ai'
+                  ? ca('aiSuggestion')
+                  : update.source === 'yuki'
+                    ? 'Yuki'
+                    : update.source === 'kbo'
+                      ? (ca('registrySource') ?? 'Registry')
+                      : update.source
+              const confidenceLabel =
+                update.confidence === 'high'
+                  ? ca('reliable')
+                  : update.confidence === 'medium'
+                    ? ca('toVerify')
+                    : update.confidence === 'low'
+                      ? ca('indicative')
+                      : null
+              const meta: string[] = []
+              if (update.grootboekCode) meta.push(update.grootboekCode)
+              if (sourceLabel) meta.push(sourceLabel as string)
+              if (confidenceLabel) meta.push(confidenceLabel)
+              if (update.impact)
+                meta.push(
+                  `+€${update.impact.valuationDelta.toLocaleString(currencyLocale)} ${ca('impactOnValue').toLowerCase()}`
+                )
 
-                {/* Value + Impact */}
-                <div className="px-4 sm:px-3 py-3 sm:py-2.5 space-y-2.5 sm:space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base sm:text-sm font-mono font-semibold text-foreground">
+              return (
+                <div key={update.field} className="text-sm leading-relaxed">
+                  <p className="text-foreground">
+                    {update.label}
+                    <span className="text-foreground/35 mx-1.5">·</span>
+                    <span className="font-mono">
                       €{update.value.toLocaleString(currencyLocale)}
                     </span>
-                    {update.confidence && (
-                      <div
-                        className={cn(
-                          'flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px]',
-                          update.confidence === 'high'
-                            ? 'text-success'
-                            : update.confidence === 'medium'
-                              ? 'text-secondary'
-                              : 'text-foreground/40'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full',
-                            update.confidence === 'high'
-                              ? 'bg-success'
-                              : update.confidence === 'medium'
-                                ? 'bg-secondary'
-                                : 'bg-foreground/30'
-                          )}
-                        />
-                        {update.confidence === 'high'
-                          ? ca('reliable')
-                          : update.confidence === 'medium'
-                            ? ca('toVerify')
-                            : ca('indicative')}
-                      </div>
-                    )}
+                  </p>
+                  {meta.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{meta.join(' · ')}</p>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onApplyUpdate?.(update.field, update.value)}
+                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                    >
+                      {ca('acceptAndApply')}
+                    </button>
                   </div>
-
-                  {/* Impact framing - YC killer feature */}
-                  {update.impact && (
-                    <div className="flex items-center gap-3 p-3 sm:p-2 rounded-lg sm:rounded-md bg-success/5 border border-success/10">
-                      <div className="flex-1">
-                        <p className="text-xs sm:text-[10px] text-success/70 uppercase tracking-wide mb-0.5">
-                          {ca('impactOnValue')}
-                        </p>
-                        <p className="text-sm sm:text-xs font-semibold text-success">
-                          +€{update.impact.valuationDelta.toLocaleString(currencyLocale)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs sm:text-[10px] text-foreground/50">
-                          EBITDA {update.impact.ebitdaDelta > 0 ? '+' : ''}€
-                          {(update.impact.ebitdaDelta / 1000).toFixed(0)}k
-                        </p>
-                        {update.impact.multiple && (
-                          <p className="text-xs sm:text-[10px] text-foreground/40">
-                            @ {update.impact.multiple}x
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
-
-                {/* Action button - 48px touch target on mobile */}
-                <button
-                  onClick={() => onApplyUpdate?.(update.field, update.value)}
-                  className={cn(
-                    'w-full flex items-center justify-center gap-2',
-                    'px-4 sm:px-3 py-3.5 sm:py-2.5',
-                    'bg-primary/10 hover:bg-primary/20 active:bg-primary/25',
-                    'transition-colors border-t border-foreground/[0.04]',
-                    'touch-manipulation'
-                  )}
-                >
-                  <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-primary" />
-                  <span className="text-sm sm:text-xs font-medium text-primary">
-                    {ca('acceptAndApply')}
-                  </span>
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
-        {/* AI-Generated Normalization Suggestions with Accept/Reject */}
+        {/* Normalisation suggestions — flat conversational style: plain text
+            continuation inside the bubble, one primary text action + cancel. */}
         {message.normalisationSuggestions && message.normalisationSuggestions.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {ca('normSuggestions')}
-            </p>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.normalisationSuggestions.map((suggestion) => {
               const valuationImpact =
                 suggestion.valuationImpact ||
                 Math.round(suggestion.amount * (suggestion.multiple || 5.2))
               const isPending = suggestion.status === 'pending'
               const isAccepted = suggestion.status === 'accepted'
-              const isRejected = suggestion.status === 'rejected'
 
               return (
                 <motion.div
                   key={suggestion.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className={cn(
-                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
-                    isPending
-                      ? 'border-primary/20 bg-primary/5'
-                      : isAccepted
-                        ? 'border-success/20 bg-success/5'
-                        : 'border-foreground/10 bg-foreground/[0.02] opacity-60'
-                  )}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
                 >
-                  {/* Suggestion Header */}
-                  <div className="flex items-start gap-3 p-4 sm:p-3">
-                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
-                      {categoryIcons[suggestion.category] || '📊'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {ca('normalizeSuggestion', {
-                          description: (suggestion.description || '').toLowerCase(),
-                        })}
-                      </p>
-                      <p className="text-xs sm:text-[10px] text-foreground/50 mt-1 sm:mt-0.5">
-                        {suggestion.reason}
-                      </p>
-                      {suggestion.sourceRef && (
-                        <span className="inline-block mt-1.5 sm:mt-1 text-xs sm:text-[9px] font-mono text-foreground/40 bg-foreground/[0.04] px-2 sm:px-1.5 py-0.5 rounded">
-                          {suggestion.sourceRef}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Impact + Actions - Stack on mobile for better touch targets */}
+                  <p className="text-foreground">
+                    {ca('normalizeSuggestion', {
+                      description: (suggestion.description || '').toLowerCase(),
+                    })}
+                  </p>
+                  {suggestion.reason && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{suggestion.reason}</p>
+                  )}
+                  {isPending && (
+                    <p className="text-foreground/55 text-xs mt-1 font-mono">
+                      {ca('impactEbitdaToValue', {
+                        ebitda: suggestion.amount.toLocaleString(currencyLocale),
+                        value: valuationImpact.toLocaleString(currencyLocale),
+                      })}
+                    </p>
+                  )}
                   {isPending ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center border-t border-foreground/[0.06]">
-                      {/* Impact Display */}
-                      <div className="flex-1 px-4 sm:px-3 py-3 sm:py-2 bg-success/5">
-                        <p className="text-xs sm:text-[10px] text-success/70">{ca('impact')}</p>
-                        <p className="text-sm sm:text-xs font-mono font-semibold text-success">
-                          {ca('impactEbitdaToValue', {
-                            ebitda: suggestion.amount.toLocaleString(currencyLocale),
-                            value: valuationImpact.toLocaleString(currencyLocale),
-                          })}
-                        </p>
-                      </div>
-                      {/* Accept/Reject Buttons - Full width on mobile */}
-                      <div className="flex shrink-0 border-t sm:border-t-0 border-foreground/[0.06]">
-                        <button
-                          onClick={() => onRejectNormalisation?.(suggestion.id)}
-                          className={cn(
-                            'flex-1 sm:flex-initial flex items-center justify-center gap-2',
-                            'px-5 sm:px-4 py-4 sm:py-3',
-                            'text-foreground/40 hover:text-destructive hover:bg-destructive/10',
-                            'active:bg-destructive/15 transition-colors',
-                            'sm:border-l border-foreground/[0.06]',
-                            'touch-manipulation'
-                          )}
-                          aria-label={ca('reject')}
-                        >
-                          <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                          <span className="text-sm sm:hidden">{ca('reject')}</span>
-                        </button>
-                        <button
-                          onClick={() => onAcceptNormalisation?.(suggestion.id)}
-                          className={cn(
-                            'flex-1 sm:flex-initial flex items-center justify-center gap-2',
-                            'px-5 sm:px-4 py-4 sm:py-3',
-                            'bg-success/10 text-success hover:bg-success/20',
-                            'active:bg-success/25 transition-colors',
-                            'touch-manipulation'
-                          )}
-                          aria-label={ca('accept')}
-                        >
-                          <Check className="w-5 h-5 sm:w-4 sm:h-4" />
-                          <span className="text-sm sm:hidden">{ca('accept')}</span>
-                        </button>
-                      </div>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => onAcceptNormalisation?.(suggestion.id)}
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      >
+                        {ca('accept')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectNormalisation?.(suggestion.id)}
+                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      >
+                        {ca('reject')}
+                      </button>
                     </div>
                   ) : (
-                    <div
-                      className={cn(
-                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
-                        isAccepted
-                          ? 'border-success/10 text-success bg-success/5'
-                          : 'border-foreground/[0.06] text-foreground/40'
-                      )}
-                    >
+                    <p className="mt-1 text-xs text-foreground/45">
                       {isAccepted ? ca('accepted') : ca('rejected')}
-                    </div>
+                    </p>
                   )}
                 </motion.div>
               )
@@ -2118,17 +1760,13 @@ function MessageBubble({
           </div>
         )}
 
-        {/* AI-Proposed Valuation Runs (run_valuation tool) — propose-only, user approves to fire calculation */}
+        {/* Valuation-run proposals — flattened to plain text + single action. */}
         {message.valuationRunRequests && message.valuationRunRequests.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {ca('proposalCards.valuation.header')}
-            </p>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.valuationRunRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
               const isBlocked = req.status === 'blocked'
               const isApproved = req.decision === 'approved'
-              const isRejected = req.decision === 'rejected'
               const summary = req.inputsSummary
               const revenueNum = summary?.revenue ? Number(summary.revenue) : null
               const ebitdaNormNum =
@@ -2136,147 +1774,83 @@ function MessageBubble({
               const ebitdaNum = summary?.ebitda ? Number(summary.ebitda) : null
               const ebitdaForDisplay = ebitdaNormNum ?? ebitdaNum
 
+              // Compose a single, dense one-line summary so the user sees what
+              // will run without scanning a data grid.
+              const summaryBits: string[] = []
+              if (revenueNum !== null)
+                summaryBits.push(
+                  `${ca('proposalCards.valuation.labelRevenue')} €${revenueNum.toLocaleString(currencyLocale)}`
+                )
+              if (ebitdaForDisplay !== null)
+                summaryBits.push(
+                  `EBITDA${ebitdaNormNum ? '*' : ''} €${ebitdaForDisplay.toLocaleString(currencyLocale)}`
+                )
+              if (summary?.business_type) summaryBits.push(summary.business_type)
+              if (summary && summary.applied_normalizations > 0)
+                summaryBits.push(
+                  `${summary.applied_normalizations} ${ca('proposalCards.valuation.labelAppliedNormalisations')}`
+                )
+              if (req.estimatedCredits != null)
+                summaryBits.push(
+                  ca('proposalCards.common.creditsLabel', { count: req.estimatedCredits })
+                )
+
               return (
                 <motion.div
                   key={req.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className={cn(
-                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
-                    isPending && 'border-primary/20 bg-primary/5',
-                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
-                    isApproved && 'border-success/20 bg-success/5',
-                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
-                  )}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
                 >
-                  <div className="flex items-start gap-3 p-4 sm:p-3">
-                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
-                      📐
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {isBlocked
-                          ? ca('proposalCards.valuation.titleBlocked')
-                          : summary?.business_name
-                            ? ca('proposalCards.valuation.titlePendingWithName', { name: summary.business_name })
-                            : ca('proposalCards.valuation.titlePending')}
-                      </p>
-                      {req.note && (
-                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
-                          {req.note}
-                        </p>
-                      )}
-                      {isBlocked && req.message && (
-                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
-                          {req.message}
-                        </p>
-                      )}
-                      {isBlocked && req.missing && req.missing.length > 0 && (
-                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
-                          {ca('proposalCards.common.missingPrefix')}
-                          {req.missing.join(', ')}
-                        </p>
-                      )}
-                      {isPending && summary && (
-                        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-[10px]">
-                          {revenueNum !== null && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.valuation.labelRevenue')}:{' '}
-                              <span className="font-mono text-foreground/80">
-                                €{revenueNum.toLocaleString(currencyLocale)}
-                              </span>
-                            </div>
-                          )}
-                          {ebitdaForDisplay !== null && (
-                            <div className="text-foreground/50">
-                              EBITDA{ebitdaNormNum ? '*' : ''}:{' '}
-                              <span className="font-mono text-foreground/80">
-                                €{ebitdaForDisplay.toLocaleString(currencyLocale)}
-                              </span>
-                            </div>
-                          )}
-                          {summary.business_type && (
-                            <div className="text-foreground/50 col-span-2">
-                              {ca('proposalCards.valuation.labelSector')}:{' '}
-                              <span className="text-foreground/80">{summary.business_type}</span>
-                            </div>
-                          )}
-                          {summary.applied_normalizations > 0 && (
-                            <div className="text-foreground/50 col-span-2">
-                              {ca('proposalCards.valuation.labelAppliedNormalisations')}:{' '}
-                              <span className="text-foreground/80">{summary.applied_normalizations}</span>
-                              {summary.pending_normalizations > 0 && (
-                                <span className="text-foreground/40">
-                                  {' '}
-                                  (+{summary.pending_normalizations} {ca('proposalCards.valuation.labelPendingNormalisations')})
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {req.estimatedCredits != null && (
-                            <div className="text-foreground/50 col-span-2 mt-1">
-                              {ca('proposalCards.common.creditsConsumed')}:{' '}
-                              <span className="text-foreground/80">
-                                {ca('proposalCards.common.creditsLabel', { count: req.estimatedCredits })}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.valuation.titleBlocked')
+                      : summary?.business_name
+                        ? ca('proposalCards.valuation.titlePendingWithName', { name: summary.business_name })
+                        : ca('proposalCards.valuation.titlePending')}
+                  </p>
+                  {req.note && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
+                  )}
+                  {isBlocked && req.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
+                  )}
+                  {isBlocked && req.missing && req.missing.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5 font-mono">
+                      {ca('proposalCards.common.missingPrefix')}
+                      {req.missing.join(', ')}
+                    </p>
+                  )}
+                  {isPending && summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">
+                      {summaryBits.join(' · ')}
+                    </p>
+                  )}
                   {isPending && (
-                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
-                      <button
-                        type="button"
-                        onClick={() => onRejectValuationRun?.(req.id)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
-                          'active:bg-foreground/[0.06] transition-colors',
-                          'border-r border-foreground/[0.06]',
-                          'touch-manipulation'
-                        )}
-                      >
-                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.common.buttonCancel')}
-                        </span>
-                      </button>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
                       <button
                         type="button"
                         onClick={() => onApproveValuationRun?.(req.id, req.reportId)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'bg-primary/10 text-primary hover:bg-primary/20',
-                          'active:bg-primary/25 transition-colors',
-                          'touch-manipulation'
-                        )}
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
                       >
-                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.valuation.actionLabel')}
-                        </span>
+                        {ca('proposalCards.valuation.actionLabel')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectValuationRun?.(req.id)}
+                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      >
+                        {ca('proposalCards.common.buttonCancel')}
                       </button>
                     </div>
                   )}
-                  {(isApproved || isRejected) && (
-                    <div
-                      className={cn(
-                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
-                        isApproved
-                          ? 'border-success/10 text-success bg-success/5'
-                          : 'border-foreground/[0.06] text-foreground/40'
-                      )}
-                    >
+                  {!isPending && !isBlocked && (
+                    <p className="mt-1 text-xs text-foreground/45">
                       {isApproved
                         ? ca('proposalCards.valuation.statusStarted')
                         : ca('proposalCards.common.statusCancelled')}
-                    </div>
+                    </p>
                   )}
                 </motion.div>
               )
@@ -2284,17 +1858,13 @@ function MessageBubble({
           </div>
         )}
 
-        {/* AI-Proposed PDF Generations (generate_report tool) — propose-only, user approves to fire generatePdf */}
+        {/* Report-generation proposals — flattened. */}
         {message.reportGenerationRequests && message.reportGenerationRequests.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {ca('proposalCards.report.header')}
-            </p>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.reportGenerationRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
               const isBlocked = req.status === 'blocked'
               const isApproved = req.decision === 'approved'
-              const isRejected = req.decision === 'rejected'
               const result = req.resultSummary
               const ccy = result?.currency ?? 'EUR'
               const fmt = (n: number | null | undefined) =>
@@ -2305,130 +1875,65 @@ function MessageBubble({
               const min = fmt(result?.min)
               const max = fmt(result?.max)
 
+              const summaryBits: string[] = []
+              if (midpoint) summaryBits.push(midpoint)
+              if (min || max) summaryBits.push(`${min ?? '—'}–${max ?? '—'}`)
+              if (result?.valuation_method) summaryBits.push(result.valuation_method)
+              if (result?.confidence_score != null)
+                summaryBits.push(
+                  `${result.confidence_score}% ${ca('proposalCards.report.labelConfidence').toLowerCase()}`
+                )
+
               return (
                 <motion.div
                   key={req.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className={cn(
-                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
-                    isPending && 'border-primary/20 bg-primary/5',
-                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
-                    isApproved && 'border-success/20 bg-success/5',
-                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
-                  )}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
                 >
-                  <div className="flex items-start gap-3 p-4 sm:p-3">
-                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
-                      <FileText className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/60" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {isBlocked
-                          ? ca('proposalCards.report.titleBlocked')
-                          : result?.business_name
-                            ? ca('proposalCards.report.titlePendingWithName', { name: result.business_name })
-                            : ca('proposalCards.report.titlePending')}
-                      </p>
-                      {req.note && (
-                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
-                          {req.note}
-                        </p>
-                      )}
-                      {isBlocked && req.message && (
-                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
-                          {req.message}
-                        </p>
-                      )}
-                      {isPending && result && (
-                        <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
-                          {midpoint && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.report.labelMidpoint')}:{' '}
-                              <span className="font-mono font-semibold text-foreground/90">
-                                {midpoint}
-                              </span>
-                            </div>
-                          )}
-                          {(min || max) && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.report.labelRange')}:{' '}
-                              <span className="font-mono text-foreground/80">
-                                {min ?? '—'} – {max ?? '—'}
-                              </span>
-                            </div>
-                          )}
-                          {result.valuation_method && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.report.labelMethod')}:{' '}
-                              <span className="text-foreground/80">{result.valuation_method}</span>
-                            </div>
-                          )}
-                          {result.confidence_score != null && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.report.labelConfidence')}:{' '}
-                              <span className="text-foreground/80">{result.confidence_score}%</span>
-                            </div>
-                          )}
-                          <div className="text-foreground/50 mt-1">
-                            {ca('proposalCards.report.noExtraCreditHint')}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.report.titleBlocked')
+                      : result?.business_name
+                        ? ca('proposalCards.report.titlePendingWithName', { name: result.business_name })
+                        : ca('proposalCards.report.titlePending')}
+                  </p>
+                  {req.note && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
+                  )}
+                  {isBlocked && req.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
+                  )}
+                  {isPending && summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">
+                      {summaryBits.join(' · ')}
+                    </p>
+                  )}
                   {isPending && (
-                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
-                      <button
-                        type="button"
-                        onClick={() => onRejectReportGeneration?.(req.id)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
-                          'active:bg-foreground/[0.06] transition-colors',
-                          'border-r border-foreground/[0.06]',
-                          'touch-manipulation'
-                        )}
-                      >
-                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.common.buttonCancel')}
-                        </span>
-                      </button>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
                       <button
                         type="button"
                         onClick={() => onApproveReportGeneration?.(req.id, req.reportId)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'bg-primary/10 text-primary hover:bg-primary/20',
-                          'active:bg-primary/25 transition-colors',
-                          'touch-manipulation'
-                        )}
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
                       >
-                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.report.actionLabel')}
-                        </span>
+                        {ca('proposalCards.report.actionLabel')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectReportGeneration?.(req.id)}
+                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      >
+                        {ca('proposalCards.common.buttonCancel')}
                       </button>
                     </div>
                   )}
-                  {(isApproved || isRejected) && (
-                    <div
-                      className={cn(
-                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
-                        isApproved
-                          ? 'border-success/10 text-success bg-success/5'
-                          : 'border-foreground/[0.06] text-foreground/40'
-                      )}
-                    >
+                  {!isPending && !isBlocked && (
+                    <p className="mt-1 text-xs text-foreground/45">
                       {isApproved
                         ? ca('proposalCards.report.statusStarted')
                         : ca('proposalCards.common.statusCancelled')}
-                    </div>
+                    </p>
                   )}
                 </motion.div>
               )
@@ -2436,153 +1941,90 @@ function MessageBubble({
           </div>
         )}
 
-        {/* AI-Proposed Sellability Computes (run_sellability tool) — propose-only, user approves to fire POST /api/sellability/score */}
+        {/* Sellability-run proposals — flattened. */}
         {message.sellabilityRunRequests && message.sellabilityRunRequests.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {ca('proposalCards.sellability.header')}
-            </p>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.sellabilityRunRequests.map((req) => {
               const isPending = req.status === 'pending_approval' && !req.decision
               const isBlocked = req.status === 'blocked'
               const isApproved = req.decision === 'approved'
-              const isRejected = req.decision === 'rejected'
               const answers = req.answers
               const cur = req.currentScore
               const computed = req.computedScore
+
+              const summaryBits: string[] = []
+              if (answers?.q1_top3_concentration_pct != null)
+                summaryBits.push(
+                  `${ca('proposalCards.sellability.labelQ1')} ${answers.q1_top3_concentration_pct}%`
+                )
+              if (answers?.q2_contracted_share)
+                summaryBits.push(
+                  `${ca('proposalCards.sellability.labelQ2')} ${answers.q2_contracted_share}`
+                )
+              if (answers?.q3_books_cleanliness)
+                summaryBits.push(
+                  `${ca('proposalCards.sellability.labelQ3')} ${answers.q3_books_cleanliness}`
+                )
+              if (cur) summaryBits.push(`${cur.score}/100 (${cur.band})`)
 
               return (
                 <motion.div
                   key={req.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className={cn(
-                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
-                    isPending && 'border-primary/20 bg-primary/5',
-                    isBlocked && 'border-amber-400/30 bg-amber-50/40 dark:bg-amber-950/10',
-                    isApproved && 'border-success/20 bg-success/5',
-                    isRejected && 'border-foreground/10 bg-foreground/[0.02] opacity-60'
-                  )}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
                 >
-                  <div className="flex items-start gap-3 p-4 sm:p-3">
-                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
-                      🎯
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {isBlocked
-                          ? ca('proposalCards.sellability.titleBlocked')
-                          : computed
-                            ? ca('proposalCards.sellability.computedTitle', { score: computed.score, band: computed.band })
-                            : ca('proposalCards.sellability.titlePending')}
-                      </p>
-                      {req.note && (
-                        <p className="text-xs sm:text-[10px] text-foreground/60 mt-1 sm:mt-0.5">
-                          {req.note}
-                        </p>
-                      )}
-                      {isBlocked && req.message && (
-                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 sm:mt-0.5">
-                          {req.message}
-                        </p>
-                      )}
-                      {isBlocked && req.missing && req.missing.length > 0 && (
-                        <p className="text-xs sm:text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-mono">
-                          {ca('proposalCards.common.missingPrefix')}
-                          {req.missing.join(', ')}
-                        </p>
-                      )}
-                      {isPending && answers && (
-                        <div className="mt-2 space-y-1 text-xs sm:text-[10px]">
-                          {answers.q1_top3_concentration_pct != null && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.sellability.labelQ1')}:{' '}
-                              <span className="font-mono text-foreground/80">
-                                {answers.q1_top3_concentration_pct}%
-                              </span>
-                            </div>
-                          )}
-                          {answers.q2_contracted_share && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.sellability.labelQ2')}:{' '}
-                              <span className="text-foreground/80">{answers.q2_contracted_share}</span>
-                            </div>
-                          )}
-                          {answers.q3_books_cleanliness && (
-                            <div className="text-foreground/50">
-                              {ca('proposalCards.sellability.labelQ3')}:{' '}
-                              <span className="text-foreground/80">{answers.q3_books_cleanliness}</span>
-                            </div>
-                          )}
-                          {cur && (
-                            <div className="text-foreground/50 mt-1">
-                              {ca('proposalCards.sellability.labelCurrentScore')}:{' '}
-                              <span className="font-mono font-semibold text-foreground/80">
-                                {cur.score}/100 ({cur.band})
-                              </span>
-                            </div>
-                          )}
-                          <div className="text-foreground/50 mt-1">
-                            {ca('proposalCards.sellability.noCreditHint')}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+                  <p className="text-foreground">
+                    {isBlocked
+                      ? ca('proposalCards.sellability.titleBlocked')
+                      : computed
+                        ? ca('proposalCards.sellability.computedTitle', { score: computed.score, band: computed.band })
+                        : ca('proposalCards.sellability.titlePending')}
+                  </p>
+                  {req.note && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>
+                  )}
+                  {isBlocked && req.message && (
+                    <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
+                  )}
+                  {isBlocked && req.missing && req.missing.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5 font-mono">
+                      {ca('proposalCards.common.missingPrefix')}
+                      {req.missing.join(', ')}
+                    </p>
+                  )}
+                  {isPending && summaryBits.length > 0 && (
+                    <p className="text-foreground/55 text-xs mt-0.5">
+                      {summaryBits.join(' · ')}
+                    </p>
+                  )}
                   {isPending && (
-                    <div className="flex shrink-0 border-t border-foreground/[0.06]">
-                      <button
-                        type="button"
-                        onClick={() => onRejectSellabilityRun?.(req.id)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]',
-                          'active:bg-foreground/[0.06] transition-colors',
-                          'border-r border-foreground/[0.06]',
-                          'touch-manipulation'
-                        )}
-                      >
-                        <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.common.buttonCancel')}
-                        </span>
-                      </button>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
                       <button
                         type="button"
                         onClick={() => onApproveSellabilityRun?.(req.id)}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2',
-                          'px-5 sm:px-4 py-4 sm:py-3',
-                          'bg-primary/10 text-primary hover:bg-primary/20',
-                          'active:bg-primary/25 transition-colors',
-                          'touch-manipulation'
-                        )}
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
                       >
-                        <Check className="w-5 h-5 sm:w-4 sm:h-4" />
-                        <span className="text-sm sm:text-xs font-medium">
-                          {ca('proposalCards.sellability.actionLabel')}
-                        </span>
+                        {ca('proposalCards.sellability.actionLabel')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectSellabilityRun?.(req.id)}
+                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      >
+                        {ca('proposalCards.common.buttonCancel')}
                       </button>
                     </div>
                   )}
-                  {(isApproved || isRejected) && (
-                    <div
-                      className={cn(
-                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
-                        isApproved
-                          ? 'border-success/10 text-success bg-success/5'
-                          : 'border-foreground/[0.06] text-foreground/40'
-                      )}
-                    >
+                  {!isPending && !isBlocked && (
+                    <p className="mt-1 text-xs text-foreground/45">
                       {isApproved
                         ? computed
                           ? ca('proposalCards.sellability.computedStatus', { score: computed.score, band: computed.band })
                           : ca('proposalCards.sellability.statusStarted')
                         : ca('proposalCards.common.statusCancelled')}
-                    </div>
+                    </p>
                   )}
                 </motion.div>
               )
@@ -2590,58 +2032,22 @@ function MessageBubble({
           </div>
         )}
 
-        {/* Task-driven: Open tasks the user can complete */}
+        {/* Open tasks — quiet inline list, one line per task. */}
         {message.tasks && message.tasks.length > 0 && (
-          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
-            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              {ca('openTasks')}
-            </p>
-            {message.tasks
-              .filter((t) => !t.completed)
-              .map((task) => (
-                <div
-                  key={task.id}
-                  className={cn(
-                    'flex items-center gap-3 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg',
-                    'border border-foreground/[0.08] bg-foreground/[0.02]',
-                    'active:bg-foreground/[0.04] transition-colors touch-manipulation'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md flex items-center justify-center text-xs sm:text-[10px] font-bold shrink-0',
-                      task.type === 'confirm'
-                        ? 'bg-secondary/10 text-secondary'
-                        : task.type === 'approve'
-                          ? 'bg-success/10 text-success'
-                          : task.type === 'enter'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-foreground/[0.06] text-foreground/50'
-                    )}
-                  >
-                    {task.type === 'confirm'
-                      ? '?'
-                      : task.type === 'approve'
-                        ? '✓'
-                        : task.type === 'enter'
-                          ? '→'
-                          : task.type === 'upload'
-                            ? '↑'
-                            : '○'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm sm:text-xs font-medium text-foreground truncate">
-                      {task.label}
-                    </p>
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08]">
+            <ul className="space-y-1">
+              {message.tasks
+                .filter((t) => !t.completed)
+                .map((task) => (
+                  <li key={task.id} className="text-sm leading-relaxed text-foreground">
+                    <span className="text-foreground/35 mr-1.5">→</span>
+                    {task.label}
                     {task.context && (
-                      <p className="text-xs sm:text-[10px] text-foreground/50 truncate">
-                        {task.context}
-                      </p>
+                      <span className="text-foreground/55 ml-1.5 text-xs">— {task.context}</span>
                     )}
-                  </div>
-                  <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/30 shrink-0" />
-                </div>
-              ))}
+                  </li>
+                ))}
+            </ul>
           </div>
         )}
 

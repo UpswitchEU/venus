@@ -57,7 +57,6 @@ import {
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
-import { computeSdeOwnerSalaryPrefill } from '@/lib/sde'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { TARGET_COUNTRIES } from '../../config/countries'
@@ -76,6 +75,13 @@ import {
   getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
 } from '../../constants/methodFieldConfig'
+import {
+  methodKeyRequiresForecastYears,
+  selectionRequiresForecastYears,
+  selectionRequiresOwnerCompensation,
+} from '../../lib/methods'
+import { dcfSmartDefaultsFromForm, useDcfForecastSync } from '../../lib/methods/dcf'
+import { useSdeOwnerCompensationPrefill } from '../../lib/methods/sde_multiple'
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
 import { useAuth } from '../../hooks/useAuth'
@@ -122,10 +128,8 @@ import {
   canAppendHistoricalYear,
   canRemoveHistoricalYear,
   countForecastYears,
-  dcfInjectionAddedRowCount,
   getNextForecastYear,
   getNextHistoricalYear,
-  injectDefaultDcfForecastYears,
   removeForecastYear,
   removeForecastYears,
   removeHistoricalYear,
@@ -160,24 +164,83 @@ import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import {
   // BelgianSmeAuditPanel — moved to the ValuationIQ report (advisory output)
-  CapitalHistorySection,
   computeEquipmentMeerwaarde,
   DcfForecastWorkspace,
-  DcfGlobalAssumptions,
   DealStructureCompareSection,
-  FiscalInputsSection,
-  LiquidationInputsSection,
-  NavAssetScheduleSection,
-  NavEquipmentLifespanSection,
-  NavRealEstateAppraisalSection,
   RealEstateCarveOutSection,
-  RevenueQualitySection,
-  SaasMetricsSection,
-  SdeOwnerCompensationSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
   SynthesisWeightingSection,
 } from './sections'
+
+// ─── Lazy-loaded bonus sections ────────────────────────────────────────────
+// Each section is its own chunk so the initial bundle doesn't drag all ten
+// of them in when only one method is active. Imported via individual file
+// paths (not the barrel) so the bundler can split them cleanly.
+const CapitalHistorySection = lazy(() =>
+  import('./sections/CapitalHistorySection').then((m) => ({
+    default: m.CapitalHistorySection,
+  }))
+)
+const DcfGlobalAssumptions = lazy(() =>
+  import('./sections/DcfGlobalAssumptions').then((m) => ({
+    default: m.DcfGlobalAssumptions,
+  }))
+)
+const FiscalInputsSection = lazy(() =>
+  import('./sections/FiscalInputsSection').then((m) => ({
+    default: m.FiscalInputsSection,
+  }))
+)
+const LiquidationInputsSection = lazy(() =>
+  import('./sections/LiquidationInputsSection').then((m) => ({
+    default: m.LiquidationInputsSection,
+  }))
+)
+const NavAssetScheduleSection = lazy(() =>
+  import('./sections/NavAssetScheduleSection').then((m) => ({
+    default: m.NavAssetScheduleSection,
+  }))
+)
+const NavEquipmentLifespanSection = lazy(() =>
+  import('./sections/NavEquipmentLifespanSection').then((m) => ({
+    default: m.NavEquipmentLifespanSection,
+  }))
+)
+const NavRealEstateAppraisalSection = lazy(() =>
+  import('./sections/NavRealEstateAppraisalSection').then((m) => ({
+    default: m.NavRealEstateAppraisalSection,
+  }))
+)
+const RevenueQualitySection = lazy(() =>
+  import('./sections/RevenueQualitySection').then((m) => ({
+    default: m.RevenueQualitySection,
+  }))
+)
+const SaasMetricsSection = lazy(() =>
+  import('./sections/SaasMetricsSection').then((m) => ({
+    default: m.SaasMetricsSection,
+  }))
+)
+const SdeOwnerCompensationSection = lazy(() =>
+  import('./sections/SdeOwnerCompensationSection').then((m) => ({
+    default: m.SdeOwnerCompensationSection,
+  }))
+)
+
+/**
+ * Suspense fallback for lazy bonus sections — thin skeleton row keeps the
+ * scroll position stable while the chunk arrives. Chunks are tiny (~10-40KB
+ * each) so this typically flashes for <100ms on first paint of a section.
+ */
+function BonusSectionFallback() {
+  return (
+    <div
+      className="my-2 h-16 animate-pulse rounded-lg bg-foreground/[0.04]"
+      aria-hidden
+    />
+  )
+}
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
   DCF_DEFAULT_CAPEX_PCT,
@@ -249,16 +312,6 @@ function NbbResetHint({
 export type { ManualValuationFormData, YearlyFinancials }
 /** Back-compat name used throughout this file and `calculator` exports. */
 export type ValuationFormData = ManualValuationFormData
-
-/** Smart DCF defaults from historical rows + sector text (used inside setForm(prev) callbacks). */
-function dcfSmartDefaultsFromFormSlice(
-  prev: Pick<ValuationFormData, 'yearlyFinancials' | 'industry' | 'businessType'>
-) {
-  return deriveDcfSmartDefaults({
-    yearlyFinancials: prev.yearlyFinancials,
-    businessCategory: prev.industry || prev.businessType,
-  })
-}
 
 export interface ImportedLedgerAnalysisSummary {
   latest_fiscal_year?: number
@@ -1669,7 +1722,7 @@ export function ManualInputPanel({
       })
     }
   }, [synthesisMethodsForPanel.length])
-  const hasDcfSelected = effectiveMethods.includes('dcf')
+  const hasDcfSelected = selectionRequiresForecastYears(effectiveMethods)
   /**
    * Whether the real-estate carve-out toggle should be rendered.
    *
@@ -1693,61 +1746,13 @@ export function ManualInputPanel({
     realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
-  const prevMethodRef = useRef<string | null>(null)
-  const prevHasDcfRef = useRef(false)
-  useEffect(() => {
-    const prev = prevMethodRef.current
-    prevMethodRef.current = effectiveMethod
-    const prevHasDcf = prevHasDcfRef.current
-    prevHasDcfRef.current = hasDcfSelected
-    const isMount = prev === null
-
-    const methodChanged = prev !== effectiveMethod
-    const dcfJustEnabled = hasDcfSelected && !prevHasDcf
-    if (!isMount && !methodChanged && !dcfJustEnabled) return
-
-    if (effectiveMethod === 'dcf' || hasDcfSelected) {
-      setShowForecastRemovalConfirm(false)
-      setFormData((current) => {
-        const before = current.yearlyFinancials
-        let nextFinancials = injectDefaultDcfForecastYears(before)
-        if (nextFinancials === current.yearlyFinancials) return current
-        const addedCount = dcfInjectionAddedRowCount(before, nextFinancials)
-        if (!isMount && addedCount > 0) {
-          import('sonner').then(({ toast }) =>
-            toast.info(mi('dcfForecastAdded', { count: addedCount }))
-          )
-        }
-        const smart = dcfSmartDefaultsFromFormSlice(current)
-        const preview = deriveDcfProjectionPreview({
-          yearlyFinancials: nextFinancials,
-          smartDefaults: smart,
-          revenueGrowthPct: current.dcf_revenue_growth_pct as number | undefined,
-          ebitdaMarginPct: current.dcf_ebitda_margin_pct as number | undefined,
-          capexPct: current.dcf_capex_pct as number | undefined,
-          daPct: current.dcf_da_pct as number | undefined,
-          nwcPct: current.dcf_nwc_pct as number | undefined,
-          taxRatePct: current.dcf_tax_rate_pct as number | undefined,
-          forecastYears: nextFinancials.filter((r) => r.isForecast).map((r) => Number(r.year)),
-        })
-        if (preview.length > 0) {
-          nextFinancials = applyDcfProjectionPreviewToForecastRows(
-            nextFinancials,
-            preview
-          ) as typeof nextFinancials
-        }
-        return { ...current, yearlyFinancials: nextFinancials as YearlyFinancials[] }
-      })
-    } else if (!isMount && (prev === 'dcf' || (prevHasDcf && !hasDcfSelected))) {
-      setFormData((current) => {
-        const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
-        if (hasForecast) {
-          queueMicrotask(() => setShowForecastRemovalConfirm(true))
-        }
-        return current
-      })
-    }
-  }, [effectiveMethod, hasDcfSelected, mi]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { markPrevMethod: markDcfForecastSyncPrevMethod } = useDcfForecastSync({
+    effectiveMethod,
+    hasDcfSelected,
+    setFormData,
+    setShowForecastRemovalConfirm,
+    translate: mi,
+  })
 
   const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
   const accountingRefetchThrottle = useRef(0)
@@ -2468,7 +2473,7 @@ export function ManualInputPanel({
       )
       const projectionRows = deriveDcfProjectionPreview({
         yearlyFinancials: cleared,
-        smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
+        smartDefaults: dcfSmartDefaultsFromForm(prev),
         revenueGrowthPct: prev.dcf_revenue_growth_pct,
         ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
         capexPct: prev.dcf_capex_pct,
@@ -2530,7 +2535,7 @@ export function ManualInputPanel({
           prev.yearlyFinancials,
           deriveDcfProjectionPreview({
             yearlyFinancials: prev.yearlyFinancials,
-            smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
+            smartDefaults: dcfSmartDefaultsFromForm(prev),
             revenueGrowthPct: prev.dcf_revenue_growth_pct,
             ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
             capexPct: prev.dcf_capex_pct,
@@ -2680,7 +2685,7 @@ export function ManualInputPanel({
         .map((r) => Number(r.year))
       const preview = deriveDcfProjectionPreview({
         yearlyFinancials: prev.yearlyFinancials,
-        smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
+        smartDefaults: dcfSmartDefaultsFromForm(prev),
         revenueGrowthPct: growth,
         ebitdaMarginPct: margin,
         capexPct: prev.dcf_capex_pct,
@@ -3829,6 +3834,7 @@ export function ManualInputPanel({
                     dcfForecastRows.length > 0 &&
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
+                      <Suspense fallback={<BonusSectionFallback />}>
                       <DcfGlobalAssumptions
                         key="dcf_forecast_defaults_embedded"
                         variant="forecastDefaultsOnly"
@@ -3869,6 +3875,7 @@ export function ManualInputPanel({
                         integrationDaPct={integrationDerivedDaPct}
                         waccSectorBand={waccSectorBand}
                       />
+                      </Suspense>
                     )}
 
                   {hasDcfSelected && dcfForecastRows.length > 0 && (
@@ -3919,6 +3926,7 @@ export function ManualInputPanel({
                     dcfForecastRows.length > 0 &&
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
+                      <Suspense fallback={<BonusSectionFallback />}>
                       <DcfGlobalAssumptions
                         key="dcf_discount_terminal_embedded"
                         variant="discountTerminalOnly"
@@ -3955,6 +3963,7 @@ export function ManualInputPanel({
                         integrationDaPct={integrationDerivedDaPct}
                         waccSectorBand={waccSectorBand}
                       />
+                      </Suspense>
                     )}
                 </div>
               </motion.section>
@@ -4224,7 +4233,7 @@ export function ManualInputPanel({
         onOpenChange={(open) => {
           if (!open) {
             setSelectedMethod('dcf')
-            prevMethodRef.current = 'dcf'
+            markDcfForecastSyncPrevMethod('dcf')
           }
           setShowForecastRemovalConfirm(open)
         }}
@@ -4239,7 +4248,7 @@ export function ManualInputPanel({
               type="button"
               onClick={() => {
                 setSelectedMethod('dcf')
-                prevMethodRef.current = 'dcf'
+                markDcfForecastSyncPrevMethod('dcf')
                 setShowForecastRemovalConfirm(false)
               }}
               className="px-4 py-2 rounded-lg text-sm font-medium border border-foreground/10 text-foreground hover:bg-foreground/[0.03] transition-colors"
@@ -4342,61 +4351,19 @@ export function AdaptiveSections({
 }) {
   const t = useTranslations('manualInput.methodSelector')
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const sdeOwnerCompDoubleCountRisk = useMemo(() => {
-    if (!formData.owner_salary_addback || formData.owner_salary_addback <= 0) return false
-    return normalizationItems.some(
-      (n) => n.status === 'accepted' && n.category === 'salary' && Math.abs(n.adjustment) > 0
-    )
-  }, [formData.owner_salary_addback, normalizationItems])
-
-  /**
-   * SDE owner-salary prefill — derive a high-confidence default for
-   * `owner_salary_addback` from accepted salary normalization items
-   * (account 620 / 618). Without this prefill the engine falls back to
-   * `revenue × 15%` even when the actual director compensation is
-   * sitting in the trial balance. Single-shot per "user has not typed
-   * a value yet" — never overwrites a manual entry.
-   */
-  const sdeSalaryPrefill = useMemo(
-    () => computeSdeOwnerSalaryPrefill(normalizationItems),
-    [normalizationItems]
+  const sdeSectionActive = selectionRequiresOwnerCompensation(
+    effectiveMethods ?? [effectiveMethod]
   )
-  const sdeSectionActive =
-    (effectiveMethods ?? [effectiveMethod]).includes('sde_multiple') ||
-    (effectiveMethods ?? [effectiveMethod])
-      .map((m) => m)
-      .some((m) => m === 'sde_multiple')
-  // Track applied prefill so we never re-apply after the user clears the field.
-  const sdePrefillAppliedRef = useRef<{ year: number; value: number } | null>(null)
-  useEffect(() => {
-    if (!sdeSectionActive) return
-    if (!onAnyFieldChange) return
-    if (sdeSalaryPrefill.suggestedValue == null) return
-    // Never overwrite a value the user has typed (or that already differs
-    // from the suggestion via prior session restore).
-    const current = formData.owner_salary_addback
-    if (current != null && Number(current) > 0) return
-    // Idempotency — only apply each suggestion once per session.
-    const last = sdePrefillAppliedRef.current
-    if (
-      last &&
-      last.year === sdeSalaryPrefill.sourceYear &&
-      last.value === sdeSalaryPrefill.suggestedValue
-    ) {
-      return
-    }
-    onAnyFieldChange('owner_salary_addback', sdeSalaryPrefill.suggestedValue)
-    sdePrefillAppliedRef.current = {
-      year: sdeSalaryPrefill.sourceYear ?? 0,
-      value: sdeSalaryPrefill.suggestedValue,
-    }
-  }, [
+  const {
+    prefill: sdeSalaryPrefill,
+    doubleCountRisk: sdeOwnerCompDoubleCountRisk,
+    getAppliedPrefill: getSdeAppliedPrefill,
+  } = useSdeOwnerCompensationPrefill({
     sdeSectionActive,
-    sdeSalaryPrefill.suggestedValue,
-    sdeSalaryPrefill.sourceYear,
-    formData.owner_salary_addback,
+    normalizationItems,
+    ownerSalaryAddback: formData.owner_salary_addback as number | null | undefined,
     onAnyFieldChange,
-  ])
+  })
   const methods = effectiveMethods ?? [effectiveMethod]
   const sections =
     methods.length > 1
@@ -4732,50 +4699,52 @@ export function AdaptiveSections({
             auto-derived by the report builder or set on metadata via
             firm/transaction settings — not collected on the data rail. */}
         {sections.includes('fiscal_inputs') && sectionHeaderSteps.fiscal != null && (
-          <FiscalInputsSection
-            key="fiscal_inputs"
-            step={sectionHeaderSteps.fiscal}
-            fiscalAcquisitionCost={formData.fiscal_acquisition_cost as number | undefined}
-            fiscalAnchor2Value={formData.fiscal_anchor_2_value as number | undefined}
-            fiscalAnchor3Value={formData.fiscal_anchor_3_value as number | undefined}
-            fiscalAnchor4Value={formData.fiscal_anchor_4_value as number | undefined}
-            onFieldChange={onFieldChange}
-            disabled={disabled}
-          />
+          <Suspense key="fiscal_inputs" fallback={<BonusSectionFallback />}>
+            <FiscalInputsSection
+              step={sectionHeaderSteps.fiscal}
+              fiscalAcquisitionCost={formData.fiscal_acquisition_cost as number | undefined}
+              fiscalAnchor2Value={formData.fiscal_anchor_2_value as number | undefined}
+              fiscalAnchor3Value={formData.fiscal_anchor_3_value as number | undefined}
+              fiscalAnchor4Value={formData.fiscal_anchor_4_value as number | undefined}
+              onFieldChange={onFieldChange}
+              disabled={disabled}
+            />
+          </Suspense>
         )}
         {sections.includes('dcf_projections') &&
           !suppressDcfGlobalAssumptions &&
           terminalValueMethod &&
           onTerminalValueMethodChange &&
           sectionHeaderSteps.dcfGlobal != null && (
-            <DcfGlobalAssumptions
-              key="dcf_global_assumptions"
-              className={showFiscalNotice ? 'mt-6' : undefined}
-              step={sectionHeaderSteps.dcfGlobal}
-              dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-              dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-              dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-              dcfDaPct={formData.dcf_da_pct as number | undefined}
-              dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-              dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-              dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-              dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-              dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-              dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-              dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-              dcfBeta={formData.dcf_beta as number | undefined}
-              dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-              dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-              dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-              terminalValueMethod={terminalValueMethod}
-              onTerminalValueMethodChange={onTerminalValueMethodChange}
-              onFieldChange={onFieldChange}
-              onApplyToForecastYears={onApplyDcfPercentAutofill}
-              canApplyToForecastYears={!!canApplyDcfPercentAutofill}
-              forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
-              dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-              disabled={disabled}
-            />
+            <Suspense key="dcf_global_assumptions" fallback={<BonusSectionFallback />}>
+              <DcfGlobalAssumptions
+                className={showFiscalNotice ? 'mt-6' : undefined}
+                step={sectionHeaderSteps.dcfGlobal}
+                dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
+                dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+                dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+                dcfDaPct={formData.dcf_da_pct as number | undefined}
+                dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+                dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
+                dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+                dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+                dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+                dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+                dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
+                dcfBeta={formData.dcf_beta as number | undefined}
+                dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+                dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+                dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+                terminalValueMethod={terminalValueMethod}
+                onTerminalValueMethodChange={onTerminalValueMethodChange}
+                onFieldChange={onFieldChange}
+                onApplyToForecastYears={onApplyDcfPercentAutofill}
+                canApplyToForecastYears={!!canApplyDcfPercentAutofill}
+                forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
+                dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+                disabled={disabled}
+              />
+            </Suspense>
           )}
         {sections.includes('nav_asset_schedule') &&
           sectionHeaderSteps.nav != null &&
@@ -4805,8 +4774,8 @@ export function AdaptiveSections({
               Number.isFinite(_bookValRE) &&
               Number.isFinite(_appraisalRE)
             return (
+              <Suspense key="nav_asset_schedule" fallback={<BonusSectionFallback />}>
               <NavAssetScheduleSection
-                key="nav_asset_schedule"
                 step={sectionHeaderSteps.nav}
                 navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
                 navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
@@ -4870,6 +4839,7 @@ export function AdaptiveSections({
                 onFieldChange={onFieldChange}
                 disabled={disabled}
               />
+              </Suspense>
             )
           })()}
         {/*
@@ -4880,40 +4850,42 @@ export function AdaptiveSections({
           progressive disclosure rather than four loose forms.
         */}
         {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
-          <NavRealEstateAppraisalSection
-            key="nav_real_estate_appraisal"
-            step={`${sectionHeaderSteps.nav}b`}
-            bookValue={formData.nav_real_estate_book_value as number | undefined}
-            appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
-            deferredTaxRatePct={
-              (formData.nav_per_asset_tax_rates?.real_estate as number | undefined) ??
-              (formData.nav_tax_latency_pct as number | undefined)
-            }
-            onChange={onFieldChange}
-            disabled={disabled}
-          />
+          <Suspense key="nav_real_estate_appraisal" fallback={<BonusSectionFallback />}>
+            <NavRealEstateAppraisalSection
+              step={`${sectionHeaderSteps.nav}b`}
+              bookValue={formData.nav_real_estate_book_value as number | undefined}
+              appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
+              deferredTaxRatePct={
+                (formData.nav_per_asset_tax_rates?.real_estate as number | undefined) ??
+                (formData.nav_tax_latency_pct as number | undefined)
+              }
+              onChange={onFieldChange}
+              disabled={disabled}
+            />
+          </Suspense>
         )}
         {sections.includes('nav_asset_schedule') &&
           sectionHeaderSteps.nav != null &&
           onAnyFieldChange && (
-            <NavEquipmentLifespanSection
-              key="nav_equipment_lifespan"
-              step={`${sectionHeaderSteps.nav}c`}
-              value={formData.nav_equipment_revaluation}
-              reportingYear={
-                latestCompleteYearlyFinancial
-                  ? Number(latestCompleteYearlyFinancial.year)
-                  : undefined
-              }
-              prefilled={{
-                acquisition_year:
-                  navPrefillProvenance.nav_equipment_acquisition_year != null,
-                economic_useful_life_years:
-                  navPrefillProvenance.nav_equipment_useful_life_years != null,
-              }}
-              onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
-              disabled={disabled}
-            />
+            <Suspense key="nav_equipment_lifespan" fallback={<BonusSectionFallback />}>
+              <NavEquipmentLifespanSection
+                step={`${sectionHeaderSteps.nav}c`}
+                value={formData.nav_equipment_revaluation}
+                reportingYear={
+                  latestCompleteYearlyFinancial
+                    ? Number(latestCompleteYearlyFinancial.year)
+                    : undefined
+                }
+                prefilled={{
+                  acquisition_year:
+                    navPrefillProvenance.nav_equipment_acquisition_year != null,
+                  economic_useful_life_years:
+                    navPrefillProvenance.nav_equipment_useful_life_years != null,
+                }}
+                onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
+                disabled={disabled}
+              />
+            </Suspense>
           )}
         {sections.includes('nav_asset_schedule') &&
           sectionHeaderSteps.nav != null &&
@@ -4953,8 +4925,8 @@ export function AdaptiveSections({
             estimated bucket. Reuses the nav step counter so left-panel
             numbering stays sequential. */}
         {sections.includes('liquidation_inputs') && (
+          <Suspense key="liquidation_inputs" fallback={<BonusSectionFallback />}>
           <LiquidationInputsSection
-            key="liquidation_inputs"
             // When NAV mounts alongside (the canonical case for
             // `liquidation_analysis`), NAV already owns steps 5 / 5b / 5c /
             // 5d — so this section gets `5e` instead of colliding with the
@@ -5053,59 +5025,64 @@ export function AdaptiveSections({
             onAnyFieldChange={onAnyFieldChange}
             disabled={disabled}
           />
+          </Suspense>
         )}
         {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-          <CapitalHistorySection key="capital_history" />
+          <Suspense key="capital_history" fallback={<BonusSectionFallback />}>
+            <CapitalHistorySection />
+          </Suspense>
         )}
         {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-          <SaasMetricsSection
-            key="saas_metrics"
-            step={sectionHeaderSteps.saas}
-            complete={saasSectionComplete}
-            saasArr={formData.saas_arr as number | undefined}
-            saasMrr={formData.saas_mrr as number | undefined}
-            saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
-            saasChurnPct={formData.saas_churn_pct as number | undefined}
-            saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
-            saasNrrPct={formData.saas_nrr_pct as number | undefined}
-            saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
-            saasCac={formData.saas_cac as number | undefined}
-            saasCustomerConcentrationPct={
-              formData.saas_customer_concentration_pct as number | undefined
-            }
-            saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
-            saasSmSpend={formData.saas_sm_spend as number | undefined}
-            onFieldChange={onFieldChange}
-            disabled={disabled}
-            arrProjectionPreview={saasArrProjectionPreview}
-            importedSaasProvenance={importedSaasProvenance}
-            naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
-            yearlyFinancials={formData.yearlyFinancials}
-          />
+          <Suspense key="saas_metrics" fallback={<BonusSectionFallback />}>
+            <SaasMetricsSection
+              step={sectionHeaderSteps.saas}
+              complete={saasSectionComplete}
+              saasArr={formData.saas_arr as number | undefined}
+              saasMrr={formData.saas_mrr as number | undefined}
+              saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
+              saasChurnPct={formData.saas_churn_pct as number | undefined}
+              saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
+              saasNrrPct={formData.saas_nrr_pct as number | undefined}
+              saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
+              saasCac={formData.saas_cac as number | undefined}
+              saasCustomerConcentrationPct={
+                formData.saas_customer_concentration_pct as number | undefined
+              }
+              saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
+              saasSmSpend={formData.saas_sm_spend as number | undefined}
+              onFieldChange={onFieldChange}
+              disabled={disabled}
+              arrProjectionPreview={saasArrProjectionPreview}
+              importedSaasProvenance={importedSaasProvenance}
+              naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
+              yearlyFinancials={formData.yearlyFinancials}
+            />
+          </Suspense>
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
-          <RevenueQualitySection
-            key="revenue_quality"
-            step={sectionHeaderSteps.revenue}
-            revContractBacklog={formData.rev_contract_backlog as number | undefined}
-            revRecurringAmount={formData.rev_recurring_amount as number | undefined}
-            revTopClientAmount={formData.rev_top_client_amount as number | undefined}
-            revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
-            revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
-            latestRevenue={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.revenue)
-                : undefined
-            }
-            effectiveMethods={methods}
-            businessTypeId={businessTypeId}
-            businessCategory={businessCategory}
-            onFieldChange={onFieldChange}
-            disabled={disabled}
-          />
+          <Suspense key="revenue_quality" fallback={<BonusSectionFallback />}>
+            <RevenueQualitySection
+              step={sectionHeaderSteps.revenue}
+              revContractBacklog={formData.rev_contract_backlog as number | undefined}
+              revRecurringAmount={formData.rev_recurring_amount as number | undefined}
+              revTopClientAmount={formData.rev_top_client_amount as number | undefined}
+              revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
+              revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
+              latestRevenue={
+                latestCompleteYearlyFinancial
+                  ? Number(latestCompleteYearlyFinancial.revenue)
+                  : undefined
+              }
+              effectiveMethods={methods}
+              businessTypeId={businessTypeId}
+              businessCategory={businessCategory}
+              onFieldChange={onFieldChange}
+              disabled={disabled}
+            />
+          </Suspense>
         )}
         {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
-          <>
+          <Suspense key="sde_owner_compensation" fallback={<BonusSectionFallback />}>
             {sdeOwnerCompDoubleCountRisk && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -5123,49 +5100,48 @@ export function AdaptiveSections({
               </motion.div>
             )}
             <SdeOwnerCompensationSection
-              key="sde_owner_compensation"
               step={sectionHeaderSteps.sde}
-              ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
-              revenue={
-                latestCompleteYearlyFinancial
-                  ? Number(latestCompleteYearlyFinancial.revenue)
-                  : undefined
-              }
-              ebitda={
-                latestCompleteYearlyFinancial
-                  ? Number(latestCompleteYearlyFinancial.ebitda)
-                  : undefined
-              }
-              onFieldChange={onFieldChange}
-              ownerRole={
-                (formData as ValuationFormData & { owner_role?: 'working' | 'passive' }).owner_role
-              }
-              onOwnerRoleChange={
-                onAnyFieldChange ? (role) => onAnyFieldChange('owner_role', role) : undefined
-              }
-              activeOwnersCount={
-                (formData as ValuationFormData & { number_of_owners?: number }).number_of_owners
-              }
-              onActiveOwnersCountChange={
-                onAnyFieldChange ? (count) => onAnyFieldChange('number_of_owners', count) : undefined
-              }
-              salaryPrefillSource={
-                sdePrefillAppliedRef.current &&
-                Number(formData.owner_salary_addback) ===
-                  sdePrefillAppliedRef.current.value
-                  ? sdeSalaryPrefill.source
-                  : null
-              }
-              salaryPrefillYear={
-                sdePrefillAppliedRef.current &&
-                Number(formData.owner_salary_addback) ===
-                  sdePrefillAppliedRef.current.value
-                  ? sdeSalaryPrefill.sourceYear
-                  : null
-              }
-              disabled={disabled}
-            />
-          </>
+                ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
+                revenue={
+                  latestCompleteYearlyFinancial
+                    ? Number(latestCompleteYearlyFinancial.revenue)
+                    : undefined
+                }
+                ebitda={
+                  latestCompleteYearlyFinancial
+                    ? Number(latestCompleteYearlyFinancial.ebitda)
+                    : undefined
+                }
+                onFieldChange={onFieldChange}
+                ownerRole={
+                  (formData as ValuationFormData & { owner_role?: 'working' | 'passive' }).owner_role
+                }
+                onOwnerRoleChange={
+                  onAnyFieldChange ? (role) => onAnyFieldChange('owner_role', role) : undefined
+                }
+                activeOwnersCount={
+                  (formData as ValuationFormData & { number_of_owners?: number }).number_of_owners
+                }
+                onActiveOwnersCountChange={
+                  onAnyFieldChange ? (count) => onAnyFieldChange('number_of_owners', count) : undefined
+                }
+                salaryPrefillSource={(() => {
+                  const applied = getSdeAppliedPrefill()
+                  if (!applied) return null
+                  return Number(formData.owner_salary_addback) === applied.value
+                    ? sdeSalaryPrefill.source
+                    : null
+                })()}
+                salaryPrefillYear={(() => {
+                  const applied = getSdeAppliedPrefill()
+                  if (!applied) return null
+                  return Number(formData.owner_salary_addback) === applied.value
+                    ? sdeSalaryPrefill.sourceYear
+                    : null
+                })()}
+                disabled={disabled}
+              />
+          </Suspense>
         )}
       </AnimatePresence>
       {process.env.NODE_ENV === 'development' && (

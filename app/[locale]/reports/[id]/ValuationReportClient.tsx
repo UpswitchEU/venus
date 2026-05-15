@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
@@ -14,6 +14,31 @@ import {
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
 import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
+
+// Module-level singleton so re-mounts don't re-trigger network for chunks the
+// browser already has in the module cache.
+let chunkPreloadStarted = false
+
+/**
+ * Warm the heavy wizard chunks during the auth/bootstrap window.
+ *
+ * Before this hoist, the chunk preload lived inside ValuationReport, which
+ * doesn't mount until AuthGate+BootstrapProvider clear. That meant the
+ * ValuationFlow chunk download served on the critical path after stage
+ * flipped to 'data-entry'. By kicking it off here — at the top of the
+ * client tree — the chunk downloads in parallel with /api/auth/me and
+ * /api/bootstrap, so it's already in cache by the time the wizard mounts.
+ */
+function preloadWizardChunks() {
+  if (chunkPreloadStarted || typeof window === 'undefined') return
+  chunkPreloadStarted = true
+  // Fire-and-forget. Failures are non-fatal — React.lazy will retry on demand.
+  void Promise.all([
+    import('../../../../src/components/ValuationFlowSelector'),
+    import('../../../../src/components/ValuationSessionManager'),
+    import('../../../../src/features/valuation/components/ValuationFlow'),
+  ]).catch(() => {})
+}
 
 /**
  * Token refresh runs INSIDE AuthGate so it only starts after auth is
@@ -104,6 +129,13 @@ export default function ValuationReportClient({
   initialVersion,
   urlParams,
 }: ValuationReportClientProps) {
+  // Kick off heavy chunk downloads before AuthGate/BootstrapProvider start
+  // their async work. The browser then fetches code in parallel with the
+  // /api/auth/me and /api/bootstrap round-trips instead of after them.
+  useEffect(() => {
+    preloadWizardChunks()
+  }, [])
+
   // Detect if this is an accountant flow that requires the
   // exchange-client-context handshake. Only a real `clientToken` triggers the
   // gate — a bare `clientId` (e.g. Mercury's safety-net fallback or the
@@ -170,15 +202,33 @@ export default function ValuationReportClient({
 
   return (
     <ErrorBoundary>
-      {/* 
-        BANK GRADE: AuthGate ensures auth and client context are ready
-        BEFORE BootstrapProvider runs. This eliminates race conditions.
+      {/*
+        Optimistic auth for Mercury→Venus warm opens (source=mercury, no
+        clientToken). Mercury already authenticated the user; cookies are
+        fresh and Titan validates them on every request anyway. Blocking the
+        entire shell behind /api/auth/me added 300–1200ms of dead-air.
+
+        With optimistic=true:
+        • AuthGate's children render immediately.
+        • BootstrapProvider subscribes to auth state and fires runBootstrap
+          when initializeAuth() flips !loading && !isInitializing — including
+          the get-client-context fetch driven by ?clientId. By that point
+          useClientContext is populated, so the bootstrap POST carries the
+          correct delegated headers.
+        • If auth fails, AuthGate's useEffect still runs and either redirects
+          (most common) or sets an error state (silently swallowed by the
+          optimistic branch). The 30s session-load timeout backstops any
+          edge case where neither happens.
+
+        Strict (blocking) path stays in place when a clientToken is present:
+        the exchange-client-context handshake MUST complete before bootstrap
+        sends headers.
       */}
       <AuthGate
         hasClientToken={hasClientToken}
         returnUrl={urlParams.return_url}
         loadingComponent={<CalculatorShellSkeleton />}
-        optimistic={false}
+        optimistic={source === 'mercury' && !hasClientToken}
       >
         <TokenRefreshGuard />
         <BootstrapProvider context={bootstrapContext} autoBootstrap={true}>

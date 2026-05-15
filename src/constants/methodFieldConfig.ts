@@ -1,29 +1,30 @@
+import {
+  deriveCombinableMethods,
+  deriveMethodFieldConfig,
+  deriveMutuallyExclusivePairs,
+  derivePreSelectableMethods,
+  deriveStandaloneMethods,
+} from '@/lib/methods/registry'
+import type { InputSectionKey } from '@/lib/methods/types'
 import { revenueMethodologySiblingKey } from '@/utils/extractValuationResultsMap'
 import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
 
 /**
- * Method Field Configuration Registry
+ * Method Field Configuration — derived view over the canonical method registry.
  *
- * Maps valuation method keys to the bonus input sections that should appear
- * in the ManualInputPanel when that method is pre-selected. Also maps
- * business-type categories to additional contextual input sections.
+ * The 10 valuation methods are declared once in `@/lib/methods/registry.ts`
+ * (a `MethodSpec` per method). The legacy constants below — `METHOD_FIELD_CONFIG`,
+ * `PRE_SELECTABLE_METHODS`, `COMBINABLE_METHODS`, `STANDALONE_METHODS`,
+ * `MUTUALLY_EXCLUSIVE_PAIRS` — are *derived* from that registry so adding an
+ * 11th method requires editing exactly one entry (the spec) instead of five
+ * separate top-level constants.
  *
- * Bonus sections are optional — the engine computes all methods from the base
- * input set (company, financials, ownership). These sections surface extra
- * fields that improve accuracy for the chosen method.
- *
- * Method *labels* (i18n) live in `@/constants/methodLabels.ts` (`METHOD_LABEL_KEYS`),
- * mapped to manualInput.methodSelector.* translation keys.
+ * Method *labels* (i18n) live in `@/constants/methodLabels.ts`, also derived
+ * from the same registry. `BUSINESS_TYPE_SECTIONS` and the quality-warning CTA
+ * config below are independent of the method registry and remain inline.
  */
 
-export type InputSectionKey =
-  | 'dcf_projections'
-  | 'nav_asset_schedule'
-  | 'saas_metrics'
-  | 'revenue_quality'
-  | 'sde_owner_compensation'
-  | 'liquidation_inputs'
-  | 'fiscal_inputs'
+export type { InputSectionKey }
 
 /**
  * Canonical order for bonus sections — matches `AdaptiveSections` JSX order and
@@ -60,67 +61,12 @@ export interface MethodFieldEntry {
   bonusSections: InputSectionKey[]
 }
 
-export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
-  /** Base Omni inputs + historical grid stay visible; engine derives multiples range without extra panels here. */
-  upswitch_adaptive: { bonusSections: [] },
-  ebitda_multiple: { bonusSections: ['revenue_quality'] },
-  omzet_multiple: { bonusSections: ['revenue_quality'] },
-  /** English UI / API alias for `omzet_multiple` — same bonus sections (see `extractValuationResultsMap`). */
-  revenue_multiple: { bonusSections: ['revenue_quality'] },
-  arr_multiple: { bonusSections: ['saas_metrics'] },
-  dcf: { bonusSections: ['dcf_projections'] },
-  sde_multiple: { bonusSections: ['sde_owner_compensation'] },
-  adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
-  /**
-   * Belgian capital-gains tax (meerwaardebelasting, Art. 90 WIB 92).
-   *
-   * Renders the dedicated `fiscal_inputs` left-panel section so accountants
-   * and lawyers can capture the legal artefacts the report needs:
-   *   - Peildatum override (non-calendar boekjaar)
-   *   - Company role (werkmaatschappij / holding / mixed) — drives the
-   *     holding-EBITDA warning on the report
-   *   - Interne meerwaarde flag — surfaces the 33% rate banner and the
-   *     4× EBITDA debt-cap anti-misbruik check
-   *   - EBITDA basis (statutair vs genormaliseerd) — wettelijke formule
-   *     uses last closed boekjaar; we expose the choice explicitly
-   *   - Aanschaffingswaarde (per-share or total) — the value being filed
-   *   - Four-anchor "hoogste van" worksheet (forfait / contract / 2025
-   *     markttransactie / onafhankelijk verslag) with optional € amounts
-   *
-   * The engine still needs no extra inputs for the forfait formula
-   * itself — these inputs feed the `fiscal_section.py` report builder
-   * verbatim through `fiscal_inputs: dict` on the calculate request.
-   */
-  fiscal_4x: { bonusSections: ['fiscal_inputs'] },
-  /** Startup engine renders its own dedicated `StartupValuationPanel` — no SME bonus sections. */
-  startup_valuation: { bonusSections: [] },
-  /**
-   * Liquidation analysis runs on the same balance-sheet inputs as
-   * adjusted_nav. Reuses the NAV asset schedule bonus section so the
-   * advisor enters real-estate / inventory / receivables overrides
-   * once and both the going-concern NAV and the orderly+forced
-   * liquidation scenarios pick them up.
-   *
-   * Phase 1-4 (Big-4 academic depth) live on the engine side: IVS
-   * 104 §60–80 premise + Altman Z'' + 12-class realisation schedule
-   * + BE/NL Boek-XX/Faillissementswet cascade + tax bridge + wind-down
-   * build-up + PV-discount + sensitivity + premise reconciliation +
-   * Delphi NACE cohort + IVS+USPAP+IFRS-13 disclosure + replacement
-   * cost (M&A buyer ceiling) + Statement of Affairs (M&A cover) +
-   * audit-trail metadata.
-   *
-   * Left-panel bonus sections:
-   * - `nav_asset_schedule` — general balance-sheet adjustments that
-   *   feed the 12-class schedule (real-estate / inventory / receivable
-   *   appraisals).
-   * - `liquidation_inputs` — liquidation-specific advisor overrides
-   *   (headcount, monthly_rent, paid_up_capital, deferred_tax_liabs,
-   *   premise override). Drives the cascade + tax + wind-down build-up.
-   */
-  liquidation_analysis: {
-    bonusSections: ['nav_asset_schedule', 'liquidation_inputs'],
-  },
-}
+/**
+ * Method → bonus section map. Derived from `@/lib/methods/registry.ts`. Per-method
+ * notes (fiscal_4x's Belgian capital-gains worksheet, liquidation_analysis's
+ * IVS 104 + Boek-XX + Faillissementswet pipeline) live in each spec's docblock.
+ */
+export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = deriveMethodFieldConfig()
 
 export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
   saas: ['saas_metrics'],
@@ -221,81 +167,36 @@ export function resolveBusinessTypeIdForBonusSections(
 
 /**
  * Methods available for upfront pre-selection in the top-bar dropdown.
- * Subset of PRIMARY_OMNI_METHOD_ORDER — only the methods that meaningfully
- * change the input experience are surfaced here.
+ * Subset of PRIMARY_OMNI_METHOD_ORDER — only methods that meaningfully change
+ * the input experience are surfaced here. Derived from the method registry.
  */
-export const PRE_SELECTABLE_METHODS = [
-  'upswitch_adaptive',
-  'omzet_multiple',
-  'arr_multiple',
-  'ebitda_multiple',
-  'dcf',
-  'sde_multiple',
-  'adjusted_nav',
-  'fiscal_4x',
-  /** Venture / pre-revenue path — Berkus + Scorecard + VC blend. */
-  'startup_valuation',
-  /**
-   * Liquidation Analysis — orderly + forced wind-down with IVS 104
-   * premise of value, Altman Z'' distress probability, 12-class
-   * realisation schedule, BE/NL insolvency priority cascade and
-   * tax leakage. The downside lens; not blendable with going-concern
-   * multiples (different premise of value, IVS 104 §80).
-   */
-  'liquidation_analysis',
-] as const
+export const PRE_SELECTABLE_METHODS: readonly string[] = derivePreSelectableMethods()
 
-export type PreSelectableMethod = (typeof PRE_SELECTABLE_METHODS)[number]
+export type PreSelectableMethod = string
 
 export const PRE_SELECTABLE_METHOD_SET = new Set<string>(PRE_SELECTABLE_METHODS)
 
 /**
- * Market & Income methods that can be combined and weighted in a blended valuation.
- * These all answer "What is the Fair Market Value to an outside buyer?" Includes
- * `adjusted_nav` (corrected NAV) so accountants can blend floor value with multiples/DCF.
+ * Market & Income methods that can be combined and weighted in a blended
+ * valuation. Derived from the method registry — each spec sets `combinable`.
  */
-export const COMBINABLE_METHODS = new Set([
-  'ebitda_multiple',
-  'dcf',
-  'sde_multiple',
-  'omzet_multiple',
-  /** Same economics as `omzet_multiple` — must be combinable for blended weights when API uses English key. */
-  'revenue_multiple',
-  'arr_multiple',
-  'adjusted_nav',
-])
+export const COMBINABLE_METHODS: ReadonlySet<string> = deriveCombinableMethods()
 
 /**
- * Standalone methods that cannot be blended with other methods.
- * Each serves a distinct legal/financial purpose (tax filing, proprietary algorithm) or
- * is the engine default umbrella (`upswitch_adaptive`).
+ * Standalone methods that cannot be blended with other methods. Each serves a
+ * distinct legal/financial purpose, operates on a different premise of value
+ * (IVS 104), or is the engine default umbrella (`upswitch_adaptive`). Derived
+ * from the method registry — each spec sets `standalone`.
  */
-export const STANDALONE_METHODS = new Set([
-  'upswitch_adaptive',
-  'fiscal_4x',
-  /** Startup engine consumes its own qualitative inputs and cannot be blended with SME methods. */
-  'startup_valuation',
-  /**
-   * Liquidation analysis runs on a different premise of value (IVS 104 §60–80
-   * — orderly/forced wind-down vs. going-concern). Blending it with multiples
-   * or DCF would be an apples-to-oranges error. Reconciliation against
-   * going-concern lenses lives inside the liquidation report itself
-   * (probability-weighted expected value per Damodaran 2012 Ch. 23).
-   */
-  'liquidation_analysis',
-])
+export const STANDALONE_METHODS: ReadonlySet<string> = deriveStandaloneMethods()
 
 /**
- * Methods that must not appear together in a blend (double-counting or duplicate lens).
- * - SDE vs EBITDA: different owner-compensation bases.
- * - Omzet vs revenue_multiple: same market approach keyed differently (EN/NL).
- * - SDE vs NAV: SDE excludes balance-sheet-driven valuations (conceptually incompatible).
+ * Methods that must not appear together in a blend. Derived from the method
+ * registry — each spec declares its `mutuallyExclusiveWith` peers and the
+ * registry deduplicates them into unique unordered pairs.
  */
-export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
-  ['sde_multiple', 'ebitda_multiple'],
-  ['omzet_multiple', 'revenue_multiple'],
-  ['sde_multiple', 'adjusted_nav'],
-]
+export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<readonly [string, string]> =
+  deriveMutuallyExclusivePairs()
 
 /**
  * Engine `data_quality_warnings.type` values that have a guided assistant CTA (label + prefilled prompt).

@@ -18,6 +18,7 @@ import React, {
   useRef,
   useState,
 } from 'react'
+import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancellation'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
@@ -193,13 +194,7 @@ export function BootstrapProvider({
   }, [onBootstrapError])
 
   // Abort guard: prevents stale setState calls after unmount
-  const mountedRef = useRef(true)
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  const mountedRef = useIsMountedRef()
 
   // Bootstrap function
   const runBootstrap = useCallback(async () => {
@@ -515,10 +510,22 @@ export function BootstrapProvider({
     await runBootstrap()
   }, [runBootstrap])
 
-  // Auto-bootstrap on mount if no initial state.
-  // AuthGate ensures auth and client context are fully ready BEFORE
-  // BootstrapProvider is mounted, so we don't need to watch authLoading
-  // or add stability delays — just run once.
+  // Auth-readiness subscription. Required for optimistic AuthGate paths:
+  // when AuthGate renders children before auth has settled, the first
+  // runBootstrap() call exits early at the auth guard (line 260-264) and
+  // resets bootstrapStartedRef. Without watching auth state, bootstrap would
+  // never retry. Subscribing here re-renders the provider when auth flips
+  // and our effect below picks up the second chance.
+  const authLoading = useAuthStore((s) => s.loading)
+  const authIsInitializing = useAuthStore((s) => s.isInitializing)
+  const authIsRefreshing = useAuthStore((s) => s.isRefreshing)
+  const authReady = !authLoading && !authIsInitializing && !authIsRefreshing
+
+  // Auto-bootstrap when auth is ready and no initial state is provided.
+  // Fires on mount (non-optimistic path: AuthGate already gated) and again
+  // when auth settles (optimistic path: AuthGate let children through early).
+  // Internal guards (bootstrapCompletedGlobally, bootstrapStartedRef, in-flight
+  // promise cache) ensure at-most-once execution per report.
   useEffect(() => {
     if (bootstrapCompletedGlobally) {
       if (!bootstrapStartedRef.current) {
@@ -538,11 +545,11 @@ export function BootstrapProvider({
       return
     }
 
-    if (autoBootstrap) {
+    if (autoBootstrap && authReady) {
       runBootstrap()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authReady])
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:

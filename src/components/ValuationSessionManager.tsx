@@ -390,15 +390,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // Clear restoration marker so the full API response wins over the bootstrap stub.
           SessionRestorationService.clearRestorationState(reportId)
           restorationCompletedForReportIdRef.current = null
-          // Only reset status when it is 'loaded' — loadSession returns early for
-          // status==='loaded' + matching reportId, so we must unlock the state machine.
-          // We intentionally keep the session object (minimal prefill data stays visible
-          // during reload).  Resetting session=null here used to cause a visual flash and
-          // raced with the concurrent useBootstrapSync.loadSession call that has now been
-          // removed (single-owner pattern).
-          if (useSessionStore.getState().status === 'loaded') {
-            useSessionStore.setState({ status: 'idle' as const })
-          }
+          // PROGRESSIVE LOAD: We used to reset status='idle' here to defeat
+          // loadSession's "already loaded" short-circuit. That worked but cost
+          // the user a second visible skeleton (loaded → idle → loading →
+          // loaded) every time bootstrap returned a session without the full
+          // valuationPackage. loadSession is now refresh-aware
+          // (useSessionStore.ts) and detects bootstrap-minimal sessions via
+          // sessionData._bootstrapPrefill / _bootstrapCreated; in that mode
+          // it skips its own status='loading' transition and merges the
+          // server payload in place. The UI stays mounted; only data-bound
+          // panels show their inner skeletons while the refresh is in flight.
           // Fall through to loadSession below (don't return)
         } else {
           // ✅ LOOP FIX: Skip restore if already completed or in progress for this reportId
@@ -429,6 +430,18 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             .then((result) => {
               restorationInProgressRef.current = null
               restorationCompletedForReportIdRef.current = reportId
+
+              // CRITICAL FIX: Flip session status to 'loaded' so downstream
+              // gates (ManualLayout's isInitializing check, this component's
+              // stage computation) exit their loading state. Without this,
+              // the fast path (bootstrap returned a valuationPackage so we
+              // skipped loadSession) leaves status pinned at 'idle' forever
+              // and the skeleton never goes away — the entire performance
+              // win of bootstrap-side hydration is wasted.
+              // loadSession() does the equivalent (useSessionStore.ts:323);
+              // here we mirror that contract at the end of the skip path.
+              useSessionStore.getState().completeInitialization()
+
               // Phase 3.1: If restore completed but assets still missing, fetch from backend
               if (
                 bootstrap.report.hasExistingData &&
@@ -459,6 +472,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 error: err instanceof Error ? err.message : String(err),
               })
               // Don't set restorationCompletedForReportIdRef on failure - allow retry
+              // Still flip status to 'loaded' so the user isn't stuck behind
+              // a skeleton if SessionRestorationService throws — the form
+              // store may still have prefill data from useBootstrapSync.
+              useSessionStore.getState().completeInitialization()
             })
           loadingInitiatedRef.current = null
           return

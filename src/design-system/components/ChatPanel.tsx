@@ -7,7 +7,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, MessageSquare, Mic, Paperclip, Send, User } from 'lucide-react'
+import { Loader2, Mic, Paperclip, Send } from 'lucide-react'
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { fadeInUp, springDefault } from './motion'
@@ -94,25 +94,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
       variants={fadeInUp}
       initial="hidden"
       animate="visible"
-      className={cn('flex gap-3 max-w-[85%]', isUser ? 'ml-auto flex-row-reverse' : 'mr-auto')}
+      className={cn('flex max-w-[88%]', isUser ? 'ml-auto justify-end' : 'mr-auto justify-start')}
     >
-      {/* Avatar */}
-      <div
-        className={cn(
-          'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-medium',
-          isUser ? 'bg-primary text-primary-foreground' : 'bg-foreground/[0.08] text-foreground/60'
-        )}
-      >
-        {isUser ? <User className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-      </div>
-
-      {/* Bubble */}
+      {/* No avatar — bubble + alignment carry the role (Cursor / Lovable / Ilara). */}
       <div
         className={cn(
           'rounded-2xl px-4 py-3 text-sm',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-tr-md'
-            : 'bg-foreground/[0.06] text-foreground border border-foreground/[0.06] rounded-tl-md'
+            ? 'bg-primary/12 text-foreground border border-primary/20 rounded-tr-md'
+            : 'bg-foreground/[0.03] text-foreground border border-foreground/[0.08] rounded-tl-md'
         )}
       >
         {/* Content */}
@@ -167,12 +157,9 @@ const TypingIndicator: React.FC = () => (
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: 10 }}
-    className="flex items-center gap-3 max-w-[85%]"
+    className="flex max-w-[88%] mr-auto justify-start"
   >
-    <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center bg-foreground/[0.08] text-foreground/60">
-      <MessageSquare className="w-4 h-4" />
-    </div>
-    <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-md bg-foreground/[0.06] border border-foreground/[0.06]">
+    <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-md bg-foreground/[0.03] border border-foreground/[0.08]">
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}

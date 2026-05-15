@@ -39,6 +39,7 @@ import React, {
   useState,
 } from 'react'
 import { toast } from 'sonner'
+import { useShallow } from 'zustand/react/shallow'
 import {
   trackAIFieldUpdate,
   trackAINormalizationAccept,
@@ -64,7 +65,6 @@ import {
   type NormalizationItem,
   type RecentValuation,
   type RightPanelView,
-  type StartupAssistantIssue,
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
@@ -84,7 +84,6 @@ import {
   isUpfrontMethodAllowedForNav,
   QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
   type QualityWarningAssistantCtaKey,
-  resolveSynthesisPercentWeightsForMethods,
 } from '../../../constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '../../../constants/methodLabels'
 import { getStarterPlanSummary } from '../../../constants/pricing'
@@ -97,6 +96,16 @@ import {
   ResizablePanelGroup,
 } from '../../../design-system/components/Resizable'
 // Venus infrastructure (auth, session, stores, services)
+import {
+  useIsMountedRef,
+  useLatestRef,
+  useManualLayoutResets,
+  usePdfStalenessLifecycle,
+  useRestorationGate,
+  useResultToReportBridge,
+  useValuationPersistenceCoordinator,
+  type PersistIntent,
+} from '../hooks'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
@@ -111,8 +120,18 @@ import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOption
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { useStartupBenchmark } from '../../../lib/benchmarks/useStartupBenchmark'
+import {
+  isAdaptiveMethodKey,
+  isVenturePathMethodKey,
+  methodKeyAcceptsPreparerMultipleOverride,
+  useStartupAssistantSurface,
+} from '../../../lib/methods'
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
+import {
+  bestBlendedValue,
+  evaluateSynthesisBlend,
+  shouldWarnSynthesisSkipped,
+} from '../../../lib/synthesis/synthesisEngine'
 import {
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
@@ -126,7 +145,6 @@ import {
   looksLikeNaceCode,
 } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
-import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
@@ -146,15 +164,12 @@ import {
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import {
-  consumeLatencyRecalcSuppression,
   enableTaxLatencyAutoPersist,
-  resetLatencyRecalcSuppression,
-  suppressNextLatencyRecalc,
   useTaxLatencyStore,
 } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
-import { type StudioIssue, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
   APIError,
   AuthenticationError,
@@ -213,7 +228,6 @@ import {
 } from '../../../utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
-import { buildQualityWarningResetKey } from '../../../utils/qualityWarningResetKey'
 import { valuationResultRunKey } from '../../../utils/valuationResultRunKey'
 import {
   hasExistingValuationVersion,
@@ -281,41 +295,9 @@ const PDF_STALE_POLL_MAX_MS = 120_000
 /** Titan import-review handoff keys; keep aligned with Mercury `sanitizeImportReviewSessionKeyFromUrl`. */
 const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
 
-function isDcfOrHybridMethodSignal(value: unknown): boolean {
-  if (value == null) return false
-  const normalized = String(value).trim().toLowerCase().replace(/-/g, '_').split(/\s+/).join('_')
-  return (
-    normalized === 'dcf' ||
-    normalized === 'dcf_analysis' ||
-    normalized === 'discounted_cash_flow' ||
-    /^discounted_cash_flow_?\(?dcf\)?$/.test(normalized) ||
-    normalized === 'hybrid' ||
-    normalized === 'hybrid_dcf' ||
-    normalized === 'hybrid_valuation'
-  )
-}
-
-function resultHasWeightedSynthesisSignal(result: Record<string, unknown>): boolean {
-  const details = result.details as Record<string, unknown> | undefined
-  const valuationResult = result.valuation_result as Record<string, unknown> | undefined
-  const valuationResultDetails = valuationResult?.details as Record<string, unknown> | undefined
-  const candidates = [
-    result,
-    result.weighted_valuation,
-    details,
-    result.report_context,
-    details?.report_context,
-    valuationResult,
-    valuationResultDetails,
-    valuationResult?.report_context,
-  ]
-
-  return candidates.some((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
-    const obj = candidate as Record<string, unknown>
-    return obj.has_weighted_synthesis === true || obj.blended_equity_value != null
-  })
-}
+// `isDcfOrHybridMethodSignal` + `resultHasWeightedSynthesisSignal` moved
+// into `features/manual/utils/mapValuationResultToReport` as part of the
+// Phase 4c.2 Hook 2 bridge extraction.
 
 // ─────────────────────────────────────────
 // TYPES
@@ -814,25 +796,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => setNormalizationToastMessages(null)
   }, [t])
   const reportPanelRef = useRef<HTMLDivElement>(null)
-  /** Avoid overlapping getReport calls from the PDF-stale poll interval */
-  const pdfStalePollInFlightRef = useRef(false)
-  /** Back off PDF stale polling while report row is not linked for val_* session keys (expected 404). */
-  const pdfStaleBySessionBackoffUntilRef = useRef(0)
-  const pdfStaleBySession404StreakRef = useRef(0)
-  /**
-   * Count of consecutive polls where the report row came back with the same
-   * (null) pdf_generated_at — i.e. the PDF job ran but produced nothing new.
-   * The existing 60s setTimeout-based pdfWaitTimedOut handles the *time*
-   * dimension but doesn't account for permanently-failing jobs (e.g. the
-   * May 14 startup_valuation incident where the PDF job re-rendered, the
-   * render returned `html_report: null` from safety-net, the processor
-   * threw "missing usable html", and the row stayed forever at
-   * pdf_generated_at=null). Without this streak, the UI polls for the full
-   * 60s producing 24 wasted /reports/{id} round-trips (1.3–1.8s each).
-   * After ~20s of identical responses we surface the retry banner so the
-   * user can act and we stop hammering the backend.
-   */
-  const pdfStaleUnchangedStreakRef = useRef(0)
+  // PDF-staleness lifecycle (4 refs + 3 useState + 3 effects + retry callback)
+  // is owned by `usePdfStalenessLifecycle`, instantiated below once
+  // `report` / `usePdfGeneration` outputs are available.
 
   // Venus infrastructure
   const { user } = useAuth()
@@ -845,6 +811,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** NACE resolution + identity paths when bootstrap is late or sparse — optional merge coalesced via {@link queueOptionalGapFillFlush}. */
   useSessionDataPrefill()
 
+  // Shallow-compared selector: re-renders only when one of these 15 fields
+  // changes (was: subscribed to the whole results store, so every set()
+  // re-rendered ManualLayout). Zustand v4.5 `useShallow` wraps the selector
+  // with a shallow-equal comparator so Object.is-on-state-root is bypassed.
   const {
     isCalculating,
     error,
@@ -862,8 +832,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     trySetCalculating,
     setCalculating,
     setResult,
-  } = useManualResultsStore()
-  const { updateFormData } = useManualFormStore()
+  } = useManualResultsStore(
+    useShallow((s) => ({
+      isCalculating: s.isCalculating,
+      error: s.error,
+      result: s.result,
+      selectedMethod: s.selectedMethod,
+      setSelectedMethod: s.setSelectedMethod,
+      preSelectedMethod: s.preSelectedMethod,
+      setPreSelectedMethod: s.setPreSelectedMethod,
+      preSelectedMethods: s.preSelectedMethods,
+      togglePreSelectedMethod: s.togglePreSelectedMethod,
+      userWeights: s.userWeights,
+      userWeightJustification: s.userWeightJustification,
+      setUserWeights: s.setUserWeights,
+      setUserWeightJustification: s.setUserWeightJustification,
+      trySetCalculating: s.trySetCalculating,
+      setCalculating: s.setCalculating,
+      setResult: s.setResult,
+    }))
+  )
+  // Atomic selector: `updateFormData` is a stable Zustand action reference,
+  // so this re-renders only on rare hot-reload / store-recreation events.
+  // (Was: `useManualFormStore()` with no selector — re-rendered on every
+  // form keystroke.)
+  const updateFormData = useManualFormStore((s) => s.updateFormData)
   const formStoreData = useManualFormStore((s) => s.formData)
   const { currentYearRevenueForMethodNav, preSelectableMethodsForNav: firmPreSelectableMethods } =
     useUpfrontMethodNavInputs(formStoreData, user?.firm_country_code)
@@ -900,7 +893,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
     Object.keys(importQualityMap).length > 0
-  const { createVersion, getLatestVersion } = useVersionHistoryStore()
+  // Atomic selectors for stable Zustand actions (was: subscribed to whole
+  // version-history store, re-rendering on every version-list mutation).
+  const createVersion = useVersionHistoryStore((s) => s.createVersion)
+  const getLatestVersion = useVersionHistoryStore((s) => s.getLatestVersion)
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
   const resolvedReportId = useMemo(() => {
@@ -942,6 +938,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const ctxClient = useClientContext((s) => s.client)
   const ctxRelationshipCustomerName = useClientContext((s) => s.relationshipCustomerName)
   const ctxAccountant = useClientContext((s) => s.accountant)
+  // Cross-app AI conversation continuity: when this drawer fires
+  // /api/ai/chat (or /api/ai/history), the Venus BFF forwards the
+  // X-Client-User-Id header (`stores/clientContext.getContextHeaders`).
+  // Titan's `resolveConversationLookupKey` reads that header and
+  // overrides the conversation row to `client_<clientUserId>` — the
+  // same key Mercury's advisor dock writes on
+  // `/advisor/clients/<id>/*` routes. Both surfaces converge on a
+  // single `ai_conversations` row per client. No FE wiring needed
+  // here; the helper at `../../../utils/aiConversationKey` exists as
+  // a parallel-tests contract pin for the Mercury equivalent.
 
   useEffect(() => {
     // Subscribe to client context so accountant mode updates when context hydrates
@@ -1002,11 +1008,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return null
   }, [session?.reportId, resolvedReportId, reportId])
 
-  useEffect(() => {
-    pdfStaleBySessionBackoffUntilRef.current = 0
-    pdfStaleBySession404StreakRef.current = 0
-  }, [persistedReportLookupId])
-
   const reportHydrationLookupId = useMemo(() => {
     const candidates = [
       session?.reportId,
@@ -1057,7 +1058,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Report & Generation State ───
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isMethodSwitchRendering, setIsMethodSwitchRendering] = useState(false)
+  // `isMethodSwitchRendering` is now derived from the persistence coordinator
+  // declared below — see `persistCoordinator.isPersisting`.
   const liveMultipleReportPreview = useMemo(() => {
     const resultAny = result as Record<string, any> | null
     const details =
@@ -1093,7 +1095,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
     if (
       !report?.htmlReport ||
-      (selectedMethod !== 'ebitda_multiple' && selectedMethod !== 'upswitch_adaptive') ||
+      !methodKeyAcceptsPreparerMultipleOverride(selectedMethod) ||
       appliedMultiple == null ||
       benchmarkMultiple == null ||
       Math.abs(appliedMultiple - benchmarkMultiple) < 0.005 ||
@@ -1122,16 +1124,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
   ])
-  const pdfStale = useMemo(() => {
-    if (!report) return false
-    const stale = isPdfLikelyStaleVenus(report)
-    if (!stale) return false
-    // Hook has a ready PDF but report row still has no pdf_generated_at — do not block UX.
-    // When both timestamps exist and the PDF is older than updated_at, we still show stale
-    // (do not blanket-ignore isPdfReady or the banner never returns after a recalculation).
-    if (isPdfReady && report.pdfGeneratedAt == null) return false
-    return true
-  }, [report, isPdfReady])
   const canDownloadPdf = useMemo(() => {
     if (planFeatures?.valuation_download !== false) return true
     // Free-tier seller carve-out for startup PDF only: match Titan `allowFreeSellerStartupValuationPdf`.
@@ -1140,7 +1132,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     // stays plan-gated like Mercury expectations.
     if (user?.role !== 'seller' || isAccountantFlow) return false
     const effectiveMethod = preSelectedMethod ?? selectedMethod
-    return effectiveMethod === 'startup_valuation'
+    return isVenturePathMethodKey(effectiveMethod)
   }, [
     planFeatures?.valuation_download,
     user?.role,
@@ -1149,32 +1141,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isAccountantFlow,
   ])
 
-  // When client-side PDF generation has a URL, treat report as fresh and sync metadata
-  // so `isPdfLikelyStaleVenus` stays false until the next server refresh.
-  useEffect(() => {
-    if (!canDownloadPdf || !isPdfReady || !pdfGenerationState.url) return
-    const url = pdfGenerationState.url
-    setReport((prev) => {
-      if (!prev) return prev
-      const syncAt = prev.reportUpdatedAt ?? new Date()
-      const pdfMs = dateLikeToUnixMs(prev.pdfGeneratedAt)
-      const syncMs = dateLikeToUnixMs(syncAt)
-      if (
-        prev.pdfUrl === url &&
-        prev.pdfGeneratedAt != null &&
-        pdfMs !== null &&
-        syncMs !== null &&
-        pdfMs === syncMs
-      ) {
-        return prev
-      }
-      return {
-        ...prev,
-        pdfUrl: url,
-        pdfGeneratedAt: syncAt,
-      }
-    })
-  }, [canDownloadPdf, isPdfReady, pdfGenerationState.url])
+  // `pdfStale` and the PDF-lifecycle FSM are now owned by
+  // `usePdfStalenessLifecycle` — instantiated below after `openStarterPaywall`
+  // is declared (it's one of the hook's params).
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -1191,27 +1160,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return !!(sd.valuationResult || sd.valuation_result || hasRenderableHtml)
     })()
   // Unblock UI as soon as SessionRestorationService signals completion.
-  // Keep a 5s safety timeout as a last resort in case the signal is never set.
-  const [restoreTimeoutFired, setRestoreTimeoutFired] = useState(false)
-  useEffect(() => {
-    if (!isRestoringExistingReport) {
-      setRestoreTimeoutFired(false)
-      return
-    }
-    const id = setTimeout(() => {
-      setRestoreTimeoutFired(true)
-      generalLogger.warn(
-        '[ManualLayout] isRestoringExistingReport safety timeout fired - unblocking right panel'
-      )
-    }, 5000)
-    return () => clearTimeout(id)
-  }, [isRestoringExistingReport])
-  const effectiveIsRestoringExistingReport =
-    isRestoringExistingReport && !restorationComplete && !restoreTimeoutFired
+  // `useRestorationGate` owns the 5s safety-timeout fallback used when the
+  // service never emits the completion signal (defense-in-depth).
+  const { effectiveIsRestoringExistingReport } = useRestorationGate({
+    isRestoringExistingReport,
+    restorationComplete,
+  })
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
-  const [pdfWaitTimedOut, setPdfWaitTimedOut] = useState(false)
-  const [isPdfRetrying, setIsPdfRetrying] = useState(false)
-  const [pdfPollErrorCount, setPdfPollErrorCount] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const pdfExportAbortRef = useRef<AbortController | null>(null)
   useEffect(() => {
@@ -1355,7 +1310,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isChatGenerating, setIsChatGenerating] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const conversationStore = useConversationStore()
+  // Shallow-compared selector: re-renders only when one of these 7 fields
+  // changes (was: subscribed to whole conversation store).
+  const conversationStore = useConversationStore(
+    useShallow((s) => ({
+      lastLoadedReportId: s.lastLoadedReportId,
+      conversationId: s.conversationId,
+      toolInProgress: s.toolInProgress,
+      setToolInProgress: s.setToolInProgress,
+      setConversationId: s.setConversationId,
+      loadHistory: s.loadHistory,
+      clearMessages: s.clearMessages,
+    }))
+  )
   const streamCleanupRef = useRef<(() => void) | null>(null)
   const tCa = useTranslations('chatAssistant')
 
@@ -1374,15 +1341,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Track reset signatures for warning-card acknowledgement state.
   const lastQualityWarningResetKeyRef = useRef<string | null>(null)
   const lastSynthesisBlendSkippedRunKeyRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    lastQualityWarningResetKeyRef.current = null
-    lastSynthesisBlendSkippedRunKeyRef.current = null
-  }, [reportId])
-
-  useEffect(() => {
-    setAcknowledgedStartupIssues(new Set())
-  }, [reportId])
 
   // Load conversation history from server and sync to local chat state.
   // When reportId changes (e.g. accountant switches clients), reload for the new report.
@@ -1452,7 +1410,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Normalization State (Unified Store) ───
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const normalizationActions = useNormalizationStore()
+  // Shallow-compared selector for the 6 setters used below. All setters are
+  // stable Zustand action references so this effectively never re-renders.
+  // (Was: subscribed to whole normalization store, re-rendering on every
+  // items / metadata change.)
+  const normalizationActions = useNormalizationStore(
+    useShallow((s) => ({
+      setItems: s.setItems,
+      persistToSession: s.persistToSession,
+      addItems: s.addItems,
+      acceptItem: s.acceptItem,
+      rejectItem: s.rejectItem,
+      updateItem: s.updateItem,
+    }))
+  )
   const [suggestedNormalisations, setSuggestedNormalisations] = useState<any[]>([])
 
   useEffect(() => {
@@ -1730,6 +1701,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     },
     []
   )
+
+  // PDF-staleness FSM — owns 4 refs + 3 useState + 3 effects + retry callback
+  // that previously lived inline across ~250 lines. See `usePdfStalenessLifecycle`.
+  const {
+    pdfStale,
+    pdfWaitTimedOut,
+    pdfPollErrorCount,
+    isPdfRetrying,
+    retry: handleRetryPdfStalled,
+  } = usePdfStalenessLifecycle({
+    report,
+    isPdfReady,
+    pdfGenerationState,
+    persistedReportLookupId,
+    canDownloadPdf,
+    generatePdf,
+    getReport: backendAPI.getReport.bind(backendAPI),
+    setResult,
+    setReport,
+    openStarterPaywall,
+    showRetryFailureToast: (title, options) => toast.error(title, options),
+    translate: (key) => t(key),
+  })
+
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
   const [guidedNormalizationPrefill, setGuidedNormalizationPrefill] =
@@ -1800,6 +1795,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       isForecast?: boolean
     }>
   } | null>(null)
+
+  // Effective "is this the venture (startup) route?" — hoisted from its
+  // original site (down with the startup-assistant integration) so the
+  // consolidated reset hook can read it. `useManualLayoutResets` clears the
+  // startup-issues ack Set when leaving the route.
+  const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
+  const isStartupAssistantRoute = isVenturePathMethodKey(effectiveAssistantMethod)
+
+  // Identity-change resets — one named hook replaces 6 inline effects that
+  // previously lived scattered across this file. See `useManualLayoutResets`
+  // for the per-trigger semantics; refs stay owned here so the other effects
+  // that read them (PDF stale poll, synthesis warn dedup, baseline-snapshot
+  // detection) can keep working unchanged.
+  useManualLayoutResets({
+    reportId,
+    result,
+    isStartupAssistantRoute,
+    setIsDirty,
+    setAcknowledgedStartupIssues,
+    setAcknowledgedQualityWarnings,
+    refs: {
+      lastQualityWarningResetKeyRef,
+      lastSynthesisBlendSkippedRunKeyRef,
+      lastSubmittedFinancialSnapshotRef,
+    },
+  })
 
   const handleFormDataChange = useCallback(
     (data: Record<string, unknown>) => {
@@ -1969,12 +1990,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formStoreData.ebitda,
     formStoreData.forecast_years_data,
   ])
-
-  // Reset dirty state when switching reports
-  useEffect(() => {
-    lastSubmittedFinancialSnapshotRef.current = null
-    setIsDirty(false)
-  }, [reportId])
 
   // Sync form store changes into collectedData
   useEffect(() => {
@@ -2222,41 +2237,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const navValuationSummary = React.useMemo(() => {
     if (!report) return undefined
-    const hydrated = getHydratedValuationResults(result) as
-      | Record<string, ValuationMethodResult>
-      | undefined
-
-    const isMultiMethod =
-      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
-
-    let liveBlended: number | null = null
-    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
-    if (isMultiMethod && hydrated && blendPct && Object.keys(blendPct).length >= 2) {
-      let sum = 0
-      let ok = true
-      for (const m of preSelectedMethods) {
-        const mw = blendPct[m] ?? 0
-        if (mw <= 0) continue
-        const mr = getValuationMethodResultForKey(hydrated, m)
-        const rawVal = mr?.value
-        const n = rawVal == null ? NaN : Number(rawVal)
-        if (!mr?.available || !Number.isFinite(n)) {
-          ok = false
-          break
-        }
-        sum += n * (mw / 100)
-      }
-      if (ok && sum > 0 && Number.isFinite(sum)) liveBlended = Math.round(sum)
-    }
-
-    const serverBlended =
-      result?.weighted_valuation?.blended_equity_value != null
-        ? Number(result.weighted_valuation.blended_equity_value)
-        : null
-    const blended =
-      liveBlended ??
-      (serverBlended != null && Number.isFinite(serverBlended) ? serverBlended : null)
-    const primaryValue = blended ?? report.recommendedAskingPrice ?? report.valuation
+    const blend = evaluateSynthesisBlend({ result, preSelectedMethods, userWeights })
+    const primaryValue =
+      bestBlendedValue(blend) ?? report.recommendedAskingPrice ?? report.valuation
     return {
       priceRange: {
         min: report.valuationLow ?? Math.round(report.valuation * 0.85),
@@ -2305,117 +2288,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   // ─── Bridge: Result from Venus API → Report for Clarity components ───
-  useEffect(() => {
-    if (result) {
-      try {
-        usePreparerMultipleStore.getState().syncFromValuationResult(result)
-        onComplete(result)
-
-        const r = result as any
-        const presentation = deriveManualReportPresentation(r, selectedMethod)
-        const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
-        const latestNormRaw = r.latest_normalized_ebitda
-        const normalizedEbitda =
-          latestNormRaw != null && Number.isFinite(Number(latestNormRaw))
-            ? Number(latestNormRaw)
-            : ebitda
-        const revenue = coalesceFiniteNumber(r.current_year_data?.revenue)
-        const p25 = r.multiples_valuation?.p25_ebitda_multiple
-        const p75 = r.multiples_valuation?.p75_ebitda_multiple
-        const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
-        const confidence =
-          typeof rawConfidence === 'string'
-            ? (rawConfidence.toLowerCase() as 'high' | 'medium' | 'low')
-            : undefined
-
-        const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
-        const askingPrice =
-          askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
-        const htmlReport = getFirstRenderableReportHtml(r.html_report, r.details?.html_report)
-        const shouldExposeDcfReadiness =
-          isDcfOrHybridMethodSignal(selectedMethod) ||
-          isDcfOrHybridMethodSignal(r.selected_valuation_method) ||
-          isDcfOrHybridMethodSignal(r.report_context?.selected_valuation_method) ||
-          resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
-        const dcfHistoricalFcfReadiness = shouldExposeDcfReadiness
-          ? (r.dcf_valuation?.historical_fcf_readiness ??
-            r.details?.dcf_valuation?.historical_fcf_readiness ??
-            null)
-          : null
-
-        setReport({
-          id: reportId || r.valuation_id || r.id || 'draft',
-          companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
-          valuation: presentation.valuation,
-          valuationLow:
-            presentation.valuationLow != null && Number.isFinite(presentation.valuationLow)
-              ? presentation.valuationLow
-              : undefined,
-          valuationHigh:
-            presentation.valuationHigh != null && Number.isFinite(presentation.valuationHigh)
-              ? presentation.valuationHigh
-              : undefined,
-          ebitda,
-          normalizedEbitda: Number.isFinite(normalizedEbitda) ? normalizedEbitda : undefined,
-          multiple: presentation.multiple ?? 0,
-          multipleRange:
-            presentation.multipleRange ??
-            (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
-          generatedAt: new Date(),
-          confidenceLevel: confidence || 'medium',
-          htmlReport: htmlReport || undefined,
-          dcfHistoricalFcfReadiness,
-          recommendedAskingPrice: askingPrice,
-          metrics: [
-            {
-              label: tReport('metrics.avgRevenue'),
-              value: `€${(revenue / 1_000_000).toFixed(2)}M`,
-            },
-            {
-              label: tReport('metrics.ebitdaMargin'),
-              value:
-                revenue !== 0 && Number.isFinite(revenue)
-                  ? `${((ebitda / revenue) * 100).toFixed(1)}%`
-                  : '—',
-            },
-            {
-              label: tReport('metrics.sector'),
-              value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
-            },
-          ],
-          reportUpdatedAt: r.updated_at ? new Date(String(r.updated_at)) : undefined,
-          pdfGeneratedAt:
-            r.pdf_generated_at != null && String(r.pdf_generated_at) !== ''
-              ? new Date(String(r.pdf_generated_at))
-              : null,
-          pdfUrl: canDownloadPdf && typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
-        })
-        setDraftStatus('saved')
-        setLastSaved(new Date())
-
-        setRightPanelView('preview')
-
-        if (isMobile && htmlReport) {
-          setShowFullscreenModal(true)
-        }
-
-        if (reportId && htmlReport && canDownloadPdf) {
-          generatePdf?.().catch((err) => {
-            if (err instanceof APIError && err.statusCode === 402) return
-            generalLogger.warn('[ManualLayout] Background PDF generation failed', {
-              error: err instanceof Error ? err.message : String(err),
-            })
-          })
-        }
-      } catch (error) {
-        generalLogger.error('[ManualLayout] Failed to map result into report presentation', {
-          reportId,
-          valuationId: (result as any)?.valuation_id ?? (result as any)?.id ?? null,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, canDownloadPdf])
+  // Owned by `useResultToReportBridge`. The 110-line effect that previously
+  // lived here is now a pure mapper (`mapValuationResultToReport`) plus a
+  // thin effect wrapper that fires the 7 documented side effects. Behaviour
+  // is preserved verbatim — including the panel-view override on every
+  // result-arrival and the auto-PDF-gen trigger.
+  useResultToReportBridge({
+    result,
+    selectedMethod,
+    reportId,
+    canDownloadPdf,
+    isMobile,
+    tReport,
+    onComplete,
+    setReport,
+    setDraftStatus,
+    setLastSaved,
+    setRightPanelView,
+    setShowFullscreenModal,
+    generatePdf,
+  })
 
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
@@ -2451,10 +2343,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [selectedMethod, result, report])
 
   // ─── Omni-Calc: Persist method selection to Titan + re-render report ───
-  const isFirstMethodRender = useRef(true)
+  // The state machine for "two concurrent debounced persist paths" used to
+  // live here as four refs + one boolean state + two ~50-line useEffects.
+  // It now lives behind `useValuationPersistenceCoordinator` — see below.
+  // `pendingOverrideRef` is still owned by the caller because the override
+  // metadata is collected at click time (via `handleSelectMethodWithOverride`)
+  // and consumed at the next method enqueue.
   const pendingOverrideRef = useRef<{ reason?: string; note?: string }>({})
-  const lastPersistedMethodRef = useRef(selectedMethod)
-  const lastPersistedPreparerRef = useRef('none')
   const refreshReportAfterEdit = useCallback(
     async (htmlFromPatch?: string) => {
       if (!persistedReportLookupId) return false
@@ -2542,207 +2437,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [generatePdf, persistedReportLookupId, setResult, canDownloadPdf]
   )
 
-  useEffect(() => {
-    if (!pdfStale) {
-      setPdfWaitTimedOut(false)
-      setPdfPollErrorCount(0)
-      pdfStaleBySessionBackoffUntilRef.current = 0
-      pdfStaleBySession404StreakRef.current = 0
-      pdfStaleUnchangedStreakRef.current = 0
-      return
-    }
-    setPdfWaitTimedOut(false)
-    // Reset the unchanged-response streak whenever a new stale cycle begins
-    // (a fresh edit bumps `reportUpdatedAt`, this effect re-runs). Without
-    // this reset, a streak that accumulated against a prior edit's failed
-    // job would carry into the new cycle and prematurely surface "stalled".
-    pdfStaleUnchangedStreakRef.current = 0
-    const tid = setTimeout(() => setPdfWaitTimedOut(true), 60_000)
-    return () => clearTimeout(tid)
-  }, [pdfStale, report?.reportUpdatedAt, report?.pdfGeneratedAt])
-
-  useEffect(() => {
-    // Stop polling when the stalled banner is showing: either the 60s
-    // setTimeout fired or the unchanged-response streak guard kicked in.
-    // The user now sees the retry CTA — keeping the 2.5s interval running
-    // just wastes their bandwidth and the backend's Prisma+Python budget.
-    if (!pdfStale || !persistedReportLookupId || pdfWaitTimedOut) return
-    const id = setInterval(async () => {
-      if (pdfStalePollInFlightRef.current) return
-      if (
-        isSessionKey(persistedReportLookupId) &&
-        Date.now() < pdfStaleBySessionBackoffUntilRef.current
-      ) {
-        return
-      }
-      pdfStalePollInFlightRef.current = true
-      try {
-        const fresh = await backendAPI.getReport(
-          persistedReportLookupId,
-          isSessionKey(persistedReportLookupId) ? { bySession404Attempts: 1 } : undefined
-        )
-        const latestExistingResult = useManualResultsStore.getState().result
-        const nextValuationResults =
-          getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
-        const mergedResult: ValuationResponse = {
-          ...(latestExistingResult || {}),
-          ...fresh,
-          html_report: getRenderableReportHtmlFromCurrentOrFallback(
-            [fresh.html_report],
-            [latestExistingResult?.html_report],
-            {
-              currentRenderFingerprint: fresh.render_fingerprint,
-              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
-            }
-          ),
-          valuation_results: nextValuationResults ?? undefined,
-          fiscal_4x_anchor:
-            fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-          multiple_adjustment_summary:
-            fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
-        }
-        setResult(mergedResult)
-        setReport((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            reportUpdatedAt: fresh.updated_at
-              ? new Date(String(fresh.updated_at))
-              : prev.reportUpdatedAt,
-            pdfGeneratedAt:
-              fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
-                ? new Date(String(fresh.pdf_generated_at))
-                : null,
-            pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
-          }
-        })
-        pdfStaleBySession404StreakRef.current = 0
-        setPdfPollErrorCount(0)
-        // Permanent-failure detection: if the PDF row keeps coming back with
-        // null pdf_generated_at, the backend isn't producing anything. After
-        // ~20s of identical responses, surface the "stalled — retry" banner
-        // and stop hammering /reports/{id}. Without this guard the user sees
-        // ~24 wasted 1.5s round-trips before the 60s timeout fires.
-        const stillNoPdf =
-          fresh.pdf_generated_at == null || String(fresh.pdf_generated_at) === ''
-        if (stillNoPdf) {
-          const streak = ++pdfStaleUnchangedStreakRef.current
-          // 12 polls × 2.5s interval = 30s of unchanged responses before
-          // we surface the retry banner. Picked conservatively above the
-          // typical PDF generation budget (engine /pdf takes 1-2s; Bull
-          // worker round-trip + Prisma update brings end-to-end to ~5-10s
-          // under normal load). 30s of "still null" almost certainly means
-          // the worker is stuck, the job threw `pdf_blocked_*`, or the
-          // re-render returned safety-net HTML that the gate rejected.
-          // Lower thresholds (we tried 8) false-positive on slow-but-OK
-          // PDFs and frustrate the user with a retry button they didn't
-          // need.
-          if (streak >= 12) {
-            setPdfWaitTimedOut(true)
-          }
-        } else {
-          pdfStaleUnchangedStreakRef.current = 0
-        }
-      } catch (err) {
-        const isSession404 =
-          err instanceof APIError &&
-          err.statusCode === 404 &&
-          isSessionKey(persistedReportLookupId)
-        if (isSession404) {
-          const streak = ++pdfStaleBySession404StreakRef.current
-          const delayMs = Math.min(
-            60_000,
-            PDF_STALE_POLL_INTERVAL_MS * 2 ** Math.min(streak - 1, 5)
-          )
-          pdfStaleBySessionBackoffUntilRef.current = Date.now() + delayMs
-          generalLogger.debug('[ManualLayout] PDF stale poll skipped backoff after by-session 404', {
-            reportId: persistedReportLookupId?.substring(0, 40),
-            streak,
-            delayMs,
-          })
-        } else {
-          generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
-            reportId: persistedReportLookupId,
-            error: err instanceof Error ? err.message : String(err),
-          })
-          setPdfPollErrorCount((c) => c + 1)
-        }
-      } finally {
-        pdfStalePollInFlightRef.current = false
-      }
-    }, PDF_STALE_POLL_INTERVAL_MS)
-    const max = setTimeout(() => clearInterval(id), PDF_STALE_POLL_MAX_MS)
-    return () => {
-      clearInterval(id)
-      clearTimeout(max)
-      pdfStalePollInFlightRef.current = false
-    }
-  }, [pdfStale, persistedReportLookupId, setResult, canDownloadPdf, pdfWaitTimedOut])
-
-  const handleRetryPdfStalled = useCallback(async () => {
-    if (!persistedReportLookupId) return
-    if (!canDownloadPdf) {
-      openStarterPaywall('pdf_download')
-      return
-    }
-    setIsPdfRetrying(true)
-    // Reset streak + wait state so the poll loop re-arms if the retry kicks
-    // off a successful job. Without this reset, the user clicks retry, a
-    // fresh PDF job runs, but Venus stays in the stalled state and never
-    // polls for the new pdf_generated_at.
-    pdfStaleUnchangedStreakRef.current = 0
-    setPdfWaitTimedOut(false)
-    try {
-      await generatePdf()
-      const fresh = await backendAPI.getReport(persistedReportLookupId)
-      const latestExistingResult = useManualResultsStore.getState().result
-      const nextValuationResults =
-        getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
-      const mergedResult: ValuationResponse = {
-        ...(latestExistingResult || {}),
-        ...fresh,
-        html_report: getRenderableReportHtmlFromCurrentOrFallback(
-          [fresh.html_report],
-          [latestExistingResult?.html_report],
-          {
-            currentRenderFingerprint: fresh.render_fingerprint,
-            fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
-          }
-        ),
-        valuation_results: nextValuationResults ?? undefined,
-        fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-        multiple_adjustment_summary:
-          fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
-      }
-      setResult(mergedResult)
-      setReport((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          reportUpdatedAt: fresh.updated_at
-            ? new Date(String(fresh.updated_at))
-            : prev.reportUpdatedAt,
-          pdfGeneratedAt:
-            fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
-              ? new Date(String(fresh.pdf_generated_at))
-              : null,
-          pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
-        }
-      })
-      setPdfPollErrorCount(0)
-    } catch (err) {
-      if (err instanceof APIError && err.statusCode === 402) {
-        openStarterPaywall('pdf_download')
-        return
-      }
-      generalLogger.warn('[ManualLayout] Retry stalled PDF failed', {
-        error: err instanceof Error ? err.message : String(err),
-      })
-      toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
-    } finally {
-      setIsPdfRetrying(false)
-    }
-  }, [generatePdf, persistedReportLookupId, setResult, t, canDownloadPdf, openStarterPaywall])
+  // The PDF stale-poll loop (was ~115 lines of setInterval with backoff +
+  // streak detection + in-flight guard) and its retry handler (~50 lines)
+  // both moved into `usePdfStalenessLifecycle`. `handleRetryPdfStalled` is
+  // exposed as `retry` on that hook (destructured + aliased near the hook
+  // call site).
 
   const pdfStaleBannerEl = useMemo(() => {
     if (!report || !pdfStale) return null
@@ -2807,88 +2506,97 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     handleRetryPdfStalled,
   ])
 
-  const persistModalEdit = useCallback(
-    async ({
-      method,
-      overrideReason,
-      overrideNote,
-      preparerPayload,
-      clearPreparerOverride = false,
-    }: {
-      method: string
-      overrideReason?: string
-      overrideNote?: string
-      preparerPayload?: ReturnType<typeof buildPreparerMultiplePayload> | null
-      clearPreparerOverride?: boolean
-    }) => {
-      if (!persistedReportLookupId) return
-      const res = await backendAPI.updateSelectedMethod(
-        persistedReportLookupId,
-        method,
-        overrideReason,
-        overrideNote,
-        preparerPayload
-          ? preparerPayload
-          : clearPreparerOverride
-            ? { clear_preparer_override: true }
-            : undefined
-      )
-      await refreshReportAfterEdit(res?.html_report)
-      return res
-    },
-    [persistedReportLookupId, refreshReportAfterEdit]
+  // Latest-ref for the server-confirmed previously persisted method.
+  // Captured here (not in deps) so the enqueue effect doesn't re-fire on
+  // every `result` change — the coordinator dedups via baseline anyway.
+  const resultMethodRef = useLatestRef<string | undefined>(
+    (result as { selected_valuation_method?: string } | null)?.selected_valuation_method
   )
 
-  useEffect(() => {
-    lastPersistedPreparerRef.current = serializePreparerPayload(
-      buildPersistedPreparerMultiplePayload(result)
-    )
-  }, [result])
-
-  // Pass-9: when a materially NEW result arrives, clear stale acknowledgements but
-  // **never auto-open** the assistant. Forcing the drawer open broke flow —
-  // owners just wanted to see the report. The unread count surfaces on the
-  // closed assistant trigger (notification badge) so high-severity warnings
-  // are still discoverable; the user opens the drawer when ready.
-  useEffect(() => {
-    if (!result) return
-    const resetKey = buildQualityWarningResetKey(result)
-    if (resetKey !== lastQualityWarningResetKeyRef.current) {
-      setAcknowledgedQualityWarnings(new Set())
-      lastQualityWarningResetKeyRef.current = resetKey
-    }
-  }, [result])
-
-  useEffect(() => {
-    if (!result) return
-    const isMulti =
-      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
-    if (!isMulti) return
-    const blendPct = resolveSynthesisPercentWeightsForMethods(preSelectedMethods, userWeights)
-    if (!blendPct) return
-    const wv = (result as ValuationResponse)?.weighted_valuation?.blended_equity_value
-    const hasWeighted = wv != null && Number.isFinite(Number(wv))
-    if (hasWeighted) return
-
-    const hydrated = getHydratedValuationResults(result)
-    if (!hydrated || Object.keys(hydrated).length === 0) return
-
-    let blocker: string | null = null
-    for (const m of preSelectedMethods) {
-      const pct = blendPct[m] ?? 0
-      if (pct <= 0) continue
-      const mr = getValuationMethodResultForKey(
-        hydrated as Record<string, ValuationMethodResult>,
-        m
+  // Single source of truth for the two formerly-racing persist paths.
+  // The coordinator owns: debounce, dedup, supersede (method ⊃ preparer),
+  // serialization, and AbortController-based cancellation. See
+  // `useValuationPersistenceCoordinator` for the contract.
+  const persistCoordinator = useValuationPersistenceCoordinator({
+    reportId: persistedReportLookupId ?? null,
+    initialBaseline: {
+      method: selectedMethod,
+      preparerSignature: serializePreparerPayload(
+        buildPersistedPreparerMultiplePayload(result)
+      ),
+    },
+    runner: async (intent: PersistIntent, signal: AbortSignal) => {
+      if (!persistedReportLookupId) return
+      const preparerOptions: Parameters<typeof backendAPI.updateSelectedMethod>[4] =
+        intent.kind === 'preparer'
+          ? intent.payload != null
+            ? (intent.payload as Parameters<typeof backendAPI.updateSelectedMethod>[4])
+            : intent.clear
+              ? { clear_preparer_override: true }
+              : undefined
+          : undefined
+      const overrideReason = intent.kind === 'method' ? intent.overrideReason : undefined
+      const overrideNote = intent.kind === 'method' ? intent.overrideNote : undefined
+      const res = await backendAPI.updateSelectedMethod(
+        persistedReportLookupId,
+        intent.method,
+        overrideReason,
+        overrideNote,
+        preparerOptions
       )
-      const rawVal = mr?.value
-      const n = rawVal == null ? NaN : Number(rawVal)
-      if (!mr?.available || !Number.isFinite(n)) {
-        blocker = m
-        break
+      // Honour the abort signal between the server-side persist (which
+      // already committed) and the client-side refresh (which writes to
+      // `setResult` / `setReport`). Without this gate, a superseded run
+      // would clobber the newer run's UI state.
+      if (signal.aborted) return
+      await refreshReportAfterEdit(res?.html_report)
+    },
+    onError: (intent, error) => {
+      if (intent.kind === 'method') {
+        const errMsg = error instanceof Error ? error.message : String(error)
+        generalLogger.error('[ManualLayout] Method persist failed', {
+          error: errMsg,
+          selectedMethod: intent.method,
+        })
+        setSelectedMethod(intent.previousMethod)
+        if (errMsg.includes('plan does not include')) {
+          setMethodPaywallReason('methods')
+          setMethodPaywallOpen(true)
+        } else {
+          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+        }
+      } else {
+        generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
+          error: error instanceof Error ? error.message : String(error),
+          selectedMethod: intent.method,
+        })
+        toastModalEditPersistError(error, t)
       }
-    }
-    if (!blocker) return
+    },
+  })
+  const isMethodSwitchRendering = persistCoordinator.isPersisting
+
+  // Sync the preparer baseline from server-confirmed `result` so the dedup
+  // reflects the latest persisted state (replaces the legacy
+  // `lastPersistedPreparerRef = serializePreparerPayload(...)` effect).
+  useEffect(() => {
+    persistCoordinator.setBaseline({
+      preparerSignature: serializePreparerPayload(
+        buildPersistedPreparerMultiplePayload(result)
+      ),
+    })
+  }, [result, persistCoordinator])
+
+  // Pass-9 note: when a materially new result arrives, the consolidated
+  // `useManualLayoutResets` hook (above) clears stale acknowledgements. The
+  // assistant drawer is intentionally NOT auto-opened — owners want to see
+  // the report first. The unread count surfaces on the closed assistant
+  // trigger so high-severity warnings stay discoverable.
+
+  useEffect(() => {
+    if (!result) return
+    const blend = evaluateSynthesisBlend({ result, preSelectedMethods, userWeights })
+    if (!shouldWarnSynthesisSkipped(blend)) return
 
     const runKey = valuationResultRunKey(result)
     if (runKey === lastSynthesisBlendSkippedRunKeyRef.current) return
@@ -2899,56 +2607,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [result, preSelectedMethods, userWeights, t])
 
+  // Enqueue a method-change persist when the user picks a new method. The
+  // coordinator dedups against the last-persisted baseline at execution
+  // time, so the first-render guard the legacy effect used (`isFirstMethodRender`)
+  // is no longer needed — `initialBaseline.method` covers it.
   useEffect(() => {
-    if (isFirstMethodRender.current) {
-      isFirstMethodRender.current = false
-      lastPersistedMethodRef.current = selectedMethod
-      return
-    }
     if (!persistedReportLookupId) return
-    if (selectedMethod === lastPersistedMethodRef.current) return
-    const previousMethod = lastPersistedMethodRef.current
     const { reason, note } = pendingOverrideRef.current
     pendingOverrideRef.current = {}
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      setIsMethodSwitchRendering(true)
-      try {
-        await persistModalEdit({
-          method: selectedMethod,
-          overrideReason: reason,
-          overrideNote: note,
-        })
-        if (!cancelled) {
-          lastPersistedMethodRef.current = selectedMethod
-        }
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error)
-        generalLogger.error('[ManualLayout] Method persist failed', {
-          error: errMsg,
-          selectedMethod,
-        })
-        if (!cancelled) {
-          setSelectedMethod(previousMethod)
-          if (errMsg.includes('plan does not include')) {
-            setMethodPaywallReason('methods')
-            setMethodPaywallOpen(true)
-          } else {
-            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-          }
-        }
-      } finally {
-        setIsMethodSwitchRendering(false)
-      }
-    }, 500)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [persistModalEdit, selectedMethod, persistedReportLookupId, t])
+    persistCoordinator.enqueueMethod({
+      method: selectedMethod,
+      previousMethod: resultMethodRef.current ?? selectedMethod,
+      overrideReason: reason,
+      overrideNote: note,
+    })
+  }, [selectedMethod, persistedReportLookupId, persistCoordinator, resultMethodRef])
 
+  // Enqueue a preparer-multiple persist when the form changes. The extreme-
+  // multiple warn gate is a UI policy (we don't persist until the advisor
+  // acknowledges); the coordinator's signature dedup handles the rest.
   useEffect(() => {
-    if (!showValuationEditModal || !persistedReportLookupId || isMethodSwitchRendering) return
+    if (!showValuationEditModal || !persistedReportLookupId) return
     const mv = result?.multiples_valuation
     const currentPayload = buildPreparerMultiplePayload({
       benchmarkMedian: preparerBenchmarkMedian,
@@ -2971,42 +2650,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ) {
       return
     }
-    const currentSignature = serializePreparerPayload(currentPayload)
-    if (currentSignature === lastPersistedPreparerRef.current) return
-
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      setIsMethodSwitchRendering(true)
-      try {
-        await persistModalEdit({
-          method: selectedMethod,
-          preparerPayload: currentPayload,
-          clearPreparerOverride: currentPayload == null,
-        })
-        if (!cancelled) {
-          lastPersistedPreparerRef.current = currentSignature
-        }
-      } catch (error) {
-        generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
-          error: error instanceof Error ? error.message : String(error),
-          selectedMethod,
-        })
-        if (!cancelled) {
-          toastModalEditPersistError(error, t)
-        }
-      } finally {
-        setIsMethodSwitchRendering(false)
-      }
-    }, 700)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
+    persistCoordinator.enqueuePreparer({
+      method: selectedMethod,
+      payload: currentPayload as Record<string, unknown> | null,
+      clear: currentPayload == null,
+      signature: serializePreparerPayload(currentPayload),
+    })
   }, [
-    isMethodSwitchRendering,
+    persistCoordinator,
     persistedReportLookupId,
-    persistModalEdit,
     preparerAcknowledgedExtreme,
     preparerAppliedMedian,
     preparerBenchmarkMedian,
@@ -3015,7 +2667,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
     showValuationEditModal,
-    t,
   ])
 
   const handleSelectMethodWithOverride = useCallback(
@@ -3048,7 +2699,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         openStarterPaywall('methods')
         return
       }
-      setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
+      setPreSelectedMethod(isAdaptiveMethodKey(method) ? null : method)
     },
     [setPreSelectedMethod, preSelectableMethodsForNav, allowedMethodKeys, openStarterPaywall]
   )
@@ -3089,7 +2740,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const effectiveMethod =
         useManualResultsStore.getState().preSelectedMethod ??
         useManualResultsStore.getState().selectedMethod
-      const isStartupRoute = effectiveMethod === 'startup_valuation'
+      const isStartupRoute = isVenturePathMethodKey(effectiveMethod)
 
       if (!data.companyName?.trim()) {
         toast.warning(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
@@ -3250,54 +2901,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         const storeForBlend = useManualResultsStore.getState()
-        const blendMethods = storeForBlend.preSelectedMethods
-        const blendPct = resolveSynthesisPercentWeightsForMethods(
-          blendMethods,
-          storeForBlend.userWeights
-        )
-        const expectedWeightedSynthesis =
-          blendMethods.length >= 2 &&
-          !blendMethods.includes('upswitch_adaptive') &&
-          blendPct != null &&
-          !calcResult.weighted_valuation
-
+        const submitBlend = evaluateSynthesisBlend({
+          result: calcResult,
+          preSelectedMethods: storeForBlend.preSelectedMethods,
+          userWeights: storeForBlend.userWeights,
+        })
         const blendRunKey = valuationResultRunKey(calcResult)
         if (
-          expectedWeightedSynthesis &&
+          submitBlend.client.kind === 'blocked' &&
+          submitBlend.serverBlended == null &&
           blendRunKey &&
           lastSynthesisBlendSkippedRunKeyRef.current !== blendRunKey
         ) {
-          const vrBlend = getHydratedValuationResults(calcResult) ?? {}
-          let blocker: { key: string; reason?: string | null } | null = null
-          if (blendPct) {
-            for (const mk of blendMethods) {
-              const w = blendPct[mk] ?? 0
-              if (w <= 0) continue
-              const mr = getValuationMethodResultForKey(vrBlend, mk)
-              if (!mr?.available || mr.value == null) {
-                blocker = { key: mk, reason: mr?.unavailable_reason ?? null }
-                break
-              }
-            }
-          }
-          if (blocker) {
-            lastSynthesisBlendSkippedRunKeyRef.current = blendRunKey
-            const labelTail = METHOD_LABEL_KEYS[blocker.key]?.replace(
-              'manualInput.methodSelector.',
-              ''
-            )
-            const methodLabel = labelTail
-              ? tMethodSelector(labelTail as 'dcf')
-              : blocker.key.replace(/_/g, ' ')
-            toast.warning(t('synthesisBlendSkippedTitle'), {
-              description: t('synthesisBlendSkippedDesc', {
-                method: methodLabel,
-                reason:
-                  (blocker.reason && String(blocker.reason).trim()) ||
-                  t('synthesisBlendSkippedReasonFallback'),
-              }),
-            })
-          }
+          lastSynthesisBlendSkippedRunKeyRef.current = blendRunKey
+          const blockerKey = submitBlend.client.blockerMethod
+          const labelTail = METHOD_LABEL_KEYS[blockerKey]?.replace(
+            'manualInput.methodSelector.',
+            ''
+          )
+          const methodLabel = labelTail
+            ? tMethodSelector(labelTail as 'dcf')
+            : blockerKey.replace(/_/g, ' ')
+          toast.warning(t('synthesisBlendSkippedTitle'), {
+            description: t('synthesisBlendSkippedDesc', {
+              method: methodLabel,
+              reason: submitBlend.client.blockerReason ?? t('synthesisBlendSkippedReasonFallback'),
+            }),
+          })
         }
 
         // Step 5: Store result (triggers useEffect bridge → report state)
@@ -4743,8 +4373,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       useNormalizationStore.getState().clear()
       // Programmatic clear during abandon — must not trigger the latency auto-recalc
       // subscription (would attempt a recalc against a stale/cleared form).
-      suppressNextLatencyRecalc()
-      useTaxLatencyStore.getState().clear()
+      useTaxLatencyStore.getState().clear({ source: 'system' })
       useNbbPrefillStore.getState().clear()
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
       setShowNewValuationModal(false)
@@ -5174,10 +4803,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // IMPORTANT: Do NOT manually mutate EBITDA here. buildValuationRequest reads accepted
   // normalizations from useNormalizationStore and applies them. Mutating formStore EBITDA
   // would cause double-counting because buildValuationRequest adds adjustments on top.
+  //
+  // Navigation-cancellation primitives — close the cross-report `setResult`
+  // clobber documented in the audit. `valuationService.calculateValuation` is
+  // a long-running POST that we cannot abort today (service-contract change
+  // would be needed). The next-best thing is to gate the post-await writes:
+  // if the component has unmounted OR the active lookup id has changed
+  // mid-flight, the stale result never reaches the global store.
+  const recalcMountedRef = useIsMountedRef()
+  const recalcLookupIdRef = useLatestRef<string | undefined>(resolvedReportId || reportId)
   const recalculateWithNormalizations = useCallback(
     async (normalizations: NormalizationItem[]) => {
       const idForApi = resolvedReportId || reportId
       if (!report || !idForApi) return
+
+      // Capture the lookup id at start. If navigation happens mid-flight,
+      // the post-await `isStillRelevant()` guards bail before any writes
+      // reach the global `useManualResultsStore` / `setReport`.
+      const startLookupId = idForApi
+      const isStillRelevant = () =>
+        recalcMountedRef.current && recalcLookupIdRef.current === startLookupId
 
       const acceptedNorms = normalizations.filter((n) => n.status === 'accepted')
 
@@ -5244,6 +4889,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         const calcResult = await valuationService.calculateValuation(request)
+        // Cross-report navigation guard: if the user navigated to a different
+        // report (or unmounted the component) while the calc was in flight,
+        // drop the stale result on the floor — it would clobber the new
+        // report's state otherwise.
+        if (!isStillRelevant()) return
         if (calcResult) {
           setResult(calcResult)
           setDraftStatus('saved')
@@ -5268,11 +4918,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               }
             )
           }
+          if (!isStillRelevant()) return
           toast.success(t('recalculatedWithNorms'), {
             description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
           })
         }
       } catch (error) {
+        if (!isStillRelevant()) return
         generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
           error: error instanceof Error ? error.message : String(error),
         })
@@ -5375,28 +5027,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [recalculateWithNormalizations])
   useEffect(() => {
     if (!report) return
-    // Drop any suppression bumps emitted BEFORE this subscriber was listening.
-    // Those bumps were paired with mutations this subscription never observed
-    // (e.g. session hydration that ran while `report` was still undefined). If we
-    // kept them around, the first real user edit would be silently swallowed.
-    resetLatencyRecalcSuppression()
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
     let lastSignature = JSON.stringify(useTaxLatencyStore.getState().items)
+    let lastMutationSeq = useTaxLatencyStore.getState()._mutationSeq
 
     // Concurrency guard: serialise recalcs and use a generation counter so a
     // late-arriving response from an earlier call cannot clobber the result of
-    // a newer one. `recalculateWithNormalizations` calls `setResult(calcResult)`
-    // unconditionally, so without this guard rapid latency edits could end up
-    // displaying a stale valuation.
+    // a newer one within the SAME report.
     //
-    // KNOWN LIMITATION: this only protects against latency-edit ordering. A
-    // truly stale recalc that fires across a *different* report (user edits
-    // latency on report A, then navigates to report B before the recalc
-    // completes) is still a pre-existing race in `recalculateWithNormalizations`
-    // because `valuationService.calculateValuation` is not abortable. In
-    // practice the navigation re-mounts ManualLayout, so the stale `setResult`
-    // becomes a no-op against an unmounted component (React logs a warning).
-    // Wiring an AbortController is the proper fix and is tracked separately.
+    // The cross-report race — user edits latency on report A, then navigates
+    // to report B before `calculateValuation` resolves — is now closed by the
+    // `recalcMountedRef` + `recalcLookupIdRef` guards inside
+    // `recalculateWithNormalizations`. `calculateValuation` is still
+    // unabortable (a service-contract change would be the proper fix), but
+    // the stale response is dropped before it can reach `setResult`.
     let recalcGeneration = 0
     let inflightGeneration: number | null = null
     let pendingAfterInflight = false
@@ -5434,6 +5078,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       )
 
     const unsub = useTaxLatencyStore.subscribe((state) => {
+      // Only react to mutations (state ref changes from devtools etc. shouldn't fire us).
+      if (state._mutationSeq === lastMutationSeq) return
+      lastMutationSeq = state._mutationSeq
+
       const signature = signatureFor(state.items)
       const changed = signature !== lastSignature
       // Update baseline unconditionally so a no-op programmatic set() (e.g. clear()
@@ -5441,22 +5089,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // doesn't leave us comparing against a stale signature next tick.
       lastSignature = signature
 
-      // Always consume any pending programmatic-mutation suppression FIRST, even
-      // when the signature didn't actually change. Otherwise a no-op programmatic
-      // set() would fire the subscription, return early on the equality check, and
-      // leave the counter incremented — silently swallowing the user's next real
-      // edit.
-      if (consumeLatencyRecalcSuppression()) {
-        // A programmatic mutation supersedes any user edit that was still
-        // debouncing. Cancel the pending recalc so it can't fire AFTER the
-        // version-restore / hydration completes and clobber the restored
-        // valuation result.
+      // Programmatic mutations (version restore, session hydration, abandon-clear)
+      // must NOT trigger an auto-recalc — they reflect a restored/hydrated valuation
+      // that already has its own result. Cancel any pending user-edit debounce so
+      // it cannot fire AFTER the programmatic mutation completes and clobber the
+      // restored result, then bail.
+      if (state._lastMutationSource !== 'user') {
         if (debounceTimer) {
           clearTimeout(debounceTimer)
           debounceTimer = null
         }
-        // Also drop any "queued after inflight" follow-up — the suppressing caller
-        // (e.g. version-restore) takes ownership of the next recalc itself.
         pendingAfterInflight = false
         return
       }
@@ -5676,19 +5318,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // 5. Restore tax latencies from version snapshot. The valuation result was
-        // already restored in step 3 via setResult(version.valuationResult); we must
-        // suppress the latency-change auto-recalc so it does NOT overwrite that
-        // restored result with a fresh calculation. Candidates are not part of the
-        // recalc signature (only items are), so they don't need suppression.
-        suppressNextLatencyRecalc()
+        // already restored in step 3 via setResult(version.valuationResult); both
+        // store mutations below pass `{ source: 'system' }` so the latency-change
+        // auto-recalc subscription skips them and does not overwrite the restored
+        // result with a fresh calculation. Candidates are not part of the recalc
+        // signature (only items are), so they don't need source tagging.
         if (
           version.tax_latency_data &&
           Array.isArray(version.tax_latency_data) &&
           version.tax_latency_data.length > 0
         ) {
-          useTaxLatencyStore.getState().setItems(version.tax_latency_data)
+          useTaxLatencyStore.getState().setItems(version.tax_latency_data, { source: 'system' })
         } else {
-          useTaxLatencyStore.getState().clear()
+          useTaxLatencyStore.getState().clear({ source: 'system' })
         }
 
         const versionBusinessContext =
@@ -5871,62 +5513,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [assistantLocale]
   )
 
-  const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
-  const isStartupAssistantRoute = effectiveAssistantMethod === 'startup_valuation'
-  const startupCountry = useStartupValuationStore((s) => s.country_code) || 'BE'
-  const startupStage = useStartupValuationStore((s) => s.stage)
-  const startupSector = useStartupValuationStore((s) => s.sector)
-  const { benchmark: startupBenchmark } = useStartupBenchmark(
-    startupCountry,
-    startupStage,
-    startupSector,
-    isStartupAssistantRoute
-  )
-  const { issues: startupRawIssues } = useStudioIssues(startupBenchmark)
-
-  const startupIssues = useMemo<StartupAssistantIssue[]>(() => {
-    if (!isStartupAssistantRoute) return []
-    const stepLabels: Record<StudioIssue['step'], { en: string; nl: string }> = {
-      profile: { en: 'Profile', nl: 'Profiel' },
-      berkus: { en: 'Risk reduction', nl: 'Risico-reductie' },
-      scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid' },
-      founder_pedigree: { en: 'Team pedigree', nl: 'Team' },
-      traction: { en: 'Traction', nl: 'Tractie' },
-      exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },
-      round_simulator: { en: 'Round', nl: 'Ronde' },
-    }
-    return startupRawIssues
-      .filter((issue) => issue.severity !== 'info')
-      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
-      .map((issue) => ({
-        id: issue.id,
-        severity: issue.severity,
-        title: issue.title[assistantLocale],
-        body: issue.body[assistantLocale],
-        action: issue.action[assistantLocale],
-        ctaLabel: assistantLocale === 'nl' ? 'Fix met AI' : 'Fix with AI',
-        ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
-        jumpLabel: `${assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'} ${
-          stepLabels[issue.step][assistantLocale]
-        }`,
-      }))
-  }, [
-    acknowledgedStartupIssues,
-    assistantLocale,
-    formatStartupAssistantPrompt,
-    isStartupAssistantRoute,
-    startupRawIssues,
-  ])
-  const startupLauncherIssues = useMemo<StudioIssue[]>(() => {
-    if (!isStartupAssistantRoute) return []
-    return startupRawIssues
-      .filter((issue) => issue.severity !== 'info')
-      .filter((issue) => !acknowledgedStartupIssues.has(issue.id))
-  }, [acknowledgedStartupIssues, isStartupAssistantRoute, startupRawIssues])
-  const startupIssueById = useMemo(
-    () => new Map(startupLauncherIssues.map((issue) => [issue.id, issue])),
-    [startupLauncherIssues]
-  )
+  // `effectiveAssistantMethod` and `isStartupAssistantRoute` are hoisted near
+  // the top of the component (see `useManualLayoutResets` setup) so the
+  // consolidated reset hook can read them. The venture-path assistant data
+  // (benchmark fetch, studio issues, filter/map/locale logic) is owned by
+  // `useStartupAssistantSurface`.
+  const { startupIssues, startupLauncherIssues, startupIssueById } =
+    useStartupAssistantSurface({
+      isStartupAssistantRoute,
+      acknowledgedStartupIssues,
+      assistantLocale,
+      formatStartupAssistantPrompt,
+    })
   const startupLauncherScopeId = useMemo(() => {
     const sessionIdCandidate =
       ((session as unknown as { id?: string; key?: string; session_key?: string })?.id ??
@@ -5936,11 +5534,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ''
     return resolvedReportId || sessionIdCandidate || reportId || 'studio-launcher'
   }, [reportId, resolvedReportId, session])
-
-  useEffect(() => {
-    if (isStartupAssistantRoute) return
-    setAcknowledgedStartupIssues(new Set())
-  }, [isStartupAssistantRoute])
 
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {
@@ -6319,11 +5912,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onRejectReportGeneration: handleRejectReportGeneration,
     onApproveSellabilityRun: handleApproveSellabilityRun,
     onRejectSellabilityRun: handleRejectSellabilityRun,
-    hasUploadedData: hasImportedNormalizationData,
     toolInProgress: conversationStore.toolInProgress,
-    onOpenNormalizationHub: () => {
-      openUnifiedNormalizationModal({ closeChat: true })
-    },
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,
   }

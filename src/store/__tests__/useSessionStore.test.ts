@@ -148,6 +148,146 @@ describe('useSessionStore', () => {
       expect(mockLoadSession).not.toHaveBeenCalled()
     })
 
+    it('should refresh a bootstrap-minimal session in place without flipping to loading', async () => {
+      // Bootstrap-minimal sessions are written by useBootstrapSync with
+      // _bootstrapPrefill/_bootstrapCreated markers and status='loaded'.
+      // The progressive-load contract: ValuationSessionManager calls
+      // loadSession to fetch the full payload, but the UI must stay
+      // mounted (status='loaded' the whole time). Without this contract
+      // the user sees a second skeleton flash every Mercury→Venus open.
+      // CRITICAL: detection must work for _bootstrapPrefill=true AND =false.
+      // Empty existing drafts get `_bootstrapPrefill: false` (no meaningful
+      // prefill), but they're still bootstrap-minimal sessions that need to
+      // be refreshed in place. Truthy-check regression test below.
+      const minimalSession = {
+        reportId: 'val_bootstrap_minimal',
+        sessionData: { _bootstrapPrefill: true, company_name: 'Bootstrap Co' },
+        updatedAt: new Date(),
+      }
+      const fullSession = {
+        reportId: 'val_bootstrap_minimal',
+        sessionData: {
+          _bootstrapPrefill: true,
+          company_name: 'Bootstrap Co',
+          revenue: 1_000_000,
+        },
+        valuationResult: { equity_value_mid: 5_000_000 },
+        updatedAt: new Date(),
+      }
+
+      let releaseLoad: (s: typeof fullSession) => void
+      const loadDeferred = new Promise<typeof fullSession>((resolve) => {
+        releaseLoad = resolve
+      })
+      mockLoadSession.mockImplementation(() => loadDeferred)
+
+      // Pre-populate: bootstrap wrote the minimal session and called
+      // completeInitialization, so status='loaded'.
+      useSessionStore.setState({
+        session: minimalSession,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+      })
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      // ValuationSessionManager's needsFullLoad branch triggers this:
+      const loadPromise = useSessionStore.getState().loadSession('val_bootstrap_minimal')
+
+      // While the fetch is in flight, status must STAY 'loaded' — not flip
+      // to 'loading'. The minimal session is enough to render the wizard.
+      await Promise.resolve()
+      expect(useSessionStore.getState().status).toBe('loaded')
+      // Engine was called (not skipped) because we marked it bootstrap-minimal
+      expect(mockLoadSession).toHaveBeenCalledOnce()
+
+      // Resolve the load — full session merges in
+      releaseLoad!(fullSession)
+      await loadPromise
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.sessionData).toEqual(
+        expect.objectContaining({ revenue: 1_000_000 })
+      )
+    })
+
+    it('should refresh a bootstrap-minimal session even when _bootstrapPrefill is false (empty draft)', async () => {
+      // Regression guard for the most subtle Mercury→Venus failure mode:
+      // an existing report with no meaningful prefill data. useBootstrapSync
+      // writes `_bootstrapPrefill: false` for that case. If detection used a
+      // truthy check (=== true) instead of a presence check (in operator),
+      // these sessions would short-circuit at the "already loaded" guard
+      // and never refresh — the user would stare at an empty wizard with
+      // no way to know data was supposed to arrive.
+      const emptyMinimalSession = {
+        reportId: 'val_empty_draft',
+        sessionData: { _bootstrapPrefill: false }, // Explicit false — common case
+        updatedAt: new Date(),
+      }
+      const refreshedSession = {
+        reportId: 'val_empty_draft',
+        sessionData: { _bootstrapPrefill: false, company_name: 'Restored Co' },
+        updatedAt: new Date(),
+      }
+      mockLoadSession.mockResolvedValue(refreshedSession)
+
+      useSessionStore.setState({
+        session: emptyMinimalSession,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+      })
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      await useSessionStore.getState().loadSession('val_empty_draft')
+
+      // Detection must fire for _bootstrapPrefill=false → engine called
+      expect(mockLoadSession).toHaveBeenCalledOnce()
+      // Final state has the refreshed payload
+      expect(useSessionStore.getState().session?.sessionData).toEqual(
+        expect.objectContaining({ company_name: 'Restored Co' })
+      )
+    })
+
+    it('should still flip to loading when loading a different reportId', async () => {
+      // Guard against the opposite regression: a bootstrap-minimal session
+      // for report A should NOT prevent report B from going through the
+      // normal idle→loading→loaded transition. This catches the case where
+      // someone navigates to a different report mid-session.
+      const minimalSession = {
+        reportId: 'val_report_A',
+        sessionData: { _bootstrapPrefill: true },
+        updatedAt: new Date(),
+      }
+      const otherSession = {
+        reportId: 'val_report_B',
+        sessionData: {},
+        updatedAt: new Date(),
+      }
+      let releaseLoad: (s: typeof otherSession) => void
+      const loadDeferred = new Promise<typeof otherSession>((resolve) => {
+        releaseLoad = resolve
+      })
+      mockLoadSession.mockImplementation(() => loadDeferred)
+
+      useSessionStore.setState({
+        session: minimalSession,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+      })
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const loadPromise = useSessionStore.getState().loadSession('val_report_B')
+      await Promise.resolve()
+
+      // Different reportId — should flip to 'loading' as in the cold path
+      expect(useSessionStore.getState().status).toBe('loading')
+
+      releaseLoad!(otherSession)
+      await loadPromise
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.reportId).toBe('val_report_B')
+    })
+
     it('should reset to IDLE on clearSession', async () => {
       const mockSession = {
         reportId: 'val_clear_123',

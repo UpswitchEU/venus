@@ -826,6 +826,16 @@ function syncSession(state: SessionBootstrapState): void {
         })
       }
 
+      // FLIP status='loaded' so downstream gates (ManualLayout.isInitializing,
+      // ValuationSessionManager stage='data-entry') unblock immediately rather
+      // than waiting for ValuationSessionManager's subsequent loadSession() to
+      // complete. The minimal session carries prefill + (optional) valuation
+      // package data — enough for the wizard chrome to render. loadSession()
+      // still runs in the background when assets are missing, but is now
+      // refresh-aware (useSessionStore.ts) and won't kick the UI back to
+      // skeleton mid-refresh.
+      sessionStore.completeInitialization()
+
       // SINGLE-OWNER: Do NOT call loadSession here.
       // ValuationSessionManager is the sole owner of session loading for existing reports.
       // Calling loadSession from both useBootstrapSync AND ValuationSessionManager creates

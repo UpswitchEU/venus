@@ -176,8 +176,31 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   ) => {
     const state = get()
 
-    // STATE CHECK: Already loaded for this reportId
-    if (state.status === 'loaded' && state.session?.reportId === reportId) {
+    // Detect "refresh" case: the bootstrap-minimal session is already in the
+    // store (status='loaded', matching reportId, sessionData carries a
+    // _bootstrapPrefill or _bootstrapCreated marker from useBootstrapSync).
+    // The caller — typically ValuationSessionManager's needsFullLoad branch —
+    // wants to fetch the full session payload (htmlReport, valuationResult,
+    // full sessionData) without kicking the UI back to a skeleton. In this
+    // mode we keep status='loaded' across the fetch and let the success
+    // handler hydrate additional fields in place.
+    //
+    // IMPORTANT: check for the PRESENCE of the marker, not its truthy value.
+    // useBootstrapSync.ts:761 writes `_bootstrapPrefill: hasPrefill` which is
+    // legitimately `false` for empty existing drafts. If we checked `=== true`
+    // we'd miss that case and the short-circuit below would prevent the full
+    // refresh from ever running, leaving the user stuck on an empty wizard.
+    const sessionMatches = state.session?.reportId === reportId
+    const sessionData = (state.session?.sessionData ?? {}) as Record<string, unknown>
+    const isBootstrapMinimal =
+      sessionMatches &&
+      state.status === 'loaded' &&
+      ('_bootstrapPrefill' in sessionData || '_bootstrapCreated' in sessionData)
+
+    // STATE CHECK: Already loaded for this reportId AND not a bootstrap-minimal
+    // session. Bootstrap-minimal sessions intentionally fall through so we can
+    // refresh the full payload from the backend.
+    if (state.status === 'loaded' && sessionMatches && !isBootstrapMinimal) {
       storeLogger.debug('[Session] Already loaded, skipping', { reportId })
       return
     }
@@ -189,14 +212,29 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
-    // STATE TRANSITION: -> LOADING
+    // STATE TRANSITION: -> LOADING (initial), or stay LOADED (refresh)
     const loadPromise = (async () => {
-      set({
-        status: 'loading' as SessionStatus,
-        errorMessage: null,
-        restorationComplete: false,
-        session: state.session?.reportId !== reportId ? null : state.session,
-      })
+      if (isBootstrapMinimal) {
+        // Background refresh: keep status='loaded' so the UI doesn't flash
+        // back to skeleton. The bootstrap-minimal session is good enough to
+        // render the wizard chrome; we're fetching the rest in the
+        // background and will merge it in on success.
+        storeLogger.debug('[Session] Bootstrap-minimal refresh — keeping status=loaded', {
+          reportId,
+        })
+        set({
+          errorMessage: null,
+          // Keep session and restorationComplete as-is; the success path will
+          // update them with the full server payload.
+        })
+      } else {
+        set({
+          status: 'loading' as SessionStatus,
+          errorMessage: null,
+          restorationComplete: false,
+          session: state.session?.reportId !== reportId ? null : state.session,
+        })
+      }
 
       try {
         storeLogger.debug('[Session] Loading session', { reportId, flow })

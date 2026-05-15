@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 
@@ -75,12 +76,14 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
   // Ref to store pending changes
   const pendingChangesRef = useRef<Partial<any>>({})
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isMountedRef = useRef(true)
+  // Mount tracking lives in the shared `useIsMountedRef` utility — every
+  // `await`-then-`setState` path below reads `isMountedRef.current` before
+  // touching React state or the session store to avoid post-unmount writes.
+  const isMountedRef = useIsMountedRef()
 
-  // Cleanup on unmount
+  // Cleanup on unmount — debounce timer only; mount flag is handled by useIsMountedRef.
   useEffect(() => {
     return () => {
-      isMountedRef.current = false
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
