@@ -1,5 +1,5 @@
-import type { RecentValuation } from '../../../components/calculator'
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
+import type { RecentValuation } from '../../../components/calculator'
 
 interface DeleteValuationEntryParams {
   valuation: RecentValuation

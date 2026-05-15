@@ -63,8 +63,11 @@ import {
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
   type NormalizationItem,
+  type ParsedCommand,
+  type ParsedValue,
   type RecentValuation,
   type RightPanelView,
+  type SuggestedNormalisation,
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
@@ -149,7 +152,6 @@ import { useManualFormStore, useManualResultsStore } from '../../../store/manual
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
-  clientShouldWarnExtremeMultiple,
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
@@ -158,8 +160,6 @@ import { useImportQualityStore } from '../../../store/useImportQualityStore'
 import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import {
   enableNormalizationAutoPersist,
-  mapBackendCategoryToFrontend,
-  mapFrontendCategoryToBackend,
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
@@ -182,13 +182,10 @@ import {
 import type {
   ValuationMethodResult,
   ValuationResponse,
-  ValuationFormData as VenusFormData,
   YearDataInput,
 } from '../../../types/valuation'
-import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { getDataQualityWarningsFromResult } from '../../../utils/dataQualityWarnings'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
-import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import {
   getValuationMethodResultForKey,
@@ -196,8 +193,6 @@ import {
 } from '../../../utils/extractValuationResultsMap'
 import {
   getCurrentFilingYear,
-  isFilingYearConfirmedValue,
-  normalizeCurrentYearForFiling,
 } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
@@ -205,9 +200,7 @@ import {
   isSessionKey,
   isUuid,
   isValuationIdSameAsActiveReport,
-  valuationIdsReferToSameReport,
 } from '../../../utils/identifiers'
-import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
@@ -218,7 +211,6 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
 import {
   getFirstRenderableReportHtml,
   getRenderableReportHtml,
@@ -234,21 +226,70 @@ import {
   areChangesSignificant,
   detectVersionChanges,
 } from '../../../utils/versionDiffDetection'
-import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData'
-import {
-  getCompleteYearlyFinancialsDesc,
-  getLatestCompleteYearlyFinancial,
-} from '../../../utils/yearlyFinancials'
+import { getLatestCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
 import { buildPostDeleteNewValuationUrl, deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
+import {
+  addIdsToManualChatToolCards,
+  applyManualChatSellabilityComputedScore,
+  appendManualChatToolCardsToMessages,
+  markManualChatProposalDecision,
+  parseManualChatStreamToolResult,
+} from '../utils/manualChatToolCards'
+import {
+  buildManualChatRetryPlan,
+  buildPendingUpdatesFromDetectedValues,
+  formatManualParsedCommandResponse,
+  type ManualPendingFieldUpdate,
+} from '../utils/manualChatCommandHandling'
+import {
+  buildManualChatFieldUpdateBridge,
+  formatManualChatFieldUpdateValue,
+} from '../utils/manualChatFieldUpdate'
+import {
+  buildManualAIChatRequest,
+  getManualChatVersionCount,
+} from '../utils/manualChatRequestContext'
+import {
+  buildManualAssistantChatMessage,
+  buildManualSystemChatMessage,
+  buildManualUserChatMessage,
+  patchManualChatMessage,
+} from '../utils/manualChatMessages'
+import {
+  buildManualAiNormalizationSuggestions,
+  buildManualImportedNormalizationSuggestions,
+  MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS,
+  updateSuggestedNormalisationStatus,
+} from '../utils/manualAiNormalizationSuggestions'
+import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import { buildSubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
+import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizationRecalcSource'
+import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
+import {
+  buildManualRecentValuations,
+  filterRemainingRecentValuationsAfterDelete,
+  mapReportsResponseToRecentValuations,
+} from '../utils/manualRecentValuations'
+import { saveManualCalculationReportAssets } from '../utils/manualReportAssetSave'
 import { buildManualReportAssets } from '../utils/manualReportAssets'
+import { formatManualStartupAssistantPrompt } from '../utils/manualStartupAssistantPrompt'
+import {
+  getManualSessionKey,
+  manualSessionMatchesReport,
+  resolveManualPersistedReportLookupId,
+  resolveManualReportHydrationLookupId,
+  resolveManualReportId,
+} from '../utils/manualSessionIdentifiers'
 import {
   getManualSubmitValidationIssue,
   MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
 } from '../utils/manualSubmitValidation'
-import { planManualCalculationVersioning } from '../utils/manualVersioningDecision'
+import { scheduleManualVersionHistorySync } from '../utils/manualVersionHistorySync'
+import { runManualCalculationVersioning } from '../utils/manualVersioningExecutor'
+import { buildManualVersionRestorePlan } from '../utils/manualVersionRestorePlan'
 import {
   extractErrorMessage,
   parseSellabilityScoreResponse,
@@ -457,269 +498,6 @@ function useIsMobile() {
 }
 
 // ─────────────────────────────────────────
-// FORM DATA BRIDGE
-// Maps ManualInputPanel's ValuationFormData (camelCase, multi-year)
-// to Venus store's ValuationFormData (snake_case, API format)
-// ─────────────────────────────────────────
-
-function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
-  // Bridge: panel submit uses `business_model` (snake); live sync uses `businessModel` (camel).
-  // Fall back to current Zustand so submit never strips a prefilled enum via default `'services'`.
-  // Same for operating country: partial `onFormDataChange` payloads may omit `country` briefly.
-  const storeForm = useManualFormStore.getState().formData
-  const data = {
-    ...raw,
-    business_model: raw.business_model ?? storeForm.business_model,
-    businessModel: raw.businessModel ?? raw.business_model ?? storeForm.business_model,
-    country:
-      (typeof raw.country === 'string' && raw.country.trim()) ||
-      (typeof raw.country_code === 'string' && raw.country_code.trim()) ||
-      storeForm.country_code?.trim() ||
-      '',
-  }
-
-  const resolvedBusinessModel =
-    (typeof data.businessModel === 'string' && data.businessModel.trim()) ||
-    (typeof data.business_model === 'string' && data.business_model.trim()) ||
-    ''
-
-  const yearlyFinancials = (data.yearlyFinancials || []) as Array<{
-    year: string
-    revenue: number
-    ebitda: number
-    capex?: number
-    nwc_change?: number
-    free_cash_flow?: number
-    isForecast?: boolean
-  }>
-
-  const historicalRows = yearlyFinancials.filter((yf) => !yf.isForecast)
-  const latestHistorical = [...historicalRows].sort((a, b) => Number(b.year) - Number(a.year))[0]
-  const forecastRows = yearlyFinancials.filter((yf) => yf.isForecast)
-
-  const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
-  const current = completeHistorical[0]
-  const historical = completeHistorical.slice(1)
-  const existingCurrentYearData =
-    data.current_year_data && typeof data.current_year_data === 'object'
-      ? data.current_year_data
-      : undefined
-  const existingHistoricalYears = Array.isArray(data.historical_years_data)
-    ? data.historical_years_data
-    : []
-  const existingForecastYears = Array.isArray(data.forecast_years_data)
-    ? data.forecast_years_data
-    : []
-
-  const canonicalNace =
-    (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
-    (typeof data.naceCode === 'string' && data.naceCode.trim()) ||
-    ''
-  const displayNace = typeof data.naceCode === 'string' ? data.naceCode.trim() : ''
-  const activityPresentation =
-    canonicalNace && displayNace && displayNace !== canonicalNace ? displayNace : ''
-
-  // Only merge KBO/NACE into the store when we have registry identifiers in the panel.
-  // Do not use "company name only" — the first sync after title prefill would push
-  // kbo_number: '' and wipe session/bootstrap KBO before KBO search state catches up.
-  const hasKbo = typeof data.kboNumber === 'string' && data.kboNumber.trim() !== ''
-  const hasNaceFields =
-    (typeof data.naceCode === 'string' && data.naceCode.trim() !== '') ||
-    (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim() !== '')
-  const companySectionActive = hasKbo || hasNaceFields
-
-  return {
-    company_name: data.companyName || '',
-    country_code: coerceIso2OrNull(data.country) ?? 'BE',
-    industry: data.industry || 'services',
-    ...(resolvedBusinessModel ? { business_model: resolvedBusinessModel } : {}),
-    founding_year: (() => {
-      const raw = data.yearFounded
-      const parsed =
-        typeof raw === 'number' && Number.isFinite(raw)
-          ? Math.trunc(raw)
-          : parseInt(String(raw ?? '').trim(), 10)
-      if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2100) {
-        return parsed
-      }
-      return getCurrentFilingYear() - 5
-    })(),
-    number_of_owners: data.ownerManagers || 1,
-    number_of_employees: data.fteEmployees,
-    shares_for_sale: 100,
-    business_type: data.businessStructure || 'company',
-    revenue: current?.revenue,
-    ebitda: current?.ebitda,
-    current_year_data: latestHistorical
-      ? buildCurrentYearData({
-          year: parseInt(latestHistorical.year),
-          revenue: latestHistorical.revenue,
-          ebitda: latestHistorical.ebitda,
-          currentYearData: existingCurrentYearData,
-        })
-      : existingCurrentYearData
-        ? buildCurrentYearData({
-            year: normalizeCurrentYearForFiling(
-              existingCurrentYearData.year,
-              data.filingYearConfirmed
-            ),
-            revenue: existingCurrentYearData.revenue,
-            ebitda: existingCurrentYearData.ebitda,
-            currentYearData: existingCurrentYearData,
-          })
-        : undefined,
-    historical_years_data:
-      historical.length > 0
-        ? mergeYearDataRows(
-            historical.map((h: any) => ({
-              year: parseInt(h.year),
-              revenue: h.revenue,
-              ebitda: h.ebitda,
-            })),
-            existingHistoricalYears
-          )
-        : latestHistorical
-          ? existingHistoricalYears.filter(
-              (y: any) => Number(y.year) < parseInt(latestHistorical.year)
-            )
-          : existingHistoricalYears,
-    forecast_years_data:
-      forecastRows.length > 0
-        ? mergeYearDataRows(
-            forecastRows.map((f) => ({
-              year: parseInt(f.year),
-              revenue: f.revenue,
-              ebitda: f.ebitda,
-              capex: f.capex,
-              nwc_change: f.nwc_change,
-              free_cash_flow: f.free_cash_flow,
-              isForecast: true,
-            })),
-            existingForecastYears
-          )
-        : existingForecastYears,
-    ...(data.filingYearConfirmed !== undefined && {
-      filing_year_confirmed: isFilingYearConfirmedValue(data.filingYearConfirmed),
-    }),
-    ...(data.dcf_input_mode != null && { dcf_input_mode: data.dcf_input_mode }),
-    ...(companySectionActive
-      ? {
-          kbo_number: data.kboNumber || '',
-          legal_form: data.legalForm || '',
-          nace_code: canonicalNace || '',
-          nace_description: typeof data.naceDescription === 'string' ? data.naceDescription : '',
-          // When display matches canonical, pass undefined so updateFormData strips activity_code
-          activity_code: (activityPresentation || undefined) as VenusFormData['activity_code'],
-        }
-      : {}),
-    ...((data.businessType || data.businessTypeCode) && {
-      business_type_id: data.businessType || data.businessTypeCode,
-    }),
-    // Adaptive Input Studio bonus fields (camelCase panel → snake_case store)
-    ...(data.dcf_revenue_growth_pct != null && {
-      dcf_revenue_growth_pct: data.dcf_revenue_growth_pct,
-    }),
-    ...(data.dcf_ebitda_margin_pct != null && {
-      dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct,
-    }),
-    ...(data.dcf_capex_pct != null && { dcf_capex_pct: data.dcf_capex_pct }),
-    ...(data.dcf_da_pct != null && { dcf_da_pct: data.dcf_da_pct }),
-    ...(data.dcf_nwc_pct != null && { dcf_nwc_pct: data.dcf_nwc_pct }),
-    ...(data.dcf_tax_rate_pct != null && { dcf_tax_rate_pct: data.dcf_tax_rate_pct }),
-    ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
-    ...(data.dcf_terminal_growth_pct != null && {
-      dcf_terminal_growth_pct: data.dcf_terminal_growth_pct,
-    }),
-    ...(data.dcf_exit_multiple != null && { dcf_exit_multiple: data.dcf_exit_multiple }),
-    ...(data.dcf_risk_free_rate_pct != null && {
-      dcf_risk_free_rate_pct: data.dcf_risk_free_rate_pct,
-    }),
-    ...(data.dcf_equity_risk_premium_pct != null && {
-      dcf_equity_risk_premium_pct: data.dcf_equity_risk_premium_pct,
-    }),
-    ...(data.dcf_beta != null && { dcf_beta: data.dcf_beta }),
-    ...(data.dcf_cost_of_debt_pct != null && { dcf_cost_of_debt_pct: data.dcf_cost_of_debt_pct }),
-    ...(data.dcf_debt_equity_pct != null && { dcf_debt_equity_pct: data.dcf_debt_equity_pct }),
-    ...(data.dcf_tax_shield_pct != null && { dcf_tax_shield_pct: data.dcf_tax_shield_pct }),
-    ...(data.dcf_terminal_value_method != null && {
-      dcf_terminal_value_method: data.dcf_terminal_value_method,
-    }),
-    ...(data.nav_real_estate_adjustment != null && {
-      nav_real_estate_adjustment: data.nav_real_estate_adjustment,
-    }),
-    ...(data.exclude_real_estate != null && {
-      exclude_real_estate: data.exclude_real_estate,
-    }),
-    ...(data.real_estate_book_value != null && {
-      real_estate_book_value: data.real_estate_book_value,
-    }),
-    ...(data.estimated_market_rent != null && {
-      estimated_market_rent: data.estimated_market_rent,
-    }),
-    ...(data.nav_inventory_adjustment != null && {
-      nav_inventory_adjustment: data.nav_inventory_adjustment,
-    }),
-    ...(data.nav_hidden_reserves != null && { nav_hidden_reserves: data.nav_hidden_reserves }),
-    ...(data.nav_goodwill_writeoff != null && {
-      nav_goodwill_writeoff: data.nav_goodwill_writeoff,
-    }),
-    ...(data.nav_receivables_adjustment != null && {
-      nav_receivables_adjustment: data.nav_receivables_adjustment,
-    }),
-    ...(data.nav_other_revaluations != null && {
-      nav_other_revaluations: data.nav_other_revaluations,
-    }),
-    ...(data.nav_tax_latency_pct != null && {
-      nav_tax_latency_pct: data.nav_tax_latency_pct,
-    }),
-    ...(data.nav_off_balance_items != null && {
-      nav_off_balance_items: data.nav_off_balance_items,
-    }),
-    ...(data.saas_arr != null && { saas_arr: data.saas_arr }),
-    ...(data.saas_mrr != null && { saas_mrr: data.saas_mrr }),
-    ...(data.saas_arr_growth_pct != null && { saas_arr_growth_pct: data.saas_arr_growth_pct }),
-    ...(data.saas_churn_pct != null && { saas_churn_pct: data.saas_churn_pct }),
-    ...(data.saas_customer_churn_pct != null && {
-      saas_customer_churn_pct: data.saas_customer_churn_pct,
-    }),
-    ...(data.saas_nrr_pct != null && { saas_nrr_pct: data.saas_nrr_pct }),
-    ...(data.saas_gross_margin_pct != null && {
-      saas_gross_margin_pct: data.saas_gross_margin_pct,
-    }),
-    ...(data.saas_cac != null && { saas_cac: data.saas_cac }),
-    ...(data.saas_customer_concentration_pct != null && {
-      saas_customer_concentration_pct: data.saas_customer_concentration_pct,
-    }),
-    ...(data.saas_expansion_revenue_pct != null && {
-      saas_expansion_revenue_pct: data.saas_expansion_revenue_pct,
-    }),
-    ...(data.saas_sm_spend != null && { saas_sm_spend: data.saas_sm_spend }),
-    ...(data.rev_recurring_pct != null && { rev_recurring_pct: data.rev_recurring_pct }),
-    ...(data.rev_recurring_amount != null && { rev_recurring_amount: data.rev_recurring_amount }),
-    ...(data.rev_top_client_concentration_pct != null && {
-      rev_top_client_concentration_pct: data.rev_top_client_concentration_pct,
-    }),
-    ...(data.rev_top_client_amount != null && {
-      rev_top_client_amount: data.rev_top_client_amount,
-    }),
-    ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
-    ...(data.rev_gross_churn_pct != null && { rev_gross_churn_pct: data.rev_gross_churn_pct }),
-    ...(data.owner_salary_addback != null && { owner_salary_addback: data.owner_salary_addback }),
-    // Belgian official filing trust — only when figures/links exist (matches buildValuationRequest)
-    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
-      data.official_financials && { official_financials: data.official_financials }),
-    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
-      data.official_variance_analysis != null && {
-        official_variance_analysis: data.official_variance_analysis,
-      }),
-    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
-      data.official_verification_badge != null && {
-        official_verification_badge: data.official_verification_badge,
-      }),
-  }
-}
-
-// ─────────────────────────────────────────
 // PROPS
 // ─────────────────────────────────────────
 
@@ -877,6 +655,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const versionControlLocked = Boolean(planFeatures && !planFeatures.version_control)
   const status = useSessionStore((s) => s.status)
   const session = useSessionStore((s) => s.session)
+  const activeSessionKey = getManualSessionKey(session)
   const sessionError = useSessionStore((s) => s.errorMessage)
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
@@ -893,17 +672,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
   const resolvedReportId = useMemo(() => {
-    if (!reportId) return reportId
-    if (reportId === 'new' && session?.reportId) return session.reportId
-    if (reportId === 'new' && session) {
-      const sk = (session as any)?.key ?? (session as any)?.session_key
-      if (sk && sk.length >= 8) return sk
-    }
-    if (typeof reportId === 'string' && reportId.startsWith('val_') && session?.reportId) {
-      return session.reportId
-    }
-    return reportId
-  }, [reportId, session?.reportId, session])
+    return resolveManualReportId(reportId, session)
+  }, [reportId, session])
 
   const {
     state: pdfGenerationState,
@@ -994,32 +764,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   const persistedReportLookupId = useMemo(() => {
-    const candidates = [session?.reportId, resolvedReportId, reportId]
-    for (const candidate of candidates) {
-      if (typeof candidate === 'string' && isUuid(candidate)) return candidate
-    }
-    return null
-  }, [session?.reportId, resolvedReportId, reportId])
+    return resolveManualPersistedReportLookupId({ session, resolvedReportId, reportId })
+  }, [session, resolvedReportId, reportId])
 
   const reportHydrationLookupId = useMemo(() => {
-    const candidates = [
-      session?.reportId,
-      resolvedReportId,
-      reportId,
-      (session as any)?.key,
-      (session as any)?.session_key,
-    ]
-    for (const candidate of candidates) {
-      if (typeof candidate === 'string' && (isUuid(candidate) || isSessionKey(candidate))) {
-        return candidate
-      }
-    }
-    return null
-  }, [session?.reportId, resolvedReportId, reportId, session])
+    return resolveManualReportHydrationLookupId({ session, resolvedReportId, reportId })
+  }, [session, resolvedReportId, reportId])
 
   // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
-  const sessionMatchesReport =
-    session && (session.reportId === reportId || (session as any)?.key === reportId)
+  const sessionMatchesReport = manualSessionMatchesReport(session, reportId)
 
   // Async loading: show calculator shell skeleton instead of blocking LoadingState
   const isLoading = status === 'loading'
@@ -1065,61 +818,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // `isMethodSwitchRendering` is now derived from the persistence coordinator
   // declared below — see `persistCoordinator.isPersisting`.
   const liveMultipleReportPreview = useMemo(() => {
-    const resultAny = result as Record<string, any> | null
-    const details =
-      resultAny?.details && typeof resultAny.details === 'object'
-        ? (resultAny.details as Record<string, unknown>)
-        : null
-    const sustainableEbitda = Number(
-      details?.sustainable_ebitda ?? details?.weighted_ebitda_total ?? resultAny?.ebitda ?? 0
-    )
-    const netDebt = Number(details?.net_debt ?? resultAny?.net_debt ?? 0)
-    const bsaRaw = details?.balance_sheet_adjustments ?? resultAny?.balance_sheet_adjustments
-    const balanceSheetAdj =
-      typeof bsaRaw === 'number' && Number.isFinite(bsaRaw)
-        ? bsaRaw
-        : Array.isArray(bsaRaw)
-          ? bsaRaw.reduce(
-              (s: number, item: any) =>
-                s + coalesceFiniteNumber(item?.amount ?? item?.value ?? item?.adjustment),
-              0
-            )
-          : 0
-    const currentHeadline = Number(report?.valuation ?? result?.equity_value_mid ?? 0)
-    const appliedMultiple =
-      preparerAppliedMedian != null && Number.isFinite(preparerAppliedMedian)
-        ? Number(preparerAppliedMedian)
-        : null
-    const benchmarkMultiple =
-      preparerBenchmarkMedian != null && Number.isFinite(preparerBenchmarkMedian)
-        ? Number(preparerBenchmarkMedian)
-        : result?.multiples_valuation?.ebitda_multiple != null
-          ? Number(result.multiples_valuation.ebitda_multiple)
-          : null
-
-    if (
-      !report?.htmlReport ||
-      !methodKeyAcceptsPreparerMultipleOverride(selectedMethod) ||
-      appliedMultiple == null ||
-      benchmarkMultiple == null ||
-      Math.abs(appliedMultiple - benchmarkMultiple) < 0.005 ||
-      !Number.isFinite(sustainableEbitda) ||
-      sustainableEbitda <= 0
-    ) {
-      return null
-    }
-
-    const previewEquity = Math.round(
-      sustainableEbitda * appliedMultiple - netDebt + balanceSheetAdj
-    )
-    if (!Number.isFinite(previewEquity)) return null
-
-    return {
-      previewEquity,
-      delta: previewEquity - currentHeadline,
-      appliedMultiple,
-      benchmarkMultiple,
-    }
+    return buildManualLiveMultiplePreview({
+      result,
+      report,
+      methodAcceptsOverride: methodKeyAcceptsPreparerMultipleOverride(selectedMethod),
+      appliedMedian: preparerAppliedMedian,
+      benchmarkMedian: preparerBenchmarkMedian,
+    })
   }, [
     preparerAppliedMedian,
     preparerBenchmarkMedian,
@@ -1408,9 +1113,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [isChatGenerating]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [fieldContext, setFieldContext] = useState<FieldContext | undefined>(undefined)
-  const [pendingUpdates, setPendingUpdates] = useState<
-    { field: string; value: any; label: string }[]
-  >([])
+  const [pendingUpdates, setPendingUpdates] = useState<ManualPendingFieldUpdate[]>([])
 
   // ─── Normalization State (Unified Store) ───
   const normalizationItems = useNormalizationStore((s) => s.items)
@@ -1428,7 +1131,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       updateItem: s.updateItem,
     }))
   )
-  const [suggestedNormalisations, setSuggestedNormalisations] = useState<any[]>([])
+  const [suggestedNormalisations, setSuggestedNormalisations] = useState<SuggestedNormalisation[]>(
+    []
+  )
 
   useEffect(() => {
     const hasImportedPendingItems = normalizationItems.some(
@@ -1833,7 +1538,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...(data as Partial<CollectedData>),
       }
       // Keep form store in sync for session autosave (demo resilience, automation-ready)
-      const mapped = mapClarityFormToVenusStore(latestFormDataRef.current as any)
+      const mapped = mapClarityFormToVenusStore(
+        latestFormDataRef.current,
+        useManualFormStore.getState().formData
+      )
       const currentForm = useManualFormStore.getState().formData
       if (!storeReflectsBridgeMapped(mapped, currentForm)) {
         updateFormData(mapped)
@@ -2622,15 +2330,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
     if (
       currentPayload &&
-      clientShouldWarnExtremeMultiple(
-        currentPayload.preparer_ev_ebitda_median,
-        mv?.p10_ebitda_multiple,
-        mv?.p90_ebitda_multiple,
-        preparerBenchmarkMedian,
-        mv?.p25_ebitda_multiple,
-        mv?.p75_ebitda_multiple
-      ) &&
-      !preparerAcknowledgedExtreme
+      shouldBlockExtremePreparerMultiple(
+        {
+          benchmarkMedian: preparerBenchmarkMedian,
+          appliedMedian: preparerAppliedMedian,
+          reasonKey: preparerReasonKey,
+          acknowledgedExtreme: preparerAcknowledgedExtreme,
+        },
+        mv
+      )
     ) {
       return
     }
@@ -2767,7 +2475,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       try {
         // Step 1: Map ManualInputPanel form data → Venus store format
-        const venusFormData = mapClarityFormToVenusStore(data)
+        const venusFormData = mapClarityFormToVenusStore(
+          data,
+          useManualFormStore.getState().formData
+        )
         updateFormData(venusFormData)
 
         // Step 2: Build API request from store (single source of truth).
@@ -2786,28 +2497,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const idForApi = linkedIdentifier
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prep = usePreparerMultipleStore.getState()
-        if (
-          prep.benchmarkMedian != null &&
-          prep.appliedMedian != null &&
-          prep.reasonKey &&
-          Math.abs(prep.appliedMedian - prep.benchmarkMedian) >= 0.005
-        ) {
-          const mv0 = result?.multiples_valuation
-          if (
-            clientShouldWarnExtremeMultiple(
-              prep.appliedMedian,
-              mv0?.p10_ebitda_multiple,
-              mv0?.p90_ebitda_multiple,
-              prep.benchmarkMedian,
-              mv0?.p25_ebitda_multiple,
-              mv0?.p75_ebitda_multiple
-          ) &&
-            !prep.acknowledgedExtreme
-          ) {
-            submitRun.endLoading()
-            toast.error(tPreparer('extremeWarning'))
-            return
-          }
+        if (shouldBlockExtremePreparerMultiple(prep, result?.multiples_valuation)) {
+          submitRun.endLoading()
+          toast.error(tPreparer('extremeWarning'))
+          return
         }
 
         // Step 3: Detect version changes for M&A workflow (use resolved UUID for version API)
@@ -2924,34 +2617,35 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         lastSubmittedFinancialSnapshotRef.current = buildSubmittedFinancialSnapshot(request)
 
         // Step 6: Save the authoritative report package first.
-        let durableSaveSucceeded = !idForApi
-        if (idForApi) {
-          const saveStartDirtyVersion = useSessionStore.getState().dirtyVersion
-          try {
-            await reportService.saveReportAssets(
-              idForApi,
-              buildManualReportAssets({
-                sessionData: storeSnapshot as unknown as Record<string, unknown>,
-                request: request as unknown as Record<string, unknown>,
-                taxLatencyItems: useTaxLatencyStore.getState().items,
-                valuationResult: calcResult,
-                name: sessionName,
-              })
-            )
-            if (!submitRun.isStillTarget()) return
-            useSessionStore.getState().markSaved(saveStartDirtyVersion)
-            durableSaveSucceeded = true
-          } catch (saveError) {
-            if (!submitRun.isStillTarget()) return
-            const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
-            generalLogger.error('[ManualLayout] Failed to save report assets', {
-              reportId: idForApi,
-              error: errMsg,
-            })
-            toast.error(tReport('saveReportFailed'), {
-              description: errMsg,
-            })
-          }
+        const saveResult = await saveManualCalculationReportAssets({
+          reportId: idForApi,
+          sessionData: storeSnapshot as unknown as Record<string, unknown>,
+          request: request as unknown as Record<string, unknown>,
+          taxLatencyItems: useTaxLatencyStore.getState().items,
+          valuationResult: calcResult,
+          name: sessionName,
+          dirtyVersion: useSessionStore.getState().dirtyVersion,
+          isStillTarget: submitRun.isStillTarget,
+          deps: {
+            saveReportAssets: (id, assets) => reportService.saveReportAssets(id, assets),
+            markSaved: (dirtyVersion) => useSessionStore.getState().markSaved(dirtyVersion),
+          },
+        })
+
+        if (saveResult.aborted) return
+
+        if (saveResult.saveError) {
+          const errMsg =
+            saveResult.saveError instanceof Error
+              ? saveResult.saveError.message
+              : String(saveResult.saveError)
+          generalLogger.error('[ManualLayout] Failed to save report assets', {
+            reportId: idForApi,
+            error: errMsg,
+          })
+          toast.error(tReport('saveReportFailed'), {
+            description: errMsg,
+          })
         }
 
         // Step 7: Create version (M&A workflow) after the durable save succeeds.
@@ -2959,111 +2653,74 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Venus only creates a NEW version when there was already a previous version
         // BEFORE this calculation started AND the user made significant changes.
         let versionCreationFailed = false
-        if (idForApi && durableSaveSucceeded) {
-          let latestAfterFetch: { versionNumber: number } | null = null
-          try {
-            await useVersionHistoryStore.getState().fetchVersions(idForApi)
-            if (!submitRun.isStillTarget()) return
-            latestAfterFetch = useVersionHistoryStore.getState().getLatestVersion(idForApi)
-          } catch (fetchErr) {
-            if (!submitRun.isStillTarget()) return
-            const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+        if (idForApi && saveResult.durableSaveSucceeded) {
+          const versioningResult = await runManualCalculationVersioning({
+            reportId: idForApi,
+            previousVersion,
+            request,
+            valuationResult: calcResult,
+            calculationDurationMs: calculationDuration,
+            userId: user?.id,
+            isStillTarget: submitRun.isStillTarget,
+            deps: {
+              fetchVersions: (id) => useVersionHistoryStore.getState().fetchVersions(id),
+              getLatestVersion: (id) => useVersionHistoryStore.getState().getLatestVersion(id),
+              createVersion,
+              snapshotNormalizationsToVersion,
+              logRegeneration: (...args) => valuationAuditService.logRegeneration(...args),
+            },
+          })
+
+          if (versioningResult.aborted) return
+
+          if (versioningResult.fetchError) {
+            const fetchMsg =
+              versioningResult.fetchError instanceof Error
+                ? versioningResult.fetchError.message
+                : String(versioningResult.fetchError)
             generalLogger.warn('[ManualLayout] fetchVersions failed', {
               reportId: idForApi,
               error: fetchMsg,
             })
             toast.warning(tHistory('loadError'), { description: fetchMsg })
-            // Continue - calculation succeeded; versions may be stale
           }
 
-          if (latestAfterFetch !== null) {
-            try {
-              const versioningDecision = planManualCalculationVersioning({
-                previousVersion,
-                latestVersion: latestAfterFetch,
-                request,
-              })
-
-              if (versioningDecision.firstTitanVersionAudit) {
-                valuationAuditService.logRegeneration(
-                  idForApi,
-                  versioningDecision.firstTitanVersionAudit.versionNumber,
-                  versioningDecision.firstTitanVersionAudit.changes,
-                  calculationDuration,
-                  user?.id
-                )
-              }
-
-              if (versioningDecision.titanRegenerationAudit) {
-                valuationAuditService.logRegeneration(
-                  idForApi,
-                  versioningDecision.titanRegenerationAudit.versionNumber,
-                  versioningDecision.titanRegenerationAudit.changes,
-                  calculationDuration,
-                  user?.id
-                )
-              }
-
-              if (versioningDecision.venusVersionCreate) {
-                const newVersion = await createVersion({
-                  reportId: idForApi,
-                  formData: request,
-                  valuationResult: calcResult,
-                  htmlReport: getRenderableReportHtml(calcResult.html_report),
-                  changesSummary: versioningDecision.venusVersionCreate.changes,
-                  versionLabel: versioningDecision.venusVersionCreate.versionLabel,
-                })
-                await snapshotNormalizationsToVersion(idForApi, newVersion.id)
-                if (!submitRun.isStillTarget()) return
-
-                // Log regeneration to audit trail (accountant compliance)
-                valuationAuditService.logRegeneration(
-                  idForApi,
-                  newVersion.versionNumber,
-                  versioningDecision.venusVersionCreate.changes,
-                  calculationDuration,
-                  user?.id
-                )
-              }
-            } catch (versionError) {
-              if (!submitRun.isStillTarget()) return
-              versionCreationFailed = true
-              const errMsg =
-                versionError instanceof Error ? versionError.message : String(versionError)
-              generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
-              toast.error(t('versionCreateFailed'), {
-                description: errMsg,
-                action: {
-                  label: t('retry'),
-                  onClick: () => {
-                    if (lastSubmittedDataRef.current) {
-                      handleManualSubmit(lastSubmittedDataRef.current)
-                    }
-                  },
+          if (versioningResult.versionError) {
+            versionCreationFailed = true
+            const errMsg =
+              versioningResult.versionError instanceof Error
+                ? versioningResult.versionError.message
+                : String(versioningResult.versionError)
+            generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
+            toast.error(t('versionCreateFailed'), {
+              description: errMsg,
+              action: {
+                label: t('retry'),
+                onClick: () => {
+                  if (lastSubmittedDataRef.current) {
+                    handleManualSubmit(lastSubmittedDataRef.current)
+                  }
                 },
-              })
-              // Continue - the durable report save already succeeded
-            }
+              },
+            })
           }
+          versionCreationFailed = versioningResult.versionCreationFailed
 
           // Re-sync version history from backend after calculation so panels show latest
-          if (versionSyncTimeoutRef.current) clearTimeout(versionSyncTimeoutRef.current)
-          versionSyncTimeoutRef.current = setTimeout(() => {
-            if (!submitRun.isStillTarget()) return
-            versionSyncTimeoutRef.current = null
-            useVersionHistoryStore
-              .getState()
-              .fetchVersions(idForApi)
-              .catch((err) => {
-                if (!submitRun.isStillTarget()) return
-                generalLogger.warn('[ManualLayout] Version history sync failed', {
-                  error: err instanceof Error ? err.message : String(err),
-                })
-                toast.warning(tHistory('loadError'), {
-                  description: err instanceof Error ? err.message : undefined,
-                })
+          scheduleManualVersionHistorySync({
+            timeoutRef: versionSyncTimeoutRef,
+            reportId: idForApi,
+            fetchVersions: (id) => useVersionHistoryStore.getState().fetchVersions(id),
+            isStillTarget: submitRun.isStillTarget,
+            onError: (err) => {
+              generalLogger.warn('[ManualLayout] Version history sync failed', {
+                error: err instanceof Error ? err.message : String(err),
               })
-          }, 1500)
+              toast.warning(tHistory('loadError'), {
+                description: err instanceof Error ? err.message : undefined,
+              })
+            },
+          })
         } else if (idForApi) {
           generalLogger.warn('[ManualLayout] Skipping version sync until report save succeeds', {
             reportId: idForApi,
@@ -3222,7 +2879,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           await handleManualSubmit(data)
           return
         }
-        const venusFormData = mapClarityFormToVenusStore(data)
+        const venusFormData = mapClarityFormToVenusStore(
+          data,
+          useManualFormStore.getState().formData
+        )
         updateFormData(venusFormData)
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
@@ -3300,89 +2960,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback(
-    (field: string, value: any) => {
-      const fieldToDataKey: Record<string, string> = {
-        business_type_id: 'businessType',
-        nace_code: 'naceCode',
-        nace_description: 'naceDescription',
-        company_name: 'companyName',
-        kbo_number: 'kboNumber',
-        legal_form: 'legalForm',
-        country_code: 'country',
-        founding_year: 'yearFounded',
-        address: 'address',
-        ownerManagers: 'ownerManagers',
-        number_of_employees: 'fteEmployees',
-        fteEmployees: 'fteEmployees',
+    (field: string, value: unknown) => {
+      const bridge = buildManualChatFieldUpdateBridge(field, value)
+      if (bridge.collectedDataKey) {
+        setCollectedData((prev) => ({ ...prev, [bridge.collectedDataKey!]: value }))
       }
-      const dataKey = fieldToDataKey[field] ?? field
-      // Address fields (postal_code, city) update form store only; collectedData syncs via form store
-      const isAddressOnlyField =
-        field === 'postal_code' || field === 'postalCode' || field === 'city'
-      if (!isAddressOnlyField) {
-        setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
+      if (Object.keys(bridge.formPatch).length > 0) {
+        updateFormData(bridge.formPatch)
       }
-      // Sync to form store so form store stays in sync with chat/AI updates
-      const strVal = typeof value === 'string' ? value.trim() : ''
-      const hasStr = strVal.length > 0
-      const yearVal = typeof value === 'number' ? value : parseInt(String(value), 10)
-      const hasYear = !Number.isNaN(yearVal)
-
-      if (field === 'businessType' || field === 'business_type_id') {
-        if (hasStr) updateFormData({ business_type_id: strVal })
-      } else if (field === 'nace_code' || field === 'naceCode') {
-        if (hasStr) updateFormData({ nace_code: strVal })
-      } else if (field === 'nace_description' || field === 'naceDescription') {
-        if (hasStr) updateFormData({ nace_description: strVal })
-      } else if (field === 'company_name' || field === 'companyName') {
-        if (hasStr) updateFormData({ company_name: strVal })
-      } else if (field === 'kbo_number' || field === 'kboNumber') {
-        if (hasStr) updateFormData({ kbo_number: strVal })
-      } else if (field === 'legal_form' || field === 'legalForm') {
-        if (hasStr) updateFormData({ legal_form: strVal })
-      } else if (field === 'country_code' || field === 'country') {
-        if (hasStr) updateFormData({ country_code: strVal })
-      } else if (field === 'founding_year' || field === 'yearFounded') {
-        if (hasYear) updateFormData({ founding_year: yearVal })
-      } else if (field === 'industry') {
-        if (hasStr) updateFormData({ industry: strVal })
-      } else if (field === 'postal_code' || field === 'postalCode') {
-        if (hasStr) updateFormData({ postal_code: strVal })
-      } else if (field === 'city') {
-        if (hasStr) updateFormData({ city: strVal })
-      } else if (field === 'address') {
-        if (hasStr) {
-          // Belgian format often "1234 City" - try to split postal code from city
-          const match = strVal.match(/^(\d{4})\s+(.+)$/)
-          if (match) {
-            updateFormData({ postal_code: match[1], city: match[2].trim() })
-          } else {
-            updateFormData({ city: strVal })
-          }
-        }
-      } else if (field === 'ownerManagers' || field === 'owner_managers') {
-        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
-        if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
-      } else if (field === 'fteEmployees' || field === 'number_of_employees') {
-        const n = parseEmployeeCount(value)
-        if (n !== undefined) updateFormData({ number_of_employees: n })
-      }
-      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
       toast.success(
         t('fieldUpdated', {
           field,
-          value:
-            typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value),
+          value: formatManualChatFieldUpdateValue(value, currentLocale),
         })
       )
       setChatMessages((prev) => [
         ...prev,
-        {
+        buildManualSystemChatMessage({
           id: crypto.randomUUID(),
-          role: 'system' as const,
           content: t('fieldApplied', { field }),
-          timestamp: new Date(),
-        },
+        }),
       ])
     },
     [updateFormData, currentLocale, t]
@@ -3392,44 +2989,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     async (
       content: string,
       attachments?: File[],
-      detectedValues?: any[],
-      parsedCommands?: any[]
+      detectedValues?: ParsedValue[],
+      parsedCommands?: ParsedCommand[]
     ) => {
       // Allow non-empty user messages (e.g. quality-warning CTAs) while
       // history hydrates; only block empty triggers during load.
       if (isLoadingHistory && !content.trim()) return
 
-      const userMessage: ChatMessage = {
+      const userMessage = buildManualUserChatMessage({
         id: crypto.randomUUID(),
-        role: 'user',
         content,
-        timestamp: new Date(),
-        attachments: attachments?.map((f) => ({
-          name: f.name,
-          type: f.type,
-          url: URL.createObjectURL(f),
-        })),
-      }
+        attachments,
+        createObjectUrl: (attachment) => URL.createObjectURL(attachment),
+      })
       setChatMessages((prev) => [...prev, userMessage])
       setIsChatGenerating(true)
 
       try {
         // Handle parsed commands (local, no AI call needed)
         if (parsedCommands?.length) {
-          parsedCommands.forEach((cmd: any) => handleApplyFieldUpdate(cmd.field, cmd.value))
+          parsedCommands.forEach((cmd) => handleApplyFieldUpdate(cmd.field, cmd.value))
           await new Promise((r) => setTimeout(r, 500))
-          const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
-          const commandsList = parsedCommands
-            .map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString(currencyLocale)}`)
-            .join('\n')
           setChatMessages((prev) => [
             ...prev,
-            {
+            buildManualAssistantChatMessage({
               id: crypto.randomUUID(),
-              role: 'assistant' as const,
-              content: `${t('normApplied')}\n\n${commandsList}`,
-              timestamp: new Date(),
-            },
+              content: formatManualParsedCommandResponse({
+                parsedCommands,
+                currentLocale,
+                heading: t('normApplied'),
+              }),
+            }),
           ])
           setIsChatGenerating(false)
           return
@@ -3438,64 +3028,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (detectedValues?.length) {
           setPendingUpdates((prev) => [
             ...prev,
-            ...detectedValues.map((dv: any) => ({
-              field: dv.field,
-              value: dv.value,
-              label: dv.label,
-            })),
+            ...buildPendingUpdatesFromDetectedValues(detectedValues),
           ])
         }
 
-        // Build enriched context for Claude
-        const accepted = normalizationItems.filter((n) => n.status === 'accepted')
-        const pending = normalizationItems.filter((n) => n.status === 'pending')
-        const totalAdjustment = accepted.reduce((sum, n) => sum + n.adjustment, 0)
-        const categories = [...new Set(normalizationItems.map((n) => n.category))]
-        const formFields = Object.entries(collectedData).filter(
-          ([, v]) => v !== '' && v !== undefined && v !== null
-        )
-        const formCompletenessScore = Math.round((formFields.length / 7) * 100)
-        const versions =
-          resolvedReportId || reportId
-            ? useVersionHistoryStore.getState().versions[resolvedReportId || reportId] || []
-            : []
-
-        const latestFinancials = latestFormDataRef.current
-        const enrichedFormData = {
-          ...collectedData,
-          revenue: latestFinancials.revenue ?? collectedData.revenue,
-          ebitda: latestFinancials.ebitda ?? collectedData.ebitda,
-          yearlyFinancials: latestFinancials.yearlyFinancials ?? collectedData.yearlyFinancials,
-          current_year_data: latestFinancials.current_year_data ?? collectedData.current_year_data,
-          _normalizationSummary: {
-            total: normalizationItems.length,
-            accepted: accepted.length,
-            pending: pending.length,
-            totalAdjustment,
-            categories,
-          },
-          _formCompleteness: formCompletenessScore,
-          _versionCount: versions.length,
-        }
-
         const { aiChatService } = await import('../../../services/ai/AIChatService')
-
-        const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const aiRequest = {
+        const aiRequest = buildManualAIChatRequest({
           message: content,
-          sessionId: reportId || undefined,
           reportId: reportId || undefined,
-          companyName: collectedData.companyName,
+          currentLocale,
+          collectedData: collectedData as Record<string, unknown>,
+          latestFormData: latestFormDataRef.current,
+          fieldContext,
+          normalizationItems,
           conversationId: conversationStore.conversationId || undefined,
-          fieldContext: fieldContext || undefined,
-          normalizations: normalizationItems,
-          formData: enrichedFormData,
-          locale: validLocale as 'en' | 'nl',
-          history: chatMessages
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
-            .slice(-10)
-            .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-        }
+          chatMessages,
+          versionCount: getManualChatVersionCount(
+            useVersionHistoryStore.getState().versions,
+            resolvedReportId || reportId
+          ),
+        })
 
         // Use streaming for real-time response + tool indicators
         const streamingMsgId = crypto.randomUUID()
@@ -3503,7 +3055,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         setChatMessages((prev) => [
           ...prev,
-          { id: streamingMsgId, role: 'assistant' as const, content: '', timestamp: new Date() },
+          buildManualAssistantChatMessage({ id: streamingMsgId }),
         ])
 
         if (streamCleanupRef.current) {
@@ -3515,185 +3067,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onText: (text) => {
             streamedContent += text
             setChatMessages((prev) =>
-              prev.map((m) => (m.id === streamingMsgId ? { ...m, content: streamedContent } : m))
+              patchManualChatMessage(prev, streamingMsgId, { content: streamedContent })
             )
           },
           onToolStart: (toolName) => {
             conversationStore.setToolInProgress(toolName)
           },
           onToolResult: (toolName, result) => {
-            // Streaming-path tool-result rendering. Mirrors the non-streaming
-            // parser in AIChatService.sendMessage so the inline cards
-            // (suggest_normalization / update_field_value / run_valuation /
-            // generate_report / run_sellability) render in the streaming
-            // happy path — not just on the onError fallback. Read-tool
-            // results arrive with `result === undefined` (Titan only emits
-            // toolResult for write tools per claude.service.ts:644) and
-            // short-circuit out below.
             conversationStore.setToolInProgress(null)
-            if (!result || typeof result !== 'object') return
-            const data = result as Record<string, any>
-
-            const newFieldUpdate =
-              toolName === 'update_field_value' && data.update
-                ? [
-                    {
-                      field: data.update.field,
-                      value: data.update.value,
-                      label: data.update.label,
-                      source: 'ai' as const,
-                      confidence: data.update.confidence,
-                    },
-                  ]
-                : null
-
-            const newNormalisationSuggestion =
-              toolName === 'suggest_normalization' && data.suggestion
-                ? [
-                    {
-                      ...data.suggestion,
-                      id: crypto.randomUUID(),
-                      status: 'pending' as const,
-                      multiple: 5.2,
-                    },
-                  ]
-                : null
-
-            const newValuationRun =
-              toolName === 'run_valuation'
-                ? data.status === 'pending_approval' && data.request
-                  ? [
-                      {
-                        id: crypto.randomUUID(),
-                        status: 'pending_approval' as const,
-                        reportId: data.request.report_id,
-                        methods: data.request.methods ?? null,
-                        estimatedCredits: data.request.estimated_credits,
-                        inputsSummary: data.request.inputs_summary,
-                        note: data.request.note ?? null,
-                        message: data.message,
-                      },
-                    ]
-                  : data.status === 'blocked'
-                    ? [
-                        {
-                          id: crypto.randomUUID(),
-                          status: 'blocked' as const,
-                          reason: data.reason,
-                          missing: data.missing,
-                          message: data.message,
-                        },
-                      ]
-                    : null
-                : null
-
-            const newReportGeneration =
-              toolName === 'generate_report'
-                ? data.status === 'pending_approval' && data.request
-                  ? [
-                      {
-                        id: crypto.randomUUID(),
-                        status: 'pending_approval' as const,
-                        reportId: data.request.report_id,
-                        estimatedCredits: data.request.estimated_credits,
-                        resultSummary: data.request.result_summary,
-                        note: data.request.note ?? null,
-                        message: data.message,
-                      },
-                    ]
-                  : data.status === 'blocked'
-                    ? [
-                        {
-                          id: crypto.randomUUID(),
-                          status: 'blocked' as const,
-                          reason: data.reason,
-                          message: data.message,
-                        },
-                      ]
-                    : null
-                : null
-
-            const newSellabilityRun =
-              toolName === 'run_sellability'
-                ? data.status === 'pending_approval' && data.request
-                  ? [
-                      {
-                        id: crypto.randomUUID(),
-                        status: 'pending_approval' as const,
-                        estimatedCredits: data.request.estimated_credits,
-                        answers: data.request.answers,
-                        currentScore: data.request.current_score ?? null,
-                        note: data.request.note ?? null,
-                        message: data.message,
-                      },
-                    ]
-                  : data.status === 'blocked'
-                    ? [
-                        {
-                          id: crypto.randomUUID(),
-                          status: 'blocked' as const,
-                          reason: data.reason,
-                          missing: data.missing,
-                          message: data.message,
-                        },
-                      ]
-                    : null
-                : null
-
-            if (
-              !newFieldUpdate &&
-              !newNormalisationSuggestion &&
-              !newValuationRun &&
-              !newReportGeneration &&
-              !newSellabilityRun
-            ) {
-              return
-            }
+            const cards = parseManualChatStreamToolResult(toolName, result, () =>
+              crypto.randomUUID()
+            )
+            if (!cards) return
 
             setChatMessages((prev) =>
-              prev.map((m) => {
-                if (m.id !== streamingMsgId) return m
-                return {
-                  ...m,
-                  ...(newFieldUpdate && {
-                    fieldUpdates: [...(m.fieldUpdates ?? []), ...newFieldUpdate],
-                  }),
-                  ...(newNormalisationSuggestion && {
-                    normalisationSuggestions: [
-                      ...(m.normalisationSuggestions ?? []),
-                      ...newNormalisationSuggestion,
-                    ],
-                  }),
-                  ...(newValuationRun && {
-                    valuationRunRequests: [
-                      ...(m.valuationRunRequests ?? []),
-                      ...newValuationRun,
-                    ],
-                  }),
-                  ...(newReportGeneration && {
-                    reportGenerationRequests: [
-                      ...(m.reportGenerationRequests ?? []),
-                      ...newReportGeneration,
-                    ],
-                  }),
-                  ...(newSellabilityRun && {
-                    sellabilityRunRequests: [
-                      ...(m.sellabilityRunRequests ?? []),
-                      ...newSellabilityRun,
-                    ],
-                  }),
-                }
-              })
+              appendManualChatToolCardsToMessages(prev, streamingMsgId, cards)
             )
 
             // Mirror the parallel state hooks the onError fallback uses, so
             // accept-all flows and pending-update tracking work identically
             // whether or not the stream survived.
-            if (newFieldUpdate) {
-              setPendingUpdates((prev) => [...prev, ...newFieldUpdate])
+            if (cards.fieldUpdates) {
+              setPendingUpdates((prev) => [...prev, ...cards.fieldUpdates!])
             }
-            if (newNormalisationSuggestion) {
-              handleNormalisationSuggestions(newNormalisationSuggestion)
+            if (cards.normalisationSuggestions) {
+              handleNormalisationSuggestions(cards.normalisationSuggestions)
             }
           },
           onDone: (responseConversationId) => {
@@ -3711,11 +3109,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             setIsChatGenerating(false)
 
             setChatMessages((prev) =>
-              prev.map((m) =>
-                m.id === streamingMsgId
-                  ? { ...m, content: t('quotaExhausted'), isError: true }
-                  : m
-              )
+              patchManualChatMessage(prev, streamingMsgId, {
+                content: t('quotaExhausted'),
+                isError: true,
+              })
             )
           },
           onError: (error) => {
@@ -3733,11 +3130,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 // matches what onQuotaExhausted does for the streaming path.
                 if (aiResponse.requires_upgrade) {
                   setChatMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === streamingMsgId
-                        ? { ...m, content: t('quotaExhausted'), isError: true }
-                        : m
-                    )
+                    patchManualChatMessage(prev, streamingMsgId, {
+                      content: t('quotaExhausted'),
+                      isError: true,
+                    })
                   )
                   return
                 }
@@ -3746,40 +3142,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   conversationStore.setConversationId(aiResponse.conversationId)
                 }
 
+                const responseCards = addIdsToManualChatToolCards(aiResponse, () =>
+                  crypto.randomUUID()
+                )
                 setChatMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === streamingMsgId
-                      ? {
-                          ...m,
-                          content: aiResponse.content,
-                          fieldUpdates: aiResponse.fieldUpdates,
-                          normalisationSuggestions: aiResponse.normalisationSuggestions?.map(
-                            (s: any) => ({
-                              ...s,
-                              id: crypto.randomUUID(),
-                              status: 'pending',
-                              multiple: 5.2,
-                            })
-                          ),
-                          valuationRunRequests: aiResponse.valuationRunRequests?.map((r) => ({
-                            ...r,
-                            id: crypto.randomUUID(),
-                          })),
-                          reportGenerationRequests: aiResponse.reportGenerationRequests?.map(
-                            (r) => ({
-                              ...r,
-                              id: crypto.randomUUID(),
-                            })
-                          ),
-                          sellabilityRunRequests: aiResponse.sellabilityRunRequests?.map(
-                            (r) => ({
-                              ...r,
-                              id: crypto.randomUUID(),
-                            })
-                          ),
-                        }
-                      : m
-                  )
+                  patchManualChatMessage(prev, streamingMsgId, {
+                    content: aiResponse.content,
+                    ...responseCards,
+                  })
                 )
 
                 if (aiResponse.fallback) {
@@ -3788,16 +3158,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     duration: 4000,
                   })
                 }
-                if (aiResponse.fieldUpdates) {
-                  setPendingUpdates((prev) => [...prev, ...aiResponse.fieldUpdates!])
+                if (responseCards.fieldUpdates) {
+                  setPendingUpdates((prev) => [...prev, ...responseCards.fieldUpdates!])
                 }
-                handleNormalisationSuggestions(aiResponse.normalisationSuggestions)
+                handleNormalisationSuggestions(responseCards.normalisationSuggestions)
               })
               .catch(() => {
                 setChatMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === streamingMsgId ? { ...m, content: t('chatError'), isError: true } : m
-                  )
+                  patchManualChatMessage(prev, streamingMsgId, {
+                    content: t('chatError'),
+                    isError: true,
+                  })
                 )
                 setIsChatGenerating(false)
               })
@@ -3807,13 +3178,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         conversationStore.setToolInProgress(null)
         setChatMessages((prev) => [
           ...prev,
-          {
+          buildManualAssistantChatMessage({
             id: crypto.randomUUID(),
-            role: 'assistant' as const,
             content: t('chatError'),
             isError: true,
-            timestamp: new Date(),
-          },
+          }),
         ])
         setIsChatGenerating(false)
       }
@@ -3833,41 +3202,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // AI suggestions: add as pending; Titan persist happens on accept (handleAcceptNormalisation)
   const handleNormalisationSuggestions = useCallback(
-    (suggestions: any[] | undefined) => {
+    (suggestions: unknown[] | undefined) => {
       if (!suggestions?.length) return
-      const filingYear = getCurrentFilingYear()
-      const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
-        id: crypto.randomUUID(),
-        ledgerCode: s.ledgerCode || '',
-        ledgerName: s.description,
-        category: mapBackendCategoryToFrontend(s.category) || 'other',
-        backendCategory: s.category,
-        type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
-        value: Math.abs(s.amount),
-        adjustment: s.amount,
-        reason: s.reason,
-        source: 'ai' as any,
-        sourceRef: 'Claude AI',
-        status: 'pending' as any,
-        applyAllYears: false,
-        year: filingYear,
-      }))
-      normalizationActions.addItems(newItems)
+      const { items, reviewSuggestions } = buildManualAiNormalizationSuggestions({
+        suggestions,
+        filingYear: getCurrentFilingYear(),
+        createId: () => crypto.randomUUID(),
+      })
+      normalizationActions.addItems(items)
       const idForApi = resolvedReportId || reportId
       if (idForApi) normalizationActions.persistToSession(idForApi)
-      setSuggestedNormalisations((prev: any[]) => [
-        ...prev,
-        ...newItems.map((n) => ({
-          id: n.id,
-          code: n.ledgerCode,
-          description: n.ledgerName,
-          category: n.category,
-          amount: n.adjustment,
-          reason: n.reason,
-          sourceRef: 'Claude AI',
-          status: 'pending',
-        })),
-      ])
+      setSuggestedNormalisations((prev) => [...prev, ...reviewSuggestions])
     },
     [normalizationActions, reportId, resolvedReportId]
   ) // eslint-disable-line react-hooks/exhaustive-deps
@@ -3889,26 +3234,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRetry = useCallback(
     (errorMessageId: string) => {
       if (isChatGenerating || isLoadingHistory) return
-      const msgIndex = chatMessages.findIndex((m) => m.id === errorMessageId)
-      if (msgIndex < 0) return
+      const retryPlan = buildManualChatRetryPlan(chatMessages, errorMessageId)
+      if (!retryPlan) return
       // Abort any lingering stream
       if (streamCleanupRef.current) {
         streamCleanupRef.current()
         streamCleanupRef.current = null
       }
-      // Find the user message that preceded the error
-      let userMessage: string | undefined
-      for (let i = msgIndex - 1; i >= 0; i--) {
-        if (chatMessages[i].role === 'user') {
-          userMessage = chatMessages[i].content
-          break
-        }
-      }
-      if (!userMessage) return
       // Remove the error message
-      setChatMessages((prev) => prev.filter((m) => m.id !== errorMessageId))
+      setChatMessages(retryPlan.messages)
       // Resend
-      handleChatMessage(userMessage)
+      handleChatMessage(retryPlan.retryPrompt)
     },
     [chatMessages, handleChatMessage, isChatGenerating, isLoadingHistory]
   )
@@ -4197,15 +3533,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
       .then((res) => (res.ok ? res.json() : { reports: [] }))
       .then((data) => {
-        const reports = data.reports || data.data || data.items || data.sessions || []
         setRawRecentValuations(
-          (Array.isArray(reports) ? reports : []).slice(0, 5).map((r: any) => ({
-            id: r.id || r.report_id || r.reportId,
-            companyName: r.company_name || r.companyName || r.name || t('unnamed'),
-            updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at || Date.now()),
-            isDraft: r.status === 'draft' || r.status === 'in_progress',
-            deleteMode: 'report' as const,
-          }))
+          mapReportsResponseToRecentValuations(data, { unnamedLabel: t('unnamed') })
         )
       })
       .catch((err) => {
@@ -4223,58 +3552,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // CRITICAL: Always show current valuation in dropdown - prevents "Geen recente schattingen" when viewing one
   // Prefer session.reportId (UUID) over session.key - Titan returns UUIDs, session key causes 404
   const recentValuations = useMemo(() => {
-    const currentId =
-      session?.reportId ||
-      (reportId && reportId !== 'new' ? reportId : null) ||
-      (session as any)?.key
-    const idForMatch = resolvedReportId || currentId
-    const inList =
-      idForMatch &&
-      rawRecentValuations.some(
-        (v) =>
-          v.id === idForMatch ||
-          v.id === currentId ||
-          v.id === session?.reportId ||
-          v.id === (session as any)?.key ||
-          v.id === reportId ||
-          v.id === resolvedReportId
-      )
-    // Prepend when: we have a current report (reportId or report) and it's not in the list
-    const shouldPrepend = (currentId || (reportId && reportId !== 'new') || report) && !inList
-    if (shouldPrepend && (currentId || reportId)) {
-      const companyName =
-        report?.companyName?.trim() ||
-        collectedData.companyName?.trim() ||
-        session?.name ||
-        (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
-        t('unnamed')
-      const updatedAt =
-        session?.updatedAt instanceof Date
-          ? session.updatedAt
-          : session?.createdAt instanceof Date
-            ? session.createdAt
-            : report?.generatedAt instanceof Date
-              ? report.generatedAt
-              : new Date()
-      const prependedId = session?.reportId || resolvedReportId || currentId || reportId
-      return [
-        {
-          id: prependedId,
-          companyName,
-          updatedAt,
-          isDraft: !report,
-          deleteMode: (!report ? 'session' : 'report') as 'session' | 'report',
-        },
-        ...rawRecentValuations,
-      ]
-    }
-    return rawRecentValuations
+    return buildManualRecentValuations({
+      rawRecentValuations,
+      reportId,
+      resolvedReportId,
+      sessionReportId: session?.reportId,
+      activeSessionKey,
+      sessionName: session?.name,
+      sessionUpdatedAt: session?.updatedAt,
+      sessionCreatedAt: session?.createdAt,
+      currentReport: report,
+      collectedCompanyName: collectedData.companyName,
+      isAccountantFlow,
+      clientCompanyName: identity.clientContext?.clientCompanyName,
+      unnamedLabel: t('unnamed'),
+    })
   }, [
     rawRecentValuations,
     reportId,
     resolvedReportId,
     session?.reportId,
-    (session as any)?.key,
+    activeSessionKey,
     session?.name,
     session?.updatedAt,
     session?.createdAt,
@@ -4324,25 +3622,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
       setShowNewValuationModal(false)
       // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
-      const baseUrl = `/${currentLocale}/reports/new`
-      const params = new URLSearchParams()
-      if (prefilled) params.set('prefilledQuery', prefilled)
-      // Preserve accountant client context so new valuation stays linked to same client
       const ctx = useClientContext.getState()
       const relId = clientContextId ?? ctx?.relationshipId
-      if ((isAccountantMode || ctx?.isActingAsClient) && relId) {
-        params.set('clientId', relId)
-      }
-      // Preserve other context from current URL (clientToken, return_url, source)
-      if (typeof window !== 'undefined') {
-        const current = new URLSearchParams(window.location.search)
-        for (const key of ['clientToken', 'return_url', 'source', 'flow', 'mode']) {
-          const v = current.get(key)
-          if (v && !params.has(key)) params.set(key, v)
-        }
-      }
-      const fullUrl = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
-      window.location.href = fullUrl
+      const currentSearch = typeof window !== 'undefined' ? window.location.search : undefined
+      window.location.href = buildPostDeleteNewValuationUrl({
+        locale: currentLocale,
+        clientId: (isAccountantMode || ctx?.isActingAsClient) && relId ? relId : undefined,
+        companyName: prefilled || undefined,
+        currentSearch,
+      })
     } finally {
       setIsConfirmingNewValuation(false)
     }
@@ -4374,12 +3662,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       deleteInProgressRef.current = id
       setDeletingValuationId(id)
       try {
-        const sessionKey = (session as any)?.key as string | undefined
         const isCurrentReport = isValuationIdSameAsActiveReport(id, {
           reportId,
           resolvedReportId,
           sessionReportId: session?.reportId,
-          sessionKey,
+          sessionKey: activeSessionKey ?? undefined,
         })
         let postDeleteNewValuationUrl: string | null = null
         if (isCurrentReport) {
@@ -4430,11 +3717,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           useSessionStore.getState().clearSession()
           const idLink = {
             sessionReportId: session?.reportId,
-            sessionKey,
+            sessionKey: activeSessionKey ?? undefined,
           }
-          const remaining = rawRecentValuations.filter(
-            (v) => !valuationIdsReferToSameReport(v.id, id, idLink)
-          )
+          const remaining = filterRemainingRecentValuationsAfterDelete({
+            rawRecentValuations,
+            deletedId: id,
+            sessionReportId: idLink.sessionReportId,
+            sessionKey: idLink.sessionKey,
+          })
           const isEmbedded =
             isAccountantMode &&
             typeof window !== 'undefined' &&
@@ -4522,7 +3812,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       reportId,
       resolvedReportId,
       session?.reportId,
-      (session as any)?.key,
+      activeSessionKey,
       rawRecentValuations,
       isAccountantMode,
       clientContextId,
@@ -4778,17 +4068,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const latestFinancialOverrides = mapClarityFormToVenusStore({
           ...collectedData,
           ...latestFormDataRef.current,
+        }, formStoreData)
+        const requestSource = buildManualNormalizationRecalcSource({
+          formStoreData,
+          latestFinancialOverrides,
         })
-        const requestSource = {
-          ...formStoreData,
-          ...latestFinancialOverrides,
-          current_year_data:
-            latestFinancialOverrides.current_year_data ?? formStoreData.current_year_data,
-          historical_years_data:
-            latestFinancialOverrides.historical_years_data ?? formStoreData.historical_years_data,
-          revenue: latestFinancialOverrides.revenue ?? formStoreData.revenue,
-          ebitda: latestFinancialOverrides.ebitda ?? formStoreData.ebitda,
-        } as VenusFormData
         const request = buildManualCalculationRequest({
           formData: requestSource,
           normalizations,
@@ -4800,27 +4084,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prepN = usePreparerMultipleStore.getState()
-        if (
-          prepN.benchmarkMedian != null &&
-          prepN.appliedMedian != null &&
-          prepN.reasonKey &&
-          Math.abs(prepN.appliedMedian - prepN.benchmarkMedian) >= 0.005
-        ) {
-          const mvN = result?.multiples_valuation
-          if (
-            clientShouldWarnExtremeMultiple(
-              prepN.appliedMedian,
-              mvN?.p10_ebitda_multiple,
-              mvN?.p90_ebitda_multiple,
-              prepN.benchmarkMedian,
-              mvN?.p25_ebitda_multiple,
-              mvN?.p75_ebitda_multiple
-            ) &&
-            !prepN.acknowledgedExtreme
-          ) {
-            toast.error(tPreparer('extremeWarning'))
-            return
-          }
+        if (shouldBlockExtremePreparerMultiple(prepN, result?.multiples_valuation)) {
+          toast.error(tPreparer('extremeWarning'))
+          return
         }
 
         const calcResult = await valuationService.calculateValuation(request)
@@ -5073,8 +4339,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     async (id: string) => {
       trackAINormalizationAccept()
       normalizationActions.acceptItem(id)
-      setSuggestedNormalisations((prev: any[]) =>
-        prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
+      setSuggestedNormalisations((prev) =>
+        updateSuggestedNormalisationStatus(prev, id, 'accepted')
       )
       const idForApi = resolvedReportId || reportId
       if (idForApi) {
@@ -5094,8 +4360,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               error: error instanceof Error ? error.message : String(error),
             })
             normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev: any[]) =>
-              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            setSuggestedNormalisations((prev) =>
+              updateSuggestedNormalisationStatus(prev, id, 'pending')
             )
             toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
             return
@@ -5118,8 +4384,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRejectNormalisation = useCallback(
     async (id: string) => {
       normalizationActions.rejectItem(id)
-      setSuggestedNormalisations((prev: any[]) =>
-        prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
+      setSuggestedNormalisations((prev) =>
+        updateSuggestedNormalisationStatus(prev, id, 'rejected')
       )
       const idForApi = resolvedReportId || reportId
       if (idForApi) {
@@ -5140,8 +4406,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               error: error instanceof Error ? error.message : String(error),
             })
             normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev: any[]) =>
-              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            setSuggestedNormalisations((prev) =>
+              updateSuggestedNormalisationStatus(prev, id, 'pending')
             )
             toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
             return
@@ -5164,9 +4430,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Version Restore ───
   // Receives full ValuationVersion from HistoryPanel (looked up from store)
   const handleVersionRestore = useCallback(
-    async (version: any) => {
+    async (version: unknown) => {
       try {
-        const versionNumber = version.versionNumber || version.version
+        const restorePlan = buildManualVersionRestorePlan(version)
+        if (!restorePlan) return
+        const { versionNumber } = restorePlan
 
         // 1. Notify backend (graceful — don't block on failure)
         const idForApi = resolvedReportId || reportId
@@ -5188,68 +4456,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // 2. Hydrate form with version's form data (ValuationVersion.formData)
-        if (version.formData) {
-          updateFormData(version.formData)
+        if (restorePlan.formData) {
+          updateFormData(restorePlan.formData)
         }
 
         // 3. Set valuation result with htmlReport merged from version
-        if (version.valuationResult) {
-          const enrichedResult = {
-            ...version.valuationResult,
-            html_report: getFirstRenderableReportHtml(
-              version.valuationResult.html_report,
-              version.htmlReport
-            ),
-          }
-          setResult(enrichedResult)
+        if (restorePlan.valuationResult) {
+          setResult(restorePlan.valuationResult)
         }
 
         // 4. Restore normalizations from normalization_data snapshot
-        if (version.normalization_data && typeof version.normalization_data === 'object') {
-          // Convert year-keyed normalization_data back to NormalizationItem[]
-          const items: NormalizationItem[] = []
-          for (const [yearStr, data] of Object.entries(
-            version.normalization_data as Record<string, any>
-          )) {
-            if (data?.adjustments && Array.isArray(data.adjustments)) {
-              const year = Number(yearStr)
-              for (let idx = 0; idx < data.adjustments.length; idx++) {
-                const adj = data.adjustments[idx]
-                const amount = Number(adj.amount ?? adj.adjustment ?? 0)
-                const rawCat = adj.category || ''
-                const category: NormalizationItem['category'] = [
-                  'salary',
-                  'rent',
-                  'vehicle',
-                  'one-time',
-                  'personal',
-                  'depreciation',
-                  'other',
-                ].includes(rawCat)
-                  ? (rawCat as NormalizationItem['category'])
-                  : mapBackendCategoryToFrontend(rawCat) || 'other'
-                items.push({
-                  id: `version-${year}-${idx}-${Math.random().toString(36).substring(2, 8)}`,
-                  ledgerCode: adj.ledger_code || '',
-                  ledgerName: adj.ledger_name || adj.note || adj.category || '',
-                  category,
-                  backendCategory: rawCat,
-                  type: amount >= 0 ? 'add' : 'subtract',
-                  value: Math.abs(amount),
-                  adjustment: amount,
-                  reason: adj.note || adj.reason,
-                  source: 'manual',
-                  sourceRef: 'version',
-                  status: 'accepted',
-                  applyAllYears: false,
-                  year,
-                })
-              }
-            }
-          }
-          if (items.length > 0) {
-            normalizationActions.setItems(items)
-          }
+        if (restorePlan.normalizations.length > 0) {
+          normalizationActions.setItems(restorePlan.normalizations)
         }
 
         // 5. Restore tax latencies from version snapshot. The valuation result was
@@ -5258,32 +4476,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // auto-recalc subscription skips them and does not overwrite the restored
         // result with a fresh calculation. Candidates are not part of the recalc
         // signature (only items are), so they don't need source tagging.
-        if (
-          version.tax_latency_data &&
-          Array.isArray(version.tax_latency_data) &&
-          version.tax_latency_data.length > 0
-        ) {
-          useTaxLatencyStore.getState().setItems(version.tax_latency_data, { source: 'system' })
+        if (restorePlan.taxLatencyItems.length > 0) {
+          useTaxLatencyStore.getState().setItems(restorePlan.taxLatencyItems, { source: 'system' })
         } else {
           useTaxLatencyStore.getState().clear({ source: 'system' })
         }
 
-        const versionBusinessContext =
-          version.formData &&
-          typeof version.formData === 'object' &&
-          'business_context' in version.formData
-            ? (version.formData.business_context as Record<string, unknown> | undefined)
-            : undefined
-        const importedLedgerAnalysis = versionBusinessContext?._imported_ledger_analysis
-        if (importedLedgerAnalysis && typeof importedLedgerAnalysis === 'object') {
-          useTaxLatencyStore
-            .getState()
-            .setCandidates(
-              buildTaxLatencyCandidatesFromImportedLedgerAnalysis(importedLedgerAnalysis as any)
-            )
-        } else {
-          useTaxLatencyStore.getState().setCandidates([])
-        }
+        useTaxLatencyStore.getState().setCandidates(restorePlan.taxLatencyCandidates)
 
         // 6. Update version history active version and re-fetch from backend
         //    (restore creates a new version copy on the backend)
@@ -5309,14 +4508,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Hermes aggregate + Titan sync; see docs/financial-ingestion/CSV_UNIFIED_PIPELINE.md.
   const handleCSVImportComplete = useCallback(
     async (source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable', _fileName?: string) => {
-      const labels = {
-        yuki: 'Yuki',
-        exact: 'Exact Online',
-        odoo: 'Odoo',
-        octopus: 'Octopus',
-        accountable: 'Accountable',
-      }
-      toast.success(t('importStarted', { source: labels[source] }), {
+      const sourceLabel = MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS[source]
+      toast.success(t('importStarted', { source: sourceLabel }), {
         description: t('importStartedDesc'),
       })
 
@@ -5335,30 +4528,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }),
         })
 
-        let suggestions: any[] = []
+        let suggestions: unknown[] = []
         if (response.ok) {
-          const data = await response.json()
-          suggestions = data.suggestions || []
+          const data = (await response.json()) as { suggestions?: unknown[] }
+          suggestions = Array.isArray(data.suggestions) ? data.suggestions : []
         }
 
-        const filingYear = getCurrentFilingYear()
-        const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
-          id: s.id || `${source}-${idx + 1}`,
-          ledgerCode: s.code || s.ledgerCode || '',
-          ledgerName: s.description || s.ledgerName || '',
-          category: s.category || 'other',
-          type: 'add' as const,
-          value: coalesceFiniteNumber(s.amount ?? s.value),
-          adjustment: coalesceFiniteNumber(s.amount ?? s.adjustment),
-          reason: s.reason || '',
-          source: source as any,
-          sourceRef: s.sourceRef || `${labels[source]}`,
-          status: (s.status || 'pending') as any,
-          applyAllYears: false, // Default single year; user can change in modal
-          year: filingYear,
-        }))
+        const {
+          items: unifiedItems,
+          reviewSuggestions,
+          chatSuggestions,
+        } = buildManualImportedNormalizationSuggestions({
+          suggestions,
+          source,
+          filingYear: getCurrentFilingYear(),
+        })
 
-        setSuggestedNormalisations(suggestions)
+        setSuggestedNormalisations(reviewSuggestions)
         normalizationActions.setItems(unifiedItems)
         openUnifiedNormalizationModal({ track: false })
         setChatDrawerOpen(true)
@@ -5371,11 +4557,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setChatMessages((prev) => [
           ...prev,
           {
-            id: crypto.randomUUID(),
-            role: 'assistant' as const,
-            content: t('importAnalyzed', { source: labels[source], count: unifiedItems.length }),
-            timestamp: new Date(),
-            normalisationSuggestions: suggestions.map((s: any) => ({ ...s, multiple: 5.2 })),
+            ...buildManualAssistantChatMessage({
+              id: crypto.randomUUID(),
+              content: t('importAnalyzed', { source: sourceLabel, count: unifiedItems.length }),
+            }),
+            normalisationSuggestions: chatSuggestions,
           },
         ])
       } catch (error) {
@@ -5423,28 +4609,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
   const assistantLocale: 'en' | 'nl' = currentLocale === 'nl' ? 'nl' : 'en'
   const formatStartupAssistantPrompt = useCallback(
-    (prompt: string) => {
-      if (assistantLocale === 'nl') {
-        return [
-          'Antwoord in dit exacte format (Nederlands), met deze drie kopjes vetgedrukt:',
-          '',
-          '**Actiepunten:** 1–3 genummerde, concrete stappen die ik nu in de wizard kan uitvoeren.',
-          '**Waarom dit telt:** één zin over de impact op de waardering of het rapport.',
-          '**Wat in te vullen:** een concrete waarde of voorbeeld (bedrag, percentage, multiple, of zin).',
-          '',
-          `Vraag van de gebruiker: ${prompt}`,
-        ].join('\n')
-      }
-      return [
-        'Reply in this exact format, with these three section headers in bold:',
-        '',
-        '**Action points:** 1–3 numbered, concrete things to do in the wizard right now.',
-        '**Why this matters:** one sentence on the impact on the valuation or report.',
-        '**What to enter:** a concrete value or example (amount, percentage, multiple, or sentence).',
-        '',
-        `User question: ${prompt}`,
-      ].join('\n')
-    },
+    (prompt: string) => formatManualStartupAssistantPrompt(prompt, assistantLocale),
     [assistantLocale]
   )
 
@@ -5662,12 +4827,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleApproveValuationRun = useCallback(
     (proposalId: string, _reportId?: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          valuationRunRequests: m.valuationRunRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
       )
       if (lastSubmittedDataRef.current) {
         handleManualSubmit(lastSubmittedDataRef.current)
@@ -5684,12 +4844,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRejectValuationRun = useCallback(
     (proposalId: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          valuationRunRequests: m.valuationRunRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'rejected')
       )
     },
     [setChatMessages]
@@ -5698,12 +4853,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleApproveReportGeneration = useCallback(
     (proposalId: string, _reportId?: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          reportGenerationRequests: m.reportGenerationRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'approved')
       )
       if (generatePdf) {
         generatePdf().catch((err: unknown) => {
@@ -5728,12 +4878,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRejectReportGeneration = useCallback(
     (proposalId: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          reportGenerationRequests: m.reportGenerationRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'rejected')
       )
     },
     [setChatMessages]
@@ -5746,12 +4891,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleApproveSellabilityRun = useCallback(
     async (proposalId: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'approved' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'approved')
       )
       try {
         const resp = await fetch('/api/sellability/score', {
@@ -5767,21 +4907,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const parsed = parseSellabilityScoreResponse(json)
         if (parsed) {
           setChatMessages((prev) =>
-            prev.map((m) => ({
-              ...m,
-              sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
-                r.id === proposalId
-                  ? {
-                      ...r,
-                      computedScore: {
-                        score: parsed.score,
-                        band: parsed.band,
-                        confidence: parsed.confidence,
-                      },
-                    }
-                  : r
-              ),
-            }))
+            applyManualChatSellabilityComputedScore(prev, proposalId, {
+              score: parsed.score,
+              band: parsed.band,
+              confidence: parsed.confidence,
+            })
           )
           toast.success(
             // TODO i18n
@@ -5806,12 +4936,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRejectSellabilityRun = useCallback(
     (proposalId: string) => {
       setChatMessages((prev) =>
-        prev.map((m) => ({
-          ...m,
-          sellabilityRunRequests: m.sellabilityRunRequests?.map((r) =>
-            r.id === proposalId ? { ...r, decision: 'rejected' as const } : r
-          ),
-        }))
+        markManualChatProposalDecision(prev, 'sellabilityRunRequests', proposalId, 'rejected')
       )
     },
     [setChatMessages]
