@@ -7,6 +7,7 @@
  * @module lib/bootstrap/types
  */
 
+import type { BuyerReadinessPackage } from '../../types/buyerReadiness'
 import type { CreditUpgradePath } from './credit-upgrade-path'
 
 // ============================================================================
@@ -373,6 +374,8 @@ export interface ValuationPackage {
   }
   /** Form inputs for instant restoration (company_name, revenue, ebitda, etc.) */
   formData?: Record<string, unknown>
+  /** Pre-transaction readiness payload from Titan package/bootstrap. */
+  buyerReadiness?: BuyerReadinessPackage
 }
 
 // ============================================================================

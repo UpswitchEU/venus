@@ -1001,6 +1001,7 @@ export class SessionBootstrapService {
               versions: valuationPackage.versions || { current: 1, total: 1 },
               pdf: valuationPackage.pdf || { url: null, status: 'none' },
               formData: valuationPackage.formData || undefined,
+              buyerReadiness: valuationPackage.buyerReadiness || undefined,
             }
           : undefined,
         bootstrapVersion: BOOTSTRAP_VERSION,
@@ -1022,6 +1023,7 @@ export class SessionBootstrapService {
           hasPricing: !!valuationPackage.pricingRange,
           versionCount: valuationPackage.versions?.total,
           pdfStatus: valuationPackage.pdf?.status,
+          hasBuyerReadiness: !!valuationPackage.buyerReadiness,
         })
       }
 

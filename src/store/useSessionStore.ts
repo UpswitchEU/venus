@@ -244,17 +244,36 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           throw new Error('Session engine not initialized. Call setEngine() first.')
         }
 
-        let session = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
+        const loadedSession = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
 
-        if (!session) {
+        if (!loadedSession) {
           throw new Error(`Session not found: ${reportId}`)
         }
+
+        let session: ValuationSession = loadedSession
+        const previousSessionData = state.session?.sessionData as
+          | Record<string, unknown>
+          | undefined
+        const previousBuyerReadiness =
+          state.session?.buyerReadiness ??
+          (previousSessionData?._buyerReadiness as ValuationSession['buyerReadiness'] | undefined)
 
         // Defensive: ensure reportId matches the URL even if engine normalization
         // did not fire (e.g. guest engine or future engine variants).
         // Primary normalization lives in AuthenticatedSessionEngine.normalizeReportId().
         if (session.reportId !== reportId) {
           session = { ...session, reportId }
+        }
+
+        if (previousBuyerReadiness && !session.buyerReadiness) {
+          session = {
+            ...session,
+            buyerReadiness: previousBuyerReadiness,
+            sessionData: {
+              ...(session.sessionData || {}),
+              _buyerReadiness: previousBuyerReadiness,
+            } as ValuationSession['sessionData'],
+          }
         }
 
         // ✅ WORLD-CLASS: Detect new vs existing session
@@ -471,6 +490,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       set((current) => {
+        const reportId = updates.reportId ?? current.session?.reportId
+        if (!reportId) {
+          return {
+            session: current.session,
+            hasUnsavedChanges: current.hasUnsavedChanges,
+            dirtyVersion: current.dirtyVersion,
+          }
+        }
+
         const nextSession = current.session
           ? {
               ...current.session,
@@ -489,7 +517,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
                 : current.session?.partialData,
             }
           : ({
-              reportId: updates.reportId!,
+              reportId,
               currentView: updates.currentView || 'manual',
               dataSource: updates.dataSource || 'manual',
               createdAt: updates.createdAt || new Date(),
@@ -501,6 +529,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               ...(updates.name && { name: updates.name }),
               ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
               ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+              ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
             } as ValuationSession)
 
         return {

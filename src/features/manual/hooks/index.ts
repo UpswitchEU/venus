@@ -19,10 +19,50 @@ export {
   useManualAssistantIssueActions,
 } from './useManualAssistantIssueActions'
 export {
+  type CompleteManualCalculationParams,
+  type CompleteManualCalculationResult,
+  type ManualCalculationCompletionTimeoutRef,
+  type UseManualCalculationCompletionParams,
+  type UseManualCalculationCompletionResult,
+  useManualCalculationCompletion,
+} from './useManualCalculationCompletion'
+export {
+  type RunManualCalculationExecutionParams,
+  type RunManualCalculationExecutionResult,
+  type UseManualCalculationExecutionParams,
+  type UseManualCalculationExecutionResult,
+  useManualCalculationExecution,
+} from './useManualCalculationExecution'
+export {
   type UseManualChatFieldUpdateActionsParams,
   type UseManualChatFieldUpdateActionsResult,
   useManualChatFieldUpdateActions,
 } from './useManualChatFieldUpdateActions'
+export {
+  type UseManualChatMessageActionsParams,
+  type UseManualChatMessageActionsResult,
+  useManualChatMessageActions,
+} from './useManualChatMessageActions'
+export {
+  type UseManualChatSessionActionsParams,
+  type UseManualChatSessionActionsResult,
+  useManualChatSessionActions,
+} from './useManualChatSessionActions'
+export {
+  type ManualCollectedDataFormSurface,
+  type UseManualCollectedDataSyncParams,
+  useManualCollectedDataSync,
+} from './useManualCollectedDataSync'
+export {
+  type UseManualFieldHelpActionsParams,
+  type UseManualFieldHelpActionsResult,
+  useManualFieldHelpActions,
+} from './useManualFieldHelpActions'
+export {
+  type UseManualFormDataChangeSyncParams,
+  type UseManualFormDataChangeSyncResult,
+  useManualFormDataChangeSync,
+} from './useManualFormDataChangeSync'
 export {
   type ManualLayoutResetRefs,
   type UseManualLayoutResetsParams,
@@ -44,11 +84,21 @@ export {
   useManualNewValuationFlow,
 } from './useManualNewValuationFlow'
 export {
+  type UseManualNormalizationImportActionsParams,
+  type UseManualNormalizationImportActionsResult,
+  useManualNormalizationImportActions,
+} from './useManualNormalizationImportActions'
+export {
   type OpenManualNormalizationModalOptions,
   type UseManualNormalizationModalControllerParams,
   type UseManualNormalizationModalControllerResult,
   useManualNormalizationModalController,
 } from './useManualNormalizationModalController'
+export {
+  type UseManualNormalizationRecalculationParams,
+  type UseManualNormalizationRecalculationResult,
+  useManualNormalizationRecalculation,
+} from './useManualNormalizationRecalculation'
 export {
   type UseManualNormalizationReviewActionsParams,
   type UseManualNormalizationReviewActionsResult,
@@ -62,6 +112,12 @@ export {
   useManualPdfExportController,
 } from './useManualPdfExportController'
 export {
+  type ManualRecalculatePopupFlags,
+  type UseManualRecalculateConfirmationParams,
+  type UseManualRecalculateConfirmationResult,
+  useManualRecalculateConfirmation,
+} from './useManualRecalculateConfirmation'
+export {
   type UseManualRecentValuationDeletionParams,
   type UseManualRecentValuationDeletionResult,
   useManualRecentValuationDeletion,
@@ -72,6 +128,23 @@ export {
   useManualRecentValuations,
 } from './useManualRecentValuations'
 export {
+  type ManualReportMethodHydrationError,
+  type UseManualReportMethodHydrationParams,
+  type UseManualReportMethodHydrationResult,
+  useManualReportMethodHydration,
+} from './useManualReportMethodHydration'
+export {
+  type UseManualReportRefreshAfterEditParams,
+  type UseManualReportRefreshAfterEditResult,
+  useManualReportRefreshAfterEdit,
+} from './useManualReportRefreshAfterEdit'
+export {
+  type HandleManualSubmitErrorParams,
+  type UseManualSubmitErrorHandlerParams,
+  type UseManualSubmitErrorHandlerResult,
+  useManualSubmitErrorHandler,
+} from './useManualSubmitErrorHandler'
+export {
   type ManualSubmitRun,
   type ManualSubmitRunStaleContext,
   type UseManualSubmitRunGuardParams,
@@ -81,8 +154,18 @@ export {
   type ManualSynthesisController,
   useManualSynthesisController,
 } from './useManualSynthesisController'
+export {
+  type UseManualSynthesisSkippedWarningsParams,
+  type UseManualSynthesisSkippedWarningsResult,
+  useManualSynthesisSkippedWarnings,
+} from './useManualSynthesisSkippedWarnings'
 export type { UseManualToolbarReturn } from './useManualToolbar'
 export { useManualToolbar } from './useManualToolbar'
+export {
+  type UseManualVersionRestoreActionParams,
+  type UseManualVersionRestoreActionResult,
+  useManualVersionRestoreAction,
+} from './useManualVersionRestoreAction'
 export {
   useIsMountedRef,
   useLatestRef,

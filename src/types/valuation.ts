@@ -1,5 +1,7 @@
 // Valuation Engine API Types
 
+import type { BuyerReadinessPackage } from './buyerReadiness'
+
 // =============================================================================
 // DECIMAL PRECISION TYPES
 // =============================================================================
@@ -1878,4 +1880,5 @@ export interface ValuationSession {
   // Valuation result data (for completed valuations)
   valuationResult?: ValuationResponse // Full valuation result including calculations
   htmlReport?: string // Generated HTML report
+  buyerReadiness?: BuyerReadinessPackage // Pre-transaction readiness package from Titan
 }

@@ -3066,6 +3066,38 @@
 			"subtitle": "Cash, debt, and working capital adjustments use the same balance-sheet inputs as your accounting import or manual entry.",
 			"ariaLabel": "Enterprise value to equity waterfall chart"
 		},
+		"buyerReadiness": {
+			"title": "Transaction readiness",
+			"completion": "{percent}% complete",
+			"notRun": "Not run",
+			"sellabilityMissing": "Sellability missing",
+			"missingCount": "{count, plural, =0 {No open gaps} one {# open gap} other {# open gaps}}",
+			"readyShort": "Ready",
+			"notReadyShort": "Not ready",
+			"earningsBridge": "Earnings bridge",
+			"actionList": "Priority actions",
+			"reportedEbitda": "Reported EBITDA",
+			"normalizedEbitda": "Normalized EBITDA",
+			"adjustments": "Adjustments",
+			"taxLatencies": "Tax latencies",
+			"noOpenActions": "No open actions.",
+			"status": {
+				"ready": "Ready",
+				"needs_attention": "Needs attention",
+				"blocked": "Blocked"
+			},
+			"normalizedStatus": {
+				"documented": "Documented",
+				"needs_review": "Needs review",
+				"missing": "Missing"
+			},
+			"metrics": {
+				"normalizedEbitda": "Normalized EBITDA",
+				"sellability": "Sellability",
+				"dataRoom": "Data room",
+				"privateComps": "Private comps"
+			}
+		},
 		"ownerProfiling": {
 			"summary": "Owner profiling — transferability index {tri}/100 · {riskLevel} · multiple impact {adjPct}% vs benchmark",
 			"cappedHint": "Capped equity impact — full risk would have been {rawPct}%.",

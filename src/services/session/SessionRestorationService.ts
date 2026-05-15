@@ -31,11 +31,9 @@ import {
 } from '../../store/useNormalizationStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import {
-  recoverPendingTaxLatencies,
-  useTaxLatencyStore,
-} from '../../store/useTaxLatencyStore'
+import { recoverPendingTaxLatencies, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import type { BuyerReadinessPackage } from '../../types/buyerReadiness'
 import {
   type FormSnapshotForRevenueNav,
   parseCurrentYearRevenueForMethodNav,
@@ -519,10 +517,7 @@ class SessionRestorationServiceImpl {
           })
         }
 
-        const fdFinal = useManualFormStore.getState().formData as unknown as Record<
-          string,
-          unknown
-        >
+        const fdFinal = useManualFormStore.getState().formData as unknown as Record<string, unknown>
         if (Object.keys(fdFinal).length > 0) {
           seedNbbPrefillFromFormData(fdFinal, data.reportId, 'restore')
         }
@@ -975,6 +970,7 @@ class SessionRestorationServiceImpl {
       }
       pdf: { url: string | null; status: 'ready' | 'generating' | 'none' }
       formData?: Record<string, unknown>
+      buyerReadiness?: BuyerReadinessPackage
     },
     flow: 'manual' | 'conversational' = 'manual'
   ): void {
@@ -987,6 +983,7 @@ class SessionRestorationServiceImpl {
       formFieldCount: pkg.formData ? Object.keys(pkg.formData).length : 0,
       versionCount: pkg.versions.total,
       pdfStatus: pkg.pdf.status,
+      hasBuyerReadiness: !!pkg.buyerReadiness,
     })
 
     try {
@@ -1125,9 +1122,7 @@ class SessionRestorationServiceImpl {
                 )._taxLatencies ??
                 (raw as { tax_latencies?: unknown }).tax_latencies ??
                 (raw as { taxLatencies?: unknown }).taxLatencies
-              useTaxLatencyStore
-                .getState()
-                .setItems(rawTaxLatencies as any, { source: 'system' })
+              useTaxLatencyStore.getState().setItems(rawTaxLatencies as any, { source: 'system' })
             }
           } catch {
             // Non-critical
@@ -1287,9 +1282,11 @@ class SessionRestorationServiceImpl {
               useSessionStore.getState().hydrateSession({
                 htmlReport: getFirstRenderableReportHtml(pkg.htmlReport) || undefined,
                 valuationResult: { ...existingResult, ...fullResult },
+                ...(pkg.buyerReadiness ? { buyerReadiness: pkg.buyerReadiness } : {}),
                 sessionData: {
                   ...(session.sessionData || {}),
                   pdfUrl: pkg.pdf?.url || undefined,
+                  ...(pkg.buyerReadiness ? { _buyerReadiness: pkg.buyerReadiness } : {}),
                 },
               } as any)
             }

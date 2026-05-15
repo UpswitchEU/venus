@@ -145,14 +145,16 @@ function resolveCountryCode(...candidates: Array<string | null | undefined>): st
  */
 function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
-  if (prefillData.companyInfo?.companyName) fields.company_name = prefillData.companyInfo.companyName
+  if (prefillData.companyInfo?.companyName)
+    fields.company_name = prefillData.companyInfo.companyName
   else if (prefillData.kboData?.companyName) fields.company_name = prefillData.kboData.companyName
   const authoritativeCountryCode = resolveCountryCode(
     prefillData.companyInfo?.countryCode,
     prefillData.kboData?.countryCode
   )
   if (authoritativeCountryCode) fields.country_code = authoritativeCountryCode
-  if (prefillData.companyInfo?.foundingYear) fields.founding_year = prefillData.companyInfo.foundingYear
+  if (prefillData.companyInfo?.foundingYear)
+    fields.founding_year = prefillData.companyInfo.foundingYear
   if (prefillData.companyInfo?.kboNumber) fields.kbo_number = prefillData.companyInfo.kboNumber
   else if (prefillData.kboData?.kboNumber) fields.kbo_number = prefillData.kboData.kboNumber
   if (prefillData.companyInfo?.vatNumber) fields.vat_number = prefillData.companyInfo.vatNumber
@@ -172,11 +174,14 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   if (prefillData.companyInfo?.canonicalNaceCode)
     fields.canonical_nace_code = prefillData.companyInfo.canonicalNaceCode
   if (prefillData.companyInfo?.taxonomy) fields.taxonomy = prefillData.companyInfo.taxonomy
-  if (prefillData.companyInfo?.activityCode) fields.activity_code = prefillData.companyInfo.activityCode
-  else if (prefillData.kboData?.activityCode) fields.activity_code = prefillData.kboData.activityCode
+  if (prefillData.companyInfo?.activityCode)
+    fields.activity_code = prefillData.companyInfo.activityCode
+  else if (prefillData.kboData?.activityCode)
+    fields.activity_code = prefillData.kboData.activityCode
   if (prefillData.companyInfo?.activityLabel)
     fields.activity_label = prefillData.companyInfo.activityLabel
-  else if (prefillData.kboData?.activityLabel) fields.activity_label = prefillData.kboData.activityLabel
+  else if (prefillData.kboData?.activityLabel)
+    fields.activity_label = prefillData.kboData.activityLabel
   if (prefillData.businessType?.id) fields.business_type_id = prefillData.businessType.id
   else if (prefillData.companyInfo?.businessTypeId)
     fields.business_type_id = prefillData.companyInfo.businessTypeId
@@ -208,7 +213,8 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
       _imported_ledger_analysis: prefillData.financials.importedLedgerAnalysis,
     }
   }
-  if (prefillData.financials?.saasMetrics) fields._imported_saas_metrics = prefillData.financials.saasMetrics
+  if (prefillData.financials?.saasMetrics)
+    fields._imported_saas_metrics = prefillData.financials.saasMetrics
   if (prefillData.financials?.saasMetricsProvenance) {
     fields._imported_saas_provenance = prefillData.financials.saasMetricsProvenance
     fields.business_context = {
@@ -216,7 +222,8 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
       _imported_saas_provenance: prefillData.financials.saasMetricsProvenance,
     }
   }
-  if (prefillData.financials?.dataSource) fields._financial_data_source = prefillData.financials.dataSource
+  if (prefillData.financials?.dataSource)
+    fields._financial_data_source = prefillData.financials.dataSource
   const companyAddress = prefillData.companyInfo?.address || prefillData.kboData?.address
   const companyStatus =
     prefillData.kboData?.status ||
@@ -278,7 +285,9 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
       company_id: kboNum,
       company_address:
         companyAddress ||
-        [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city].filter(Boolean).join(' '),
+        [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
+          .filter(Boolean)
+          .join(' '),
       company_status: companyStatus || 'Active',
       kbo_verified: true,
     }
@@ -352,7 +361,11 @@ function stableBootstrapSyncSignature(state: SessionBootstrapState): string {
         String(pkg.versions?.current ?? ''),
         String(pkg.versions?.total ?? ''),
         String(pkg.htmlReport?.length ?? 0),
-        String(Object.keys(pkg.formData ?? {}).sort().join(',')),
+        String(
+          Object.keys(pkg.formData ?? {})
+            .sort()
+            .join(',')
+        ),
         pkg.pricingRange
           ? `${pkg.pricingRange.min}:${pkg.pricingRange.mid}:${pkg.pricingRange.max}:${pkg.pricingRange.currency}`
           : '',
@@ -536,7 +549,8 @@ function syncSession(state: SessionBootstrapState): void {
           (packageRenderableHtml ||
             pkg.pricingRange ||
             (pkg.formData && Object.keys(pkg.formData).length > 0) ||
-            pkg.pdf?.url)
+            pkg.pdf?.url ||
+            pkg.buyerReadiness)
       )
       const incomingSession = {
         ...(hasPackage ? packageSurface : {}),
@@ -545,6 +559,7 @@ function syncSession(state: SessionBootstrapState): void {
       if (hasPackage && pkg?.pricingRange) incomingSession._pricingRange = pkg.pricingRange
       if (hasPackage && packageRenderableHtml) incomingSession._htmlReport = packageRenderableHtml
       if (hasPackage && pkg?.pdf?.url) incomingSession.pdfUrl = pkg.pdf.url
+      if (pkg?.buyerReadiness) incomingSession._buyerReadiness = pkg.buyerReadiness
       const incomingForm = {
         ...(hasPackage ? packageSurface : {}),
         ...(hasPrefill ? prefillFormFields : {}),
@@ -559,7 +574,10 @@ function syncSession(state: SessionBootstrapState): void {
         )
         Object.assign(
           sessionGapPatch,
-          mergeOptionalSessionPrefillFields(incomingSession, currentSessionData as Record<string, unknown>)
+          mergeOptionalSessionPrefillFields(
+            incomingSession,
+            currentSessionData as Record<string, unknown>
+          )
         )
         const mergedSessionBc = mergeBusinessContextGapFill(
           (currentSessionData as Record<string, unknown>).business_context,
@@ -572,6 +590,9 @@ function syncSession(state: SessionBootstrapState): void {
         const topLevelPatch: Partial<ValuationSession> = {}
         if (hasPackage && packageRenderableHtml && !currentSession.htmlReport) {
           topLevelPatch.htmlReport = packageRenderableHtml
+        }
+        if (pkg?.buyerReadiness) {
+          topLevelPatch.buyerReadiness = pkg.buyerReadiness
         }
         if (hasPackage && pkg?.pricingRange && !currentSession.valuationResult) {
           topLevelPatch.valuationResult = {
@@ -754,7 +775,8 @@ function syncSession(state: SessionBootstrapState): void {
           (packageRenderableHtml ||
             pkg.pricingRange ||
             (pkg.formData && Object.keys(pkg.formData).length > 0) ||
-            pkg.pdf?.url)
+            pkg.pdf?.url ||
+            pkg.buyerReadiness)
       )
       const now = new Date()
       const sessionData: Record<string, any> = {
@@ -764,6 +786,7 @@ function syncSession(state: SessionBootstrapState): void {
         if (packageRenderableHtml) sessionData._htmlReport = packageRenderableHtml
         if (pkg.pricingRange) sessionData._pricingRange = pkg.pricingRange
         if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url
+        if (pkg.buyerReadiness) sessionData._buyerReadiness = pkg.buyerReadiness
         // Merge formData for restore() when loadSession is skipped (hasAssetsInSession path)
         if (pkg.formData && Object.keys(pkg.formData).length > 0) {
           Object.assign(sessionData, mergeSessionSurfaceForOptionalPrefill(pkg.formData))
@@ -789,6 +812,7 @@ function syncSession(state: SessionBootstrapState): void {
         if (hasPackage && pkg?.htmlReport) {
           ;(minimalSession as any).htmlReport = pkg.htmlReport
           if (pkg.pdf?.url) (minimalSession as any).pdfUrl = pkg.pdf.url
+          if (pkg.buyerReadiness) minimalSession.buyerReadiness = pkg.buyerReadiness
           if (pkg.pricingRange) {
             ;(minimalSession as any).valuationResult = {
               equity_value_low: pkg.pricingRange.min,

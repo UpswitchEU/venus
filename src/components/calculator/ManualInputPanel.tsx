@@ -45,27 +45,9 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import {
-  coalesceFiniteNumber,
-  computeFiscal4xPreview,
-  computeNavBookReferences,
-  computeNavPrefill,
-  type FiscalPreviewEbitdaSource,
-  type NavBookReferenceSnapshot,
-  type NavPrefillField,
-  type NavPrefillProvenanceMap,
-  resolveBookEquityFromYearRow,
-  useManualPreviewFormatters,
-} from '@/lib/omniPreview'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
-import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { TARGET_COUNTRIES } from '../../config/countries'
-
-const MethodPreviewAuditDevPanel = lazy(() =>
-  import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
-    default: m.MethodPreviewAuditDevPanel,
-  }))
-)
 
 import {
   type GetBonusSectionsSaasSignals,
@@ -75,29 +57,14 @@ import {
   getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
 } from '../../constants/methodFieldConfig'
-import {
-  methodKeyRequiresForecastYears,
-  selectionRequiresForecastYears,
-  selectionRequiresOwnerCompensation,
-} from '../../lib/methods'
-import { dcfSmartDefaultsFromForm, useDcfForecastSync } from '../../lib/methods/dcf'
-import { useSdeOwnerCompensationPrefill } from '../../lib/methods/sde_multiple'
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
 import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
 import { useSyncOfficialVarianceFromForm } from '../../hooks/useSyncOfficialVarianceFromForm'
-import {
-  type AccountingAdministration,
-  type AccountingBatchPayload,
-  type AccountingImportProvider,
-  accountingAPI,
-  accountingProviderDisplayName,
-  type IntegrationStatus,
-  parseAccountingApiError,
-  pickConnectedVenusBatchImportStatus,
-} from '../../services/api/accounting'
+import { methodKeyRequiresForecastYears, selectionRequiresForecastYears } from '../../lib/methods'
+import { dcfSmartDefaultsFromForm, useDcfForecastSync } from '../../lib/methods/dcf'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
@@ -136,7 +103,6 @@ import {
 } from '../../utils/forecastYears'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
 import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
   countNormalizationsBoundToFiscalYear,
@@ -162,69 +128,21 @@ import {
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
+import { useManualAccountingImportController } from './hooks/useManualAccountingImportController'
+import { useManualNaceBusinessTypePrefill } from './hooks/useManualNaceBusinessTypePrefill'
 import {
   // BelgianSmeAuditPanel — moved to the ValuationIQ report (advisory output)
-  computeEquipmentMeerwaarde,
   DcfForecastWorkspace,
-  DealStructureCompareSection,
   RealEstateCarveOutSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
   SynthesisWeightingSection,
 } from './sections'
+import { AdaptiveSections } from './sections/AdaptiveSections'
 
-// ─── Lazy-loaded bonus sections ────────────────────────────────────────────
-// Each section is its own chunk so the initial bundle doesn't drag all ten
-// of them in when only one method is active. Imported via individual file
-// paths (not the barrel) so the bundler can split them cleanly.
-const CapitalHistorySection = lazy(() =>
-  import('./sections/CapitalHistorySection').then((m) => ({
-    default: m.CapitalHistorySection,
-  }))
-)
 const DcfGlobalAssumptions = lazy(() =>
   import('./sections/DcfGlobalAssumptions').then((m) => ({
     default: m.DcfGlobalAssumptions,
-  }))
-)
-const FiscalInputsSection = lazy(() =>
-  import('./sections/FiscalInputsSection').then((m) => ({
-    default: m.FiscalInputsSection,
-  }))
-)
-const LiquidationInputsSection = lazy(() =>
-  import('./sections/LiquidationInputsSection').then((m) => ({
-    default: m.LiquidationInputsSection,
-  }))
-)
-const NavAssetScheduleSection = lazy(() =>
-  import('./sections/NavAssetScheduleSection').then((m) => ({
-    default: m.NavAssetScheduleSection,
-  }))
-)
-const NavEquipmentLifespanSection = lazy(() =>
-  import('./sections/NavEquipmentLifespanSection').then((m) => ({
-    default: m.NavEquipmentLifespanSection,
-  }))
-)
-const NavRealEstateAppraisalSection = lazy(() =>
-  import('./sections/NavRealEstateAppraisalSection').then((m) => ({
-    default: m.NavRealEstateAppraisalSection,
-  }))
-)
-const RevenueQualitySection = lazy(() =>
-  import('./sections/RevenueQualitySection').then((m) => ({
-    default: m.RevenueQualitySection,
-  }))
-)
-const SaasMetricsSection = lazy(() =>
-  import('./sections/SaasMetricsSection').then((m) => ({
-    default: m.SaasMetricsSection,
-  }))
-)
-const SdeOwnerCompensationSection = lazy(() =>
-  import('./sections/SdeOwnerCompensationSection').then((m) => ({
-    default: m.SdeOwnerCompensationSection,
   }))
 )
 
@@ -234,13 +152,9 @@ const SdeOwnerCompensationSection = lazy(() =>
  * each) so this typically flashes for <100ms on first paint of a section.
  */
 function BonusSectionFallback() {
-  return (
-    <div
-      className="my-2 h-16 animate-pulse rounded-lg bg-foreground/[0.04]"
-      aria-hidden
-    />
-  )
+  return <div className="my-2 h-16 animate-pulse rounded-lg bg-foreground/[0.04]" aria-hidden />
 }
+
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
   DCF_DEFAULT_CAPEX_PCT,
@@ -263,9 +177,6 @@ import {
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
 import { deriveDcfSmartDefaults, deriveWaccSectorBand } from './sections/dcfSmartDefaults'
-import { FiscalReferencePreviewCard } from './sections/FiscalReferencePreviewCard'
-import { PreviewMetricCard } from './sections/previewMetricCards'
-import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 
 function NbbResetHint({
   fiscalYear,
@@ -724,17 +635,6 @@ const getLatestHistoricalYearlyFinancial = (
     .filter((year) => !year.isForecast)
     .sort((a, b) => Number(b.year) - Number(a.year))[0]
 
-/** Bizzcontrol / Octopus support pull-to-form in Venus; other providers sync via Mercury first. */
-export function venusLiveBatchImportProvider(
-  row: IntegrationStatus | null
-): 'bizzcontrol' | 'octopus' | null {
-  if (!row?.is_connected) return null
-  if (row.provider === 'bizzcontrol' || row.provider === 'octopus') {
-    return row.provider
-  }
-  return null
-}
-
 export function ManualInputPanel({
   onSubmit,
   onCSVImportComplete,
@@ -803,30 +703,33 @@ export function ManualInputPanel({
       : isFilingYearConfirmedValue(initialData.filingYearConfirmed),
     dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
-  const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
-  const [showBizzcontrolImportModal, setShowBizzcontrolImportModal] = useState(false)
-  const [bizzcontrolCompanies, setBizzcontrolCompanies] = useState<AccountingAdministration[]>([])
-  const [loadingBizzcontrolCompanies, setLoadingBizzcontrolCompanies] = useState(false)
-  const [bizzcontrolImportError, setBizzcontrolImportError] = useState<string | null>(null)
-  const [selectedBizzcontrolCompanyId, setSelectedBizzcontrolCompanyId] = useState('')
-  const [bizzcontrolHistoryRange, setBizzcontrolHistoryRange] = useState<'3' | '5'>('3')
-  const [bizzcontrolManualOverride, setBizzcontrolManualOverride] = useState(true)
-  const [importingBizzcontrolBatch, setImportingBizzcontrolBatch] = useState(false)
-  const [showOctopusImportModal, setShowOctopusImportModal] = useState(false)
-  const [octopusCompanies, setOctopusCompanies] = useState<AccountingAdministration[]>([])
-  const [loadingOctopusCompanies, setLoadingOctopusCompanies] = useState(false)
-  const [octopusImportError, setOctopusImportError] = useState<string | null>(null)
-  const [selectedOctopusCompanyId, setSelectedOctopusCompanyId] = useState('')
-  const [octopusHistoryRange, setOctopusHistoryRange] = useState<'3' | '5'>('3')
-  const [octopusManualOverride, setOctopusManualOverride] = useState(true)
-  const [importingOctopusBatch, setImportingOctopusBatch] = useState(false)
-  const [venusLiveImportProvider, setVenusLiveImportProvider] = useState<
-    'bizzcontrol' | 'octopus' | null
-  >(null)
-  const [openingLiveAccountingImport, setOpeningLiveAccountingImport] = useState(false)
-  /** Monotonic generation: background refresh and import CTA share one counter so stale status responses cannot clobber the banner. */
-  const venusLiveImportFetchGenRef = useRef(0)
   const currentFilingYear = getCurrentFilingYear()
+  const accountingImportMessages = useMemo(
+    () => ({
+      importUnavailable: mi('importFromAccountingUnavailable'),
+      importFailedTitle: mi('importFromAccountingError') || 'Import failed',
+      bizzcontrolForecastImportedDescription: mi('bizzcontrol.forecastImportedDescription'),
+      octopusForecastImportedDescription: mi('octopus.forecastImportedDescription'),
+      batchSuccessDescription: (score: number) =>
+        mi('silverfin.importBatchSuccessDescription', { score }),
+      batchSuccessTitle: ({ years, provider }: { years: number; provider: string }) =>
+        mi('silverfin.importBatchSuccessTitle', { years, provider }),
+    }),
+    [mi]
+  )
+  const {
+    bizzcontrolImport,
+    handleOpenLiveAccountingImport,
+    importAccountingError,
+    importBatchData,
+    liveImportProviderName,
+    octopusImport,
+    openingLiveAccountingImport,
+  } = useManualAccountingImportController({
+    currentFilingYear,
+    messages: accountingImportMessages,
+    setFormData,
+  })
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
     formData.country,
@@ -1560,100 +1463,22 @@ export function ManualInputPanel({
     })
   }, [businessTypes])
 
-  // Auto-fill business type from NACE when we have naceCode but no businessType (mirror Mercury AddClient)
-  const naceAbortRef = useRef<AbortController | null>(null)
-  const companySelectAbortRef = useRef<AbortController | null>(null)
-  const [nacePrefillError, setNacePrefillError] = useState<string | null>(null)
-  const [naceRetryTrigger, setNaceRetryTrigger] = useState(0)
-
-  // Cleanup all NACE-related abort controllers on unmount
-  useEffect(() => {
-    return () => {
-      naceAbortRef.current?.abort()
-      companySelectAbortRef.current?.abort()
-    }
-  }, [])
-
-  useEffect(() => {
-    const naceCode =
-      formData.canonicalNaceCode?.trim() ||
-      formData.naceCode?.trim() ||
-      selectedCompany?.canonicalNaceCode?.trim() ||
-      selectedCompany?.naceCode?.trim()
-    if (!naceCode || formData.businessType?.trim()) {
-      setNacePrefillError(null)
-      return
-    }
-
-    // Skip if handleCompanySelect is already doing its own NACE fetch
-    if (companySelectAbortRef.current && !companySelectAbortRef.current.signal.aborted) return
-
-    if (naceAbortRef.current) naceAbortRef.current.abort()
-    const controller = new AbortController()
-    naceAbortRef.current = controller
-    setNacePrefillError(null)
-
-    naceBusinessTypeService
-      .getBusinessTypeForNaceCode(
-        naceCode,
-        controller.signal,
-        formData.country || formData.country_code
-      )
-      .then((type) => {
-        if (controller.signal.aborted) return
-        if (type) {
-          // Only apply if user hasn't manually selected a type while we were fetching
-          setSelectedBusinessType((prev) => prev ?? type)
-          setFormData((prev) => {
-            if (prev.businessType?.trim()) return prev
-            return {
-              ...prev,
-              businessType: type.id,
-              businessTypeCode: type.code || prev.businessTypeCode,
-              industry: type.category || prev.industry,
-            }
-          })
-          setNacePrefillError(null)
-        } else {
-          setNacePrefillError(localizeActivityCodeCopy(t('errors.noBusinessTypeForNace')))
-        }
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) {
-          const msg =
-            err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
-              ? localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
-              : err instanceof Error
-                ? localizeActivityCodeCopy(err.message)
-                : localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
-          setNacePrefillError(msg)
-        }
-      })
-      .finally(() => {
-        if (naceAbortRef.current === controller) naceAbortRef.current = null
-      })
-
-    return () => controller.abort()
-  }, [
-    formData.naceCode,
-    formData.canonicalNaceCode,
-    formData.country,
-    formData.country_code,
-    formData.businessType,
-    selectedCompany?.naceCode,
-    selectedCompany?.canonicalNaceCode,
-    naceRetryTrigger,
+  const {
+    clearNacePrefillError,
+    nacePrefillError,
+    prefillBusinessTypeForCompany,
+    retryNacePrefill,
+  } = useManualNaceBusinessTypePrefill({
+    businessTypesForSearch,
+    formData,
     localizeActivityCodeCopy,
-    t,
-  ])
-
-  // Sync selectedBusinessType when formData.businessType is set from prefill/bootstrap (DB or KBO)
-  useEffect(() => {
-    const btId = formData.businessType?.trim()
-    if (!btId || selectedBusinessType?.id === btId) return
-    const match = businessTypesForSearch.find((t) => t.id === btId)
-    if (match) setSelectedBusinessType(match)
-  }, [formData.businessType, businessTypesForSearch, selectedBusinessType?.id])
+    selectedBusinessTypeId: selectedBusinessType?.id,
+    selectedCompany,
+    setFormData,
+    setSelectedBusinessType,
+    translate: t,
+    updateFormData,
+  })
 
   const updateField = <K extends keyof ValuationFormData>(
     field: K,
@@ -1742,8 +1567,7 @@ export function ManualInputPanel({
     Boolean(formData.exclude_real_estate) ||
     formData.real_estate_book_value != null ||
     formData.estimated_market_rent != null
-  const showRealEstateCarveOut =
-    realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData
+  const showRealEstateCarveOut = realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
   const { markPrevMethod: markDcfForecastSyncPrevMethod } = useDcfForecastSync({
@@ -1753,337 +1577,6 @@ export function ManualInputPanel({
     setShowForecastRemovalConfirm,
     translate: mi,
   })
-
-  const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
-  const accountingRefetchThrottle = useRef(0)
-
-  const loadAccountingIntegrationStatus = useCallback(async () => {
-    const gen = ++venusLiveImportFetchGenRef.current
-    try {
-      const statuses = await accountingAPI.getAllIntegrationStatus()
-      if (gen !== venusLiveImportFetchGenRef.current) return
-      const row = pickConnectedVenusBatchImportStatus(statuses)
-      setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
-    } catch {
-      if (gen === venusLiveImportFetchGenRef.current) {
-        setVenusLiveImportProvider(null)
-      }
-    }
-  }, [])
-
-  const handleOpenLiveAccountingImport = useCallback(async () => {
-    setImportAccountingError(null)
-    setOpeningLiveAccountingImport(true)
-    const gen = ++venusLiveImportFetchGenRef.current
-    try {
-      const statuses = await accountingAPI.getAllIntegrationStatus()
-      if (gen !== venusLiveImportFetchGenRef.current) return
-      const row = pickConnectedVenusBatchImportStatus(statuses)
-      setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
-
-      if (row?.provider === 'bizzcontrol') {
-        setBizzcontrolImportError(null)
-        setShowBizzcontrolImportModal(true)
-        setLoadingBizzcontrolCompanies(true)
-        try {
-          const res = await accountingAPI.getBizzcontrolCompanies()
-          setBizzcontrolCompanies(res.administrations)
-          setSelectedBizzcontrolCompanyId((prev) => {
-            if (prev) return prev
-            if (res.administrations.length === 1) return res.administrations[0].administration_id
-            return ''
-          })
-        } catch (e) {
-          setBizzcontrolImportError(parseAccountingApiError(e))
-        } finally {
-          setLoadingBizzcontrolCompanies(false)
-        }
-        return
-      }
-
-      if (row?.provider === 'octopus') {
-        setOctopusImportError(null)
-        setShowOctopusImportModal(true)
-        setLoadingOctopusCompanies(true)
-        try {
-          const res = await accountingAPI.getOctopusCompanies()
-          setOctopusCompanies(res.administrations)
-          setSelectedOctopusCompanyId((prev) => {
-            if (prev) return prev
-            if (res.administrations.length === 1) return res.administrations[0].administration_id
-            return ''
-          })
-        } catch (e) {
-          setOctopusImportError(parseAccountingApiError(e))
-        } finally {
-          setLoadingOctopusCompanies(false)
-        }
-        return
-      }
-
-      setImportAccountingError(mi('importFromAccountingUnavailable'))
-    } catch (err) {
-      const msg = parseAccountingApiError(err)
-      setImportAccountingError(msg)
-      import('sonner').then(({ toast }) =>
-        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
-      )
-    } finally {
-      setOpeningLiveAccountingImport(false)
-    }
-  }, [mi])
-
-  useEffect(() => {
-    void loadAccountingIntegrationStatus()
-  }, [loadAccountingIntegrationStatus])
-
-  /** After connecting in Mercury (new tab), refresh status when user returns. */
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      const now = Date.now()
-      if (now - accountingRefetchThrottle.current < 2500) return
-      accountingRefetchThrottle.current = now
-      void loadAccountingIntegrationStatus()
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [loadAccountingIntegrationStatus])
-
-  const applyImportedBatch = useCallback(
-    (
-      provider: Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol' | 'octopus'>,
-      batch: AccountingBatchPayload
-    ) => {
-      setImportBatchData(batch)
-      setImportAccountingError(null)
-      setFormData((prev) => {
-        const merged = [...prev.yearlyFinancials]
-        for (const yearPayload of batch.years) {
-          const year = String(yearPayload.data.fiscal_year ?? getCurrentFilingYear())
-          const raw = yearPayload.data as { capex?: number; depreciation?: number }
-          const nextYear: YearlyFinancials = {
-            year,
-            revenue: coalesceFiniteNumber(yearPayload.data.revenue),
-            ebitda: coalesceFiniteNumber(yearPayload.data.ebitda),
-            depreciation:
-              yearPayload.data.depreciation != null
-                ? Number(yearPayload.data.depreciation)
-                : undefined,
-            capex: raw.capex != null ? Number(raw.capex) : undefined,
-            cash:
-              yearPayload.data.cash_and_equivalents != null
-                ? Number(yearPayload.data.cash_and_equivalents)
-                : undefined,
-            current_assets:
-              yearPayload.data.current_assets != null
-                ? Number(yearPayload.data.current_assets)
-                : undefined,
-            current_liabilities:
-              yearPayload.data.current_liabilities != null
-                ? Number(yearPayload.data.current_liabilities)
-                : undefined,
-            accounts_receivable:
-              yearPayload.data.accounts_receivable != null
-                ? Number(yearPayload.data.accounts_receivable)
-                : undefined,
-            inventory:
-              yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
-            short_term_debt:
-              yearPayload.data.short_term_financial_debt != null
-                ? Number(yearPayload.data.short_term_financial_debt)
-                : undefined,
-            total_debt: (() => {
-              const ltd = yearPayload.data.long_term_debt
-              const std = yearPayload.data.short_term_financial_debt
-              if (ltd == null && std == null) return undefined
-              return coalesceFiniteNumber(ltd, 0) + coalesceFiniteNumber(std, 0)
-            })(),
-          }
-          const index = merged.findIndex((entry) => entry.year === year)
-          if (index >= 0) merged[index] = { ...merged[index], ...nextYear }
-          else merged.push(nextYear)
-        }
-        merged.sort((a, b) => Number(b.year) - Number(a.year))
-
-        const forecastFromBatch = batch.forecast_years_data
-        let nextForecast: YearDataInput[] | undefined
-        if (forecastFromBatch && forecastFromBatch.length > 0) {
-          nextForecast = forecastFromBatch.map((row) => ({
-            year: row.year,
-            revenue: row.revenue,
-            ebitda: row.ebitda ?? 0,
-            capex: row.capex,
-            is_forecast: row.is_forecast ?? true,
-          }))
-        }
-
-        const prevBc =
-          prev.business_context && typeof prev.business_context === 'object'
-            ? (prev.business_context as Record<string, unknown>)
-            : undefined
-        const mergedContext = mergeImportedLedgerAnalysisIntoBusinessContext(
-          prevBc,
-          batch,
-          provider
-        )
-
-        return {
-          ...prev,
-          yearlyFinancials: merged,
-          ...(nextForecast != null ? { forecast_years_data: nextForecast } : {}),
-          business_context: mergedContext as ValuationFormData['business_context'],
-        }
-      })
-
-      import('sonner').then(({ toast }) => {
-        const mappedYears = batch.years.length
-        const qualityScore =
-          batch.years.length > 0
-            ? Math.round(
-                (batch.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
-                  batch.years.length) *
-                  100
-              )
-            : 0
-        const baseDesc = mi('silverfin.importBatchSuccessDescription', { score: qualityScore })
-        const forecastExtra =
-          provider === 'bizzcontrol'
-            ? mi('bizzcontrol.forecastImportedDescription')
-            : provider === 'octopus'
-              ? mi('octopus.forecastImportedDescription')
-              : ''
-        const description =
-          (provider === 'bizzcontrol' || provider === 'octopus') &&
-          batch.forecast_years_data &&
-          batch.forecast_years_data.length > 0
-            ? `${baseDesc} ${forecastExtra}`
-            : baseDesc
-        toast.success(
-          mi('silverfin.importBatchSuccessTitle', {
-            years: mappedYears,
-            provider: accountingProviderDisplayName(provider),
-          }),
-          { description }
-        )
-      })
-    },
-    [mi]
-  )
-
-  const handleConfirmBizzcontrolImport = useCallback(async () => {
-    if (!selectedBizzcontrolCompanyId) return
-    setImportingBizzcontrolBatch(true)
-    setBizzcontrolImportError(null)
-    try {
-      const endYear = currentFilingYear
-      const span = bizzcontrolHistoryRange === '5' ? 5 : 3
-      const startYear = endYear - (span - 1)
-      const batch = await accountingAPI.getBizzcontrolFinancialDataBatch(startYear, endYear, {
-        companyId: selectedBizzcontrolCompanyId,
-      })
-      applyImportedBatch('bizzcontrol', batch)
-      setShowBizzcontrolImportModal(false)
-    } catch (err) {
-      const msg = parseAccountingApiError(err)
-      setBizzcontrolImportError(msg)
-      import('sonner').then(({ toast }) =>
-        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
-      )
-    } finally {
-      setImportingBizzcontrolBatch(false)
-    }
-  }, [
-    selectedBizzcontrolCompanyId,
-    bizzcontrolHistoryRange,
-    currentFilingYear,
-    applyImportedBatch,
-    mi,
-  ])
-
-  const handleConfirmOctopusImport = useCallback(async () => {
-    if (!selectedOctopusCompanyId) return
-    setImportingOctopusBatch(true)
-    setOctopusImportError(null)
-    try {
-      const endYear = currentFilingYear
-      const span = octopusHistoryRange === '5' ? 5 : 3
-      const startYear = endYear - (span - 1)
-      const batch = await accountingAPI.getOctopusFinancialDataBatch(startYear, endYear, {
-        companyId: selectedOctopusCompanyId,
-      })
-      applyImportedBatch('octopus', batch)
-      setShowOctopusImportModal(false)
-    } catch (err) {
-      const msg = parseAccountingApiError(err)
-      setOctopusImportError(msg)
-      import('sonner').then(({ toast }) =>
-        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
-      )
-    } finally {
-      setImportingOctopusBatch(false)
-    }
-  }, [selectedOctopusCompanyId, octopusHistoryRange, currentFilingYear, applyImportedBatch, mi])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const firmIdFromQuery = params.get('firm_id')?.trim() || null
-    const firmIdFromState = decodeSilverfinOAuthState(params.get('state'))
-    const resolvedFirmId = firmIdFromQuery || firmIdFromState
-    const silverfinConnectRequested =
-      params.get('silverfin_connect') === '1' ||
-      window.sessionStorage.getItem('upswitch_silverfin_oauth_in_progress') === '1'
-    if (!code || !resolvedFirmId || !silverfinConnectRequested) return
-
-    const oauthLockKey = `silverfin_oauth_${code}`
-    if (window.sessionStorage.getItem(oauthLockKey)) {
-      params.delete('code')
-      params.delete('state')
-      params.delete('firm_id')
-      params.delete('silverfin_connect')
-      const nextSearch = params.toString()
-      window.history.replaceState(
-        {},
-        '',
-        nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname
-      )
-      return
-    }
-    window.sessionStorage.setItem(oauthLockKey, '1')
-
-    const redirectUrl = new URL(window.location.href)
-    redirectUrl.searchParams.delete('code')
-    redirectUrl.searchParams.delete('state')
-    redirectUrl.searchParams.delete('firm_id')
-
-    accountingAPI
-      .connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
-      .then(async () => {
-        window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
-        window.sessionStorage.removeItem(oauthLockKey)
-        await loadAccountingIntegrationStatus()
-        const cleanedUrl = new URL(window.location.href)
-        cleanedUrl.searchParams.delete('code')
-        cleanedUrl.searchParams.delete('state')
-        cleanedUrl.searchParams.delete('firm_id')
-        cleanedUrl.searchParams.delete('silverfin_connect')
-        window.history.replaceState({}, '', cleanedUrl.toString())
-      })
-      .catch((error) => {
-        import('sonner').then(({ toast }) =>
-          toast.error(parseAccountingApiError(error) || 'Silverfin connection failed')
-        )
-        window.sessionStorage.removeItem(oauthLockKey)
-        const cleanedUrl = new URL(window.location.href)
-        cleanedUrl.searchParams.delete('code')
-        cleanedUrl.searchParams.delete('state')
-        cleanedUrl.searchParams.delete('firm_id')
-        cleanedUrl.searchParams.delete('silverfin_connect')
-        window.history.replaceState({}, '', cleanedUrl.toString())
-      })
-  }, [loadAccountingIntegrationStatus])
 
   // ─── Field-level Validation ───
   const fieldValidation = useMemo(() => {
@@ -2820,12 +2313,6 @@ export function ManualInputPanel({
   // Handle KBO company selection (Mercury parity: prefill business type from NACE)
   const handleCompanySelect = useCallback(
     async (company: KBOCompany) => {
-      // Cancel any in-flight NACE lookups (from useEffect or previous company select)
-      if (naceAbortRef.current) naceAbortRef.current.abort()
-      if (companySelectAbortRef.current) companySelectAbortRef.current.abort()
-      const controller = new AbortController()
-      companySelectAbortRef.current = controller
-
       setSelectedCompany(company)
       setCompanySearchValue(company.name ?? '')
 
@@ -2849,7 +2336,7 @@ export function ManualInputPanel({
       }
 
       setFormData((prev) => ({ ...prev, ...baseUpdates }))
-      setNacePrefillError(null)
+      clearNacePrefillError()
 
       updateFormData({
         kbo_number: company.kboNumber ?? '',
@@ -2862,88 +2349,19 @@ export function ManualInputPanel({
           : { activity_code: undefined }),
       })
 
-      // Fast path: Titan resolved business type server-side (BE/KBO + NL/KVK).
-      // Skip the client `getBusinessTypeForNaceCode` round-trip — pre-populate
-      // from the search response and only fall back to the network lookup when
-      // the server didn't have a match (e.g. NL company with no SBI in Overheid.io).
-      const seededBtId = company.businessTypeId?.trim()
-      if (seededBtId) {
-        const mapped =
-          businessTypesForSearch.find((t) => t.id === seededBtId) ??
-          ({
-            id: seededBtId,
-            code: seededBtId,
-            name: company.businessTypeTitle || seededBtId,
-            category: 'services',
-            icon: Building2,
-            emoji: '🏢',
-            popular: false,
-          } as BusinessType)
-        setSelectedBusinessType(mapped)
-        setFormData((prev) => ({
-          ...prev,
-          ...baseUpdates,
-          businessType: mapped.id,
-          businessTypeCode: mapped.code || mapped.id,
-          industry: mapped.category || 'services',
-        }))
-        updateFormData({ business_type_id: mapped.id, industry: mapped.category })
-        setNacePrefillError(null)
-        if (companySelectAbortRef.current === controller) {
-          companySelectAbortRef.current = null
-        }
-        return
-      }
-
-      const naceCode = canonical || company.naceCode?.trim()
-      if (naceCode) {
-        try {
-          const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(
-            naceCode,
-            controller.signal,
-            company.countryCode || undefined
-          )
-          if (controller.signal.aborted) return
-          if (bt) {
-            const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? bt
-            setSelectedBusinessType(mapped)
-            setFormData((prev) => ({
-              ...prev,
-              ...baseUpdates,
-              businessType: bt.id,
-              businessTypeCode: bt.code || bt.id,
-              industry: bt.category || 'services',
-            }))
-            updateFormData({ business_type_id: bt.id, industry: bt.category })
-            setNacePrefillError(null)
-          } else {
-            setNacePrefillError(localizeActivityCodeCopy(t('errors.noBusinessTypeForNace')))
-          }
-        } catch (err) {
-          if (controller.signal.aborted) return
-          const msg =
-            err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
-              ? localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
-              : err instanceof Error
-                ? localizeActivityCodeCopy(err.message)
-                : localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
-          setNacePrefillError(msg)
-        } finally {
-          if (companySelectAbortRef.current === controller) {
-            companySelectAbortRef.current = null
-          }
-        }
-      } else {
-        companySelectAbortRef.current = null
-      }
+      await prefillBusinessTypeForCompany(
+        company,
+        baseUpdates,
+        canonical || company.naceCode?.trim()
+      )
     },
-    [businessTypesForSearch, localizeActivityCodeCopy, t, updateFormData]
+    [clearNacePrefillError, prefillBusinessTypeForCompany, updateFormData]
   )
 
   const handleBusinessTypeSelect = (value: string, businessType?: BusinessType) => {
     setSelectedBusinessType(businessType || null)
     updateField('businessType', value)
-    setNacePrefillError(null)
+    clearNacePrefillError()
     if (businessType) {
       updateField('businessTypeCode', businessType.code)
       updateField('industry', businessType.category)
@@ -2959,7 +2377,7 @@ export function ManualInputPanel({
     prefillCompanyRef.current = null
     setSelectedCompany(null)
     setCompanySearchValue('')
-    setNacePrefillError(null)
+    clearNacePrefillError()
     setSelectedBusinessType(null)
     setShowChangeCompanyWarning(false)
     setFormData((prev) => ({
@@ -2985,7 +2403,7 @@ export function ManualInputPanel({
       nace_description: '',
       activity_code: undefined,
     })
-  }, [updateFormData])
+  }, [clearNacePrefillError, updateFormData])
 
   const handleClearCompany = useCallback(() => {
     if (prefillCompanyRef.current && selectedCompany) {
@@ -3181,7 +2599,7 @@ export function ManualInputPanel({
                         <p className="text-[11px] text-destructive/80">{nacePrefillError}</p>
                         <button
                           type="button"
-                          onClick={() => setNaceRetryTrigger((p) => p + 1)}
+                          onClick={retryNacePrefill}
                           className="text-[11px] font-medium text-primary hover:text-primary/80 shrink-0"
                         >
                           {tKbo('retry')}
@@ -3331,11 +2749,11 @@ export function ManualInputPanel({
                   <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
                 )}
 
-                {venusLiveImportProvider ? (
+                {liveImportProviderName ? (
                   <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:px-4">
                     <p className="min-w-0 flex-1 text-xs text-foreground/75 leading-snug">
                       {mi('liveAccountingImportHint', {
-                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                        provider: liveImportProviderName,
                       })}
                     </p>
                     <AuroraButton
@@ -3345,14 +2763,14 @@ export function ManualInputPanel({
                       className="shrink-0"
                       loading={openingLiveAccountingImport}
                       loadingScreenReaderLabel={t('common.states.loading')}
-                      disabled={importingBizzcontrolBatch || importingOctopusBatch}
+                      disabled={bizzcontrolImport.isImporting || octopusImport.isImporting}
                       onClick={() => void handleOpenLiveAccountingImport()}
                       aria-label={mi('importFromAccountingAria', {
-                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                        provider: liveImportProviderName,
                       })}
                     >
                       {mi('importFromAccounting', {
-                        provider: accountingProviderDisplayName(venusLiveImportProvider),
+                        provider: liveImportProviderName,
                       })}
                     </AuroraButton>
                   </div>
@@ -3797,7 +3215,9 @@ export function ManualInputPanel({
                             return (
                               <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">
                                 {margin.toFixed(1)}%{' '}
-                                <span className="font-sans">{mi('fields.ebitdaMarginInlineLabel')}</span>
+                                <span className="font-sans">
+                                  {mi('fields.ebitdaMarginInlineLabel')}
+                                </span>
                               </p>
                             )
                           })()}
@@ -3835,46 +3255,48 @@ export function ManualInputPanel({
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
                       <Suspense fallback={<BonusSectionFallback />}>
-                      <DcfGlobalAssumptions
-                        key="dcf_forecast_defaults_embedded"
-                        variant="forecastDefaultsOnly"
-                        className="mt-6 rounded-xl border border-primary/10 bg-primary/[0.03] p-4 sm:p-5"
-                        step={dcfForecastDefaultsStep}
-                        dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-                        dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-                        dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-                        dcfDaPct={formData.dcf_da_pct as number | undefined}
-                        dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-                        dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-                        dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-                        dcfTerminalGrowthPct={
-                          formData.dcf_terminal_growth_pct as number | undefined
-                        }
-                        dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-                        dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-                        dcfEquityRiskPremiumPct={
-                          formData.dcf_equity_risk_premium_pct as number | undefined
-                        }
-                        dcfBeta={formData.dcf_beta as number | undefined}
-                        dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-                        dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-                        dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-                        terminalValueMethod={terminalValueMethod}
-                        onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                        onFieldChange={(field, value) => {
-                          setFormData((prev) => ({ ...prev, [field]: value }))
-                        }}
-                        dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                        showDcfInputModeToggle
-                        dcfModeSegmentOptions={dcfModeSegmentOptions}
-                        onDcfInputModeChange={handleDcfInputModeChange}
-                        disabled={isCalculating}
-                        dcfDefaultsProvenance={dcfDefaultsProvenance}
-                        smartDefaults={dcfSmartDefaultsFromHistory}
-                        integrationCapexPct={integrationDerivedCapexPct}
-                        integrationDaPct={integrationDerivedDaPct}
-                        waccSectorBand={waccSectorBand}
-                      />
+                        <DcfGlobalAssumptions
+                          key="dcf_forecast_defaults_embedded"
+                          variant="forecastDefaultsOnly"
+                          className="mt-6 rounded-xl border border-primary/10 bg-primary/[0.03] p-4 sm:p-5"
+                          step={dcfForecastDefaultsStep}
+                          dcfRevenueGrowthPct={
+                            formData.dcf_revenue_growth_pct as number | undefined
+                          }
+                          dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+                          dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+                          dcfDaPct={formData.dcf_da_pct as number | undefined}
+                          dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+                          dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
+                          dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+                          dcfTerminalGrowthPct={
+                            formData.dcf_terminal_growth_pct as number | undefined
+                          }
+                          dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+                          dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+                          dcfEquityRiskPremiumPct={
+                            formData.dcf_equity_risk_premium_pct as number | undefined
+                          }
+                          dcfBeta={formData.dcf_beta as number | undefined}
+                          dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+                          dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+                          dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+                          terminalValueMethod={terminalValueMethod}
+                          onTerminalValueMethodChange={handleTerminalValueMethodChange}
+                          onFieldChange={(field, value) => {
+                            setFormData((prev) => ({ ...prev, [field]: value }))
+                          }}
+                          dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+                          showDcfInputModeToggle
+                          dcfModeSegmentOptions={dcfModeSegmentOptions}
+                          onDcfInputModeChange={handleDcfInputModeChange}
+                          disabled={isCalculating}
+                          dcfDefaultsProvenance={dcfDefaultsProvenance}
+                          smartDefaults={dcfSmartDefaultsFromHistory}
+                          integrationCapexPct={integrationDerivedCapexPct}
+                          integrationDaPct={integrationDerivedDaPct}
+                          waccSectorBand={waccSectorBand}
+                        />
                       </Suspense>
                     )}
 
@@ -3927,42 +3349,44 @@ export function ManualInputPanel({
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
                       <Suspense fallback={<BonusSectionFallback />}>
-                      <DcfGlobalAssumptions
-                        key="dcf_discount_terminal_embedded"
-                        variant="discountTerminalOnly"
-                        className="mt-4"
-                        step={dcfWaccTerminalStep}
-                        dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-                        dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-                        dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-                        dcfDaPct={formData.dcf_da_pct as number | undefined}
-                        dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-                        dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-                        dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-                        dcfTerminalGrowthPct={
-                          formData.dcf_terminal_growth_pct as number | undefined
-                        }
-                        dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-                        dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-                        dcfEquityRiskPremiumPct={
-                          formData.dcf_equity_risk_premium_pct as number | undefined
-                        }
-                        dcfBeta={formData.dcf_beta as number | undefined}
-                        dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-                        dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-                        dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-                        terminalValueMethod={terminalValueMethod}
-                        onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                        onFieldChange={(field, value) => {
-                          setFormData((prev) => ({ ...prev, [field]: value }))
-                        }}
-                        dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                        disabled={isCalculating}
-                        smartDefaults={dcfSmartDefaultsFromHistory}
-                        integrationCapexPct={integrationDerivedCapexPct}
-                        integrationDaPct={integrationDerivedDaPct}
-                        waccSectorBand={waccSectorBand}
-                      />
+                        <DcfGlobalAssumptions
+                          key="dcf_discount_terminal_embedded"
+                          variant="discountTerminalOnly"
+                          className="mt-4"
+                          step={dcfWaccTerminalStep}
+                          dcfRevenueGrowthPct={
+                            formData.dcf_revenue_growth_pct as number | undefined
+                          }
+                          dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+                          dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+                          dcfDaPct={formData.dcf_da_pct as number | undefined}
+                          dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+                          dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
+                          dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+                          dcfTerminalGrowthPct={
+                            formData.dcf_terminal_growth_pct as number | undefined
+                          }
+                          dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+                          dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+                          dcfEquityRiskPremiumPct={
+                            formData.dcf_equity_risk_premium_pct as number | undefined
+                          }
+                          dcfBeta={formData.dcf_beta as number | undefined}
+                          dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+                          dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+                          dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+                          terminalValueMethod={terminalValueMethod}
+                          onTerminalValueMethodChange={handleTerminalValueMethodChange}
+                          onFieldChange={(field, value) => {
+                            setFormData((prev) => ({ ...prev, [field]: value }))
+                          }}
+                          dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+                          disabled={isCalculating}
+                          smartDefaults={dcfSmartDefaultsFromHistory}
+                          integrationCapexPct={integrationDerivedCapexPct}
+                          integrationDaPct={integrationDerivedDaPct}
+                          waccSectorBand={waccSectorBand}
+                        />
                       </Suspense>
                     )}
                 </div>
@@ -4051,8 +3475,10 @@ export function ManualInputPanel({
                           methods={synthesisMethodsForPanel}
                           weights={synthesisWeights}
                           justification={synthesisJustification}
-                          onWeightsChange={onSynthesisWeightsChange ?? (() => {})}
-                          onJustificationChange={onSynthesisJustificationChange ?? (() => {})}
+                          onWeightsChange={onSynthesisWeightsChange ?? (() => undefined)}
+                          onJustificationChange={
+                            onSynthesisJustificationChange ?? (() => undefined)
+                          }
                           step={synthesisStep}
                           disabled={isCalculating}
                           valuationResults={synthesisValuationResults}
@@ -4145,41 +3571,35 @@ export function ManualInputPanel({
       </Modal>
 
       <BizzcontrolImportModal
-        open={showBizzcontrolImportModal}
-        onOpenChange={(open) => {
-          setShowBizzcontrolImportModal(open)
-          if (!open) setBizzcontrolImportError(null)
-        }}
-        isLoadingCompanies={loadingBizzcontrolCompanies}
-        isImporting={importingBizzcontrolBatch}
-        error={bizzcontrolImportError}
-        companies={bizzcontrolCompanies}
-        selectedCompanyId={selectedBizzcontrolCompanyId}
-        onSelectedCompanyIdChange={setSelectedBizzcontrolCompanyId}
-        historyRange={bizzcontrolHistoryRange}
-        onHistoryRangeChange={setBizzcontrolHistoryRange}
-        onImport={handleConfirmBizzcontrolImport}
-        manualOverride={bizzcontrolManualOverride}
-        onManualOverrideChange={setBizzcontrolManualOverride}
+        open={bizzcontrolImport.open}
+        onOpenChange={bizzcontrolImport.setOpen}
+        isLoadingCompanies={bizzcontrolImport.isLoadingCompanies}
+        isImporting={bizzcontrolImport.isImporting}
+        error={bizzcontrolImport.error}
+        companies={bizzcontrolImport.companies}
+        selectedCompanyId={bizzcontrolImport.selectedCompanyId}
+        onSelectedCompanyIdChange={bizzcontrolImport.setSelectedCompanyId}
+        historyRange={bizzcontrolImport.historyRange}
+        onHistoryRangeChange={bizzcontrolImport.setHistoryRange}
+        onImport={bizzcontrolImport.handleConfirmImport}
+        manualOverride={bizzcontrolImport.manualOverride}
+        onManualOverrideChange={bizzcontrolImport.setManualOverride}
       />
 
       <OctopusImportModal
-        open={showOctopusImportModal}
-        onOpenChange={(open) => {
-          setShowOctopusImportModal(open)
-          if (!open) setOctopusImportError(null)
-        }}
-        isLoadingCompanies={loadingOctopusCompanies}
-        isImporting={importingOctopusBatch}
-        error={octopusImportError}
-        companies={octopusCompanies}
-        selectedCompanyId={selectedOctopusCompanyId}
-        onSelectedCompanyIdChange={setSelectedOctopusCompanyId}
-        historyRange={octopusHistoryRange}
-        onHistoryRangeChange={setOctopusHistoryRange}
-        onImport={handleConfirmOctopusImport}
-        manualOverride={octopusManualOverride}
-        onManualOverrideChange={setOctopusManualOverride}
+        open={octopusImport.open}
+        onOpenChange={octopusImport.setOpen}
+        isLoadingCompanies={octopusImport.isLoadingCompanies}
+        isImporting={octopusImport.isImporting}
+        error={octopusImport.error}
+        companies={octopusImport.companies}
+        selectedCompanyId={octopusImport.selectedCompanyId}
+        onSelectedCompanyIdChange={octopusImport.setSelectedCompanyId}
+        historyRange={octopusImport.historyRange}
+        onHistoryRangeChange={octopusImport.setHistoryRange}
+        onImport={octopusImport.handleConfirmImport}
+        manualOverride={octopusImport.manualOverride}
+        onManualOverrideChange={octopusImport.setManualOverride}
       />
 
       {/* Historical year removal (data / normalizations) */}
@@ -4271,884 +3691,6 @@ export function ManualInputPanel({
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </>
-  )
-}
-
-// Round-6 audit: `resolveLatestDealStructureComparison` was the only
-// place ManualInputPanel read `result.details.*` engine output. It fed
-// the `comparison` prop on `DealStructureCompareSection`, which round-4
-// stripped (advisory output → moved to ValuationIQ report). With the
-// prop gone, this helper had no callers, so the function + its
-// `_last_deal_structure_comparison` overlay convention are removed —
-// the engine response now flows directly to the report-side context
-// builder (`omni_calc_overrides._apply_non_multiple_overrides` lifts it
-// to `nav_deal_structure`). The input panel must never read engine
-// output back into itself.
-
-export function AdaptiveSections({
-  effectiveMethod,
-  effectiveMethods,
-  businessCategory,
-  businessTypeId,
-  saasSignals,
-  formData,
-  firmCountryCode,
-  previewCurrencyFormatter,
-  sectionHeaderSteps,
-  suppressDcfGlobalAssumptions,
-  onFieldChange,
-  onAnyFieldChange,
-  onViewAllNormalizations,
-  currentFiscalYear,
-  onApplyDcfPercentAutofill,
-  canApplyDcfPercentAutofill,
-  terminalValueMethod,
-  onTerminalValueMethodChange,
-  disabled,
-  fiscalWeightedNormalizedEbitda,
-  fiscalWeightedHistoricalYearCount,
-}: {
-  effectiveMethod: string
-  effectiveMethods?: string[]
-  businessCategory?: string
-  businessTypeId?: string
-  saasSignals?: GetBonusSectionsSaasSignals | null
-  formData: ValuationFormData
-  /** When NL, hide Belgian fiscal (4× EBITDA) notices — matches Titan/PDF gating */
-  firmCountryCode?: string
-  /** Shared with parent `ManualInputPanel` — one `useManualPreviewFormatters` for panel + fiscal notice */
-  previewCurrencyFormatter: Intl.NumberFormat
-  sectionHeaderSteps: {
-    dcfGlobal?: number
-    nav?: number
-    saas?: number
-    revenue?: number
-    sde?: number
-    fiscal?: number
-  }
-  /** When true, DCF globals are rendered in ManualInputPanel (forecast defaults first). */
-  suppressDcfGlobalAssumptions?: boolean
-  onFieldChange: (field: string, value: number | undefined) => void
-  /**
-   * Generic setter for non-numeric form fields (owner role, deal type flags,
-   * boolean toggles). Wired through `updateField` upstream.
-   */
-  onAnyFieldChange?: (field: string, value: unknown) => void
-  onViewAllNormalizations?: () => void
-  currentFiscalYear?: number
-  onApplyDcfPercentAutofill?: () => void
-  canApplyDcfPercentAutofill?: boolean
-  terminalValueMethod?: TerminalValueMethod
-  onTerminalValueMethodChange?: (method: TerminalValueMethod) => void
-  disabled?: boolean
-  /**
-   * Historical weighted normalized EBITDA (same construction as headline in step 3).
-   * When set with {@link fiscalWeightedHistoricalYearCount} &gt; 0, fiscal preview matches report annex EBITDA semantics.
-   */
-  fiscalWeightedNormalizedEbitda?: number
-  fiscalWeightedHistoricalYearCount?: number
-}) {
-  const t = useTranslations('manualInput.methodSelector')
-  const normalizationItems = useNormalizationStore((s) => s.items)
-  const sdeSectionActive = selectionRequiresOwnerCompensation(
-    effectiveMethods ?? [effectiveMethod]
-  )
-  const {
-    prefill: sdeSalaryPrefill,
-    doubleCountRisk: sdeOwnerCompDoubleCountRisk,
-    getAppliedPrefill: getSdeAppliedPrefill,
-  } = useSdeOwnerCompensationPrefill({
-    sdeSectionActive,
-    normalizationItems,
-    ownerSalaryAddback: formData.owner_salary_addback as number | null | undefined,
-    onAnyFieldChange,
-  })
-  const methods = effectiveMethods ?? [effectiveMethod]
-  const sections =
-    methods.length > 1
-      ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
-      : getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
-  const latestCompleteYearlyFinancial = useMemo(
-    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
-    [formData.yearlyFinancials]
-  )
-
-  /* ────────────────────────────────────────────────────────────────────
-   * NAV (Adjusted Net Asset Value) — auto-prefill (round-2)
-   * ─────────────────────────────────────────────────────────────────────
-   * Compute the prefill snapshot every render (cheap pure call). Apply
-   * via effect so we never trigger a setState during render. Provenance
-   * is then forwarded to the schedule UI so prefilled fields show a
-   * "Prefilled" badge — trust is explicit, the user can edit freely.
-   *
-   * We only touch fields the user hasn't typed into (the helper guards
-   * against overwrites internally). The effect is gated on the NAV
-   * section being mounted — when the user picks a different method the
-   * prefill stays inert. */
-  const navIsActiveSection = sections.includes('nav_asset_schedule')
-
-  // Round-5: compute the *desired* prefill from current upstream inputs,
-  // ignoring whatever's currently in `formData.nav_*`. We then reconcile
-  // in the effect below. This lets us re-prefill on signal change (e.g.
-  // user switches country BE → NL → tax rate auto-updates from 25 to
-  // 25.8) without overwriting values the user has typed manually.
-  //
-  // Calling the helper with an empty `existing` is the round-3 idempotency
-  // contract — the helper always returns the same desired snapshot for
-  // a given (country, carve-out) tuple regardless of form state.
-  const navDesiredPrefill = useMemo(
-    () =>
-      computeNavPrefill({
-        countryCode: formData.country,
-        realEstateCarveOutBookValue:
-          (formData.real_estate_book_value as number | undefined) ?? null,
-        reportingYear: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.year)
-          : null,
-        existing: {},
-      }),
-    [formData.country, formData.real_estate_book_value, latestCompleteYearlyFinancial]
-  )
-
-  // Track each prefilled field's *applied value* and its *provenance*.
-  // The applied-value ref lets us tell user-typed values apart from
-  // stale prefills:
-  //   - current value === applied value  → still our prefill, free to update
-  //   - current value !== applied value  → user typed it, leave alone
-  //   - current value == null            → empty, free to apply
-  // Round-5: this lets us refresh the rate when the country changes
-  // without overwriting the rate when the user has set their own.
-  const navPrefillAppliedRef = useRef<Partial<Record<NavPrefillField, number>>>({})
-  const navPrefillProvenanceRef = useRef<NavPrefillProvenanceMap>({})
-
-  // Stable handles for the form-data fields the prefill effect cares
-  // about. Reading via refs avoids re-firing the effect when other
-  // unrelated form fields change.
-  const _navTaxLatencyPctValue = formData.nav_tax_latency_pct as number | undefined
-  const _navRealEstateBookValue = formData.nav_real_estate_book_value as number | undefined
-  const _navEquipmentRevaluation = formData.nav_equipment_revaluation as
-    | {
-        original_cost?: number
-        acquisition_year?: number
-        tax_book_value?: number
-        economic_useful_life_years?: number
-        economic_book_value?: number
-      }
-    | undefined
-  const _navEquipmentAcquisitionYear = _navEquipmentRevaluation?.acquisition_year
-  const _navEquipmentUsefulLifeYears = _navEquipmentRevaluation?.economic_useful_life_years
-  const _dealBuyerDiscountRatePct = formData.deal_buyer_discount_rate_pct as number | undefined
-  const _dealRegistrationDutyPct = formData.deal_registration_duty_pct as number | undefined
-
-  useEffect(() => {
-    if (!navIsActiveSection) return
-    const { values, provenance } = navDesiredPrefill
-    const currentByField: Record<NavPrefillField, number | undefined> = {
-      nav_tax_latency_pct: _navTaxLatencyPctValue,
-      nav_real_estate_book_value: _navRealEstateBookValue,
-      nav_equipment_acquisition_year: _navEquipmentAcquisitionYear,
-      nav_equipment_useful_life_years: _navEquipmentUsefulLifeYears,
-      deal_buyer_discount_rate_pct: _dealBuyerDiscountRatePct,
-      deal_registration_duty_pct: _dealRegistrationDutyPct,
-    }
-    // Field-key → form-state write path. Top-level paths use onFieldChange;
-    // nested equipment fields merge into the single nav_equipment_revaluation
-    // object so they survive each other's writes.
-    const writeField = (field: NavPrefillField, desired: number) => {
-      if (field === 'nav_equipment_acquisition_year') {
-        if (!onAnyFieldChange) return
-        onAnyFieldChange('nav_equipment_revaluation', {
-          ...(_navEquipmentRevaluation ?? {}),
-          acquisition_year: desired,
-        })
-        return
-      }
-      if (field === 'nav_equipment_useful_life_years') {
-        if (!onAnyFieldChange) return
-        onAnyFieldChange('nav_equipment_revaluation', {
-          ...(_navEquipmentRevaluation ?? {}),
-          economic_useful_life_years: desired,
-        })
-        return
-      }
-      onFieldChange(field, desired)
-    }
-    for (const [field, desired] of Object.entries(values)) {
-      if (desired == null || !Number.isFinite(desired)) continue
-      const typedField = field as NavPrefillField
-      const current = currentByField[typedField]
-      const applied = navPrefillAppliedRef.current[typedField]
-
-      // Skip when the user has typed something different from any prior
-      // prefill — respect their edit.
-      if (current != null && current !== applied) continue
-      // Skip the no-op case (current already equals desired).
-      if (current === desired) continue
-
-      writeField(typedField, desired)
-      navPrefillAppliedRef.current[typedField] = desired
-      navPrefillProvenanceRef.current[typedField] = provenance[typedField]
-    }
-  }, [
-    navIsActiveSection,
-    navDesiredPrefill,
-    _navTaxLatencyPctValue,
-    _navRealEstateBookValue,
-    _navEquipmentAcquisitionYear,
-    _navEquipmentUsefulLifeYears,
-    _navEquipmentRevaluation,
-    _dealBuyerDiscountRatePct,
-    _dealRegistrationDutyPct,
-    onFieldChange,
-    onAnyFieldChange,
-  ])
-
-  const navBookReferences = useMemo<NavBookReferenceSnapshot>(
-    () =>
-      computeNavBookReferences({
-        inventory: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.inventory)
-          : null,
-        accountsReceivable: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.accounts_receivable)
-          : null,
-        // Goodwill isn't on the summarised yearly financial today; left
-        // null so the schedule's goodwill chip stays hidden until the
-        // Hermes detail-account enrichment lands. Plumbing's ready.
-        goodwill: null,
-        totalAssets: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.total_assets)
-          : null,
-        totalLiabilities: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.total_liabilities)
-          : null,
-      }),
-    [latestCompleteYearlyFinancial]
-  )
-
-  // Provenance map exposed to the schedule UI: only includes a field when
-  // its current form value still matches what we applied. The moment the
-  // user edits, identity breaks and the entry drops out, hiding the
-  // "Prefilled" badge cleanly. Form-data fields are listed explicitly in
-  // the dep array so the memo invalidates on user edits.
-  const navPrefillProvenance = useMemo<NavPrefillProvenanceMap>(() => {
-    const result: NavPrefillProvenanceMap = {}
-    const applied = navPrefillAppliedRef.current
-    const provenance = navPrefillProvenanceRef.current
-    const equipment = formData.nav_equipment_revaluation as
-      | { acquisition_year?: number; economic_useful_life_years?: number }
-      | undefined
-    const currentValues: Record<NavPrefillField, number | undefined> = {
-      nav_tax_latency_pct: formData.nav_tax_latency_pct as number | undefined,
-      nav_real_estate_book_value: formData.nav_real_estate_book_value as number | undefined,
-      nav_equipment_acquisition_year: equipment?.acquisition_year,
-      nav_equipment_useful_life_years: equipment?.economic_useful_life_years,
-      deal_buyer_discount_rate_pct: formData.deal_buyer_discount_rate_pct as number | undefined,
-      deal_registration_duty_pct: formData.deal_registration_duty_pct as number | undefined,
-    }
-    for (const [field, appliedValue] of Object.entries(applied)) {
-      const typedField = field as NavPrefillField
-      const currentValue = currentValues[typedField]
-      if (currentValue != null && currentValue === appliedValue) {
-        const provenanceEntry = provenance[typedField]
-        if (provenanceEntry) {
-          result[typedField] = provenanceEntry
-        }
-      }
-    }
-    return result
-  }, [
-    formData.nav_tax_latency_pct,
-    formData.nav_real_estate_book_value,
-    formData.nav_equipment_revaluation,
-    formData.deal_buyer_discount_rate_pct,
-    formData.deal_registration_duty_pct,
-  ])
-
-  const fiscalPreview = useMemo(() => {
-    const row = latestCompleteYearlyFinancial
-    const reportedLatest =
-      row != null && Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : undefined
-
-    const hasWeighted =
-      (fiscalWeightedHistoricalYearCount ?? 0) > 0 &&
-      fiscalWeightedNormalizedEbitda != null &&
-      Number.isFinite(fiscalWeightedNormalizedEbitda)
-
-    const ebitda = hasWeighted ? fiscalWeightedNormalizedEbitda! : reportedLatest
-    const ebitdaSource = (
-      hasWeighted ? 'weighted_normalized_historical' : 'reported_latest_complete_year'
-    ) satisfies FiscalPreviewEbitdaSource
-
-    const be = resolveBookEquityFromYearRow(row ?? undefined)
-    return computeFiscal4xPreview({
-      countryCode: formData.country?.trim() || 'BE',
-      ebitda,
-      ebitdaSource,
-      bookEquity: be,
-      sharesForSale: formData.shares_for_sale ?? 100,
-    })
-  }, [
-    latestCompleteYearlyFinancial,
-    formData.country,
-    formData.shares_for_sale,
-    fiscalWeightedNormalizedEbitda,
-    fiscalWeightedHistoricalYearCount,
-  ])
-
-  const saasArrProjectionPreview = useMemo(
-    () =>
-      sections.includes('saas_metrics') && methods.includes('dcf')
-        ? deriveSaasArrProjectionPreview({
-            yearlyFinancials: formData.yearlyFinancials,
-            saasArr: formData.saas_arr as number | undefined,
-            saasMrr: formData.saas_mrr as number | undefined,
-            saasArrGrowthPct: formData.saas_arr_growth_pct as number | undefined,
-            saasNrrPct: formData.saas_nrr_pct as number | undefined,
-            saasChurnPct: formData.saas_churn_pct as number | undefined,
-            saasExpansionRevenuePct: formData.saas_expansion_revenue_pct as number | undefined,
-          })
-        : [],
-    [
-      sections,
-      methods,
-      formData.yearlyFinancials,
-      formData.saas_arr,
-      formData.saas_mrr,
-      formData.saas_arr_growth_pct,
-      formData.saas_nrr_pct,
-      formData.saas_churn_pct,
-      formData.saas_expansion_revenue_pct,
-    ]
-  )
-  const importedSaasProvenance =
-    typeof formData.business_context === 'object' &&
-    formData.business_context &&
-    '_imported_saas_provenance' in formData.business_context
-      ? ((formData.business_context as Record<string, unknown>)._imported_saas_provenance as {
-          source?: string
-          confidence?: number
-          derivation_method?: string
-          fiscal_year?: number
-        } | null)
-      : null
-  const saasSectionComplete = useMemo(
-    () =>
-      ((formData.saas_arr as number | undefined) ?? 0) > 0 ||
-      ((formData.saas_mrr as number | undefined) ?? 0) > 0 ||
-      formData.saas_arr_growth_pct != null ||
-      formData.saas_gross_margin_pct != null,
-    [
-      formData.saas_arr,
-      formData.saas_mrr,
-      formData.saas_arr_growth_pct,
-      formData.saas_gross_margin_pct,
-    ]
-  )
-
-  const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
-  const showFiscalNotice = methods.includes('fiscal_4x') && firmCode !== 'NL'
-  const fiscalPreviewUnavailableMessage =
-    !fiscalPreview.available && fiscalPreview.unavailableReason
-      ? fiscalPreview.unavailableReason === 'non_be'
-        ? t('fields.fiscalPreviewUnavailableNonBe')
-        : fiscalPreview.unavailableReason === 'non_positive_ebitda'
-          ? t('fields.fiscalPreviewUnavailableEbitda')
-          : fiscalPreview.unavailableReason === 'missing_ebitda'
-            ? t('fields.fiscalPreviewUnavailableMissingEbitda')
-            : fiscalPreview.unavailableReason === 'missing_book_equity'
-              ? t('fields.fiscalPreviewUnavailableMissingEquity')
-              : null
-      : null
-  if (sections.length === 0 && !showFiscalNotice) return null
-
-  return (
-    <>
-      <AnimatePresence mode="sync">
-        {/* fiscal_4x left-panel surface: live formula preview only. The
-            scope disclaimer (Wettelijke referentie / Art. 90 WIB 92 / etc.)
-            was removed from the data rail 2026-05-10 — it's pure advisory
-            copy that already renders on the fiscal_reference report page
-            (`fiscal_scope_disclaimer`) and on the picker tooltip. The data
-            rail stays focused on inputs the advisor brings + their live
-            implication on the engine output. */}
-        {showFiscalNotice && (
-          <motion.div
-            key="fiscal_4x_notice"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="space-y-3"
-          >
-            <FiscalReferencePreviewCard
-              fiscalPreview={fiscalPreview}
-              previewCurrencyFormatter={previewCurrencyFormatter}
-              unavailableMessage={fiscalPreviewUnavailableMessage}
-            />
-          </motion.div>
-        )}
-        {/* Meerwaarde-tax left-panel section — pure data input.
-            Renders only when fiscal_4x is the pre-selected method.
-            Captures the four amount values for the cedent's 31/12/2025
-            cost-basis filing: aanschaffingswaarde + alternative anchors
-            (contractuele formule, markttransactie 2025, onafhankelijk
-            verslag). Advisory metadata (peildatum, company role, EBITDA
-            basis, internal-transfer flag, acknowledged-anchors) is
-            auto-derived by the report builder or set on metadata via
-            firm/transaction settings — not collected on the data rail. */}
-        {sections.includes('fiscal_inputs') && sectionHeaderSteps.fiscal != null && (
-          <Suspense key="fiscal_inputs" fallback={<BonusSectionFallback />}>
-            <FiscalInputsSection
-              step={sectionHeaderSteps.fiscal}
-              fiscalAcquisitionCost={formData.fiscal_acquisition_cost as number | undefined}
-              fiscalAnchor2Value={formData.fiscal_anchor_2_value as number | undefined}
-              fiscalAnchor3Value={formData.fiscal_anchor_3_value as number | undefined}
-              fiscalAnchor4Value={formData.fiscal_anchor_4_value as number | undefined}
-              onFieldChange={onFieldChange}
-              disabled={disabled}
-            />
-          </Suspense>
-        )}
-        {sections.includes('dcf_projections') &&
-          !suppressDcfGlobalAssumptions &&
-          terminalValueMethod &&
-          onTerminalValueMethodChange &&
-          sectionHeaderSteps.dcfGlobal != null && (
-            <Suspense key="dcf_global_assumptions" fallback={<BonusSectionFallback />}>
-              <DcfGlobalAssumptions
-                className={showFiscalNotice ? 'mt-6' : undefined}
-                step={sectionHeaderSteps.dcfGlobal}
-                dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-                dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-                dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-                dcfDaPct={formData.dcf_da_pct as number | undefined}
-                dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-                dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-                dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-                dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-                dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-                dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-                dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-                dcfBeta={formData.dcf_beta as number | undefined}
-                dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-                dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-                dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-                terminalValueMethod={terminalValueMethod}
-                onTerminalValueMethodChange={onTerminalValueMethodChange}
-                onFieldChange={onFieldChange}
-                onApplyToForecastYears={onApplyDcfPercentAutofill}
-                canApplyToForecastYears={!!canApplyDcfPercentAutofill}
-                forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
-                dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                disabled={disabled}
-              />
-            </Suspense>
-          )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          (() => {
-            // Compute the side-input meerwaarde locally so the schedule
-            // section's live preview mirrors the engine instead of the
-            // schedule-deltas-only subset. Round-1 fix B6.
-            const _bookValRE = formData.nav_real_estate_book_value as number | undefined
-            const _appraisalRE = formData.nav_real_estate_appraisal_value as number | undefined
-            const realEstateMeerwaarde =
-              _bookValRE != null &&
-              _appraisalRE != null &&
-              Number.isFinite(_bookValRE) &&
-              Number.isFinite(_appraisalRE)
-                ? _appraisalRE - _bookValRE
-                : null
-            const equipmentMeerwaarde = computeEquipmentMeerwaarde(
-              formData.nav_equipment_revaluation,
-              latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.year) : undefined
-            )
-            // Round-1 fix B3: signal the schedule to swap its delta field
-            // out for a read-only "from appraisal" badge whenever the
-            // book→appraisal pair is fully filled.
-            const hasRealEstateAppraisalSwap =
-              _bookValRE != null &&
-              _appraisalRE != null &&
-              Number.isFinite(_bookValRE) &&
-              Number.isFinite(_appraisalRE)
-            return (
-              <Suspense key="nav_asset_schedule" fallback={<BonusSectionFallback />}>
-              <NavAssetScheduleSection
-                step={sectionHeaderSteps.nav}
-                navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
-                navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
-                navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
-                navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
-                navReceivablesAdjustment={formData.nav_receivables_adjustment as number | undefined}
-                navOtherRevaluations={formData.nav_other_revaluations as number | undefined}
-                navTaxLatencyPct={formData.nav_tax_latency_pct as number | undefined}
-                navOffBalanceItems={formData.nav_off_balance_items as number | undefined}
-                countryCode={formData.country?.trim() || 'BE'}
-                totalAssets={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.total_assets)
-                    : undefined
-                }
-                totalLiabilities={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.total_liabilities)
-                    : undefined
-                }
-                businessType={formData.industry || undefined}
-                realEstateAppraisalMeerwaarde={realEstateMeerwaarde}
-                equipmentRevaluationMeerwaarde={equipmentMeerwaarde}
-                hasRealEstateAppraisalSwap={hasRealEstateAppraisalSwap}
-                bookReferences={navBookReferences}
-                prefillProvenance={navPrefillProvenance}
-                perAssetTaxRates={
-                  formData.nav_per_asset_tax_rates as
-                    | {
-                        real_estate?: number
-                        inventory?: number
-                        receivables?: number
-                        hidden_reserves?: number
-                        other_revaluations?: number
-                      }
-                    | undefined
-                }
-                onPerAssetTaxRateChange={
-                  onAnyFieldChange
-                    ? (patch) => {
-                        // Merge into the existing per-asset rates dict so
-                        // we never blow away other rates the user has
-                        // already set. Round-3 fix B4.
-                        const current =
-                          (formData.nav_per_asset_tax_rates as
-                            | Record<string, number | undefined>
-                            | undefined) ?? {}
-                        const next: Record<string, number> = {}
-                        for (const [k, v] of Object.entries({ ...current, ...patch })) {
-                          if (v != null && Number.isFinite(v)) {
-                            next[k] = v
-                          }
-                        }
-                        onAnyFieldChange(
-                          'nav_per_asset_tax_rates',
-                          Object.keys(next).length > 0 ? next : undefined
-                        )
-                      }
-                    : undefined
-                }
-                onFieldChange={onFieldChange}
-                disabled={disabled}
-              />
-              </Suspense>
-            )
-          })()}
-        {/*
-          NAV is one method that decomposes into four defensible cards
-          (schedule + real-estate swap + equipment lifespan + deal
-          structure). Round-1 fix B1 letters the sub-cards (Na/Nb/Nc/Nd)
-          off the parent NAV step so the user reads them as one method's
-          progressive disclosure rather than four loose forms.
-        */}
-        {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
-          <Suspense key="nav_real_estate_appraisal" fallback={<BonusSectionFallback />}>
-            <NavRealEstateAppraisalSection
-              step={`${sectionHeaderSteps.nav}b`}
-              bookValue={formData.nav_real_estate_book_value as number | undefined}
-              appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
-              deferredTaxRatePct={
-                (formData.nav_per_asset_tax_rates?.real_estate as number | undefined) ??
-                (formData.nav_tax_latency_pct as number | undefined)
-              }
-              onChange={onFieldChange}
-              disabled={disabled}
-            />
-          </Suspense>
-        )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          onAnyFieldChange && (
-            <Suspense key="nav_equipment_lifespan" fallback={<BonusSectionFallback />}>
-              <NavEquipmentLifespanSection
-                step={`${sectionHeaderSteps.nav}c`}
-                value={formData.nav_equipment_revaluation}
-                reportingYear={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.year)
-                    : undefined
-                }
-                prefilled={{
-                  acquisition_year:
-                    navPrefillProvenance.nav_equipment_acquisition_year != null,
-                  economic_useful_life_years:
-                    navPrefillProvenance.nav_equipment_useful_life_years != null,
-                }}
-                onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
-                disabled={disabled}
-              />
-            </Suspense>
-          )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          onAnyFieldChange && (
-            <DealStructureCompareSection
-              key="deal_structure_compare"
-              step={`${sectionHeaderSteps.nav}d`}
-              inputs={{
-                dealType: formData.deal_type,
-                goodwillAmount: formData.deal_goodwill_amount,
-                sellerShareBasis: formData.deal_seller_share_basis,
-                sellerIsIndividual: formData.deal_seller_is_individual ?? true,
-                buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
-                registrationDutyPct: formData.deal_registration_duty_pct,
-              }}
-              prefilled={{
-                buyer_discount_rate_pct:
-                  navPrefillProvenance.deal_buyer_discount_rate_pct != null,
-                registration_duty_pct:
-                  navPrefillProvenance.deal_registration_duty_pct != null,
-              }}
-              onChange={(field, value) => {
-                if (typeof value === 'number' || value === undefined) {
-                  onFieldChange(field, value as number | undefined)
-                } else {
-                  onAnyFieldChange(field, value)
-                }
-              }}
-              disabled={disabled}
-            />
-          )}
-        {/* Liquidation-specific advisor inputs — left-panel section that
-            renders when liquidation_analysis is the pre-selected method.
-            Drives the Phase 2-4 chain (cascade buckets, tax bridge,
-            wind-down build-up, premise override). Engine defaults fire
-            when fields are blank — the Statement of Affairs flags every
-            estimated bucket. Reuses the nav step counter so left-panel
-            numbering stays sequential. */}
-        {sections.includes('liquidation_inputs') && (
-          <Suspense key="liquidation_inputs" fallback={<BonusSectionFallback />}>
-          <LiquidationInputsSection
-            // When NAV mounts alongside (the canonical case for
-            // `liquidation_analysis`), NAV already owns steps 5 / 5b / 5c /
-            // 5d — so this section gets `5e` instead of colliding with the
-            // NAV step circle. When NAV is absent we fall back to the bare
-            // numeral so the badge keeps a sensible reading order.
-            step={
-              sectionHeaderSteps.nav != null && sections.includes('nav_asset_schedule')
-                ? `${sectionHeaderSteps.nav}e`
-                : (sectionHeaderSteps.nav ?? 0)
-            }
-            liqHeadcount={formData.liq_headcount as number | undefined}
-            liqMonthlyRent={formData.liq_monthly_rent as number | undefined}
-            liqPaidUpCapital={formData.liq_paid_up_capital as number | undefined}
-            liqDeferredTax={formData.liq_deferred_tax as number | undefined}
-            liqPremiseOverride={(formData.liq_premise_override as string | undefined) ?? undefined}
-            liqRealisedCapitalGains={formData.liq_realised_capital_gains as number | undefined}
-            liqTaxableReserves={formData.liq_taxable_reserves as number | undefined}
-            liqRunwayMonthsOrderly={formData.liq_runway_months_orderly as number | undefined}
-            liqRunwayMonthsForced={formData.liq_runway_months_forced as number | undefined}
-            liqDistressWaccOrderly={formData.liq_distress_wacc_orderly as number | undefined}
-            liqDistressWaccForced={formData.liq_distress_wacc_forced as number | undefined}
-            liqIntangiblesUpliftPct={formData.liq_intangibles_uplift_pct as number | undefined}
-            liqMultiplesValueOverride={formData.liq_multiples_value_override as number | undefined}
-            liqLiabilityBuckets={{
-              estate_costs: formData.liq_lb_estate_costs as number | undefined,
-              secured: formData.liq_lb_secured as number | undefined,
-              super_preferent_employees:
-                formData.liq_lb_super_preferent_employees as number | undefined,
-              preferent_tax: formData.liq_lb_preferent_tax as number | undefined,
-              preferent_other: formData.liq_lb_preferent_other as number | undefined,
-              unsecured: formData.liq_lb_unsecured as number | undefined,
-              subordinated: formData.liq_lb_subordinated as number | undefined,
-            }}
-            liqAssetOverrides={{
-              cash: formData.liq_ao_cash as number | undefined,
-              trade_receivables: formData.liq_ao_trade_receivables as number | undefined,
-              other_receivables: formData.liq_ao_other_receivables as number | undefined,
-              inventory_finished: formData.liq_ao_inventory_finished as number | undefined,
-              inventory_wip: formData.liq_ao_inventory_wip as number | undefined,
-              inventory_raw: formData.liq_ao_inventory_raw as number | undefined,
-              land: formData.liq_ao_land as number | undefined,
-              buildings: formData.liq_ao_buildings as number | undefined,
-              machinery_equipment: formData.liq_ao_machinery_equipment as number | undefined,
-              vehicles: formData.liq_ao_vehicles as number | undefined,
-              it_equipment: formData.liq_ao_it_equipment as number | undefined,
-              intangibles: formData.liq_ao_intangibles as number | undefined,
-            }}
-            prefillSourceHeadcount={
-              (formData as { number_of_employees?: number }).number_of_employees ?? undefined
-            }
-            prefillSourceAnnualRent={
-              latestCompleteYearlyFinancial?.rent_expense !== undefined &&
-              latestCompleteYearlyFinancial?.rent_expense !== null
-                ? Number(latestCompleteYearlyFinancial.rent_expense)
-                : undefined
-            }
-            prefillSourcePaidUpCapital={
-              // Prefer the dedicated `paid_up_capital` line when Hermes
-              // exposes it (NBB code 1100 "Geplaatst kapitaal" / NL RGS
-              // BlnPasEigVerVlk).  Fall back to `total_equity` as a
-              // noisier proxy — equity is a superset (includes retained
-              // earnings + reserves) but is always present on filings,
-              // so it's a reasonable bootstrap the advisor can override.
-              // Skips zero/negative values so the field stays blank and
-              // the engine's cohort default fires.
-              //
-              // Audit 2026-05-10 (C1): the dedicated field is now typed
-              // on `YearDataInput`, so the cast bypass is gone.  Hermes
-              // doesn't yet populate this line — until it does, the
-              // fallback to `total_equity` is the only signal.
-              (() => {
-                const paidUp = latestCompleteYearlyFinancial?.paid_up_capital
-                if (paidUp != null && Number(paidUp) > 0) return Number(paidUp)
-                const equity = latestCompleteYearlyFinancial?.total_equity
-                if (equity != null && Number(equity) > 0) return Number(equity)
-                return undefined
-              })()
-            }
-            prefillSourceDeferredTax={
-              // `deferred_tax_liabilities` is the IAS 12 long-term tax
-              // line (NBB code 168 / NL RGS BlnSch.LtgVoz).  No fallback
-              // proxy — DTL is materially different from any other
-              // long-term liability bucket, so a bad guess would
-              // mislead.  Field stays blank when Hermes hasn't surfaced
-              // it; the engine's cohort default fires instead.
-              //
-              // Audit 2026-05-10 (C2): the field is now typed on
-              // `YearDataInput`.  The cast bypass is gone.
-              (() => {
-                const dtl = latestCompleteYearlyFinancial?.deferred_tax_liabilities
-                if (dtl != null && Number(dtl) > 0) return Number(dtl)
-                return undefined
-              })()
-            }
-            onFieldChange={onFieldChange}
-            onAnyFieldChange={onAnyFieldChange}
-            disabled={disabled}
-          />
-          </Suspense>
-        )}
-        {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-          <Suspense key="capital_history" fallback={<BonusSectionFallback />}>
-            <CapitalHistorySection />
-          </Suspense>
-        )}
-        {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-          <Suspense key="saas_metrics" fallback={<BonusSectionFallback />}>
-            <SaasMetricsSection
-              step={sectionHeaderSteps.saas}
-              complete={saasSectionComplete}
-              saasArr={formData.saas_arr as number | undefined}
-              saasMrr={formData.saas_mrr as number | undefined}
-              saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
-              saasChurnPct={formData.saas_churn_pct as number | undefined}
-              saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
-              saasNrrPct={formData.saas_nrr_pct as number | undefined}
-              saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
-              saasCac={formData.saas_cac as number | undefined}
-              saasCustomerConcentrationPct={
-                formData.saas_customer_concentration_pct as number | undefined
-              }
-              saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
-              saasSmSpend={formData.saas_sm_spend as number | undefined}
-              onFieldChange={onFieldChange}
-              disabled={disabled}
-              arrProjectionPreview={saasArrProjectionPreview}
-              importedSaasProvenance={importedSaasProvenance}
-              naceCode={(formData as { nace_code?: string | null }).nace_code ?? null}
-              yearlyFinancials={formData.yearlyFinancials}
-            />
-          </Suspense>
-        )}
-        {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
-          <Suspense key="revenue_quality" fallback={<BonusSectionFallback />}>
-            <RevenueQualitySection
-              step={sectionHeaderSteps.revenue}
-              revContractBacklog={formData.rev_contract_backlog as number | undefined}
-              revRecurringAmount={formData.rev_recurring_amount as number | undefined}
-              revTopClientAmount={formData.rev_top_client_amount as number | undefined}
-              revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
-              revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
-              latestRevenue={
-                latestCompleteYearlyFinancial
-                  ? Number(latestCompleteYearlyFinancial.revenue)
-                  : undefined
-              }
-              effectiveMethods={methods}
-              businessTypeId={businessTypeId}
-              businessCategory={businessCategory}
-              onFieldChange={onFieldChange}
-              disabled={disabled}
-            />
-          </Suspense>
-        )}
-        {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
-          <Suspense key="sde_owner_compensation" fallback={<BonusSectionFallback />}>
-            {sdeOwnerCompDoubleCountRisk && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mx-1 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300"
-              >
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Owner compensation is set as both an SDE add-back and an EBITDA normalization.
-                    This may double-count the adjustment. Consider removing one.
-                  </span>
-                </div>
-              </motion.div>
-            )}
-            <SdeOwnerCompensationSection
-              step={sectionHeaderSteps.sde}
-                ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
-                revenue={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.revenue)
-                    : undefined
-                }
-                ebitda={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.ebitda)
-                    : undefined
-                }
-                onFieldChange={onFieldChange}
-                ownerRole={
-                  (formData as ValuationFormData & { owner_role?: 'working' | 'passive' }).owner_role
-                }
-                onOwnerRoleChange={
-                  onAnyFieldChange ? (role) => onAnyFieldChange('owner_role', role) : undefined
-                }
-                activeOwnersCount={
-                  (formData as ValuationFormData & { number_of_owners?: number }).number_of_owners
-                }
-                onActiveOwnersCountChange={
-                  onAnyFieldChange ? (count) => onAnyFieldChange('number_of_owners', count) : undefined
-                }
-                salaryPrefillSource={(() => {
-                  const applied = getSdeAppliedPrefill()
-                  if (!applied) return null
-                  return Number(formData.owner_salary_addback) === applied.value
-                    ? sdeSalaryPrefill.source
-                    : null
-                })()}
-                salaryPrefillYear={(() => {
-                  const applied = getSdeAppliedPrefill()
-                  if (!applied) return null
-                  return Number(formData.owner_salary_addback) === applied.value
-                    ? sdeSalaryPrefill.sourceYear
-                    : null
-                })()}
-                disabled={disabled}
-              />
-          </Suspense>
-        )}
-      </AnimatePresence>
-      {process.env.NODE_ENV === 'development' && (
-        <Suspense fallback={null}>
-          <MethodPreviewAuditDevPanel />
-        </Suspense>
-      )}
     </>
   )
 }

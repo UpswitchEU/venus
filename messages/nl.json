@@ -3066,6 +3066,38 @@
 			"subtitle": "Kas, schuld en werkkapitaal gebruiken dezelfde balansinputs als uw import of handmatige invoer.",
 			"ariaLabel": "Watervalgrafiek van ondernemingswaarde naar aandelenwaarde"
 		},
+		"buyerReadiness": {
+			"title": "Transactieklaarheid",
+			"completion": "{percent}% compleet",
+			"notRun": "Niet uitgevoerd",
+			"sellabilityMissing": "Sellability ontbreekt",
+			"missingCount": "{count, plural, =0 {Geen open punten} one {# open punt} other {# open punten}}",
+			"readyShort": "Klaar",
+			"notReadyShort": "Niet klaar",
+			"earningsBridge": "EBITDA-brug",
+			"actionList": "Prioritaire acties",
+			"reportedEbitda": "Gerapporteerde EBITDA",
+			"normalizedEbitda": "Genormaliseerde EBITDA",
+			"adjustments": "Correcties",
+			"taxLatencies": "Fiscale latenties",
+			"noOpenActions": "Geen open acties.",
+			"status": {
+				"ready": "Klaar",
+				"needs_attention": "Aandacht nodig",
+				"blocked": "Geblokkeerd"
+			},
+			"normalizedStatus": {
+				"documented": "Gedocumenteerd",
+				"needs_review": "Te beoordelen",
+				"missing": "Ontbreekt"
+			},
+			"metrics": {
+				"normalizedEbitda": "Genormaliseerde EBITDA",
+				"sellability": "Sellability",
+				"dataRoom": "Dataroom",
+				"privateComps": "Private comps"
+			}
+		},
 		"ownerProfiling": {
 			"summary": "Eigenaarsprofiel — overdraagbaarheid {tri}/100 · {riskLevel} · multiple-impact {adjPct}% t.o.v. benchmark",
 			"cappedHint": "Afgetopt effect op equity — volledig risico zou {rawPct}% zijn geweest.",

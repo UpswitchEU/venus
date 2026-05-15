@@ -3,11 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getBonusSectionsSaasSignalsFromFormData } from '@/constants/methodFieldConfig'
 import { createManualCurrencyFormatter } from '@/lib/omniPreview'
 import { FilingYearPrompt } from './FilingYearPrompt'
-import {
-  AdaptiveSections,
-  getSeedYearlyFinancials,
-  shouldAutoConfirmPrefilledFilingYear,
-} from './ManualInputPanel'
+import { getSeedYearlyFinancials, shouldAutoConfirmPrefilledFilingYear } from './ManualInputPanel'
+import { AdaptiveSections } from './sections/AdaptiveSections'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
@@ -281,4 +278,3 @@ describe('AdaptiveSections', () => {
     expect(handleApply).toHaveBeenCalledTimes(1)
   })
 })
-

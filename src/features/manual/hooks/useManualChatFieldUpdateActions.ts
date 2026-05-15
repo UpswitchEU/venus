@@ -2,17 +2,14 @@ import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
 import { trackAIFieldUpdate } from '@/lib/analytics'
 import type { ChatMessage } from '../../../components/calculator'
+import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
 import {
   buildManualChatFieldUpdateBridge,
   formatManualChatFieldUpdateValue,
 } from '../utils/manualChatFieldUpdate'
 import { buildManualSystemChatMessage } from '../utils/manualChatMessages'
-import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
 
-type ManualChatFieldUpdateTranslator = (
-  key: string,
-  values?: Record<string, string>
-) => string
+type ManualChatFieldUpdateTranslator = (key: string, values?: Record<string, string>) => string
 type UpdateManualFormData = (
   patch: ReturnType<typeof buildManualChatFieldUpdateBridge>['formPatch']
 ) => void
