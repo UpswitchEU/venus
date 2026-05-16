@@ -142,7 +142,8 @@ export function useStartupBenchmark(
       return
     }
     if (cache.has(key)) {
-      setState({ row: cache.get(key)!, loading: false, fallback: false })
+      const cachedRow = cache.get(key)
+      if (cachedRow) setState({ row: cachedRow, loading: false, fallback: false })
       return
     }
     let active = true

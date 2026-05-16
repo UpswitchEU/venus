@@ -34,7 +34,8 @@ export class RequestDeduplicator {
    */
   async dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
     // Check if request is already pending
-    if (this.pendingRequests.has(key)) {
+    const pending = this.pendingRequests.get(key)
+    if (pending) {
       const count = this.requestCounts.get(key) || 0
       this.requestCounts.set(key, count + 1)
 
@@ -43,7 +44,7 @@ export class RequestDeduplicator {
         dedupedCount: count + 1,
       })
 
-      return this.pendingRequests.get(key)! as Promise<T>
+      return pending as Promise<T>
     }
 
     // Start new request and cache promise

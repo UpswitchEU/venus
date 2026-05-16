@@ -44,7 +44,7 @@ describe('versionDiffDetection', () => {
       const newData = {
         ...baseData,
         current_year_data: {
-          ...baseData.current_year_data!,
+          ...(baseData.current_year_data ?? {}),
           revenue: 2500000, // +25%
         },
       }
@@ -64,7 +64,7 @@ describe('versionDiffDetection', () => {
         revenue: 3_000_000,
         ebitda: 600_000,
         current_year_data: {
-          ...baseData.current_year_data!,
+          ...(baseData.current_year_data ?? {}),
           revenue: 1_000_000,
           ebitda: 100_000,
         },
@@ -85,7 +85,7 @@ describe('versionDiffDetection', () => {
       const newData = {
         ...baseData,
         current_year_data: {
-          ...baseData.current_year_data!,
+          ...(baseData.current_year_data ?? {}),
           ebitda: 750000, // +50%
         },
       }
@@ -102,7 +102,7 @@ describe('versionDiffDetection', () => {
       const newData = {
         ...baseData,
         current_year_data: {
-          ...baseData.current_year_data!,
+          ...(baseData.current_year_data ?? {}),
           revenue: 2500000,
           ebitda: 750000,
           total_assets: 1200000,
@@ -121,7 +121,7 @@ describe('versionDiffDetection', () => {
       const newData = {
         ...baseData,
         current_year_data: {
-          ...baseData.current_year_data!,
+          ...(baseData.current_year_data ?? {}),
           revenue: 2500000, // +25% (significant)
           ebitda: 505000, // +1% (not significant)
         },

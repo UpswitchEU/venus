@@ -812,21 +812,23 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         // Generate highlights
         const highlights = []
         if (changes.revenue) {
+          const percentChange = changes.revenue.percentChange ?? 0
           highlights.push({
             field: 'revenue',
             label: 'Revenue',
             oldValue: changes.revenue.from,
             newValue: changes.revenue.to,
-            impact: `${changes.revenue.percentChange! > 0 ? '+' : ''}${changes.revenue.percentChange?.toFixed(1)}%`,
+            impact: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`,
           })
         }
         if (changes.ebitda) {
+          const percentChange = changes.ebitda.percentChange ?? 0
           highlights.push({
             field: 'ebitda',
             label: 'EBITDA',
             oldValue: changes.ebitda.from,
             newValue: changes.ebitda.to,
-            impact: `${changes.ebitda.percentChange! > 0 ? '+' : ''}${changes.ebitda.percentChange?.toFixed(1)}%`,
+            impact: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`,
           })
         }
 

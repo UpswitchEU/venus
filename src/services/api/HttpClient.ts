@@ -325,13 +325,16 @@ export class HttpClient {
     config: InternalAxiosRequestConfig,
     options: APIRequestConfig
   ): Promise<T> {
+    const retry = options.retry
+    if (!retry) throw new Error('Retry options are required for retryable requests')
+
     const {
       maxRetries = 3,
       initialDelay = 1000,
       maxDelay = 10000,
       backoffMultiplier = 2,
       shouldRetry = this.shouldRetryError,
-    } = options.retry!
+    } = retry
 
     if (!options.idempotencyKey && !options.skipIdempotency) {
       options = { ...options, idempotencyKey: generateIdempotencyKey() }
@@ -561,8 +564,9 @@ export class HttpClient {
     } finally {
       // Cleanup
       this.activeRequests.delete(correlationId)
-      if (this.requestTimeouts.has(correlationId)) {
-        clearTimeout(this.requestTimeouts.get(correlationId)!)
+      const timeout = this.requestTimeouts.get(correlationId)
+      if (timeout) {
+        clearTimeout(timeout)
         this.requestTimeouts.delete(correlationId)
       }
     }

@@ -38,7 +38,7 @@ export function mergeSessionDataEnvelopesFromRoot(
   const snakeObj = rawSnakeObj && Object.keys(rawSnakeObj).length === 0 ? null : rawSnakeObj
 
   if (!sdObj && !snakeObj) return {}
-  if (!sdObj) return { ...snakeObj! }
+  if (!sdObj) return { ...(snakeObj ?? {}) }
   if (!snakeObj) return { ...sdObj }
   return { ...snakeObj, ...sdObj }
 }

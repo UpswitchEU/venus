@@ -291,7 +291,7 @@ export class RequestQueue {
             retryCount: request.retryCount,
             maxRetries: request.maxRetries,
           })
-          await this.remove(request.id!)
+          if (request.id) await this.remove(request.id)
           failed++
           continue
         }
@@ -309,7 +309,7 @@ export class RequestQueue {
             id: request.id,
             url: request.url,
           })
-          await this.remove(request.id!)
+          if (request.id) await this.remove(request.id)
           succeeded++
         } else {
           // Failed - increment retry count

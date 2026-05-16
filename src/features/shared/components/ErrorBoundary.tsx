@@ -90,9 +90,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // App-level: fullPage. Feature/component/network: modal (less disruptive)
       const config = getErrorConfig(level)
       const variant = level === 'app' ? 'fullPage' : 'modal'
+      if (!error) return null
+
       return (
         <ErrorFallback
-          error={error!}
+          error={error}
           reset={this.handleReset}
           homeHref="/"
           title={config.title}

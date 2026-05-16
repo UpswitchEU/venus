@@ -20,6 +20,7 @@ import {
   type MercuryAuthBootstrap,
 } from '@/utils/auth/mercury-auth-bootstrap'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
+import { extractAuthMeUserPayload } from '@/utils/auth/parse-auth-me-response'
 import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
@@ -417,7 +418,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       }
 
       const data = await response.json()
-      const user = data.success ? data.data?.user || data.data : data.user || data
+      const user = extractAuthMeUserPayload(data)
 
       if (!user || !user.id) {
         return {
@@ -431,9 +432,9 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const identity: IdentityState = {
         type: 'authenticated',
         userId: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        email: typeof user.email === 'string' ? user.email : undefined,
+        firstName: typeof user.first_name === 'string' ? user.first_name : undefined,
+        lastName: typeof user.last_name === 'string' ? user.last_name : undefined,
       }
 
       this.logger.info('[AuthResolver] Cookie auth resolved', {

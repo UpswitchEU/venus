@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LogoutListener } from '../src/components/LogoutListener'
+import { TooltipProvider } from '../src/design-system'
 import { ToastProvider } from '../src/hooks/useToast'
 import { ScrollToTop } from '../src/utils'
 import { generalLogger } from '../src/utils/logger'
@@ -72,13 +73,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
-      <ErrorBoundary>
-        <>
-          <LogoutListener />
-          <ScrollToTop />
-          {children}
-        </>
-      </ErrorBoundary>
+      <TooltipProvider>
+        <ErrorBoundary>
+          <>
+            <LogoutListener />
+            <ScrollToTop />
+            {children}
+          </>
+        </ErrorBoundary>
+      </TooltipProvider>
       <Toaster
         position="bottom-right"
         theme="dark"

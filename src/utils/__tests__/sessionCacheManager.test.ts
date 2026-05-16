@@ -57,8 +57,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       const cached = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
       expect(cached).toBeTruthy()
+      if (!cached) throw new Error('Expected cached session')
 
-      const parsed = JSON.parse(cached!)
+      const parsed = JSON.parse(cached)
       expect(parsed.version).toBeTruthy()
       expect(parsed.version).toBe(completeSession.updatedAt?.toString())
     })
@@ -74,7 +75,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const after = Date.now()
 
       const cached = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
-      const parsed = JSON.parse(cached!)
+      expect(cached).toBeTruthy()
+      if (!cached) throw new Error('Expected cached session')
+      const parsed = JSON.parse(cached)
 
       const versionMs = Date.parse(parsed.version)
       expect(Number.isFinite(versionMs)).toBe(true)

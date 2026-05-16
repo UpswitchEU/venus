@@ -37,22 +37,28 @@ export class ValuationService implements IValuationService {
 
       // Use existing manual valuation stream service
       // This is a temporary adapter - should be refactored to not use streaming
-      const result = await new Promise<ValuationResponse>(async (resolve, reject) => {
+      const result = await new Promise<ValuationResponse>((resolve, reject) => {
         let finalResult: ValuationResponse | null = null
+        let stream: EventSource | null = null
 
-        const stream = await manualValuationStreamService.streamManualValuation(request, {
-          onComplete: (htmlReport: string, valuationId: string, fullResponse?: any) => {
-            finalResult = {
-              ...fullResponse,
-              html_report: htmlReport,
-              valuation_id: valuationId,
-            } as ValuationResponse
-            resolve(finalResult)
-          },
-          onError: (error: string) => {
-            reject(new Error(error))
-          },
-        })
+        manualValuationStreamService
+          .streamManualValuation(request, {
+            onComplete: (htmlReport: string, valuationId: string, fullResponse?: any) => {
+              finalResult = {
+                ...fullResponse,
+                html_report: htmlReport,
+                valuation_id: valuationId,
+              } as ValuationResponse
+              resolve(finalResult)
+            },
+            onError: (error: string) => {
+              reject(new Error(error))
+            },
+          })
+          .then((activeStream) => {
+            stream = activeStream
+          })
+          .catch(reject)
 
         // Outer wrapper timeout — must be ≥ the inner stream cascade
         // (`manualValuationStreamService.DEFAULT_TIMEOUT` = 85_000) plus
@@ -66,7 +72,7 @@ export class ValuationService implements IValuationService {
             resolve(finalResult)
           } else {
             reject(new Error('Valuation calculation timed out'))
-            stream.close()
+            stream?.close()
           }
         }, 90000) // 90s — must exceed stream cascade (85s)
       })

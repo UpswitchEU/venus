@@ -31,7 +31,7 @@ export interface StaggerConfig {
  * Returns variants for use with motion components
  */
 export function useStaggerContainer(config: StaggerConfig = {}) {
-  const { staggerChildren = 0.05, delayChildren = 0, spring = 'default' } = config
+  const { staggerChildren = 0.05, delayChildren = 0 } = config
 
   const prefersReducedMotion = useReducedMotion()
 

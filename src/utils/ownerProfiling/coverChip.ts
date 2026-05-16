@@ -257,12 +257,12 @@ export function deriveOwnerProfilingChipPreferSessionThenResult(
     | null
     | undefined
 ): OwnerProfilingChip | null {
-  if (hasCompleteOwnerProfilingPair(session)) {
-    const fromSession = deriveOwnerProfilingChip(session!)
+  if (session && hasCompleteOwnerProfilingPair(session)) {
+    const fromSession = deriveOwnerProfilingChip(session)
     if (fromSession) return fromSession
   }
-  if (hasCompleteOwnerProfilingPair(result)) {
-    const fromResult = deriveOwnerProfilingChip(result!)
+  if (result && hasCompleteOwnerProfilingPair(result)) {
+    const fromResult = deriveOwnerProfilingChip(result)
     if (fromResult) return fromResult
   }
   return null

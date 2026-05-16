@@ -131,7 +131,8 @@ describe('SCENARIO_PRESETS', () => {
 
   it('the chip applied with `projectSuggestedMultiple` produces the canonical band-midpoint', () => {
     // bench=5.5 → distressed midPct=35 (discount) → 5.5 × 0.65 = 3.575 → 3.58
-    const distressed = SCENARIO_PRESETS.find((p) => p.id === 'distressed')!
+    const distressed = SCENARIO_PRESETS.find((p) => p.id === 'distressed')
+    if (!distressed) throw new Error('Missing distressed scenario preset')
     expect(projectSuggestedMultiple(5.5, distressed.band)).toBe(3.58)
   })
 })
@@ -139,13 +140,17 @@ describe('SCENARIO_PRESETS', () => {
 describe('projectSuggestedMultiple', () => {
   it('applies a discount factor (1 − midPct/100) to the benchmark', () => {
     // key-person discount midPct=25 → 5.50× × 0.75 = 4.13×
-    const projected = projectSuggestedMultiple(5.5, SUGGESTED_DELTA_BAND.key_person_discount!)
+    const band = SUGGESTED_DELTA_BAND.key_person_discount
+    if (!band) throw new Error('Missing key-person discount band')
+    const projected = projectSuggestedMultiple(5.5, band)
     expect(projected).toBe(4.13)
   })
 
   it('applies a premium factor (1 + midPct/100) to the benchmark', () => {
     // strategic-buyer premium midPct=25 → 5.50× × 1.25 = 6.88×
-    const projected = projectSuggestedMultiple(5.5, SUGGESTED_DELTA_BAND.strategic_buyer_premium!)
+    const band = SUGGESTED_DELTA_BAND.strategic_buyer_premium
+    if (!band) throw new Error('Missing strategic-buyer premium band')
+    const projected = projectSuggestedMultiple(5.5, band)
     expect(projected).toBe(6.88)
   })
 

@@ -533,7 +533,8 @@ function syncSession(state: SessionBootstrapState): void {
       logger.debug('Session already in store, checking for prefill updates', {
         reportId: report.reportId.substring(0, 30),
       })
-      const currentSession = sessionStore.session!
+      const currentSession = sessionStore.session
+      if (!currentSession) return
       const currentSessionData = currentSession.sessionData || {}
       const hasPrefill = hasMeaningfulPrefill(prefillData)
       const prefillSessionFields = hasPrefill ? buildPrefillSessionFields(prefillData) : {}

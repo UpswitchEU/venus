@@ -186,7 +186,7 @@ export class SessionBootstrapService {
 
     // Guard 2: Result cache
     if (this.hasCompletedFor(context.reportId)) {
-      return this.lastSuccessfulResult!
+      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
     }
 
     const opts = { ...DEFAULT_OPTIONS, ...options }
@@ -610,7 +610,7 @@ export class SessionBootstrapService {
       this.logger.info(
         `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
       )
-      return this.lastSuccessfulResult!
+      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
     }
 
     const cacheKey = `titan:${this.getCacheKey(context)}`

@@ -93,6 +93,12 @@ export const SUGGESTED_DELTA_BAND: Record<PreparerEbitdaReasonKey, SuggestedBand
   other: null,
 }
 
+function requireSuggestedBand(reasonKey: PreparerEbitdaReasonKey): SuggestedBand {
+  const band = SUGGESTED_DELTA_BAND[reasonKey]
+  if (!band) throw new Error(`Missing suggested band for ${reasonKey}`)
+  return band
+}
+
 /**
  * Detect the strongest dossier signal that supports a calibration override.
  *
@@ -160,7 +166,7 @@ export function detectDossierSignal(input: DetectInput): DossierSignal | null {
     (ownerRisk === 'CRITICAL' || ownerRisk === 'HIGH') &&
     !engineAlreadyDiscountsFor(/owner|key.?person|concentratie|concentration/i, ownerSteps)
   ) {
-    const band = SUGGESTED_DELTA_BAND.key_person_discount!
+    const band = requireSuggestedBand('key_person_discount')
     return {
       reasonKey: 'key_person_discount',
       band,
@@ -177,7 +183,7 @@ export function detectDossierSignal(input: DetectInput): DossierSignal | null {
     ccPct >= 0.25 &&
     !engineAlreadyDiscountsFor(/customer|client|concentratie|concentration/i, ownerSteps)
   ) {
-    const band = SUGGESTED_DELTA_BAND.customer_concentration!
+    const band = requireSuggestedBand('customer_concentration')
     return {
       reasonKey: 'customer_concentration',
       band,
@@ -195,7 +201,7 @@ export function detectDossierSignal(input: DetectInput): DossierSignal | null {
     rrPct >= 0.6 &&
     !engineAlreadyDiscountsFor(/recurring|terugkerend/i, ownerSteps)
   ) {
-    const band = SUGGESTED_DELTA_BAND.recurring_revenue_premium!
+    const band = requireSuggestedBand('recurring_revenue_premium')
     return {
       reasonKey: 'recurring_revenue_premium',
       band,
@@ -254,28 +260,28 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
     id: 'distressed',
     reasonKey: 'distressed_sale',
-    band: SUGGESTED_DELTA_BAND.distressed_sale!,
+    band: requireSuggestedBand('distressed_sale'),
     labelI18nKey: 'presetDistressed',
     hintI18nKey: 'presetDistressedHint',
   },
   {
     id: 'strategic_buyer',
     reasonKey: 'strategic_buyer_premium',
-    band: SUGGESTED_DELTA_BAND.strategic_buyer_premium!,
+    band: requireSuggestedBand('strategic_buyer_premium'),
     labelI18nKey: 'presetStrategicBuyer',
     hintI18nKey: 'presetStrategicBuyerHint',
   },
   {
     id: 'recurring_premium',
     reasonKey: 'recurring_revenue_premium',
-    band: SUGGESTED_DELTA_BAND.recurring_revenue_premium!,
+    band: requireSuggestedBand('recurring_revenue_premium'),
     labelI18nKey: 'presetRecurringPremium',
     hintI18nKey: 'presetRecurringPremiumHint',
   },
   {
     id: 'customer_concentration',
     reasonKey: 'customer_concentration',
-    band: SUGGESTED_DELTA_BAND.customer_concentration!,
+    band: requireSuggestedBand('customer_concentration'),
     labelI18nKey: 'presetCustomerConcentration',
     hintI18nKey: 'presetCustomerConcentrationHint',
   },

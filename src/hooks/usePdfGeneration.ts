@@ -234,7 +234,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     })
 
     try {
-      const ctrl = abortControllerRef.current!
+      const ctrl = abortControllerRef.current
+      if (!ctrl) throw new Error('PDF generation was not initialized')
       const combinedSignal =
         typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function'
           ? AbortSignal.any([ctrl.signal, AbortSignal.timeout(130_000)])

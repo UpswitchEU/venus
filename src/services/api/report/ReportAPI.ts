@@ -313,8 +313,9 @@ export class ReportAPI extends HttpClient {
     } finally {
       // Cleanup
       this.activeRequests.delete(correlationId)
-      if (this.requestTimeouts.has(correlationId)) {
-        clearTimeout(this.requestTimeouts.get(correlationId)!)
+      const timeout = this.requestTimeouts.get(correlationId)
+      if (timeout) {
+        clearTimeout(timeout)
         this.requestTimeouts.delete(correlationId)
       }
     }

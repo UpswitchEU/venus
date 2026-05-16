@@ -27,6 +27,7 @@ import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
+import { extractAuthMeUserPayload } from '../utils/auth/parse-auth-me-response'
 import { MERCURY_ADVISOR_URL_MODE } from '../utils/reportMode'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
@@ -192,13 +193,17 @@ function wasRecentlyInitialized(): boolean {
 function markInitSuccess(): void {
   try {
     sessionStorage.setItem(INIT_SUCCESS_KEY, String(Date.now()))
-  } catch { /* ignore non-critical failure */ }
+  } catch {
+    /* ignore non-critical failure */
+  }
 }
 
 export function clearInitThrottle(): void {
   try {
     sessionStorage.removeItem(INIT_SUCCESS_KEY)
-  } catch { /* ignore non-critical failure */ }
+  } catch {
+    /* ignore non-critical failure */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +238,9 @@ export function clearReloadCounter(): void {
   try {
     sessionStorage.removeItem(RELOAD_COUNT_KEY)
     sessionStorage.removeItem(RELOAD_WINDOW_KEY)
-  } catch { /* ignore non-critical failure */ }
+  } catch {
+    /* ignore non-critical failure */
+  }
 }
 
 /**
@@ -517,7 +524,8 @@ export const useAuthStore = create<AuthState>()(
                   setActiveRefreshPromise(promise)
                 }
 
-                const refreshSuccess = await getActiveRefreshPromise()!
+                const activeRefreshPromise = getActiveRefreshPromise()
+                const refreshSuccess = activeRefreshPromise ? await activeRefreshPromise : false
 
                 if (abortCheckSessionIfLoggingOut()) return null
 
@@ -535,7 +543,7 @@ export const useAuthStore = create<AuthState>()(
 
                   if (retryResponse.ok) {
                     const data = await retryResponse.json()
-                    const user = data.success ? data.data?.user || data.data : data.user || data
+                    const user = extractAuthMeUserPayload(data) as User | null
 
                     if (user) {
                       if (abortCheckSessionIfLoggingOut()) return null
@@ -576,8 +584,7 @@ export const useAuthStore = create<AuthState>()(
 
             if (response.ok) {
               const data = await response.json()
-              // Handle different response formats (Mercury wraps, Titan returns directly)
-              const user = data.success ? data.data?.user || data.data : data.user || data
+              const user = extractAuthMeUserPayload(data) as User | null
 
               if (user) {
                 if (abortCheckSessionIfLoggingOut()) return null

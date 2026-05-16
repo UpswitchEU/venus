@@ -73,7 +73,6 @@ export function useViewportAnimation<T extends HTMLElement = HTMLDivElement>(
   const {
     viewport = 'default',
     spring = 'default',
-    variant = 'fadeUp',
     once = true,
     delay = 0,
     inViewOptions,

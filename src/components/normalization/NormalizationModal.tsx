@@ -335,100 +335,100 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                         key={customId}
                         className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-3"
                       >
-                      <div className="flex items-start justify-between mb-3">
-                        <input
-                          type="text"
-                          value={custom.description}
-                          onChange={(e) =>
-                            updateCustomAdjustment(
-                              year,
-                              customId,
-                              e.target.value,
-                              custom.amount,
-                              custom.note
-                            )
-                          }
-                          placeholder="Enter adjustment description (e.g., 'Seasonal adjustment for Q4')"
-                          className="flex-1 mr-2 px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-card text-slate-ink"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeCustomAdjustment(year, customId)}
-                          className="text-rust-600 hover:text-rust-700 p-2"
-                          title="Remove custom adjustment"
-                        >
-                          <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        <div className="flex items-start justify-between mb-3">
+                          <input
+                            type="text"
+                            value={custom.description}
+                            onChange={(e) =>
+                              updateCustomAdjustment(
+                                year,
+                                customId,
+                                e.target.value,
+                                custom.amount,
+                                custom.note
+                              )
+                            }
+                            placeholder="Enter adjustment description (e.g., 'Seasonal adjustment for Q4')"
+                            className="flex-1 mr-2 px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-card text-slate-ink"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeCustomAdjustment(year, customId)}
+                            className="text-rust-600 hover:text-rust-700 p-2"
+                            title="Remove custom adjustment"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                      </div>
+                            <svg
+                              className="h-5 w-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
-                              €
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="-?[0-9]*"
-                              value={custom.amount?.toString() || '0'}
-                              onChange={(e) => {
-                                const cleanedValue = e.target.value.replace(/,/g, '')
-                                const numValue = parseFiniteAmount(cleanedValue)
-                                updateCustomAdjustment(
-                                  year,
-                                  customId,
-                                  custom.description,
-                                  numValue,
-                                  custom.note
-                                )
-                              }}
-                              className="w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
-                              placeholder="0"
-                            />
-                            <label className="absolute left-8 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
-                              Amount (€)
-                            </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
+                                €
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="-?[0-9]*"
+                                value={custom.amount?.toString() || '0'}
+                                onChange={(e) => {
+                                  const cleanedValue = e.target.value.replace(/,/g, '')
+                                  const numValue = parseFiniteAmount(cleanedValue)
+                                  updateCustomAdjustment(
+                                    year,
+                                    customId,
+                                    custom.description,
+                                    numValue,
+                                    custom.note
+                                  )
+                                }}
+                                className="w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
+                                placeholder="0"
+                              />
+                              <label className="absolute left-8 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
+                                Amount (€)
+                              </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Positive adds, negative reduces
+                            </p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Positive adds, negative reduces
-                          </p>
-                        </div>
-                        <div>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={custom.note || ''}
-                              onChange={(e) =>
-                                updateCustomAdjustment(
-                                  year,
-                                  customId,
-                                  custom.description,
-                                  custom.amount,
-                                  e.target.value
-                                )
-                              }
-                              className="w-full h-14 px-4 pt-6 pb-2 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
-                              placeholder="Additional context..."
-                            />
-                            <label className="absolute left-4 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
-                              Note (optional)
-                            </label>
+                          <div>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={custom.note || ''}
+                                onChange={(e) =>
+                                  updateCustomAdjustment(
+                                    year,
+                                    customId,
+                                    custom.description,
+                                    custom.amount,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full h-14 px-4 pt-6 pb-2 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
+                                placeholder="Additional context..."
+                              />
+                              <label className="absolute left-4 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
+                                Note (optional)
+                              </label>
+                            </div>
                           </div>
                         </div>
-                      </div>
                       </div>
                     )
                   })}

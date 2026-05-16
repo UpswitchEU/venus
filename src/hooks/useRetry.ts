@@ -167,7 +167,7 @@ export function withRetry<T extends (...args: any[]) => Promise<any>>(
   options: RetryOptions = {}
 ): T {
   return ((...args: Parameters<T>) => {
-    let lastError: Error
+    let lastError: Error | undefined
 
     const retryOptions = {
       maxRetries: 3,
@@ -202,7 +202,7 @@ export function withRetry<T extends (...args: any[]) => Promise<any>>(
         }
       }
 
-      throw lastError!
+      throw lastError ?? new Error('Retry failed without an error')
     })()
   }) as unknown as T
 }

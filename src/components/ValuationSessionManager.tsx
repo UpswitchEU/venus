@@ -51,6 +51,8 @@ import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
+const MERCURY_OPTIMISTIC_SHELL_DELAY_MS = 1200
+
 interface ValuationSessionManagerProps {
   reportId: string
   initialMode?: 'edit' | 'view'
@@ -183,9 +185,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const session = useSessionStore((state) => state.session)
     const sessionHasAssets = hasAssetsInSession(session)
     const requiresRenderableAssets =
-      (bootstrapHasExistingSession &&
+      !isFromMercury &&
+      ((bootstrapHasExistingSession &&
         (!!bootstrap?.report.hasExistingData || bootstrap?.report.reportReady === false)) ||
-      session?.reportReady === false
+        session?.reportReady === false)
 
     // ✅ RACE CONDITION FIX: Track if we've already initiated loading for this reportId
     // This prevents multiple concurrent loads when dependencies change rapidly
@@ -196,6 +199,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ✅ LOOP FIX: Track restoration completion to prevent repeated restore() calls
     // when the effect re-runs due to bootstrap/context updates
     const restorationCompletedForReportIdRef = useRef<string | null>(null)
+    const optimisticMercuryShellSeededRef = useRef<string | null>(null)
     /** One-shot: redirect off stale deleted-report URLs after load failure */
     const staleRecoveryAttemptedRef = useRef(false)
 
@@ -205,8 +209,49 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrapRetryRef.current = false
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
+      optimisticMercuryShellSeededRef.current = null
       staleRecoveryAttemptedRef.current = false
     }, [])
+
+    // Mercury handoff should never hold the whole calculator behind a slow
+    // bootstrap/session refresh. After a short skeleton window, seed a minimal
+    // local shell so ManualLayout can mount; useCanSave keeps destructive
+    // actions disabled until auth + bootstrap have settled, and the real
+    // session/prefill payload merges in through useBootstrapSync/loadSession.
+    useEffect(() => {
+      if (!isFromMercury || !isBootstrapping) return
+      if (!reportId || reportId === 'new') return
+      if (!urlIndicatesExisting) return
+      if (session?.reportId === reportId || status !== 'idle') return
+      if (optimisticMercuryShellSeededRef.current === reportId) return
+
+      const timer = window.setTimeout(() => {
+        const current = useSessionStore.getState()
+        if (current.session?.reportId === reportId || current.status !== 'idle') return
+
+        const now = new Date()
+        optimisticMercuryShellSeededRef.current = reportId
+        current.hydrateSession({
+          reportId,
+          currentView: 'manual',
+          dataSource: 'manual',
+          createdAt: now,
+          updatedAt: now,
+          partialData: {},
+          sessionData: {
+            _bootstrapPrefill: false,
+            _optimisticMercuryShell: true,
+          } as ValuationSession['sessionData'],
+        })
+        useSessionStore.getState().completeInitialization()
+        generalLogger.info('[SessionManager] Seeded optimistic Mercury shell', {
+          reportId: reportId.substring(0, 30),
+          delayMs: MERCURY_OPTIMISTIC_SHELL_DELAY_MS,
+        })
+      }, MERCURY_OPTIMISTIC_SHELL_DELAY_MS)
+
+      return () => window.clearTimeout(timer)
+    }, [isBootstrapping, isFromMercury, reportId, session?.reportId, status, urlIndicatesExisting])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
@@ -688,8 +733,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       detectedFlow,
       isBootstrapping,
       bootstrapHasSession,
-      bootstrap.report.hasExistingData,
-      bootstrap.report.reportReady,
+      bootstrap?.report.hasExistingData,
+      bootstrap?.report.reportReady,
       bootstrap?.report.mode,
       bootstrapComplete,
       bootstrapHasExistingSession,
