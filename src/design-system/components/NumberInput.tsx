@@ -108,7 +108,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
     const internalRef = React.useRef<HTMLInputElement>(null)
     const actualRef = inputRef || internalRef
 
-    React.useImperativeHandle(ref, () => actualRef.current!)
+    React.useImperativeHandle(ref, () => actualRef.current as HTMLInputElement)
 
     const hasError = error && touched
     const hasValue = value !== '' && value !== undefined && value !== null

@@ -187,7 +187,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const portalDropdownRef = React.useRef<HTMLDivElement>(null)
 
     // Combine refs
-    React.useImperativeHandle(ref, () => containerRef.current!)
+    React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     const value = controlledValue !== undefined ? controlledValue : internalValue
 

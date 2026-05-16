@@ -307,7 +307,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const abortControllerRef = React.useRef<AbortController | null>(null)
     const timedOutRef = React.useRef(false)
 
-    React.useImperativeHandle(ref, () => inputRef.current!)
+    React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement)
 
     const trimmedValue = value.trim()
     const trimmedValueLength = trimmedValue.length
@@ -1307,7 +1307,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
     const containerRef = React.useRef<HTMLDivElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
 
-    React.useImperativeHandle(ref, () => inputRef.current!)
+    React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement)
 
     const selectedType = React.useMemo(() => types.find((t) => t.id === value), [value, types])
 

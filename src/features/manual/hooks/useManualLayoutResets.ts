@@ -44,7 +44,6 @@ export interface UseManualLayoutResetsParams {
 
 export function useManualLayoutResets(params: UseManualLayoutResetsParams): void {
   const {
-    reportId,
     result,
     isStartupAssistantRoute,
     setIsDirty,

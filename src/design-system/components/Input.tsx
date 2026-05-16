@@ -274,7 +274,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
     const actualRef = inputRef || internalRef
 
     // Combine refs
-    React.useImperativeHandle(ref, () => actualRef.current!)
+    React.useImperativeHandle(ref, () => actualRef.current as HTMLInputElement)
 
     // Sync hasValue with actual input value on mount and when value/defaultValue changes
     React.useEffect(() => {
@@ -591,7 +591,7 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     const [shouldShake, setShouldShake] = React.useState(false)
     const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
-    React.useImperativeHandle(ref, () => textareaRef.current!)
+    React.useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement)
 
     // Sync hasValue with actual textarea value on mount and when value/defaultValue changes
     React.useEffect(() => {

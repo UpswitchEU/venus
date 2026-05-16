@@ -327,11 +327,14 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                     normalizations
                   </p>
 
-                  {(normalization.custom_adjustments || []).map((custom) => (
-                    <div
-                      key={custom.id}
-                      className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-3"
-                    >
+                  {(normalization.custom_adjustments || []).map((custom) => {
+                    const customId = custom.id
+                    if (!customId) return null
+                    return (
+                      <div
+                        key={customId}
+                        className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-3"
+                      >
                       <div className="flex items-start justify-between mb-3">
                         <input
                           type="text"
@@ -339,7 +342,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                           onChange={(e) =>
                             updateCustomAdjustment(
                               year,
-                              custom.id!,
+                              customId,
                               e.target.value,
                               custom.amount,
                               custom.note
@@ -350,7 +353,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                         />
                         <button
                           type="button"
-                          onClick={() => removeCustomAdjustment(year, custom.id!)}
+                          onClick={() => removeCustomAdjustment(year, customId)}
                           className="text-rust-600 hover:text-rust-700 p-2"
                           title="Remove custom adjustment"
                         >
@@ -386,7 +389,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                                 const numValue = parseFiniteAmount(cleanedValue)
                                 updateCustomAdjustment(
                                   year,
-                                  custom.id!,
+                                  customId,
                                   custom.description,
                                   numValue,
                                   custom.note
@@ -411,7 +414,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               onChange={(e) =>
                                 updateCustomAdjustment(
                                   year,
-                                  custom.id!,
+                                  customId,
                                   custom.description,
                                   custom.amount,
                                   e.target.value
@@ -426,8 +429,9 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                      </div>
+                    )
+                  })}
 
                   <button
                     type="button"

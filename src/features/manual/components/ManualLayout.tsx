@@ -350,8 +350,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Venus infrastructure
   const { user } = useAuth()
-  const { allowedMethodKeys, planFeatures, plan } = useCredits()
-  const { identity, isAccountantFlow, prefillData } = useBootstrap()
+  const { allowedMethodKeys, planFeatures } = useCredits()
+  const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
@@ -365,7 +365,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // with a shallow-equal comparator so Object.is-on-state-root is bypassed.
   const {
     isCalculating,
-    error,
     result,
     selectedMethod,
     setSelectedMethod,
@@ -378,7 +377,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   } = useManualResultsStore(
     useShallow((s) => ({
       isCalculating: s.isCalculating,
-      error: s.error,
       result: s.result,
       selectedMethod: s.selectedMethod,
       setSelectedMethod: s.setSelectedMethod,
@@ -459,7 +457,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     state: pdfGenerationState,
     generatePdf,
     downloadPdf,
-    isGenerating: isPdfGenerating,
     isReady: isPdfReady,
   } = usePdfGeneration(resolvedReportId ?? reportId)
   const preparerAppliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
@@ -1225,7 +1222,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 size="sm"
                 variant="outline"
                 disabled={isPdfRetrying}
-                onClick={() => window.open(report.pdfUrl!, '_blank', 'noopener,noreferrer')}
+                onClick={() => {
+                  if (report.pdfUrl) window.open(report.pdfUrl, '_blank', 'noopener,noreferrer')
+                }}
               >
                 {t('pdfOpenLastVersion')}
               </AuroraButton>

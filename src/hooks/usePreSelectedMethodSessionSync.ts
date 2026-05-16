@@ -64,13 +64,7 @@ export function usePreSelectedMethodSessionSync({
   hasValuationResult,
   allowedMethodsForNav,
 }: UsePreSelectedMethodSessionSyncParams): void {
-  const {
-    preSelectedMethod,
-    selectedMethod,
-    preSelectedMethods,
-    userWeights,
-    userWeightJustification,
-  } = useManualResultsStore(
+  useManualResultsStore(
     (s) => ({
       preSelectedMethod: s.preSelectedMethod,
       selectedMethod: s.selectedMethod,

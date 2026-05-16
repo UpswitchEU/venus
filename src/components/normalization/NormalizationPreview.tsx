@@ -189,7 +189,9 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                     {onRemoveCustomAdjustment && adj.id && (
                       <button
                         type="button"
-                        onClick={() => onRemoveCustomAdjustment(adj.id!)}
+                        onClick={() => {
+                          if (adj.id) onRemoveCustomAdjustment(adj.id)
+                        }}
                         className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
                         title={t('actions.removeAdjustment')}
                       >
