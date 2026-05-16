@@ -19,7 +19,7 @@
  * the API route already sets `s-maxage` headers for the CDN.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getRegionalBaseline,
   type StartupRegionalBaseline,
@@ -122,31 +122,35 @@ export function useStartupBenchmark(
   const country = (countryCode || 'BE').toUpperCase()
   const key = cacheKey(country, stage, sector)
   const cached = cache.get(key)
-
-  const offlineBaseline = getRegionalBaseline(country, stage)
-  const fallbackRow = rowFromBaseline(offlineBaseline, sector)
+  const fallbackRow = useMemo(
+    () => rowFromBaseline(getRegionalBaseline(country, stage), sector),
+    [country, stage, sector]
+  )
 
   const [state, setState] = useState<{
+    key: string
     row: StartupBenchmarkRow
     loading: boolean
     fallback: boolean
   }>(() => ({
+    key,
     row: cached ?? fallbackRow,
-    loading: !cached,
+    loading: enabled && !cached,
     fallback: !cached,
   }))
 
   useEffect(() => {
     if (!enabled) {
-      setState({ row: fallbackRow, loading: false, fallback: true })
+      setState({ key, row: fallbackRow, loading: false, fallback: true })
       return
     }
-    if (cache.has(key)) {
-      const cachedRow = cache.get(key)
-      if (cachedRow) setState({ row: cachedRow, loading: false, fallback: false })
+    const cachedRow = cache.get(key)
+    if (cachedRow) {
+      setState({ key, row: cachedRow, loading: false, fallback: false })
       return
     }
     let active = true
+    setState({ key, row: fallbackRow, loading: true, fallback: true })
     const inflightPromise = inflight.get(key) ?? fetchBenchmarkRow(country, stage, sector)
     inflight.set(key, inflightPromise)
     inflightPromise
@@ -155,15 +159,15 @@ export function useStartupBenchmark(
         if (!active) return
         if (row) {
           cache.set(key, row)
-          setState({ row, loading: false, fallback: false })
+          setState({ key, row, loading: false, fallback: false })
         } else {
-          setState({ row: fallbackRow, loading: false, fallback: true })
+          setState({ key, row: fallbackRow, loading: false, fallback: true })
         }
       })
       .catch(() => {
         inflight.delete(key)
         if (!active) return
-        setState({ row: fallbackRow, loading: false, fallback: true })
+        setState({ key, row: fallbackRow, loading: false, fallback: true })
       })
     return () => {
       active = false
@@ -171,10 +175,20 @@ export function useStartupBenchmark(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, key, country, fallbackRow, sector, stage])
 
+  const currentState =
+    state.key === key
+      ? state
+      : {
+          key,
+          row: cached ?? fallbackRow,
+          loading: enabled && !cached,
+          fallback: !cached,
+        }
+
   return {
-    benchmark: state.row,
-    isLoading: state.loading,
-    isFallback: state.fallback,
-    publishedAt: state.row.published_at,
+    benchmark: currentState.row,
+    isLoading: currentState.loading,
+    isFallback: currentState.fallback,
+    publishedAt: currentState.row.published_at,
   }
 }

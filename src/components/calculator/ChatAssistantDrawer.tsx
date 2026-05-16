@@ -1420,6 +1420,7 @@ export function ChatAssistantDrawer({
                   'border border-foreground/[0.08]',
                   'transition-[border-color,box-shadow] duration-300',
                   'focus-within:border-primary/40',
+                  'focus-within:shadow-[0_0_40px_-12px_hsl(var(--primary)/0.18)]',
                   isInputFocused ? 'border-primary/40' : 'hover:border-foreground/[0.12]',
                   'shadow-sm'
                 )}
