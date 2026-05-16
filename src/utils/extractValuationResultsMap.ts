@@ -366,7 +366,11 @@ function hasWeightedSynthesisPayload(valuationResult: Record<string, any>): bool
 
   return candidates.some((candidate) => {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
-    return candidate.has_weighted_synthesis === true || candidate.blended_equity_value != null
+    return (
+      candidate.has_weighted_synthesis === true ||
+      candidate.synthesis_blended_value != null ||
+      candidate.blended_equity_value != null
+    )
   })
 }
 

@@ -30,6 +30,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
       belgianCompanyBootstraps: [],
+      clientDataReadinessPreviews: [],
       methodReadinessPreviews: [],
       listingPreviews: [],
       listingCreateRequests: [],
@@ -50,6 +51,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
       belgianCompanyBootstraps: [],
+      clientDataReadinessPreviews: [],
       methodReadinessPreviews: [],
       listingPreviews: [],
       listingCreateRequests: [],
@@ -594,6 +596,112 @@ describe('belgian_company_bootstrap', () => {
 })
 
 // ---------------------------------------------------------------------
+// client_data_readiness
+// ---------------------------------------------------------------------
+
+describe('client_data_readiness', () => {
+  it('parses Hermes import-review readiness into a read-only preview', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'client_data_readiness',
+        data: {
+          status: 'needs_import_review',
+          client_id: 'client-123',
+          business_name: 'Acme NV',
+          has_business_card: true,
+          has_synced_financials: true,
+          has_financial_data: true,
+          financial_synced_at: '2026-05-02T12:00:00Z',
+          stp_status: 'pending',
+          computed_stp_status: 'needs_review',
+          latest_valuation_id: 'valuation-1',
+          accounting_sources: [
+            {
+              provider: 'yuki',
+              client_key: 'admin-1',
+              is_primary_for_valuation: true,
+              last_sync_at: '2026-05-02T12:00:00Z',
+            },
+          ],
+          import_quality_summary: {
+            years: ['2024'],
+            min_confidence: 0.62,
+            error_count: 1,
+            warning_count: 2,
+            info_count: 0,
+            actionable_flag_count: 3,
+            top_flags: [
+              {
+                year: '2024',
+                field: 'ebitda',
+                code: 'UNMAPPED_LEDGER_LINES',
+                severity: 'error',
+                message: 'Unmapped ledger lines affect EBITDA.',
+              },
+            ],
+          },
+          recommended_next_action: 'Open Hermes import review before valuation.',
+          recommended_next_tool: 'open_import_review',
+          recommended_next_route: '/advisor/import-review?clientId=client-123',
+        },
+      },
+    ])
+
+    expect(result.clientDataReadinessPreviews).toEqual([
+      {
+        status: 'needs_import_review',
+        clientId: 'client-123',
+        businessName: 'Acme NV',
+        hasBusinessCard: true,
+        hasSyncedFinancials: true,
+        hasFinancialData: true,
+        financialSyncedAt: '2026-05-02T12:00:00Z',
+        stpStatus: 'pending',
+        computedStpStatus: 'needs_review',
+        latestValuationId: 'valuation-1',
+        accountingSources: [
+          {
+            provider: 'yuki',
+            clientKey: 'admin-1',
+            isPrimaryForValuation: true,
+            lastSyncAt: '2026-05-02T12:00:00Z',
+          },
+        ],
+        importQualitySummary: {
+          years: ['2024'],
+          minConfidence: 0.62,
+          errorCount: 1,
+          warningCount: 2,
+          infoCount: 0,
+          actionableFlagCount: 3,
+          topFlags: [
+            {
+              year: '2024',
+              field: 'ebitda',
+              code: 'UNMAPPED_LEDGER_LINES',
+              severity: 'error',
+              message: 'Unmapped ledger lines affect EBITDA.',
+            },
+          ],
+        },
+        recommendedNextAction: 'Open Hermes import review before valuation.',
+        recommendedNextTool: 'open_import_review',
+        recommendedNextRoute: '/advisor/import-review?clientId=client-123',
+      },
+    ])
+  })
+
+  it('drops malformed client_data_readiness envelopes', () => {
+    const result = parseAIChatToolResults([
+      { type: 'client_data_readiness', data: { client_id: 'client-123' } },
+      { type: 'client_data_readiness', data: null },
+    ])
+
+    expect(result.clientDataReadinessPreviews).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------
 // method_readiness
 // ---------------------------------------------------------------------
 
@@ -920,6 +1028,10 @@ describe('combined output', () => {
         data: { status: 'ok', identity: { legal_name: 'Acme NV' } },
       },
       {
+        type: 'client_data_readiness',
+        data: { status: 'needs_import_review', client_id: 'client-1' },
+      },
+      {
         type: 'method_readiness',
         data: {
           status: 'ok',
@@ -942,6 +1054,7 @@ describe('combined output', () => {
     expect(result.reportGenerationRequests).toHaveLength(1)
     expect(result.sellabilityRunRequests).toHaveLength(1)
     expect(result.belgianCompanyBootstraps).toHaveLength(1)
+    expect(result.clientDataReadinessPreviews).toHaveLength(1)
     expect(result.methodReadinessPreviews).toHaveLength(1)
     expect(result.listingPreviews).toHaveLength(1)
     expect(result.listingCreateRequests).toHaveLength(1)

@@ -20,6 +20,7 @@ import {
   parseAIChatToolResults,
   type BelgianCompanyBootstrap,
   type BuyerProfilePreview,
+  type ClientDataReadinessPreview,
   type ListingPreview,
   type MethodReadinessPreview,
 } from './tool-results-parser'
@@ -166,6 +167,8 @@ export interface AIChatResponse {
   }>
   /** Read-only Belgian KBO/NBB/CBSO public-data bootstrap cards. */
   belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  /** Read-only advisor-client readiness before entering Mercury/Venus valuation. */
+  clientDataReadinessPreviews?: ClientDataReadinessPreview[]
   /** Read-only valuation-method readiness before a paid ValuationIQ run. */
   methodReadinessPreviews?: MethodReadinessPreview[]
   /** Read-only anonymized marketplace-listing drafts from get_listing_preview. */
@@ -313,6 +316,9 @@ class AIChatServiceImpl {
         }
         if (parsed.belgianCompanyBootstraps.length > 0) {
           aiResponse.belgianCompanyBootstraps = parsed.belgianCompanyBootstraps
+        }
+        if (parsed.clientDataReadinessPreviews.length > 0) {
+          aiResponse.clientDataReadinessPreviews = parsed.clientDataReadinessPreviews
         }
         if (parsed.methodReadinessPreviews.length > 0) {
           aiResponse.methodReadinessPreviews = parsed.methodReadinessPreviews

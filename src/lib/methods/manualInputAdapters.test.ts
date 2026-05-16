@@ -13,6 +13,12 @@ describe('manual input method adapters', () => {
     expect(getRequiredManualInputMethodAdapter('dcf').key).toBe('dcf')
   })
 
+  it('registers SDE behind the canonical method key', () => {
+    expect(MANUAL_INPUT_METHOD_ADAPTERS.sde_multiple.key).toBe('sde_multiple')
+    expect(getManualInputMethodAdapter('sde_multiple')?.key).toBe('sde_multiple')
+    expect(getRequiredManualInputMethodAdapter('sde_multiple').key).toBe('sde_multiple')
+  })
+
   it('does not claim adapters for methods that have not been migrated yet', () => {
     expect(getManualInputMethodAdapter('ebitda_multiple')).toBeUndefined()
     expect(getManualInputMethodAdapter('adjusted_nav')).toBeUndefined()

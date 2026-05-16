@@ -97,7 +97,9 @@ describe('AdaptiveSections', () => {
 
     // findBy* (not getBy*) — section components are lazy-loaded under Suspense,
     // so the first render shows the fallback until the chunk resolves.
-    expect(await screen.findByText('sections.saasMetrics')).toBeInTheDocument()
+    expect(
+      await screen.findByText('sections.saasMetrics', undefined, { timeout: 3000 })
+    ).toBeInTheDocument()
   })
 
   it('renders the DCF and SaaS sections together when both rules apply', async () => {

@@ -1,8 +1,10 @@
 import { dcfManualInputAdapter } from './dcf/manualInputAdapter'
+import { sdeManualInputAdapter } from './sde_multiple/manualInputAdapter'
 import type { MethodKey } from './types'
 
 export const MANUAL_INPUT_METHOD_ADAPTERS = Object.freeze({
   [dcfManualInputAdapter.key]: dcfManualInputAdapter,
+  [sdeManualInputAdapter.key]: sdeManualInputAdapter,
 })
 
 export type RegisteredManualInputMethodKey = keyof typeof MANUAL_INPUT_METHOD_ADAPTERS
@@ -15,8 +17,8 @@ export function getManualInputMethodAdapter(
   return MANUAL_INPUT_METHOD_ADAPTERS[key as RegisteredManualInputMethodKey]
 }
 
-export function getRequiredManualInputMethodAdapter(
-  key: RegisteredManualInputMethodKey
-): RegisteredManualInputMethodAdapter {
+export function getRequiredManualInputMethodAdapter<K extends RegisteredManualInputMethodKey>(
+  key: K
+): (typeof MANUAL_INPUT_METHOD_ADAPTERS)[K] {
   return MANUAL_INPUT_METHOD_ADAPTERS[key]
 }

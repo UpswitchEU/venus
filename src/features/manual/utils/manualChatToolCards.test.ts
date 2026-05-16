@@ -274,6 +274,25 @@ describe('manualChatToolCards', () => {
         },
       ],
     })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'get_client_data_readiness',
+        {
+          status: 'needs_import_review',
+          client_id: 'client-1',
+          business_name: 'Acme',
+          recommended_next_tool: 'open_import_review',
+        },
+        createId
+      )?.clientDataReadinessPreviews?.[0]
+    ).toMatchObject({
+      id: 'id-10',
+      status: 'needs_import_review',
+      clientId: 'client-1',
+      businessName: 'Acme',
+      recommendedNextTool: 'open_import_review',
+    })
   })
 
   it('returns null for non-renderable stream tool results', () => {
@@ -310,6 +329,7 @@ describe('manualChatToolCards', () => {
       fieldUpdates: [{ field: 'revenue', value: 2, label: 'Revenue' }],
       reportGenerationRequests: [{ id: 'report-card', status: 'blocked' }],
       belgianCompanyBootstraps: [{ id: 'bootstrap-card', status: 'ok' }],
+      clientDataReadinessPreviews: [{ id: 'readiness-card', status: 'needs_import_review' }],
       methodReadinessPreviews: [
         { id: 'methods-card', status: 'ok', readyMethods: ['ebitda'], blockedMethods: [] },
       ],
@@ -324,6 +344,9 @@ describe('manualChatToolCards', () => {
     ])
     expect(next[1].reportGenerationRequests).toEqual([{ id: 'report-card', status: 'blocked' }])
     expect(next[1].belgianCompanyBootstraps).toEqual([{ id: 'bootstrap-card', status: 'ok' }])
+    expect(next[1].clientDataReadinessPreviews).toEqual([
+      { id: 'readiness-card', status: 'needs_import_review' },
+    ])
     expect(next[1].methodReadinessPreviews).toEqual([
       { id: 'methods-card', status: 'ok', readyMethods: ['ebitda'], blockedMethods: [] },
     ])

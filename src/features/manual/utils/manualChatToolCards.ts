@@ -7,6 +7,7 @@ type ValuationRunCard = NonNullable<ChatMessage['valuationRunRequests']>[number]
 type ReportGenerationCard = NonNullable<ChatMessage['reportGenerationRequests']>[number]
 type SellabilityRunCard = NonNullable<ChatMessage['sellabilityRunRequests']>[number]
 type BelgianCompanyBootstrapCard = NonNullable<ChatMessage['belgianCompanyBootstraps']>[number]
+type ClientDataReadinessCard = NonNullable<ChatMessage['clientDataReadinessPreviews']>[number]
 type MethodReadinessCard = NonNullable<ChatMessage['methodReadinessPreviews']>[number]
 type ListingPreviewCard = NonNullable<ChatMessage['listingPreviews']>[number]
 type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[number]
@@ -25,6 +26,7 @@ export interface ManualChatToolCards {
   reportGenerationRequests?: ReportGenerationCard[]
   sellabilityRunRequests?: SellabilityRunCard[]
   belgianCompanyBootstraps?: BelgianCompanyBootstrapCard[]
+  clientDataReadinessPreviews?: ClientDataReadinessCard[]
   methodReadinessPreviews?: MethodReadinessCard[]
   listingPreviews?: ListingPreviewCard[]
   listingCreateRequests?: ListingCreateCard[]
@@ -38,6 +40,7 @@ interface ManualChatToolCardsInput {
   reportGenerationRequests?: readonly unknown[]
   sellabilityRunRequests?: readonly unknown[]
   belgianCompanyBootstraps?: readonly unknown[]
+  clientDataReadinessPreviews?: readonly unknown[]
   methodReadinessPreviews?: readonly unknown[]
   listingPreviews?: readonly unknown[]
   listingCreateRequests?: readonly unknown[]
@@ -124,6 +127,17 @@ export function addIdsToManualChatToolCards(
   )
   pushIfAny(
     out,
+    'clientDataReadinessPreviews',
+    (cards.clientDataReadinessPreviews ?? []).map(
+      (preview) =>
+        ({
+          ...(asRecord(preview) ?? {}),
+          id: createId(),
+        }) as ClientDataReadinessCard
+    )
+  )
+  pushIfAny(
+    out,
     'methodReadinessPreviews',
     (cards.methodReadinessPreviews ?? []).map(
       (preview) =>
@@ -192,6 +206,8 @@ export function parseManualChatStreamToolResult(
         return { type: 'sellability_run_request', data }
       case 'bootstrap_belgian_company':
         return { type: 'belgian_company_bootstrap', data }
+      case 'get_client_data_readiness':
+        return { type: 'client_data_readiness', data }
       case 'get_method_readiness':
         return { type: 'method_readiness', data }
       case 'get_listing_preview':
@@ -220,6 +236,7 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.reportGenerationRequests?.length ?? 0) > 0 ||
         (cards.sellabilityRunRequests?.length ?? 0) > 0 ||
         (cards.belgianCompanyBootstraps?.length ?? 0) > 0 ||
+        (cards.clientDataReadinessPreviews?.length ?? 0) > 0 ||
         (cards.methodReadinessPreviews?.length ?? 0) > 0 ||
         (cards.listingPreviews?.length ?? 0) > 0 ||
         (cards.listingCreateRequests?.length ?? 0) > 0 ||
@@ -264,6 +281,12 @@ export function appendManualChatToolCardsToMessage(
       belgianCompanyBootstraps: [
         ...(message.belgianCompanyBootstraps ?? []),
         ...cards.belgianCompanyBootstraps,
+      ],
+    }),
+    ...(cards.clientDataReadinessPreviews && {
+      clientDataReadinessPreviews: [
+        ...(message.clientDataReadinessPreviews ?? []),
+        ...cards.clientDataReadinessPreviews,
       ],
     }),
     ...(cards.methodReadinessPreviews && {

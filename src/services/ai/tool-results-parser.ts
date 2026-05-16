@@ -169,6 +169,44 @@ export interface MethodReadinessPreview {
   message?: string
 }
 
+export interface ClientDataReadinessPreview {
+  status: string
+  clientId?: string
+  businessName?: string | null
+  hasBusinessCard?: boolean
+  hasSyncedFinancials?: boolean
+  hasFinancialData?: boolean
+  financialSyncedAt?: string | null
+  stpStatus?: string | null
+  computedStpStatus?: string | null
+  latestValuationId?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  importQualitySummary?: {
+    years: string[]
+    minConfidence?: number | null
+    errorCount?: number
+    warningCount?: number
+    infoCount?: number
+    actionableFlagCount?: number
+    topFlags?: Array<{
+      year?: string
+      field?: string | null
+      code?: string | null
+      severity?: string | null
+      message?: string | null
+    }>
+  } | null
+  recommendedNextAction?: string
+  recommendedNextTool?: string | null
+  recommendedNextRoute?: string | null
+  message?: string
+}
+
 export interface BuyerProfilePreview {
   status: 'ok' | 'blocked'
   reportId?: string
@@ -243,6 +281,7 @@ export interface ParsedToolResults {
   reportGenerationRequests: ReportGenerationRequest[]
   sellabilityRunRequests: SellabilityRunRequest[]
   belgianCompanyBootstraps: BelgianCompanyBootstrap[]
+  clientDataReadinessPreviews: ClientDataReadinessPreview[]
   methodReadinessPreviews: MethodReadinessPreview[]
   listingPreviews: ListingPreview[]
   listingCreateRequests: ListingCreateRequest[]
@@ -257,6 +296,7 @@ function emptyResult(): ParsedToolResults {
     reportGenerationRequests: [],
     sellabilityRunRequests: [],
     belgianCompanyBootstraps: [],
+    clientDataReadinessPreviews: [],
     methodReadinessPreviews: [],
     listingPreviews: [],
     listingCreateRequests: [],
@@ -335,6 +375,10 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         out.belgianCompanyBootstraps.push(...parseBelgianCompanyBootstrap(data))
         break
 
+      case 'client_data_readiness':
+        out.clientDataReadinessPreviews.push(...parseClientDataReadiness(data))
+        break
+
       case 'method_readiness':
         out.methodReadinessPreviews.push(...parseMethodReadiness(data))
         break
@@ -358,6 +402,90 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
   }
 
   return out
+}
+
+function parseClientDataReadiness(data: unknown): ClientDataReadinessPreview[] {
+  if (!data || typeof data !== 'object') return []
+  const d = data as Record<string, unknown>
+  if (typeof d.status !== 'string') return []
+
+  const sources = Array.isArray(d.accounting_sources)
+    ? d.accounting_sources
+        .filter(
+          (source): source is Record<string, unknown> =>
+            typeof source === 'object' && source !== null
+        )
+        .map((source) => ({
+          provider: typeof source.provider === 'string' ? source.provider : '',
+          clientKey: typeof source.client_key === 'string' ? source.client_key : null,
+          isPrimaryForValuation:
+            typeof source.is_primary_for_valuation === 'boolean'
+              ? source.is_primary_for_valuation
+              : undefined,
+          lastSyncAt: typeof source.last_sync_at === 'string' ? source.last_sync_at : null,
+        }))
+        .filter((source) => source.provider.length > 0)
+    : []
+  const summary =
+    d.import_quality_summary && typeof d.import_quality_summary === 'object'
+      ? (d.import_quality_summary as Record<string, unknown>)
+      : null
+  const topFlags = Array.isArray(summary?.top_flags)
+    ? summary.top_flags
+        .filter(
+          (flag): flag is Record<string, unknown> => typeof flag === 'object' && flag !== null
+        )
+        .map((flag) => ({
+          year: typeof flag.year === 'string' ? flag.year : undefined,
+          field: typeof flag.field === 'string' ? flag.field : null,
+          code: typeof flag.code === 'string' ? flag.code : null,
+          severity: typeof flag.severity === 'string' ? flag.severity : null,
+          message: typeof flag.message === 'string' ? flag.message : null,
+        }))
+    : []
+
+  return [
+    {
+      status: d.status,
+      clientId: typeof d.client_id === 'string' ? d.client_id : undefined,
+      businessName: typeof d.business_name === 'string' ? d.business_name : null,
+      hasBusinessCard: typeof d.has_business_card === 'boolean' ? d.has_business_card : undefined,
+      hasSyncedFinancials:
+        typeof d.has_synced_financials === 'boolean' ? d.has_synced_financials : undefined,
+      hasFinancialData:
+        typeof d.has_financial_data === 'boolean' ? d.has_financial_data : undefined,
+      financialSyncedAt: typeof d.financial_synced_at === 'string' ? d.financial_synced_at : null,
+      stpStatus: typeof d.stp_status === 'string' ? d.stp_status : null,
+      computedStpStatus: typeof d.computed_stp_status === 'string' ? d.computed_stp_status : null,
+      latestValuationId: typeof d.latest_valuation_id === 'string' ? d.latest_valuation_id : null,
+      accountingSources: sources,
+      importQualitySummary: summary
+        ? {
+            years: Array.isArray(summary.years)
+              ? summary.years.filter((year): year is string => typeof year === 'string')
+              : [],
+            minConfidence:
+              typeof summary.min_confidence === 'number' ? summary.min_confidence : null,
+            errorCount: typeof summary.error_count === 'number' ? summary.error_count : undefined,
+            warningCount:
+              typeof summary.warning_count === 'number' ? summary.warning_count : undefined,
+            infoCount: typeof summary.info_count === 'number' ? summary.info_count : undefined,
+            actionableFlagCount:
+              typeof summary.actionable_flag_count === 'number'
+                ? summary.actionable_flag_count
+                : undefined,
+            topFlags,
+          }
+        : null,
+      recommendedNextAction:
+        typeof d.recommended_next_action === 'string' ? d.recommended_next_action : undefined,
+      recommendedNextTool:
+        typeof d.recommended_next_tool === 'string' ? d.recommended_next_tool : null,
+      recommendedNextRoute:
+        typeof d.recommended_next_route === 'string' ? d.recommended_next_route : null,
+      message: typeof d.message === 'string' ? d.message : undefined,
+    },
+  ]
 }
 
 function parseMethodReadiness(data: unknown): MethodReadinessPreview[] {

@@ -26,6 +26,8 @@
     "bundle-report": "node scripts/analyze-bundle.js",
     "i18n:check": "node scripts/check-translations.cjs",
     "verify:messages": "node scripts/verify-messages-json.mjs",
+    "verify:shared-contracts": "node ../../scripts/verify-shared-contracts.mjs",
+    "verify:valuation-extract": "node ../../scripts/verify-valuation-extract-parity.mjs",
     "verify:brand-favicons": "node ../../scripts/verify-brand-favicons.mjs",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",

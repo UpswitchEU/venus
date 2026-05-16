@@ -1,6 +1,10 @@
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
 import type { MethodKey } from './types'
 
+export interface ManualInputMethodAdapterBase {
+  key: MethodKey
+}
+
 export interface ManualInputHistoricalMetrics {
   latestHistoricalRevenue?: number
   latestHistoricalEbitda?: number
@@ -40,14 +44,13 @@ export interface ManualInputProjectionAutofillArgs<TSmartDefaults> {
   smartDefaults: TSmartDefaults
 }
 
-export interface ManualInputMethodAdapter<
+export interface ForecastManualInputMethodAdapter<
   TSmartDefaults,
   TImportBatchData,
   TInputMode extends string,
   TProjectionRow,
   TDefaultsProvenance extends string,
-> {
-  key: MethodKey
+> extends ManualInputMethodAdapterBase {
   buildDefaultsPatch(
     args: ManualInputDefaultsPatchArgs<TSmartDefaults>
   ): Partial<ManualValuationFormData>
@@ -70,3 +73,11 @@ export interface ManualInputMethodAdapter<
   ): ManualInputProjectionAutofillState<TProjectionRow>
   switchInputMode(formData: ManualValuationFormData, mode: TInputMode): ManualValuationFormData
 }
+
+export interface OwnerCompensationManualInputMethodAdapter extends ManualInputMethodAdapterBase {
+  deriveOwnerCompensationSectionActive(activeMethods: readonly MethodKey[]): boolean
+}
+
+export type ManualInputMethodAdapter =
+  | ForecastManualInputMethodAdapter<unknown, unknown, string, unknown, string>
+  | OwnerCompensationManualInputMethodAdapter

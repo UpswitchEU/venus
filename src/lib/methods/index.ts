@@ -1,4 +1,12 @@
-export { ADJUSTED_NAV_METHOD_KEY, adjustedNavMethodSpec } from './adjusted_nav'
+export {
+  ADJUSTED_NAV_METHOD_KEY,
+  AdjustedNavSectionStack,
+  type AdjustedNavSectionStackProps,
+  adjustedNavMethodSpec,
+  type UseAdjustedNavPrefillCoordinatorParams,
+  type UseAdjustedNavPrefillCoordinatorResult,
+  useAdjustedNavPrefillCoordinator,
+} from './adjusted_nav'
 export { ARR_MULTIPLE_METHOD_KEY, arrMultipleMethodSpec } from './arr_multiple'
 export { DCF_METHOD_KEY, dcfMethodSpec } from './dcf'
 export { EBITDA_MULTIPLE_METHOD_KEY, ebitdaMultipleMethodSpec } from './ebitda_multiple'
@@ -15,13 +23,16 @@ export {
   type RegisteredManualInputMethodKey,
 } from './manualInputAdapters'
 export type {
+  ForecastManualInputMethodAdapter,
   ManualInputDefaultsPatchArgs,
   ManualInputDefaultsProvenanceArgs,
   ManualInputHistoricalMetrics,
   ManualInputIntegrationPercentArgs,
   ManualInputMethodAdapter,
+  ManualInputMethodAdapterBase,
   ManualInputProjectionAutofillArgs,
   ManualInputProjectionAutofillState,
+  OwnerCompensationManualInputMethodAdapter,
 } from './manualInputAdapterTypes'
 export { OMZET_MULTIPLE_METHOD_KEY, omzetMultipleMethodSpec } from './omzet_multiple'
 export {
@@ -46,6 +57,7 @@ export {
 export { REVENUE_MULTIPLE_METHOD_KEY, revenueMultipleMethodSpec } from './revenue_multiple'
 export {
   SDE_MULTIPLE_METHOD_KEY,
+  sdeManualInputAdapter,
   sdeMultipleMethodSpec,
   type UseSdeOwnerCompensationPrefillParams,
   type UseSdeOwnerCompensationPrefillResult,

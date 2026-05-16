@@ -470,6 +470,45 @@ export interface MethodReadinessPreview {
   message?: string
 }
 
+export interface ClientDataReadinessPreview {
+  id: string
+  status: string
+  clientId?: string
+  businessName?: string | null
+  hasBusinessCard?: boolean
+  hasSyncedFinancials?: boolean
+  hasFinancialData?: boolean
+  financialSyncedAt?: string | null
+  stpStatus?: string | null
+  computedStpStatus?: string | null
+  latestValuationId?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  importQualitySummary?: {
+    years: string[]
+    minConfidence?: number | null
+    errorCount?: number
+    warningCount?: number
+    infoCount?: number
+    actionableFlagCount?: number
+    topFlags?: Array<{
+      year?: string
+      field?: string | null
+      code?: string | null
+      severity?: string | null
+      message?: string | null
+    }>
+  } | null
+  recommendedNextAction?: string
+  recommendedNextTool?: string | null
+  recommendedNextRoute?: string | null
+  message?: string
+}
+
 /**
  * Pending marketplace-listing proposal from Titan's advisor-scoped
  * create_listing tool. Approve returns the advisor to Mercury's canonical
@@ -534,6 +573,8 @@ export interface ChatMessage {
   sellabilityRunRequests?: SellabilityRunRequest[]
   // AI-generated Belgian public-data bootstrap cards (KBO + NBB/CBSO + benchmark preview)
   belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  // AI-generated advisor-client readiness cards (Hermes import state)
+  clientDataReadinessPreviews?: ClientDataReadinessPreview[]
   // AI-generated valuation-method readiness cards (read-only; pre-ValuationIQ run)
   methodReadinessPreviews?: MethodReadinessPreview[]
   // AI-generated listing previews (read-only anonymized marketplace draft)

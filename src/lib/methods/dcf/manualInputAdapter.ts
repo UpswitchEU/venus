@@ -16,7 +16,7 @@ import {
 } from '@/components/calculator/utils/manualDcfForecastTransforms'
 import { deriveManualDcfProjectionAutofillState } from '@/components/calculator/utils/manualDcfProjectionPreview'
 
-import type { ManualInputMethodAdapter } from '../manualInputAdapterTypes'
+import type { ForecastManualInputMethodAdapter } from '../manualInputAdapterTypes'
 import { DCF_METHOD_KEY } from './spec'
 
 export type { ManualDcfImportBatchData, ManualDcfInputMode }
@@ -25,13 +25,7 @@ export type { ManualDcfImportBatchData, ManualDcfInputMode }
  * DCF's manual-input adapter keeps method-specific valuation rules behind the
  * method module instead of scattering them through the panel controller.
  */
-export const dcfManualInputAdapter: ManualInputMethodAdapter<
-  DcfSmartDefaults | null,
-  ManualDcfImportBatchData | null,
-  ManualDcfInputMode,
-  DcfProjectionPreviewRow,
-  ManualDcfDefaultsProvenance
-> = {
+export const dcfManualInputAdapter = {
   key: DCF_METHOD_KEY,
   buildDefaultsPatch: buildManualDcfDefaultsPatch,
   deriveDefaultsProvenance: ({
@@ -61,4 +55,10 @@ export const dcfManualInputAdapter: ManualInputMethodAdapter<
     }
   },
   switchInputMode: switchManualDcfInputMode,
-}
+} satisfies ForecastManualInputMethodAdapter<
+  DcfSmartDefaults | null,
+  ManualDcfImportBatchData | null,
+  ManualDcfInputMode,
+  DcfProjectionPreviewRow,
+  ManualDcfDefaultsProvenance
+>

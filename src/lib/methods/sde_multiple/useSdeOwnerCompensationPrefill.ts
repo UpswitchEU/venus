@@ -26,8 +26,8 @@ import {
 export interface UseSdeOwnerCompensationPrefillParams {
   /**
    * `true` when at least one active method requires owner-compensation
-   * input. Derived via `selectionRequiresOwnerCompensation(...)` in the
-   * caller — the hook does not assume how the caller computed it.
+   * input. Derived by the SDE manual-input adapter in the caller — this
+   * hook does not assume how the caller computed it.
    */
   sdeSectionActive: boolean
   /** Normalization items pulled from `useNormalizationStore`. */
@@ -92,11 +92,7 @@ export function useSdeOwnerCompensationPrefill({
     if (ownerSalaryAddback != null && Number(ownerSalaryAddback) > 0) return
     // Idempotency — only apply each suggestion once per session.
     const last = appliedRef.current
-    if (
-      last &&
-      last.year === prefill.sourceYear &&
-      last.value === prefill.suggestedValue
-    ) {
+    if (last && last.year === prefill.sourceYear && last.value === prefill.suggestedValue) {
       return
     }
     onAnyFieldChange('owner_salary_addback', prefill.suggestedValue)

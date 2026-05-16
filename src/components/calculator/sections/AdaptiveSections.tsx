@@ -3,22 +3,17 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import {
   type GetBonusSectionsSaasSignals,
   getBonusSections,
   getBonusSectionsForMethods,
 } from '@/constants/methodFieldConfig'
-import { selectionRequiresOwnerCompensation } from '@/lib/methods'
+import { getRequiredManualInputMethodAdapter } from '@/lib/methods'
 import { useSdeOwnerCompensationPrefill } from '@/lib/methods/sde_multiple'
 import {
   computeFiscal4xPreview,
-  computeNavBookReferences,
-  computeNavPrefill,
   type FiscalPreviewEbitdaSource,
-  type NavBookReferenceSnapshot,
-  type NavPrefillField,
-  type NavPrefillProvenanceMap,
   resolveBookEquityFromYearRow,
 } from '@/lib/omniPreview'
 import { useNormalizationStore } from '@/store/useNormalizationStore'
@@ -26,9 +21,7 @@ import type { ManualValuationFormData as ValuationFormData } from '@/types/valua
 import { countForecastYears } from '@/utils/forecastYears'
 import { getLatestCompleteYearlyFinancial } from '@/utils/yearlyFinancials'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
-import { DealStructureCompareSection } from './DealStructureCompareSection'
 import { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
-import { computeEquipmentMeerwaarde } from './NavEquipmentLifespanSection'
 import { deriveSaasArrProjectionPreview } from './saasArrProjectionPreview'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
@@ -56,19 +49,9 @@ const LiquidationInputsSection = lazy(() =>
     default: m.LiquidationInputsSection,
   }))
 )
-const NavAssetScheduleSection = lazy(() =>
-  import('./NavAssetScheduleSection').then((m) => ({
-    default: m.NavAssetScheduleSection,
-  }))
-)
-const NavEquipmentLifespanSection = lazy(() =>
-  import('./NavEquipmentLifespanSection').then((m) => ({
-    default: m.NavEquipmentLifespanSection,
-  }))
-)
-const NavRealEstateAppraisalSection = lazy(() =>
-  import('./NavRealEstateAppraisalSection').then((m) => ({
-    default: m.NavRealEstateAppraisalSection,
+const AdjustedNavSectionStack = lazy(() =>
+  import('@/lib/methods/adjusted_nav/AdjustedNavSectionStack').then((m) => ({
+    default: m.AdjustedNavSectionStack,
   }))
 )
 const RevenueQualitySection = lazy(() =>
@@ -90,6 +73,8 @@ const SdeOwnerCompensationSection = lazy(() =>
 function BonusSectionFallback() {
   return <div className="my-2 h-16 animate-pulse rounded-lg bg-foreground/[0.04]" aria-hidden />
 }
+
+const sdeManualInputAdapter = getRequiredManualInputMethodAdapter('sde_multiple')
 
 // Round-6 audit: `resolveLatestDealStructureComparison` was the only
 // place ManualInputPanel read `result.details.*` engine output. It fed
@@ -167,7 +152,9 @@ export function AdaptiveSections({
 }) {
   const t = useTranslations('manualInput.methodSelector')
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const sdeSectionActive = selectionRequiresOwnerCompensation(effectiveMethods ?? [effectiveMethod])
+  const sdeSectionActive = sdeManualInputAdapter.deriveOwnerCompensationSectionActive(
+    effectiveMethods ?? [effectiveMethod]
+  )
   const {
     prefill: sdeSalaryPrefill,
     doubleCountRisk: sdeOwnerCompDoubleCountRisk,
@@ -187,198 +174,6 @@ export function AdaptiveSections({
     () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
     [formData.yearlyFinancials]
   )
-
-  /* ────────────────────────────────────────────────────────────────────
-   * NAV (Adjusted Net Asset Value) — auto-prefill (round-2)
-   * ─────────────────────────────────────────────────────────────────────
-   * Compute the prefill snapshot every render (cheap pure call). Apply
-   * via effect so we never trigger a setState during render. Provenance
-   * is then forwarded to the schedule UI so prefilled fields show a
-   * "Prefilled" badge — trust is explicit, the user can edit freely.
-   *
-   * We only touch fields the user hasn't typed into (the helper guards
-   * against overwrites internally). The effect is gated on the NAV
-   * section being mounted — when the user picks a different method the
-   * prefill stays inert. */
-  const navIsActiveSection = sections.includes('nav_asset_schedule')
-
-  // Round-5: compute the *desired* prefill from current upstream inputs,
-  // ignoring whatever's currently in `formData.nav_*`. We then reconcile
-  // in the effect below. This lets us re-prefill on signal change (e.g.
-  // user switches country BE → NL → tax rate auto-updates from 25 to
-  // 25.8) without overwriting values the user has typed manually.
-  //
-  // Calling the helper with an empty `existing` is the round-3 idempotency
-  // contract — the helper always returns the same desired snapshot for
-  // a given (country, carve-out) tuple regardless of form state.
-  const navDesiredPrefill = useMemo(
-    () =>
-      computeNavPrefill({
-        countryCode: formData.country,
-        realEstateCarveOutBookValue:
-          (formData.real_estate_book_value as number | undefined) ?? null,
-        reportingYear: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.year)
-          : null,
-        existing: {},
-      }),
-    [formData.country, formData.real_estate_book_value, latestCompleteYearlyFinancial]
-  )
-
-  // Track each prefilled field's *applied value* and its *provenance*.
-  // The applied-value ref lets us tell user-typed values apart from
-  // stale prefills:
-  //   - current value === applied value  → still our prefill, free to update
-  //   - current value !== applied value  → user typed it, leave alone
-  //   - current value == null            → empty, free to apply
-  // Round-5: this lets us refresh the rate when the country changes
-  // without overwriting the rate when the user has set their own.
-  const navPrefillAppliedRef = useRef<Partial<Record<NavPrefillField, number>>>({})
-  const navPrefillProvenanceRef = useRef<NavPrefillProvenanceMap>({})
-
-  // Stable handles for the form-data fields the prefill effect cares
-  // about. Reading via refs avoids re-firing the effect when other
-  // unrelated form fields change.
-  const _navTaxLatencyPctValue = formData.nav_tax_latency_pct as number | undefined
-  const _navRealEstateBookValue = formData.nav_real_estate_book_value as number | undefined
-  const _navEquipmentRevaluation = formData.nav_equipment_revaluation as
-    | {
-        original_cost?: number
-        acquisition_year?: number
-        tax_book_value?: number
-        economic_useful_life_years?: number
-        economic_book_value?: number
-      }
-    | undefined
-  const _navEquipmentAcquisitionYear = _navEquipmentRevaluation?.acquisition_year
-  const _navEquipmentUsefulLifeYears = _navEquipmentRevaluation?.economic_useful_life_years
-  const _dealBuyerDiscountRatePct = formData.deal_buyer_discount_rate_pct as number | undefined
-  const _dealRegistrationDutyPct = formData.deal_registration_duty_pct as number | undefined
-
-  useEffect(() => {
-    if (!navIsActiveSection) return
-    const { values, provenance } = navDesiredPrefill
-    const currentByField: Record<NavPrefillField, number | undefined> = {
-      nav_tax_latency_pct: _navTaxLatencyPctValue,
-      nav_real_estate_book_value: _navRealEstateBookValue,
-      nav_equipment_acquisition_year: _navEquipmentAcquisitionYear,
-      nav_equipment_useful_life_years: _navEquipmentUsefulLifeYears,
-      deal_buyer_discount_rate_pct: _dealBuyerDiscountRatePct,
-      deal_registration_duty_pct: _dealRegistrationDutyPct,
-    }
-    // Field-key → form-state write path. Top-level paths use onFieldChange;
-    // nested equipment fields merge into the single nav_equipment_revaluation
-    // object so they survive each other's writes.
-    const writeField = (field: NavPrefillField, desired: number) => {
-      if (field === 'nav_equipment_acquisition_year') {
-        if (!onAnyFieldChange) return
-        onAnyFieldChange('nav_equipment_revaluation', {
-          ...(_navEquipmentRevaluation ?? {}),
-          acquisition_year: desired,
-        })
-        return
-      }
-      if (field === 'nav_equipment_useful_life_years') {
-        if (!onAnyFieldChange) return
-        onAnyFieldChange('nav_equipment_revaluation', {
-          ...(_navEquipmentRevaluation ?? {}),
-          economic_useful_life_years: desired,
-        })
-        return
-      }
-      onFieldChange(field, desired)
-    }
-    for (const [field, desired] of Object.entries(values)) {
-      if (desired == null || !Number.isFinite(desired)) continue
-      const typedField = field as NavPrefillField
-      const current = currentByField[typedField]
-      const applied = navPrefillAppliedRef.current[typedField]
-
-      // Skip when the user has typed something different from any prior
-      // prefill — respect their edit.
-      if (current != null && current !== applied) continue
-      // Skip the no-op case (current already equals desired).
-      if (current === desired) continue
-
-      writeField(typedField, desired)
-      navPrefillAppliedRef.current[typedField] = desired
-      navPrefillProvenanceRef.current[typedField] = provenance[typedField]
-    }
-  }, [
-    navIsActiveSection,
-    navDesiredPrefill,
-    _navTaxLatencyPctValue,
-    _navRealEstateBookValue,
-    _navEquipmentAcquisitionYear,
-    _navEquipmentUsefulLifeYears,
-    _navEquipmentRevaluation,
-    _dealBuyerDiscountRatePct,
-    _dealRegistrationDutyPct,
-    onFieldChange,
-    onAnyFieldChange,
-  ])
-
-  const navBookReferences = useMemo<NavBookReferenceSnapshot>(
-    () =>
-      computeNavBookReferences({
-        inventory: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.inventory)
-          : null,
-        accountsReceivable: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.accounts_receivable)
-          : null,
-        // Goodwill isn't on the summarised yearly financial today; left
-        // null so the schedule's goodwill chip stays hidden until the
-        // Hermes detail-account enrichment lands. Plumbing's ready.
-        goodwill: null,
-        totalAssets: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.total_assets)
-          : null,
-        totalLiabilities: latestCompleteYearlyFinancial
-          ? Number(latestCompleteYearlyFinancial.total_liabilities)
-          : null,
-      }),
-    [latestCompleteYearlyFinancial]
-  )
-
-  // Provenance map exposed to the schedule UI: only includes a field when
-  // its current form value still matches what we applied. The moment the
-  // user edits, identity breaks and the entry drops out, hiding the
-  // "Prefilled" badge cleanly. Form-data fields are listed explicitly in
-  // the dep array so the memo invalidates on user edits.
-  const navPrefillProvenance = useMemo<NavPrefillProvenanceMap>(() => {
-    const result: NavPrefillProvenanceMap = {}
-    const applied = navPrefillAppliedRef.current
-    const provenance = navPrefillProvenanceRef.current
-    const equipment = formData.nav_equipment_revaluation as
-      | { acquisition_year?: number; economic_useful_life_years?: number }
-      | undefined
-    const currentValues: Record<NavPrefillField, number | undefined> = {
-      nav_tax_latency_pct: formData.nav_tax_latency_pct as number | undefined,
-      nav_real_estate_book_value: formData.nav_real_estate_book_value as number | undefined,
-      nav_equipment_acquisition_year: equipment?.acquisition_year,
-      nav_equipment_useful_life_years: equipment?.economic_useful_life_years,
-      deal_buyer_discount_rate_pct: formData.deal_buyer_discount_rate_pct as number | undefined,
-      deal_registration_duty_pct: formData.deal_registration_duty_pct as number | undefined,
-    }
-    for (const [field, appliedValue] of Object.entries(applied)) {
-      const typedField = field as NavPrefillField
-      const currentValue = currentValues[typedField]
-      if (currentValue != null && currentValue === appliedValue) {
-        const provenanceEntry = provenance[typedField]
-        if (provenanceEntry) {
-          result[typedField] = provenanceEntry
-        }
-      }
-    }
-    return result
-  }, [
-    formData.nav_tax_latency_pct,
-    formData.nav_real_estate_book_value,
-    formData.nav_equipment_revaluation,
-    formData.deal_buyer_discount_rate_pct,
-    formData.deal_registration_duty_pct,
-  ])
 
   const fiscalPreview = useMemo(() => {
     const row = latestCompleteYearlyFinancial
@@ -560,178 +355,18 @@ export function AdaptiveSections({
               />
             </Suspense>
           )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          (() => {
-            // Compute the side-input meerwaarde locally so the schedule
-            // section's live preview mirrors the engine instead of the
-            // schedule-deltas-only subset. Round-1 fix B6.
-            const _bookValRE = formData.nav_real_estate_book_value as number | undefined
-            const _appraisalRE = formData.nav_real_estate_appraisal_value as number | undefined
-            const realEstateMeerwaarde =
-              _bookValRE != null &&
-              _appraisalRE != null &&
-              Number.isFinite(_bookValRE) &&
-              Number.isFinite(_appraisalRE)
-                ? _appraisalRE - _bookValRE
-                : null
-            const equipmentMeerwaarde = computeEquipmentMeerwaarde(
-              formData.nav_equipment_revaluation,
-              latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.year) : undefined
-            )
-            // Round-1 fix B3: signal the schedule to swap its delta field
-            // out for a read-only "from appraisal" badge whenever the
-            // book→appraisal pair is fully filled.
-            const hasRealEstateAppraisalSwap =
-              _bookValRE != null &&
-              _appraisalRE != null &&
-              Number.isFinite(_bookValRE) &&
-              Number.isFinite(_appraisalRE)
-            return (
-              <Suspense key="nav_asset_schedule" fallback={<BonusSectionFallback />}>
-                <NavAssetScheduleSection
-                  step={sectionHeaderSteps.nav}
-                  navRealEstateAdjustment={
-                    formData.nav_real_estate_adjustment as number | undefined
-                  }
-                  navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
-                  navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
-                  navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
-                  navReceivablesAdjustment={
-                    formData.nav_receivables_adjustment as number | undefined
-                  }
-                  navOtherRevaluations={formData.nav_other_revaluations as number | undefined}
-                  navTaxLatencyPct={formData.nav_tax_latency_pct as number | undefined}
-                  navOffBalanceItems={formData.nav_off_balance_items as number | undefined}
-                  countryCode={formData.country?.trim() || 'BE'}
-                  totalAssets={
-                    latestCompleteYearlyFinancial
-                      ? Number(latestCompleteYearlyFinancial.total_assets)
-                      : undefined
-                  }
-                  totalLiabilities={
-                    latestCompleteYearlyFinancial
-                      ? Number(latestCompleteYearlyFinancial.total_liabilities)
-                      : undefined
-                  }
-                  businessType={formData.industry || undefined}
-                  realEstateAppraisalMeerwaarde={realEstateMeerwaarde}
-                  equipmentRevaluationMeerwaarde={equipmentMeerwaarde}
-                  hasRealEstateAppraisalSwap={hasRealEstateAppraisalSwap}
-                  bookReferences={navBookReferences}
-                  prefillProvenance={navPrefillProvenance}
-                  perAssetTaxRates={
-                    formData.nav_per_asset_tax_rates as
-                      | {
-                          real_estate?: number
-                          inventory?: number
-                          receivables?: number
-                          hidden_reserves?: number
-                          other_revaluations?: number
-                        }
-                      | undefined
-                  }
-                  onPerAssetTaxRateChange={
-                    onAnyFieldChange
-                      ? (patch) => {
-                          // Merge into the existing per-asset rates dict so
-                          // we never blow away other rates the user has
-                          // already set. Round-3 fix B4.
-                          const current =
-                            (formData.nav_per_asset_tax_rates as
-                              | Record<string, number | undefined>
-                              | undefined) ?? {}
-                          const next: Record<string, number> = {}
-                          for (const [k, v] of Object.entries({ ...current, ...patch })) {
-                            if (v != null && Number.isFinite(v)) {
-                              next[k] = v
-                            }
-                          }
-                          onAnyFieldChange(
-                            'nav_per_asset_tax_rates',
-                            Object.keys(next).length > 0 ? next : undefined
-                          )
-                        }
-                      : undefined
-                  }
-                  onFieldChange={onFieldChange}
-                  disabled={disabled}
-                />
-              </Suspense>
-            )
-          })()}
-        {/*
-          NAV is one method that decomposes into four defensible cards
-          (schedule + real-estate swap + equipment lifespan + deal
-          structure). Round-1 fix B1 letters the sub-cards (Na/Nb/Nc/Nd)
-          off the parent NAV step so the user reads them as one method's
-          progressive disclosure rather than four loose forms.
-        */}
         {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
-          <Suspense key="nav_real_estate_appraisal" fallback={<BonusSectionFallback />}>
-            <NavRealEstateAppraisalSection
-              step={`${sectionHeaderSteps.nav}b`}
-              bookValue={formData.nav_real_estate_book_value as number | undefined}
-              appraisalValue={formData.nav_real_estate_appraisal_value as number | undefined}
-              deferredTaxRatePct={
-                (formData.nav_per_asset_tax_rates?.real_estate as number | undefined) ??
-                (formData.nav_tax_latency_pct as number | undefined)
-              }
-              onChange={onFieldChange}
+          <Suspense key="adjusted_nav_stack" fallback={<BonusSectionFallback />}>
+            <AdjustedNavSectionStack
+              step={sectionHeaderSteps.nav}
+              formData={formData}
+              latestCompleteYearlyFinancial={latestCompleteYearlyFinancial}
+              onFieldChange={onFieldChange}
+              onAnyFieldChange={onAnyFieldChange}
               disabled={disabled}
             />
           </Suspense>
         )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          onAnyFieldChange && (
-            <Suspense key="nav_equipment_lifespan" fallback={<BonusSectionFallback />}>
-              <NavEquipmentLifespanSection
-                step={`${sectionHeaderSteps.nav}c`}
-                value={formData.nav_equipment_revaluation}
-                reportingYear={
-                  latestCompleteYearlyFinancial
-                    ? Number(latestCompleteYearlyFinancial.year)
-                    : undefined
-                }
-                prefilled={{
-                  acquisition_year: navPrefillProvenance.nav_equipment_acquisition_year != null,
-                  economic_useful_life_years:
-                    navPrefillProvenance.nav_equipment_useful_life_years != null,
-                }}
-                onChange={(next) => onAnyFieldChange('nav_equipment_revaluation', next)}
-                disabled={disabled}
-              />
-            </Suspense>
-          )}
-        {sections.includes('nav_asset_schedule') &&
-          sectionHeaderSteps.nav != null &&
-          onAnyFieldChange && (
-            <DealStructureCompareSection
-              key="deal_structure_compare"
-              step={`${sectionHeaderSteps.nav}d`}
-              inputs={{
-                dealType: formData.deal_type,
-                goodwillAmount: formData.deal_goodwill_amount,
-                sellerShareBasis: formData.deal_seller_share_basis,
-                sellerIsIndividual: formData.deal_seller_is_individual ?? true,
-                buyerDiscountRatePct: formData.deal_buyer_discount_rate_pct,
-                registrationDutyPct: formData.deal_registration_duty_pct,
-              }}
-              prefilled={{
-                buyer_discount_rate_pct: navPrefillProvenance.deal_buyer_discount_rate_pct != null,
-                registration_duty_pct: navPrefillProvenance.deal_registration_duty_pct != null,
-              }}
-              onChange={(field, value) => {
-                if (typeof value === 'number' || value === undefined) {
-                  onFieldChange(field, value as number | undefined)
-                } else {
-                  onAnyFieldChange(field, value)
-                }
-              }}
-              disabled={disabled}
-            />
-          )}
         {/* Liquidation-specific advisor inputs — left-panel section that
             renders when liquidation_analysis is the pre-selected method.
             Drives the Phase 2-4 chain (cascade buckets, tax bridge,
