@@ -19,6 +19,7 @@ export class RequestDeduplicator {
     this.cleanupInterval = setInterval(() => {
       this.cleanup()
     }, 30000)
+    this.cleanupInterval.unref?.()
   }
 
   /**

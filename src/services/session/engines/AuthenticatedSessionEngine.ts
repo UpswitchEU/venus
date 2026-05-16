@@ -21,7 +21,7 @@
 import type { ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { sessionService } from '../../index'
-import type { FlowType, ISessionEngine } from '../SessionEngine'
+import type { FlowType, ISessionEngine, SessionDataRecord } from '../SessionEngine'
 
 /**
  * Backend-computed fields that must NOT round-trip through autosave PATCHes.
@@ -517,8 +517,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   /**
    * Get current session data
    */
-  getSessionData(): any | null {
-    return this.currentSession?.sessionData || null
+  getSessionData(): SessionDataRecord | null {
+    return (this.currentSession?.sessionData as SessionDataRecord | undefined) || null
   }
 
   /**

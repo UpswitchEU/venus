@@ -6,11 +6,7 @@ export function pickRawUserPayload(
   const data = result.data
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const dataRecord = data as Record<string, unknown>
-    if (
-      dataRecord.user &&
-      typeof dataRecord.user === 'object' &&
-      !Array.isArray(dataRecord.user)
-    ) {
+    if (dataRecord.user && typeof dataRecord.user === 'object' && !Array.isArray(dataRecord.user)) {
       return dataRecord.user as Record<string, unknown>
     }
     if (dataRecord.id != null || dataRecord.sub != null) return dataRecord

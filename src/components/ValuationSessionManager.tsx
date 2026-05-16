@@ -23,7 +23,7 @@
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { showAdvisorCalculatorSurface } from '../constants/accountantPlanMethods'
 import { buildStaleReportRecoveryUrl } from '../features/manual/utils/deleteValuationEntry'
 import { trackPaywallShown, trackPaywallUpgradeClick } from '../lib/analytics'
@@ -46,12 +46,25 @@ import {
   canRenderReportSession,
   hasAssetsInSession,
   shouldAllowOptimisticMercuryRender,
+  shouldSeedOptimisticMercuryShell,
 } from './sessionReadiness'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
 const MERCURY_OPTIMISTIC_SHELL_DELAY_MS = 1200
+
+function readStringField(source: unknown, key: string): string | null {
+  if (!source || typeof source !== 'object') return null
+  const value = (source as Record<string, unknown>)[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function readErrorName(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('name' in error)) return null
+  const value = (error as { name?: unknown }).name
+  return typeof value === 'string' ? value : null
+}
 
 interface ValuationSessionManagerProps {
   reportId: string
@@ -87,13 +100,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const t = useTranslations('modals')
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
-    const isFromMercury = useMemo(() => {
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search)
-        return urlParams.get('source') === 'mercury'
-      }
-      return false
-    }, [])
+    const isFromMercury = searchParams?.get('source') === 'mercury'
 
     // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
     const bootstrap = useBootstrapSafe()
@@ -205,13 +212,17 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // Reset refs when reportId changes (component reused for different report)
     useEffect(() => {
+      const scopedReportId = reportId
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
       optimisticMercuryShellSeededRef.current = null
       staleRecoveryAttemptedRef.current = false
-    }, [])
+      generalLogger.debug('[SessionManager] Reset report-scoped load guards', {
+        reportId: scopedReportId?.substring(0, 30),
+      })
+    }, [reportId])
 
     // Mercury handoff should never hold the whole calculator behind a slow
     // bootstrap/session refresh. After a short skeleton window, seed a minimal
@@ -219,19 +230,44 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // actions disabled until auth + bootstrap have settled, and the real
     // session/prefill payload merges in through useBootstrapSync/loadSession.
     useEffect(() => {
-      if (!isFromMercury || !isBootstrapping) return
-      if (!reportId || reportId === 'new') return
-      if (!urlIndicatesExisting) return
-      if (session?.reportId === reportId || status !== 'idle') return
-      if (optimisticMercuryShellSeededRef.current === reportId) return
+      if (
+        !shouldSeedOptimisticMercuryShell({
+          isFromMercury,
+          isBootstrapping,
+          reportId,
+          urlIndicatesExisting,
+          currentSessionReportId: session?.reportId,
+          status,
+          seededReportId: optimisticMercuryShellSeededRef.current,
+        })
+      ) {
+        return
+      }
 
       const timer = window.setTimeout(() => {
         const current = useSessionStore.getState()
-        if (current.session?.reportId === reportId || current.status !== 'idle') return
+        if (
+          !shouldSeedOptimisticMercuryShell({
+            isFromMercury,
+            isBootstrapping,
+            reportId,
+            urlIndicatesExisting,
+            currentSessionReportId: current.session?.reportId,
+            status: current.status,
+            seededReportId: optimisticMercuryShellSeededRef.current,
+          })
+        ) {
+          return
+        }
+
+        if (current.session?.reportId && current.session.reportId !== reportId) {
+          current.clearSession()
+        }
 
         const now = new Date()
         optimisticMercuryShellSeededRef.current = reportId
-        current.hydrateSession({
+        const store = useSessionStore.getState()
+        store.hydrateSession({
           reportId,
           currentView: 'manual',
           dataSource: 'manual',
@@ -243,7 +279,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             _optimisticMercuryShell: true,
           } as ValuationSession['sessionData'],
         })
-        useSessionStore.getState().completeInitialization()
+        store.completeInitialization()
         generalLogger.info('[SessionManager] Seeded optimistic Mercury shell', {
           reportId: reportId.substring(0, 30),
           delayMs: MERCURY_OPTIMISTIC_SHELL_DELAY_MS,
@@ -302,9 +338,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // Prioritize prefilledQuery from session data over URL parameter
     const sessionPrefilledQuery = session
-      ? (session.sessionData as any)?._prefilledQuery ||
-        (session.partialData as any)?._prefilledQuery ||
-        null
+      ? readStringField(session.sessionData, '_prefilledQuery') ||
+        readStringField(session.partialData, '_prefilledQuery')
       : null
     const prefilledQuery = sessionPrefilledQuery || urlPrefilledQuery
 
@@ -653,7 +688,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             err.message?.includes('Invalid session data') ||
             err.message?.includes('validation') ||
             err.message?.includes('ValidationError') ||
-            (err as any)?.name === 'ValidationError'
+            readErrorName(err) === 'ValidationError'
 
           if (isValidationError) {
             generalLogger.error('[SessionManager] Validation error - stopping retries', {

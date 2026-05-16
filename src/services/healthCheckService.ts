@@ -84,6 +84,7 @@ class HealthCheckService {
     this.checkInterval = setInterval(() => {
       this.checkAllServices()
     }, this.CHECK_INTERVAL)
+    this.checkInterval.unref?.()
   }
 
   private async checkAllServices(): Promise<void> {

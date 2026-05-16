@@ -306,6 +306,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const dropdownRef = React.useRef<HTMLDivElement>(null)
     const abortControllerRef = React.useRef<AbortController | null>(null)
     const timedOutRef = React.useRef(false)
+    const tRef = React.useRef(t)
+
+    React.useEffect(() => {
+      tRef.current = t
+    }, [t])
 
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement)
 
@@ -387,10 +392,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           setResults([])
           setSearchError(
             timedOutRef.current
-              ? t('searchUnavailable')
+              ? tRef.current('searchUnavailable')
               : err instanceof Error && err.message
                 ? err.message
-                : t('searchUnavailable')
+                : tRef.current('searchUnavailable')
           )
           setShowDropdown(true)
         } finally {
@@ -405,7 +410,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           abortControllerRef.current = null
         }
       }
-    }, [trimmedValue, trimmedValueLength, selectedCompany, searchFn, minQueryLength, debounceMs, t])
+    }, [trimmedValue, trimmedValueLength, selectedCompany, searchFn, minQueryLength, debounceMs])
 
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {

@@ -10,6 +10,7 @@
 import type { ValuationSession } from '../../types/valuation'
 
 export type FlowType = 'manual' | 'conversational'
+export type SessionDataRecord = Record<string, unknown>
 
 /**
  * Session Engine Interface
@@ -60,7 +61,7 @@ export interface ISessionEngine {
   /**
    * Get current session data
    */
-  getSessionData(): any | null
+  getSessionData(): SessionDataRecord | null
 
   /**
    * Get current session (full object)

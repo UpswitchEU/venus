@@ -244,7 +244,7 @@ export class IdempotencyKeyManager {
 export const globalIdempotencyManager = new IdempotencyKeyManager()
 
 // Cleanup expired keys every hour
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
   setInterval(
     () => {
       globalIdempotencyManager.cleanupExpired()

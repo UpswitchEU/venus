@@ -7,7 +7,8 @@
  * @module store/__tests__/useSessionStore
  */
 
-import { beforeEach, describe, expect, it, Mock, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ValuationSession } from '../../types/valuation'
 
 // Mock the session engine before importing the store
 const mockLoadSession = vi.fn()
@@ -68,6 +69,23 @@ describe('useSessionStore', () => {
       expect(state.status).toBe('idle')
       expect(state.session).toBeNull()
       expect(state.errorMessage).toBeNull()
+    })
+
+    it('should hydrate an existing optimistic session into a newly created engine', () => {
+      const optimisticShell = {
+        reportId: 'val_mercury_shell',
+        sessionData: { _optimisticMercuryShell: true },
+        updatedAt: new Date(),
+      }
+
+      useSessionStore.setState({
+        session: optimisticShell,
+        status: 'loaded' as SessionStatus,
+      })
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      expect(mockHydrateSession).toHaveBeenCalledWith(optimisticShell)
     })
 
     it('should transition IDLE -> LOADING -> LOADED on successful load', async () => {
@@ -244,6 +262,45 @@ describe('useSessionStore', () => {
       // Final state has the refreshed payload
       expect(useSessionStore.getState().session?.sessionData).toEqual(
         expect.objectContaining({ company_name: 'Restored Co' })
+      )
+    })
+
+    it('should refresh an optimistic Mercury shell in place without returning to loading', async () => {
+      const optimisticShell = {
+        reportId: 'val_mercury_shell',
+        sessionData: { _optimisticMercuryShell: true },
+        updatedAt: new Date(),
+      }
+      const refreshedSession = {
+        reportId: 'val_mercury_shell',
+        sessionData: { _optimisticMercuryShell: true, company_name: 'Mercury Co' },
+        updatedAt: new Date(),
+      }
+      let releaseLoad: (s: typeof refreshedSession) => void
+      const loadDeferred = new Promise<typeof refreshedSession>((resolve) => {
+        releaseLoad = resolve
+      })
+      mockLoadSession.mockImplementation(() => loadDeferred)
+
+      useSessionStore.setState({
+        session: optimisticShell,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+      })
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const loadPromise = useSessionStore.getState().loadSession('val_mercury_shell')
+      await Promise.resolve()
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(mockLoadSession).toHaveBeenCalledOnce()
+
+      releaseLoad?.(refreshedSession)
+      await loadPromise
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.sessionData).toEqual(
+        expect.objectContaining({ company_name: 'Mercury Co' })
       )
     })
 
@@ -445,7 +502,7 @@ describe('useSessionStore', () => {
 
       let resolveSave: (() => void) | undefined
       mockGetSession.mockImplementation(() => currentSession)
-      mockUpdateSession.mockImplementation((updates: any) => {
+      mockUpdateSession.mockImplementation((updates: Partial<ValuationSession>) => {
         Object.assign(currentSession, updates)
       })
       mockSaveSession.mockImplementation(
@@ -548,10 +605,11 @@ describe('useSessionStore', () => {
 
   describe('Paywall Handling', () => {
     it('should handle paywall errors and store paywall data', async () => {
-      const paywallError = new Error('Upgrade required')
-      ;(paywallError as any).isPaywallError = true
-      ;(paywallError as any).current = 3
-      ;(paywallError as any).limit = 3
+      const paywallError = Object.assign(new Error('Upgrade required'), {
+        isPaywallError: true,
+        current: 3,
+        limit: 3,
+      })
 
       mockLoadSession.mockRejectedValue(paywallError)
 

@@ -149,6 +149,7 @@ export class AuthCache {
 
 // Singleton instance
 let authCache: AuthCache | null = null
+let cleanupInterval: ReturnType<typeof setInterval> | null = null
 
 /**
  * Get auth cache instance
@@ -158,9 +159,10 @@ export function getAuthCache(): AuthCache {
     authCache = new AuthCache()
 
     // Cleanup expired entries every minute
-    setInterval(() => {
+    cleanupInterval = setInterval(() => {
       authCache?.cleanup()
     }, 60 * 1000)
+    cleanupInterval.unref?.()
   }
   return authCache
 }
@@ -169,6 +171,10 @@ export function getAuthCache(): AuthCache {
  * Cleanup auth cache (for testing)
  */
 export function destroyAuthCache(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval)
+    cleanupInterval = null
+  }
   if (authCache) {
     authCache.clear()
     authCache = null

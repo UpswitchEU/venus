@@ -3,6 +3,7 @@ import {
   canRenderReportSession,
   hasAssetsInSession,
   shouldAllowOptimisticMercuryRender,
+  shouldSeedOptimisticMercuryShell,
 } from './sessionReadiness'
 
 describe('sessionReadiness', () => {
@@ -71,7 +72,56 @@ describe('sessionReadiness', () => {
         },
         valuationResult: undefined,
         htmlReport: undefined,
-      } as any)
+      })
     ).toBe(true)
+  })
+
+  it('seeds the Mercury fast shell for existing reports while bootstrap is still running', () => {
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'val_existing',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'idle',
+      })
+    ).toBe(true)
+
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'val_next',
+        urlIndicatesExisting: true,
+        currentSessionReportId: 'val_previous',
+        status: 'loaded',
+      })
+    ).toBe(true)
+  })
+
+  it('does not seed the Mercury fast shell during active loads or duplicate seeds', () => {
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'val_existing',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'loading',
+      })
+    ).toBe(false)
+
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'val_existing',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'idle',
+        seededReportId: 'val_existing',
+      })
+    ).toBe(false)
   })
 })

@@ -19,8 +19,8 @@ import {
   installMercuryAuthBootstrapListener,
   type MercuryAuthBootstrap,
 } from '@/utils/auth/mercury-auth-bootstrap'
-import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
 import { extractAuthMeUserPayload } from '@/utils/auth/parse-auth-me-response'
+import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
 import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {

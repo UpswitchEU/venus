@@ -1,10 +1,11 @@
 import type { ValuationSession } from '../types/valuation'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
-type SessionLike = Pick<
-  ValuationSession,
-  'reportId' | 'sessionData' | 'valuationResult' | 'htmlReport'
-> & {
+type SessionLike = {
+  reportId: ValuationSession['reportId']
+  sessionData?: ValuationSession['sessionData'] | Record<string, unknown> | null
+  valuationResult?: ValuationSession['valuationResult']
+  htmlReport?: ValuationSession['htmlReport'] | null
   reportReady?: boolean
   status?: string
 }
@@ -34,6 +35,26 @@ export function shouldAllowOptimisticMercuryRender(params: {
     !params.isLoading &&
     params.bootstrapMode === 'new'
   )
+}
+
+export function shouldSeedOptimisticMercuryShell(params: {
+  isFromMercury: boolean
+  isBootstrapping: boolean
+  reportId: string | null | undefined
+  urlIndicatesExisting: boolean
+  currentSessionReportId?: string | null
+  status: string
+  seededReportId?: string | null
+}): boolean {
+  if (!params.isFromMercury || !params.isBootstrapping) return false
+  if (!params.reportId || params.reportId === 'new') return false
+  if (!params.urlIndicatesExisting) return false
+  if (params.currentSessionReportId === params.reportId) return false
+  if (params.seededReportId === params.reportId) return false
+
+  // `loaded` covers SPA handoffs where the previous report is still in the
+  // store. Mercury should still get the fast shell for the new report.
+  return params.status === 'idle' || params.status === 'loaded'
 }
 
 export function canRenderReportSession(params: {

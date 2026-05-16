@@ -182,7 +182,7 @@ export const useClientContext = create<ClientContextState>()(
 )
 
 // Auto-validate context on module load (browser only)
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
   // Validate context periodically (every hour)
   setInterval(
     () => {

@@ -17,7 +17,7 @@ import { create } from 'zustand'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../lib/return-url'
-import type { ISessionEngine } from '../services/session/SessionEngine'
+import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import type { ValuationSession } from '../types/valuation'
@@ -87,7 +87,7 @@ interface SessionStore {
   ) => Promise<void>
   updateSession: (updates: Partial<ValuationSession>) => void
   hydrateSession: (updates: Partial<ValuationSession>) => void
-  updateSessionData: (data: Partial<any>) => Promise<void>
+  updateSessionData: (data: Partial<SessionDataRecord>) => Promise<void>
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
   completeInitialization: () => void
@@ -100,13 +100,44 @@ interface SessionStore {
 
   // Helpers
   getReportId: () => string | null
-  getSessionData: () => any | null
+  getSessionData: () => SessionDataRecord | null
   markSaved: (expectedDirtyVersion?: number) => void
   markUnsaved: () => void
 }
 
 // Promise cache to prevent duplicate loads (Cursor pattern)
 const loadingPromises = new Map<string, Promise<void>>()
+
+function asSessionDataRecord(data: unknown): SessionDataRecord {
+  return data && typeof data === 'object' ? (data as SessionDataRecord) : {}
+}
+
+function readString(source: SessionDataRecord, key: string): string | null {
+  const value = source[key]
+  return typeof value === 'string' ? value : null
+}
+
+function hasNonEmptyString(source: SessionDataRecord, key: string): boolean {
+  return (readString(source, key)?.trim().length ?? 0) > 0
+}
+
+function readNumericLike(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function readHttpStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null
+  const record = error as { response?: { status?: unknown }; status?: unknown }
+  const nestedStatus = record.response?.status
+  if (typeof nestedStatus === 'number') return nestedStatus
+  return typeof record.status === 'number' ? record.status : null
+}
+
+type PaywallLoadError = Error & {
+  isPaywallError?: boolean
+  current?: number
+  limit?: number
+}
 
 /**
  * Unified Session Store
@@ -151,10 +182,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    */
   setEngine: (identity: IdentityState) => {
     const engine = createSessionEngine(identity)
+    const existingSession = get().session
+
+    if (existingSession) {
+      engine.hydrateSession(existingSession)
+    }
+
     set({ engine })
     storeLogger.debug('[Session] Engine set', {
       identityType: identity.type,
       engineType: 'AuthenticatedSessionEngine',
+      hydratedExistingSession: !!existingSession,
     })
   },
 
@@ -176,9 +214,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   ) => {
     const state = get()
 
-    // Detect "refresh" case: the bootstrap-minimal session is already in the
+    // Detect "refresh" case: a minimal renderable shell is already in the
     // store (status='loaded', matching reportId, sessionData carries a
-    // _bootstrapPrefill or _bootstrapCreated marker from useBootstrapSync).
+    // bootstrap or optimistic Mercury marker).
     // The caller — typically ValuationSessionManager's needsFullLoad branch —
     // wants to fetch the full session payload (htmlReport, valuationResult,
     // full sessionData) without kicking the UI back to a skeleton. In this
@@ -191,11 +229,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // we'd miss that case and the short-circuit below would prevent the full
     // refresh from ever running, leaving the user stuck on an empty wizard.
     const sessionMatches = state.session?.reportId === reportId
-    const sessionData = (state.session?.sessionData ?? {}) as Record<string, unknown>
+    const sessionData = asSessionDataRecord(state.session?.sessionData)
     const isBootstrapMinimal =
       sessionMatches &&
       state.status === 'loaded' &&
-      ('_bootstrapPrefill' in sessionData || '_bootstrapCreated' in sessionData)
+      ('_bootstrapPrefill' in sessionData ||
+        '_bootstrapCreated' in sessionData ||
+        '_optimisticMercuryShell' in sessionData)
 
     // STATE CHECK: Already loaded for this reportId AND not a bootstrap-minimal
     // session. Bootstrap-minimal sessions intentionally fall through so we can
@@ -277,28 +317,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
 
         // ✅ WORLD-CLASS: Detect new vs existing session
-        // Cast to any since backend sessionData can have various shapes (snake_case, camelCase, nested)
         // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
-        const sessionData = (session.sessionData || {}) as any
-        const sessionAny = session as any
+        const sessionData = asSessionDataRecord(session.sessionData)
+        const sessionRecord = session as ValuationSession & SessionDataRecord
         const hasExistingHtmlReport = !!getFirstRenderableReportHtml(
-          sessionAny.htmlReport,
-          sessionData.htmlReport,
-          sessionData.html_report,
-          sessionData._htmlReport
+          session.htmlReport,
+          readString(sessionData, 'htmlReport'),
+          readString(sessionData, 'html_report'),
+          readString(sessionData, '_htmlReport')
         )
         const hasExistingValuationResult = !!(
           // Top-level fields (from mergeSessionFields)
           (
-            sessionAny.valuationResult ||
+            session.valuationResult ||
             hasExistingHtmlReport ||
             // sessionData fields (snake_case and camelCase)
             sessionData.valuationResult ||
             sessionData.valuation_result ||
             sessionData._valuationResult ||
             // Legacy fields
-            sessionAny.latestValuation ||
-            sessionAny.latest_valuation
+            sessionRecord.latestValuation ||
+            sessionRecord.latest_valuation
           )
         )
         const hasMergedEnvelopeIdentity = sessionEnvelopeHasIdentitySignals(sessionData)
@@ -308,8 +347,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const hasExistingFormData = !!(
           sessionData.formData ||
           sessionData.form_data ||
-          (sessionData.companyName && sessionData.companyName.trim() !== '') ||
-          (sessionData.company_name && sessionData.company_name.trim() !== '') ||
+          hasNonEmptyString(sessionData, 'companyName') ||
+          hasNonEmptyString(sessionData, 'company_name') ||
           sessionData.kboNumber ||
           sessionData.kbo_number ||
           sessionData.vatNumber ||
@@ -320,10 +359,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sessionData.ebitda ||
           sessionData.foundingYear ||
           sessionData.founding_year ||
-          (sessionData.postalCode && sessionData.postalCode.trim() !== '') ||
-          (sessionData.postal_code && sessionData.postal_code.trim() !== '') ||
-          (sessionData.legalForm && sessionData.legalForm.trim() !== '') ||
-          (sessionData.legal_form && sessionData.legal_form.trim() !== '') ||
+          hasNonEmptyString(sessionData, 'postalCode') ||
+          hasNonEmptyString(sessionData, 'postal_code') ||
+          hasNonEmptyString(sessionData, 'legalForm') ||
+          hasNonEmptyString(sessionData, 'legal_form') ||
           sessionData.naceCode ||
           sessionData.nace_code ||
           hasMergedEnvelopeIdentity
@@ -389,7 +428,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 
         // Handle paywall errors separately
-        const isPaywallError = (error as any).isPaywallError === true
+        const paywallError = error as PaywallLoadError
+        const isPaywallError = paywallError.isPaywallError === true
 
         if (isPaywallError) {
           storeLogger.info('[Session] Load blocked by paywall', { reportId })
@@ -398,8 +438,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             errorMessage: null,
             restorationComplete: true,
             paywallData: {
-              current: (error as any).current || 0,
-              limit: (error as any).limit || 1,
+              current: readNumericLike(paywallError.current, 0),
+              limit: readNumericLike(paywallError.limit, 1),
               message: rawMessage,
             },
           })
@@ -415,7 +455,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         })
 
         // Handle 404 - redirect if on report page (e.g. deleted session/concept)
-        const statusCode = (error as any).response?.status || (error as any).status
+        const statusCode = readHttpStatus(error)
         if (statusCode === 404 && typeof window !== 'undefined') {
           const currentPath = window.location.pathname
           if (currentPath.includes('/reports/')) {
@@ -559,7 +599,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    * Update session data (form fields)
    * ✅ TWIN ENGINE: Delegates to engine
    */
-  updateSessionData: async (data: Partial<any>) => {
+  updateSessionData: async (data: Partial<SessionDataRecord>) => {
     const state = get()
     if (!state.engine) {
       storeLogger.warn('[Session] Cannot update data - engine not initialized')
@@ -638,14 +678,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // that was fetched and merged during the save/reload process
       if (savedSession) {
         // ✅ DIAGNOSTIC: Verify business card data is in saved session
-        const savedCompanyName = (savedSession.sessionData as any)?.company_name
+        const savedSessionData = asSessionDataRecord(savedSession.sessionData)
+        const savedCompanyName = readString(savedSessionData, 'company_name')
         const hasSavedCompanyName = savedCompanyName && savedCompanyName.trim() !== ''
         storeLogger.debug('[Session] Updating store with saved session', {
           reportId: state.session.reportId,
           hasSavedSession: !!savedSession,
           savedCompanyName,
           hasSavedCompanyName,
-          savedBusinessTypeId: (savedSession.sessionData as any)?.business_type_id,
+          savedBusinessTypeId: savedSessionData.business_type_id,
         })
 
         // Update session in store with the saved session (includes merged business card data)

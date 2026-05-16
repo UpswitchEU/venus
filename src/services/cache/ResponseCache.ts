@@ -279,7 +279,7 @@ export class ResponseCache {
 export const responseCache = new ResponseCache(100)
 
 // Auto cleanup expired entries every 5 minutes
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
   setInterval(
     () => {
       responseCache.cleanupExpired()

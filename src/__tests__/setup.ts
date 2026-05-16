@@ -109,7 +109,7 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query) => ({
-      matches: false,
+      matches: query === '(prefers-reduced-motion: reduce)',
       media: query,
       onchange: null,
       addListener: vi.fn(), // deprecated
@@ -118,6 +118,11 @@ if (typeof window !== 'undefined') {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })),
+  })
+
+  Object.defineProperty(window, 'scrollTo', {
+    writable: true,
+    value: vi.fn(),
   })
 }
 

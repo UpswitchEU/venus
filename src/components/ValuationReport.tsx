@@ -90,9 +90,13 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     // Reset when reportId changes (client-side nav to different report)
     useEffect(() => {
+      const scopedReportId = reportId
       urlSyncAttemptedRef.current = false
       sessionReportTrackedRef.current = false
-    }, [])
+      generalLogger.debug('Reset report-scoped ValuationReport guards', {
+        reportId: scopedReportId?.substring(0, 30),
+      })
+    }, [reportId])
 
     // Sync initial mode and version to URL on mount
     useEffect(() => {

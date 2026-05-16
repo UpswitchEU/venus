@@ -103,43 +103,45 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const effectiveSide = position ?? side
 
   return (
-    <TooltipPrimitive.Root open={open} onOpenChange={setOpen} delayDuration={delayDuration}>
-      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-      <AnimatePresence>
-        {open && (
-          <TooltipPrimitive.Portal forceMount>
-            <TooltipPrimitive.Content
-              side={effectiveSide}
-              align={align}
-              sideOffset={sideOffset}
-              asChild
-              onPointerDownOutside={(e) => e.preventDefault()}
-            >
-              <motion.div
-                custom={effectiveSide}
-                variants={tooltipVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className={cn(
-                  'z-50 overflow-hidden rounded-lg px-3 py-1.5',
-                  'bg-foreground/95 backdrop-blur-md',
-                  'text-sm text-background font-medium',
-                  'border border-foreground/10',
-                  'shadow-lg shadow-black/20',
-                  className
-                )}
+    <TooltipProvider delayDuration={delayDuration}>
+      <TooltipPrimitive.Root open={open} onOpenChange={setOpen} delayDuration={delayDuration}>
+        <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+        <AnimatePresence>
+          {open && (
+            <TooltipPrimitive.Portal forceMount>
+              <TooltipPrimitive.Content
+                side={effectiveSide}
+                align={align}
+                sideOffset={sideOffset}
+                asChild
+                onPointerDownOutside={(e) => e.preventDefault()}
               >
-                {content}
-                {showArrow && (
-                  <TooltipPrimitive.Arrow className="fill-foreground/95" width={10} height={5} />
-                )}
-              </motion.div>
-            </TooltipPrimitive.Content>
-          </TooltipPrimitive.Portal>
-        )}
-      </AnimatePresence>
-    </TooltipPrimitive.Root>
+                <motion.div
+                  custom={effectiveSide}
+                  variants={tooltipVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className={cn(
+                    'z-50 overflow-hidden rounded-lg px-3 py-1.5',
+                    'bg-foreground/95 backdrop-blur-md',
+                    'text-sm text-background font-medium',
+                    'border border-foreground/10',
+                    'shadow-lg shadow-black/20',
+                    className
+                  )}
+                >
+                  {content}
+                  {showArrow && (
+                    <TooltipPrimitive.Arrow className="fill-foreground/95" width={10} height={5} />
+                  )}
+                </motion.div>
+              </TooltipPrimitive.Content>
+            </TooltipPrimitive.Portal>
+          )}
+        </AnimatePresence>
+      </TooltipPrimitive.Root>
+    </TooltipProvider>
   )
 }
 
@@ -147,7 +149,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
 // COMPOUND COMPONENTS
 // ─────────────────────────────────────────
 
-export const TooltipRoot = TooltipPrimitive.Root
+export const TooltipRoot: React.FC<React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root>> = (
+  props
+) => (
+  <TooltipProvider delayDuration={props.delayDuration}>
+    <TooltipPrimitive.Root {...props} />
+  </TooltipProvider>
+)
+TooltipRoot.displayName = 'TooltipRoot'
 export const TooltipTrigger = TooltipPrimitive.Trigger
 export const TooltipPortal = TooltipPrimitive.Portal
 
