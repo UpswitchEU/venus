@@ -7,7 +7,9 @@ export type FormSnapshotForRevenueNav = {
   revenue?: number | string | null
 }
 
-export function parseCurrentYearRevenueForMethodNav(formData: FormSnapshotForRevenueNav): number | undefined {
+export function parseCurrentYearRevenueForMethodNav(
+  formData: FormSnapshotForRevenueNav
+): number | undefined {
   const cyd = formData?.current_year_data
   const raw = cyd?.revenue ?? formData?.revenue
   if (raw === '' || raw == null) return undefined

@@ -33,15 +33,15 @@ import { useTranslations } from 'next-intl'
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
 import { AuroraButton } from '@/design-system'
-import { useAuth } from '@/hooks/useAuth'
-import { trackStudioRunComplete } from '@/lib/analytics'
-import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
 import { ReviewDefaultsModal } from '@/features/startup-studio/components/ReviewDefaultsModal'
-import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import { useAuth } from '@/hooks/useAuth'
+import { trackStudioRunComplete } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { ValuationFormData } from '@/types/valuation'
@@ -205,11 +205,11 @@ export function StartupSubmitFooter({
   const { blockers: allBlockers } = useStudioIssues(benchmark)
   const ALREADY_GATED_IDS = useMemo(
     () => new Set(['missing_company_name', 'missing_first_milestone']),
-    [],
+    []
   )
   const extraBlockers = useMemo(
     () => allBlockers.filter((b) => !ALREADY_GATED_IDS.has(b.id)),
-    [allBlockers, ALREADY_GATED_IDS],
+    [allBlockers, ALREADY_GATED_IDS]
   )
   const hasExtraBlockers = extraBlockers.length > 0
 
@@ -257,8 +257,7 @@ export function StartupSubmitFooter({
   // Disabled state mirrors every gate the click handler enforces — so
   // a disabled button never silently no-ops on click (the silent no-op
   // pattern feels broken to the user).  A15 added blocker-issue gate.
-  const disabled =
-    isCalculating || missingCompanyName || missingMilestone || hasExtraBlockers
+  const disabled = isCalculating || missingCompanyName || missingMilestone || hasExtraBlockers
 
   // The helper text is mutually exclusive: company-name takes priority
   // because the founder typically lands at the top of the panel and
@@ -304,11 +303,7 @@ export function StartupSubmitFooter({
           the hook tree dormant until the user actually clicks
           "Generate". */}
       {reviewOpen && (
-        <ReviewDefaultsModal
-          open={reviewOpen}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
-        />
+        <ReviewDefaultsModal open={reviewOpen} onConfirm={handleConfirm} onCancel={handleCancel} />
       )}
     </>
   )
@@ -361,7 +356,10 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
             launcherIssues={startupLauncherIssues}
           />
         </div>
-        <StartupSubmitFooter onSubmit={manualInputPanelProps.onSubmit} isCalculating={isCalculating} />
+        <StartupSubmitFooter
+          onSubmit={manualInputPanelProps.onSubmit}
+          isCalculating={isCalculating}
+        />
       </div>
     )
   }

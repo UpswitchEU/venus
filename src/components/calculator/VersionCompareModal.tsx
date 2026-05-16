@@ -102,7 +102,7 @@ function VersionCard({
   formatTime: (d: Date) => string
   t: (k: string) => string
 }) {
-  const TypeIcon = typeIcons[version.type]
+  const _TypeIcon = typeIcons[version.type]
 
   // Calculate diff with comparison
   const valuationDiff =

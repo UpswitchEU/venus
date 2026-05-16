@@ -54,11 +54,7 @@ export function applyUserVsOfficialVariance(
     else if (maxVariance >= soft) severity = 'soft'
   }
 
-  let state:
-    | 'not_started'
-    | 'pending'
-    | 'not_required'
-    | 'explained' =
+  let state: 'not_started' | 'pending' | 'not_required' | 'explained' =
     maxVariance == null ? 'not_started' : explanationRequired ? 'pending' : 'not_required'
 
   const draftExplanation = previousVariance?.explanation?.trim()
@@ -80,7 +76,7 @@ export function applyUserVsOfficialVariance(
     ...(revenueVariance != null ? { revenueVariancePercent: revenueVariance } : {}),
     ...(ebitdaVariance != null ? { ebitdaVariancePercent: ebitdaVariance } : {}),
     ...(maxVariance != null ? { maxVariancePercent: maxVariance } : {}),
-    ...(preserveDraft ? { explanation: previousVariance!.explanation } : {}),
+    ...(preserveDraft ? { explanation: previousVariance?.explanation } : {}),
   }
 
   return {

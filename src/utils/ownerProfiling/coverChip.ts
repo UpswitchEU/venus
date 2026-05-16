@@ -18,8 +18,8 @@
  *   per `project_launch_ready_2026_04_29`), which is template-independent.
  */
 
-import { toNumber } from '../decimal'
 import type { ValuationResponse } from '../../types/valuation'
+import { toNumber } from '../decimal'
 
 export type OwnerProfilingChipColorBand = 'good' | 'neutral' | 'caution' | 'warn'
 
@@ -119,7 +119,7 @@ function normalizeRiskLevel(raw: unknown): string | null {
 }
 
 function isStructuredOwnerDependencyPayload(
-  v: unknown,
+  v: unknown
 ): v is NonNullable<ValuationResponse['owner_dependency_result']> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
@@ -133,14 +133,14 @@ function isStructuredOwnerDependencyPayload(
  * no backing 12-factor breakdown to expand on hover.
  */
 export function deriveOwnerProfilingChip(
-  response: Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  >,
+  response: Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'>
 ): OwnerProfilingChip | null {
   const result = response.owner_dependency_result
   if (!isStructuredOwnerDependencyPayload(result)) return null
-  if (response.owner_dependency_adjustment === undefined || response.owner_dependency_adjustment === null) {
+  if (
+    response.owner_dependency_adjustment === undefined ||
+    response.owner_dependency_adjustment === null
+  ) {
     return null
   }
 
@@ -186,10 +186,10 @@ export function deriveOwnerProfilingChip(
 }
 
 function hasCompleteOwnerProfilingPair(
-  slice: Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  > | null | undefined,
+  slice:
+    | Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'>
+    | null
+    | undefined
 ): boolean {
   return (
     isStructuredOwnerDependencyPayload(slice?.owner_dependency_result) &&
@@ -209,27 +209,27 @@ function hasCompleteOwnerProfilingPair(
  * Pre-flight responses (no `valuation_id`) intentionally render nothing —
  * the wizard CTA on a not-yet-saved valuation would be confusing.
  */
-export type OwnerProfilingState =
-  | { mode: 'chip'; chip: OwnerProfilingChip }
-  | { mode: 'skipped' }
+export type OwnerProfilingState = { mode: 'chip'; chip: OwnerProfilingChip } | { mode: 'skipped' }
 
-function hasValuationIdentity(
-  slice: { valuation_id?: unknown } | null | undefined,
-): boolean {
+function hasValuationIdentity(slice: { valuation_id?: unknown } | null | undefined): boolean {
   if (!slice) return false
   const id = slice.valuation_id
   return typeof id === 'string' && id.trim() !== ''
 }
 
 export function deriveOwnerProfilingState(
-  session: (Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  > & { valuation_id?: string }) | null | undefined,
-  result: (Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  > & { valuation_id?: string }) | null | undefined,
+  session:
+    | (Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'> & {
+        valuation_id?: string
+      })
+    | null
+    | undefined,
+  result:
+    | (Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'> & {
+        valuation_id?: string
+      })
+    | null
+    | undefined
 ): OwnerProfilingState | null {
   const chip = deriveOwnerProfilingChipPreferSessionThenResult(session, result)
   if (chip) return { mode: 'chip', chip }
@@ -248,14 +248,14 @@ export function deriveOwnerProfilingState(
  * can surface phantom chips after partial hydration or optimistic updates.
  */
 export function deriveOwnerProfilingChipPreferSessionThenResult(
-  session: Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  > | null | undefined,
-  result: Pick<
-    ValuationResponse,
-    'owner_dependency_result' | 'owner_dependency_adjustment'
-  > | null | undefined,
+  session:
+    | Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'>
+    | null
+    | undefined,
+  result:
+    | Pick<ValuationResponse, 'owner_dependency_result' | 'owner_dependency_adjustment'>
+    | null
+    | undefined
 ): OwnerProfilingChip | null {
   if (hasCompleteOwnerProfilingPair(session)) {
     const fromSession = deriveOwnerProfilingChip(session!)

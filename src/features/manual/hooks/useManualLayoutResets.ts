@@ -14,7 +14,7 @@
  * effect-count: 6 inline effects in the panel become 1 hook call.
  */
 
-import { useEffect, type MutableRefObject } from 'react'
+import { type MutableRefObject, useEffect } from 'react'
 import type { ValuationResponse } from '@/types/valuation'
 import { buildQualityWarningResetKey } from '@/utils/qualityWarningResetKey'
 
@@ -64,13 +64,13 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   useEffect(() => {
     refs.lastQualityWarningResetKeyRef.current = null
     refs.lastSynthesisBlendSkippedRunKeyRef.current = null
-  }, [reportId])
+  }, [refs.lastQualityWarningResetKeyRef, refs.lastSynthesisBlendSkippedRunKeyRef])
 
   // Effect 1389: acknowledged startup issues set reset on reportId change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setAcknowledgedStartupIssues(new Set())
-  }, [reportId])
+  }, [setAcknowledgedStartupIssues])
 
   // Effect 1980: form-dirty flag + last-submitted financial snapshot reset on
   // reportId change so a fresh valuation does not inherit prior edit-detection
@@ -79,7 +79,7 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   useEffect(() => {
     refs.lastSubmittedFinancialSnapshotRef.current = null
     setIsDirty(false)
-  }, [reportId])
+  }, [refs.lastSubmittedFinancialSnapshotRef, setIsDirty])
 
   // Effect 2827: when a materially new result arrives, clear stale ack entries
   // so the user is re-prompted for warnings that the new run actually emits.
@@ -93,7 +93,7 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
       setAcknowledgedQualityWarnings(new Set())
       refs.lastQualityWarningResetKeyRef.current = resetKey
     }
-  }, [result])
+  }, [result, refs.lastQualityWarningResetKeyRef, setAcknowledgedQualityWarnings])
 
   // Effect 5860: acknowledged startup issues set cleared when the user leaves
   // the startup route (the issue surface is venture-path-specific).
@@ -101,5 +101,5 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   useEffect(() => {
     if (isStartupAssistantRoute) return
     setAcknowledgedStartupIssues(new Set())
-  }, [isStartupAssistantRoute])
+  }, [isStartupAssistantRoute, setAcknowledgedStartupIssues])
 }

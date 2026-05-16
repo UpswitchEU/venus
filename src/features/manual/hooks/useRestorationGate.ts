@@ -49,9 +49,7 @@ export interface UseRestorationGateResult {
   restoreTimeoutFired: boolean
 }
 
-export function useRestorationGate(
-  params: UseRestorationGateParams
-): UseRestorationGateResult {
+export function useRestorationGate(params: UseRestorationGateParams): UseRestorationGateResult {
   const { isRestoringExistingReport, restorationComplete } = params
   const [restoreTimeoutFired, setRestoreTimeoutFired] = useState(false)
 

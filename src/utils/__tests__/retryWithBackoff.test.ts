@@ -71,7 +71,7 @@ describe('retryWithBackoff', () => {
       const delays: number[] = []
       const fn = vi.fn().mockRejectedValue(new NetworkError())
 
-      const startTime = Date.now()
+      const _startTime = Date.now()
 
       await expect(
         retryWithBackoff(fn, {

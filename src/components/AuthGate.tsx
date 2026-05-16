@@ -300,7 +300,7 @@ export function AuthGate({
   const needsClientContext = hasClientToken
 
   // Subscribe to client context when needsClientContext (client null when invitation not accepted)
-  const clientContextReady = useClientContext(
+  const _clientContextReady = useClientContext(
     (s) => !needsClientContext || (s.isActingAsClient && !!s.accountant && !!s.relationshipId)
   )
 
@@ -316,7 +316,7 @@ export function AuthGate({
     if (wasAuthReady) return
 
     let mounted = true
-    const traceId = getInitTraceId() || 'unknown'
+    const _traceId = getInitTraceId() || 'unknown'
 
     const maxTimeout = setTimeout(() => {
       if (mounted && !wasAuthReady) {
@@ -329,7 +329,13 @@ export function AuthGate({
     function settle(outcome: 'ready' | 'error' | 'redirect', payload?: string) {
       if (!mounted || wasAuthReady) return
       if (outcome === 'ready') {
-        const user = useAuthStore.getState().user!
+        const user = useAuthStore.getState().user
+        if (!user) {
+          setState('error')
+          setError(tRef.current('required'))
+          onAuthErrorRef.current?.('Authenticated user missing')
+          return
+        }
         wasAuthReady = true
         clearRedirectCount()
         setState('ready')
@@ -348,8 +354,8 @@ export function AuthGate({
         }
         setError(payload ?? 'Unknown error')
         onAuthErrorRef.current?.(payload ?? 'Unknown error')
-      } else if (outcome === 'redirect' && typeof window !== 'undefined') {
-        window.location.href = payload!
+      } else if (outcome === 'redirect' && typeof window !== 'undefined' && payload) {
+        window.location.href = payload
       }
     }
 
@@ -451,7 +457,7 @@ export function AuthGate({
       clearTimeout(maxTimeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext, clientContextReady])
+  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext])
 
   // Render based on state
   // In optimistic mode, render children immediately.

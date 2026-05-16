@@ -132,9 +132,7 @@ export function TractionStep(_props: TractionStepProps) {
                   to signal the field has moved off the synced number. */}
               {prefilledKeys.has('mrr') && typeof mrr === 'number' && mrr > 0 && (
                 <div className="mt-1.5">
-                  <PrefillBadge
-                    variant={mrr === initialMrr ? 'mercury' : 'your_override'}
-                  />
+                  <PrefillBadge variant={mrr === initialMrr ? 'mercury' : 'your_override'} />
                 </div>
               )}
             </div>
@@ -218,7 +216,9 @@ export function TractionStep(_props: TractionStepProps) {
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-foreground/55">{t('ltvCacRatioLabel')}</p>
+                <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                  {t('ltvCacRatioLabel')}
+                </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
                   {ltvCacRatio != null ? `${ltvCacRatio.toFixed(1)}×` : '—'}
                 </p>
@@ -228,9 +228,7 @@ export function TractionStep(_props: TractionStepProps) {
                   {t('payback')}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {paybackMonths != null
-                    ? `${paybackMonths} ${tCommon('monthsShort')}`
-                    : '—'}
+                  {paybackMonths != null ? `${paybackMonths} ${tCommon('monthsShort')}` : '—'}
                 </p>
               </div>
             </div>

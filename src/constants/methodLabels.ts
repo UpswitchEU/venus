@@ -6,10 +6,7 @@
  * Adding an 11th method means editing one spec; both maps update automatically.
  */
 
-import {
-  deriveMethodDescriptionKeys,
-  deriveMethodLabelKeys,
-} from '@/lib/methods/registry'
+import { deriveMethodDescriptionKeys, deriveMethodLabelKeys } from '@/lib/methods/registry'
 
 export const METHOD_LABEL_KEYS: Record<string, string> = deriveMethodLabelKeys()
 

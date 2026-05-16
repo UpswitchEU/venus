@@ -279,12 +279,16 @@ describe('resolveCountryRegistrationDutyPct', () => {
     expect(resolveCountryRegistrationDutyPct(code)).toBe(expected)
   })
 
-  it.each([null, undefined, '', 'FR', 'DE', 'US'])(
-    'returns null for unsupported / blank input %p',
-    (input) => {
-      expect(resolveCountryRegistrationDutyPct(input)).toBeNull()
-    }
-  )
+  it.each([
+    null,
+    undefined,
+    '',
+    'FR',
+    'DE',
+    'US',
+  ])('returns null for unsupported / blank input %p', (input) => {
+    expect(resolveCountryRegistrationDutyPct(input)).toBeNull()
+  })
 })
 
 describe('computeNavBookReferences', () => {

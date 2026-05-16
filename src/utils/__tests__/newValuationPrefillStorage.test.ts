@@ -106,12 +106,8 @@ describe('buildIdentityFingerprint', () => {
 
 describe('fingerprintsMatch', () => {
   it('matches by KBO number when present on both sides', () => {
-    expect(
-      fingerprintsMatch({ kboNumber: '0123456789' }, { kboNumber: '0123456789' })
-    ).toBe(true)
-    expect(
-      fingerprintsMatch({ kboNumber: '0123456789' }, { kboNumber: '9999999999' })
-    ).toBe(false)
+    expect(fingerprintsMatch({ kboNumber: '0123456789' }, { kboNumber: '0123456789' })).toBe(true)
+    expect(fingerprintsMatch({ kboNumber: '0123456789' }, { kboNumber: '9999999999' })).toBe(false)
   })
 
   it('does NOT fall through to company name when KBOs differ', () => {
@@ -125,9 +121,9 @@ describe('fingerprintsMatch', () => {
   })
 
   it('falls back to VAT then company name when KBO is missing on one side', () => {
-    expect(
-      fingerprintsMatch({ vatNumber: 'BE0123456789' }, { vatNumber: 'BE0123456789' })
-    ).toBe(true)
+    expect(fingerprintsMatch({ vatNumber: 'BE0123456789' }, { vatNumber: 'BE0123456789' })).toBe(
+      true
+    )
     expect(
       fingerprintsMatch({ companyName: 'RESTAURANTAB' }, { companyName: 'RESTAURANTAB' })
     ).toBe(true)
@@ -300,10 +296,7 @@ describe('readNewValuationPrefill — cross-company poisoning guard', () => {
   })
 
   it('clears storage on every read — poisoned entries cannot keep firing', () => {
-    storage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ _fromNewValuation: true, company_name: 'X' })
-    )
+    storage.setItem(STORAGE_KEY, JSON.stringify({ _fromNewValuation: true, company_name: 'X' }))
     readNewValuationPrefill(buildIdentityFingerprint({ companyName: 'Y' }))
     expect(storage.getItem(STORAGE_KEY)).toBeNull()
   })

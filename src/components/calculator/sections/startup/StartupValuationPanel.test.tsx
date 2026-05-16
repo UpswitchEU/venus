@@ -47,14 +47,10 @@ vi.mock('@/features/startup-studio/components/CompanyCardStep', () => ({
   ),
 }))
 vi.mock('@/features/startup-studio/components/BerkusStep', () => ({
-  BerkusStep: () => (
-    <div data-testid="section-berkus" data-locale={intlLocaleMock.current} />
-  ),
+  BerkusStep: () => <div data-testid="section-berkus" data-locale={intlLocaleMock.current} />,
 }))
 vi.mock('@/features/startup-studio/components/ScorecardStep', () => ({
-  ScorecardStep: () => (
-    <div data-testid="section-scorecard" data-locale={intlLocaleMock.current} />
-  ),
+  ScorecardStep: () => <div data-testid="section-scorecard" data-locale={intlLocaleMock.current} />,
 }))
 vi.mock('@/features/startup-studio/components/FounderPedigreeStep', () => ({
   FounderPedigreeStep: () => (
@@ -62,14 +58,10 @@ vi.mock('@/features/startup-studio/components/FounderPedigreeStep', () => ({
   ),
 }))
 vi.mock('@/features/startup-studio/components/TractionStep', () => ({
-  TractionStep: () => (
-    <div data-testid="section-traction" data-locale={intlLocaleMock.current} />
-  ),
+  TractionStep: () => <div data-testid="section-traction" data-locale={intlLocaleMock.current} />,
 }))
 vi.mock('@/features/startup-studio/components/ExitStoryStep', () => ({
-  ExitStoryStep: () => (
-    <div data-testid="section-exit" data-locale={intlLocaleMock.current} />
-  ),
+  ExitStoryStep: () => <div data-testid="section-exit" data-locale={intlLocaleMock.current} />,
 }))
 vi.mock('@/features/startup-studio/components/RoundSimulatorStep', () => ({
   RoundSimulatorStep: () => (
@@ -136,13 +128,13 @@ describe('StartupValuationPanel — unified shell', () => {
     // StudioCoPilot FAB / FindingPeek and the sticky StartupSubmitFooter
     // (Aurora "one canonical surface per decision").
     const order = [
-      'section-company-card',  // 1. Profile
-      'section-exit',          // 2. Exit story (the EV/Revenue spine)
-      'section-berkus',        // 3. Risk reduction overlay
-      'section-scorecard',     // 4. Defensibility overlay
-      'section-pedigree',      // 5. Team pedigree overlay
-      'section-traction',      // 6. Traction overlay
-      'section-round',         // 7. Round simulator
+      'section-company-card', // 1. Profile
+      'section-exit', // 2. Exit story (the EV/Revenue spine)
+      'section-berkus', // 3. Risk reduction overlay
+      'section-scorecard', // 4. Defensibility overlay
+      'section-pedigree', // 5. Team pedigree overlay
+      'section-traction', // 6. Traction overlay
+      'section-round', // 7. Round simulator
     ] as const
 
     for (const id of order) {

@@ -14,8 +14,8 @@ import type {
   StudioIssuesResult,
 } from '@/features/startup-studio/hooks/useStudioIssues'
 import {
-  useStartupAssistantSurface,
   type UseStartupAssistantSurfaceParams,
+  useStartupAssistantSurface,
 } from './useStartupAssistantSurface'
 
 vi.mock('@/lib/benchmarks/useStartupBenchmark', () => ({
@@ -100,31 +100,18 @@ describe('useStartupAssistantSurface', () => {
         issue({ id: 'warn-1', severity: 'warn' }),
         issue({ id: 'block-1', severity: 'block' }),
       ])
-      const { result } = renderHook(() =>
-        useStartupAssistantSurface(makeParams())
-      )
-      expect(result.current.startupIssues.map((x) => x.id)).toEqual([
-        'warn-1',
-        'block-1',
-      ])
-      expect(result.current.startupLauncherIssues.map((x) => x.id)).toEqual([
-        'warn-1',
-        'block-1',
-      ])
+      const { result } = renderHook(() => useStartupAssistantSurface(makeParams()))
+      expect(result.current.startupIssues.map((x) => x.id)).toEqual(['warn-1', 'block-1'])
+      expect(result.current.startupLauncherIssues.map((x) => x.id)).toEqual(['warn-1', 'block-1'])
     })
 
     it('drops issues whose id is in acknowledgedStartupIssues', () => {
       setIssues([issue({ id: 'a' }), issue({ id: 'b' }), issue({ id: 'c' })])
       const { result } = renderHook(() =>
-        useStartupAssistantSurface(
-          makeParams({ acknowledgedStartupIssues: new Set(['b']) })
-        )
+        useStartupAssistantSurface(makeParams({ acknowledgedStartupIssues: new Set(['b']) }))
       )
       expect(result.current.startupIssues.map((x) => x.id)).toEqual(['a', 'c'])
-      expect(result.current.startupLauncherIssues.map((x) => x.id)).toEqual([
-        'a',
-        'c',
-      ])
+      expect(result.current.startupLauncherIssues.map((x) => x.id)).toEqual(['a', 'c'])
     })
   })
 
@@ -187,9 +174,7 @@ describe('useStartupAssistantSurface', () => {
   describe('issue-by-id map', () => {
     it('exposes every launcher issue keyed by its id', () => {
       setIssues([issue({ id: 'x' }), issue({ id: 'y' }), issue({ id: 'z' })])
-      const { result } = renderHook(() =>
-        useStartupAssistantSurface(makeParams())
-      )
+      const { result } = renderHook(() => useStartupAssistantSurface(makeParams()))
       expect(result.current.startupIssueById.size).toBe(3)
       expect(result.current.startupIssueById.get('x')?.id).toBe('x')
       expect(result.current.startupIssueById.get('y')?.id).toBe('y')

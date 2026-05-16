@@ -29,8 +29,8 @@
  */
 
 import { useMemo } from 'react'
-import studioEn from '../../../../messages/startupStudio/en.json'
-import studioNl from '../../../../messages/startupStudio/nl.json'
+import { projectForwardArrEur } from '@/components/calculator/sections/startup/regionalBaseline'
+import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
@@ -40,9 +40,9 @@ import {
   type StudioMilestoneKey,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
-import { projectForwardArrEur } from '@/components/calculator/sections/startup/regionalBaseline'
-import { type LiveValuation, formatEur, useLiveValuation } from './useLiveValuation'
+import studioEn from '../../../../messages/startupStudio/en.json'
+import studioNl from '../../../../messages/startupStudio/nl.json'
+import { formatEur, type LiveValuation, useLiveValuation } from './useLiveValuation'
 
 export type StudioIssueSeverity = 'block' | 'warn' | 'info'
 
@@ -215,8 +215,10 @@ function pickIssues(
     (state.mrr == null || state.mrr <= 0) &&
     (state.arr == null || state.arr <= 0)
   ) {
-    const sectorLabelEn = studioEn.narrative.sectorLabels[state.sector as keyof typeof studioEn.narrative.sectorLabels]
-    const sectorLabelNl = studioNl.narrative.sectorLabels[state.sector as keyof typeof studioNl.narrative.sectorLabels]
+    const sectorLabelEn =
+      studioEn.narrative.sectorLabels[state.sector as keyof typeof studioEn.narrative.sectorLabels]
+    const sectorLabelNl =
+      studioNl.narrative.sectorLabels[state.sector as keyof typeof studioNl.narrative.sectorLabels]
     issues.push({
       id: 'recurring_sector_no_arr',
       severity: 'warn',
@@ -309,11 +311,7 @@ function pickIssues(
       arr: state.arr,
       momGrowthPct: state.mrr_growth_rate_pct,
     })
-    if (
-      typeof forwardArr === 'number' &&
-      forwardArr > 0 &&
-      y5Value < forwardArr
-    ) {
+    if (typeof forwardArr === 'number' && forwardArr > 0 && y5Value < forwardArr) {
       issues.push({
         id: 'y5_below_forward_arr',
         severity: 'warn',
@@ -378,7 +376,7 @@ function pickIssues(
   const invRound = state.investment_amount_sought
   const preForSlice = resolveHeadlinePreMoney(
     state.cap_table.pre_money_target,
-    valuation.blended?.mid ?? null,
+    valuation.blended?.mid ?? null
   )
   if (
     state.cap_table.safe_notes.length === 0 &&
@@ -391,8 +389,7 @@ function pickIssues(
     const roundPctSlice = (invRound / postSlice) * 100
     if (roundPctSlice > 22 && Number.isFinite(roundPctSlice)) {
       const preHint12 = invRound / 0.12 - invRound
-      const preHintStr =
-        preHint12 > 0 && Number.isFinite(preHint12) ? formatEur(preHint12) : '—'
+      const preHintStr = preHint12 > 0 && Number.isFinite(preHint12) ? formatEur(preHint12) : '—'
       issues.push({
         id: 'high_priced_round_slice',
         severity: 'warn',
@@ -554,5 +551,8 @@ export function useStudioIssues(benchmark: StartupBenchmarkRow): StudioIssuesRes
     benchmark.source,
     benchmark.methodology_version,
     companyName,
+    valuation,
+    benchmark,
+    state,
   ])
 }

@@ -228,12 +228,10 @@ export const PEDIGREE_KEYS: readonly FounderPedigreeKey[] = [
 ] as const
 
 /** Keys that may carry gated evidence (excludes ``solo_founder``). */
-export const PEDIGREE_EVIDENCE_FIELD_KEYS: readonly Exclude<
-  FounderPedigreeKey,
-  'solo_founder'
->[] = PEDIGREE_KEYS.filter(
-  (k): k is Exclude<FounderPedigreeKey, 'solo_founder'> => k !== 'solo_founder',
-)
+export const PEDIGREE_EVIDENCE_FIELD_KEYS: readonly Exclude<FounderPedigreeKey, 'solo_founder'>[] =
+  PEDIGREE_KEYS.filter(
+    (k): k is Exclude<FounderPedigreeKey, 'solo_founder'> => k !== 'solo_founder'
+  )
 
 /**
  * Evidence strings sent to Titan/ValuationIQ — same contract as Python
@@ -241,7 +239,7 @@ export const PEDIGREE_EVIDENCE_FIELD_KEYS: readonly Exclude<
  * The store keeps raw text while typing (see `setPedigreeEvidence`).
  */
 function sanitizePedigreeEvidenceMap(
-  raw: Partial<Record<string, unknown>>,
+  raw: Partial<Record<string, unknown>>
 ): FounderPedigreeEvidence {
   const out: FounderPedigreeEvidence = {}
   for (const k of PEDIGREE_EVIDENCE_FIELD_KEYS) {
@@ -512,10 +510,7 @@ interface StartupValuationStore extends StartupValuationState {
    * are truncated to match ValuationIQ bounds.  `toRequestPayload` applies
    * the same normalization (trim + known keys + cap) before Titan.
    */
-  setPedigreeEvidence: (
-    key: Exclude<FounderPedigreeKey, 'solo_founder'>,
-    evidence: string
-  ) => void
+  setPedigreeEvidence: (key: Exclude<FounderPedigreeKey, 'solo_founder'>, evidence: string) => void
   /** Studio v2 — evidence note setter (free-text per milestone). */
   setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
   addSafeNote: () => void
@@ -800,10 +795,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           return { ...state, stage: inferred }
         }),
 
-      setCapField: <K extends keyof StartupCapTableState>(
-        key: K,
-        value: StartupCapTableState[K],
-      ) =>
+      setCapField: <K extends keyof StartupCapTableState>(key: K, value: StartupCapTableState[K]) =>
         set((state) => ({
           ...state,
           cap_table: {
@@ -1275,7 +1267,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           // only canonical keys, bounded length, no junk from legacy data.
           if (s.pedigree_evidence && typeof s.pedigree_evidence === 'object') {
             s.pedigree_evidence = sanitizePedigreeEvidenceMap(
-              s.pedigree_evidence as Record<string, unknown>,
+              s.pedigree_evidence as Record<string, unknown>
             )
           }
         }

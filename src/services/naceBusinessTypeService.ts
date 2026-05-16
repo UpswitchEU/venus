@@ -28,7 +28,10 @@ const LEGAL_FORM_BUSINESS_TYPE_VALUES = new Set([
 /** True when a value is a legal structure, not a canonical sector/business type id. */
 export function isLegalFormBusinessTypeValue(value: unknown): boolean {
   if (typeof value !== 'string') return false
-  const compact = value.trim().toLowerCase().replace(/[\s.\-_'()/]/g, '')
+  const compact = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.\-_'()/]/g, '')
   return LEGAL_FORM_BUSINESS_TYPE_VALUES.has(compact)
 }
 
@@ -123,7 +126,7 @@ class NaceBusinessTypeService {
   async getBusinessTypeForNaceCode(
     naceCode: string,
     signal?: AbortSignal,
-    marketCountryCode?: string,
+    marketCountryCode?: string
   ): Promise<BusinessType | null> {
     if (!naceCode || !naceCode.trim()) return null
 

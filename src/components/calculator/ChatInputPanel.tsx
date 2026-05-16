@@ -62,7 +62,7 @@ export function ChatInputPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -70,7 +70,7 @@ export function ChatInputPanel({
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, [input])
+  }, [])
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -81,9 +81,8 @@ export function ChatInputPanel({
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)])
-    }
+    const files = e.target.files
+    if (files) setAttachments((prev) => [...prev, ...Array.from(files)])
   }
 
   const removeAttachment = (index: number) => {

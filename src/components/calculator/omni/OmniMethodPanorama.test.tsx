@@ -46,7 +46,7 @@ describe('OmniMethodPanorama', () => {
         }}
         selectedMethod="upswitch_adaptive"
         onMethodClick={vi.fn()}
-      />,
+      />
     )
 
     expect(screen.getAllByRole('button')).toHaveLength(3)

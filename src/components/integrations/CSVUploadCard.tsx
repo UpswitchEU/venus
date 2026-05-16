@@ -173,7 +173,7 @@ export function CSVUploadCard({ onFileSelected, onSkip, className }: CSVUploadCa
         setError(t('errorCsvOnly'))
       }
     },
-    [processFile]
+    [processFile, t]
   )
 
   const handleFileInput = useCallback(
@@ -317,13 +317,11 @@ export function CSVUploadCard({ onFileSelected, onSkip, className }: CSVUploadCa
                 t('formats.accountable'),
                 t('formats.odoo'),
                 t('formats.generic'),
-              ].map(
-                (format) => (
-                  <Badge key={format} variant="neutral" size="sm">
-                    {format}
-                  </Badge>
-                )
-              )}
+              ].map((format) => (
+                <Badge key={format} variant="neutral" size="sm">
+                  {format}
+                </Badge>
+              ))}
             </div>
           </motion.div>
         ) : (

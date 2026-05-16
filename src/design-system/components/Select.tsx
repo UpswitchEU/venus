@@ -314,7 +314,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       } else {
         setDropdownRect(null)
       }
-    }, [isOpen])
+    }, [isOpen, containerRef.current])
 
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
@@ -331,7 +331,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
 
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    }, [containerRef.current?.contains])
 
     // Focus search input when opened
     React.useEffect(() => {

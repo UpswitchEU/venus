@@ -116,14 +116,11 @@ export class ReportAPI extends HttpClient {
       return null
     }
     try {
-      const trimmedSk =
-        typeof options?.sessionKey === 'string' ? options.sessionKey.trim() : ''
+      const trimmedSk = typeof options?.sessionKey === 'string' ? options.sessionKey.trim() : ''
       const safeSessionKey =
         trimmedSk && isSessionKey(trimmedSk) && trimmedSk !== reportId ? trimmedSk : undefined
       const trimmedAlt =
-        typeof options?.alternateReportId === 'string'
-          ? options.alternateReportId.trim()
-          : ''
+        typeof options?.alternateReportId === 'string' ? options.alternateReportId.trim() : ''
       const safeAlternate =
         trimmedAlt && isUuid(trimmedAlt) && trimmedAlt !== reportId ? trimmedAlt : undefined
 

@@ -498,7 +498,9 @@ describe('normalizeSessionData', () => {
     expect((normalized.formData as any).official_financials).toEqual({
       years: [{ year: 2024, revenue: 1200000, ebitda: 180000 }],
     })
-    expect((normalized.formData as any).official_variance_analysis).toEqual({ revenue_delta_pct: 3.1 })
+    expect((normalized.formData as any).official_variance_analysis).toEqual({
+      revenue_delta_pct: 3.1,
+    })
     expect((normalized.formData as any).official_verification_badge).toEqual({
       level: 'verified',
       source: 'nbb',

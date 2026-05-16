@@ -62,7 +62,7 @@ export function computeSaasPreviewMetrics(input: SaasPreviewInputs): SaasPreview
   } = input
 
   const grossMarginRatio = ratioFromPercent(saasGrossMarginPct)
-  const revenueChurnRatio = ratioFromPercent(saasChurnPct)
+  const _revenueChurnRatio = ratioFromPercent(saasChurnPct)
   const customerChurnRatio = ratioFromPercent(saasCustomerChurnPct)
 
   const ruleOf40 =

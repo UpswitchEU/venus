@@ -165,8 +165,7 @@ export function formatVersionLabel(version: ValuationVersion): string {
   return `${low} - ${high} (Ask: ${asking})${normalizationIndicator}`
 }
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isUuid(str: string | null | undefined): boolean {
   return !!str && UUID_REGEX.test(str)

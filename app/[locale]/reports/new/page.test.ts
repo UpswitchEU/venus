@@ -14,7 +14,7 @@
  * This regression test pins behavior so a future refactor can't drop a param.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const redirectMock = vi.fn((url: string) => {
   // Next.js' `redirect()` throws to halt rendering; mirror that so the
@@ -46,7 +46,7 @@ async function callPage(searchParams: Record<string, string | string[] | undefin
     if (!(err instanceof Error) || err.message !== 'NEXT_REDIRECT') throw err
   }
   expect(redirectMock).toHaveBeenCalledOnce()
-  return redirectMock.mock.calls[0]![0] as string
+  return redirectMock.mock.calls[0]?.[0] as string
 }
 
 describe('/reports/new param preservation', () => {

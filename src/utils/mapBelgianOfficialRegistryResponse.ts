@@ -108,9 +108,10 @@ function mapHistoricalYears(
     .map((yr) => ({
       fiscalYear: toOptionalFilingYear(yr.fiscalYear ?? yr.fiscal_year) ?? 0,
       revenue: toOptionalFiniteNumber(yr.revenue),
-      revenueSource: yr.revenueSource === 'gross_margin' || yr.revenue_source === 'gross_margin'
-        ? 'gross_margin' as const
-        : 'turnover' as const,
+      revenueSource:
+        yr.revenueSource === 'gross_margin' || yr.revenue_source === 'gross_margin'
+          ? ('gross_margin' as const)
+          : ('turnover' as const),
       operatingProfit: toOptionalFiniteNumber(yr.operatingProfit ?? yr.operating_profit),
       depreciation: toOptionalFiniteNumber(yr.depreciation),
       writeOffs: toOptionalFiniteNumber(yr.writeOffs ?? yr.write_offs),
@@ -118,9 +119,10 @@ function mapHistoricalYears(
       ebitda: toOptionalFiniteNumber(yr.ebitda),
       totalAssets: toOptionalFiniteNumber(yr.totalAssets ?? yr.total_assets),
       equity: toOptionalFiniteNumber(yr.equity),
-      schemaType: yr.schemaType === 'abbreviated' || yr.schema_type === 'abbreviated'
-        ? 'abbreviated' as const
-        : 'full' as const,
+      schemaType:
+        yr.schemaType === 'abbreviated' || yr.schema_type === 'abbreviated'
+          ? ('abbreviated' as const)
+          : ('full' as const),
       rubricsUsed: (yr.rubricsUsed ?? yr.rubrics_used) as Record<string, string> | undefined,
     }))
     .filter((yr) => yr.fiscalYear > 0)

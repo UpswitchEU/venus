@@ -21,12 +21,12 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { dateLikeToUnixMs } from '@/utils/date-like'
 
 // ─────────────────────────────────────────
@@ -273,7 +273,7 @@ export function YukiConnectCard({
     <CSVImportCard
       importStatus={importStatus}
       onUpload={onConnect}
-      onDownloadTemplate={() => {}}
+      onDownloadTemplate={() => undefined}
       onClearImport={onDisconnect}
       className={className}
       softwareName="Yuki"

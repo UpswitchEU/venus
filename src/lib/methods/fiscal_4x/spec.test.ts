@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fiscal4xMethodSpec, FISCAL_4X_METHOD_KEY } from './spec'
+import { FISCAL_4X_METHOD_KEY, fiscal4xMethodSpec } from './spec'
 
 describe('fiscal4xMethodSpec', () => {
   it('uses the canonical "fiscal_4x" key', () => {
@@ -26,9 +26,7 @@ describe('fiscal4xMethodSpec', () => {
 
   it('declares matching label + description i18n keys', () => {
     expect(fiscal4xMethodSpec.labelKey).toBe('manualInput.methodSelector.fiscal4x')
-    expect(fiscal4xMethodSpec.descriptionKey).toBe(
-      'manualInput.methodSelector.fiscal4xDescription'
-    )
+    expect(fiscal4xMethodSpec.descriptionKey).toBe('manualInput.methodSelector.fiscal4xDescription')
   })
 
   it('does not opt into any method-specific UI capability', () => {

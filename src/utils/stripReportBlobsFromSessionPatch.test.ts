@@ -73,7 +73,10 @@ describe('stripReportBlobsFromSessionPatch', () => {
 
   it('stripReportsFromValuationSessionPatchUpdates recurses partial_data', () => {
     const out = stripReportsFromValuationSessionPatchUpdates({
-      partial_data: { html_report: 'h', valuation_result: { equity_value_mid: 3, html_report: 'z' } },
+      partial_data: {
+        html_report: 'h',
+        valuation_result: { equity_value_mid: 3, html_report: 'z' },
+      },
     }) as Record<string, unknown>
     const pd = out.partial_data as Record<string, unknown>
     expect(pd.html_report).toBeUndefined()

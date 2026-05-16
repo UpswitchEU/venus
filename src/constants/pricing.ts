@@ -12,9 +12,7 @@ export const ACCOUNTANT_PRICING = {
 
 /** Locale-aware € display: NL `€2.990`, EN `€2,990` */
 export function formatEuroAmount(amount: number, locale: string): string {
-  const formatted = new Intl.NumberFormat(
-    locale === 'nl' ? 'nl-BE' : 'en-US'
-  ).format(amount)
+  const formatted = new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-US').format(amount)
   return `€${formatted}`
 }
 

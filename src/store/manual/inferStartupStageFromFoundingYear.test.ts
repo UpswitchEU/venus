@@ -15,27 +15,15 @@ import {
 
 describe('inferStartupStageFromFoundingYear', () => {
   it('returns null when founding year is missing', () => {
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: null }),
-    ).toBeNull()
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: undefined }),
-    ).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: null })).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: undefined })).toBeNull()
   })
 
   it('returns null on garbage input', () => {
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: Number.NaN }),
-    ).toBeNull()
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: 0 }),
-    ).toBeNull()
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: 1899 }),
-    ).toBeNull()
-    expect(
-      inferStartupStageFromFoundingYear({ foundingYear: 2101 }),
-    ).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: Number.NaN })).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: 0 })).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: 1899 })).toBeNull()
+    expect(inferStartupStageFromFoundingYear({ foundingYear: 2101 })).toBeNull()
   })
 
   it('treats current-year and last-year incorporations as pre-seed', () => {
@@ -43,13 +31,13 @@ describe('inferStartupStageFromFoundingYear', () => {
       inferStartupStageFromFoundingYear({
         foundingYear: 2026,
         todayYear: 2026,
-      }),
+      })
     ).toBe('pre_seed')
     expect(
       inferStartupStageFromFoundingYear({
         foundingYear: 2025,
         todayYear: 2026,
-      }),
+      })
     ).toBe('pre_seed')
   })
 
@@ -58,13 +46,13 @@ describe('inferStartupStageFromFoundingYear', () => {
       inferStartupStageFromFoundingYear({
         foundingYear: 2024,
         todayYear: 2026,
-      }),
+      })
     ).toBe('seed')
     expect(
       inferStartupStageFromFoundingYear({
         foundingYear: 2023,
         todayYear: 2026,
-      }),
+      })
     ).toBe('seed')
   })
 
@@ -73,13 +61,13 @@ describe('inferStartupStageFromFoundingYear', () => {
       inferStartupStageFromFoundingYear({
         foundingYear: 2022,
         todayYear: 2026,
-      }),
+      })
     ).toBe('series_a')
     expect(
       inferStartupStageFromFoundingYear({
         foundingYear: 2018,
         todayYear: 2026,
-      }),
+      })
     ).toBe('series_a')
   })
 
@@ -88,7 +76,7 @@ describe('inferStartupStageFromFoundingYear', () => {
       inferStartupStageFromFoundingYear({
         foundingYear: 2027,
         todayYear: 2026,
-      }),
+      })
     ).toBe('pre_seed')
   })
 

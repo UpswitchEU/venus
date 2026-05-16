@@ -24,8 +24,7 @@ export function MethodPreviewAuditDevPanel() {
             <dt className="font-mono text-[10px] text-primary/80">{key}</dt>
             <dd className="pl-1 leading-snug">
               <span className="text-foreground/45">
-                [
-                {meta.bonusSections.length > 0 ? meta.bonusSections.join(', ') : '—'}]
+                [{meta.bonusSections.length > 0 ? meta.bonusSections.join(', ') : '—'}]
               </span>{' '}
               {meta.clientPreview}
             </dd>

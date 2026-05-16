@@ -3,9 +3,9 @@
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
-import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { PreviewMetricCard } from './previewMetricCards'
@@ -19,11 +19,7 @@ const SAAS_BUSINESS_TYPE_IDS = new Set([
   'cloud_computing',
 ])
 
-const TECH_CATEGORIES = new Set([
-  'technology',
-  'saas_software',
-  'tech',
-])
+const TECH_CATEGORIES = new Set(['technology', 'saas_software', 'tech'])
 
 const EMPTY_METHODS: string[] = []
 
@@ -76,10 +72,7 @@ export function RevenueQualitySection({
     [businessTypeId, businessCategory]
   )
 
-  const isEbitdaOnly = useMemo(
-    () => isEbitdaOnlyContext(effectiveMethods),
-    [effectiveMethods]
-  )
+  const isEbitdaOnly = useMemo(() => isEbitdaOnlyContext(effectiveMethods), [effectiveMethods])
 
   const badgeKey = useMemo(() => {
     const methods = effectiveMethods.filter((method) => method !== 'upswitch_adaptive')
@@ -97,7 +90,8 @@ export function RevenueQualitySection({
       return coreFields.filter((value) => value != null && Number.isFinite(value)).length
     }
     const thirdField = isTechSaas ? revGrossChurnPct : revContractBacklog
-    return [...coreFields, thirdField].filter((value) => value != null && Number.isFinite(value)).length
+    return [...coreFields, thirdField].filter((value) => value != null && Number.isFinite(value))
+      .length
   }, [
     isEbitdaOnly,
     isTechSaas,
@@ -114,7 +108,13 @@ export function RevenueQualitySection({
       (revContractBacklog != null && Number.isFinite(revContractBacklog)) ||
       revGrossChurnPct != null ||
       (revCapitalizedRdAmount != null && Number.isFinite(revCapitalizedRdAmount)),
-    [revRecurringAmount, revTopClientAmount, revContractBacklog, revGrossChurnPct, revCapitalizedRdAmount]
+    [
+      revRecurringAmount,
+      revTopClientAmount,
+      revContractBacklog,
+      revGrossChurnPct,
+      revCapitalizedRdAmount,
+    ]
   )
 
   const isReady = coreFilledCount >= totalFields
@@ -230,7 +230,11 @@ export function RevenueQualitySection({
           />
 
           <CurrencyInput
-            label={isEbitdaOnly ? t('fields.revTopClientCurrencyEbitda') : t('fields.revTopClientCurrency')}
+            label={
+              isEbitdaOnly
+                ? t('fields.revTopClientCurrencyEbitda')
+                : t('fields.revTopClientCurrency')
+            }
             value={revTopClientAmount}
             onChange={(v) => onFieldChange('rev_top_client_amount', v)}
             placeholder="150.000"
@@ -290,7 +294,9 @@ export function RevenueQualitySection({
           <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
             {t('sections.revenueQualityDerivedMetrics')}
           </h4>
-          <span className="text-[10px] text-foreground/45">{t('fields.revenueQualityPreviewFootnote')}</span>
+          <span className="text-[10px] text-foreground/45">
+            {t('fields.revenueQualityPreviewFootnote')}
+          </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           <PreviewMetricCard

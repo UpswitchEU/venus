@@ -123,17 +123,20 @@ describe('CapitalHistorySection', () => {
 
   it('removing a SAFE drops it from the form-store', () => {
     // Pre-seed the store so we don't depend on the add-then-remove flow.
-    useManualFormStore.setState({
-      ...initialFormSnapshot,
-      formData: {
-        ...initialFormSnapshot.formData,
-        capital_history_enabled: true,
-        capital_safe_notes: [
-          { id: 'safe-1', amount: 100_000, holder_label: 'Angel #1' },
-          { id: 'safe-2', amount: 50_000 },
-        ],
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: {
+          ...initialFormSnapshot.formData,
+          capital_history_enabled: true,
+          capital_safe_notes: [
+            { id: 'safe-1', amount: 100_000, holder_label: 'Angel #1' },
+            { id: 'safe-2', amount: 50_000 },
+          ],
+        },
       },
-    }, true)
+      true
+    )
 
     render(<CapitalHistorySection />)
     // Remove buttons carry `aria-label={t('removeAria')}` — bare key

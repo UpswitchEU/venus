@@ -1,17 +1,17 @@
 /**
  * Cross-app AI conversation key derivation.
  *
- * MUST stay byte-for-byte identical to Mercury's
- * `deriveClientScopedSessionKey` in
+ * MUST stay byte-for-byte identical to Mercury's and Titan's
+ * client-scoped `client_<clientUserId>` branch in
  * `apps/mercury/shared/components/ai-dock/tool-card-parser.ts`.
- * Tests in both apps pin the same input → same output so drift
+ * Tests in both apps pin the same shared fixture input -> output so drift
  * surfaces in CI.
  *
  * Why a duplicate (not a shared package):
- *   The function is ~10 lines of pure string math. Lifting it into
+ *   The client-scoped branch is ~10 lines of pure string math. Lifting it into
  *   `packages/types` (or a new `packages/ai-keys`) would add a
  *   build-graph edge for negligible savings. The byte-equality
- *   contract is enforced by parallel test fixtures in both apps.
+ *   contract is enforced by a shared root fixture consumed by both apps.
  *
  * What this key unlocks:
  *   When the Mercury advisor dock and the Venus calculator chat
@@ -36,7 +36,7 @@ export interface ClientScopedKeyArgs {
    * `useClientContext().clientUserId` (set when the accountant has
    * entered client view via the role switcher).
    */
-  clientUserId?: string | null;
+  clientUserId?: string | null
 }
 
 /**
@@ -46,13 +46,9 @@ export interface ClientScopedKeyArgs {
  * "advisor-scratchpad" fallback (Venus has no advisor scratchpad
  * surface; that's Mercury's concern).
  */
-export function deriveClientScopedSessionKey(
-  args: ClientScopedKeyArgs,
-): string | null {
+export function deriveClientScopedSessionKey(args: ClientScopedKeyArgs): string | null {
   const clientId =
-    typeof args.clientUserId === 'string' && args.clientUserId.length > 0
-      ? args.clientUserId
-      : null;
-  if (!clientId) return null;
-  return `client_${clientId}`;
+    typeof args.clientUserId === 'string' && args.clientUserId.length > 0 ? args.clientUserId : null
+  if (!clientId) return null
+  return `client_${clientId}`
 }

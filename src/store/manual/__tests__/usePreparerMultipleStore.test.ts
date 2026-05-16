@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import preparerMultipleContract from '../../../../../../tests/contracts/preparer-multiple-contract.json'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
+  PREPARER_EBITDA_REASON_KEYS,
   usePreparerMultipleStore,
 } from '../usePreparerMultipleStore'
 
@@ -14,6 +16,10 @@ describe('usePreparerMultipleStore', () => {
       note: '',
       acknowledgedExtreme: false,
     })
+  })
+
+  it('keeps the reason-key picker aligned with the shared contract fixture', () => {
+    expect([...PREPARER_EBITDA_REASON_KEYS]).toEqual(preparerMultipleContract.reasonKeys)
   })
 
   it('rehydrates saved multiple adjustment summary from persisted results', () => {
@@ -66,7 +72,7 @@ describe('usePreparerMultipleStore', () => {
           selected_multiple: 5.1,
           reason_key: null,
         },
-      }),
+      })
     ).toBeNull()
   })
 })

@@ -203,7 +203,7 @@ export async function retryWithBackoffAndMetadata<T>(
       totalTime_ms: totalTime,
     }
   } catch (error) {
-    const totalTime = performance.now() - startTime
+    const _totalTime = performance.now() - startTime
     throw error
   }
 }

@@ -9,17 +9,20 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import { hydrateClientValuationResultsMap } from './extractValuationResultsMap'
+import { dateLikeToUnixMs } from './date-like'
 import { is409Conflict } from './errorDetection'
 import { isRetryable } from './errors/errorGuards'
+import { hydrateClientValuationResultsMap } from './extractValuationResultsMap'
+import { isSessionKey, isUuid } from './identifiers'
 import { createContextLogger } from './logger'
 import { markReportExists } from './reportExistenceCache'
 import { retryWithBackoff } from './retryWithBackoff'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
-import { dateLikeToUnixMs } from './date-like'
-import { isSessionKey, isUuid } from './identifiers'
-import { extractStableSessionKeyFromMergedSession, mergeSessionDataEnvelopesFromRoot } from './sessionReportIdentity'
 import { globalSessionCache } from './sessionCacheManager'
+import {
+  extractStableSessionKeyFromMergedSession,
+  mergeSessionDataEnvelopesFromRoot,
+} from './sessionReportIdentity'
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
 
@@ -204,7 +207,7 @@ export function resolveEnsureHtmlSessionKey(params: {
       : undefined
 
   const nestedStable = extractStableSessionKeyFromMergedSession(
-    mergedSession as unknown as Record<string, any>,
+    mergedSession as unknown as Record<string, any>
   )
 
   const candidates = [mergedReportId, snake, camelSk, nestedStable, urlReportId]
@@ -226,8 +229,7 @@ export function resolveEnsureHtmlAlternateReportId(params: {
   mergedSession: ValuationSession
 }): string | undefined {
   const { urlReportId, mergedSession } = params
-  const merged =
-    typeof mergedSession.reportId === 'string' ? mergedSession.reportId.trim() : ''
+  const merged = typeof mergedSession.reportId === 'string' ? mergedSession.reportId.trim() : ''
   if (!merged || merged === urlReportId) return undefined
   if (!isUuid(urlReportId) || !isUuid(merged)) return undefined
   return merged

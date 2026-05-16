@@ -112,21 +112,21 @@ describe('selectCapTableSimulatorResult', () => {
         showFullAdvisorMethodNav: false,
         selectedMethod: null,
         valuationResults: { arr_multiple: methodResult() },
-      }),
+      })
     ).toBeNull()
     expect(
       selectCapTableSimulatorResult({
         showFullAdvisorMethodNav: false,
         selectedMethod: 'arr_multiple',
         valuationResults: null,
-      }),
+      })
     ).toBeNull()
     expect(
       selectCapTableSimulatorResult({
         showFullAdvisorMethodNav: false,
         selectedMethod: 'arr_multiple',
         valuationResults: {},
-      }),
+      })
     ).toBeNull()
   })
 
@@ -139,7 +139,9 @@ describe('selectCapTableSimulatorResult', () => {
       selectedMethod: 'arr_multiple',
       valuationResults: {
         arr_multiple: methodResult({
-          details: { cap_table_simulator: 'unexpected-string' as unknown as Record<string, unknown> },
+          details: {
+            cap_table_simulator: 'unexpected-string' as unknown as Record<string, unknown>,
+          },
         }),
       },
     })

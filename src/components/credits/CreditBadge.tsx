@@ -7,7 +7,6 @@
 import { useTranslations } from 'next-intl'
 import React from 'react'
 import { Tooltip } from '@/design-system'
-import { useAuth } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
 
 // AUTH-FIRST: guestCreditService removed - all users must authenticate
@@ -37,7 +36,6 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   variant = 'default',
 }) => {
   const t = useTranslations('modals.creditBadge')
-  const { isAuthenticated } = useAuth()
   const { creditsRemaining, isPremium, isLoading, bonusValuations } = useCredits()
 
   // AUTH-FIRST: All users are authenticated - no guest credit check needed

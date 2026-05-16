@@ -36,7 +36,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   const t = useTranslations('normalizationHub')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
-  const adjustmentPercentage =
+  const _adjustmentPercentage =
     reportedEbitda !== 0 ? ((totalAdjustments / reportedEbitda) * 100).toFixed(1) : '0.0'
 
   const formatCurrency = (value: number) => {
@@ -54,8 +54,8 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
     ...customAdjustments.map((c) => c.amount),
   ]
 
-  const positiveTotal = allAdjustments.filter((a) => a > 0).reduce((sum, a) => sum + a, 0)
-  const negativeTotal = allAdjustments.filter((a) => a < 0).reduce((sum, a) => sum + a, 0)
+  const _positiveTotal = allAdjustments.filter((a) => a > 0).reduce((sum, a) => sum + a, 0)
+  const _negativeTotal = allAdjustments.filter((a) => a < 0).reduce((sum, a) => sum + a, 0)
   const adjustmentCount = allAdjustments.filter((a) => a !== 0).length
 
   return (
@@ -91,14 +91,20 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                   >
                     <div className="flex-1 min-w-0">
                       <p
-                        className={cn('text-sm font-medium text-slate-ink', LEDGER_LABEL_TEXT_CLASSES)}
+                        className={cn(
+                          'text-sm font-medium text-slate-ink',
+                          LEDGER_LABEL_TEXT_CLASSES
+                        )}
                         title={category?.label || adj.category}
                       >
                         {category?.label || adj.category}
                       </p>
                       {adj.note && (
                         <p
-                          className={cn('text-xs text-muted-foreground mt-0.5', LEDGER_LABEL_TEXT_CLASSES)}
+                          className={cn(
+                            'text-xs text-muted-foreground mt-0.5',
+                            LEDGER_LABEL_TEXT_CLASSES
+                          )}
                           title={adj.note}
                         >
                           {adj.note}
@@ -151,14 +157,20 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                 >
                   <div className="flex-1 min-w-0">
                     <p
-                      className={cn('text-sm font-medium text-slate-ink', LEDGER_LABEL_TEXT_CLASSES)}
+                      className={cn(
+                        'text-sm font-medium text-slate-ink',
+                        LEDGER_LABEL_TEXT_CLASSES
+                      )}
                       title={adj.description}
                     >
                       {adj.description}
                     </p>
                     {adj.note && (
                       <p
-                        className={cn('text-xs text-muted-foreground mt-0.5', LEDGER_LABEL_TEXT_CLASSES)}
+                        className={cn(
+                          'text-xs text-muted-foreground mt-0.5',
+                          LEDGER_LABEL_TEXT_CLASSES
+                        )}
                         title={adj.note}
                       >
                         {adj.note}

@@ -46,7 +46,7 @@
 
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react'
 import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
@@ -64,11 +64,7 @@ import {
   type StudioStepId,
   useStudioIssues,
 } from '@/features/startup-studio/hooks/useStudioIssues'
-import {
-  type StudioStep,
-  trackStudioStepCompleted,
-  trackStudioStepViewed,
-} from '@/lib/analytics'
+import { type StudioStep, trackStudioStepCompleted, trackStudioStepViewed } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'

@@ -15,10 +15,13 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { MilestoneCard } from './MilestoneCard'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import { STUDIO_BERKUS_KEYS, useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import {
+  STUDIO_BERKUS_KEYS,
+  useStartupValuationStore,
+} from '@/store/manual/useStartupValuationStore'
+import { MilestoneCard } from './MilestoneCard'
 
 interface BerkusStepProps {
   /** @deprecated Route locale from next-intl is used. */
@@ -42,9 +45,7 @@ export function BerkusStep(_props: BerkusStepProps) {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-4">
-        <p className="text-sm leading-relaxed text-foreground/75">
-          {t('introInputPrompt')}
-        </p>
+        <p className="text-sm leading-relaxed text-foreground/75">{t('introInputPrompt')}</p>
         <p className="mt-2 text-[11px] text-foreground/55">
           {t('capLine', {
             total: formatEur(totalCap),

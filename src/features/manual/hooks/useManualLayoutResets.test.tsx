@@ -5,13 +5,13 @@
  */
 
 import { act, renderHook } from '@testing-library/react'
-import { useRef, type MutableRefObject } from 'react'
+import { type MutableRefObject, useRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ValuationResponse } from '@/types/valuation'
 import {
-  useManualLayoutResets,
   type ManualLayoutResetRefs,
   type UseManualLayoutResetsParams,
+  useManualLayoutResets,
 } from './useManualLayoutResets'
 
 function makeRefs(): ManualLayoutResetRefs {
@@ -50,8 +50,7 @@ function setup(initial?: Partial<UseManualLayoutResetsParams>) {
     setIsDirty,
     setAcknowledgedStartupIssues,
     setAcknowledgedQualityWarnings,
-    rerender: (next: Partial<UseManualLayoutResetsParams>) =>
-      rerender({ ...params, ...next }),
+    rerender: (next: Partial<UseManualLayoutResetsParams>) => rerender({ ...params, ...next }),
   }
 }
 

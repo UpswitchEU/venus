@@ -2,10 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PREFILL_SOURCE_ACCOUNTING_INTEGRATION } from '../../lib/bootstrap/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
-import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
-import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { resetBootstrapPrefillState, useBootstrapPrefill } from '../useBootstrapPrefill'
 
 const { mockUseBootstrapSafe } = vi.hoisted(() => ({

@@ -39,7 +39,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useState, type ComponentType, type MouseEvent } from 'react'
+import { type ComponentType, type MouseEvent, useState } from 'react'
 import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
@@ -234,14 +234,10 @@ export function LandingStartupContent() {
     setIsSubmitting(true)
 
     const studio = useStartupValuationStore.getState().toRequestPayload()
-    const formData = useManualFormStore.getState().formData as unknown as Record<
-      string,
-      unknown
-    >
+    const formData = useManualFormStore.getState().formData as unknown as Record<string, unknown>
     writeLandingStudioHandoff({ studio, formData })
 
-    const venusOrigin =
-      typeof window !== 'undefined' ? window.location.origin : ''
+    const venusOrigin = typeof window !== 'undefined' ? window.location.origin : ''
     const returnUrl = `${venusOrigin}/${locale}/reports/new?selected_method=startup_valuation&prefill_from=landing`
 
     const mercuryBase = getMercuryUrl()
@@ -257,14 +253,14 @@ export function LandingStartupContent() {
     totalFixes === 0 ? null : tLanding('rightRail.fixesIssues', { count: totalFixes })
 
   return (
-    <main className='aurora-theme min-h-screen bg-background'>
+    <main className="aurora-theme min-h-screen bg-background">
       <HeroSection copy={hero} />
       <HowItWorksStrip copy={howItWorks} />
 
-      <div className='mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_360px]'>
+      <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section
           aria-label={tLanding('wizardAriaLabel')}
-          className='aurora-theme space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-6'
+          className="aurora-theme space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-6"
         >
           {/* Live blend pill + EV/Revenue method header.  Same component
               the authenticated `StartupValuationPanel` uses so anonymous
@@ -285,7 +281,7 @@ export function LandingStartupContent() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, ease: 'easeOut', delay: idx * 0.02 }}
-                className='scroll-mt-6 space-y-5 pt-2'
+                className="scroll-mt-6 space-y-5 pt-2"
               >
                 <ValuationSectionHeader
                   step={idx + 1}
@@ -298,49 +294,49 @@ export function LandingStartupContent() {
           })}
         </section>
 
-        <aside className='lg:sticky lg:top-6 lg:h-fit'>
-          <div className='space-y-4 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-5 shadow-sm'>
-            <p className='text-[10px] font-semibold uppercase tracking-[0.15em] text-primary'>
+        <aside className="lg:sticky lg:top-6 lg:h-fit">
+          <div className="space-y-4 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
               {tLanding('rightRail.title')}
             </p>
-            <p className='text-sm leading-relaxed text-foreground/75'>
+            <p className="text-sm leading-relaxed text-foreground/75">
               {tLanding('rightRail.sub')}
             </p>
 
             {fixesLabel && (
-              <p className='rounded-lg border border-amber-300/40 bg-amber-50/60 px-3 py-2 text-[12px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200'>
+              <p className="rounded-lg border border-amber-300/40 bg-amber-50/60 px-3 py-2 text-[12px] leading-relaxed text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200">
                 {fixesLabel}
               </p>
             )}
 
             <button
-              type='button'
+              type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className='inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70'
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className='h-4 w-4 animate-spin' aria-hidden />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   {tLanding('rightRail.ctaSubmitting')}
                 </>
               ) : (
                 <>
                   {tLanding('rightRail.cta')}
-                  <ArrowRight className='h-4 w-4' aria-hidden />
+                  <ArrowRight className="h-4 w-4" aria-hidden />
                 </>
               )}
             </button>
 
-            <p className='text-[11px] leading-relaxed text-foreground/55'>
+            <p className="text-[11px] leading-relaxed text-foreground/55">
               {tLanding('rightRail.ctaFootnote')}
             </p>
 
-            <p className='border-t border-foreground/10 pt-3 text-[12px] text-foreground/55'>
+            <p className="border-t border-foreground/10 pt-3 text-[12px] text-foreground/55">
               {tLanding('rightRail.legalAlready')}{' '}
               <a
                 href={`${getMercuryUrl()}/${locale}/auth/login`}
-                className='font-medium text-primary underline underline-offset-2 hover:text-primary/80'
+                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
               >
                 {tLanding('rightRail.legalLogin')}
               </a>
@@ -361,30 +357,30 @@ export default LandingStartupContent
 
 function HeroSection({ copy }: { copy: HeroCopy }) {
   return (
-    <section className='border-b border-foreground/[0.06]'>
-      <div className='mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-12 pt-12 text-center md:pt-20'>
-        <p className='mb-3 text-xs font-medium uppercase tracking-[0.18em] text-foreground/55'>
+    <section className="border-b border-foreground/[0.06]">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-12 pt-12 text-center md:pt-20">
+        <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-foreground/55">
           {copy.eyebrow}
         </p>
-        <h1 className='text-balance font-display text-[clamp(2rem,5.5vw,3.5rem)] font-bold leading-[1.05] text-foreground'>
+        <h1 className="text-balance font-display text-[clamp(2rem,5.5vw,3.5rem)] font-bold leading-[1.05] text-foreground">
           {copy.headline}
-          <span className='mt-2 block bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent'>
+          <span className="mt-2 block bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             {copy.headlineAccent}
           </span>
         </h1>
-        <p className='mt-5 max-w-2xl text-balance text-base leading-relaxed text-foreground/70'>
+        <p className="mt-5 max-w-2xl text-balance text-base leading-relaxed text-foreground/70">
           {copy.subline}
         </p>
 
-        <div className='mt-8 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4'>
-          <span className='text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/50'>
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/50">
             {copy.stageChipsLabel}
           </span>
-          <div className='flex flex-wrap items-center justify-center gap-2'>
+          <div className="flex flex-wrap items-center justify-center gap-2">
             {copy.stageChips.map((s) => (
               <span
                 key={s}
-                className='rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1 text-xs font-medium text-foreground/70'
+                className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1 text-xs font-medium text-foreground/70"
               >
                 {s}
               </span>
@@ -392,17 +388,17 @@ function HeroSection({ copy }: { copy: HeroCopy }) {
           </div>
         </div>
 
-        <ul className='mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-foreground/60'>
-          <li className='inline-flex items-center gap-1.5'>
-            <Lock className='h-3.5 w-3.5 text-foreground/45' aria-hidden />
+        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-foreground/60">
+          <li className="inline-flex items-center gap-1.5">
+            <Lock className="h-3.5 w-3.5 text-foreground/45" aria-hidden />
             {copy.anonymous}
           </li>
-          <li className='inline-flex items-center gap-1.5'>
-            <CheckCircle2 className='h-3.5 w-3.5 text-foreground/45' aria-hidden />
+          <li className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-foreground/45" aria-hidden />
             {copy.noCard}
           </li>
-          <li className='inline-flex items-center gap-1.5'>
-            <ShieldCheck className='h-3.5 w-3.5 text-foreground/45' aria-hidden />
+          <li className="inline-flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-foreground/45" aria-hidden />
             {copy.gdpr}
           </li>
         </ul>
@@ -413,26 +409,22 @@ function HeroSection({ copy }: { copy: HeroCopy }) {
 
 function HowItWorksStrip({ copy }: { copy: HowItWorksCopy }) {
   return (
-    <section className='border-b border-foreground/[0.06] bg-foreground/[0.015]'>
-      <div className='mx-auto w-full max-w-6xl px-4 py-10'>
-        <h2 className='mb-6 text-center text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55'>
+    <section className="border-b border-foreground/[0.06] bg-foreground/[0.015]">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10">
+        <h2 className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55">
           {copy.heading}
         </h2>
-        <ol className='grid gap-4 sm:grid-cols-3'>
+        <ol className="grid gap-4 sm:grid-cols-3">
           {copy.steps.map((step, idx) => (
             <li
               key={`${idx}-${step.title}`}
-              className='relative rounded-2xl border border-foreground/[0.08] bg-background/80 p-5'
+              className="relative rounded-2xl border border-foreground/[0.08] bg-background/80 p-5"
             >
-              <div className='mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary'>
+              <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                 {idx + 1}
               </div>
-              <h3 className='text-base font-semibold text-foreground'>
-                {step.title}
-              </h3>
-              <p className='mt-1.5 text-sm leading-relaxed text-foreground/65'>
-                {step.body}
-              </p>
+              <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground/65">{step.body}</p>
             </li>
           ))}
         </ol>
@@ -443,34 +435,30 @@ function HowItWorksStrip({ copy }: { copy: HowItWorksCopy }) {
 
 function MethodologySection({ copy }: { copy: MethodologyCopy }) {
   return (
-    <section className='border-t border-foreground/[0.06] bg-foreground/[0.015]'>
-      <div className='mx-auto w-full max-w-6xl px-4 py-14'>
-        <div className='mx-auto max-w-2xl text-center'>
-          <h2 className='font-display text-2xl font-semibold text-foreground sm:text-3xl'>
+    <section className="border-t border-foreground/[0.06] bg-foreground/[0.015]">
+      <div className="mx-auto w-full max-w-6xl px-4 py-14">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
             {copy.heading}
           </h2>
-          <p className='mt-3 text-sm leading-relaxed text-foreground/65 sm:text-base'>
+          <p className="mt-3 text-sm leading-relaxed text-foreground/65 sm:text-base">
             {copy.lede}
           </p>
         </div>
-        <div className='mt-10 grid gap-4 md:grid-cols-3'>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
           {copy.cards.map((card) => {
             const Icon = card.icon
             return (
               <div
                 key={card.title}
-                className='flex flex-col rounded-2xl border border-foreground/[0.08] bg-background p-6'
+                className="flex flex-col rounded-2xl border border-foreground/[0.08] bg-background p-6"
               >
-                <Icon className='mb-4 h-6 w-6 text-primary' aria-hidden />
-                <h3 className='text-lg font-semibold text-foreground'>
-                  {card.title}
-                </h3>
-                <p className='mt-1 text-[11px] uppercase tracking-[0.1em] text-foreground/45'>
+                <Icon className="mb-4 h-6 w-6 text-primary" aria-hidden />
+                <h3 className="text-lg font-semibold text-foreground">{card.title}</h3>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.1em] text-foreground/45">
                   {card.attribution}
                 </p>
-                <p className='mt-3 text-sm leading-relaxed text-foreground/70'>
-                  {card.body}
-                </p>
+                <p className="mt-3 text-sm leading-relaxed text-foreground/70">{card.body}</p>
               </div>
             )
           })}
@@ -483,34 +471,30 @@ function MethodologySection({ copy }: { copy: MethodologyCopy }) {
 function ReportContentsSection({ copy }: { copy: ReportContentsCopy }) {
   return (
     <section>
-      <div className='mx-auto w-full max-w-6xl px-4 py-14'>
-        <div className='mx-auto max-w-2xl text-center'>
-          <Download className='mx-auto mb-4 h-6 w-6 text-primary' aria-hidden />
-          <h2 className='font-display text-2xl font-semibold text-foreground sm:text-3xl'>
+      <div className="mx-auto w-full max-w-6xl px-4 py-14">
+        <div className="mx-auto max-w-2xl text-center">
+          <Download className="mx-auto mb-4 h-6 w-6 text-primary" aria-hidden />
+          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
             {copy.heading}
           </h2>
-          <p className='mt-3 text-sm leading-relaxed text-foreground/65 sm:text-base'>
+          <p className="mt-3 text-sm leading-relaxed text-foreground/65 sm:text-base">
             {copy.lede}
           </p>
         </div>
-        <ul className='mt-10 grid gap-4 md:grid-cols-2'>
+        <ul className="mt-10 grid gap-4 md:grid-cols-2">
           {copy.items.map((item) => {
             const Icon = item.icon
             return (
               <li
                 key={item.title}
-                className='flex gap-4 rounded-2xl border border-foreground/[0.08] bg-background/80 p-5'
+                className="flex gap-4 rounded-2xl border border-foreground/[0.08] bg-background/80 p-5"
               >
-                <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary'>
-                  <Icon className='h-5 w-5' aria-hidden />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" aria-hidden />
                 </div>
-                <div className='min-w-0 flex-1'>
-                  <h3 className='text-base font-semibold text-foreground'>
-                    {item.title}
-                  </h3>
-                  <p className='mt-1 text-sm leading-relaxed text-foreground/65'>
-                    {item.body}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-foreground/65">{item.body}</p>
                 </div>
               </li>
             )
@@ -523,25 +507,23 @@ function ReportContentsSection({ copy }: { copy: ReportContentsCopy }) {
 
 function CalibrationSourcesNote({ copy }: { copy: SourcesCopy }) {
   return (
-    <section className='border-y border-foreground/[0.06] bg-foreground/[0.015]'>
-      <div className='mx-auto w-full max-w-4xl px-4 py-12 text-center'>
-        <h2 className='text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55'>
+    <section className="border-y border-foreground/[0.06] bg-foreground/[0.015]">
+      <div className="mx-auto w-full max-w-4xl px-4 py-12 text-center">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55">
           {copy.heading}
         </h2>
-        <p className='mt-3 text-sm leading-relaxed text-foreground/70'>
-          {copy.lede}
-        </p>
-        <ul className='mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2'>
+        <p className="mt-3 text-sm leading-relaxed text-foreground/70">{copy.lede}</p>
+        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
           {copy.items.map((src) => (
             <li
               key={src}
-              className='rounded-full border border-foreground/10 bg-background px-3 py-1.5 text-[12px] font-medium text-foreground/75'
+              className="rounded-full border border-foreground/10 bg-background px-3 py-1.5 text-[12px] font-medium text-foreground/75"
             >
               {src}
             </li>
           ))}
         </ul>
-        <p className='mt-5 text-[12px] text-foreground/55'>{copy.note}</p>
+        <p className="mt-5 text-[12px] text-foreground/55">{copy.note}</p>
       </div>
     </section>
   )
@@ -550,30 +532,26 @@ function CalibrationSourcesNote({ copy }: { copy: SourcesCopy }) {
 function FAQSection({ copy }: { copy: FAQCopy }) {
   return (
     <section>
-      <div className='mx-auto w-full max-w-3xl px-4 py-14'>
-        <h2 className='mb-8 text-center font-display text-2xl font-semibold text-foreground sm:text-3xl'>
+      <div className="mx-auto w-full max-w-3xl px-4 py-14">
+        <h2 className="mb-8 text-center font-display text-2xl font-semibold text-foreground sm:text-3xl">
           {copy.heading}
         </h2>
-        <dl className='space-y-3'>
+        <dl className="space-y-3">
           {copy.items.map((item) => (
             <details
               key={item.q}
-              className='group rounded-2xl border border-foreground/[0.08] bg-background/80 p-5 open:border-primary/30 open:bg-primary/[0.02]'
+              className="group rounded-2xl border border-foreground/[0.08] bg-background/80 p-5 open:border-primary/30 open:bg-primary/[0.02]"
             >
-              <summary className='flex cursor-pointer list-none items-start justify-between gap-4'>
-                <dt className='text-base font-semibold text-foreground'>
-                  {item.q}
-                </dt>
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
+                <dt className="text-base font-semibold text-foreground">{item.q}</dt>
                 <span
                   aria-hidden
-                  className='mt-1 select-none text-foreground/55 transition-transform group-open:rotate-45'
+                  className="mt-1 select-none text-foreground/55 transition-transform group-open:rotate-45"
                 >
                   +
                 </span>
               </summary>
-              <dd className='mt-3 text-sm leading-relaxed text-foreground/70'>
-                {item.a}
-              </dd>
+              <dd className="mt-3 text-sm leading-relaxed text-foreground/70">{item.a}</dd>
             </details>
           ))}
         </dl>

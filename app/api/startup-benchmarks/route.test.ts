@@ -152,9 +152,7 @@ describe('GET /api/startup-benchmarks', () => {
   it('respects the stage + sector filter when narrowing the static payload', async () => {
     delete process.env.ATHENA_BENCHMARK_API_KEY
 
-    const res = await GET(
-      makeRequest('region=BE&stage=series_a&sector=deeptech_ai') as never,
-    )
+    const res = await GET(makeRequest('region=BE&stage=series_a&sector=deeptech_ai') as never)
     const body = await res.json()
 
     expect(body.rows.length).toBe(1)

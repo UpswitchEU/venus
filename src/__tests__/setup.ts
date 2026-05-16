@@ -146,8 +146,8 @@ global.fetch = vi.fn()
 // Uncomment if you want to suppress console output during tests
 /*
 beforeEach(() => {
-  vi.spyOn(console, 'error').mockImplementation(() => {})
-  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 })
 
 afterEach(() => {

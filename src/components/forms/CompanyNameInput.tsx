@@ -54,7 +54,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const [isLoading, setIsLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [retryTrigger, setRetryTrigger] = useState(0)
+  const [_retryTrigger, setRetryTrigger] = useState(0)
   const [exactMatch, setExactMatch] = useState<CompanySearchResult | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const lastSearchEmptyRef = useRef(false)
@@ -148,7 +148,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         }
       }, 450)
     }
-  }, [])
+  }, [t])
 
   const performSearch = useCallback((query: string, country: string) => {
     performSearchRef.current?.(query, country)
@@ -177,7 +177,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
       setShowSuggestions(false)
       setHighlightedIndex(-1)
     }
-  }, [value, countryCode, performSearch, selectedCompany, retryTrigger])
+  }, [value, countryCode, performSearch, selectedCompany])
 
   // Reset highlighted index when search results change
   useEffect(() => {
@@ -366,17 +366,14 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   // Render suggestions dropdown
   const renderSuggestions = () => {
     if (!showSuggestions || isLoading || selectedCompany) return null
-    if (
-      searchResults.length === 0 &&
-      !searchError &&
-      (!value || value.trim().length < 2)
-    )
+    if (searchResults.length === 0 && !searchError && (!value || value.trim().length < 2))
       return null
 
-    const registrySearchUrl = countryCode === 'NL'
-      ? `https://www.kvk.nl/zoeken/?source=all&q=${encodeURIComponent(value?.trim() || '')}`
-      : `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value?.trim() || '')}`
-    const registryLabel = getRegistryLabel(countryCode)
+    const registrySearchUrl =
+      countryCode === 'NL'
+        ? `https://www.kvk.nl/zoeken/?source=all&q=${encodeURIComponent(value?.trim() || '')}`
+        : `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value?.trim() || '')}`
+    const _registryLabel = getRegistryLabel(countryCode)
 
     return (
       <div
@@ -474,9 +471,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           </>
         ) : (
           <div className="px-4 py-4 text-sm">
-            <p className="text-foreground/60 text-xs mb-3">
-              {t('forms.kboLookup.noResultsHint')}
-            </p>
+            <p className="text-foreground/60 text-xs mb-3">{t('forms.kboLookup.noResultsHint')}</p>
             <a
               href={registrySearchUrl}
               target="_blank"

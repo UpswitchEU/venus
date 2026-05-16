@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PRE_SELECTABLE_METHODS,
   PRE_SELECTABLE_METHOD_SET,
+  PRE_SELECTABLE_METHODS,
   STANDALONE_METHODS,
 } from '../methodFieldConfig'
 import { PRIMARY_OMNI_METHOD_KEYS, PRIMARY_OMNI_METHOD_ORDER } from '../omniCalcMethods'

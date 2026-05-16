@@ -91,9 +91,7 @@ export function ValuationSectionHeader({
   const resolvedTier: 'primary' | 'sub' = tier ?? (isSubStep(step) ? 'sub' : 'primary')
   const isSub = resolvedTier === 'sub'
   const titleClass = cn(
-    isSub
-      ? 'text-[13px] font-medium text-foreground/85'
-      : 'text-sm font-medium text-foreground',
+    isSub ? 'text-[13px] font-medium text-foreground/85' : 'text-sm font-medium text-foreground',
     Title === 'span' && 'inline-flex items-center gap-2'
   )
   // When a subtitle is supplied, stack title + subtitle in a single block so

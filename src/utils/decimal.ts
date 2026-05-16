@@ -60,7 +60,7 @@ export function parseDecimal(value: DecimalInput): Decimal {
     }
 
     return decimal
-  } catch (error) {
+  } catch (_error) {
     console.warn(`[decimal] Failed to parse value: ${value}, defaulting to 0`)
     return new Decimal(0)
   }

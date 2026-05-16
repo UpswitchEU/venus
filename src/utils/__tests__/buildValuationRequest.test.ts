@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import type { ValuationFormData } from '../../types/valuation'
 import {
   applyDcfProjectionPreviewToForecastRows,
   deriveDcfProjectionPreview,
 } from '../../components/calculator/sections/dcfProjectionPreview'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import type { ValuationFormData } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
 import { getCompleteYearlyFinancialsDesc } from '../yearlyFinancials'
@@ -669,7 +669,6 @@ describe('buildValuationRequest', () => {
   })
 
   it('preserves imported DCF detail fields on actual years', () => {
-
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
@@ -888,11 +887,13 @@ describe('buildValuationRequest', () => {
             revenue: row.revenue,
             ebitda: row.ebitda,
           })),
-        forecast_years_data: yearlyFinancials.filter((row) => row.isForecast).map((row) => ({
-          year: Number(row.year),
-          revenue: row.revenue,
-          ebitda: row.ebitda,
-        })),
+        forecast_years_data: yearlyFinancials
+          .filter((row) => row.isForecast)
+          .map((row) => ({
+            year: Number(row.year),
+            revenue: row.revenue,
+            ebitda: row.ebitda,
+          })),
         dcf_revenue_growth_pct: 10,
         dcf_ebitda_margin_pct: 20,
       } as Partial<ValuationFormData>),
@@ -921,9 +922,7 @@ describe('buildValuationRequest', () => {
       })
     )
       .filter((row) => row.isForecast)
-      .map((row) =>
-        Number(row.year) === lastFullYear + 2 ? { ...row, ebitda: 250_000 } : row
-      )
+      .map((row) => (Number(row.year) === lastFullYear + 2 ? { ...row, ebitda: 250_000 } : row))
 
     const result = buildValuationRequest(
       makeFormData({
@@ -1035,8 +1034,8 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.ebitda).toBe(290_000)
     expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
 
-    const matched = warnSpy.mock.calls.find(([msg]) =>
-      typeof msg === 'string' && msg.includes('Normalization integrity guard')
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
     )
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined
@@ -1078,8 +1077,8 @@ describe('buildValuationRequest', () => {
       ]
     )
 
-    const matched = warnSpy.mock.calls.find(([msg]) =>
-      typeof msg === 'string' && msg.includes('Normalization integrity guard')
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
     )
     expect(matched).toBeUndefined()
 
@@ -1134,13 +1133,12 @@ describe('buildValuationRequest', () => {
 
     // Current-year EBITDA must NOT have absorbed the orphan legacy addback.
     expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(
-      result.current_year_data.ebitda_normalization_metadata
-    ).toBeUndefined()
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
 
-    const matched = warnSpy.mock.calls.find(([msg]) =>
-      typeof msg === 'string' &&
-      msg.includes('Dropped legacy normalization entries with no matching year')
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) =>
+        typeof msg === 'string' &&
+        msg.includes('Dropped legacy normalization entries with no matching year')
     )
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined
@@ -1197,13 +1195,12 @@ describe('buildValuationRequest', () => {
 
     // Current-year EBITDA must NOT have absorbed the orphan addback.
     expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(
-      result.current_year_data.ebitda_normalization_metadata
-    ).toBeUndefined()
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
 
-    const matched = warnSpy.mock.calls.find(([msg]) =>
-      typeof msg === 'string' &&
-      msg.includes('Dropped accepted normalizations with no matching year')
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) =>
+        typeof msg === 'string' &&
+        msg.includes('Dropped accepted normalizations with no matching year')
     )
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined
@@ -1234,10 +1231,7 @@ describe('buildValuationRequest', () => {
     })
 
     it('maps capital_round_amount to top-level investment_amount_sought', () => {
-      const result = buildValuationRequest(
-        makeFormData({ capital_round_amount: 750_000 }),
-        []
-      )
+      const result = buildValuationRequest(makeFormData({ capital_round_amount: 750_000 }), [])
       expect(result.investment_amount_sought).toBe(750_000)
       // No `capital_history_enabled` flag ⇒ no cap_table block.
       expect(result.cap_table).toBeUndefined()
@@ -1400,7 +1394,7 @@ describe('buildValuationRequest', () => {
       // headcount still emits; premise_override is dropped.
       expect(result.liquidation_inputs?.headcount).toBe(5)
       expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.owner_premise_override,
+        (result.liquidation_inputs as Record<string, unknown>)?.owner_premise_override
       ).toBeUndefined()
     })
 
@@ -1473,7 +1467,7 @@ describe('buildValuationRequest', () => {
       )
       // Engine defaults fire; the wire stays clean.
       expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.liability_buckets,
+        (result.liquidation_inputs as Record<string, unknown>)?.liability_buckets
       ).toBeUndefined()
     })
 
@@ -1507,9 +1501,7 @@ describe('buildValuationRequest', () => {
         } as unknown as Partial<ValuationFormData>),
         []
       )
-      expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides,
-      ).toEqual({
+      expect((result.liquidation_inputs as Record<string, unknown>)?.asset_overrides).toEqual({
         vehicles: { adjusted_value: 15_000 },
       })
     })
@@ -1522,7 +1514,7 @@ describe('buildValuationRequest', () => {
         []
       )
       expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides,
+        (result.liquidation_inputs as Record<string, unknown>)?.asset_overrides
       ).toBeUndefined()
     })
 
@@ -1533,9 +1525,9 @@ describe('buildValuationRequest', () => {
         } as unknown as Partial<ValuationFormData>),
         []
       )
-      expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains,
-      ).toBe(150_000)
+      expect((result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains).toBe(
+        150_000
+      )
     })
 
     it('drops realised_capital_gains when zero or negative', () => {
@@ -1548,7 +1540,7 @@ describe('buildValuationRequest', () => {
         []
       )
       expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains,
+        (result.liquidation_inputs as Record<string, unknown>)?.realised_capital_gains
       ).toBeUndefined()
     })
 
@@ -1556,13 +1548,13 @@ describe('buildValuationRequest', () => {
       const result = buildValuationRequest(
         makeFormData({
           liq_runway_months_forced: 4,
-          liq_distress_wacc_forced: 0.30,
+          liq_distress_wacc_forced: 0.3,
         } as unknown as Partial<ValuationFormData>),
         []
       )
       const inputs = result.liquidation_inputs as Record<string, unknown>
       expect(inputs.runway_months_forced).toBe(4)
-      expect(inputs.distress_wacc_forced).toBe(0.30)
+      expect(inputs.distress_wacc_forced).toBe(0.3)
     })
 
     it('floors runway_months_forced to a positive integer', () => {
@@ -1572,23 +1564,20 @@ describe('buildValuationRequest', () => {
         } as unknown as Partial<ValuationFormData>),
         []
       )
-      expect(
-        (result.liquidation_inputs as Record<string, unknown>)?.runway_months_forced,
-      ).toBe(4)
+      expect((result.liquidation_inputs as Record<string, unknown>)?.runway_months_forced).toBe(4)
     })
 
     it('forwards identifiable_intangibles_uplift_pct as a decimal', () => {
       // Stored as decimal (0.20 = 20%); engine accepts the decimal form.
       const result = buildValuationRequest(
         makeFormData({
-          liq_intangibles_uplift_pct: 0.20,
+          liq_intangibles_uplift_pct: 0.2,
         } as unknown as Partial<ValuationFormData>),
         []
       )
       expect(
-        (result.liquidation_inputs as Record<string, unknown>)
-          ?.identifiable_intangibles_uplift_pct,
-      ).toBe(0.20)
+        (result.liquidation_inputs as Record<string, unknown>)?.identifiable_intangibles_uplift_pct
+      ).toBe(0.2)
     })
   })
 

@@ -14,7 +14,7 @@ interface ErrorProps {
  * Catches errors in the root layout and pages.
  * Reuses shared AppErrorBoundary component to avoid duplication.
  */
-export default function Error({ error, reset }: ErrorProps) {
+export default function RootError({ error, reset }: ErrorProps) {
   // Log full error details to help debug iframe SSR issue
   useEffect(() => {
     console.error('[Root Error Boundary] Full error details:', {

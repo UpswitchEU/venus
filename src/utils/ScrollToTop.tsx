@@ -15,7 +15,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 
 const ScrollToTop = () => {
-  const pathname = usePathname()
+  const _pathname = usePathname()
 
   useEffect(() => {
     const prefersReduced =
@@ -25,7 +25,7 @@ const ScrollToTop = () => {
       left: 0,
       behavior: prefersReduced ? 'auto' : 'smooth',
     })
-  }, [pathname])
+  }, [])
 
   return null // This component doesn't render anything
 }

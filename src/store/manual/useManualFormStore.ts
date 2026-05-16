@@ -102,10 +102,7 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
         }
         // Undefined removes market presentation keys so session autosave cannot keep a stale
         // NL SBI after switching registry rows or when display matches canonical NACE.
-        if (
-          value === undefined &&
-          (key === 'activity_code' || key === 'activity_label')
-        ) {
+        if (value === undefined && (key === 'activity_code' || key === 'activity_label')) {
           delete mutable[key as string]
         } else {
           mutable[key as string] = value
@@ -185,15 +182,19 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
     requestAnimationFrame(() => {
       try {
         set((state) => {
-          const hasIndustry = typeof businessCard.industry === 'string' && businessCard.industry.trim() !== ''
+          const hasIndustry =
+            typeof businessCard.industry === 'string' && businessCard.industry.trim() !== ''
           const hasBusinessModel =
-            typeof businessCard.business_model === 'string' && businessCard.business_model.trim() !== ''
+            typeof businessCard.business_model === 'string' &&
+            businessCard.business_model.trim() !== ''
           const hasCountryCode =
             typeof businessCard.country_code === 'string' && businessCard.country_code.trim() !== ''
           const hasFoundingYear =
-            typeof businessCard.founding_year === 'number' && Number.isFinite(businessCard.founding_year)
+            typeof businessCard.founding_year === 'number' &&
+            Number.isFinite(businessCard.founding_year)
           const hasEmployeeCount =
-            typeof businessCard.employee_count === 'number' && Number.isFinite(businessCard.employee_count)
+            typeof businessCard.employee_count === 'number' &&
+            Number.isFinite(businessCard.employee_count)
 
           const updatedFormData = {
             ...state.formData,

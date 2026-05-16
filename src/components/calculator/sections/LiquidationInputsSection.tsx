@@ -141,9 +141,7 @@ const ASSET_CLASSES = [
 
 type AssetClassCode = (typeof ASSET_CLASSES)[number]['code']
 
-const ASSET_OVERRIDE_FORM_KEYS = ASSET_CLASSES.map(
-  (cls) => `liq_ao_${cls.code}` as const
-)
+const ASSET_OVERRIDE_FORM_KEYS = ASSET_CLASSES.map((cls) => `liq_ao_${cls.code}` as const)
 
 /**
  * Decimal-percent input used for the advanced WACC / uplift fields.
@@ -179,9 +177,7 @@ function PercentInput({
   testId?: string
 }) {
   const display =
-    value === undefined || value === null
-      ? ''
-      : String(Math.round(Number(value) * 1000) / 10)
+    value === undefined || value === null ? '' : String(Math.round(Number(value) * 1000) / 10)
   return (
     <AuroraInput
       id={name}
@@ -200,9 +196,7 @@ function PercentInput({
       disabled={disabled}
       onChange={(e) => {
         const raw = e.target.value
-        onChange(
-          raw === '' ? undefined : Math.max(0, Math.round(Number(raw) * 10) / 1000)
-        )
+        onChange(raw === '' ? undefined : Math.max(0, Math.round(Number(raw) * 10) / 1000))
       }}
       rightIcon={<span className="select-none text-xs font-medium text-foreground/40">%</span>}
       data-testid={testId}
@@ -324,12 +318,9 @@ export function LiquidationInputsSection({
   const liabilityBucketsPanelId = `${disclosureIdBase}-liability-buckets`
   const assetOverridesPanelId = `${disclosureIdBase}-asset-overrides`
 
-  const essentialsFilled = [
-    liqHeadcount,
-    liqMonthlyRent,
-    liqPaidUpCapital,
-    liqDeferredTax,
-  ].filter((v) => v !== undefined).length
+  const essentialsFilled = [liqHeadcount, liqMonthlyRent, liqPaidUpCapital, liqDeferredTax].filter(
+    (v) => v !== undefined
+  ).length
   const sectionComplete = essentialsFilled === ESSENTIAL_FIELDS.length
 
   // Auto-prefill headcount from base company profile.
@@ -349,7 +340,7 @@ export function LiquidationInputsSection({
       setHeadcountWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceHeadcount])
+  }, [prefillSourceHeadcount, liqHeadcount, onFieldChange])
 
   // Auto-prefill monthly rent from `current_year_data.rent_expense / 12`.
   // Same async-safe pattern as headcount: re-fires when the source
@@ -363,14 +354,11 @@ export function LiquidationInputsSection({
       prefillSourceAnnualRent !== undefined &&
       prefillSourceAnnualRent > 0
     ) {
-      onFieldChange(
-        'liq_monthly_rent',
-        Math.round((prefillSourceAnnualRent / 12) * 100) / 100
-      )
+      onFieldChange('liq_monthly_rent', Math.round((prefillSourceAnnualRent / 12) * 100) / 100)
       setRentWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceAnnualRent])
+  }, [prefillSourceAnnualRent, liqMonthlyRent, onFieldChange])
 
   // Auto-prefill paid-up capital from balance-sheet equity composition.
   useEffect(() => {
@@ -383,7 +371,7 @@ export function LiquidationInputsSection({
       setPaidUpCapitalWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourcePaidUpCapital])
+  }, [prefillSourcePaidUpCapital, liqPaidUpCapital, onFieldChange])
 
   // Auto-prefill deferred tax liabilities from balance-sheet long-term
   // liabilities.  Skips zero/missing values — engine defaults take over.
@@ -397,7 +385,7 @@ export function LiquidationInputsSection({
       setDeferredTaxWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceDeferredTax])
+  }, [prefillSourceDeferredTax, liqDeferredTax, onFieldChange])
 
   const handleReset = () => {
     for (const field of ESSENTIAL_FIELDS) {

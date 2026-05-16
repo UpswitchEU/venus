@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  liquidationAnalysisMethodSpec,
-  LIQUIDATION_ANALYSIS_METHOD_KEY,
-} from './spec'
+import { LIQUIDATION_ANALYSIS_METHOD_KEY, liquidationAnalysisMethodSpec } from './spec'
 
 describe('liquidationAnalysisMethodSpec', () => {
   it('uses the canonical "liquidation_analysis" key', () => {

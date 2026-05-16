@@ -12,8 +12,8 @@
  * rhythm + locale-aware copy as the rest of the left panel.
  */
 
-import { useId } from 'react'
 import { useTranslations } from 'next-intl'
+import { useId } from 'react'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { PrefilledBadge } from './PrefilledBadge'
@@ -168,9 +168,9 @@ export function DealStructureCompareSection({
             disabled={disabled}
             truncateLabel={false}
             trailingLabelAccessory={
-              prefilled?.buyer_discount_rate_pct
-                ? <PrefilledBadge label={tPrefill('badge')} />
-                : undefined
+              prefilled?.buyer_discount_rate_pct ? (
+                <PrefilledBadge label={tPrefill('badge')} />
+              ) : undefined
             }
           />
           <AdaptivePercentInput
@@ -181,9 +181,9 @@ export function DealStructureCompareSection({
             disabled={disabled}
             truncateLabel={false}
             trailingLabelAccessory={
-              prefilled?.registration_duty_pct
-                ? <PrefilledBadge label={tPrefill('badge')} />
-                : undefined
+              prefilled?.registration_duty_pct ? (
+                <PrefilledBadge label={tPrefill('badge')} />
+              ) : undefined
             }
           />
           <label

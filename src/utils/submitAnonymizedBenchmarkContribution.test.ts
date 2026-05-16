@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-
+import type { ValuationResponse } from '../types/valuation'
 import {
   __testing__,
   extractBenchmarkMultipleRatios,
 } from './submitAnonymizedBenchmarkContribution'
-import type { ValuationResponse } from '../types/valuation'
 
 const { extractOwnerProfileFields } = __testing__
 

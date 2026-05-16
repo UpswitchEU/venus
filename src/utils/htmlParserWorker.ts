@@ -129,7 +129,7 @@ class HTMLParserWorkerClient {
 
       this.pendingRequests.set(id, { resolve, reject })
 
-      this.worker!.postMessage({ id, type, html })
+      this.worker?.postMessage({ id, type, html })
 
       // Timeout after 30 seconds
       setTimeout(() => {

@@ -114,9 +114,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward client context headers for accountant-client flow (filter reports by client)
-    const clientUserId = requestHeaders.get('x-client-user-id') || requestHeaders.get('x-client-context-user')
-    const accountantUserId = requestHeaders.get('x-accountant-user-id') || requestHeaders.get('x-client-context-accountant')
-    const relationshipId = requestHeaders.get('x-relationship-id') || requestHeaders.get('x-client-context-relationship')
+    const clientUserId =
+      requestHeaders.get('x-client-user-id') || requestHeaders.get('x-client-context-user')
+    const accountantUserId =
+      requestHeaders.get('x-accountant-user-id') ||
+      requestHeaders.get('x-client-context-accountant')
+    const relationshipId =
+      requestHeaders.get('x-relationship-id') || requestHeaders.get('x-client-context-relationship')
     if (clientUserId) titanHeaders['X-Client-User-Id'] = clientUserId
     if (accountantUserId) titanHeaders['X-Accountant-User-Id'] = accountantUserId
     if (relationshipId) titanHeaders['X-Relationship-Id'] = relationshipId

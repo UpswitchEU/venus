@@ -57,7 +57,7 @@ sequenceDiagram
     participant Titan
 
     User->>Venus: Navigate to valuation.upswitch.app
-    Venus->>Titan: GET /api/v2/auth/me (no cookies)
+    Venus->>Titan: GET /api/v2/auth/me-or-refresh (no cookies)
     Titan-->>Venus: 401 Unauthorized
     Venus-->>User: Guest Mode (still functional)
 ```
@@ -80,7 +80,7 @@ sequenceDiagram
 
     User->>Venus: Navigate to valuation.upswitch.app
     Note over Venus: Browser automatically sends cookies
-    Venus->>Titan: GET /api/v2/auth/me (with access_token cookie)
+    Venus->>Titan: GET /api/v2/auth/me-or-refresh (with access_token cookie)
     Titan-->>Venus: User data
     Venus-->>User: Authenticated view
 ```
@@ -95,13 +95,8 @@ sequenceDiagram
     participant Titan
 
     Note over Venus: Access token expires (15 min)
-    Venus->>Titan: GET /api/v2/auth/me
-    Titan-->>Venus: 401 Unauthorized
-
-    Venus->>Titan: POST /api/v2/auth/refresh (with refresh_token cookie)
-    Titan-->>Venus: Set-Cookie: new access_token, new refresh_token
-    Venus->>Titan: GET /api/v2/auth/me (retry with new token)
-    Titan-->>Venus: User data
+    Venus->>Titan: GET /api/v2/auth/me-or-refresh (with refresh_token cookie)
+    Titan-->>Venus: User data + Set-Cookie: new access_token, new refresh_token
     Note over Venus: Seamless, user sees no interruption
 ```
 
@@ -124,7 +119,7 @@ sequenceDiagram
     User->>Venus: Navigate with token
     Venus->>Titan: POST /api/v2/auth/exchange-token
     Titan-->>Venus: Set-Cookie: access_token, refresh_token
-    Venus->>Titan: GET /api/v2/auth/me
+    Venus->>Titan: GET /api/v2/auth/me-or-refresh
     Titan-->>Venus: User data
     Venus-->>User: Authenticated view (token removed from URL)
 ```
@@ -390,7 +385,7 @@ graph TB
 
     subgraph Titan[Titan API - api.upswitch.app]
         T1[/api/v2/auth/login]
-        T2[/api/v2/auth/me]
+        T2[/api/v2/auth/me-or-refresh]
         T3[/api/v2/auth/refresh]
         T4[/api/v2/auth/logout]
     end
@@ -416,7 +411,7 @@ graph TB
 
 | Endpoint | Method | Purpose | Cookies Sent | Cookies Set |
 |----------|--------|---------|--------------|-------------|
-| `/api/v2/auth/me` | GET | Get current user | access_token | - |
+| `/api/v2/auth/me-or-refresh` | GET | Get current user, refreshing when needed | access_token or refresh_token | access_token, refresh_token when refreshed |
 | `/api/v2/auth/refresh` | POST | Refresh tokens | refresh_token | access_token, refresh_token |
 | `/api/v2/auth/logout` | POST | Clear session | access_token | Clear both tokens |
 | `/api/v2/auth/exchange-token` | POST | Token handoff | - | access_token, refresh_token |
@@ -440,7 +435,7 @@ graph TB
 
 **Changes**:
 - Cookie names changed: `upswitch_session` → `upswitch_access_token` + `upswitch_refresh_token`
-- Endpoint updated: `/api/auth/me` → `/api/v2/auth/me`
+- Browser endpoint remains `/api/auth/me`; Venus BFF proxies it to Titan `/api/v2/auth/me-or-refresh`
 - Automatic refresh logic added
 - Token rotation implemented
 
@@ -459,6 +454,5 @@ For issues or questions:
 **Last Updated**: January 2026  
 **Version**: 2.0 (Dual-Token System)  
 **Author**: UpSwitch Engineering Team
-
 
 

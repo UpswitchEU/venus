@@ -370,9 +370,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
                 </span>
               )}
             </label>
-            {trailingLabelAccessory && (
-              <div className="shrink-0">{trailingLabelAccessory}</div>
-            )}
+            {trailingLabelAccessory && <div className="shrink-0">{trailingLabelAccessory}</div>}
           </div>
         )}
         <motion.div
@@ -470,7 +468,9 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
                 <CircleCheck className="w-5 h-5 text-primary" aria-hidden="true" />
               ) : null)}
             {rightIcon && !showStateIcon && !showClearButton && (
-              <div className="text-foreground/40 inline-flex items-center justify-center">{rightIcon}</div>
+              <div className="text-foreground/40 inline-flex items-center justify-center">
+                {rightIcon}
+              </div>
             )}
           </div>
         </motion.div>

@@ -1,9 +1,8 @@
-import React from 'react'
 import { render, screen } from '@testing-library/react'
+import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-
-import { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
 import type { Fiscal4xPreviewMetrics } from '@/lib/omniPreview'
+import { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
 
 // Mirror the next-intl mock pattern used by sibling section tests so the
 // rendered text we assert on stays stable across locales.
@@ -28,10 +27,7 @@ vi.mock('./previewMetricCards', () => ({
     value: string
     emphasis?: 'default' | 'primary'
   }) => (
-    <div
-      data-testid="metric-card"
-      data-emphasis={emphasis ?? 'default'}
-    >{`${label}:${value}`}</div>
+    <div data-testid="metric-card" data-emphasis={emphasis ?? 'default'}>{`${label}:${value}`}</div>
   ),
 }))
 

@@ -20,9 +20,11 @@ function OwnershipStructureSectionHarness() {
   return (
     <OwnershipStructureSection
       formData={formData}
-      updateFormData={(next) => setFormData((current: Record<string, unknown>) => ({ ...current, ...next }))}
+      updateFormData={(next) =>
+        setFormData((current: Record<string, unknown>) => ({ ...current, ...next }))
+      }
       employeeCountError={null}
-      setEmployeeCountError={() => {}}
+      setEmployeeCountError={() => undefined}
     />
   )
 }

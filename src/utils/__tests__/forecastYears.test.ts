@@ -5,13 +5,13 @@ import {
   buildEmptyForecastYears,
   canAppendForecastYear,
   canAppendHistoricalYear,
-  dcfInjectionAddedRowCount,
+  canRemoveHistoricalYear,
   DEFAULT_DCF_FORECAST_YEAR_COUNT,
+  dcfInjectionAddedRowCount,
   injectDefaultDcfForecastYears,
   MAX_FISCAL_YEAR,
   MAX_FORECAST_YEAR_COUNT,
   MIN_FISCAL_YEAR,
-  canRemoveHistoricalYear,
   removeForecastYear,
   removeForecastYears,
   removeHistoricalYear,
@@ -129,9 +129,7 @@ describe('forecast year helpers', () => {
     })
 
     it('matches year with String coercion for stable removal', () => {
-      const rows: YearlyFinancials[] = [
-        { year: '2026', revenue: 1, ebitda: 1, isForecast: true },
-      ]
+      const rows: YearlyFinancials[] = [{ year: '2026', revenue: 1, ebitda: 1, isForecast: true }]
       expect(removeForecastYear(rows, '2026')).toHaveLength(0)
       const numericYear = [{ ...rows[0], year: 2026 as unknown as string }]
       expect(removeForecastYear(numericYear, '2026')).toHaveLength(0)
@@ -164,7 +162,10 @@ describe('forecast year helpers', () => {
   describe('buildEmptyForecastYears', () => {
     it('stops at MAX_FISCAL_YEAR when requested horizon spans past it', () => {
       const rows = buildEmptyForecastYears(MAX_FISCAL_YEAR - 1, DEFAULT_DCF_FORECAST_YEAR_COUNT)
-      expect(rows.map((r) => r.year)).toEqual([String(MAX_FISCAL_YEAR - 1), String(MAX_FISCAL_YEAR)])
+      expect(rows.map((r) => r.year)).toEqual([
+        String(MAX_FISCAL_YEAR - 1),
+        String(MAX_FISCAL_YEAR),
+      ])
     })
   })
 
@@ -232,7 +233,9 @@ describe('forecast year helpers', () => {
     })
 
     it('is true when an older year within bounds can be added', () => {
-      const rows: YearlyFinancials[] = [{ year: String(MIN_FISCAL_YEAR + 1), revenue: 1, ebitda: 1 }]
+      const rows: YearlyFinancials[] = [
+        { year: String(MIN_FISCAL_YEAR + 1), revenue: 1, ebitda: 1 },
+      ]
       expect(canAppendHistoricalYear(rows)).toBe(true)
     })
   })

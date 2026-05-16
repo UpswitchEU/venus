@@ -265,7 +265,7 @@ describe('tax-latency mutation source contract', () => {
       expect(useTaxLatencyStore.getState()._mutationSeq).toBe(4)
     })
 
-    it('cancelling a pending user debounce on a programmatic mutation is the caller\'s job', () => {
+    it("cancelling a pending user debounce on a programmatic mutation is the caller's job", () => {
       // Pin: the store does not own debounce state. A subscriber that owns its
       // own debounce timer can cancel it on observing a system mutation. This
       // test documents the contract — the gating signal is the source field,

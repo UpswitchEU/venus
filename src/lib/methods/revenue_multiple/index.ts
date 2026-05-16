@@ -1,1 +1,5 @@
-export { revenueMultipleMethodSpec, REVENUE_MULTIPLE_METHOD_KEY } from './spec'
+export {
+  RevenueQualitySectionStack,
+  type RevenueQualitySectionStackProps,
+} from './RevenueQualitySectionStack'
+export { REVENUE_MULTIPLE_METHOD_KEY, revenueMultipleMethodSpec } from './spec'

@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  __testing__,
-  withdrawAnonymizedContribution,
-} from './withdrawContribution'
+import { __testing__, withdrawAnonymizedContribution } from './withdrawContribution'
 
 const { isUuid } = __testing__
 
@@ -52,16 +49,16 @@ describe('withdrawAnonymizedContribution', () => {
 
   it('throws when Titan URL is not configured', async () => {
     process.env.NEXT_PUBLIC_TITAN_API_URL = ''
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: VALID_UUID }),
-    ).rejects.toThrow(/Titan API URL/)
+    await expect(withdrawAnonymizedContribution({ valuationId: VALID_UUID })).rejects.toThrow(
+      /Titan API URL/
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   it('rejects non-UUID valuationId without round-tripping', async () => {
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: 'val_legacy' }),
-    ).rejects.toThrow(/UUID/)
+    await expect(withdrawAnonymizedContribution({ valuationId: 'val_legacy' })).rejects.toThrow(
+      /UUID/
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -71,7 +68,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'withdrawn',
         rows_affected: 1,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     const result = await withdrawAnonymizedContribution({
       valuationId: VALID_UUID,
@@ -96,7 +93,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'already_withdrawn',
         rows_affected: 0,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     const result = await withdrawAnonymizedContribution({ valuationId: VALID_UUID })
     expect(result.status).toBe('already_withdrawn')
@@ -109,7 +106,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'not_found',
         rows_affected: 0,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     const result = await withdrawAnonymizedContribution({ valuationId: VALID_UUID })
     expect(result.status).toBe('not_found')
@@ -117,25 +114,23 @@ describe('withdrawAnonymizedContribution', () => {
 
   it('throws an auth-flavored error on 401', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, { status: 401 }))
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: VALID_UUID }),
-    ).rejects.toThrow(/Authentication/)
+    await expect(withdrawAnonymizedContribution({ valuationId: VALID_UUID })).rejects.toThrow(
+      /Authentication/
+    )
   })
 
   it('throws an auth-flavored error on 403', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'Forbidden' }, { status: 403 }))
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: VALID_UUID }),
-    ).rejects.toThrow(/Authentication/)
+    await expect(withdrawAnonymizedContribution({ valuationId: VALID_UUID })).rejects.toThrow(
+      /Authentication/
+    )
   })
 
   it('throws on non-OK responses with status detail', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({ error: 'Service Unavailable' }, { status: 503 }),
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'Service Unavailable' }, { status: 503 }))
+    await expect(withdrawAnonymizedContribution({ valuationId: VALID_UUID })).rejects.toThrow(
+      /Withdraw failed \(503\)/
     )
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: VALID_UUID }),
-    ).rejects.toThrow(/Withdraw failed \(503\)/)
   })
 
   it('throws on unexpected status token', async () => {
@@ -144,11 +139,11 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'something_new',
         rows_affected: 0,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
-    await expect(
-      withdrawAnonymizedContribution({ valuationId: VALID_UUID }),
-    ).rejects.toThrow(/unexpected status/)
+    await expect(withdrawAnonymizedContribution({ valuationId: VALID_UUID })).rejects.toThrow(
+      /unexpected status/
+    )
   })
 
   it('truncates an overlong reason before sending', async () => {
@@ -157,7 +152,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'withdrawn',
         rows_affected: 1,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     await withdrawAnonymizedContribution({
       valuationId: VALID_UUID,
@@ -177,7 +172,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'withdrawn',
         rows_affected: 1,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     await withdrawAnonymizedContribution({
       valuationId: VALID_UUID,
@@ -194,7 +189,7 @@ describe('withdrawAnonymizedContribution', () => {
         status: 'withdrawn',
         rows_affected: 1,
         contributor_reference: VALID_UUID,
-      }),
+      })
     )
     await withdrawAnonymizedContribution({ valuationId: VALID_UUID })
     const [, init] = fetchSpy.mock.calls[0]

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SessionRestorationService } from './SessionRestorationService'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
+import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
+import { SessionRestorationService } from './SessionRestorationService'
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {

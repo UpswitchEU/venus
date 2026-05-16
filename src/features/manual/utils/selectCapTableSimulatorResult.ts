@@ -27,7 +27,7 @@ export interface SelectCapTableSimulatorResultOptions {
 }
 
 export function selectCapTableSimulatorResult(
-  opts: SelectCapTableSimulatorResultOptions,
+  opts: SelectCapTableSimulatorResultOptions
 ): ValuationMethodResult | null {
   if (opts.showFullAdvisorMethodNav) return null
   if (!opts.selectedMethod) return null

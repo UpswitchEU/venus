@@ -76,7 +76,8 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
   const handleSaveEdit = () => {
     // Update the form data with edited values
-    const currentYear = editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
+    const currentYear =
+      editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
 
     updateFormData({
       company_name: companyData.company_name,
@@ -116,7 +117,8 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
   const handleCalculate = () => {
     // Ensure data is synced to store - SIMPLIFIED to match /manual
-    const currentYear = editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
+    const currentYear =
+      editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
 
     // Get industry from inferred data or fallback
     const industry =
@@ -363,7 +365,10 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     type="number"
                     value={finiteNumberInputValue(editedData.cash)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, cash: parseOptionalFiniteNumber(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        cash: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
@@ -417,7 +422,9 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                         <td className="px-4 py-3 text-right">
                           {formatCurrency(coalesceFiniteNumber(year.revenue))}
                         </td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(coalesceFiniteNumber(year.ebitda))}</td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(coalesceFiniteNumber(year.ebitda))}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           {formatCurrency(coalesceFiniteNumber(year.net_income))}
                         </td>

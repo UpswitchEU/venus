@@ -24,10 +24,7 @@ import {
   getRegionalBaseline,
   type StartupRegionalBaseline,
 } from '@/components/calculator/sections/startup/regionalBaseline'
-import type {
-  StartupSector,
-  StartupStage,
-} from '@/store/manual/useStartupValuationStore'
+import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 
 export interface StartupBenchmarkRow {
   region_code: string
@@ -66,7 +63,7 @@ function cacheKey(country: string, stage: StartupStage, sector: StartupSector) {
 
 function rowFromBaseline(
   baseline: StartupRegionalBaseline,
-  sector: StartupSector,
+  sector: StartupSector
 ): StartupBenchmarkRow {
   return {
     region_code: baseline.region_code,
@@ -89,7 +86,7 @@ function rowFromBaseline(
 async function fetchBenchmarkRow(
   country: string,
   stage: StartupStage,
-  sector: StartupSector,
+  sector: StartupSector
 ): Promise<StartupBenchmarkRow | null> {
   const params = new URLSearchParams({ region: country, stage, sector })
   try {
@@ -120,7 +117,7 @@ export function useStartupBenchmark(
   countryCode: string,
   stage: StartupStage,
   sector: StartupSector,
-  enabled = true,
+  enabled = true
 ): UseStartupBenchmarkResult {
   const country = (countryCode || 'BE').toUpperCase()
   const key = cacheKey(country, stage, sector)
@@ -171,7 +168,7 @@ export function useStartupBenchmark(
       active = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key])
+  }, [enabled, key, country, fallbackRow, sector, stage])
 
   return {
     benchmark: state.row,

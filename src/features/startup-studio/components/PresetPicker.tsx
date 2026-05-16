@@ -156,7 +156,7 @@ export function PresetPicker(_props: PresetPickerProps) {
         notation: 'compact',
         maximumFractionDigits: 1,
       }),
-    [locale],
+    [locale]
   )
 
   // A3 — clear-preset escape hatch. Once a founder picks a preset, the

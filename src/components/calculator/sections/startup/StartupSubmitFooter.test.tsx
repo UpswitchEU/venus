@@ -61,8 +61,7 @@ vi.mock('next-intl', () => ({
     const map: Record<string, string> = {
       calculating: 'Calculating…',
       generate: 'Generate startup valuation',
-      hintMissingCompany:
-        'Add the company name above to unlock report generation.',
+      hintMissingCompany: 'Add the company name above to unlock report generation.',
       hintMissingMilestone:
         'Pick at least one milestone in “Risk reduction” for a defensible valuation.',
       // reviewGate

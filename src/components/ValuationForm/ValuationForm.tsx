@@ -20,16 +20,19 @@ import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
 import { useBootstrapSafe } from '../../lib/bootstrap'
+import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
-import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
+import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
-import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
+import {
+  hasExistingValuationVersion,
+  shouldOpenVersionConfirmation,
+} from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
 import { useValuationFormSubmission } from './hooks/useValuationFormSubmission'
 import { BasicInformationSection } from './sections/BasicInformationSection'
@@ -380,8 +383,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       // When the user has cleared all historical rows but forecast rows exist,
       // keep the forecast rows so we don't drop them.
       const remainingForecasts = pickForecastRowsToPreserve(existingRows)
-      const nextHistorical =
-        remainingForecasts.length > 0 ? remainingForecasts : undefined
+      const nextHistorical = remainingForecasts.length > 0 ? remainingForecasts : undefined
       if (!areMergedYearRowsEqual(nextHistorical, formData.historical_years_data)) {
         formUpdates.historical_years_data = nextHistorical
       }
@@ -408,10 +410,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     // stale revenue or EBITDA after the user edits or clears the historical row.
     if (formData.current_year_data && (revenueMirror.changed || ebitdaMirror.changed)) {
       const cyd = formData.current_year_data
-      const cydFilingYear = normalizeCurrentYearForFiling(
-        cyd.year,
-        formData.filing_year_confirmed
-      )
+      const cydFilingYear = normalizeCurrentYearForFiling(cyd.year, formData.filing_year_confirmed)
       if (cydFilingYear === maxHistoricalYear) {
         const keys: Partial<{ revenue: number | undefined; ebitda: number | undefined }> = {}
         if (revenueMirror.changed) keys.revenue = revenueMirror.next
@@ -456,6 +455,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     formData.ebitda,
     historicalInputs,
     updateFormData,
+    formData.current_year_data,
+    reportId,
   ])
 
   // Clear owner concentration fields when switching to sole-trader
@@ -475,7 +476,12 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         updateFormData({ number_of_owners: 1 })
       }
     }
-  }, [formData.business_type, updateFormData])
+  }, [
+    formData.business_type,
+    updateFormData,
+    formData.number_of_employees,
+    formData.number_of_owners,
+  ])
 
   // ============================================================================
   // PREFILL STRATEGY: Priority-based cascade
@@ -551,9 +557,9 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         (bt) => bt.id === (businessCard as any).business_type_id
       )
       if (matchingType) {
-          updateFormData(
-            buildBusinessTypeFormData(matchingType, businessCard.industry || 'services') as any
-          )
+        updateFormData(
+          buildBusinessTypeFormData(matchingType, businessCard.industry || 'services') as any
+        )
       }
     } else if (businessCard.industry) {
       const matchingType = businessTypes.find(
@@ -561,7 +567,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
       )
       if (matchingType) {
-          updateFormData(buildBusinessTypeFormData(matchingType) as any)
+        updateFormData(buildBusinessTypeFormData(matchingType) as any)
       }
     }
 
@@ -576,8 +582,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     updateFormData,
     isViewingExistingReport,
     bootstrapHasMeaningfulPrefill,
-    bootstrap?.report?.mode,
-    bootstrap?.report?.hasExistingData,
   ])
 
   // PRE-FILL: Priority 3 - NACE code to business type suggestion
@@ -601,7 +605,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       try {
         const bt = await businessTypesApiService.getBusinessTypeForNaceCode(
           naceCode,
-          formData.country_code || undefined,
+          formData.country_code || undefined
         )
         if (cancelled || !bt) return
 
@@ -617,10 +621,13 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           updateFormData(buildBusinessTypeFormData(matchedType) as any)
         } else {
           // Sparse fallback: bt lacks preference fields, but still better than nothing.
-          generalLogger.warn('[ValuationForm] NACE type not in loaded list, using sparse NACE object', {
-            nace_code: naceCode,
-            business_type_id: bt.id,
-          })
+          generalLogger.warn(
+            '[ValuationForm] NACE type not in loaded list, using sparse NACE object',
+            {
+              nace_code: naceCode,
+              business_type_id: bt.id,
+            }
+          )
           updateFormData(buildBusinessTypeFormData(bt) as any)
         }
       } catch (err: unknown) {
@@ -755,7 +762,10 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             ? item.applyYears
             : [item.year]
         return years.some((year) => year >= lastFullYear - 2 && year <= lastFullYear)
-      }) || [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) => hasLegacyNormalization(year)),
+      }) ||
+      [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) =>
+        hasLegacyNormalization(year)
+      ),
     [normalizationItems, lastFullYear, hasLegacyNormalization]
   )
 
@@ -786,8 +796,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
 
     // Include yearly financials (revenue, ebitda per year) - critical for EBITDA change detection
-    const formYearly =
-      (formData as any).yearlyFinancials ?? formData.historical_years_data ?? []
+    const formYearly = (formData as any).yearlyFinancials ?? formData.historical_years_data ?? []
     const versionYearly =
       versionFormData.yearlyFinancials ?? versionFormData.historical_years_data ?? []
     if (JSON.stringify(formYearly) !== JSON.stringify(versionYearly)) {
@@ -811,7 +820,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const prefilledQueryValue = useMemo(() => {
     const currentSession = useSessionStore.getState().session
     return (currentSession?.partialData as any)?._prefilledQuery || null
-  }, [reportId]) // Only recompute when reportId changes
+  }, []) // Only recompute when reportId changes
   const prefilledQuery = useMemo(() => {
     return prefilledQueryValue || null
   }, [prefilledQueryValue]) // Only recompute when the actual string value changes
@@ -830,7 +839,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const clearAllErrors = useCallback(() => {
     setEmployeeCountError(null)
     clearApiErrorFromStore()
-  }, [setEmployeeCountError, clearApiErrorFromStore])
+  }, [clearApiErrorFromStore])
 
   // Handle form submission with version confirmation check
   const handleFormSubmit = useCallback(
@@ -881,7 +890,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     },
     [
       shouldShowVersionConfirmation,
-      showNormalizationConfirmation,
       hasExistingValuation,
       hasFormChanges,
       hasAnyNormalization,

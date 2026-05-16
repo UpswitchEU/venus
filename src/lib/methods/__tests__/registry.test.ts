@@ -15,9 +15,9 @@ import {
   getMethodSpec,
   isAdaptiveMethodKey,
   isVenturePathMethodKey,
+  METHOD_SPECS,
   methodKeyAcceptsPreparerMultipleOverride,
   methodKeyRequiresForecastYears,
-  METHOD_SPECS,
   ORDERED_METHOD_SPECS,
   selectionAppliesRealEstateCarveOut,
   selectionRequiresForecastYears,
@@ -79,7 +79,9 @@ describe('per-spec invariants', () => {
     expect(spec.combinable && spec.standalone, `${key} is both`).toBe(false)
   })
 
-  it.each(EXPECTED_METHOD_KEYS)('%s declares either combinable or standalone (never neither)', (key) => {
+  it.each(
+    EXPECTED_METHOD_KEYS
+  )('%s declares either combinable or standalone (never neither)', (key) => {
     const spec = METHOD_SPECS[key]
     expect(spec.combinable || spec.standalone, `${key} declared as neither`).toBe(true)
   })
@@ -114,16 +116,12 @@ describe('per-spec invariants', () => {
 
 describe('derivation helpers', () => {
   it('deriveCombinableMethods matches every spec where combinable===true', () => {
-    const expected = new Set(
-      ORDERED_METHOD_SPECS.filter((s) => s.combinable).map((s) => s.key)
-    )
+    const expected = new Set(ORDERED_METHOD_SPECS.filter((s) => s.combinable).map((s) => s.key))
     expect(deriveCombinableMethods()).toEqual(expected)
   })
 
   it('deriveStandaloneMethods matches every spec where standalone===true', () => {
-    const expected = new Set(
-      ORDERED_METHOD_SPECS.filter((s) => s.standalone).map((s) => s.key)
-    )
+    const expected = new Set(ORDERED_METHOD_SPECS.filter((s) => s.standalone).map((s) => s.key))
     expect(deriveStandaloneMethods()).toEqual(expected)
   })
 

@@ -15,7 +15,9 @@ export type YearRowForBookEquity = {
   total_debt?: number | null
 }
 
-export function resolveBookEquityFromYearRow(row: YearRowForBookEquity | null | undefined): number | null {
+export function resolveBookEquityFromYearRow(
+  row: YearRowForBookEquity | null | undefined
+): number | null {
   if (!row) return null
 
   const eqNum =
@@ -32,7 +34,9 @@ export function resolveBookEquityFromYearRow(row: YearRowForBookEquity | null | 
       ? Number(row.total_liabilities)
       : null
   const tdNum =
-    row.total_debt != null && Number.isFinite(Number(row.total_debt)) ? Number(row.total_debt) : null
+    row.total_debt != null && Number.isFinite(Number(row.total_debt))
+      ? Number(row.total_debt)
+      : null
 
   if (eqNum != null && eqNum !== 0) return eqNum
 

@@ -31,10 +31,7 @@ import type { ReactNode } from 'react'
 // re-exports `NavRevaluationAuditLog` (it's report-side advisory output)
 // so the previous `from './'` route would now be broken.
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
-import {
-  type DealScenario,
-  type DealStructureComparison,
-} from './DealStructureCompareSection'
+import { type DealScenario, type DealStructureComparison } from './DealStructureCompareSection'
 import {
   type DeferredTaxBreakdownRow,
   NavRevaluationAuditLog,
@@ -78,11 +75,7 @@ function toNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function BelgianSmeAuditPanel({
-  details,
-  className,
-  title,
-}: BelgianSmeAuditPanelProps) {
+export function BelgianSmeAuditPanel({ details, className, title }: BelgianSmeAuditPanelProps) {
   const { currency } = useManualPreviewFormatters()
   const d = isObject(details) ? details : null
 
@@ -102,9 +95,7 @@ export function BelgianSmeAuditPanel({
     isObject(d.sme_eligibility) &&
     typeof (d.sme_eligibility as Record<string, unknown>).is_eligible === 'boolean'
       ? ({
-          is_eligible: Boolean(
-            (d.sme_eligibility as Record<string, unknown>).is_eligible
-          ),
+          is_eligible: Boolean((d.sme_eligibility as Record<string, unknown>).is_eligible),
           rate_pct: Number((d.sme_eligibility as Record<string, unknown>).rate_pct ?? 25),
           reasons: Array.isArray((d.sme_eligibility as Record<string, unknown>).reasons)
             ? ((d.sme_eligibility as Record<string, unknown>).reasons as string[])
@@ -116,15 +107,11 @@ export function BelgianSmeAuditPanel({
     isObject(d.real_estate_revaluation) &&
     toNumber((d.real_estate_revaluation as Record<string, unknown>).book_value) != null
       ? ({
-          book_value: Number(
-            (d.real_estate_revaluation as Record<string, unknown>).book_value
-          ),
+          book_value: Number((d.real_estate_revaluation as Record<string, unknown>).book_value),
           appraisal_value: Number(
             (d.real_estate_revaluation as Record<string, unknown>).appraisal_value
           ),
-          meerwaarde: Number(
-            (d.real_estate_revaluation as Record<string, unknown>).meerwaarde
-          ),
+          meerwaarde: Number((d.real_estate_revaluation as Record<string, unknown>).meerwaarde),
         } satisfies RealEstateRevaluation)
       : null
 
@@ -214,20 +201,36 @@ function EquipmentRevaluationCard({ equipment }: { equipment: EquipmentRevaluati
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 text-[12px]">
         <Stat
           label="Original cost"
-          value={equipment.original_cost != null ? currency.format(Number(equipment.original_cost)) : '—'}
+          value={
+            equipment.original_cost != null ? currency.format(Number(equipment.original_cost)) : '—'
+          }
         />
         <Stat
           label="Tax book"
-          value={equipment.tax_book_value != null ? currency.format(Number(equipment.tax_book_value)) : '—'}
+          value={
+            equipment.tax_book_value != null
+              ? currency.format(Number(equipment.tax_book_value))
+              : '—'
+          }
         />
         <Stat
           label="Economic book"
-          value={equipment.economic_book_value != null ? currency.format(Number(equipment.economic_book_value)) : '—'}
+          value={
+            equipment.economic_book_value != null
+              ? currency.format(Number(equipment.economic_book_value))
+              : '—'
+          }
         />
         <Stat
           label="Meerwaarde"
           value={meerwaarde != null ? currency.format(meerwaarde) : '—'}
-          tone={meerwaarde != null && meerwaarde >= 0 ? 'positive' : meerwaarde != null ? 'negative' : undefined}
+          tone={
+            meerwaarde != null && meerwaarde >= 0
+              ? 'positive'
+              : meerwaarde != null
+                ? 'negative'
+                : undefined
+          }
         />
       </dl>
     </section>
@@ -316,7 +319,10 @@ function DealStructureReadout({
           >
             <h5 className="text-[12px] font-semibold text-foreground/85">{scenario.label}</h5>
             <dl className="mt-2 space-y-1 text-[11px]">
-              <ScenarioRow label="Headline price" value={currency.format(scenario.headline_price)} />
+              <ScenarioRow
+                label="Headline price"
+                value={currency.format(scenario.headline_price)}
+              />
               <ScenarioRow
                 label="Seller tax"
                 value={`−${currency.format(scenario.seller_tax)}`}

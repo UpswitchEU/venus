@@ -38,7 +38,7 @@ async function refreshTokens(): Promise<boolean> {
 }
 ```
 
-**Test:** Wait for token expiry (15min) → Mount 5 components → Network tab shows 1 call to `/api/auth/refresh`
+**Test:** Wait for token expiry (15min) → Mount 5 components → Network tab shows 1 call to `/api/auth/me` and no separate `/api/auth/refresh`
 
 ### 3. Single Initialization
 **Guarantee:** Authentication initializes exactly once, even with hot-reloading or multiple imports.
@@ -158,32 +158,26 @@ t=7days: Refresh token expires
 4. Check promise cache → MISS
 5. Create promise, store in cache
 6. Call /api/auth/me (proxy)
-7. Proxy forwards to Titan /api/v2/auth/me
-8. Titan validates access token cookie
-9. Returns user data
+7. Proxy forwards to Titan /api/v2/auth/me-or-refresh
+8. Titan validates access token cookie, or refreshes from the refresh cookie
+9. Returns user data and rotated cookies when refresh was needed
 10. Cache user (3min TTL)
 11. Clear promise cache
 12. Return user to component
 ```
 
-### Token Refresh Flow
+### Expired Access Cookie Flow
 ```
 1. Component calls checkSession()
 2. Check result cache → MISS (expired)
 3. Check promise cache → MISS
-4. Call /api/auth/me → 401 (token expired)
-5. Call refreshTokens() (cached function)
-6. Check refresh promise → MISS
-7. Create refresh promise
-8. Call /api/auth/refresh (proxy)
-9. Proxy forwards to Titan /api/v2/auth/refresh
-10. Titan validates refresh token cookie
-11. Titan sets new access + refresh tokens
-12. Clear auth cache (old user data)
-13. Clear refresh promise
-14. Retry /api/auth/me → 200 OK
-15. Cache fresh user data
-16. Return user to component
+4. Call /api/auth/me
+5. Proxy forwards to Titan /api/v2/auth/me-or-refresh
+6. Titan validates refresh token cookie
+7. Titan sets new access + refresh tokens
+8. Titan returns user data in the same response
+9. Cache fresh user data
+10. Return user to component
 ```
 
 ### Concurrent Request Deduplication
@@ -268,7 +262,7 @@ STATUS: ✅ PASS
 # Wait for access token to expire (15min)
 # Mount 5 components simultaneously
 # Check Network tab
-EXPECTED: Exactly 1 call to /api/auth/refresh
+EXPECTED: Exactly 1 call to /api/auth/me (no separate /api/auth/refresh)
 STATUS: ✅ PASS
 ```
 

@@ -53,7 +53,8 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
           ? item.applyYears
           : [item.year]
       return years.some((year) => year >= lastFullYear - 2 && year <= lastFullYear)
-    }) || [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) => hasLegacyNormalization(year))
+    }) ||
+    [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) => hasLegacyNormalization(year))
 
   // Use explicit null/undefined checks for numeric fields so that zero values
   // (pre-revenue startups, break-even businesses) do not disable the button.

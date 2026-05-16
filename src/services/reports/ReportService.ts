@@ -171,7 +171,7 @@ class ReportServiceImpl implements ReportService {
           globalSessionCache.warmCache(recentReportIds).catch(() => {
             // Non-critical - cache warming is optional
           })
-        } catch (error) {
+        } catch (_error) {
           // Non-critical
         }
       }
@@ -456,7 +456,7 @@ class ReportServiceImpl implements ReportService {
       const { useClientContext } = require('../../stores/clientContext')
       const context = useClientContext.getState()
       return context.isActingAsClient ? context.relationshipId : undefined
-    } catch (error) {
+    } catch (_error) {
       return undefined
     }
   }

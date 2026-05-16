@@ -5,12 +5,10 @@
  * blendable with going-concern multiples (different premise of value,
  * IVS 104 §80).
  *
- * Phase 1-4+ depth (Big-4-grade) lives engine-side in `liquidation/` —
- * see `project_liquidation_phase4plus_2026_05_10` for the full pipeline.
- * This module owns the Mercury/Venus spec; the heavyweight UI section
- * (`LiquidationInputsSection`, 890 lines) intentionally stays in
- * `components/calculator/sections/` until the section gets its own
- * decomposition pass.
+ * Phase 1-4+ depth (Big-4-grade) lives engine-side in `liquidation/`.
+ * The method module owns the Venus stack wrapper and prefill-source
+ * derivation; the heavyweight visual input section still lives in
+ * `components/calculator/sections/` until it gets its own decomposition pass.
  */
 
 import type { MethodSpec } from '../types'

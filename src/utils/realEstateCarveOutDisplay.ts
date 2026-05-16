@@ -7,10 +7,7 @@
  * method's spec. See `selectionAppliesRealEstateCarveOut` in `@/lib/methods`.
  */
 
-import {
-  ORDERED_METHOD_SPECS,
-  selectionAppliesRealEstateCarveOut,
-} from '@/lib/methods'
+import { ORDERED_METHOD_SPECS, selectionAppliesRealEstateCarveOut } from '@/lib/methods'
 
 export function getAnnualFictiveRentDeductionForDisplay(
   excludeRealEstate: boolean | undefined,
@@ -32,9 +29,9 @@ export function getAnnualFictiveRentDeductionForDisplay(
  * Kept as `as const`-like readonly array for backwards compatibility with the
  * existing `RealEstateCarveOutMethod` type export.
  */
-export const REAL_ESTATE_CARVE_OUT_METHODS: readonly string[] = ORDERED_METHOD_SPECS
-  .filter((spec) => spec.appliesRealEstateCarveOut)
-  .map((spec) => spec.key)
+export const REAL_ESTATE_CARVE_OUT_METHODS: readonly string[] = ORDERED_METHOD_SPECS.filter(
+  (spec) => spec.appliesRealEstateCarveOut
+).map((spec) => spec.key)
 
 export type RealEstateCarveOutMethod = string
 

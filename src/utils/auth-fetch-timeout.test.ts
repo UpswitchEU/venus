@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import authTimeoutContract from '../../../../tests/contracts/auth-fetch-timeout-contract.json'
 
 import {
   CLIENT_AUTH_ME_FETCH_TIMEOUT_MS,
@@ -6,17 +7,26 @@ import {
   fetchWithTimeoutClient,
 } from './auth-fetch-timeout'
 
-/** Mirrors `AUTH_FETCH_TIMEOUT_AUTH_ME_MS` in `bffAuthProxy.ts` (avoid importing server modules in tests). */
-const BFF_AUTH_ME_MS = 9_000
+const { venus } = authTimeoutContract
 
 describe('auth-fetch-timeout', () => {
-  it('keeps client /api/auth/me budget above sequential BFF refresh + me', () => {
-    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(BFF_AUTH_ME_MS)
-    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(2 * BFF_AUTH_ME_MS)
+  it('keeps client /api/auth/me budget above the single BFF me-or-refresh hop', () => {
+    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBe(venus.authMeClientTimeoutMs)
+    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(venus.authMeUpstreamTimeoutMs)
+    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(
+      venus.authMeTitanHopCount * venus.authMeUpstreamTimeoutMs
+    )
+    expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeLessThanOrEqual(
+      venus.authMeRouteMaxDurationSeconds * 1000
+    )
   })
 
   it('keeps refresh client budget above default BFF upstream timeout (10s)', () => {
-    expect(CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS).toBeGreaterThan(10_000)
+    expect(CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS).toBe(venus.authRefreshClientTimeoutMs)
+    expect(CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS).toBeGreaterThan(venus.defaultBffUpstreamTimeoutMs)
+    expect(CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS).toBeLessThanOrEqual(
+      venus.authRefreshRouteMaxDurationSeconds * 1000
+    )
   })
 
   it('rejects when request exceeds timeout', async () => {
@@ -35,7 +45,7 @@ describe('auth-fetch-timeout', () => {
           s.addEventListener('abort', () => {
             reject(s.reason ?? new DOMException('Aborted', 'AbortError'))
           })
-        }),
+        })
     )
 
     const requestPromise = fetchWithTimeoutClient('/api/auth/me', { timeoutMs: 50 })

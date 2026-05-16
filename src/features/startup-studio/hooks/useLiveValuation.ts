@@ -31,15 +31,15 @@
  */
 
 import { useMemo } from 'react'
+import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 import {
-  INCEPTION_LENS_OVERLAY,
-  STUDIO_BERKUS_KEYS,
   calculatePedigreeMultiplier,
+  INCEPTION_LENS_OVERLAY,
   type InceptionLens,
+  STUDIO_BERKUS_KEYS,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
 
 export interface LiveLeg {
   /** Engine-side leg name. */
@@ -246,6 +246,7 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
     state.founder_pedigree,
     state.inception_lens,
     benchmark.berkus_max_per_milestone_eur,
+    state,
   ])
 }
 

@@ -13,43 +13,43 @@
  * `NEXT_PUBLIC_MERCURY_URL` / `NEXT_PUBLIC_PARENT_DOMAIN` are normalized (https + origin only).
  */
 import {
-	MERCURY_SITE_WWW_CANONICAL,
-	tryNormalizeApiBaseUrl,
-	tryNormalizeToOrigin,
+  MERCURY_SITE_WWW_CANONICAL,
+  tryNormalizeApiBaseUrl,
+  tryNormalizeToOrigin,
 } from './normalizeExplicitUrl'
 
 export function getMercuryUrl(): string {
-	const envRaw = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
-	if (envRaw?.trim()) {
-		const origin = tryNormalizeToOrigin(envRaw)
-		if (origin) return origin
-	}
+  const envRaw = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
+  if (envRaw?.trim()) {
+    const origin = tryNormalizeToOrigin(envRaw)
+    if (origin) return origin
+  }
 
-	if (typeof window === 'undefined') {
-		return MERCURY_SITE_WWW_CANONICAL
-	}
+  if (typeof window === 'undefined') {
+    return MERCURY_SITE_WWW_CANONICAL
+  }
 
-	const hostname = window.location.hostname
+  const hostname = window.location.hostname
 
-	if (hostname === 'localhost' || hostname === '127.0.0.1') {
-		return 'http://localhost:3000'
-	}
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3000'
+  }
 
-	if (hostname.startsWith('preview.valuation.')) {
-		return `https://preview.${hostname.replace('preview.valuation.', '')}`
-	}
+  if (hostname.startsWith('preview.valuation.')) {
+    return `https://preview.${hostname.replace('preview.valuation.', '')}`
+  }
 
-	if (hostname.startsWith('staging.valuation.')) {
-		return `https://staging.${hostname.replace('staging.valuation.', '')}`
-	}
+  if (hostname.startsWith('staging.valuation.')) {
+    return `https://staging.${hostname.replace('staging.valuation.', '')}`
+  }
 
-	if (hostname.startsWith('valuation.')) {
-		const apex = hostname.replace(/^valuation\./, '')
-		if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
-		return `https://${apex}`
-	}
+  if (hostname.startsWith('valuation.')) {
+    const apex = hostname.replace(/^valuation\./, '')
+    if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
+    return `https://${apex}`
+  }
 
-	return MERCURY_SITE_WWW_CANONICAL
+  return MERCURY_SITE_WWW_CANONICAL
 }
 
 /**
@@ -64,27 +64,27 @@ export function getMercuryUrl(): string {
  * Use this everywhere Venus calls Titan so staging never accidentally hits prod.
  */
 export function getApiUrl(): string {
-	const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim()
-	if (backend) {
-		const n = tryNormalizeApiBaseUrl(backend)
-		if (n) return n
-	}
+  const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim()
+  if (backend) {
+    const n = tryNormalizeApiBaseUrl(backend)
+    if (n) return n
+  }
 
-	const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
-	if (apiBase) {
-		const n = tryNormalizeApiBaseUrl(apiBase)
-		if (n) return n
-	}
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
+  if (apiBase) {
+    const n = tryNormalizeApiBaseUrl(apiBase)
+    if (n) return n
+  }
 
-	if (typeof window !== 'undefined') {
-		const host = window.location.hostname
-		if (host === 'localhost' || host === '127.0.0.1') {
-			return 'http://localhost:3002'
-		}
-		if (host.includes('preview.') || host.includes('staging.')) {
-			return 'https://api-staging.upswitch.app'
-		}
-	}
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:3002'
+    }
+    if (host.includes('preview.') || host.includes('staging.')) {
+      return 'https://api-staging.upswitch.app'
+    }
+  }
 
-	return 'https://api.upswitch.app'
+  return 'https://api.upswitch.app'
 }

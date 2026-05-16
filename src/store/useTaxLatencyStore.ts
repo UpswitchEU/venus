@@ -116,7 +116,9 @@ function normalizeTaxLatencyItems(input: unknown): TaxLatencyItem[] {
  * an auto-promoted candidate) collapses to a single row.
  */
 function taxLatencyItemKey(accountCode?: string, type?: string): string {
-  return `${String(accountCode ?? '').trim().toLowerCase()}|${String(type ?? '').toLowerCase()}`
+  return `${String(accountCode ?? '')
+    .trim()
+    .toLowerCase()}|${String(type ?? '').toLowerCase()}`
 }
 
 export function calculateLatencyAmount(item: TaxLatencyItem): number {

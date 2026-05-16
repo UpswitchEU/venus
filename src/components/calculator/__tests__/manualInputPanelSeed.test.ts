@@ -1,5 +1,5 @@
-import type { IntegrationStatus } from '../../../services/api/accounting'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { IntegrationStatus } from '../../../services/api/accounting'
 import type { ValuationMethodResult } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import {
@@ -146,9 +146,7 @@ describe('isSessionSeedYearStale (Jan–Mar 2026 → April rollover heal)', () =
 
   it('does NOT flag stale when no current_year_data is persisted', () => {
     const now = new Date('2026-05-03T12:00:00.000Z')
-    expect(
-      isSessionSeedYearStale({ filingYearConfirmed: true }, now)
-    ).toBe(false)
+    expect(isSessionSeedYearStale({ filingYearConfirmed: true }, now)).toBe(false)
   })
 })
 
@@ -284,8 +282,8 @@ describe('getSelectedBelgianAuditEntries', () => {
       valuationResults: { revenue_multiple: row },
     })
     expect(entries).toHaveLength(1)
-    expect(entries[0]![0]).toBe('omzet_multiple')
-    expect(entries[0]![1]).toBe(row)
+    expect(entries[0]?.[0]).toBe('omzet_multiple')
+    expect(entries[0]?.[1]).toBe(row)
   })
 
   it('dedupes one audit panel when blend lists both omzet and revenue aliases of the same row', () => {

@@ -72,7 +72,7 @@ import {
  * @param options - Retry configuration
  * @returns Result of the function or throws after max attempts
  */
-async function withRetry<T>(
+async function _withRetry<T>(
   fn: () => Promise<T>,
   options: { maxAttempts?: number; baseDelay?: number; name?: string } = {}
 ): Promise<T> {
@@ -1295,7 +1295,7 @@ class SessionRestorationServiceImpl {
           // Non-critical: session may not be loaded yet
         }
       } else {
-        const fullResult = {
+        const _fullResult = {
           valuation_id: reportId,
           ...pricingResult,
           html_report: getFirstRenderableReportHtml(pkg.htmlReport),

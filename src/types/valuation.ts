@@ -1281,6 +1281,8 @@ export interface ValuationResponse {
     benchmark_source?: string | null
     reason_key?: string | null
     reason_tags?: string[]
+    reason_label_en?: string | null
+    reason_label_nl?: string | null
     free_text_reason?: string | null
     generated_footnote_en?: string | null
     generated_footnote_nl?: string | null
@@ -1288,6 +1290,7 @@ export interface ValuationResponse {
     acknowledged_extreme?: boolean
     created_at?: string | null
     updated_at?: string | null
+    updated_by_user_id?: string | null
   }
 
   // Validation warnings (from backend sanity checks)

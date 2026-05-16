@@ -33,8 +33,8 @@
  */
 
 import type { Metadata } from 'next'
-import type { Locale } from '../../../../i18n'
 import { loadLocaleMessages } from '@/lib/i18n/loadLocaleMessages'
+import type { Locale } from '../../../../i18n'
 import { LandingStartupContent } from './LandingStartupContent'
 
 interface PageProps {
@@ -49,8 +49,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale: raw } = await params
   const locale = pickLocale(raw)
   const messages = await loadLocaleMessages(locale)
-  const landing = (messages as { startupStudio?: { landing?: { meta?: { title: string; description: string } } } })
-    .startupStudio?.landing
+  const landing = (
+    messages as { startupStudio?: { landing?: { meta?: { title: string; description: string } } } }
+  ).startupStudio?.landing
   const meta = landing?.meta ?? {
     title: 'Startup Valuation | Upswitch',
     description: 'Startup valuation wizard.',

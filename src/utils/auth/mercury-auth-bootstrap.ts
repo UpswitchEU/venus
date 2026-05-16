@@ -124,21 +124,22 @@ export function getCapturedMercuryAuthBootstrap(): MercuryAuthBootstrap | null {
  * or once the next valid message lands, capped by `timeoutMs`. Resolves to
  * `null` on timeout — the caller should fall back to the standard /me path.
  */
-export function awaitMercuryAuthBootstrap(
-  timeoutMs: number
-): Promise<MercuryAuthBootstrap | null> {
+export function awaitMercuryAuthBootstrap(timeoutMs: number): Promise<MercuryAuthBootstrap | null> {
   if (captured) return Promise.resolve(captured)
   if (typeof window === 'undefined') return Promise.resolve(null)
   installMercuryAuthBootstrapListener()
   return new Promise((resolve) => {
     let settled = false
-    const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
-      const idx = waiters.indexOf(onValue)
-      if (idx >= 0) waiters.splice(idx, 1)
-      resolve(null)
-    }, Math.max(0, timeoutMs))
+    const timer = setTimeout(
+      () => {
+        if (settled) return
+        settled = true
+        const idx = waiters.indexOf(onValue)
+        if (idx >= 0) waiters.splice(idx, 1)
+        resolve(null)
+      },
+      Math.max(0, timeoutMs)
+    )
     const onValue = (value: MercuryAuthBootstrap) => {
       if (settled) return
       settled = true

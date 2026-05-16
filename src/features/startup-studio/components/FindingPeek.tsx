@@ -60,9 +60,9 @@ export function FindingPeek({ issues, open, onAskAi, onSnooze }: FindingPeekProp
   const sorted = useMemo(
     () =>
       [...issues].sort(
-        (a, b) => SEVERITY_VISUAL[a.severity].rank - SEVERITY_VISUAL[b.severity].rank,
+        (a, b) => SEVERITY_VISUAL[a.severity].rank - SEVERITY_VISUAL[b.severity].rank
       ),
-    [issues],
+    [issues]
   )
 
   const [index, setIndex] = useState(0)
@@ -111,7 +111,7 @@ export function FindingPeek({ issues, open, onAskAi, onSnooze }: FindingPeekProp
           className={cn(
             'pointer-events-auto fixed bottom-24 right-6 z-30',
             'w-[min(20rem,calc(100vw-3rem))] rounded-xl border bg-background/95 shadow-md backdrop-blur',
-            SEVERITY_VISUAL[issue.severity].border,
+            SEVERITY_VISUAL[issue.severity].border
           )}
         >
           <div className="flex items-center justify-between gap-2 px-3.5 pt-2.5">

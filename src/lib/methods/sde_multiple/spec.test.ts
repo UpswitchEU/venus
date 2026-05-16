@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sdeMultipleMethodSpec, SDE_MULTIPLE_METHOD_KEY } from './spec'
+import { SDE_MULTIPLE_METHOD_KEY, sdeMultipleMethodSpec } from './spec'
 
 describe('sdeMultipleMethodSpec', () => {
   it('uses the canonical "sde_multiple" key', () => {

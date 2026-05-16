@@ -636,12 +636,7 @@ export const validateRevenue = (
   foundingYear?: number,
   _country?: string
 ): RevenueValidationResult => {
-  if (
-    !industry ||
-    revenue == null ||
-    typeof revenue !== 'number' ||
-    !Number.isFinite(revenue)
-  ) {
+  if (!industry || revenue == null || typeof revenue !== 'number' || !Number.isFinite(revenue)) {
     return { isValid: true, message: '', severity: 'info' }
   }
 

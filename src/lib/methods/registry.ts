@@ -21,8 +21,8 @@ import { omzetMultipleMethodSpec } from './omzet_multiple'
 import { revenueMultipleMethodSpec } from './revenue_multiple'
 import { sdeMultipleMethodSpec } from './sde_multiple'
 import { startupValuationMethodSpec } from './startup_valuation'
-import { upswitchAdaptiveMethodSpec } from './upswitch_adaptive'
 import type { InputSectionKey, MethodKey, MethodSpec } from './types'
+import { upswitchAdaptiveMethodSpec } from './upswitch_adaptive'
 
 /**
  * Canonical order — drives `PRE_SELECTABLE_METHODS` order and any
@@ -122,9 +122,7 @@ export function deriveMethodFieldConfig(): Readonly<
   Record<MethodKey, { bonusSections: InputSectionKey[] }>
 > {
   return Object.freeze(
-    Object.fromEntries(
-      ORDERED_SPECS.map((s) => [s.key, { bonusSections: [...s.bonusSections] }])
-    )
+    Object.fromEntries(ORDERED_SPECS.map((s) => [s.key, { bonusSections: [...s.bonusSections] }]))
   )
 }
 

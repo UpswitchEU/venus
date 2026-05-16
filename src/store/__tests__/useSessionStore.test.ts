@@ -95,7 +95,7 @@ describe('useSessionStore', () => {
       await Promise.resolve()
       expect(useSessionStore.getState().status).toBe('loading')
 
-      releaseLoad!(mockSession)
+      releaseLoad?.(mockSession)
       await loadPromise
 
       // Should be loaded
@@ -201,7 +201,7 @@ describe('useSessionStore', () => {
       expect(mockLoadSession).toHaveBeenCalledOnce()
 
       // Resolve the load — full session merges in
-      releaseLoad!(fullSession)
+      releaseLoad?.(fullSession)
       await loadPromise
 
       expect(useSessionStore.getState().status).toBe('loaded')
@@ -281,7 +281,7 @@ describe('useSessionStore', () => {
       // Different reportId — should flip to 'loading' as in the cold path
       expect(useSessionStore.getState().status).toBe('loading')
 
-      releaseLoad!(otherSession)
+      releaseLoad?.(otherSession)
       await loadPromise
 
       expect(useSessionStore.getState().status).toBe('loaded')
@@ -363,7 +363,7 @@ describe('useSessionStore', () => {
       useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
 
       // Fire multiple loads in parallel
-      const [result1, result2, result3] = await Promise.all([
+      const [_result1, _result2, _result3] = await Promise.all([
         useSessionStore.getState().loadSession('val_dedup_123'),
         useSessionStore.getState().loadSession('val_dedup_123'),
         useSessionStore.getState().loadSession('val_dedup_123'),

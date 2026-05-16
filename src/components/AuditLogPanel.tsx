@@ -12,11 +12,11 @@
 import { Calendar, Edit3, RefreshCw, Save, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useMemo, useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { formatVersionAuthor } from '../utils/formatters'
 import { dateLikeToUnixMs } from '@/utils/date-like'
 import { formatCurrency } from '../config/countries'
+import { useAuth } from '../hooks/useAuth'
 import { valuationAuditService } from '../services/audit/ValuationAuditService'
+import { formatVersionAuthor } from '../utils/formatters'
 import type { SessionAuditEntry } from '../utils/sessionAuditTrail'
 
 export interface AuditLogPanelProps {
@@ -72,8 +72,7 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
   // Sort by timestamp (newest first)
   const sortedEntries = useMemo(() => {
     return [...filteredEntries].sort(
-      (a, b) =>
-        (dateLikeToUnixMs(b.timestamp) ?? 0) - (dateLikeToUnixMs(a.timestamp) ?? 0)
+      (a, b) => (dateLikeToUnixMs(b.timestamp) ?? 0) - (dateLikeToUnixMs(a.timestamp) ?? 0)
     )
   }, [filteredEntries])
 
@@ -195,7 +194,11 @@ interface AuditLogEntryProps {
   formatAuthor: (userId: string | null | undefined) => string
 }
 
-function AuditLogEntry({ entry, countryCode, formatAuthor }: AuditLogEntryProps): React.ReactElement {
+function AuditLogEntry({
+  entry,
+  countryCode,
+  formatAuthor,
+}: AuditLogEntryProps): React.ReactElement {
   const t = useTranslations('auditLog')
 
   const formatDate = (date: Date): string => {

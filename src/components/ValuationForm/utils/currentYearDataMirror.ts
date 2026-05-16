@@ -16,14 +16,14 @@ export function patchCurrentYearDataFromTopLevelFinancials(
   if (!cyd) return null
   const next: Record<string, unknown> = { ...cyd }
 
-  if (Object.prototype.hasOwnProperty.call(keys, 'revenue')) {
+  if (Object.hasOwn(keys, 'revenue')) {
     if (keys.revenue === undefined) {
       delete next.revenue
     } else {
       next.revenue = keys.revenue
     }
   }
-  if (Object.prototype.hasOwnProperty.call(keys, 'ebitda')) {
+  if (Object.hasOwn(keys, 'ebitda')) {
     if (keys.ebitda === undefined) {
       delete next.ebitda
     } else {

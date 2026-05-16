@@ -16,10 +16,10 @@
  * `p25`/`p75` from `multiples_valuation` → undefined).
  */
 
+import type { ValuationReportData } from '@/components/calculator'
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import type { ValuationResponse } from '@/types/valuation'
 import { getFirstRenderableReportHtml } from '@/utils/safetyNetReportHtml'
-import type { ValuationReportData } from '@/components/calculator'
 import { deriveManualReportPresentation } from '../components/manualReportPresentation'
 
 /** Translation keys consumed by the mapper. Narrowed for type safety. */
@@ -59,9 +59,7 @@ export function mapValuationResultToReport(
   const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
   const latestNormRaw = r.latest_normalized_ebitda
   const normalizedEbitda =
-    latestNormRaw != null && Number.isFinite(Number(latestNormRaw))
-      ? Number(latestNormRaw)
-      : ebitda
+    latestNormRaw != null && Number.isFinite(Number(latestNormRaw)) ? Number(latestNormRaw) : ebitda
   const revenue = coalesceFiniteNumber(r.current_year_data?.revenue)
   const p25 = r.multiples_valuation?.p25_ebitda_multiple
   const p75 = r.multiples_valuation?.p75_ebitda_multiple
@@ -160,9 +158,7 @@ export function isDcfOrHybridMethodSignal(value: unknown): boolean {
  * field). The DCF readiness panel is also exposed when synthesis is
  * present, because the synthesis often includes a DCF leg.
  */
-export function resultHasWeightedSynthesisSignal(
-  result: Record<string, unknown>
-): boolean {
+export function resultHasWeightedSynthesisSignal(result: Record<string, unknown>): boolean {
   const details = result.details as Record<string, unknown> | undefined
   const valuationResult = result.valuation_result as Record<string, unknown> | undefined
   const valuationResultDetails = valuationResult?.details as Record<string, unknown> | undefined

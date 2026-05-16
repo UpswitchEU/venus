@@ -20,41 +20,25 @@ describe('OwnerProfilingSkippedWatermark', () => {
 
   it('renders the skipped title and body copy', () => {
     render(<OwnerProfilingSkippedWatermark />)
-    expect(
-      screen.getByText('reportPreview.ownerProfiling.skipped.title')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('reportPreview.ownerProfiling.skipped.body')
-    ).toBeInTheDocument()
+    expect(screen.getByText('reportPreview.ownerProfiling.skipped.title')).toBeInTheDocument()
+    expect(screen.getByText('reportPreview.ownerProfiling.skipped.body')).toBeInTheDocument()
   })
 
   it('exposes the title via role="note" and aria-label for assistive tech', () => {
     render(<OwnerProfilingSkippedWatermark />)
     const note = screen.getByRole('note')
-    expect(note).toHaveAttribute(
-      'aria-label',
-      'reportPreview.ownerProfiling.skipped.title'
-    )
+    expect(note).toHaveAttribute('aria-label', 'reportPreview.ownerProfiling.skipped.title')
   })
 
   it('does NOT render a CTA when ctaHref is omitted', () => {
     render(<OwnerProfilingSkippedWatermark />)
-    expect(
-      screen.queryByText(/cta/)
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/cta/)).not.toBeInTheDocument()
   })
 
   it('renders an anchor CTA when ctaHref is provided', () => {
-    render(
-      <OwnerProfilingSkippedWatermark ctaHref="/nl/business/onboarding/owner-profiling" />
-    )
+    render(<OwnerProfilingSkippedWatermark ctaHref="/nl/business/onboarding/owner-profiling" />)
     const link = screen.getByRole('link')
-    expect(link).toHaveAttribute(
-      'href',
-      '/nl/business/onboarding/owner-profiling'
-    )
-    expect(link.textContent).toContain(
-      'reportPreview.ownerProfiling.skipped.cta'
-    )
+    expect(link).toHaveAttribute('href', '/nl/business/onboarding/owner-profiling')
+    expect(link.textContent).toContain('reportPreview.ownerProfiling.skipped.cta')
   })
 })

@@ -279,8 +279,16 @@ export const FINTECH_PRESEED_PRESET: StudioPreset = {
     nl: 'Gereguleerde financiële diensten.  Hogere exit-multiples, langere uitrol.',
   },
   highlights: {
-    en: ['Fintech sector · regulated moat', 'Higher exit multiple band', 'Adapts to stage you pick'],
-    nl: ['Fintech sector · gereguleerde moat', 'Hogere exit-multiple band', 'Past aan op gekozen stage'],
+    en: [
+      'Fintech sector · regulated moat',
+      'Higher exit multiple band',
+      'Adapts to stage you pick',
+    ],
+    nl: [
+      'Fintech sector · gereguleerde moat',
+      'Hogere exit-multiple band',
+      'Past aan op gekozen stage',
+    ],
   },
 
   stage: 'pre_seed',

@@ -108,7 +108,7 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
                 setEmployeeCountError(null)
               }
             }}
-            onBlur={() => {}}
+            onBlur={() => undefined}
             name="number_of_employees"
             min={0}
             step={1}

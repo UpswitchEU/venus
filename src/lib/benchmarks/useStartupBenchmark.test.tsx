@@ -36,7 +36,7 @@ describe('useStartupBenchmark', () => {
     // guaranteed to be the synchronous baseline.
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => new Promise(() => {})),
+      vi.fn(() => new Promise(() => undefined))
     )
 
     const { result } = renderHook(() => useStartupBenchmark('BE', 'seed', 'saas'))
@@ -53,7 +53,7 @@ describe('useStartupBenchmark', () => {
   it('keeps the offline baseline when fetch rejects (Athena down)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.reject(new Error('network blip'))),
+      vi.fn(() => Promise.reject(new Error('network blip')))
     )
 
     const { result } = renderHook(() => useStartupBenchmark('NL', 'pre_seed', 'fintech'))
@@ -95,14 +95,12 @@ describe('useStartupBenchmark', () => {
           new Response(JSON.stringify({ rows: [liveRow] }), {
             status: 200,
             headers: { 'content-type': 'application/json' },
-          }),
-        ),
-      ),
+          })
+        )
+      )
     )
 
-    const { result } = renderHook(() =>
-      useStartupBenchmark('LU', 'series_a', 'deeptech_ai'),
-    )
+    const { result } = renderHook(() => useStartupBenchmark('LU', 'series_a', 'deeptech_ai'))
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
@@ -117,9 +115,7 @@ describe('useStartupBenchmark', () => {
     const fetchSpy = vi.fn(() => Promise.reject(new Error('should not be called')))
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { result } = renderHook(() =>
-      useStartupBenchmark('BE', 'seed', 'saas', false),
-    )
+    const { result } = renderHook(() => useStartupBenchmark('BE', 'seed', 'saas', false))
 
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(result.current.isLoading).toBe(false)

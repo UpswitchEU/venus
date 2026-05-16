@@ -92,7 +92,7 @@ export function useBusinessTypes(): UseBusinessTypesState {
         setLoading(false)
       }
     }
-  }, [])
+  }, [mountedRef.current])
 
   const refetch = useCallback(async () => {
     await fetchBusinessTypes()

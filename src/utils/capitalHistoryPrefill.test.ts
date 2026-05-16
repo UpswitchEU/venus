@@ -54,7 +54,7 @@ describe('capitalHistoryPrefill', () => {
   it('returns null when both numeric fields are missing or non-numeric', () => {
     window.sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ round_amount: 'not-a-number', dilution_pct: null, source: 'studio' }),
+      JSON.stringify({ round_amount: 'not-a-number', dilution_pct: null, source: 'studio' })
     )
     expect(consumeCapitalHistoryPrefill()).toBeNull()
   })
@@ -62,7 +62,7 @@ describe('capitalHistoryPrefill', () => {
   it('coerces partial snapshots — keeps round, drops dilution when absent', () => {
     window.sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ round_amount: 250_000, source: 'studio' }),
+      JSON.stringify({ round_amount: 250_000, source: 'studio' })
     )
     expect(consumeCapitalHistoryPrefill()).toEqual({
       round_amount: 250_000,
@@ -74,7 +74,7 @@ describe('capitalHistoryPrefill', () => {
   it('rejects NaN and Infinity (numeric but not finite)', () => {
     window.sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ round_amount: Number.NaN, dilution_pct: Infinity, source: 'studio' }),
+      JSON.stringify({ round_amount: Number.NaN, dilution_pct: Infinity, source: 'studio' })
     )
     expect(consumeCapitalHistoryPrefill()).toBeNull()
   })

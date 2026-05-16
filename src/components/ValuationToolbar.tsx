@@ -159,7 +159,6 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     nameInputRef,
     handleNameEdit,
     handleNameSave,
-    handleNameCancel,
     handleKeyDown,
   } = useValuationToolbarName({
     initialName: valuationName,

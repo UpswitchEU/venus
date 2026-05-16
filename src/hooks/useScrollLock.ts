@@ -22,8 +22,7 @@ export function useScrollLock(isLocked: boolean): void {
     const html = document.documentElement
     const body = document.body
 
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
 
     const originalHtmlOverflow = html.style.overflow
     const originalBodyStyles = {

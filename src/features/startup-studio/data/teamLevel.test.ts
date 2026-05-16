@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  TEAM_LEVEL_ORDER,
-  getTeamLevelFlags,
-  inferTeamLevel,
-} from './teamLevel'
-import {
-  PEDIGREE_KEYS,
-  calculatePedigreeMultiplier,
-} from '@/store/manual/useStartupValuationStore'
+import { calculatePedigreeMultiplier, PEDIGREE_KEYS } from '@/store/manual/useStartupValuationStore'
+import { getTeamLevelFlags, inferTeamLevel, TEAM_LEVEL_ORDER } from './teamLevel'
 
 describe('teamLevel module', () => {
   it('every bucket maps to a complete pedigree-flag set', () => {
@@ -27,9 +20,7 @@ describe('teamLevel module', () => {
     // The four buckets must produce monotonically increasing multipliers.
     // A miscalibrated table that flips ordering would silently penalise
     // experienced founders — exactly the wrong direction.
-    const ms = TEAM_LEVEL_ORDER.map((l) =>
-      calculatePedigreeMultiplier(getTeamLevelFlags(l)),
-    )
+    const ms = TEAM_LEVEL_ORDER.map((l) => calculatePedigreeMultiplier(getTeamLevelFlags(l)))
     expect(ms[0]).toBe(1.0) // first_time = neutral baseline
     expect(ms[1]).toBeGreaterThan(ms[0])
     expect(ms[2]).toBeGreaterThan(ms[1])
@@ -75,7 +66,7 @@ describe('teamLevel module', () => {
         second_time_founder: true, // alone — no bucket matches
         has_technical_cofounder: false,
         solo_founder: false,
-      }),
+      })
     ).toBeNull()
   })
 

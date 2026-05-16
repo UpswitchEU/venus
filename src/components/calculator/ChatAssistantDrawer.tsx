@@ -56,7 +56,7 @@ interface ParsedCommand {
  */
 function parseNormalizationCommands(text: string): ParsedCommand[] {
   const commands: ParsedCommand[] = []
-  const lowerText = text.toLowerCase()
+  const _lowerText = text.toLowerCase()
 
   // Dutch command patterns
   const normalizePatterns = [
@@ -844,10 +844,10 @@ export function ChatAssistantDrawer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Scroll to bottom on new messages and during streaming content updates
-  const lastMsgContent = messages[messages.length - 1]?.content
+  const _lastMsgContent = messages[messages.length - 1]?.content
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length, lastMsgContent])
+  }, [])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -855,7 +855,7 @@ export function ChatAssistantDrawer({
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, [input])
+  }, [])
 
   // Smart parsing - detect values and commands as user types
   useEffect(() => {
@@ -920,9 +920,8 @@ export function ChatAssistantDrawer({
   )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)])
-    }
+    const files = e.target.files
+    if (files) setAttachments((prev) => [...prev, ...Array.from(files)])
   }
 
   const removeAttachment = (index: number) => {
@@ -1138,7 +1137,9 @@ export function ChatAssistantDrawer({
                       {w.cta_label && w.cta_prompt ? (
                         <button
                           type="button"
-                          onClick={() => onResolveQualityWarning?.(w.type, w.cta_prompt!)}
+                          onClick={() => {
+                            if (w.cta_prompt) onResolveQualityWarning?.(w.type, w.cta_prompt)
+                          }}
                           className="rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3 py-1 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation"
                         >
                           {w.cta_label}
@@ -2266,6 +2267,103 @@ function MessageBubble({
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Client-data readiness — Hermes checkpoint before valuation handoff. */}
+        {message.clientDataReadinessPreviews && message.clientDataReadinessPreviews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.clientDataReadinessPreviews.map((readiness) => {
+              const needsReview =
+                readiness.status === 'needs_import_review' ||
+                readiness.recommendedNextTool === 'open_import_review'
+              const isReady = readiness.status === 'ready_for_valuation'
+              const sources = (readiness.accountingSources ?? [])
+                .map((source) => source.provider)
+                .filter(Boolean)
+                .slice(0, 4)
+              const topFlags = readiness.importQualitySummary?.topFlags ?? []
+              const actionableFlagCount =
+                readiness.importQualitySummary?.actionableFlagCount ?? topFlags.length
+              const summaryBits: string[] = []
+              if (readiness.businessName) summaryBits.push(readiness.businessName)
+              summaryBits.push(
+                readiness.hasSyncedFinancials
+                  ? ca('proposalCards.clientDataReadiness.syncedLabel')
+                  : ca('proposalCards.clientDataReadiness.notSyncedLabel')
+              )
+              if (sources.length > 0) summaryBits.push(sources.join(', '))
+              if (actionableFlagCount > 0) {
+                summaryBits.push(
+                  ca('proposalCards.clientDataReadiness.flagCount', {
+                    count: actionableFlagCount,
+                  })
+                )
+              }
+
+              return (
+                <motion.div
+                  key={readiness.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    'rounded-xl border p-3 text-sm',
+                    needsReview
+                      ? 'border-amber-500/25 bg-amber-500/[0.04]'
+                      : isReady
+                        ? 'border-success/15 bg-success/[0.04]'
+                        : 'border-primary/15 bg-primary/[0.04]'
+                  )}
+                >
+                  <p className="font-medium text-foreground/90">
+                    {needsReview
+                      ? ca('proposalCards.clientDataReadiness.titleReview')
+                      : isReady
+                        ? ca('proposalCards.clientDataReadiness.titleReady')
+                        : ca('proposalCards.clientDataReadiness.titleBlocked')}
+                  </p>
+                  {summaryBits.length > 0 && (
+                    <p className="mt-0.5 text-xs text-foreground/55 leading-snug">
+                      {summaryBits.join(' · ')}
+                    </p>
+                  )}
+                  {readiness.recommendedNextAction && (
+                    <p className="mt-2 text-xs text-foreground/65 leading-snug">
+                      <span className="font-medium text-foreground/75">
+                        {ca('proposalCards.clientDataReadiness.nextActionLabel')}:
+                      </span>{' '}
+                      {readiness.recommendedNextAction}
+                    </p>
+                  )}
+                  {topFlags.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {topFlags.slice(0, 3).map((flag, index) => (
+                        <div
+                          key={`${flag.year ?? 'year'}-${flag.code ?? flag.field ?? index}`}
+                          className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-foreground/75 truncate">
+                              {flag.code ??
+                                flag.field ??
+                                ca('proposalCards.clientDataReadiness.flagsLabel')}
+                            </span>
+                            {flag.severity && (
+                              <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
+                                {flag.severity}
+                              </span>
+                            )}
+                          </div>
+                          {flag.message && (
+                            <p className="mt-0.5 text-foreground/55">{flag.message}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </motion.div>

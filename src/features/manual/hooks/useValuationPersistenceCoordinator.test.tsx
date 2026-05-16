@@ -41,8 +41,8 @@ function makeDeferredRunner(): {
 } {
   const runs: DeferredRun[] = []
   const runner: PersistRunner = (intent, signal) => {
-    let resolveFn: () => void = () => {}
-    let rejectFn: (err: unknown) => void = () => {}
+    let resolveFn: () => void = () => undefined
+    let rejectFn: (err: unknown) => void = () => undefined
     const promise = new Promise<void>((resolve, reject) => {
       resolveFn = resolve
       rejectFn = reject
@@ -230,9 +230,7 @@ describe('useValuationPersistenceCoordinator', () => {
       expect(deferred.runs.length).toBe(2)
       const methodRun = deferred.runs[1]
       expect(methodRun.intent.kind).toBe('method')
-      expect(
-        (methodRun.intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('sde')
+      expect((methodRun.intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe('sde')
 
       methodRun.resolve()
       await act(async () => {
@@ -277,9 +275,7 @@ describe('useValuationPersistenceCoordinator', () => {
       })
       expect(deferred.runs.length).toBe(1)
       const firstRun = deferred.runs[0]
-      expect(
-        (firstRun.intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('ebitda')
+      expect((firstRun.intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe('ebitda')
 
       // User clicks SDE while ebitda is still in flight.
       act(() => {
@@ -298,9 +294,9 @@ describe('useValuationPersistenceCoordinator', () => {
         await flushMicrotasks()
       })
       expect(deferred.runs.length).toBe(2)
-      expect(
-        (deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('sde')
+      expect((deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe(
+        'sde'
+      )
 
       deferred.runs[1].resolve()
       await act(async () => {
@@ -380,9 +376,9 @@ describe('useValuationPersistenceCoordinator', () => {
         await flushMicrotasks()
       })
       expect(deferred.runs.length).toBe(2)
-      expect(
-        (deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('A')
+      expect((deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe(
+        'A'
+      )
     })
   })
 
@@ -492,9 +488,9 @@ describe('useValuationPersistenceCoordinator', () => {
         vi.advanceTimersByTime(500)
       })
       expect(deferred.runs.length).toBe(2)
-      expect(
-        (deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('dcf')
+      expect((deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe(
+        'dcf'
+      )
       expect(onSuccess).not.toHaveBeenCalled() // aborted call never fired success
     })
 
@@ -529,9 +525,9 @@ describe('useValuationPersistenceCoordinator', () => {
         vi.advanceTimersByTime(500)
       })
       expect(deferred.runs.length).toBe(2)
-      expect(
-        (deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method
-      ).toBe('sde')
+      expect((deferred.runs[1].intent as Extract<PersistIntent, { kind: 'method' }>).method).toBe(
+        'sde'
+      )
     })
   })
 

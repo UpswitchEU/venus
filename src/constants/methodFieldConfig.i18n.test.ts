@@ -20,10 +20,10 @@ describe('QUALITY_WARNING_ASSISTANT_CTA_CONFIG i18n coverage', () => {
     const nl = readMessages('nl').chatAssistant ?? {}
 
     for (const cfg of Object.values(QUALITY_WARNING_ASSISTANT_CTA_CONFIG)) {
-      expect(Object.prototype.hasOwnProperty.call(en, cfg.labelKey)).toBe(true)
-      expect(Object.prototype.hasOwnProperty.call(en, cfg.promptKey)).toBe(true)
-      expect(Object.prototype.hasOwnProperty.call(nl, cfg.labelKey)).toBe(true)
-      expect(Object.prototype.hasOwnProperty.call(nl, cfg.promptKey)).toBe(true)
+      expect(Object.hasOwn(en, cfg.labelKey)).toBe(true)
+      expect(Object.hasOwn(en, cfg.promptKey)).toBe(true)
+      expect(Object.hasOwn(nl, cfg.labelKey)).toBe(true)
+      expect(Object.hasOwn(nl, cfg.promptKey)).toBe(true)
     }
   })
 })

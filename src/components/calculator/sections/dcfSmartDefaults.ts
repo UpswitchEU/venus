@@ -35,8 +35,10 @@ function classifyWaccBase(businessCategory?: string): number {
   const key = (businessCategory ?? '').toLowerCase()
   if (key.includes('saas') || key.includes('software') || key.includes('tech')) return 11
   if (key.includes('retail') || key.includes('ecommerce') || key.includes('e-commerce')) return 11.5
-  if (key.includes('construction') || key.includes('horeca') || key.includes('hospitality')) return 12
-  if (key.includes('manufact') || key.includes('industry') || key.includes('industrial')) return 11.5
+  if (key.includes('construction') || key.includes('horeca') || key.includes('hospitality'))
+    return 12
+  if (key.includes('manufact') || key.includes('industry') || key.includes('industrial'))
+    return 11.5
   return 10.5
 }
 
@@ -62,7 +64,11 @@ export function deriveWaccSectorBand(businessCategory?: string): WaccSectorBand 
     sectorLabel = 'SaaS / Software'
   } else if (key.includes('retail') || key.includes('ecommerce') || key.includes('e-commerce')) {
     sectorLabel = 'Retail / e-commerce'
-  } else if (key.includes('construction') || key.includes('horeca') || key.includes('hospitality')) {
+  } else if (
+    key.includes('construction') ||
+    key.includes('horeca') ||
+    key.includes('hospitality')
+  ) {
     sectorLabel = 'Construction / Hospitality'
   } else if (key.includes('manufact') || key.includes('industry') || key.includes('industrial')) {
     sectorLabel = 'Industrial / Manufacturing'
@@ -101,7 +107,7 @@ export function deriveDcfSmartDefaults(args: {
     historical.length >= 2 && first.revenue > 0 && latest.revenue > 0 && latest.year > first.year
       ? round1(
           clamp(
-            ((Math.pow(latest.revenue / first.revenue, 1 / (latest.year - first.year)) - 1) * 100),
+            (Math.pow(latest.revenue / first.revenue, 1 / (latest.year - first.year)) - 1) * 100,
             -15,
             25
           )
@@ -112,9 +118,7 @@ export function deriveDcfSmartDefaults(args: {
     .filter((row) => row.revenue !== 0)
     .map((row) => (row.ebitda / row.revenue) * 100)
   const ebitdaMarginPct =
-    marginSamples.length > 0
-      ? round1(clamp(marginSamples[marginSamples.length - 1], -10, 40))
-      : 15
+    marginSamples.length > 0 ? round1(clamp(marginSamples[marginSamples.length - 1], -10, 40)) : 15
 
   const capexPct = round1(clamp(Math.max(2, Math.abs(ebitdaMarginPct) * 0.2), 2, 6))
   const daPct = round1(clamp(capexPct * 0.8, 2, 5))
@@ -122,7 +126,9 @@ export function deriveDcfSmartDefaults(args: {
   const waccBase = classifyWaccBase(args.businessCategory)
   const growthRiskAdjustment = revenueGrowthPct > 12 ? 0.5 : revenueGrowthPct < 0 ? 1 : 0
   const waccPct = round1(clamp(waccBase + growthRiskAdjustment, 9, 14))
-  const terminalGrowthPct = round1(clamp(Math.min(2.5, Math.max(1.5, revenueGrowthPct / 4)), 1.5, 2.5))
+  const terminalGrowthPct = round1(
+    clamp(Math.min(2.5, Math.max(1.5, revenueGrowthPct / 4)), 1.5, 2.5)
+  )
 
   return {
     revenueGrowthPct,

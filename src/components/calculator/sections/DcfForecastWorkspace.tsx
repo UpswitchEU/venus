@@ -4,9 +4,9 @@ import { motion } from 'framer-motion'
 import { Percent, Plus, Table2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
-import { coalesceFiniteNumber, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
+import { coalesceFiniteNumber, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import { DcfProjectionTable } from './DcfProjectionTable'
@@ -283,7 +283,7 @@ export function DcfForecastWorkspace({
                       showPercentColumns
                         ? 'border-primary/35 text-primary hover:border-primary/45 hover:bg-primary/[0.04]'
                         : 'border-foreground/10 text-foreground/65 hover:border-foreground/20 hover:text-foreground',
-                      disabled && 'cursor-not-allowed opacity-50',
+                      disabled && 'cursor-not-allowed opacity-50'
                     )}
                   >
                     <Percent className="h-3.5 w-3.5" aria-hidden />
@@ -298,7 +298,7 @@ export function DcfForecastWorkspace({
                     className={cn(
                       'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
                       hasWarnings && 'border-warning/30 text-warning',
-                      disabled && 'cursor-not-allowed opacity-50',
+                      disabled && 'cursor-not-allowed opacity-50'
                     )}
                   >
                     <Table2 className="h-3.5 w-3.5" aria-hidden />
@@ -310,13 +310,13 @@ export function DcfForecastWorkspace({
             {projectionRows.length > 0 && (
               <div
                 className={cn(
-                  'overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]',
+                  'overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]'
                 )}
               >
                 <table
                   className={cn(
                     'w-full border-collapse text-sm tabular-nums',
-                    showPercentColumns ? 'min-w-[880px]' : 'min-w-[420px]',
+                    showPercentColumns ? 'min-w-[880px]' : 'min-w-[420px]'
                   )}
                 >
                   <caption className="sr-only">

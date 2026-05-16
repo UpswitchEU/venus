@@ -96,24 +96,12 @@ describe('ReviewDefaultsModal', () => {
   })
 
   it('does not render when open=false (no dialog in the tree)', () => {
-    render(
-      <ReviewDefaultsModal
-        open={false}
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    )
+    render(<ReviewDefaultsModal open={false} onConfirm={vi.fn()} onCancel={vi.fn()} />)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('renders a dialog with aria-modal + aria-labelledby pointing at the title', () => {
-    render(
-      <ReviewDefaultsModal
-        open
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    )
+    render(<ReviewDefaultsModal open onConfirm={vi.fn()} onCancel={vi.fn()} />)
     const dialog = screen.getByRole('dialog')
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(dialog.getAttribute('aria-labelledby')).toBe('review-gate-title')
@@ -143,16 +131,10 @@ describe('ReviewDefaultsModal', () => {
         // but the modal renders it whenever non-null).
         dilution_assumption_pct: 60,
       },
-      true,
+      true
     )
 
-    render(
-      <ReviewDefaultsModal
-        open
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    )
+    render(<ReviewDefaultsModal open onConfirm={vi.fn()} onCancel={vi.fn()} />)
     // Three of the rows above should chip — sector, Y5, exit-multiple,
     // target-ROI, round size, dilution.  Stage never chips (it's an
     // identity input the founder always picks).  Six "default" chips
@@ -182,16 +164,10 @@ describe('ReviewDefaultsModal', () => {
         dilution_assumption_pct: 60,
         exit_revenue_multiple: null,
       },
-      true,
+      true
     )
 
-    render(
-      <ReviewDefaultsModal
-        open
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    )
+    render(<ReviewDefaultsModal open onConfirm={vi.fn()} onCancel={vi.fn()} />)
     // Exit-multiple is null → renders as "—" (not chipped).  Only the
     // dilution row should still chip.  Stage never chips.
     const chips = screen.getAllByText('default')
@@ -225,14 +201,7 @@ describe('ReviewDefaultsModal', () => {
 
   it('clicking an Edit row button calls onJumpTo with the right anchor (when provided)', () => {
     const onJumpTo = vi.fn()
-    render(
-      <ReviewDefaultsModal
-        open
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-        onJumpTo={onJumpTo}
-      />,
-    )
+    render(<ReviewDefaultsModal open onConfirm={vi.fn()} onCancel={vi.fn()} onJumpTo={onJumpTo} />)
     // The first Edit button corresponds to the "Funding stage" row,
     // which anchors to ``startup-section-profile``.
     const editButtons = screen.getAllByRole('button', { name: /^edit$/i })

@@ -74,7 +74,7 @@ export function useEmbeddedMode() {
         sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
         setIsEmbedded(true)
       }
-    } catch (error) {
+    } catch (_error) {
       // Can't access window.top due to same-origin policy = we're in cross-origin iframe
       // This is expected when Venus is embedded in Mercury
       if (!isEmbedded) {
@@ -83,7 +83,7 @@ export function useEmbeddedMode() {
         )
         try {
           sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
-        } catch (storageError) {
+        } catch (_storageError) {
           // Ignore storage errors
         }
         setIsEmbedded(true)

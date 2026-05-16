@@ -183,7 +183,7 @@ export function NavAssetScheduleSection({
   // Book-equity available only for the confidence chip ("Mostly
   // prefilled" requires a known book equity). NOT used for any
   // computation surfaced as a number on the panel.
-  const bookEquity = bookReferences?.bookEquity ?? null
+  const _bookEquity = bookReferences?.bookEquity ?? null
 
   // ── Inventory / receivables book-value chips ────────────────────────
   // These ARE input aids — anchor the user's typed adjustment so they

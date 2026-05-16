@@ -74,8 +74,7 @@ export class CreditAPI extends HttpClient {
         options
       )
       const p = (raw as { data?: Record<string, unknown> })?.data ?? raw
-      const planType =
-        (p.plan_type as string) || (p.planType as string) || 'free'
+      const planType = (p.plan_type as string) || (p.planType as string) || 'free'
       const rawFeatures = p.plan_features as
         | {
             ebitda_normalization?: boolean
@@ -123,8 +122,7 @@ export class CreditAPI extends HttpClient {
                   : {}),
                 ...(typeof rawFeatures.live_benelux_sector_multiples === 'boolean'
                   ? {
-                      live_benelux_sector_multiples:
-                        rawFeatures.live_benelux_sector_multiples,
+                      live_benelux_sector_multiples: rawFeatures.live_benelux_sector_multiples,
                     }
                   : {}),
                 ...(typeof rawFeatures.team_seat_addons === 'boolean'
@@ -132,8 +130,7 @@ export class CreditAPI extends HttpClient {
                   : {}),
               }
             : undefined,
-        bonus_valuations:
-          typeof p.bonus_valuations === 'number' ? p.bonus_valuations : 0,
+        bonus_valuations: typeof p.bonus_valuations === 'number' ? p.bonus_valuations : 0,
       }
     } catch (error) {
       this.handleCreditError(error, 'get user plan')

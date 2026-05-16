@@ -96,7 +96,7 @@ const TABLE: Record<StartupSector, Record<AmbitionLevel, AmbitionAnchors>> = {
 
 export function getAmbitionAnchors(
   sector: StartupSector,
-  ambition: AmbitionLevel,
+  ambition: AmbitionLevel
 ): AmbitionAnchors {
   const sectorRow = TABLE[sector] ?? TABLE.other
   return sectorRow[ambition]
@@ -117,7 +117,7 @@ export function inferAmbition(
   sector: StartupSector,
   y5: number | null,
   exit: number | null,
-  roi: number | null,
+  roi: number | null
 ): AmbitionLevel | null {
   if (y5 == null || exit == null || roi == null) return null
   const sectorRow = TABLE[sector] ?? TABLE.other

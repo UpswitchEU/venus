@@ -1,7 +1,10 @@
 import type { ValuationSession } from '../types/valuation'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
-type SessionLike = Pick<ValuationSession, 'reportId' | 'sessionData' | 'valuationResult' | 'htmlReport'> & {
+type SessionLike = Pick<
+  ValuationSession,
+  'reportId' | 'sessionData' | 'valuationResult' | 'htmlReport'
+> & {
   reportReady?: boolean
   status?: string
 }
@@ -16,12 +19,7 @@ export function hasAssetsInSession(session: SessionLike | null | undefined): boo
     typeof sd.htmlReport === 'string' ? sd.htmlReport : null,
     typeof sd.html_report === 'string' ? sd.html_report : null
   )
-  return !!(
-    htmlReport ||
-    session.valuationResult ||
-    sd.valuation_result ||
-    sd.valuationResult
-  )
+  return !!(htmlReport || session.valuationResult || sd.valuation_result || sd.valuationResult)
 }
 
 export function shouldAllowOptimisticMercuryRender(params: {

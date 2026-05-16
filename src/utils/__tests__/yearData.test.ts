@@ -55,7 +55,16 @@ describe('yearData helpers', () => {
 
   it('lets explicit forecast row capex and nwc override imported defaults', () => {
     const result = mergeYearDataRows(
-      [{ year: 2026, revenue: 1_100_000, ebitda: 140_000, capex: 40_000, nwc_change: -10_000, isForecast: true }],
+      [
+        {
+          year: 2026,
+          revenue: 1_100_000,
+          ebitda: 140_000,
+          capex: 40_000,
+          nwc_change: -10_000,
+          isForecast: true,
+        },
+      ],
       [
         {
           year: 2026,

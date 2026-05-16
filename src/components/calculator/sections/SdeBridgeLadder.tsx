@@ -33,7 +33,7 @@ export function SdeBridgeLadder({ rows, ownerRole, className }: SdeBridgeLadderP
   const hasRows = Array.isArray(rows) && rows.length > 0
 
   const totalRow = useMemo(
-    () => (hasRows ? rows!.find((r) => r.kind === 'total') : null),
+    () => (hasRows ? rows?.find((r) => r.kind === 'total') : null),
     [rows, hasRows]
   )
 
@@ -68,7 +68,7 @@ export function SdeBridgeLadder({ rows, ownerRole, className }: SdeBridgeLadderP
         ) : null}
       </header>
       <ol className="divide-y divide-foreground/[0.06]">
-        {rows!.map((row, idx) => {
+        {rows?.map((row, idx) => {
           const isAnchor = row.kind === 'anchor'
           const isTotal = row.kind === 'total'
           const isNeg = row.amount < 0

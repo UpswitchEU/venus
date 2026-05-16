@@ -92,9 +92,7 @@ async function titanLookupPdfUrl(
         errorResponse: pdfErrorJson(
           {
             success: false,
-            error:
-              errBody.message ||
-              'PDF download requires a Starter plan or above.',
+            error: errBody.message || 'PDF download requires a Starter plan or above.',
             upgradeRequired: true,
           },
           402
@@ -151,9 +149,7 @@ async function titanGeneratePdf(
         errorResponse: pdfErrorJson(
           {
             success: false,
-            error:
-              errBody.message ||
-              'PDF download requires a Starter plan or above.',
+            error: errBody.message || 'PDF download requires a Starter plan or above.',
             upgradeRequired: true,
           },
           402
@@ -163,10 +159,7 @@ async function titanGeneratePdf(
     if (postRes.status === 401) {
       return {
         pdfUrl: null,
-        errorResponse: pdfErrorJson(
-          { success: false, error: 'Authentication required' },
-          401
-        ),
+        errorResponse: pdfErrorJson({ success: false, error: 'Authentication required' }, 401),
       }
     }
     if (postRes.status === 404) {
@@ -193,10 +186,7 @@ async function titanGeneratePdf(
   return { pdfUrl, errorResponse: null }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
 

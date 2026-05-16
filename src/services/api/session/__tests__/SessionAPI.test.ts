@@ -59,7 +59,7 @@ describe('SessionAPI', () => {
           method: 'GET',
           url: '/api/v2/valuations/sessions/val_test_123',
         }),
-        expect.objectContaining({ timeout: 10000 }),
+        expect.objectContaining({ timeout: 10000 })
       )
       expect(result?.success).toBe(true)
       expect(result?.session?.reportId).toBe('val_test_123')
@@ -92,7 +92,7 @@ describe('SessionAPI', () => {
         expect.objectContaining({
           method: 'POST',
           url: '/api/v2/valuations/sessions',
-        }),
+        })
       )
       expect(result.reportId).toBe('val_new_123')
       expect(result.success).toBe(true)
@@ -111,7 +111,9 @@ describe('SessionAPI', () => {
         partialData: { pdf_html_report: heavy },
       } as any)
 
-      const body = executeRequestSpy.mock.calls[0][0] as { data: { session_data: Record<string, unknown> } }
+      const body = executeRequestSpy.mock.calls[0][0] as {
+        data: { session_data: Record<string, unknown> }
+      }
       expect(body.data.session_data.company_name).toBe('New Corp')
       expect(body.data.session_data.html_report).toBeUndefined()
       expect(body.data.session_data.pdf_html_report).toBeUndefined()
@@ -142,7 +144,7 @@ describe('SessionAPI', () => {
         expect.objectContaining({
           method: 'PATCH',
           url: '/api/v2/valuations/sessions/val_update_123',
-        }),
+        })
       )
       expect(result.success).toBe(true)
       expect(result.updated).toBe(true)
@@ -218,7 +220,7 @@ describe('SessionAPI', () => {
         }),
         expect.objectContaining({
           retry: expect.objectContaining({ maxRetries: 0 }),
-        }),
+        })
       )
       expect(result.success).toBe(true)
     })

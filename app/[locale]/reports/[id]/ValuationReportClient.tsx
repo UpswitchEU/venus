@@ -37,7 +37,7 @@ function preloadWizardChunks() {
     import('../../../../src/components/ValuationFlowSelector'),
     import('../../../../src/components/ValuationSessionManager'),
     import('../../../../src/features/valuation/components/ValuationFlow'),
-  ]).catch(() => {})
+  ]).catch(() => undefined)
 }
 
 /**

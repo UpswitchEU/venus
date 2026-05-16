@@ -20,7 +20,7 @@ function trimString(v: unknown): string | undefined {
  * class as ensure-html / mergeSessionFields missing valuation HTML).
  */
 export function mergeSessionDataEnvelopesFromRoot(
-  root: Record<string, any> | null | undefined,
+  root: Record<string, any> | null | undefined
 ): Record<string, unknown> {
   if (!root || typeof root !== 'object') return {}
 
@@ -34,10 +34,8 @@ export function mergeSessionDataEnvelopesFromRoot(
       ? (snake as Record<string, unknown>)
       : null
 
-  const sdObj =
-    rawSdObj && Object.keys(rawSdObj).length === 0 ? null : rawSdObj
-  const snakeObj =
-    rawSnakeObj && Object.keys(rawSnakeObj).length === 0 ? null : rawSnakeObj
+  const sdObj = rawSdObj && Object.keys(rawSdObj).length === 0 ? null : rawSdObj
+  const snakeObj = rawSnakeObj && Object.keys(rawSnakeObj).length === 0 ? null : rawSnakeObj
 
   if (!sdObj && !snakeObj) return {}
   if (!sdObj) return { ...snakeObj! }
@@ -49,14 +47,11 @@ export function mergeSessionDataEnvelopesFromRoot(
  * Best-effort stable session key from merged session (top-level or nested sessionData).
  */
 export function extractStableSessionKeyFromMergedSession(
-  s: Record<string, any> | null | undefined,
+  s: Record<string, any> | null | undefined
 ): string | undefined {
   if (!s || typeof s !== 'object') return undefined
 
-  const candidates: (string | undefined)[] = [
-    trimString(s.session_key),
-    trimString(s.sessionKey),
-  ]
+  const candidates: (string | undefined)[] = [trimString(s.session_key), trimString(s.sessionKey)]
 
   // Both shapes can appear on merged sessions; prefer scanning both — an empty `sessionData`
   // object must not hide `session_data.session_key` from Titan payloads.

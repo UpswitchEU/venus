@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import { EbitdaNormalizationService, NormalizationAPIError } from '../ebitdaNormalizationService'
 import {
-  NormalizationCategory,
   type CreateNormalizationRequest,
   type GetNormalizationResponse,
+  NormalizationCategory,
 } from '../../types/ebitdaNormalization'
+import { EbitdaNormalizationService, NormalizationAPIError } from '../ebitdaNormalizationService'
 
 function validSavePayload(): CreateNormalizationRequest {
   return {
@@ -131,7 +130,10 @@ describe('EbitdaNormalizationService client-side validation', () => {
       updated_at: '2024-01-01T00:00:00.000Z',
     }
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
 

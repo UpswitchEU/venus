@@ -279,7 +279,11 @@ function enrichDcfMethod(
   if (details.explicit_forecast_pct_of_total == null && explicitForecastPct != null) {
     details.explicit_forecast_pct_of_total = explicitForecastPct
   }
-  if (details.wacc_buildup == null && dcfValuation.wacc_buildup && typeof dcfValuation.wacc_buildup === 'object') {
+  if (
+    details.wacc_buildup == null &&
+    dcfValuation.wacc_buildup &&
+    typeof dcfValuation.wacc_buildup === 'object'
+  ) {
     details.wacc_buildup = dcfValuation.wacc_buildup
   }
   if (details.historical_fcf_readiness == null && readiness) {
@@ -295,7 +299,11 @@ function enrichDcfMethod(
     details.discount_periods_note = periodsNote
   }
   const academicCoe = dcfValuation.academic_cost_of_equity_formula
-  if (details.academic_cost_of_equity_formula == null && academicCoe != null && academicCoe !== '') {
+  if (
+    details.academic_cost_of_equity_formula == null &&
+    academicCoe != null &&
+    academicCoe !== ''
+  ) {
     details.academic_cost_of_equity_formula = academicCoe
   }
 
@@ -570,11 +578,7 @@ function synthesizeMinimalValuationResultsMap(
   if (multipleHigh != null) details.p75_multiple = multipleHigh
 
   if (methodKey === 'adjusted_nav') {
-    const assetDetails = collectExplicitAssetBasedDetails(
-      valuationResult,
-      reportContext,
-      nested
-    )
+    const assetDetails = collectExplicitAssetBasedDetails(valuationResult, reportContext, nested)
     if (!assetDetails) {
       return null
     }
@@ -597,10 +601,7 @@ function synthesizeMinimalValuationResultsMap(
     if (dcfValuation && typeof dcfValuation.mid_year_discounting === 'boolean') {
       details.mid_year_discounting = dcfValuation.mid_year_discounting
     }
-    if (
-      dcfValuation?.discount_periods_note != null &&
-      dcfValuation.discount_periods_note !== ''
-    ) {
+    if (dcfValuation?.discount_periods_note != null && dcfValuation.discount_periods_note !== '') {
       details.discount_periods_note = dcfValuation.discount_periods_note
     }
     if (
@@ -681,12 +682,7 @@ export function extractValuationResultsMap(
       if (!pruned) {
         continue
       }
-      return withMethodAliases(
-        enrichDcfMethod(
-          pruned,
-          valuationResult
-        )
-      )
+      return withMethodAliases(enrichDcfMethod(pruned, valuationResult))
     }
   }
 
@@ -727,7 +723,7 @@ function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
  * `details` / `report_context`. Parity with Titan `normalizeValuationResultWithMethodMap`.
  */
 export function normalizeValuationResultWithMethodMap(
-  value: Record<string, any> | null,
+  value: Record<string, any> | null
 ): Record<string, any> | null {
   if (!value || typeof value !== 'object') return null
 

@@ -1,6 +1,6 @@
 import nextDynamic from 'next/dynamic'
-import { parseReportModeForInitialUi } from '@/utils/reportMode'
 import { generalLogger } from '@/utils/logger'
+import { parseReportModeForInitialUi } from '@/utils/reportMode'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ReportNotFoundMessage } from './ReportNotFoundMessage'
 

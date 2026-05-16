@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+            (data &&
+            typeof data === 'object' &&
+            'message' in data &&
+            typeof data.message === 'string'
               ? data.message
               : null) || 'Sellability service unavailable',
         },

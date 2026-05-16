@@ -206,7 +206,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
       staleRecoveryAttemptedRef.current = false
-    }, [reportId])
+    }, [])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
@@ -227,7 +227,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       } else {
         setShowTimeoutWarning(false)
       }
-    }, [status, reportId]) // Subscribe to status directly for proper reactivity
+    }, [status, reportId, isInitializing, isLoading]) // Subscribe to status directly for proper reactivity
 
     // WORLD-CLASS: Trust bootstrap result - no retry logic
     // The retry mechanism was causing multiple loading screens and flickering
@@ -351,7 +351,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         return () => clearTimeout(maxLoadingTimer)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stage, reportId]) // Only reset when stage or reportId changes, not on every status/session change
+    }, [stage, reportId, isBootstrapping, session, status]) // Only reset when stage or reportId changes, not on every status/session change
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // WORLD CLASS: Skip loading if bootstrap already has this session
@@ -683,7 +683,25 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         clearTimeout(timeoutId)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow, isBootstrapping, bootstrapHasSession]) // loadSession is stable; prefilledQuery via ref (prevents re-runs when session loads _prefilledQuery); session?.reportId intentionally excluded (prevents spurious re-runs after each load)
+    }, [
+      reportId,
+      detectedFlow,
+      isBootstrapping,
+      bootstrapHasSession,
+      bootstrap.report.hasExistingData,
+      bootstrap.report.reportReady,
+      bootstrap?.report.mode,
+      bootstrapComplete,
+      bootstrapHasExistingSession,
+      bootstrapHasNewReport,
+      bootstrapMismatch,
+      bootstrapReportId,
+      loadSession,
+      prefilledQuery,
+      session,
+      sessionHasAssets,
+      urlPrefilledQuery,
+    ]) // loadSession is stable; prefilledQuery via ref (prevents re-runs when session loads _prefilledQuery); session?.reportId intentionally excluded (prevents spurious re-runs after each load)
 
     // Retry: When bootstrap failed, refresh bootstrap first; otherwise reload session
     const handleRetry = useCallback(async () => {
@@ -703,7 +721,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         loadSession(reportId, detectedFlow, prefilledQueryRef.current)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow, bootstrap?.bootstrapError, bootstrap?.refreshBootstrap])
+    }, [
+      reportId,
+      detectedFlow,
+      bootstrap?.bootstrapError,
+      bootstrap?.refreshBootstrap,
+      loadSession,
+    ])
 
     // Start over: Clear and navigate home
     const handleStartOver = useCallback(() => {
@@ -756,7 +780,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           isLoading,
           error: effectiveError,
           showOutOfCreditsModal: false, // TODO: Re-implement if needed
-          onCloseModal: () => {}, // No-op
+          onCloseModal: () => undefined, // No-op
           prefilledQuery,
           autoSend,
           onRetry: handleRetry,

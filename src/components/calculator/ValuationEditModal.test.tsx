@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { ValuationEditModal } from './ValuationEditModal'
 
@@ -84,7 +84,8 @@ const translations: Record<string, Record<string, string>> = {
     comparablesQuality: 'Kwaliteit vergelijkbaren',
     'comparablesQualityValues.medium': 'Gemiddeld',
     sensitivityTitle: 'DCF-gevoeligheidsmatrix',
-    sensitivityDescription: 'Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.',
+    sensitivityDescription:
+      'Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.',
     sensitivityDescriptionExitMultiple:
       'Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.',
     sensitivityWaccHeader: 'WACC / g',
@@ -94,15 +95,16 @@ const translations: Record<string, Record<string, string>> = {
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
-    let raw = translations[namespace]?.[key] ?? key
-    if (values && typeof raw === 'string') {
-      for (const [k, v] of Object.entries(values)) {
-        raw = raw.replace(`{${k}}`, String(v))
+  useTranslations:
+    (namespace: string) => (key: string, values?: Record<string, string | number>) => {
+      let raw = translations[namespace]?.[key] ?? key
+      if (values && typeof raw === 'string') {
+        for (const [k, v] of Object.entries(values)) {
+          raw = raw.replace(`{${k}}`, String(v))
+        }
       }
-    }
-    return raw
-  },
+      return raw
+    },
 }))
 
 vi.mock('@/design-system/components/Modal', () => ({
@@ -244,7 +246,7 @@ describe('ValuationEditModal', () => {
         selectedMethod="ebitda_multiple"
         isMethodPersisting
         result={null}
-      />,
+      />
     )
 
     expect(screen.getByText('Methode opslaan en rapport vernieuwen…')).toBeInTheDocument()
@@ -281,11 +283,11 @@ describe('ValuationEditModal', () => {
             },
           } as import('@/types/valuation').ValuationResponse
         }
-      />,
+      />
     )
 
     expect(
-      screen.queryByText(/methodBreakdown\.comparablesQualityValues\.medium/),
+      screen.queryByText(/methodBreakdown\.comparablesQualityValues\.medium/)
     ).not.toBeInTheDocument()
     expect(screen.getByText('Kwaliteit vergelijkbaren')).toBeInTheDocument()
     expect(screen.getByText('Gemiddeld')).toBeInTheDocument()
@@ -314,7 +316,7 @@ describe('ValuationEditModal', () => {
           },
         }}
         result={null}
-      />,
+      />
     )
 
     expect(screen.getByRole('button', { name: 'Discounted Cash Flow' })).toBeDisabled()
@@ -342,7 +344,7 @@ describe('ValuationEditModal', () => {
           },
         }}
         result={null}
-      />,
+      />
     )
 
     const aiRadio = screen.getByRole('radio', { name: /Upswitch bepaalt/i })
@@ -356,9 +358,10 @@ describe('ValuationEditModal', () => {
 
     fireEvent.click(aiRadio)
     expect(onSelectMethod).toHaveBeenCalledWith('upswitch_adaptive')
-    expect(
-      screen.getByRole('radio', { name: /Upswitch bepaalt/i }),
-    ).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: /Upswitch bepaalt/i })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
   })
 
   it('renders exit multiple DCF semantics truthfully in the breakdown', () => {
@@ -392,13 +395,13 @@ describe('ValuationEditModal', () => {
           },
         }}
         result={{} as import('@/types/valuation').ValuationResponse}
-      />,
+      />
     )
 
     expect(screen.getAllByText('Exit multiple').length).toBeGreaterThan(0)
     expect(screen.getByText('WACC / exit')).toBeInTheDocument()
     expect(
-      screen.getByText('Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.'),
+      screen.getByText('Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.')
     ).toBeInTheDocument()
     // Exit multiple headline uses fixed two-decimal formatting on the metric card.
     // formatMultiple in ValuationEditModal.tsx:66 emits the Unicode multiplication sign (×, U+00D7).

@@ -35,7 +35,7 @@
  * re-extracting the bridge.
  */
 
-import { useEffect, type Dispatch, type SetStateAction } from 'react'
+import { type Dispatch, type SetStateAction, useEffect } from 'react'
 import type { RightPanelView, ValuationReportData } from '@/components/calculator'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
@@ -143,5 +143,20 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         }
       )
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile, selectedMethod, canDownloadPdf])
+  }, [
+    result,
+    onComplete,
+    reportId,
+    generatePdf,
+    isMobile,
+    selectedMethod,
+    canDownloadPdf,
+    setDraftStatus,
+    setLastSaved, // 3-5. Drop into panel state.
+    setReport, // 6. Switch panel view to preview. PRESERVED: overrides prior user
+    //    navigation; documented as intentional pending product review.
+    setRightPanelView,
+    setShowFullscreenModal,
+    tReport,
+  ])
 }

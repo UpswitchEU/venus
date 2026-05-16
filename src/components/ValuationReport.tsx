@@ -2,17 +2,17 @@
 
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { Suspense, useEffect, useRef } from 'react'
-import { trackReportOpen, trackSessionStart } from '../lib/analytics'
+import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useUrlState } from '../hooks/useUrlState'
+import { trackReportOpen, trackSessionStart } from '../lib/analytics'
 import { reportService } from '../services'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
-import { generalLogger } from '../utils/logger'
-import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
-import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
+import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
 import { resolveStandaloneReportReadyHash } from '../utils/standaloneReportReadyHash'
 import { submitAnonymizedBenchmarkContribution } from '../utils/submitAnonymizedBenchmarkContribution'
 
@@ -81,7 +81,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // URL state management for browser navigation support
     const { urlState, updateUrl } = useUrlState({
       reportId,
-      onStateChange: () => {},
+      onStateChange: () => undefined,
     })
 
     // LOOP FIX: Ref to prevent duplicate URL sync when effect re-runs (e.g. after remount)
@@ -92,7 +92,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     useEffect(() => {
       urlSyncAttemptedRef.current = false
       sessionReportTrackedRef.current = false
-    }, [reportId])
+    }, [])
 
     // Sync initial mode and version to URL on mount
     useEffect(() => {
@@ -117,7 +117,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       }
       // reportId in deps: re-sync when navigating to a different report
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId])
+    }, [initialMode, initialVersion, updateUrl, urlState.mode, urlState.version])
 
     // GA4: Track session start and report open when loading report directly (not from HomePage)
     // Covers: Mercury redirect, embedded iframe, client report view, direct links

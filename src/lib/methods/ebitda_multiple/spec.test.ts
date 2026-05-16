@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ebitdaMultipleMethodSpec, EBITDA_MULTIPLE_METHOD_KEY } from './spec'
+import { EBITDA_MULTIPLE_METHOD_KEY, ebitdaMultipleMethodSpec } from './spec'
 
 describe('ebitdaMultipleMethodSpec', () => {
   it('uses the canonical "ebitda_multiple" key', () => {

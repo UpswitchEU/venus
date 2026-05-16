@@ -42,9 +42,7 @@ describe('deriveOwnerProfilingChip', () => {
   })
 
   it('returns null when result is present but adjustment is missing', () => {
-    expect(
-      deriveOwnerProfilingChip({ owner_dependency_result: baseResult }),
-    ).toBeNull()
+    expect(deriveOwnerProfilingChip({ owner_dependency_result: baseResult })).toBeNull()
   })
 
   it('pass-through: cap not binding (raw == applied)', () => {
@@ -53,11 +51,11 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_adjustment: -0.1,
     })
     expect(chip).not.toBeNull()
-    expect(chip!.mode).toBe('pass-through')
-    if (chip!.mode === 'pass-through') {
-      expect(chip!.adjustment).toBe(-0.1)
-      expect(chip!.transferabilityRiskIndex).toBe(35)
-      expect(chip!.colorBand).toBe('neutral')
+    expect(chip?.mode).toBe('pass-through')
+    if (chip?.mode === 'pass-through') {
+      expect(chip?.adjustment).toBe(-0.1)
+      expect(chip?.transferabilityRiskIndex).toBe(35)
+      expect(chip?.colorBand).toBe('neutral')
     }
   })
 
@@ -71,11 +69,11 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_adjustment: -0.15,
     })
     expect(chip).not.toBeNull()
-    expect(chip!.mode).toBe('capped')
-    if (chip!.mode === 'capped') {
-      expect(chip!.appliedAdjustment).toBe(-0.15)
-      expect(chip!.rawAdjustment).toBe(-0.32)
-      expect(chip!.colorBand).toBe('caution')
+    expect(chip?.mode).toBe('capped')
+    if (chip?.mode === 'capped') {
+      expect(chip?.appliedAdjustment).toBe(-0.15)
+      expect(chip?.rawAdjustment).toBe(-0.32)
+      expect(chip?.colorBand).toBe('caution')
     }
   })
 
@@ -88,7 +86,7 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_result: { ...baseResult, raw_adjustment: -0.15 },
       owner_dependency_adjustment: -0.15,
     })
-    expect(chip!.mode).toBe('pass-through')
+    expect(chip?.mode).toBe('pass-through')
   })
 
   it('pre-OP-4b response without raw_adjustment renders pass-through', () => {
@@ -100,7 +98,7 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_result: baseResult, // no raw_adjustment
       owner_dependency_adjustment: -0.15,
     })
-    expect(chip!.mode).toBe('pass-through')
+    expect(chip?.mode).toBe('pass-through')
   })
 
   it('color band: MINIMAL → good, HIGH → caution, CRITICAL → warn', () => {
@@ -128,9 +126,9 @@ describe('deriveOwnerProfilingChip', () => {
       },
       owner_dependency_adjustment: -0.15,
     })
-    expect(minimal!.colorBand).toBe('good')
-    expect(high!.colorBand).toBe('caution')
-    expect(critical!.colorBand).toBe('warn')
+    expect(minimal?.colorBand).toBe('good')
+    expect(high?.colorBand).toBe('caution')
+    expect(critical?.colorBand).toBe('warn')
   })
 
   it('returns null when adjustment is explicitly null', () => {
@@ -138,7 +136,7 @@ describe('deriveOwnerProfilingChip', () => {
       deriveOwnerProfilingChip({
         owner_dependency_result: baseResult,
         owner_dependency_adjustment: null as unknown as number,
-      }),
+      })
     ).toBeNull()
   })
 
@@ -150,7 +148,7 @@ describe('deriveOwnerProfilingChip', () => {
       },
       owner_dependency_adjustment: -0.1,
     })
-    expect(chip!.transferabilityRiskIndex).toBe(35)
+    expect(chip?.transferabilityRiskIndex).toBe(35)
   })
 
   it('clamps extreme overall_score into [0, 100] before TRI', () => {
@@ -162,8 +160,8 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_result: { ...baseResult, overall_score: -40 },
       owner_dependency_adjustment: -0.05,
     })
-    expect(saturated!.transferabilityRiskIndex).toBe(0)
-    expect(negative!.transferabilityRiskIndex).toBe(100)
+    expect(saturated?.transferabilityRiskIndex).toBe(0)
+    expect(negative?.transferabilityRiskIndex).toBe(100)
   })
 
   it('normalizes lowercase risk_level for color band', () => {
@@ -171,8 +169,8 @@ describe('deriveOwnerProfilingChip', () => {
       owner_dependency_result: { ...baseResult, risk_level: 'high' },
       owner_dependency_adjustment: -0.1,
     })
-    expect(chip!.colorBand).toBe('caution')
-    expect(chip!.riskLevel).toBe('high')
+    expect(chip?.colorBand).toBe('caution')
+    expect(chip?.riskLevel).toBe('high')
   })
 
   it('capped mode accepts raw_adjustment as numeric string', () => {
@@ -184,9 +182,9 @@ describe('deriveOwnerProfilingChip', () => {
       },
       owner_dependency_adjustment: -0.15,
     })
-    expect(chip!.mode).toBe('capped')
-    if (chip!.mode === 'capped') {
-      expect(chip!.rawAdjustment).toBeCloseTo(-0.35, 5)
+    expect(chip?.mode).toBe('capped')
+    if (chip?.mode === 'capped') {
+      expect(chip?.rawAdjustment).toBeCloseTo(-0.35, 5)
     }
   })
 
@@ -196,7 +194,7 @@ describe('deriveOwnerProfilingChip', () => {
       // The Python wire emits Decimal-as-string for precision.
       owner_dependency_adjustment: '-0.10' as unknown as number,
     })
-    expect(chip!.mode).toBe('pass-through')
+    expect(chip?.mode).toBe('pass-through')
   })
 
   it('rejects owner_dependency_result that is not a plain object', () => {
@@ -204,7 +202,7 @@ describe('deriveOwnerProfilingChip', () => {
       deriveOwnerProfilingChip({
         owner_dependency_result: [] as unknown as typeof baseResult,
         owner_dependency_adjustment: -0.1,
-      }),
+      })
     ).toBeNull()
   })
 
@@ -216,7 +214,7 @@ describe('deriveOwnerProfilingChip', () => {
           risk_level: { bogus: true } as unknown as string,
         },
         owner_dependency_adjustment: -0.1,
-      }),
+      })
     ).toBeNull()
   })
 
@@ -228,7 +226,7 @@ describe('deriveOwnerProfilingChip', () => {
       },
       owner_dependency_adjustment: -0.1,
     })
-    expect(chip!.transferabilityRiskIndex).toBe(35)
+    expect(chip?.transferabilityRiskIndex).toBe(35)
   })
 })
 
@@ -242,10 +240,10 @@ describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
       {
         owner_dependency_result: baseResult,
         owner_dependency_adjustment: -0.1,
-      },
+      }
     )
     expect(chip).not.toBeNull()
-    expect(chip!.transferabilityRiskIndex).toBe(10)
+    expect(chip?.transferabilityRiskIndex).toBe(10)
   })
 
   it('uses result when session pair is incomplete', () => {
@@ -257,10 +255,10 @@ describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
       {
         owner_dependency_result: baseResult,
         owner_dependency_adjustment: -0.1,
-      },
+      }
     )
     expect(chip).not.toBeNull()
-    expect(chip!.transferabilityRiskIndex).toBe(35)
+    expect(chip?.transferabilityRiskIndex).toBe(35)
   })
 
   it('falls through to result when session has a pair but derivation fails', () => {
@@ -272,10 +270,10 @@ describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
       {
         owner_dependency_result: baseResult,
         owner_dependency_adjustment: -0.1,
-      },
+      }
     )
     expect(chip).not.toBeNull()
-    expect(chip!.transferabilityRiskIndex).toBe(35)
+    expect(chip?.transferabilityRiskIndex).toBe(35)
   })
 
   it('skips session when owner_dependency_result is an array', () => {
@@ -287,9 +285,9 @@ describe('deriveOwnerProfilingChipPreferSessionThenResult', () => {
       {
         owner_dependency_result: baseResult,
         owner_dependency_adjustment: -0.1,
-      },
+      }
     )
-    expect(chip!.transferabilityRiskIndex).toBe(35)
+    expect(chip?.transferabilityRiskIndex).toBe(35)
   })
 })
 
@@ -299,28 +297,22 @@ describe('deriveOwnerProfilingState', () => {
   })
 
   it('returns chip mode when assessment is present', () => {
-    const state = deriveOwnerProfilingState(
-      undefined,
-      {
-        owner_dependency_result: baseResult,
-        owner_dependency_adjustment: -0.1,
-        valuation_id: 'val_123',
-      },
-    )
+    const state = deriveOwnerProfilingState(undefined, {
+      owner_dependency_result: baseResult,
+      owner_dependency_adjustment: -0.1,
+      valuation_id: 'val_123',
+    })
     expect(state).not.toBeNull()
-    expect(state!.mode).toBe('chip')
-    if (state!.mode === 'chip') {
+    expect(state?.mode).toBe('chip')
+    if (state?.mode === 'chip') {
       expect(state.chip.transferabilityRiskIndex).toBe(35)
     }
   })
 
   it('returns skipped mode for a real result with no assessment', () => {
-    const state = deriveOwnerProfilingState(
-      undefined,
-      { valuation_id: 'val_123' },
-    )
+    const state = deriveOwnerProfilingState(undefined, { valuation_id: 'val_123' })
     expect(state).not.toBeNull()
-    expect(state!.mode).toBe('skipped')
+    expect(state?.mode).toBe('skipped')
   })
 
   it('returns null for a pre-flight (no valuation_id) with no assessment', () => {
@@ -338,12 +330,12 @@ describe('deriveOwnerProfilingState', () => {
       },
       {
         owner_dependency_result: { ...baseResult, overall_score: 30 },
-        owner_dependency_adjustment: -0.20,
+        owner_dependency_adjustment: -0.2,
         valuation_id: 'val_result',
-      },
+      }
     )
-    expect(state!.mode).toBe('chip')
-    if (state!.mode === 'chip') {
+    expect(state?.mode).toBe('chip')
+    if (state?.mode === 'chip') {
       expect(state.chip.transferabilityRiskIndex).toBe(20)
     }
   })

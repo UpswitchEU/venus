@@ -190,9 +190,7 @@ export function buildValuationRequest(
   // Normalize country code (2-letter uppercase).
   // Prefer `country_code`; manual panel may only have synced `country` until the store bridge runs.
   const countryRaw =
-    formData.country_code?.trim() ||
-    (formData as { country?: string }).country?.trim() ||
-    ''
+    formData.country_code?.trim() || (formData as { country?: string }).country?.trim() || ''
   const countryCode = coerceIso2OrNull(countryRaw) ?? 'BE'
 
   // Normalize industry and business model
@@ -424,10 +422,7 @@ export function buildValuationRequest(
   }
 
   if (legacyOrphanYears.length > 0) {
-    const legacyOrphanTotal = legacyOrphanYears.reduce(
-      (s, o) => s + o.totalAdjustment,
-      0
-    )
+    const legacyOrphanTotal = legacyOrphanYears.reduce((s, o) => s + o.totalAdjustment, 0)
     generalLogger.warn(
       '[buildValuationRequest] Dropped legacy normalization entries with no matching year in the data set',
       {
@@ -647,7 +642,10 @@ export function buildValuationRequest(
   // When rev_recurring_amount is set, it always wins over rev_recurring_pct to
   // stay consistent with adaptiveFields derivation and the UI badge.
   let recurringRevenueInput: number
-  if (formData.recurring_revenue_percentage != null && Number.isFinite(formData.recurring_revenue_percentage)) {
+  if (
+    formData.recurring_revenue_percentage != null &&
+    Number.isFinite(formData.recurring_revenue_percentage)
+  ) {
     recurringRevenueInput = formData.recurring_revenue_percentage
   } else if (
     formData.rev_recurring_amount != null &&
@@ -656,7 +654,10 @@ export function buildValuationRequest(
     latestRevenue > 0
   ) {
     recurringRevenueInput = formData.rev_recurring_amount / latestRevenue
-  } else if ((formData as any).rev_recurring_pct != null && Number.isFinite((formData as any).rev_recurring_pct)) {
+  } else if (
+    (formData as any).rev_recurring_pct != null &&
+    Number.isFinite((formData as any).rev_recurring_pct)
+  ) {
     recurringRevenueInput = (formData as any).rev_recurring_pct / 100
   } else {
     recurringRevenueInput = 0
@@ -703,7 +704,10 @@ export function buildValuationRequest(
     (Array.isArray(formData.forecast_years_data) && formData.forecast_years_data.length > 0) ||
     (Array.isArray(rawForecastData) && rawForecastData.length > 0)
 
-  if (fd.nav_real_estate_adjustment != null && Number.isFinite(Number(fd.nav_real_estate_adjustment)))
+  if (
+    fd.nav_real_estate_adjustment != null &&
+    Number.isFinite(Number(fd.nav_real_estate_adjustment))
+  )
     adaptiveFields.nav_real_estate_adjustment = Number(fd.nav_real_estate_adjustment)
   if (fd.nav_inventory_adjustment != null && Number.isFinite(Number(fd.nav_inventory_adjustment)))
     adaptiveFields.nav_inventory_adjustment = Number(fd.nav_inventory_adjustment)
@@ -711,7 +715,10 @@ export function buildValuationRequest(
     adaptiveFields.nav_hidden_reserves = Number(fd.nav_hidden_reserves)
   if (fd.nav_goodwill_writeoff != null && Number.isFinite(Number(fd.nav_goodwill_writeoff)))
     adaptiveFields.nav_goodwill_writeoff = Number(fd.nav_goodwill_writeoff)
-  if (fd.nav_receivables_adjustment != null && Number.isFinite(Number(fd.nav_receivables_adjustment)))
+  if (
+    fd.nav_receivables_adjustment != null &&
+    Number.isFinite(Number(fd.nav_receivables_adjustment))
+  )
     adaptiveFields.nav_receivables_adjustment = Number(fd.nav_receivables_adjustment)
   if (fd.nav_other_revaluations != null && Number.isFinite(Number(fd.nav_other_revaluations)))
     adaptiveFields.nav_other_revaluations = Number(fd.nav_other_revaluations)
@@ -774,7 +781,10 @@ export function buildValuationRequest(
     Number.isFinite(Number(fd.deal_buyer_discount_rate_pct))
   )
     adaptiveFields.deal_buyer_discount_rate_pct = Number(fd.deal_buyer_discount_rate_pct)
-  if (fd.deal_registration_duty_pct != null && Number.isFinite(Number(fd.deal_registration_duty_pct)))
+  if (
+    fd.deal_registration_duty_pct != null &&
+    Number.isFinite(Number(fd.deal_registration_duty_pct))
+  )
     adaptiveFields.deal_registration_duty_pct = Number(fd.deal_registration_duty_pct)
   if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
   if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
@@ -794,7 +804,12 @@ export function buildValuationRequest(
   // Revenue quality: prefer currency amounts (new UX), derive % for the API.
   // Clamp to [0, 100] to satisfy the Titan Zod schema.
   // Guard with Number.isFinite to prevent NaN from corrupted session data.
-  if (fd.rev_recurring_amount != null && Number.isFinite(fd.rev_recurring_amount) && latestRevenue && latestRevenue > 0) {
+  if (
+    fd.rev_recurring_amount != null &&
+    Number.isFinite(fd.rev_recurring_amount) &&
+    latestRevenue &&
+    latestRevenue > 0
+  ) {
     adaptiveFields.rev_recurring_pct = Math.min(
       Math.max((fd.rev_recurring_amount / latestRevenue) * 100, 0),
       100
@@ -802,12 +817,20 @@ export function buildValuationRequest(
   } else if (fd.rev_recurring_pct != null && Number.isFinite(fd.rev_recurring_pct)) {
     adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
   }
-  if (fd.rev_top_client_amount != null && Number.isFinite(fd.rev_top_client_amount) && latestRevenue && latestRevenue > 0) {
+  if (
+    fd.rev_top_client_amount != null &&
+    Number.isFinite(fd.rev_top_client_amount) &&
+    latestRevenue &&
+    latestRevenue > 0
+  ) {
     adaptiveFields.rev_top_client_concentration_pct = Math.min(
       Math.max((fd.rev_top_client_amount / latestRevenue) * 100, 0),
       100
     )
-  } else if (fd.rev_top_client_concentration_pct != null && Number.isFinite(fd.rev_top_client_concentration_pct)) {
+  } else if (
+    fd.rev_top_client_concentration_pct != null &&
+    Number.isFinite(fd.rev_top_client_concentration_pct)
+  ) {
     adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
   }
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
@@ -1032,10 +1055,7 @@ export function buildValuationRequest(
   // so the wire boundary stays clean even if a stale formData payload (e.g.
   // session restore) still carries the legacy value.  Audit 2026-05-10 (A2).
   const liqPremise = (fd as { liq_premise_override?: string }).liq_premise_override
-  if (
-    liqPremise === 'orderly_liquidation' ||
-    liqPremise === 'forced_liquidation'
-  ) {
+  if (liqPremise === 'orderly_liquidation' || liqPremise === 'forced_liquidation') {
     liquidationInputs.owner_premise_override = liqPremise
   }
   // Advanced fields surfaced by the collapsible "Show advanced" toggle.
@@ -1052,10 +1072,7 @@ export function buildValuationRequest(
       Math.floor(Number(fd.liq_runway_months_orderly))
     )
   }
-  if (
-    fd.liq_runway_months_forced != null &&
-    Number.isFinite(Number(fd.liq_runway_months_forced))
-  ) {
+  if (fd.liq_runway_months_forced != null && Number.isFinite(Number(fd.liq_runway_months_forced))) {
     liquidationInputs.runway_months_forced = Math.max(
       1,
       Math.floor(Number(fd.liq_runway_months_forced))
@@ -1068,10 +1085,7 @@ export function buildValuationRequest(
     // Stored as decimal (0.15 = 15%); UI surfaces as percent.
     liquidationInputs.distress_wacc_orderly = Math.max(0, Number(fd.liq_distress_wacc_orderly))
   }
-  if (
-    fd.liq_distress_wacc_forced != null &&
-    Number.isFinite(Number(fd.liq_distress_wacc_forced))
-  ) {
+  if (fd.liq_distress_wacc_forced != null && Number.isFinite(Number(fd.liq_distress_wacc_forced))) {
     // Stored as decimal (0.25 default for forced); UI surfaces percent.
     liquidationInputs.distress_wacc_forced = Math.max(0, Number(fd.liq_distress_wacc_forced))
   }
@@ -1189,28 +1203,16 @@ export function buildValuationRequest(
   // is set; an empty dict would be wire noise.
   // ──────────────────────────────────────────────────────────────────────
   const fiscalInputs: Record<string, unknown> = {}
-  if (
-    fd.fiscal_acquisition_cost != null &&
-    Number.isFinite(Number(fd.fiscal_acquisition_cost))
-  ) {
+  if (fd.fiscal_acquisition_cost != null && Number.isFinite(Number(fd.fiscal_acquisition_cost))) {
     fiscalInputs.acquisition_cost = Number(fd.fiscal_acquisition_cost)
   }
-  if (
-    fd.fiscal_anchor_2_value != null &&
-    Number.isFinite(Number(fd.fiscal_anchor_2_value))
-  ) {
+  if (fd.fiscal_anchor_2_value != null && Number.isFinite(Number(fd.fiscal_anchor_2_value))) {
     fiscalInputs.anchor_2_value = Number(fd.fiscal_anchor_2_value)
   }
-  if (
-    fd.fiscal_anchor_3_value != null &&
-    Number.isFinite(Number(fd.fiscal_anchor_3_value))
-  ) {
+  if (fd.fiscal_anchor_3_value != null && Number.isFinite(Number(fd.fiscal_anchor_3_value))) {
     fiscalInputs.anchor_3_value = Number(fd.fiscal_anchor_3_value)
   }
-  if (
-    fd.fiscal_anchor_4_value != null &&
-    Number.isFinite(Number(fd.fiscal_anchor_4_value))
-  ) {
+  if (fd.fiscal_anchor_4_value != null && Number.isFinite(Number(fd.fiscal_anchor_4_value))) {
     fiscalInputs.anchor_4_value = Number(fd.fiscal_anchor_4_value)
   }
   if (Object.keys(fiscalInputs).length > 0) {

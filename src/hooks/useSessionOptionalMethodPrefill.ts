@@ -24,8 +24,8 @@
 import { useEffect } from 'react'
 
 import { useSessionStore } from '../store/useSessionStore'
-import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 import { getSessionOptionalPrefillSignature } from '../utils/mergeOptionalSessionPrefillFields'
+import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
 /**
  * Existing report only (`reportId !== 'new'`). New reports rely on
@@ -34,7 +34,7 @@ import { getSessionOptionalPrefillSignature } from '../utils/mergeOptionalSessio
 export function useSessionOptionalMethodPrefill(): void {
   const reportId = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
-  const optionalPrefillSignature = useSessionStore((s) =>
+  const _optionalPrefillSignature = useSessionStore((s) =>
     getSessionOptionalPrefillSignature(s.session?.sessionData)
   )
 
@@ -51,5 +51,5 @@ export function useSessionOptionalMethodPrefill(): void {
     return () => {
       cancelled = true
     }
-  }, [reportId, optionalPrefillSignature, restorationComplete])
+  }, [reportId, restorationComplete])
 }

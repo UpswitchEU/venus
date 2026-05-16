@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  decodeSilverfinOAuthState,
-  encodeSilverfinOAuthState,
-} from '../silverfin-oauth-state'
+import { decodeSilverfinOAuthState, encodeSilverfinOAuthState } from '../silverfin-oauth-state'
 
 describe('silverfin-oauth-state', () => {
   it('encodeSilverfinOAuthState round-trips firm id in state', () => {

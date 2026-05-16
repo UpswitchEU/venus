@@ -19,9 +19,9 @@
  */
 
 export interface SellabilityScoreParseResult {
-  score: number;
-  band: string;
-  confidence?: string;
+  score: number
+  band: string
+  confidence?: string
 }
 
 /**
@@ -38,28 +38,24 @@ export interface SellabilityScoreParseResult {
  * dock doesn't render — included here so toast labels can show "high"
  * vs "low" when present without breaking when absent.
  */
-export function parseSellabilityScoreResponse(
-  json: unknown
-): SellabilityScoreParseResult | null {
-  if (!json || typeof json !== 'object') return null;
+export function parseSellabilityScoreResponse(json: unknown): SellabilityScoreParseResult | null {
+  if (!json || typeof json !== 'object') return null
   const obj = json as {
-    score?: unknown;
-    band?: unknown;
-    confidence?: unknown;
-    data?: unknown;
-  };
+    score?: unknown
+    band?: unknown
+    confidence?: unknown
+    data?: unknown
+  }
 
   if (typeof obj.score === 'number' && typeof obj.band === 'string') {
     return {
       score: obj.score,
       band: obj.band,
       ...(typeof obj.confidence === 'string' && { confidence: obj.confidence }),
-    };
+    }
   }
 
-  const data = obj.data as
-    | { score?: unknown; band?: unknown; confidence?: unknown }
-    | undefined;
+  const data = obj.data as { score?: unknown; band?: unknown; confidence?: unknown } | undefined
   if (
     data &&
     typeof data === 'object' &&
@@ -70,10 +66,10 @@ export function parseSellabilityScoreResponse(
       score: data.score,
       band: data.band,
       ...(typeof data.confidence === 'string' && { confidence: data.confidence }),
-    };
+    }
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -91,9 +87,9 @@ export function parseSellabilityScoreResponse(
  */
 export function extractErrorMessage(json: unknown, status: number): string {
   if (json && typeof json === 'object') {
-    const obj = json as { error?: unknown; message?: unknown };
-    if (typeof obj.error === 'string' && obj.error.length > 0) return obj.error;
-    if (typeof obj.message === 'string' && obj.message.length > 0) return obj.message;
+    const obj = json as { error?: unknown; message?: unknown }
+    if (typeof obj.error === 'string' && obj.error.length > 0) return obj.error
+    if (typeof obj.message === 'string' && obj.message.length > 0) return obj.message
   }
-  return `HTTP ${status}`;
+  return `HTTP ${status}`
 }

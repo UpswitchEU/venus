@@ -138,15 +138,13 @@ const TRIVIAL_DISCOUNT_PCT = 1 // <1pt of multiple, ignore
 function engineAlreadyDiscountsFor(
   matcher: RegExp,
   steps: ReadonlyArray<string> | undefined,
-  appliedDiscountByStep?: ReadonlyArray<{ name: string; pct: number }>,
+  appliedDiscountByStep?: ReadonlyArray<{ name: string; pct: number }>
 ): boolean {
   if (!steps || steps.length === 0) return false
   for (const name of steps) {
     if (!matcher.test(name)) continue
     if (!appliedDiscountByStep) return true
-    const hit = appliedDiscountByStep.find(
-      (s) => s.name.toLowerCase() === name.toLowerCase(),
-    )
+    const hit = appliedDiscountByStep.find((s) => s.name.toLowerCase() === name.toLowerCase())
     if (!hit || Math.abs(hit.pct) >= TRIVIAL_DISCOUNT_PCT) return true
   }
   return false
@@ -216,13 +214,8 @@ export function detectDossierSignal(input: DetectInput): DossierSignal | null {
  * preparer store. Caller is responsible for clamping into the slider's
  * benchmark-relative bounds.
  */
-export function projectSuggestedMultiple(
-  benchmarkMultiple: number,
-  band: SuggestedBand,
-): number {
-  const factor = band.direction === 'discount'
-    ? 1 - band.midPct / 100
-    : 1 + band.midPct / 100
+export function projectSuggestedMultiple(benchmarkMultiple: number, band: SuggestedBand): number {
+  const factor = band.direction === 'discount' ? 1 - band.midPct / 100 : 1 + band.midPct / 100
   return Math.round(benchmarkMultiple * factor * 100) / 100
 }
 

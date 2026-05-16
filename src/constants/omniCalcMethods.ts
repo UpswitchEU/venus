@@ -41,9 +41,10 @@ export function compareOmniMethodKeys(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: 'base' })
 }
 
-export function partitionOmniMethodEntries<T>(
-  entries: [string, T][]
-): { primary: [string, T][]; secondary: [string, T][] } {
+export function partitionOmniMethodEntries<T>(entries: [string, T][]): {
+  primary: [string, T][]
+  secondary: [string, T][]
+} {
   const primary = entries
     .filter(([k]) => PRIMARY_OMNI_METHOD_KEYS.has(k))
     .sort(([a], [b]) => primaryOmniMethodOrderIndex(a) - primaryOmniMethodOrderIndex(b))

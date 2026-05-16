@@ -59,10 +59,7 @@ export const OP_BAND_TAILWIND: Readonly<
 } as const
 
 /** `hsl(<triple>)` or `hsl(<triple> / <alpha>)`. */
-export function opBandHslFn(
-  band: OwnerProfilingBand,
-  alpha?: number,
-): string {
+export function opBandHslFn(band: OwnerProfilingBand, alpha?: number): string {
   const triple = OP_BAND_HSL[band]
   if (alpha === undefined) return `hsl(${triple})`
   return `hsl(${triple} / ${alpha})`

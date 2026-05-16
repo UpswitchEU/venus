@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { startupValuationMethodSpec, STARTUP_VALUATION_METHOD_KEY } from './spec'
+import { STARTUP_VALUATION_METHOD_KEY, startupValuationMethodSpec } from './spec'
 
 describe('startupValuationMethodSpec', () => {
   it('uses the canonical "startup_valuation" key', () => {
@@ -25,9 +25,7 @@ describe('startupValuationMethodSpec', () => {
   })
 
   it('declares matching label + description i18n keys', () => {
-    expect(startupValuationMethodSpec.labelKey).toBe(
-      'manualInput.methodSelector.startupValuation'
-    )
+    expect(startupValuationMethodSpec.labelKey).toBe('manualInput.methodSelector.startupValuation')
     expect(startupValuationMethodSpec.descriptionKey).toBe(
       'manualInput.methodSelector.startupValuationDescription'
     )

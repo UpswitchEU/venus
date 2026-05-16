@@ -18,6 +18,13 @@ export {
   useBootstrapUI,
   useIsBootstrapComplete,
 } from './BootstrapProvider'
+export {
+  ACCOUNTANT_CREDIT_UPGRADE_PATH,
+  CLIENT_CREDIT_UPGRADE_PATH,
+  type CreditUpgradePath,
+  isAccountantBillingUpgradePath,
+  isClientPremiumUpgradePath,
+} from './credit-upgrade-path'
 // Resolvers
 export { AuthResolver, authResolver } from './resolvers/AuthResolver'
 export { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
@@ -26,7 +33,6 @@ export { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
 export { bootstrapService, SessionBootstrapService } from './SessionBootstrapService'
 // Types
 export * from './types'
-
 // Utils
 export {
   calculatePrefillConfidence,
@@ -35,10 +41,3 @@ export {
   parseBootstrapHints,
   parseUrlToContext,
 } from './utils'
-export {
-  ACCOUNTANT_CREDIT_UPGRADE_PATH,
-  CLIENT_CREDIT_UPGRADE_PATH,
-  type CreditUpgradePath,
-  isAccountantBillingUpgradePath,
-  isClientPremiumUpgradePath,
-} from './credit-upgrade-path'

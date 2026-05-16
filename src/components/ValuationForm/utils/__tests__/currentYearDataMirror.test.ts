@@ -27,7 +27,7 @@ describe('patchCurrentYearDataFromTopLevelFinancials', () => {
 
   it('deletes revenue when cleared (undefined) and own property', () => {
     const out = patchCurrentYearDataFromTopLevelFinancials(base, { revenue: undefined })
-    expect(Object.prototype.hasOwnProperty.call(out, 'revenue')).toBe(false)
+    expect(Object.hasOwn(out, 'revenue')).toBe(false)
     expect(out?.ebitda).toBe(100_000)
   })
 

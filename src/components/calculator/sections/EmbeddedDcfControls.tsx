@@ -1,24 +1,23 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
 import type React from 'react'
 import { lazy, Suspense } from 'react'
+import type { DcfInputMode } from '@/components/calculator/sections/DcfForecastWorkspace'
+import type { TerminalValueMethod } from '@/lib/methods/dcf/DcfGlobalAssumptionsSectionStack'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
-import {
-  appendManualForecastYear,
-  canAppendForecastYear,
-  getNextForecastYear,
-} from '../../../utils/forecastYears'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
-import { DcfForecastWorkspace, type DcfInputMode } from './DcfForecastWorkspace'
-import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 import type { DcfSmartDefaults, WaccSectorBand } from './dcfSmartDefaults'
 
-const DcfGlobalAssumptions = lazy(() =>
-  import('./DcfGlobalAssumptions').then((module) => ({
-    default: module.DcfGlobalAssumptions,
+const DcfGlobalAssumptionsSectionStack = lazy(() =>
+  import('@/lib/methods/dcf/DcfGlobalAssumptionsSectionStack').then((module) => ({
+    default: module.DcfGlobalAssumptionsSectionStack,
+  }))
+)
+const DcfForecastWorkspaceSectionStack = lazy(() =>
+  import('@/lib/methods/dcf/DcfForecastWorkspaceSectionStack').then((module) => ({
+    default: module.DcfForecastWorkspaceSectionStack,
   }))
 )
 
@@ -79,43 +78,26 @@ export function EmbeddedDcfControls({
   updateYearlyFinancials,
   waccSectorBand,
 }: EmbeddedDcfControlsProps) {
-  const mi = useTranslations('manualInput')
-
   if (!(hasDcfSelected && dcfForecastRows.length > 0)) return null
 
   const showGlobalAssumptions = adaptiveDcfGlobalStep != null
-  const dcfInputMode = formData.dcf_input_mode ?? 'ebitda'
+  const handleDcfFieldChange = (field: string, value: number | undefined) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
 
   return (
     <>
       {showGlobalAssumptions && (
         <Suspense fallback={<BonusSectionFallback />}>
-          <DcfGlobalAssumptions
+          <DcfGlobalAssumptionsSectionStack
             key="dcf_forecast_defaults_embedded"
             variant="forecastDefaultsOnly"
             className="mt-6 rounded-xl border border-primary/10 bg-primary/[0.03] p-4 sm:p-5"
             step={dcfForecastDefaultsStep}
-            dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-            dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-            dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-            dcfDaPct={formData.dcf_da_pct as number | undefined}
-            dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-            dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-            dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-            dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-            dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-            dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-            dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-            dcfBeta={formData.dcf_beta as number | undefined}
-            dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-            dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-            dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+            formData={formData}
             terminalValueMethod={terminalValueMethod}
             onTerminalValueMethodChange={handleTerminalValueMethodChange}
-            onFieldChange={(field, value) => {
-              setFormData((prev) => ({ ...prev, [field]: value }))
-            }}
-            dcfInputMode={dcfInputMode}
+            onFieldChange={handleDcfFieldChange}
             showDcfInputModeToggle
             dcfModeSegmentOptions={dcfModeSegmentOptions}
             onDcfInputModeChange={handleDcfInputModeChange}
@@ -129,72 +111,34 @@ export function EmbeddedDcfControls({
         </Suspense>
       )}
 
-      <DcfForecastWorkspace
-        step={dcfForecastWorkspaceStep}
-        showModeToggle={false}
-        forecastRows={dcfForecastRows}
-        derivedProjectionPreview={dcfProjectionAutofillRows}
-        latestHistoricalRevenue={latestHistoricalRevenue}
-        latestHistoricalEbitda={latestHistoricalEbitda}
-        fieldValidation={fieldValidation}
-        globalCapexPct={formData.dcf_capex_pct}
-        globalDaPct={formData.dcf_da_pct}
-        globalNwcPct={formData.dcf_nwc_pct}
-        globalTaxRatePct={formData.dcf_tax_rate_pct}
-        disabled={isCalculating}
-        canAddYear={canAppendForecastYear(formData.yearlyFinancials)}
-        nextForecastYear={getNextForecastYear(formData.yearlyFinancials)}
-        dcfInputMode={dcfInputMode}
-        onDcfInputModeChange={handleDcfInputModeChange}
-        onChange={(year, field, value) => updateYearlyFinancials(year, true, field, value)}
-        onAddYear={() => {
-          setFormData((prev) => {
-            const result = appendManualForecastYear(prev.yearlyFinancials)
-            if (!result.ok) {
-              if (result.reason === 'year_out_of_range') {
-                import('sonner').then(({ toast }) =>
-                  toast.error(mi('forecastYearOutOfRange') || 'Forecast year out of range')
-                )
-              }
-              return prev
-            }
-            return {
-              ...prev,
-              yearlyFinancials: result.yearlyFinancials as YearlyFinancials[],
-            }
-          })
-        }}
-        onRequestRemoveForecastYears={() => setShowForecastRemovalConfirm(true)}
-      />
+      <Suspense fallback={<BonusSectionFallback />}>
+        <DcfForecastWorkspaceSectionStack
+          step={dcfForecastWorkspaceStep}
+          formData={formData}
+          forecastRows={dcfForecastRows}
+          projectionAutofillRows={dcfProjectionAutofillRows}
+          fieldValidation={fieldValidation}
+          onDcfInputModeChange={handleDcfInputModeChange}
+          setFormData={setFormData}
+          setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
+          updateYearlyFinancials={updateYearlyFinancials}
+          disabled={isCalculating}
+          latestHistoricalRevenue={latestHistoricalRevenue}
+          latestHistoricalEbitda={latestHistoricalEbitda}
+        />
+      </Suspense>
 
       {showGlobalAssumptions && (
         <Suspense fallback={<BonusSectionFallback />}>
-          <DcfGlobalAssumptions
+          <DcfGlobalAssumptionsSectionStack
             key="dcf_discount_terminal_embedded"
             variant="discountTerminalOnly"
             className="mt-4"
             step={dcfWaccTerminalStep}
-            dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-            dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-            dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-            dcfDaPct={formData.dcf_da_pct as number | undefined}
-            dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-            dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-            dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-            dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-            dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-            dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-            dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-            dcfBeta={formData.dcf_beta as number | undefined}
-            dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-            dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-            dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+            formData={formData}
             terminalValueMethod={terminalValueMethod}
             onTerminalValueMethodChange={handleTerminalValueMethodChange}
-            onFieldChange={(field, value) => {
-              setFormData((prev) => ({ ...prev, [field]: value }))
-            }}
-            dcfInputMode={dcfInputMode}
+            onFieldChange={handleDcfFieldChange}
             disabled={isCalculating}
             smartDefaults={dcfSmartDefaultsFromHistory}
             integrationCapexPct={integrationDerivedCapexPct}

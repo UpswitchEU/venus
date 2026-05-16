@@ -148,7 +148,7 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
 
     React.useEffect(() => {
       setImageError(false)
-    }, [src])
+    }, [])
 
     const renderFallback = () => {
       if (fallback) return fallback

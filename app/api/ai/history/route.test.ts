@@ -34,10 +34,7 @@ vi.mock('@/utils/fetchWithTimeout', () => ({
 
 import { GET } from './route'
 
-function request(
-  reportId: string | null,
-  headers: Record<string, string> = {},
-): NextRequest {
+function request(reportId: string | null, headers: Record<string, string> = {}): NextRequest {
   const url =
     reportId === null
       ? 'https://valuation.upswitch.app/api/ai/history'
@@ -81,7 +78,7 @@ describe('auth gate (graceful)', () => {
   it('returns 200 with empty history when no upswitch_access_token cookie', async () => {
     const req = new NextRequest(
       'https://valuation.upswitch.app/api/ai/history?reportId=venus_calc_abc',
-      { method: 'GET' },
+      { method: 'GET' }
     )
 
     const res = await GET(req)
@@ -100,14 +97,14 @@ describe('auth gate (graceful)', () => {
 describe('Titan call', () => {
   it('URL-encodes reportId and forwards Bearer + Cookie to Titan', async () => {
     mockFetchWithTimeout.mockResolvedValue(
-      titanJsonResponse(200, { conversationId: 'abc', messages: [] }),
+      titanJsonResponse(200, { conversationId: 'abc', messages: [] })
     )
 
     await GET(request('venus_calc/with/slashes'))
 
     const [url, init] = mockFetchWithTimeout.mock.calls[0]
     expect(url).toBe(
-      'https://api.upswitch.app/api/v2/ai/conversations/venus_calc%2Fwith%2Fslashes/history',
+      'https://api.upswitch.app/api/v2/ai/conversations/venus_calc%2Fwith%2Fslashes/history'
     )
     const headers = (init as RequestInit).headers as Record<string, string>
     expect(headers.Authorization).toBe('Bearer jwt-token-here')
@@ -116,7 +113,7 @@ describe('Titan call', () => {
 
   it('forwards canonical client-context headers when present', async () => {
     mockFetchWithTimeout.mockResolvedValue(
-      titanJsonResponse(200, { conversationId: null, messages: [] }),
+      titanJsonResponse(200, { conversationId: null, messages: [] })
     )
 
     await GET(
@@ -124,7 +121,7 @@ describe('Titan call', () => {
         'X-Client-User-Id': 'cu-1',
         'X-Accountant-User-Id': 'au-1',
         'X-Relationship-Id': 'rel-1',
-      }),
+      })
     )
 
     const [, init] = mockFetchWithTimeout.mock.calls[0]
@@ -138,9 +135,7 @@ describe('Titan call', () => {
     const titanPayload = {
       success: true,
       conversationId: 'conv-xyz',
-      messages: [
-        { id: 'm1', role: 'user', content: 'hi', created_at: '2026-05-10T00:00:00Z' },
-      ],
+      messages: [{ id: 'm1', role: 'user', content: 'hi', created_at: '2026-05-10T00:00:00Z' }],
     }
     mockFetchWithTimeout.mockResolvedValue(titanJsonResponse(200, titanPayload))
 
@@ -153,9 +148,7 @@ describe('Titan call', () => {
 
 describe('defensive fallbacks', () => {
   it('returns 200 empty history when Titan returns 500', async () => {
-    mockFetchWithTimeout.mockResolvedValue(
-      titanJsonResponse(500, { error: 'titan down' }),
-    )
+    mockFetchWithTimeout.mockResolvedValue(titanJsonResponse(500, { error: 'titan down' }))
 
     const res = await GET(request('venus_calc'))
     const body = await res.json()
@@ -169,9 +162,7 @@ describe('defensive fallbacks', () => {
   })
 
   it('returns 200 empty history when Titan returns 401 (token expired mid-session)', async () => {
-    mockFetchWithTimeout.mockResolvedValue(
-      titanJsonResponse(401, { message: 'Unauthorized' }),
-    )
+    mockFetchWithTimeout.mockResolvedValue(titanJsonResponse(401, { message: 'Unauthorized' }))
 
     const res = await GET(request('venus_calc'))
     const body = await res.json()
@@ -185,7 +176,7 @@ describe('defensive fallbacks', () => {
       new Response('not-json', {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
-      }),
+      })
     )
 
     const res = await GET(request('venus_calc'))
@@ -198,9 +189,7 @@ describe('defensive fallbacks', () => {
   })
 
   it('returns 504 when fetchWithTimeout throws an error containing "timeout"', async () => {
-    mockFetchWithTimeout.mockRejectedValue(
-      new Error('Request timeout after 10000ms'),
-    )
+    mockFetchWithTimeout.mockRejectedValue(new Error('Request timeout after 10000ms'))
 
     const res = await GET(request('venus_calc'))
     const body = await res.json()

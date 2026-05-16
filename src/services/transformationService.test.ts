@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { transformRegistryDataToValuationRequest } from './transformationService'
 import type { CompanyFinancialData } from '../types/registry'
+import { transformRegistryDataToValuationRequest } from './transformationService'
 
 const baseRegistryData: CompanyFinancialData = {
   company_id: 'be-123',
@@ -57,7 +57,9 @@ describe('transformRegistryDataToValuationRequest', () => {
           { year: 2025, revenue: 1_050_000, ebitda: 105_000, filing_date: '2026-03-01' },
         ],
       })
-    ).toThrow('No filing-safe financial data available for transformation. Please use manual entry.')
+    ).toThrow(
+      'No filing-safe financial data available for transformation. Please use manual entry.'
+    )
   })
 
   it('clamps projection years to the ValuationIQ legacy contract', () => {
@@ -65,10 +67,12 @@ describe('transformRegistryDataToValuationRequest', () => {
     vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
 
     expect(
-      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 1 }).projection_years
+      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 1 })
+        .projection_years
     ).toBe(5)
     expect(
-      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 20 }).projection_years
+      transformRegistryDataToValuationRequest(baseRegistryData, { projectionYears: 20 })
+        .projection_years
     ).toBe(15)
   })
 })

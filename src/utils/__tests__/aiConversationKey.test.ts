@@ -1,22 +1,26 @@
 import { describe, expect, it } from 'vitest'
+import aiConversationKeyContract from '../../../../../tests/contracts/ai-conversation-key-contract.json'
 import { deriveClientScopedSessionKey } from '../aiConversationKey'
 
 /**
  * Contract pin for cross-app AI conversation key.
  *
- * MUST stay byte-for-byte identical to Mercury's parallel test in
+ * MUST stay aligned with Mercury's parallel test in
  * `apps/mercury/tests/unit/ai-dock-tool-card-parser.test.ts`
- * (search for `deriveClientScopedSessionKey`). If the two derivations
+ * (search for `deriveClientScopedSessionKey`). Both tests read the
+ * shared root fixture. If the two derivations
  * drift, the Mercury advisor dock and the Venus calculator chat
  * drawer stop sharing a conversation row and the
  * `resolveConversationLookupKey` override in Titan's AI controller
  * silently lands users on different threads.
  */
 describe('deriveClientScopedSessionKey (Venus side)', () => {
-  it('returns `client_<id>` for a non-empty clientUserId', () => {
-    expect(
-      deriveClientScopedSessionKey({ clientUserId: 'abc-123' }),
-    ).toBe('client_abc-123')
+  it('returns the shared `client_<id>` key for every contract case', () => {
+    for (const testCase of aiConversationKeyContract.clientScopedCases) {
+      expect(deriveClientScopedSessionKey({ clientUserId: testCase.clientUserId })).toBe(
+        testCase.expected
+      )
+    }
   })
 
   it('returns null for missing clientUserId', () => {
@@ -30,9 +34,7 @@ describe('deriveClientScopedSessionKey (Venus side)', () => {
     // fallback when clientUserId is absent). For the SHARED path
     // (clientUserId present), both apps MUST produce the identical
     // string — that's what makes the Titan conversation row align.
-    const id = '7c1d4b2e-9f3a-4a8e-b5d6-1c2b3a4d5e6f'
-    expect(deriveClientScopedSessionKey({ clientUserId: id })).toBe(
-      `client_${id}`,
-    )
+    const { clientUserId: id, expected } = aiConversationKeyContract.clientScopedCases[1]
+    expect(deriveClientScopedSessionKey({ clientUserId: id })).toBe(expected)
   })
 })

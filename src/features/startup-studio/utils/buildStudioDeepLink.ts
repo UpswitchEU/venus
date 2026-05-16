@@ -73,10 +73,7 @@ export interface StudioDeepLinkParams {
  * @returns         Path with `?selected_method=startup_valuation` plus
  *                  every supplied param URL-encoded.
  */
-export function buildStudioDeepLink(
-  basePath: string,
-  params: StudioDeepLinkParams = {},
-): string {
+export function buildStudioDeepLink(basePath: string, params: StudioDeepLinkParams = {}): string {
   const usp = new URLSearchParams()
   // Always pin the method gate so the studio panel actually mounts.
   // Without this the URL would land the founder on the SME calculator.
@@ -86,11 +83,7 @@ export function buildStudioDeepLink(
     const clean = params.companyName.trim().slice(0, 120)
     if (clean) usp.set('companyName', clean)
   }
-  if (
-    params.stage === 'pre_seed' ||
-    params.stage === 'seed' ||
-    params.stage === 'series_a'
-  ) {
+  if (params.stage === 'pre_seed' || params.stage === 'seed' || params.stage === 'series_a') {
     usp.set('stage', params.stage)
   }
   // Validate sector against the canonical 8-value enum.

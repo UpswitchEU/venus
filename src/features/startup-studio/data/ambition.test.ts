@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  AMBITION_ORDER,
-  getAmbitionAnchors,
-  inferAmbition,
-} from './ambition'
+import { AMBITION_ORDER, getAmbitionAnchors, inferAmbition } from './ambition'
 
 describe('ambition module', () => {
   it('returns sector-specific anchors for every (sector × ambition) pair', () => {
@@ -94,10 +90,7 @@ describe('ambition module', () => {
     // Defensive — guards against a future store migration that adds a
     // sector before the ambition table catches up.  Caller still gets
     // *some* numbers instead of a runtime crash.
-    const a = getAmbitionAnchors(
-      'this_sector_does_not_exist' as unknown as 'saas',
-      'standard',
-    )
+    const a = getAmbitionAnchors('this_sector_does_not_exist' as unknown as 'saas', 'standard')
     expect(a.year5_revenue).toBeGreaterThan(0)
   })
 })

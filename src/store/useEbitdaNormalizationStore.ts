@@ -173,7 +173,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             note,
           }
         } else {
-          updatedAdjustments = [...normalization.adjustments, { category, amount: safeAmount, note }]
+          updatedAdjustments = [
+            ...normalization.adjustments,
+            { category, amount: safeAmount, note },
+          ]
         }
         updatedAdjustments = updatedAdjustments.filter((adj) => adj.amount !== 0 || adj.note)
 
@@ -319,10 +322,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           throw new Error(`No normalization found for year ${year}`)
         }
         if (!isValidSessionId(sessionId)) {
-          throw new NormalizationAPIError(
-            400,
-            'session_id must be 8–128 characters'
-          )
+          throw new NormalizationAPIError(400, 'session_id must be 8–128 characters')
         }
 
         set({ isSaving: true })
@@ -487,13 +487,18 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             set({ isLoading: false })
             if (error instanceof NormalizationAPIError) {
               if (error.status === 404) {
-                generalLogger.debug('No normalization found for year, will create template', { year })
-              } else {
-                generalLogger.warn('Error loading normalization from backend, will create template', {
+                generalLogger.debug('No normalization found for year, will create template', {
                   year,
-                  status: error.status,
-                  message: error.message,
                 })
+              } else {
+                generalLogger.warn(
+                  'Error loading normalization from backend, will create template',
+                  {
+                    year,
+                    status: error.status,
+                    message: error.message,
+                  }
+                )
               }
               throw error
             } else {
@@ -655,7 +660,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
           // Owner compensation suggestion
           if (response.owner_compensation_market_rate) {
-            const categoryDef = getCategoryDefinition(NormalizationCategory.OWNER_COMPENSATION)
+            const _categoryDef = getCategoryDefinition(NormalizationCategory.OWNER_COMPENSATION)
             suggestions.push({
               category: NormalizationCategory.OWNER_COMPENSATION,
               suggested_amount: response.owner_compensation_market_rate,
@@ -668,10 +673,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           }
 
           // Personal expenses suggestion (as % of revenue)
-          if (
-            safeRevenue > 0 &&
-            Number.isFinite(response.personal_expenses_suggested_percentage)
-          ) {
+          if (safeRevenue > 0 && Number.isFinite(response.personal_expenses_suggested_percentage)) {
             const pct = safeNum(response.personal_expenses_suggested_percentage)
             const suggestedAmount = (safeRevenue * pct) / 100
             suggestions.push({

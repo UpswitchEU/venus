@@ -7,9 +7,9 @@
 
 'use client'
 
-import { LANGUAGES } from '@/lib/locale-constants'
 import { Globe } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { LANGUAGES } from '@/lib/locale-constants'
 import { useI18n } from '../hooks/useI18n'
 
 interface LanguageSelectorProps {
@@ -81,9 +81,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
         aria-haspopup="true"
       >
         <Globe className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground">
-          {currentLanguage?.name}
-        </span>
+        <span className="text-sm font-medium text-muted-foreground">{currentLanguage?.name}</span>
       </button>
 
       {isOpen && (

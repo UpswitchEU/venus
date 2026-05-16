@@ -32,7 +32,7 @@ const baseProps = {
   step: 1,
   variant: 'forecastDefaultsOnly' as const,
   terminalValueMethod: 'perpetual_growth' as const,
-  onTerminalValueMethodChange: () => {},
+  onTerminalValueMethodChange: () => undefined,
   dcfInputMode: 'ebitda' as const,
 }
 
@@ -56,7 +56,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
         {...baseProps}
         onFieldChange={onFieldChange}
         smartDefaults={smartDefaults}
-      />,
+      />
     )
 
     // Each smart-default value lands in the corresponding form field.
@@ -85,7 +85,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
         smartDefaults={smartDefaults}
         integrationCapexPct={5.7} // wins over smart default
         integrationDaPct={2.1}
-      />,
+      />
     )
 
     expect(onFieldChange).toHaveBeenCalledWith('dcf_capex_pct', 5.7)
@@ -102,7 +102,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
         onFieldChange={onFieldChange}
         dcfRevenueGrowthPct={4.2} // user-typed value present
         smartDefaults={smartDefaults}
-      />,
+      />
     )
 
     // Revenue growth should NOT be re-seeded — user's 4.2 stays.
@@ -131,7 +131,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
         dcfInputMode="fcff_only"
         onFieldChange={onFieldChange}
         smartDefaults={smartDefaults}
-      />,
+      />
     )
 
     const calls = onFieldChange.mock.calls.map(([field]) => field)
@@ -149,7 +149,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
         onFieldChange={onFieldChange}
         smartDefaults={{ revenueGrowthPct: 12 }}
         disabled
-      />,
+      />
     )
 
     expect(onFieldChange).not.toHaveBeenCalled()

@@ -71,7 +71,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
 
   // ROOT CAUSE FIX: Only subscribe to saveSession function, not entire session object
   // Session state is read via getState() when needed
-  const saveSession = useSessionStore((state) => state.saveSession)
+  const _saveSession = useSessionStore((state) => state.saveSession)
 
   // Ref to store pending changes
   const pendingChangesRef = useRef<Partial<any>>({})
@@ -189,7 +189,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
         }
       }, debounceMs)
     },
-    [reportId, debounceMs, onSaveSuccess, onSaveError]
+    [reportId, debounceMs, onSaveSuccess, onSaveError, isMountedRef.current]
   )
 
   /**
@@ -282,7 +282,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
         }
       }, debounceMs)
     },
-    [reportId, debounceMs, onSaveSuccess, onSaveError]
+    [reportId, debounceMs, onSaveSuccess, onSaveError, isMountedRef.current]
   )
 
   /**
@@ -354,7 +354,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
         error: errorMessage,
       })
     }
-  }, [reportId, onSaveSuccess, onSaveError])
+  }, [reportId, onSaveSuccess, onSaveError, isMountedRef.current])
 
   return {
     // State

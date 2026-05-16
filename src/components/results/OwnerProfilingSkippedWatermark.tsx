@@ -27,12 +27,8 @@ function OwnerProfilingSkippedWatermarkInner({ ctaHref }: Props) {
       aria-label={t('title')}
       className="rounded-xl border border-dashed border-amber-500/55 bg-amber-500/10 px-3 py-2.5 text-amber-950"
     >
-      <p className="text-[10px] font-bold uppercase tracking-wide leading-snug">
-        {t('title')}
-      </p>
-      <p className="mt-1 text-[12px] leading-snug text-amber-900/85">
-        {t('body')}
-      </p>
+      <p className="text-[10px] font-bold uppercase tracking-wide leading-snug">{t('title')}</p>
+      <p className="mt-1 text-[12px] leading-snug text-amber-900/85">{t('body')}</p>
       {ctaHref ? (
         <a
           href={ctaHref}
@@ -45,7 +41,5 @@ function OwnerProfilingSkippedWatermarkInner({ ctaHref }: Props) {
   )
 }
 
-export const OwnerProfilingSkippedWatermark = memo(
-  OwnerProfilingSkippedWatermarkInner
-)
+export const OwnerProfilingSkippedWatermark = memo(OwnerProfilingSkippedWatermarkInner)
 OwnerProfilingSkippedWatermark.displayName = 'OwnerProfilingSkippedWatermark'

@@ -10,8 +10,8 @@ import type { ValuationResponse } from '@/types/valuation'
 import {
   isDcfOrHybridMethodSignal,
   mapValuationResultToReport,
-  resultHasWeightedSynthesisSignal,
   type ReportTranslator,
+  resultHasWeightedSynthesisSignal,
 } from './mapValuationResultToReport'
 
 const translate: ReportTranslator = vi.fn((key) => `t:${key}`)
@@ -316,12 +316,16 @@ describe('isDcfOrHybridMethodSignal', () => {
     expect(isDcfOrHybridMethodSignal(value)).toBe(true)
   })
 
-  it.each([['ebitda_multiple'], ['sde_multiple'], ['adjusted_nav'], [null], [undefined], ['']])(
-    'rejects %s',
-    (value) => {
-      expect(isDcfOrHybridMethodSignal(value)).toBe(false)
-    }
-  )
+  it.each([
+    ['ebitda_multiple'],
+    ['sde_multiple'],
+    ['adjusted_nav'],
+    [null],
+    [undefined],
+    [''],
+  ])('rejects %s', (value) => {
+    expect(isDcfOrHybridMethodSignal(value)).toBe(false)
+  })
 })
 
 describe('resultHasWeightedSynthesisSignal', () => {
@@ -333,7 +337,10 @@ describe('resultHasWeightedSynthesisSignal', () => {
 
   it('detects blended_equity_value at the top level', () => {
     expect(
-      resultHasWeightedSynthesisSignal({ blended_equity_value: 1_000_000 } as Record<string, unknown>)
+      resultHasWeightedSynthesisSignal({ blended_equity_value: 1_000_000 } as Record<
+        string,
+        unknown
+      >)
     ).toBe(true)
   })
 

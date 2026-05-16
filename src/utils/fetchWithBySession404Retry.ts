@@ -1,7 +1,4 @@
-import {
-  BY_SESSION_404_BACKOFF_MS,
-  isBySessionReportUrl,
-} from '../constants/reportBySessionRetry'
+import { BY_SESSION_404_BACKOFF_MS, isBySessionReportUrl } from '../constants/reportBySessionRetry'
 
 /**
  * Read the `transient` flag from a 404 response body without consuming the

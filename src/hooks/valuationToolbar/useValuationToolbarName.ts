@@ -63,7 +63,9 @@ export const useValuationToolbarName = (
       }
 
       if (!actualReportId) {
-        generalLogger.debug('[useValuationToolbarName] No reportId available - name saved locally only')
+        generalLogger.debug(
+          '[useValuationToolbarName] No reportId available - name saved locally only'
+        )
         return name
       }
 
@@ -157,7 +159,15 @@ export const useValuationToolbarName = (
         }
       }
     }
-  }, [companyName, actualReportId, sessionName, generatedName, initialName, isEditingName, persistName])
+  }, [
+    companyName,
+    actualReportId,
+    sessionName,
+    generatedName,
+    initialName,
+    isEditingName,
+    persistName,
+  ])
 
   const nameInputRef = useRef<HTMLInputElement>(null)
 

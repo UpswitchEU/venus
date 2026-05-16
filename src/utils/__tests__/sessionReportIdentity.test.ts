@@ -16,7 +16,7 @@ describe('sessionReportIdentity', () => {
         mergeSessionDataEnvelopesFromRoot({
           sessionData: {},
           session_data: { company_name: 'From snake' },
-        }),
+        })
       ).toEqual({ company_name: 'From snake' })
     })
 
@@ -25,7 +25,7 @@ describe('sessionReportIdentity', () => {
         mergeSessionDataEnvelopesFromRoot({
           sessionData: { company_name: 'Camel' },
           session_data: { company_name: 'Snake', revenue: 1 },
-        }),
+        })
       ).toEqual({ company_name: 'Camel', revenue: 1 })
     })
 
@@ -34,7 +34,7 @@ describe('sessionReportIdentity', () => {
         mergeSessionDataEnvelopesFromRoot({
           sessionData: {},
           session_data: {},
-        }),
+        })
       ).toEqual({})
     })
   })
@@ -87,7 +87,7 @@ describe('sessionReportIdentity', () => {
         extractStableSessionKeyFromMergedSession({
           reportId: 'x',
           session_data: { session_key: valKey },
-        }),
+        })
       ).toBe(valKey)
     })
 
@@ -95,7 +95,7 @@ describe('sessionReportIdentity', () => {
       expect(
         extractStableSessionKeyFromMergedSession({
           sessionData: { sessionKey: valKey },
-        }),
+        })
       ).toBe(valKey)
     })
 
@@ -104,7 +104,7 @@ describe('sessionReportIdentity', () => {
         extractStableSessionKeyFromMergedSession({
           sessionData: {},
           session_data: { session_key: valKey },
-        }),
+        })
       ).toBe(valKey)
     })
   })

@@ -183,7 +183,7 @@ interface UseFormSessionSyncOptions {
  * Restoration (session → form) is handled centrally by SessionRestorationService
  */
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
-  const taxLatencyItems = useTaxLatencyStore((s) => s.items)
+  const _taxLatencyItems = useTaxLatencyStore((s) => s.items)
   const isDataEqual = useCallback(
     (fd: unknown, sd: unknown, tax: unknown[] | undefined) =>
       areFormAndSessionDataEqualForAutosync(fd, sd, tax),
@@ -387,7 +387,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         generalLogger.warn('Failed to sync form data to session', { error: err })
       }
     }, 500),
-    [reportId, isDataEqual] // Only depend on reportId and isDataEqual, not session
+    [] // Only depend on reportId and isDataEqual, not session
   )
 
   // Sync form data to session store whenever it changes (debounced)
@@ -396,7 +396,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     if (formData && Object.keys(formData).length > 0 && reportId) {
       debouncedSyncToSession(formData)
     }
-  }, [formData, debouncedSyncToSession, reportId, taxLatencyItems])
+  }, [formData, debouncedSyncToSession, reportId])
 
   // Flush pending debounced sync on page unload and tab hide to prevent data loss.
   // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after

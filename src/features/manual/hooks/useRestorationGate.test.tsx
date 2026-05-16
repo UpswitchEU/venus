@@ -6,10 +6,7 @@
 
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  useRestorationGate,
-  type UseRestorationGateParams,
-} from './useRestorationGate'
+import { type UseRestorationGateParams, useRestorationGate } from './useRestorationGate'
 
 describe('useRestorationGate', () => {
   beforeEach(() => {

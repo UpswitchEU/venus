@@ -27,7 +27,9 @@ export function mergeImportedLedgerAnalysisIntoBusinessContext(
   >,
   provider: string
 ): Record<string, unknown> {
-  const base = { ...(prevBusinessContext && typeof prevBusinessContext === 'object' ? prevBusinessContext : {}) }
+  const base = {
+    ...(prevBusinessContext && typeof prevBusinessContext === 'object' ? prevBusinessContext : {}),
+  }
 
   const existingRaw = base._imported_ledger_analysis
   const existing = asRecord(existingRaw) as ImportedLedgerAnalysisLike | null
@@ -43,7 +45,8 @@ export function mergeImportedLedgerAnalysisIntoBusinessContext(
     nextAnalysis.sde_flags = batch.sde_flags
   }
   if (batch.ev_equity_bridge && typeof batch.ev_equity_bridge === 'object') {
-    nextAnalysis.ev_equity_bridge = batch.ev_equity_bridge as unknown as ImportedLedgerAnalysisLike['ev_equity_bridge']
+    nextAnalysis.ev_equity_bridge =
+      batch.ev_equity_bridge as unknown as ImportedLedgerAnalysisLike['ev_equity_bridge']
   }
   if (batch.dcf_defaults && typeof batch.dcf_defaults === 'object') {
     nextAnalysis.dcf_defaults = {

@@ -38,7 +38,7 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
       <HistoricalDataInputs
         historicalInputs={historicalInputs}
         onChange={setHistoricalInputs}
-        onBlur={() => {}}
+        onBlur={() => undefined}
         foundingYear={foundingYear}
         currentYear={lastFullYear}
       />

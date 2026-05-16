@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import internalEmailContract from '../../../../../tests/contracts/internal-email-contract.json'
 import { isInternalEmail } from '../is-internal-user'
 
 describe('Venus isInternalEmail', () => {
@@ -17,26 +18,31 @@ describe('Venus isInternalEmail', () => {
   })
 
   it('matches the same default domains as Mercury', () => {
-    expect(isInternalEmail('staff@upswitch.com')).toBe(true)
-    expect(isInternalEmail('team@upswitch.app')).toBe(true)
-    expect(isInternalEmail('eng@upswitch.eu')).toBe(true)
-    expect(isInternalEmail('founders@team.upswitch.com')).toBe(true)
+    for (const email of internalEmailContract.defaultInternalEmails) {
+      expect(isInternalEmail(email)).toBe(true)
+    }
+    for (const email of internalEmailContract.subdomainInternalEmails) {
+      expect(isInternalEmail(email)).toBe(true)
+    }
   })
 
   it('returns false for external addresses and falsy input', () => {
-    expect(isInternalEmail('jane@example.com')).toBe(false)
-    expect(isInternalEmail(null)).toBe(false)
-    expect(isInternalEmail(undefined)).toBe(false)
-    expect(isInternalEmail('')).toBe(false)
-    expect(isInternalEmail('not-an-email')).toBe(false)
+    for (const email of internalEmailContract.externalOrInvalidEmails) {
+      expect(isInternalEmail(email as string | null | undefined)).toBe(false)
+    }
+    for (const email of internalEmailContract.substringTrapEmails) {
+      expect(isInternalEmail(email)).toBe(false)
+    }
   })
 
   it('honors the env-configured allowlist and extra domains', () => {
-    process.env.NEXT_PUBLIC_INTERNAL_EMAILS = 'qa-bot@partner.io'
-    process.env.NEXT_PUBLIC_INTERNAL_EMAIL_DOMAINS = 'qa.local'
+    process.env.NEXT_PUBLIC_INTERNAL_EMAILS = internalEmailContract.allowlistRaw
+    process.env.NEXT_PUBLIC_INTERNAL_EMAIL_DOMAINS = internalEmailContract.extraDomainsRaw
 
-    expect(isInternalEmail('qa-BOT@partner.io')).toBe(true)
-    expect(isInternalEmail('tester@sub.qa.local')).toBe(true)
-    expect(isInternalEmail('partner@notInternal.io')).toBe(false)
+    expect(isInternalEmail(internalEmailContract.allowlistInternalEmail)).toBe(true)
+    for (const email of internalEmailContract.extraDomainInternalEmails) {
+      expect(isInternalEmail(email)).toBe(true)
+    }
+    expect(isInternalEmail(internalEmailContract.allowlistExternalEmail)).toBe(false)
   })
 })

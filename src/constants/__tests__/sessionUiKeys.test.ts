@@ -25,7 +25,9 @@ describe('sanitizePreSelectedValuationMethod', () => {
   it('allows omzet_multiple regardless of revenue value', () => {
     expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 0)).toBe('omzet_multiple')
     expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', -500)).toBe('omzet_multiple')
-    expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 100_000)).toBe('omzet_multiple')
+    expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 100_000)).toBe(
+      'omzet_multiple'
+    )
     expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE')).toBe('omzet_multiple')
   })
 
@@ -46,25 +48,17 @@ describe('sanitizePreSelectedValuationMethod', () => {
     const ownerNav = ['upswitch_adaptive', 'arr_multiple', 'startup_valuation'] as const
 
     it('rejects firm-allowed methods that are NOT in the owner-founder nav', () => {
-      expect(
-        sanitizePreSelectedValuationMethod('dcf', 'BE', null, ownerNav)
-      ).toBeNull()
-      expect(
-        sanitizePreSelectedValuationMethod('ebitda_multiple', 'BE', null, ownerNav)
-      ).toBeNull()
-      expect(
-        sanitizePreSelectedValuationMethod('fiscal_4x', 'BE', null, ownerNav)
-      ).toBeNull()
+      expect(sanitizePreSelectedValuationMethod('dcf', 'BE', null, ownerNav)).toBeNull()
+      expect(sanitizePreSelectedValuationMethod('ebitda_multiple', 'BE', null, ownerNav)).toBeNull()
+      expect(sanitizePreSelectedValuationMethod('fiscal_4x', 'BE', null, ownerNav)).toBeNull()
     })
 
-    it.each(['arr_multiple', 'startup_valuation'])(
-      'accepts owner-founder method %s when override is the owner nav',
-      (method) => {
-        expect(
-          sanitizePreSelectedValuationMethod(method, 'BE', null, ownerNav)
-        ).toBe(method)
-      }
-    )
+    it.each([
+      'arr_multiple',
+      'startup_valuation',
+    ])('accepts owner-founder method %s when override is the owner nav', (method) => {
+      expect(sanitizePreSelectedValuationMethod(method, 'BE', null, ownerNav)).toBe(method)
+    })
 
     it('still normalizes upswitch_adaptive to null even with the owner override', () => {
       // `upswitch_adaptive` is the AI default — store as `null` so the
@@ -89,12 +83,10 @@ describe('sanitizePreSelectedValuationMethod', () => {
       // Owners might land on `?selected_method=DCF` or `?selected_method=  dcf  `;
       // normalize before checking the allowlist so the gate is robust to
       // accidental query-string casing.
-      expect(
-        sanitizePreSelectedValuationMethod('DCF', 'BE', null, ownerNav)
-      ).toBeNull()
-      expect(
-        sanitizePreSelectedValuationMethod('  ARR_MULTIPLE  ', 'BE', null, ownerNav)
-      ).toBe('arr_multiple')
+      expect(sanitizePreSelectedValuationMethod('DCF', 'BE', null, ownerNav)).toBeNull()
+      expect(sanitizePreSelectedValuationMethod('  ARR_MULTIPLE  ', 'BE', null, ownerNav)).toBe(
+        'arr_multiple'
+      )
     })
   })
 })

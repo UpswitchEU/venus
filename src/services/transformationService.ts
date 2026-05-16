@@ -235,7 +235,9 @@ export const transformRegistryDataToValuationRequest = (
 
   // Guard clause for empty filing history
   if (safeHistory.length === 0) {
-    throw new Error('No filing-safe financial data available for transformation. Please use manual entry.')
+    throw new Error(
+      'No filing-safe financial data available for transformation. Please use manual entry.'
+    )
   }
 
   // Extract current year and historical years

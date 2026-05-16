@@ -299,7 +299,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
     saveCompanyData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany])
+  }, [selectedCompany, formData, updateFormData])
 
   return (
     <AuroraFormSection title={t('forms.sections.basicInformation')}>
@@ -397,7 +397,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           name="company_name"
           value={formData.company_name || ''}
           onChange={(value) => updateFormData({ company_name: value })}
-          onBlur={() => {}}
+          onBlur={() => undefined}
           placeholder={t('forms.fields.companyNamePlaceholder')}
           countryCode={effectiveCountryCode}
           selectedCompany={selectedCompany}
@@ -440,7 +440,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
               founding_year: parseInt(e.target.value, 10) || getCurrentFilingYear() - 5,
             })
           }
-          onBlur={() => {}}
+          onBlur={() => undefined}
           name="founding_year"
           min={1900}
           max={new Date().getFullYear()}

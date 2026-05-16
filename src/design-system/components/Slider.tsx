@@ -207,7 +207,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
         window.removeEventListener('touchmove', handleTouchMove)
         window.removeEventListener('touchend', handleEnd)
       }
-    }, [isDragging, isControlled, controlledValue, internalValue, onChangeEnd])
+    }, [isDragging, isControlled, controlledValue, internalValue, onChangeEnd, updateValue])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (disabled) return
@@ -447,7 +447,7 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
         window.removeEventListener('mousemove', handleMouseMove)
         window.removeEventListener('mouseup', handleEnd)
       }
-    }, [activeThumb, isControlled, controlledValue, internalValue, onChangeEnd])
+    }, [activeThumb, isControlled, controlledValue, internalValue, onChangeEnd, updateValue])
 
     const fillColor = {
       default: 'bg-primary',

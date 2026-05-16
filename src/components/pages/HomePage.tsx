@@ -28,7 +28,7 @@ export const HomePage: React.FC = () => {
   const t = useTranslations()
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<'manual' | 'conversational'>('manual')
-  const [businessCardData, setBusinessCardData] = useState<BusinessCardData | null>(null)
+  const [_businessCardData, setBusinessCardData] = useState<BusinessCardData | null>(null)
   const [businessCardToken, setBusinessCardToken] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -120,7 +120,7 @@ export const HomePage: React.FC = () => {
       const newReportId = generateReportId()
       router.push(UrlGeneratorService.reportById(newReportId, { token }))
     }
-  }, [router, query])
+  }, [router, query, clientContext.getContextHeaders])
 
   // Fetch recent reports on mount and when user changes
   useEffect(() => {

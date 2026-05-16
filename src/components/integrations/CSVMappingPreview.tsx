@@ -26,14 +26,14 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
-import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import { cn } from '@/design-system/utils'
+import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import type { ParsedCSVData } from './CSVUploadCard'
 
 // ─────────────────────────────────────────
@@ -155,7 +155,7 @@ const ConfidenceDot = ({ confidence }: { confidence: MappedAccount['confidence']
   )
 }
 
-const formatCurrency = (amount: number) => {
+const _formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('nl-BE', {
     style: 'currency',
     currency: 'EUR',

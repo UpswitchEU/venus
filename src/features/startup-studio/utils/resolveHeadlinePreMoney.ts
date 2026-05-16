@@ -34,7 +34,7 @@ export function isValidPreMoneyTarget(value: number | null | undefined): boolean
 
 export function resolveHeadlinePreMoney(
   preMoneyTarget: number | null | undefined,
-  blendedMid: number | null | undefined,
+  blendedMid: number | null | undefined
 ): number | null {
   const explicit = normalizePreMoneyTarget(preMoneyTarget)
   if (explicit != null) return explicit

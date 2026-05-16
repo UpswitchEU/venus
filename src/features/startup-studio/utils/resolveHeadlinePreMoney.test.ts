@@ -44,7 +44,9 @@ describe('resolveHeadlinePreMoney', () => {
   })
 
   it('caps an explicit target before preferring it over blend', () => {
-    expect(resolveHeadlinePreMoney(PRE_MONEY_TARGET_MAX_EUR + 9, 1_700_000)).toBe(PRE_MONEY_TARGET_MAX_EUR)
+    expect(resolveHeadlinePreMoney(PRE_MONEY_TARGET_MAX_EUR + 9, 1_700_000)).toBe(
+      PRE_MONEY_TARGET_MAX_EUR
+    )
   })
 
   it('isValidPreMoneyTarget matches resolve semantics', () => {

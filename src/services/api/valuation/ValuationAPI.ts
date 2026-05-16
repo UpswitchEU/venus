@@ -84,7 +84,9 @@ function extractValidationMessage(responseData: any, fallback: string): string {
   const issues = extractValidationIssues(responseData?.errors)
   const issueSummary =
     issues.length > 0
-      ? issues.map((issue) => (issue.field ? `${issue.field}: ${issue.message}` : issue.message)).join('; ')
+      ? issues
+          .map((issue) => (issue.field ? `${issue.field}: ${issue.message}` : issue.message))
+          .join('; ')
       : null
 
   return explicitMessage || issueSummary || fallback
@@ -292,7 +294,7 @@ export class ValuationAPI extends HttpClient {
         acknowledged_extreme?: boolean
       }
       clear_preparer_override?: boolean
-    },
+    }
   ): Promise<{ selected_method: string; html_report?: string }> {
     try {
       return await this.executeRequest<{ selected_method: string; html_report?: string }>(
@@ -313,7 +315,7 @@ export class ValuationAPI extends HttpClient {
           },
           headers: {},
         } as any,
-        { timeout: 30_000 },
+        { timeout: 30_000 }
       )
     } catch (error) {
       apiLogger.warn('Failed to persist selected method (non-critical)', {

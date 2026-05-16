@@ -145,9 +145,9 @@ import {
   useManualNormalizationRecalculation,
   useManualNormalizationReviewActions,
   useManualPdfExportController,
+  useManualRecalculateConfirmation,
   useManualRecentValuationDeletion,
   useManualRecentValuations,
-  useManualRecalculateConfirmation,
   useManualReportMethodHydration,
   useManualReportRefreshAfterEdit,
   useManualSubmitErrorHandler,
@@ -197,11 +197,11 @@ import {
 } from '../utils/manualSubmitValidation'
 import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
 import { buildManualVersionHistoryForNav } from '../utils/manualVersionNav'
+import { ManualReportWorkspace } from './ManualReportWorkspace'
 import {
   ManualStarterPaywallModal,
   type ManualStarterPaywallReason,
 } from './ManualStarterPaywallModal'
-import { ManualReportWorkspace } from './ManualReportWorkspace'
 import { useManualLayoutIsMobile } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
 // `selectCapTableSimulatorResult` import removed alongside the React slider
@@ -210,8 +210,8 @@ import type { ManualLayoutProps } from './manualLayoutTypes'
 import { deriveManualReportPresentation } from './manualReportPresentation'
 
 /** Poll while PDF is stale; extend max window so slow jobs can still complete */
-const PDF_STALE_POLL_INTERVAL_MS = 2500
-const PDF_STALE_POLL_MAX_MS = 120_000
+const _PDF_STALE_POLL_INTERVAL_MS = 2500
+const _PDF_STALE_POLL_MAX_MS = 120_000
 
 // `isDcfOrHybridMethodSignal` + `resultHasWeightedSynthesisSignal` moved
 // into `features/manual/utils/mapValuationResultToReport` as part of the
@@ -424,7 +424,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const session = useSessionStore((s) => s.session)
   const activeSessionKey = getManualSessionKey(session)
   const sessionError = useSessionStore((s) => s.errorMessage)
-  const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
+  const _reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
   const importQualityMap = useImportQualityStore((s) => s.importQuality)
@@ -612,6 +612,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     report?.valuation,
     result,
     selectedMethod,
+    report,
   ])
   const canDownloadPdf = useMemo(() => {
     if (planFeatures?.valuation_download !== false) return true
@@ -643,7 +644,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isRestoringExistingReport,
     restorationComplete,
   })
-  const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
+  const [_reportStatus, _setReportStatus] = useState<'draft' | 'final'>('draft')
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
 
@@ -771,6 +772,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formStoreData.current_year_data,
     formStoreData.historical_years_data,
     formStoreData.forecast_years_data,
+    formStoreData,
   ])
 
   // Derive financial years from the latest live form snapshot for the normalization modal.
@@ -830,13 +832,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       result,
       report,
     })
-  }, [
-    formStoreData?.current_year_data?.ebitda,
-    formStoreData?.ebitda,
-    originalEBITDAByYear,
-    report,
-    result,
-  ])
+  }, [formStoreData?.current_year_data?.ebitda, originalEBITDAByYear, report, result])
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
@@ -1000,6 +996,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formStoreData.revenue,
     formStoreData.ebitda,
     formStoreData.forecast_years_data,
+    formStoreData,
   ])
 
   useManualCollectedDataSync<CollectedData>({
@@ -1246,6 +1243,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isPdfRetrying,
     persistedReportLookupId,
     handleRetryPdfStalled,
+    canDownloadPdf,
   ])
 
   // Latest-ref for the server-confirmed previously persisted method.
@@ -1318,16 +1316,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   })
   const isMethodSwitchRendering = persistCoordinator.isPersisting
 
-  // Sync the preparer baseline from server-confirmed `result` so the dedup
-  // reflects the latest persisted state (replaces the legacy
-  // `lastPersistedPreparerRef = serializeManualPreparerPayload(...)` effect).
+  // Sync server-confirmed baselines from `result` so the dedup reflects the
+  // latest persisted state after hydration/refresh.
   useEffect(() => {
     persistCoordinator.setBaseline({
+      method: resultMethodRef.current,
       preparerSignature: serializeManualPreparerPayload(
         buildPersistedPreparerMultiplePayload(result)
       ),
     })
-  }, [result, persistCoordinator])
+  }, [result, persistCoordinator, resultMethodRef])
 
   const { warnIfSubmitSynthesisSkipped } = useManualSynthesisSkippedWarnings({
     lastSynthesisBlendSkippedRunKeyRef,
@@ -2239,7 +2237,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNormalizationsChange={handleNormalizationsChange}
         countryCode={formCountry || 'BE'}
         hasUploadedData={hasImportedNormalizationData}
-        onUploadClick={() => {}}
+        onUploadClick={() => undefined}
         financialYears={financialYears}
         initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
         initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}

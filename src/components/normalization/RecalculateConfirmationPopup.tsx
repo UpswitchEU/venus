@@ -8,8 +8,8 @@
  * Launch-ready: Escape to cancel, aria-modal, role=dialog for accountants.
  */
 
-import React, { useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useRef } from 'react'
 
 interface RecalculateConfirmationPopupProps {
   isOpen: boolean
@@ -109,7 +109,10 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
           </div>
 
           {/* Content */}
-          <h3 id="recalculate-popup-title" className="text-xl font-semibold text-foreground mb-2 text-center">
+          <h3
+            id="recalculate-popup-title"
+            className="text-xl font-semibold text-foreground mb-2 text-center"
+          >
             {t('title')}
           </h3>
 

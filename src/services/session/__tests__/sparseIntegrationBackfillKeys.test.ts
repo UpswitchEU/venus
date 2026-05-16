@@ -26,7 +26,7 @@ const REQUIRED = [
 describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
   const base = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'SessionService.ts'),
-    'utf8',
+    'utf8'
   )
 
   it.each(REQUIRED)('includes %s', (key) => {

@@ -12,7 +12,11 @@ vi.mock('../HttpClient', () => ({
   },
 }))
 
-import { accountingAPI, pickConnectedImportStatus, pickConnectedVenusBatchImportStatus } from '../accounting'
+import {
+  accountingAPI,
+  pickConnectedImportStatus,
+  pickConnectedVenusBatchImportStatus,
+} from '../accounting'
 
 describe('accountingAPI filing year defaults', () => {
   beforeEach(() => {
@@ -69,13 +73,16 @@ describe('accountingAPI filing year defaults', () => {
 
     await accountingAPI.getSilverfinFinancialDataBatch(2022, 2024, { companyId: 'dossier-1' })
 
-    expect(mockGet).toHaveBeenCalledWith('/integrations/accounting/silverfin/financial-data/batch', {
-      params: {
-        start_year: 2022,
-        end_year: 2024,
-        company_id: 'dossier-1',
-      },
-    })
+    expect(mockGet).toHaveBeenCalledWith(
+      '/integrations/accounting/silverfin/financial-data/batch',
+      {
+        params: {
+          start_year: 2022,
+          end_year: 2024,
+          company_id: 'dossier-1',
+        },
+      }
+    )
   })
 
   it('requests Bizzcontrol multi-year batch with company_id', async () => {
@@ -83,13 +90,16 @@ describe('accountingAPI filing year defaults', () => {
 
     await accountingAPI.getBizzcontrolFinancialDataBatch(2023, 2025, { companyId: 'client-9' })
 
-    expect(mockGet).toHaveBeenCalledWith('/integrations/accounting/bizzcontrol/financial-data/batch', {
-      params: {
-        start_year: 2023,
-        end_year: 2025,
-        company_id: 'client-9',
-      },
-    })
+    expect(mockGet).toHaveBeenCalledWith(
+      '/integrations/accounting/bizzcontrol/financial-data/batch',
+      {
+        params: {
+          start_year: 2023,
+          end_year: 2025,
+          company_id: 'client-9',
+        },
+      }
+    )
   })
 
   it('requests Octopus multi-year batch with company_id', async () => {

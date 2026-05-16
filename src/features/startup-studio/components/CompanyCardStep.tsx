@@ -78,7 +78,10 @@ const STAGE_VALUES: StartupStage[] = ['pre_seed', 'seed', 'series_a']
  * confused Mercury's downstream form. Falls back to BE for any
  * unknown country code so existing payloads keep rendering.
  */
-const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<string, ReadonlyArray<{ value: string; label: string }>> = {
+const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<
+  string,
+  ReadonlyArray<{ value: string; label: string }>
+> = {
   BE: [
     { value: 'bv', label: 'BV' },
     { value: 'nv', label: 'NV' },
@@ -114,10 +117,8 @@ const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<string, ReadonlyArray<{ value: strin
 } as const
 
 function getLegalFormOptions(countryCode: string): Array<{ value: string; label: string }> {
-  return (
-    LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
-    LEGAL_FORM_OPTIONS_BY_COUNTRY.BE
-  ) as Array<{ value: string; label: string }>
+  return (LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
+    LEGAL_FORM_OPTIONS_BY_COUNTRY.BE) as Array<{ value: string; label: string }>
 }
 
 export function CompanyCardStep(_props: CompanyCardStepProps) {
@@ -133,7 +134,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),
-    [locale],
+    [locale]
   )
   const stageControlOptions = useMemo(
     () =>
@@ -141,7 +142,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         value,
         label: t(`stageLabels.${value}` as never),
       })),
-    [t],
+    [t]
   )
   const stage = useStartupValuationStore((s) => s.stage)
   const sector = useStartupValuationStore((s) => s.sector)
@@ -149,9 +150,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   // the *current* number (post-override), not the sector default.  Two
   // truths in the same panel was the audit finding — the chip used to
   // print `6×` while Exit Story applied `9×`.
-  const appliedExitMultiple = useStartupValuationStore(
-    (s) => s.exit_revenue_multiple,
-  )
+  const appliedExitMultiple = useStartupValuationStore((s) => s.exit_revenue_multiple)
   const raise = useStartupValuationStore((s) => s.investment_amount_sought)
   const description = useStartupValuationStore((s) => s.description)
   // Traction signals — used to surface a "you might want SaaS valuation
@@ -163,7 +162,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const setField = useStartupValuationStore((s) => s.setField)
   const seedSectorFromNaceIfDefault = useStartupValuationStore((s) => s.seedSectorFromNaceIfDefault)
   const seedStageFromFoundingYearIfDefault = useStartupValuationStore(
-    (s) => s.seedStageFromFoundingYearIfDefault,
+    (s) => s.seedStageFromFoundingYearIfDefault
   )
 
   // Auto-seed the round size from the stage benchmark.  Two trigger
@@ -181,8 +180,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   // 2024 cohort medians.
   useEffect(() => {
     const stageDefaults = Object.values(STARTUP_STAGE_DEFAULT_RAISE)
-    const onSomeDefault =
-      typeof raise === 'number' && stageDefaults.includes(raise)
+    const onSomeDefault = typeof raise === 'number' && stageDefaults.includes(raise)
     if (raise == null || onSomeDefault) {
       const next = STARTUP_STAGE_DEFAULT_RAISE[stage]
       if (raise !== next) {
@@ -190,7 +188,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage])
+  }, [stage, raise, setField])
 
   // Materially recurring revenue threshold for the SaaS-pivot nudge.
   //   - €10k MRR ≈ €120k ARR — the empirical pivot point where ARR
@@ -277,8 +275,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     const studioStore = useStartupValuationStore.getState()
 
     // Company name — both the legacy alias and the new one.
-    const nameParam =
-      params.get('companyName')?.trim() || params.get('prefilledQuery')?.trim()
+    const nameParam = params.get('companyName')?.trim() || params.get('prefilledQuery')?.trim()
     if (nameParam && !(formStore.formData.company_name?.trim() ?? '')) {
       updateFormData({ company_name: nameParam.slice(0, 120) })
     }
@@ -287,11 +284,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     // deliberately don't gate on a "user-set" flag because the URL
     // is the single source-of-truth for first-mount intent.
     const stageParam = params.get('stage')?.trim()
-    if (
-      stageParam === 'pre_seed' ||
-      stageParam === 'seed' ||
-      stageParam === 'series_a'
-    ) {
+    if (stageParam === 'pre_seed' || stageParam === 'seed' || stageParam === 'series_a') {
       setField('stage', stageParam)
     }
 
@@ -299,10 +292,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     // seeder from clobbering an explicit pick later. The URL pre-fill
     // counts as the same kind of explicit pick.
     const sectorParam = params.get('sector')?.trim() as StartupSector | undefined
-    if (
-      sectorParam &&
-      (SECTOR_OPTIONS as ReadonlyArray<string>).includes(sectorParam)
-    ) {
+    if (sectorParam && (SECTOR_OPTIONS as ReadonlyArray<string>).includes(sectorParam)) {
       setField('sector', sectorParam)
     }
 
@@ -502,12 +492,8 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       // stage default below.  Only set when the form-store doesn't
       // already carry one (returning user, prior session, etc.) so we
       // never clobber a manually-entered year.
-      if (
-        typeof company.foundingYear === 'number' &&
-        Number.isFinite(company.foundingYear)
-      ) {
-        const currentFoundingYear = useManualFormStore.getState().formData
-          .founding_year
+      if (typeof company.foundingYear === 'number' && Number.isFinite(company.foundingYear)) {
+        const currentFoundingYear = useManualFormStore.getState().formData.founding_year
         if (
           currentFoundingYear === undefined ||
           currentFoundingYear === null ||
@@ -537,23 +523,13 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       // in seconds.  120 chars matches the textarea soft-cap.
       const currentDescription = useStartupValuationStore.getState().description
       if (!currentDescription.trim()) {
-        const sourceText = (
-          company.activityLabel?.trim() ||
-          company.naceDescription?.trim() ||
-          ''
-        )
+        const sourceText = company.activityLabel?.trim() || company.naceDescription?.trim() || ''
         if (sourceText) {
           setField('description', sourceText.slice(0, 120))
         }
       }
     },
-    [
-      businessTypesForSearch,
-      country,
-      setField,
-      updateFormData,
-      seedStageFromFoundingYearIfDefault,
-    ]
+    [businessTypesForSearch, country, setField, updateFormData, seedStageFromFoundingYearIfDefault]
   )
 
   const handleClearCompany = useCallback(() => {
@@ -608,11 +584,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         />
 
         <KBOSearchInput
-          label={
-            country === 'NL'
-              ? t('searchCompanyNl')
-              : t('searchCompanyBe')
-          }
+          label={country === 'NL' ? t('searchCompanyNl') : t('searchCompanyBe')}
           value={companySearchValue}
           onChange={setCompanySearchValue}
           onCompanySelect={handleCompanySelect}
@@ -695,12 +667,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           <p className="mt-2 text-[11px] leading-relaxed text-foreground/55">
             {t(`stageSubtitles.${stage}` as never)}
           </p>
-          {stage === 'series_a' && (
-            <SwitchToArrNudge
-              tone="amber"
-              text={t('seriesANudge')}
-            />
-          )}
+          {stage === 'series_a' && <SwitchToArrNudge tone="amber" text={t('seriesANudge')} />}
           {seedHasMaterialRevenue && (
             <SwitchToArrNudge
               tone="sky"
@@ -803,9 +770,8 @@ function SectorChip({
   const [editing, setEditing] = useState(false)
   const sectorLabel = tSector(sector)
   const sectorDefault = STARTUP_SECTOR_EXIT_MULTIPLES[sector]
-  const multiple = appliedMultiple ?? sectorDefault
-  const isOverridden =
-    appliedMultiple != null && Math.abs(appliedMultiple - sectorDefault) > 0.01
+  const _multiple = appliedMultiple ?? sectorDefault
+  const isOverridden = appliedMultiple != null && Math.abs(appliedMultiple - sectorDefault) > 0.01
 
   if (!editing) {
     // Display chip — sector label + change button only.  The exit
@@ -861,16 +827,12 @@ function SectorChip({
               ].join(' ')}
             >
               {tSector(opt)}{' '}
-              <span className="opacity-65 tabular-nums">
-                {STARTUP_SECTOR_EXIT_MULTIPLES[opt]}×
-              </span>
+              <span className="opacity-65 tabular-nums">{STARTUP_SECTOR_EXIT_MULTIPLES[opt]}×</span>
             </button>
           )
         })}
       </div>
-      <p className="mt-2 text-[10px] text-foreground/55">
-        {t('sectorChipPickHint')}
-      </p>
+      <p className="mt-2 text-[10px] text-foreground/55">{t('sectorChipPickHint')}</p>
     </div>
   )
 }
@@ -894,12 +856,14 @@ interface SwitchToArrNudgeProps {
 function SwitchToArrNudge({ tone, text }: SwitchToArrNudgeProps) {
   const t = useTranslations('startupStudio.companyCard')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
-  const cls = tone === 'amber'
-    ? 'border-amber-300/50 bg-amber-50/60 text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200'
-    : 'border-sky-300/50 bg-sky-50/60 text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200'
-  const btnCls = tone === 'amber'
-    ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
-    : 'border-sky-500 bg-sky-500 text-white hover:bg-sky-600'
+  const cls =
+    tone === 'amber'
+      ? 'border-amber-300/50 bg-amber-50/60 text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200'
+      : 'border-sky-300/50 bg-sky-50/60 text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200'
+  const btnCls =
+    tone === 'amber'
+      ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
+      : 'border-sky-500 bg-sky-500 text-white hover:bg-sky-600'
   return (
     <div className={`mt-3 rounded-lg border p-3 text-[11px] leading-relaxed ${cls}`}>
       <p>{text}</p>

@@ -53,7 +53,7 @@
 import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { type ReactNode, useEffect, useId, useState } from 'react'
 
 import { cn } from '@/design-system/utils'
 
@@ -75,19 +75,14 @@ function AnchorRow({
 }) {
   return (
     <div className="space-y-1.5">
-      <label
-        htmlFor={htmlFor}
-        className="flex items-baseline gap-2 cursor-pointer"
-      >
+      <label htmlFor={htmlFor} className="flex items-baseline gap-2 cursor-pointer">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground/45">
           {eyebrow}
         </span>
         <span className="text-xs font-medium text-foreground/85">{label}</span>
       </label>
       {children}
-      {hint ? (
-        <p className="text-[11px] leading-snug text-muted-foreground">{hint}</p>
-      ) : null}
+      {hint ? <p className="text-[11px] leading-snug text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -161,9 +156,7 @@ export function FiscalInputsSection({
           title={t('title')}
           complete={fiscalAcquisitionCost !== undefined}
         />
-        <p className="pl-8 text-[11px] leading-snug text-muted-foreground">
-          {t('subtitle')}
-        </p>
+        <p className="pl-8 text-[11px] leading-snug text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* Progress chip — same visual rhythm as LiquidationInputsSection. */}
@@ -172,10 +165,7 @@ export function FiscalInputsSection({
         data-testid="fiscal-inputs-progress"
         aria-live="polite"
       >
-        <span
-          aria-hidden="true"
-          className="inline-block h-1.5 w-1.5 rounded-full bg-primary/70"
-        />
+        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-primary/70" />
         {t('progress', { filled: totalFilled, total: 4 })}
       </div>
 

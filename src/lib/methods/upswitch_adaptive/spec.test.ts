@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  upswitchAdaptiveMethodSpec,
-  UPSWITCH_ADAPTIVE_METHOD_KEY,
-} from './spec'
+import { UPSWITCH_ADAPTIVE_METHOD_KEY, upswitchAdaptiveMethodSpec } from './spec'
 
 describe('upswitchAdaptiveMethodSpec', () => {
   it('uses the canonical "upswitch_adaptive" key', () => {

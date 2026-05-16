@@ -29,10 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST } from './route'
 
-function request(
-  body: unknown,
-  headers: Record<string, string> = {},
-): NextRequest {
+function request(body: unknown, headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('https://valuation.upswitch.app/api/ai/chat', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -54,9 +51,7 @@ function titanJsonResponse(status: number, body: unknown): Response {
 function titanStreamResponse(): Response {
   const stream = new ReadableStream({
     start(controller) {
-      controller.enqueue(
-        new TextEncoder().encode('data: {"type":"text","content":"hi"}\n\n'),
-      )
+      controller.enqueue(new TextEncoder().encode('data: {"type":"text","content":"hi"}\n\n'))
       controller.close()
     },
   })
@@ -67,10 +62,7 @@ function titanStreamResponse(): Response {
 }
 
 beforeEach(() => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue(titanStreamResponse()),
-  )
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanStreamResponse()))
 })
 
 afterEach(() => {
@@ -102,9 +94,14 @@ describe('auth gate', () => {
   })
 
   it('returns 401 when cookie has other tokens but not upswitch_access_token', async () => {
-    const res = await POST(request({ message: 'hi' }, {
-      cookie: 'some_other_cookie=abc; foo=bar',
-    }))
+    const res = await POST(
+      request(
+        { message: 'hi' },
+        {
+          cookie: 'some_other_cookie=abc; foo=bar',
+        }
+      )
+    )
 
     expect(res.status).toBe(401)
     expect(fetch).not.toHaveBeenCalled()
@@ -133,9 +130,7 @@ describe('stream routing', () => {
   it('routes to non-streaming chat when body.stream === false', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        titanJsonResponse(200, { success: true, content: 'reply' }),
-      ),
+      vi.fn().mockResolvedValue(titanJsonResponse(200, { success: true, content: 'reply' }))
     )
 
     await POST(request({ message: 'hi', stream: false }))
@@ -168,10 +163,7 @@ describe('header forwarding', () => {
 
   it('extracts the access token even when surrounded by other cookies', async () => {
     await POST(
-      request(
-        { message: 'hi' },
-        { cookie: 'foo=bar; upswitch_access_token=middle-token; baz=qux' },
-      ),
+      request({ message: 'hi' }, { cookie: 'foo=bar; upswitch_access_token=middle-token; baz=qux' })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -190,8 +182,8 @@ describe('header forwarding', () => {
           'X-Client-User-Id': 'client-uuid-123',
           'X-Accountant-User-Id': 'accountant-uuid-456',
           'X-Relationship-Id': 'rel-uuid-789',
-        },
-      ),
+        }
+      )
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -216,8 +208,8 @@ describe('header forwarding', () => {
           'X-Client-Context-User': 'legacy-client',
           'X-Client-Context-Accountant': 'legacy-accountant',
           'X-Client-Context-Relationship': 'legacy-rel',
-        },
-      ),
+        }
+      )
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -255,7 +247,7 @@ describe('Titan payload', () => {
           { role: 'user', content: 'first' },
           { role: 'assistant', content: 'second' },
         ],
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -308,7 +300,7 @@ describe('Titan payload', () => {
       request({
         message: 'check',
         formData: { revenue: 50000, ebitda: 10000 },
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -328,7 +320,7 @@ describe('Titan payload', () => {
           { category: 'rent', status: 'applied' },
           { category: 'salary', status: 'applied' },
         ],
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -347,7 +339,7 @@ describe('Titan payload', () => {
           { category: 'rent', status: 'applied' },
           { category: 'salary', status: 'pending' },
         ],
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -365,7 +357,7 @@ describe('Titan payload', () => {
         conversationId: 'conv-1',
         formData: { revenue: 1000 },
         normalizations: [{ category: 'x' }],
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -394,7 +386,7 @@ describe('Titan payload', () => {
       request({
         message: 'hi',
         formData: { country: 'fallback-NL' },
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -418,8 +410,8 @@ describe('error pass-through', () => {
         titanJsonResponse(402, {
           message: 'AI chat credit limit reached.',
           requires_upgrade: true,
-        }),
-      ),
+        })
+      )
     )
 
     const res = await POST(request({ message: 'hi', stream: false }))
@@ -434,10 +426,7 @@ describe('error pass-through', () => {
   })
 
   it('falls back to generic message when Titan non-OK has no `message` field', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(titanJsonResponse(500, { code: 'internal' })),
-    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanJsonResponse(500, { code: 'internal' })))
 
     const res = await POST(request({ message: 'hi', stream: false }))
     const body = await res.json()
@@ -453,8 +442,8 @@ describe('error pass-through', () => {
         new Response('garbage', {
           status: 502,
           headers: { 'Content-Type': 'text/plain' },
-        }),
-      ),
+        })
+      )
     )
 
     const res = await POST(request({ message: 'hi', stream: false }))
@@ -485,10 +474,7 @@ describe('response shape', () => {
       conversationId: 'conv-xyz',
       usage: { inputTokens: 5, outputTokens: 3, estimatedCost: 0.0005 },
     }
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(titanJsonResponse(200, payload)),
-    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanJsonResponse(200, payload)))
 
     const res = await POST(request({ message: 'hi', stream: false }))
     const body = await res.json()

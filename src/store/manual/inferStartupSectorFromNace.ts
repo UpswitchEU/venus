@@ -34,9 +34,7 @@ import type { StartupSector } from '@/store/manual/useStartupValuationStore'
  *   "47.91"   → "consumer"           (retail via mail order / internet)
  *   "10.71"   → null                 (bread / pastry — keep default)
  */
-export function inferStartupSectorFromNace(
-  nace: string | null | undefined
-): StartupSector | null {
+export function inferStartupSectorFromNace(nace: string | null | undefined): StartupSector | null {
   if (!nace || typeof nace !== 'string') return null
   // Strip dots, spaces and any country prefix; we only care about the
   // first 2-4 numeric digits ("division.class").

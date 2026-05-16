@@ -66,9 +66,7 @@ function staticRows(region: string | null, stage: string | null, sector: string 
       source: 'Venus static fallback (Q1 2026)',
       methodology_version: 'studio-v2-2026q1-fallback',
       published_at: '2026-01-01T00:00:00Z',
-    })).filter(
-      (row) => (!stage || row.stage === stage) && (!sector || row.sector === sector),
-    ),
+    })).filter((row) => (!stage || row.stage === stage) && (!sector || row.sector === sector))
   )
 }
 
@@ -90,7 +88,7 @@ export async function GET(request: NextRequest) {
         source: 'venus-static-fallback',
         warning: 'ATHENA_BENCHMARK_API_KEY not configured — using static Q1 2026 numbers.',
       },
-      { headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=86400' } },
+      { headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=86400' } }
     )
   }
 
@@ -104,7 +102,7 @@ export async function GET(request: NextRequest) {
     const res = await fetchWithTimeout(
       target,
       { headers: { 'x-api-key': apiKey, accept: 'application/json' } },
-      TIMEOUT_MS,
+      TIMEOUT_MS
     )
     if (!res.ok) {
       generalLogger.warn('[startup-benchmarks] Athena non-2xx', { status: res.status })
@@ -114,7 +112,7 @@ export async function GET(request: NextRequest) {
           source: 'venus-static-fallback',
           warning: `Athena returned ${res.status}`,
         },
-        { headers: { 'cache-control': 'public, s-maxage=60' } },
+        { headers: { 'cache-control': 'public, s-maxage=60' } }
       )
     }
     const json = (await res.json()) as { rows?: unknown[]; source?: string }
@@ -131,7 +129,7 @@ export async function GET(request: NextRequest) {
         source: 'venus-static-fallback',
         warning: 'Athena unreachable — using static Q1 2026 numbers.',
       },
-      { headers: { 'cache-control': 'public, s-maxage=60' } },
+      { headers: { 'cache-control': 'public, s-maxage=60' } }
     )
   }
 }

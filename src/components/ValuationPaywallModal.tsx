@@ -73,7 +73,25 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
       <div className="bg-popover border border-foreground/10 rounded-xl p-6 max-w-md w-full shadow-xl">
         <div className="text-center mb-6">
           <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-amber-500"
+            >
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+            </svg>
           </div>
           <h2 className="text-lg font-semibold text-foreground mb-2">
             {isNl
@@ -86,9 +104,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
                 Starter or higher for unlimited valuations") are written for
                 the advisor SaaS plan and would mislead a seller into thinking
                 they need to subscribe to the wrong product. */}
-            {isBusinessOwner
-              ? defaultBusinessOwnerCopy
-              : message || defaultAdvisorCopy}
+            {isBusinessOwner ? defaultBusinessOwnerCopy : message || defaultAdvisorCopy}
           </p>
         </div>
 

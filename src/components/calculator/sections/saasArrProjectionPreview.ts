@@ -32,13 +32,15 @@ export function deriveSaasArrProjectionPreview(args: {
   saasExpansionRevenuePct?: number
   projectionYears?: number
 }): SaasArrProjectionRow[] {
-  const baseArr = toFinite(args.saasArr) ?? ((toFinite(args.saasMrr) ?? 0) > 0 ? (args.saasMrr as number) * 12 : null)
+  const baseArr =
+    toFinite(args.saasArr) ??
+    ((toFinite(args.saasMrr) ?? 0) > 0 ? (args.saasMrr as number) * 12 : null)
   if (baseArr == null || baseArr <= 0) return []
 
   const growthPct = toFinite(args.saasArrGrowthPct) ?? 0
   const nrrPct =
     toFinite(args.saasNrrPct) ??
-    (100 + (toFinite(args.saasExpansionRevenuePct) ?? 0) - (toFinite(args.saasChurnPct) ?? 0))
+    100 + (toFinite(args.saasExpansionRevenuePct) ?? 0) - (toFinite(args.saasChurnPct) ?? 0)
 
   const annualGrowthFactor = 1 + growthPct / 100
   const retentionFactor = clamp(nrrPct / 100, 0.7, 1.5)

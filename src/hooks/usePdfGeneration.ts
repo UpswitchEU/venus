@@ -9,8 +9,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
-import { APIError } from '../types/errors'
 import { useSessionStore } from '../store/useSessionStore'
+import { APIError } from '../types/errors'
 import { generalLogger } from '../utils/logger'
 
 /** Titan + VIQ sync paths can exceed 60s; align with Venus pdf/download maxDuration (120s). */
@@ -37,11 +37,7 @@ export interface UsePdfGenerationReturn {
   /** Trigger PDF generation — returns the PDF URL if available synchronously */
   generatePdf: () => Promise<string | null>
   /** Download existing PDF with optional custom filename and abort signal */
-  downloadPdf: (
-    url?: string,
-    filename?: string,
-    signal?: AbortSignal
-  ) => Promise<void>
+  downloadPdf: (url?: string, filename?: string, signal?: AbortSignal) => Promise<void>
   /** Check if PDF is ready */
   isReady: boolean
   /** Check if generating */
@@ -110,77 +106,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   /**
    * Poll for PDF generation status
    */
-  const startPolling = useCallback((jobId: string) => {
-    // Clear any existing polling
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-    }
-
-    let pollCount = 0
-    const maxPolls = 150 // 5 minutes max (2s intervals)
-
-    pollingRef.current = setInterval(async () => {
-      pollCount++
-
-      if (pollCount > maxPolls) {
-        const timer = pollingRef.current
-        if (timer) clearInterval(timer)
-        isGeneratingRef.current = false
-        if (mountedRef.current) {
-          setState({
-            status: 'error',
-            url: null,
-            error: 'PDF generation timed out',
-            progress: 0,
-          })
-        }
-        return
+  const startPolling = useCallback(
+    (jobId: string) => {
+      // Clear any existing polling
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
       }
 
-      try {
-        const response = await fetch(`/api/valuations/pdf/status/${jobId}`, {
-          credentials: 'include',
-        })
+      let pollCount = 0
+      const maxPolls = 150 // 5 minutes max (2s intervals)
 
-        if (!response.ok) {
-          if (response.status === 402) {
-            const timer = pollingRef.current
-            if (timer) clearInterval(timer)
-            isGeneratingRef.current = false
-            if (mountedRef.current) {
-              setState({
-                status: 'none',
-                url: null,
-                error: null,
-                progress: 0,
-              })
-            }
-            return
-          }
-          throw new Error('Failed to check status')
-        }
+      pollingRef.current = setInterval(async () => {
+        pollCount++
 
-        const data = await response.json()
-
-        if (!mountedRef.current) return
-
-        // Update progress
-        const progress = Math.min(30 + pollCount, 90)
-        setState((prev) => ({ ...prev, progress }))
-
-        if (data.status === 'completed' && data.pdfUrl) {
-          const timer = pollingRef.current
-          if (timer) clearInterval(timer)
-          isGeneratingRef.current = false
-          if (mountedRef.current) {
-            setState({
-              status: 'ready',
-              url: data.pdfUrl,
-              error: null,
-              progress: 100,
-            })
-          }
-        } else if (data.status === 'failed') {
+        if (pollCount > maxPolls) {
           const timer = pollingRef.current
           if (timer) clearInterval(timer)
           isGeneratingRef.current = false
@@ -188,17 +127,77 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             setState({
               status: 'error',
               url: null,
-              error: data.error || 'PDF generation failed',
+              error: 'PDF generation timed out',
               progress: 0,
             })
           }
+          return
         }
-      } catch (error) {
-        // Don't fail on polling errors - keep trying
-        generalLogger.warn('[PDF] Polling error', { error })
-      }
-    }, 2000)
-  }, [])
+
+        try {
+          const response = await fetch(`/api/valuations/pdf/status/${jobId}`, {
+            credentials: 'include',
+          })
+
+          if (!response.ok) {
+            if (response.status === 402) {
+              const timer = pollingRef.current
+              if (timer) clearInterval(timer)
+              isGeneratingRef.current = false
+              if (mountedRef.current) {
+                setState({
+                  status: 'none',
+                  url: null,
+                  error: null,
+                  progress: 0,
+                })
+              }
+              return
+            }
+            throw new Error('Failed to check status')
+          }
+
+          const data = await response.json()
+
+          if (!mountedRef.current) return
+
+          // Update progress
+          const progress = Math.min(30 + pollCount, 90)
+          setState((prev) => ({ ...prev, progress }))
+
+          if (data.status === 'completed' && data.pdfUrl) {
+            const timer = pollingRef.current
+            if (timer) clearInterval(timer)
+            isGeneratingRef.current = false
+            if (mountedRef.current) {
+              setState({
+                status: 'ready',
+                url: data.pdfUrl,
+                error: null,
+                progress: 100,
+              })
+            }
+          } else if (data.status === 'failed') {
+            const timer = pollingRef.current
+            if (timer) clearInterval(timer)
+            isGeneratingRef.current = false
+            if (mountedRef.current) {
+              setState({
+                status: 'error',
+                url: null,
+                error: data.error || 'PDF generation failed',
+                progress: 0,
+              })
+            }
+          }
+        } catch (error) {
+          // Don't fail on polling errors - keep trying
+          generalLogger.warn('[PDF] Polling error', { error })
+        }
+      }, 2000)
+    },
+    [mountedRef.current]
+  )
 
   /**
    * Trigger PDF generation via Titan API
@@ -341,7 +340,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
       return null
     }
-  }, [reportId, startPolling])
+  }, [reportId, startPolling, mountedRef.current])
 
   /**
    * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
@@ -350,8 +349,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     async (url?: string, filename?: string, signal?: AbortSignal) => {
       void url
       if (!reportId) {
-        const msg =
-          'Cannot download PDF until the valuation report is saved (no report ID).'
+        const msg = 'Cannot download PDF until the valuation report is saved (no report ID).'
         generalLogger.warn('[PDF] downloadPdf without reportId')
         if (mountedRef.current) {
           setState((prev) => ({
@@ -370,7 +368,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         const fetchSignal =
           signal && timeoutSignal && typeof AbortSignal.any === 'function'
             ? AbortSignal.any([signal, timeoutSignal])
-            : signal ?? timeoutSignal
+            : (signal ?? timeoutSignal)
 
         // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
         // BFF runs Titan GET + optional POST generate + storage stream.
@@ -416,7 +414,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           }
           const hint =
             (parsed && (parsed.error || parsed.message)) ||
-            (snippet.startsWith('<!') ? 'Server returned HTML instead of a PDF.' : snippet.slice(0, 120))
+            (snippet.startsWith('<!')
+              ? 'Server returned HTML instead of a PDF.'
+              : snippet.slice(0, 120))
           throw new Error(hint || 'Download did not return a valid PDF file.')
         }
 
@@ -445,7 +445,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         throw error
       }
     },
-    [reportId]
+    [reportId, mountedRef.current]
   )
 
   return {

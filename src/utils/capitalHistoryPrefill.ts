@@ -95,9 +95,10 @@ export function consumeCapitalHistoryPrefill(): CapitalHistoryPrefill | null {
     window.sessionStorage.removeItem(STORAGE_KEY)
     const parsed = JSON.parse(raw) as Partial<CapitalHistoryPrefill> | null
     if (!parsed || typeof parsed !== 'object') return null
-    const round = typeof parsed.round_amount === 'number' && Number.isFinite(parsed.round_amount)
-      ? parsed.round_amount
-      : null
+    const round =
+      typeof parsed.round_amount === 'number' && Number.isFinite(parsed.round_amount)
+        ? parsed.round_amount
+        : null
     const dilution =
       typeof parsed.dilution_pct === 'number' && Number.isFinite(parsed.dilution_pct)
         ? parsed.dilution_pct

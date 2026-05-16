@@ -210,7 +210,7 @@ describe('AdaptiveSections', () => {
     expect(screen.queryByText('sections.saasMetrics')).not.toBeInTheDocument()
   })
 
-  it('renders the fiscal preview card when fiscal 4x is selected', () => {
+  it('renders the fiscal preview card when fiscal 4x is selected', async () => {
     // The amber disclaimer banner was dropped from the data rail
     // 2026-05-10 (advisory copy duplicates `fiscal_scope_disclaimer` on
     // the fiscal_reference report page). The fiscal preview card stays
@@ -225,7 +225,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.fiscalDerivedMetrics')).toBeInTheDocument()
+    expect(await screen.findByText('sections.fiscalDerivedMetrics')).toBeInTheDocument()
     // Disclaimer banner sentinel must NOT render anywhere on the rail.
     expect(screen.queryByText('fiscalDisclaimerText')).not.toBeInTheDocument()
   })

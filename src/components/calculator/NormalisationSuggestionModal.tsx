@@ -10,6 +10,7 @@
 import { AlertCircle, Check, Edit2, FileSpreadsheet, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
   AuroraButton,
   AuroraInput,
@@ -19,7 +20,6 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/design-system'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { cn } from '@/design-system/utils'
 
 export interface NormalisationSuggestion {

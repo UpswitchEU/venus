@@ -15,10 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import {
-  extractErrorMessage,
-  parseSellabilityScoreResponse,
-} from '../tool-card-response-parsers'
+import { extractErrorMessage, parseSellabilityScoreResponse } from '../tool-card-response-parsers'
 
 describe('parseSellabilityScoreResponse', () => {
   it('returns null when input is null / non-object', () => {
@@ -29,9 +26,10 @@ describe('parseSellabilityScoreResponse', () => {
   })
 
   it('parses top-level shape: { score, band }', () => {
-    expect(
-      parseSellabilityScoreResponse({ score: 67, band: 'sale_ready_in_most_ways' })
-    ).toEqual({ score: 67, band: 'sale_ready_in_most_ways' })
+    expect(parseSellabilityScoreResponse({ score: 67, band: 'sale_ready_in_most_ways' })).toEqual({
+      score: 67,
+      band: 'sale_ready_in_most_ways',
+    })
   })
 
   it('parses BFF-wrapped shape: { success, data: { score, band } }', () => {
@@ -91,9 +89,7 @@ describe('parseSellabilityScoreResponse', () => {
     // Same defensive policy as Mercury — stringified numbers indicate a
     // typing bug upstream and would break formatting downstream.
     expect(parseSellabilityScoreResponse({ score: '67', band: 'high' })).toBeNull()
-    expect(
-      parseSellabilityScoreResponse({ data: { score: '50', band: 'mid' } })
-    ).toBeNull()
+    expect(parseSellabilityScoreResponse({ data: { score: '50', band: 'mid' } })).toBeNull()
   })
 
   it('rejects half-shapes (only score, only band)', () => {
@@ -104,9 +100,10 @@ describe('parseSellabilityScoreResponse', () => {
   })
 
   it('accepts score=0 (valid PLG-low-end value, not falsy)', () => {
-    expect(
-      parseSellabilityScoreResponse({ score: 0, band: 'significant_work_to_do' })
-    ).toEqual({ score: 0, band: 'significant_work_to_do' })
+    expect(parseSellabilityScoreResponse({ score: 0, band: 'significant_work_to_do' })).toEqual({
+      score: 0,
+      band: 'significant_work_to_do',
+    })
   })
 })
 

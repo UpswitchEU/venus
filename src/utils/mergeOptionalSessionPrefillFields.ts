@@ -364,7 +364,7 @@ export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
  * Underscore-prefixed session keys Titan/Mercury may persist — counted for envelope hashing.
  * Unknown `_…` keys (e.g. tests) are ignored so signatures stay stable for unrelated churn.
  */
-const TRACKED_SESSION_UNDERSCORE_KEYS = new Set<string>([
+const _TRACKED_SESSION_UNDERSCORE_KEYS = new Set<string>([
   '_businessInfo',
   '_import_quality',
   '_financial_data_source',

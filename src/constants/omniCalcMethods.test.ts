@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   compareOmniMethodKeys,
-  partitionOmniMethodEntries,
   PRIMARY_OMNI_METHOD_KEYS,
   PRIMARY_OMNI_METHOD_ORDER,
+  partitionOmniMethodEntries,
 } from './omniCalcMethods'
 
 describe('PRIMARY_OMNI_METHOD_KEYS', () => {

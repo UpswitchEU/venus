@@ -17,10 +17,7 @@
 
 import { useMemo } from 'react'
 import type { StartupAssistantIssue } from '@/components/calculator'
-import {
-  type StudioIssue,
-  useStudioIssues,
-} from '@/features/startup-studio/hooks/useStudioIssues'
+import { type StudioIssue, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 

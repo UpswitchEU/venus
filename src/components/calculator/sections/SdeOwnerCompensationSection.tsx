@@ -4,10 +4,7 @@ import { motion } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
-import {
-  computeSdePreviewMetrics,
-  isSdeOwnerCompensationSectionComplete,
-} from '@/lib/sde'
+import { computeSdePreviewMetrics, isSdeOwnerCompensationSectionComplete } from '@/lib/sde'
 import { CurrencyInput } from '../CurrencyInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
@@ -125,20 +122,18 @@ export function SdeOwnerCompensationSection({
             {t('fields.sdeOwnerRoleLabel')}
           </legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5">
-            {(
-              [
-                {
-                  value: 'working' as const,
-                  title: t('fields.sdeOwnerRoleWorking'),
-                  desc: t('fields.sdeOwnerRoleWorkingDesc'),
-                },
-                {
-                  value: 'passive' as const,
-                  title: t('fields.sdeOwnerRolePassive'),
-                  desc: t('fields.sdeOwnerRolePassiveDesc'),
-                },
-              ]
-            ).map((opt) => {
+            {[
+              {
+                value: 'working' as const,
+                title: t('fields.sdeOwnerRoleWorking'),
+                desc: t('fields.sdeOwnerRoleWorkingDesc'),
+              },
+              {
+                value: 'passive' as const,
+                title: t('fields.sdeOwnerRolePassive'),
+                desc: t('fields.sdeOwnerRolePassiveDesc'),
+              },
+            ].map((opt) => {
               const selected = ownerRole === opt.value
               return (
                 <label
@@ -158,7 +153,9 @@ export function SdeOwnerCompensationSection({
                     disabled={disabled}
                     onChange={() => onOwnerRoleChange(opt.value)}
                   />
-                  <span className="block text-[12px] font-semibold text-foreground/85">{opt.title}</span>
+                  <span className="block text-[12px] font-semibold text-foreground/85">
+                    {opt.title}
+                  </span>
                   <span className="mt-0.5 block text-[10.5px] leading-snug text-foreground/55">
                     {opt.desc}
                   </span>
@@ -215,9 +212,7 @@ export function SdeOwnerCompensationSection({
             disabled={disabled}
             onChange={(e) => {
               const raw = parseInt(e.target.value, 10)
-              const clamped = Number.isFinite(raw)
-                ? Math.min(5, Math.max(1, raw))
-                : 1
+              const clamped = Number.isFinite(raw) ? Math.min(5, Math.max(1, raw)) : 1
               onActiveOwnersCountChange(clamped)
             }}
             className="w-20 rounded-md border border-foreground/[0.12] bg-background px-2.5 py-1.5 text-sm text-foreground tabular-nums focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"

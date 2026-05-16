@@ -167,7 +167,7 @@ class ManualValuationStreamService {
         apiLogger.info('Stream cancelled by user', { streamId })
         callbacks.onError?.('Stream cancelled', 'AbortError')
         return {
-          close: () => {},
+          close: () => undefined,
           readyState: EventSource.CLOSED,
           url: streamUrl,
           withCredentials: false,
@@ -177,8 +177,8 @@ class ManualValuationStreamService {
           onopen: null,
           onmessage: null,
           onerror: null,
-          addEventListener: () => {},
-          removeEventListener: () => {},
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
           dispatchEvent: () => false,
         } as any
       }

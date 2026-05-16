@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const dynamic = 'force-static'
 
@@ -73,9 +73,9 @@ export default async function WaarderenLandingPage({ params }: Props) {
             Een investor-ready waardering voor je startup — in 7 minuten.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-foreground/70">
-            Berkus, Scorecard en de VC-methode in één wizard. Geen historische cijfers nodig,
-            geen abstracte schuiven, geen natte vinger. Wel: een PDF die je angel of investeerder
-            serieus neemt.
+            Berkus, Scorecard en de VC-methode in één wizard. Geen historische cijfers nodig, geen
+            abstracte schuiven, geen natte vinger. Wel: een PDF die je angel of investeerder serieus
+            neemt.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -134,8 +134,8 @@ export default async function WaarderenLandingPage({ params }: Props) {
             7 stappen, 7 minuten
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-foreground/65">
-            Eén kaart per stap, één evidence-veld om je antwoord te onderbouwen. Live receipt
-            rechts laat je zien hoe elke keuze de waardering verschuift.
+            Eén kaart per stap, één evidence-veld om je antwoord te onderbouwen. Live receipt rechts
+            laat je zien hoe elke keuze de waardering verschuift.
           </p>
           <div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {STEPS_NL.map((s) => (
@@ -160,8 +160,8 @@ export default async function WaarderenLandingPage({ params }: Props) {
             <div>
               <p className="font-semibold text-foreground">Berkus 2024 refresh</p>
               <p className="mt-1">
-                Risico-reductie scorecard met regionaal aangepaste caps (€500k–€750k per
-                mijlpaal in BE/NL/LU).
+                Risico-reductie scorecard met regionaal aangepaste caps (€500k–€750k per mijlpaal in
+                BE/NL/LU).
               </p>
             </div>
             <div>
@@ -172,14 +172,11 @@ export default async function WaarderenLandingPage({ params }: Props) {
             </div>
             <div>
               <p className="font-semibold text-foreground">VC-methode (Sahlman)</p>
-              <p className="mt-1">
-                pre = (Y5 omzet × exit-multiple ÷ target ROI) − rondegrootte.
-              </p>
+              <p className="mt-1">pre = (Y5 omzet × exit-multiple ÷ target ROI) − rondegrootte.</p>
             </div>
           </div>
           <p className="mt-6 text-xs text-foreground/45">
-            Bronnen: PitchBook Q4 2025, Dealroom Benelux 2025, Atomico State of European Tech
-            2025.
+            Bronnen: PitchBook Q4 2025, Dealroom Benelux 2025, Atomico State of European Tech 2025.
           </p>
         </section>
 

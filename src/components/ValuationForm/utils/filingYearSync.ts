@@ -26,7 +26,12 @@ const YEAR_ROW_MIN = 2000
 const YEAR_ROW_MAX = 2100
 
 function isValidYearRowYear(year: unknown): year is number {
-  return typeof year === 'number' && Number.isFinite(year) && year >= YEAR_ROW_MIN && year <= YEAR_ROW_MAX
+  return (
+    typeof year === 'number' &&
+    Number.isFinite(year) &&
+    year >= YEAR_ROW_MIN &&
+    year <= YEAR_ROW_MAX
+  )
 }
 
 export interface MirrorToFormDataResult {
@@ -174,9 +179,7 @@ export function mergeHistoricalAndForecastRows<H extends YearLikeRow, F extends 
 
   const forecastRowsToKeep = forecastRows.filter(
     (row) =>
-      row?.is_forecast === true &&
-      isValidYearRowYear(row.year) &&
-      !historicalYears.has(row.year)
+      row?.is_forecast === true && isValidYearRowYear(row.year) && !historicalYears.has(row.year)
   )
 
   return [...validHistorical, ...forecastRowsToKeep].sort((a, b) => a.year - b.year)
@@ -187,12 +190,8 @@ export function mergeHistoricalAndForecastRows<H extends YearLikeRow, F extends 
  * historical inputs.  Same conflict policy as
  * {@link mergeHistoricalAndForecastRows}, but with no historical rows in play.
  */
-export function pickForecastRowsToPreserve<F extends YearLikeRow>(
-  existingRows: readonly F[]
-): F[] {
-  return existingRows.filter(
-    (row) => row?.is_forecast === true && isValidYearRowYear(row.year)
-  )
+export function pickForecastRowsToPreserve<F extends YearLikeRow>(existingRows: readonly F[]): F[] {
+  return existingRows.filter((row) => row?.is_forecast === true && isValidYearRowYear(row.year))
 }
 
 /**
@@ -203,30 +202,39 @@ export function pickForecastRowsToPreserve<F extends YearLikeRow>(
  * dependency array (avoids render loops).
  */
 export function areMergedYearRowsEqual(
-  a: readonly Partial<{
-    year: number
-    revenue?: number
-    ebitda?: number
-    is_forecast?: boolean
-  }>[] | null | undefined,
-  b: readonly Partial<{
-    year: number
-    revenue?: number
-    ebitda?: number
-    is_forecast?: boolean
-  }>[] | null | undefined
+  a:
+    | readonly Partial<{
+        year: number
+        revenue?: number
+        ebitda?: number
+        is_forecast?: boolean
+      }>[]
+    | null
+    | undefined,
+  b:
+    | readonly Partial<{
+        year: number
+        revenue?: number
+        ebitda?: number
+        is_forecast?: boolean
+      }>[]
+    | null
+    | undefined
 ): boolean {
   const norm = (
-    rows: readonly Partial<{
-      year: number
-      revenue?: number
-      ebitda?: number
-      is_forecast?: boolean
-    }>[] | null | undefined
+    rows:
+      | readonly Partial<{
+          year: number
+          revenue?: number
+          ebitda?: number
+          is_forecast?: boolean
+        }>[]
+      | null
+      | undefined
   ) =>
     [...(rows ?? [])]
       .filter((r) => r != null && isValidYearRowYear(r.year))
-      .sort((x, y) => x.year! - y.year!)
+      .sort((x, y) => Number(x.year) - Number(y.year))
       .map((r) => ({
         y: r.year,
         rev: Number(r.revenue ?? 0),

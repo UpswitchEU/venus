@@ -73,7 +73,7 @@ describe('ValuationAPI validation handling', () => {
           },
         }),
       }),
-      expect.any(Object),
+      expect.any(Object)
     )
   })
 })

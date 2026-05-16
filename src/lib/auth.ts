@@ -192,13 +192,13 @@ function wasRecentlyInitialized(): boolean {
 function markInitSuccess(): void {
   try {
     sessionStorage.setItem(INIT_SUCCESS_KEY, String(Date.now()))
-  } catch {}
+  } catch { /* ignore non-critical failure */ }
 }
 
 export function clearInitThrottle(): void {
   try {
     sessionStorage.removeItem(INIT_SUCCESS_KEY)
-  } catch {}
+  } catch { /* ignore non-critical failure */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ export function clearReloadCounter(): void {
   try {
     sessionStorage.removeItem(RELOAD_COUNT_KEY)
     sessionStorage.removeItem(RELOAD_WINDOW_KEY)
-  } catch {}
+  } catch { /* ignore non-critical failure */ }
 }
 
 /**
@@ -757,31 +757,31 @@ export const useAuthStore = create<AuthState>()(
             .then(({ useClientContext }) => {
               useClientContext.getState().clearClientContext()
             })
-            .catch(() => {})
+            .catch(() => undefined)
 
           import('./bootstrap/SessionBootstrapService')
             .then(({ bootstrapService }) => {
               bootstrapService.clearCache()
             })
-            .catch(() => {})
+            .catch(() => undefined)
 
           import('../components/AuthGate')
             .then(({ resetAuthGateGuard }) => {
               resetAuthGateGuard()
             })
-            .catch(() => {})
+            .catch(() => undefined)
 
           import('./bootstrap/BootstrapProvider')
             .then(({ resetBootstrapGuard }) => {
               resetBootstrapGuard()
             })
-            .catch(() => {})
+            .catch(() => undefined)
 
           import('../services/session/SessionEngineFactory')
             .then(({ resetSessionEngine }) => {
               resetSessionEngine()
             })
-            .catch(() => {})
+            .catch(() => undefined)
         } catch (error) {
           generalLogger.warn('[Venus Auth] Logout failed (non-fatal)', { error })
           venusLogoutNavigationPending = false

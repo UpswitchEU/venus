@@ -269,7 +269,7 @@ export function useSessionDataPrefill() {
                 business_type_id: resolved.id,
               })
             }
-          } catch (err) {
+          } catch (_err) {
             generalLogger.debug(
               '[useSessionDataPrefill] NACE lookup failed, skipping business_type_id',
               {
@@ -418,7 +418,6 @@ export function useSessionDataPrefill() {
     sessionData,
     formData.company_name,
     formData.kbo_number,
-    formData.vat_number,
     formData.business_type_id,
     updateFormData,
     bootstrap?.report?.mode,
@@ -428,5 +427,14 @@ export function useSessionDataPrefill() {
     bootstrap?.prefillData,
     reportId,
     restorationComplete,
+    bootstrap,
+    formData.business_context,
+    formData.comparables,
+    formData.current_year_data,
+    formData.filing_year_confirmed,
+    formData.forecast_years_data,
+    formData.historical_years_data,
+    formData.recurring_revenue_percentage,
+    formData.subIndustry,
   ])
 }

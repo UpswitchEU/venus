@@ -19,16 +19,16 @@ import {
   AuroraFormSection,
   AuroraNumberInput,
 } from '../../../design-system/components'
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
-import { patchCurrentYearDataFromTopLevelFinancials } from '../utils/currentYearDataMirror'
 import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
+import { patchCurrentYearDataFromTopLevelFinancials } from '../utils/currentYearDataMirror'
 
 interface FinancialDataSectionProps {
   formData: ValuationFormData
@@ -73,7 +73,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
       unifiedItems.filter((item) => {
         if (item.status !== 'accepted') return false
         if (item.applyAllYears) return true
-        if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(lastFullYear)
+        if (item.applyYears && item.applyYears.length > 0)
+          return item.applyYears.includes(lastFullYear)
         return item.year === lastFullYear
       }),
     [unifiedItems, lastFullYear]
@@ -107,12 +108,11 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
 
   const reportedEbitdaByYear = useMemo(() => {
     const byYear: Record<number, number> = {
-      [lastFullYear]:
-        coalesceFiniteNumber(
-          (formData.current_year_data as any)?.ebitda_normalization_metadata?.reported_ebitda ??
-            formData.ebitda ??
-            0
-        ),
+      [lastFullYear]: coalesceFiniteNumber(
+        (formData.current_year_data as any)?.ebitda_normalization_metadata?.reported_ebitda ??
+          formData.ebitda ??
+          0
+      ),
     }
     formData.historical_years_data?.forEach((year) => {
       if (year?.year != null && year?.ebitda != null) {
@@ -126,8 +126,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
 
   const hasUnifiedNormalization = unifiedAcceptedForYear.length > 0
   const unifiedTotalAdjustments = unifiedAcceptedForYear.reduce(
-    (sum, item) =>
-      sum + getNormalizationAmountForBase(item, coalesceFiniteNumber(formData.ebitda)),
+    (sum, item) => sum + getNormalizationAmountForBase(item, coalesceFiniteNumber(formData.ebitda)),
     0
   )
   const legacyHasNormalization = hasLegacyNormalization(lastFullYear)
@@ -253,7 +252,11 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
               <AuroraNumberInput
                 label={t('revenueRequired')}
                 placeholder={t('revenueExamplePlaceholder')}
-                value={formData.revenue !== undefined && formData.revenue !== null ? formData.revenue : ''}
+                value={
+                  formData.revenue !== undefined && formData.revenue !== null
+                    ? formData.revenue
+                    : ''
+                }
                 onChange={(e) => {
                   const cleanedValue = e.target.value.replace(/,/g, '')
                   const numValue = parseFloat(cleanedValue)
@@ -268,7 +271,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                     ...(nextCyd ? { current_year_data: nextCyd } : {}),
                   })
                 }}
-                onBlur={() => {}}
+                onBlur={() => undefined}
                 name="revenue"
                 min={0}
                 step={1000}
@@ -287,11 +290,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
             const ebitdaGuidance = getIndustryGuidance(formData.industry || 'other', 'ebitda')
             const validation =
               revenueNumber !== undefined && ebitdaNumber !== undefined
-                ? validateEbitdaMargin(
-                    revenueNumber,
-                    ebitdaNumber,
-                    formData.industry || 'other'
-                  )
+                ? validateEbitdaMargin(revenueNumber, ebitdaNumber, formData.industry || 'other')
                 : null
 
             const helpText = [
@@ -344,7 +343,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                           ...(nextCyd ? { current_year_data: nextCyd } : {}),
                         })
                       }}
-                      onBlur={() => {}}
+                      onBlur={() => undefined}
                       name="ebitda"
                       min={-1000000000} // Allow negative EBITDA
                       step={1000}

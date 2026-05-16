@@ -19,6 +19,7 @@ import type {
   PrefillData,
   PrefillSource,
 } from '../lib/bootstrap/types'
+import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { type ImportQualityPerYear, useImportQualityStore } from '../store/useImportQualityStore'
 import { useNbbPrefillStore } from '../store/useNbbPrefillStore'
@@ -33,7 +34,6 @@ import {
 } from '../utils/fiscalYear'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
-import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
 import {
@@ -239,7 +239,7 @@ export function useBootstrapPrefill(): {
         },
       })
     })
-  }, [bootstrap, formStore])
+  }, [bootstrap])
 
   // Async Belgian official enrichment: poll Titan job and merge into form + prefill when ready.
   useEffect(() => {
@@ -398,7 +398,7 @@ export function useBootstrapPrefill(): {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [bootstrap?.prefillData.officialEnrichmentJobId, bootstrap?.isBootstrapping, formStore])
+  }, [])
 
   return {
     hasPrefilled: hasPrefilled || hasPrefilledRef.current,

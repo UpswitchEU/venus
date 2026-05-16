@@ -53,7 +53,7 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
           localStorage.removeItem('upswitch-panel-width')
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore localStorage errors
     }
     return PANEL_CONSTRAINTS.DEFAULT_WIDTH // 30% default (left panel smaller)
@@ -66,7 +66,7 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
     if (!isMobile) {
       try {
         localStorage.setItem('upswitch-panel-width', leftPanelWidth.toString())
-      } catch (error) {
+      } catch (_error) {
         // Ignore localStorage errors
       }
     }
@@ -94,7 +94,7 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
               return
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore localStorage errors
         }
         setLeftPanelWidth(PANEL_CONSTRAINTS.DEFAULT_WIDTH) // 30% default

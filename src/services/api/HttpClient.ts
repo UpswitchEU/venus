@@ -14,7 +14,10 @@
 
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
-import { buildAxiosEffectiveRequestUrl, isBySessionReportUrl } from '../../constants/reportBySessionRetry'
+import {
+  buildAxiosEffectiveRequestUrl,
+  isBySessionReportUrl,
+} from '../../constants/reportBySessionRetry'
 // AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
 import {
@@ -27,9 +30,11 @@ import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
-  const cfg = (error as {
-    config?: { method?: string; url?: string; baseURL?: string }
-  })?.config
+  const cfg = (
+    error as {
+      config?: { method?: string; url?: string; baseURL?: string }
+    }
+  )?.config
   const status = (error as { response?: { status?: number } })?.response?.status
   const method = String(cfg?.method ?? 'get').toUpperCase()
   if (method !== 'GET' || status !== 404) return false

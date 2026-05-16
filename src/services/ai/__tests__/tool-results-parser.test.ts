@@ -15,6 +15,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
+import aiToolResultContract from '../../../../../../tests/contracts/ai-tool-result-contract.json'
 import {
   dispatchAIChatChunk,
   makeChunkDispatchState,
@@ -77,6 +78,34 @@ describe('parseAIChatToolResults — input tolerance', () => {
     ])
     // Known type still landed; unknown type didn't land anywhere.
     expect(result.normalisationSuggestions).toEqual([{ category: 'rent' }])
+  })
+
+  it('documents which Titan renderable envelope types Venus intentionally ignores', () => {
+    const partition = [
+      ...aiToolResultContract.venusParsedEnvelopeTypes,
+      ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
+    ]
+    expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
+
+    const result = parseAIChatToolResults(
+      aiToolResultContract.venusIgnoredRenderableEnvelopeTypes.map((type) => ({
+        type,
+        data: { status: 'pending_approval', request: {} },
+      }))
+    )
+    expect(result).toEqual({
+      normalisationSuggestions: [],
+      fieldUpdates: [],
+      valuationRunRequests: [],
+      reportGenerationRequests: [],
+      sellabilityRunRequests: [],
+      belgianCompanyBootstraps: [],
+      clientDataReadinessPreviews: [],
+      methodReadinessPreviews: [],
+      listingPreviews: [],
+      listingCreateRequests: [],
+      buyerProfilePreviews: [],
+    })
   })
 })
 

@@ -121,7 +121,9 @@ export function mergeYearDataRows(
               ? existing.ebitda
               : 0,
         ...pickDefinedYearDataFields(existing),
-        ...(typeof row.capex === 'number' && Number.isFinite(row.capex) ? { capex: row.capex } : {}),
+        ...(typeof row.capex === 'number' && Number.isFinite(row.capex)
+          ? { capex: row.capex }
+          : {}),
         ...(typeof row.depreciation === 'number' && Number.isFinite(row.depreciation)
           ? { depreciation: row.depreciation }
           : {}),
@@ -177,7 +179,7 @@ export function calculateWorkingCapitalBase(
       ? year.short_term_debt
       : 0
 
-  return (currentAssets - cash) - (currentLiabilities - shortTermDebt)
+  return currentAssets - cash - (currentLiabilities - shortTermDebt)
 }
 
 export function deriveNwcChangesForActualYears<T extends YearDataInput>(years: T[]): T[] {

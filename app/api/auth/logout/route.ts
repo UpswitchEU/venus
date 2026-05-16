@@ -9,10 +9,7 @@ import { NextResponse } from 'next/server'
 import { getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import {
-	MERCURY_SITE_WWW_CANONICAL,
-	tryNormalizeToOrigin,
-} from '@/utils/normalizeExplicitUrl'
+import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

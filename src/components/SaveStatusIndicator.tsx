@@ -50,12 +50,17 @@ function getRelativeTime(
   if (diffMin < 60) return t('minutesAgo', { count: diffMin })
   if (diffHour < 24) return t('hoursAgo', { count: diffHour })
 
-  return formatDateLikeToLocaleString(date, undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }, t('justNow'))
+  return formatDateLikeToLocaleString(
+    date,
+    undefined,
+    {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+    t('justNow')
+  )
 }
 
 /**

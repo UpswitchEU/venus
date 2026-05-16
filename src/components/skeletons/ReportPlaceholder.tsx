@@ -22,8 +22,7 @@ export function ReportPlaceholder() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background:
-            'linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.95) 100%)',
+          background: 'linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.95) 100%)',
         }}
       />
       <motion.div
@@ -34,9 +33,7 @@ export function ReportPlaceholder() {
         <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-muted flex items-center justify-center mb-3 sm:mb-4 mx-auto transition-all duration-300 hover:scale-110">
           <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
         </div>
-        <h3 className="mt-4 text-lg font-semibold text-foreground">
-          {t('placeholder.title')}
-        </h3>
+        <h3 className="mt-4 text-lg font-semibold text-foreground">{t('placeholder.title')}</h3>
         <p className="mt-2 text-sm text-foreground/50 max-w-sm mx-auto leading-relaxed">
           {t('placeholder.description')}
         </p>

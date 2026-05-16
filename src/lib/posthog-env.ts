@@ -5,14 +5,12 @@
  * Legacy: NEXT_PUBLIC_POSTHOG_KEY — still supported for existing deploys.
  */
 export function getPostHogProjectToken(): string | undefined {
-	const t =
-		process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ||
-		process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
-	return t || undefined;
+  const t =
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ||
+    process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim()
+  return t || undefined
 }
 
 export function getPostHogApiHost(): string {
-	return (
-		process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com'
-	);
+  return process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com'
 }

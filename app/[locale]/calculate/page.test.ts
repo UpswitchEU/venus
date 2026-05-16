@@ -21,7 +21,7 @@ describe('venus /[locale]/calculate redirect', () => {
     })
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/nl/reports/new?prefilledQuery=Acme&token=exchange_tok&clientId=rel_1&source=mercury',
+      '/nl/reports/new?prefilledQuery=Acme&token=exchange_tok&clientId=rel_1&source=mercury'
     )
   })
 

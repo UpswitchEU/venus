@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrMultipleMethodSpec, ARR_MULTIPLE_METHOD_KEY } from './spec'
+import { ARR_MULTIPLE_METHOD_KEY, arrMultipleMethodSpec } from './spec'
 
 describe('arrMultipleMethodSpec', () => {
   it('uses the canonical "arr_multiple" key', () => {
@@ -22,9 +22,7 @@ describe('arrMultipleMethodSpec', () => {
   })
 
   it('declares matching label + description i18n keys', () => {
-    expect(arrMultipleMethodSpec.labelKey).toBe(
-      'manualInput.methodSelector.arrMultiple'
-    )
+    expect(arrMultipleMethodSpec.labelKey).toBe('manualInput.methodSelector.arrMultiple')
     expect(arrMultipleMethodSpec.descriptionKey).toBe(
       'manualInput.methodSelector.arrMultipleDescription'
     )

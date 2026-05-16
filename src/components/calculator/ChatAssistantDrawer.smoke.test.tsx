@@ -21,10 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Mock heavy presentation deps so the drawer can mount fast in jsdom.
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations:
-    (_ns?: string) =>
-    (key: string) =>
-      key,
+  useTranslations: (_ns?: string) => (key: string) => key,
 }))
 
 vi.mock('framer-motion', () => {
@@ -48,13 +45,13 @@ vi.mock('framer-motion', () => {
                   'layoutId',
                   'drag',
                   'dragConstraints',
-                ].includes(k),
-            ),
+                ].includes(k)
+            )
           )
           const Tag = (key as string) === 'svg' ? 'svg' : 'div'
           return <Tag {...cleaned}>{children}</Tag>
         },
-    },
+    }
   )
   return {
     motion: Motion,
@@ -65,7 +62,7 @@ vi.mock('framer-motion', () => {
 vi.mock('@/design-system/components/motion', () => ({ springDefault: {} }))
 
 vi.mock('@/hooks/useScrollLock', () => ({
-  useScrollLock: () => {},
+  useScrollLock: () => undefined,
 }))
 
 vi.mock('@/lib/analytics', () => ({
@@ -75,13 +72,13 @@ vi.mock('@/lib/analytics', () => ({
 
 // Markdown rendering is heavy + not part of the smoke surface.
 vi.mock('react-markdown', () => ({
-  default: ({ children }: { children?: React.ReactNode }) => <div data-testid='md'>{children}</div>,
+  default: ({ children }: { children?: React.ReactNode }) => <div data-testid="md">{children}</div>,
 }))
 
 vi.mock('remark-gfm', () => ({ default: {} }))
 
-import { ChatAssistantDrawer } from './ChatAssistantDrawer'
 import type { ChatMessage } from './ChatAssistantDrawer'
+import { ChatAssistantDrawer } from './ChatAssistantDrawer'
 
 function makeUserMessage(content: string, id = `u-${content}`): ChatMessage {
   return {
@@ -130,7 +127,7 @@ describe('open / close gating', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
     // The conditional `{open && (...)}` wrapper means nothing renders.
     expect(container.querySelector('h2')).toBeNull()
@@ -143,7 +140,7 @@ describe('open / close gating', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
     // The mock returns the i18n key as-is, so `t('title')` → "title".
     expect(screen.getByText('title')).toBeInTheDocument()
@@ -162,7 +159,7 @@ describe('message rendering', () => {
         onOpenChange={onOpenChange}
         messages={[makeUserMessage('How much is my company worth?')]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
     expect(screen.getByText('How much is my company worth?')).toBeInTheDocument()
   })
@@ -174,7 +171,7 @@ describe('message rendering', () => {
         onOpenChange={onOpenChange}
         messages={[makeAssistantMessage('Based on the data, EUR 1.2M ± 200k.')]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
     const md = screen.getAllByTestId('md')
     expect(md.length).toBeGreaterThan(0)
@@ -192,14 +189,55 @@ describe('message rendering', () => {
           makeUserMessage('third'),
         ]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
     expect(screen.getByText('first')).toBeInTheDocument()
     // 'second' is inside the markdown mock for the assistant
-    expect(
-      screen.getAllByTestId('md').some((el) => el.textContent?.includes('second')),
-    ).toBe(true)
+    expect(screen.getAllByTestId('md').some((el) => el.textContent?.includes('second'))).toBe(true)
     expect(screen.getByText('third')).toBeInTheDocument()
+  })
+
+  it('renders client data readiness previews from Titan tool results', () => {
+    const assistant = makeAssistantMessage('I checked Hermes readiness.')
+    assistant.clientDataReadinessPreviews = [
+      {
+        id: 'readiness-1',
+        status: 'needs_import_review',
+        businessName: 'Acme NV',
+        hasSyncedFinancials: true,
+        accountingSources: [{ provider: 'yuki', clientKey: 'admin-1' }],
+        importQualitySummary: {
+          years: ['2024'],
+          actionableFlagCount: 1,
+          topFlags: [
+            {
+              year: '2024',
+              code: 'UNMAPPED_LEDGER_LINES',
+              severity: 'error',
+              message: 'Unmapped ledger lines affect EBITDA.',
+            },
+          ],
+        },
+        recommendedNextTool: 'open_import_review',
+        recommendedNextAction: 'Open Hermes import review before valuation.',
+      },
+    ]
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[assistant]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByText('proposalCards.clientDataReadiness.titleReview')).toBeInTheDocument()
+    expect(screen.getByText(/Acme NV/)).toBeInTheDocument()
+    expect(screen.getByText(/yuki/)).toBeInTheDocument()
+    expect(screen.getByText('UNMAPPED_LEDGER_LINES')).toBeInTheDocument()
+    expect(screen.getByText('Unmapped ledger lines affect EBITDA.')).toBeInTheDocument()
+    expect(screen.getByText(/Open Hermes import review before valuation/)).toBeInTheDocument()
   })
 })
 
@@ -215,7 +253,7 @@ describe('input + send', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
 
     const textarea = screen.getByLabelText('chatInput') as HTMLTextAreaElement
@@ -238,7 +276,7 @@ describe('input + send', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
 
     const sendButton = screen.getByLabelText('send')
@@ -254,7 +292,7 @@ describe('input + send', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
 
     const textarea = screen.getByLabelText('chatInput') as HTMLTextAreaElement
@@ -279,7 +317,7 @@ describe('close button', () => {
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
-      />,
+      />
     )
 
     const closeButton = screen.getByLabelText('close')

@@ -36,12 +36,7 @@ export const OWNER_FOUNDER_METHOD_KEYS = [
  * accidentally restricted to the 3-method founder list. Keep these two
  * literals in sync; the matrix is part of the cross-app role contract.
  */
-const ACCOUNTANT_TIER_ROLE_KEYS = new Set<string>([
-  'accountant',
-  'expert',
-  'enterprise',
-  'admin',
-])
+const ACCOUNTANT_TIER_ROLE_KEYS = new Set<string>(['accountant', 'expert', 'enterprise', 'admin'])
 
 /**
  * True when the user's role grants the full advisor method navigation.
@@ -55,9 +50,7 @@ const ACCOUNTANT_TIER_ROLE_KEYS = new Set<string>([
  * own nav. Pair this guard with `isAccountantFlow` so we light up the full
  * list for **any** advisor surface.
  */
-export function isAccountantTierRole(
-  role: string | null | undefined
-): boolean {
+export function isAccountantTierRole(role: string | null | undefined): boolean {
   if (typeof role !== 'string') return false
   const normalized = role.trim().toLowerCase()
   return ACCOUNTANT_TIER_ROLE_KEYS.has(normalized)
@@ -131,7 +124,6 @@ export function resolveAllowedMethodKeys(
     return allowedFromApi
   }
   const pt = (planType || 'free').toLowerCase()
-  if (['starter', 'pro', 'expert', 'enterprise', 'premium'].includes(pt))
-    return null
+  if (['starter', 'pro', 'expert', 'enterprise', 'premium'].includes(pt)) return null
   return [...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]
 }

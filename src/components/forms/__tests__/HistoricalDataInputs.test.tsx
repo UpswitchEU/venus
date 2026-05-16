@@ -1,5 +1,5 @@
-import React from 'react'
 import { render, screen } from '@testing-library/react'
+import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HistoricalDataInputs } from '../HistoricalDataInputs'
 
@@ -29,13 +29,7 @@ describe('HistoricalDataInputs', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
-    render(
-      <HistoricalDataInputs
-        historicalInputs={{}}
-        onChange={vi.fn()}
-        onBlur={vi.fn()}
-      />
-    )
+    render(<HistoricalDataInputs historicalInputs={{}} onChange={vi.fn()} onBlur={vi.fn()} />)
 
     expect(screen.getByDisplayValue('2024')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
@@ -47,13 +41,7 @@ describe('HistoricalDataInputs', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-01T12:00:00Z'))
 
-    render(
-      <HistoricalDataInputs
-        historicalInputs={{}}
-        onChange={vi.fn()}
-        onBlur={vi.fn()}
-      />
-    )
+    render(<HistoricalDataInputs historicalInputs={{}} onChange={vi.fn()} onBlur={vi.fn()} />)
 
     expect(screen.getByDisplayValue('2025')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2024')).toBeInTheDocument()

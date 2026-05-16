@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { revenueMultipleMethodSpec, REVENUE_MULTIPLE_METHOD_KEY } from './spec'
+import { REVENUE_MULTIPLE_METHOD_KEY, revenueMultipleMethodSpec } from './spec'
 
 describe('revenueMultipleMethodSpec', () => {
   it('uses the canonical "revenue_multiple" key (EN alias)', () => {
@@ -22,9 +22,7 @@ describe('revenueMultipleMethodSpec', () => {
   })
 
   it('shares its i18n label + description with the NL alias', () => {
-    expect(revenueMultipleMethodSpec.labelKey).toBe(
-      'manualInput.methodSelector.revenueMultiple'
-    )
+    expect(revenueMultipleMethodSpec.labelKey).toBe('manualInput.methodSelector.revenueMultiple')
     expect(revenueMultipleMethodSpec.descriptionKey).toBe(
       'manualInput.methodSelector.revenueMultipleDescription'
     )

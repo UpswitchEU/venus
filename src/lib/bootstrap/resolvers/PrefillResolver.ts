@@ -804,9 +804,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           )
         : cyd?.revenue != null || cyd?.ebitda != null
           ? {
-              [cyd!.year ?? getCurrentFilingYear()]: {
-                revenue: cyd!.revenue ?? undefined,
-                ebitda: cyd!.ebitda ?? undefined,
+              [cyd?.year ?? getCurrentFilingYear()]: {
+                revenue: cyd?.revenue ?? undefined,
+                ebitda: cyd?.ebitda ?? undefined,
               },
             }
           : undefined)

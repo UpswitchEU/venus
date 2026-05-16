@@ -72,12 +72,8 @@ export function getFilingYearHistoricalOffset(
 }
 
 export function normalizeHistoricalYearsForFiling<
-  T extends { year: number | string | null | undefined }
->(
-  rows: T[] | null | undefined,
-  filingYearConfirmed: unknown = false,
-  now: Date = new Date()
-): T[] {
+  T extends { year: number | string | null | undefined },
+>(rows: T[] | null | undefined, filingYearConfirmed: unknown = false, now: Date = new Date()): T[] {
   if (!Array.isArray(rows)) {
     return []
   }

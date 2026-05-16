@@ -53,14 +53,14 @@ export class RequestCoalescer {
         this.coalescedCounts.set(key, 0)
       }
 
-      this.pendingRequests.get(key)!.push(request)
+      this.pendingRequests.get(key)?.push(request)
 
       // Clear existing timeout
       if (this.timeouts.has(key)) {
         clearTimeout(this.timeouts.get(key)!)
       }
 
-      const coalescedCount = this.pendingRequests.get(key)!.length
+      const coalescedCount = this.pendingRequests.get(key)?.length
 
       generalLogger.debug('[RequestCoalescer] Request added to queue', {
         key,

@@ -107,7 +107,7 @@ const DEFAULT_REGION = 'BE'
  */
 export function getRegionalBaseline(
   countryCode: string | null | undefined,
-  stage: StartupStage,
+  stage: StartupStage
 ): StartupRegionalBaseline {
   const code = (countryCode ?? DEFAULT_REGION).toUpperCase()
   const region = REGIONAL_BASELINE[code] ?? REGIONAL_BASELINE[DEFAULT_REGION]
@@ -121,10 +121,7 @@ export function getRegionalBaseline(
  *
  * Mirrors `apps/valuation-iq/src/domain/startup_valuation/berkus.py`.
  */
-export function previewBerkusContribution(
-  scorePct: number,
-  maxPerMilestone: number,
-): number {
+export function previewBerkusContribution(scorePct: number, maxPerMilestone: number): number {
   if (!Number.isFinite(scorePct) || scorePct <= 0) return 0
   const clamped = Math.min(100, Math.max(0, scorePct))
   return Math.round((clamped / 100) * maxPerMilestone)
@@ -163,11 +160,7 @@ export function projectForwardArrEur({
   momGrowthPct: number | null | undefined
 }): number | null {
   const anchorMrr =
-    typeof mrr === 'number' && mrr > 0
-      ? mrr
-      : typeof arr === 'number' && arr > 0
-        ? arr / 12
-        : null
+    typeof mrr === 'number' && mrr > 0 ? mrr : typeof arr === 'number' && arr > 0 ? arr / 12 : null
   if (anchorMrr === null) return null
 
   const growth =
@@ -209,10 +202,8 @@ export function previewVcMethod({
 }): { post: number; pre: number; investment: number; dilution: number } | null {
   const y5 = typeof year5Revenue === 'number' ? year5Revenue : 0
   const m = typeof exitMultiple === 'number' ? exitMultiple : 0
-  const roi =
-    typeof targetRoi === 'number' && targetRoi > 0 ? targetRoi : fallbackRoi
-  const inv =
-    typeof investmentSought === 'number' && investmentSought > 0 ? investmentSought : 0
+  const roi = typeof targetRoi === 'number' && targetRoi > 0 ? targetRoi : fallbackRoi
+  const inv = typeof investmentSought === 'number' && investmentSought > 0 ? investmentSought : 0
 
   if (y5 <= 0 || m <= 0 || roi <= 0) return null
 

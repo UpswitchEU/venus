@@ -98,9 +98,7 @@ describe('previewBerkusContribution', () => {
 
 describe('projectForwardArrEur', () => {
   it('returns null when neither MRR nor ARR is supplied', () => {
-    expect(
-      projectForwardArrEur({ mrr: null, arr: null, momGrowthPct: 10 }),
-    ).toBeNull()
+    expect(projectForwardArrEur({ mrr: null, arr: null, momGrowthPct: 10 })).toBeNull()
   })
 
   it('infers MRR from ARR when only ARR is supplied', () => {
@@ -114,8 +112,8 @@ describe('projectForwardArrEur', () => {
     // €10k MRR at 10% MoM → 10000 * 1.1^12 * 12 ≈ €376,538.
     const arr = projectForwardArrEur({ mrr: 10_000, arr: null, momGrowthPct: 10 })
     expect(arr).not.toBeNull()
-    expect(arr!).toBeGreaterThan(370_000)
-    expect(arr!).toBeLessThan(380_000)
+    expect(arr ?? 0).toBeGreaterThan(370_000)
+    expect(arr ?? 0).toBeLessThan(380_000)
   })
 
   it('caps growth at 20% MoM to avoid fantasy projections', () => {
@@ -140,16 +138,16 @@ describe('previewVcMethod', () => {
     // 5M × 6 ÷ 20 = 1.5M post-money.
     const out = previewVcMethod(baseInputs)
     expect(out).not.toBeNull()
-    expect(out!.post).toBeCloseTo(1_500_000, 0)
-    expect(out!.pre).toBeCloseTo(1_000_000, 0)
-    expect(out!.dilution).toBeCloseTo((500_000 / 1_500_000) * 100, 1)
+    expect(out?.post).toBeCloseTo(1_500_000, 0)
+    expect(out?.pre).toBeCloseTo(1_000_000, 0)
+    expect(out?.dilution).toBeCloseTo((500_000 / 1_500_000) * 100, 1)
   })
 
   it('uses the fallback ROI when no target is provided', () => {
     // With fallbackRoi=15 we should get post = 5M*6/15 = 2M.
     const out = previewVcMethod({ ...baseInputs, targetRoi: null })
     expect(out).not.toBeNull()
-    expect(out!.post).toBeCloseTo(2_000_000, 0)
+    expect(out?.post).toBeCloseTo(2_000_000, 0)
   })
 
   it('clamps pre-money to zero when the ask exceeds the implied post-money', () => {
@@ -158,10 +156,10 @@ describe('previewVcMethod', () => {
     // large" warning, NOT show a negative pre-money.
     const out = previewVcMethod({ ...baseInputs, investmentSought: 2_000_000 })
     expect(out).not.toBeNull()
-    expect(out!.pre).toBe(0)
+    expect(out?.pre).toBe(0)
   })
 
-  it('returns null when math doesn\'t justify a number (Y5/multiple/ROI all zero)', () => {
+  it("returns null when math doesn't justify a number (Y5/multiple/ROI all zero)", () => {
     expect(
       previewVcMethod({
         year5Revenue: 0,
@@ -169,7 +167,7 @@ describe('previewVcMethod', () => {
         targetRoi: 0,
         investmentSought: 0,
         fallbackRoi: DEFAULT_TARGET_ROI_X,
-      }),
+      })
     ).toBeNull()
   })
 
@@ -179,7 +177,7 @@ describe('previewVcMethod', () => {
     // signal via the dedicated oversubscribed warning instead.
     const out = previewVcMethod({ ...baseInputs, investmentSought: 5_000_000 })
     expect(out).not.toBeNull()
-    expect(out!.dilution).toBeLessThanOrEqual(100)
-    expect(out!.dilution).toBeGreaterThanOrEqual(0)
+    expect(out?.dilution).toBeLessThanOrEqual(100)
+    expect(out?.dilution).toBeGreaterThanOrEqual(0)
   })
 })

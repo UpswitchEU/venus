@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { omzetMultipleMethodSpec, OMZET_MULTIPLE_METHOD_KEY } from './spec'
+import { OMZET_MULTIPLE_METHOD_KEY, omzetMultipleMethodSpec } from './spec'
 
 describe('omzetMultipleMethodSpec', () => {
   it('uses the canonical "omzet_multiple" key', () => {
@@ -22,9 +22,7 @@ describe('omzetMultipleMethodSpec', () => {
   })
 
   it('declares matching label + description i18n keys (shared with EN alias)', () => {
-    expect(omzetMultipleMethodSpec.labelKey).toBe(
-      'manualInput.methodSelector.revenueMultiple'
-    )
+    expect(omzetMultipleMethodSpec.labelKey).toBe('manualInput.methodSelector.revenueMultiple')
     expect(omzetMultipleMethodSpec.descriptionKey).toBe(
       'manualInput.methodSelector.revenueMultipleDescription'
     )

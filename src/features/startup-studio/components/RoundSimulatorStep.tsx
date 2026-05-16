@@ -26,7 +26,10 @@ import { Slider } from '@/design-system/components/Slider'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import { type StartupStage, useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import {
+  type StartupStage,
+  useStartupValuationStore,
+} from '@/store/manual/useStartupValuationStore'
 
 const DILUTION_DEFAULT_PCT: Record<StartupStage, number> = {
   pre_seed: 70,
@@ -53,7 +56,7 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
         maximumFractionDigits: 0,
         useGrouping: true,
       }),
-    [locale],
+    [locale]
   )
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const stage = useStartupValuationStore((s) => s.stage)
@@ -79,7 +82,7 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
   }, [dilution, stageDefaultDilution, setField])
 
   const [roundType, setRoundType] = useState<RoundType>(
-    capTable.safe_notes.length > 0 ? 'safe' : 'priced',
+    capTable.safe_notes.length > 0 ? 'safe' : 'priced'
   )
 
   const preMoneyPlaceholder = useMemo(() => {
@@ -286,12 +289,20 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
 
           <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-primary/5 p-4">
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-foreground/55">{t('preMoney')}</p>
-              <p className="text-sm font-semibold tabular-nums text-foreground">{formatEur(preMoney)}</p>
+              <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                {t('preMoney')}
+              </p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">
+                {formatEur(preMoney)}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-foreground/55">{t('postMoney')}</p>
-              <p className="text-sm font-semibold tabular-nums text-foreground">{formatEur(postMoney)}</p>
+              <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+                {t('postMoney')}
+              </p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">
+                {formatEur(postMoney)}
+              </p>
             </div>
           </div>
         </div>
@@ -331,7 +342,7 @@ function RaiseWhatIfSlider() {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),
-    [locale],
+    [locale]
   )
   const investment = useStartupValuationStore((s) => s.investment_amount_sought)
   const setField = useStartupValuationStore((s) => s.setField)

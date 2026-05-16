@@ -129,7 +129,7 @@ export const useClientContext = create<ClientContextState>()(
         // Try to refresh context from backend if needed
         // This is a lightweight check - just verify the relationship still exists
         try {
-          const API_URL = getApiUrl()
+          const _API_URL = getApiUrl()
 
           // Quick validation endpoint (if available)
           // For now, just check if we have valid IDs

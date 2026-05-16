@@ -20,12 +20,12 @@
 
 import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
-import { type KeyboardEvent, useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { type KeyboardEvent, useId, useState } from 'react'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { getMilestoneCopy, type StudioLocale } from '@/features/startup-studio/data/maturityOptions'
-import { useStudioLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { useStudioLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { trackStudioEvidenceAdded } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 import {
@@ -275,7 +275,7 @@ export function MilestoneCard({
             <p
               className={cn(
                 'mt-1 text-[10px] tabular-nums',
-                nearLimit ? 'text-amber-700 dark:text-amber-300' : 'text-foreground/45',
+                nearLimit ? 'text-amber-700 dark:text-amber-300' : 'text-foreground/45'
               )}
             >
               {nearLimit

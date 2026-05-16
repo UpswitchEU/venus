@@ -28,18 +28,18 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
-import { generalLogger } from '../../utils/logger'
 import { isSessionKey } from '../../utils/identifiers'
-import {
-  extractStableSessionKeyFromMergedSession,
-  mergeSessionDataEnvelopesFromRoot,
-} from '../../utils/sessionReportIdentity'
+import { generalLogger } from '../../utils/logger'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   sessionEnvelopeHasIdentitySignals,
 } from '../../utils/mergeOptionalSessionPrefillFields'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import {
+  extractStableSessionKeyFromMergedSession,
+  mergeSessionDataEnvelopesFromRoot,
+} from '../../utils/sessionReportIdentity'
 
 /**
  * Pricing range structure for valuation results
@@ -339,10 +339,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
       })
     }
   }
-  if (
-    !fd.historical_years_data &&
-    yearRowsFromMap.size > 0
-  ) {
+  if (!fd.historical_years_data && yearRowsFromMap.size > 0) {
     const years = Array.from(yearRowsFromMap.keys())
     if (years.length > 0) {
       fd.historical_years_data = years

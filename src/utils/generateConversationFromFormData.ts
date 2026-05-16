@@ -93,16 +93,12 @@ export function generateConversationFromFormData(
 
   // Country
   const resolvedCountryCode =
-    formData.country_code?.trim() ||
-    (formData as { country?: string }).country?.trim()
+    formData.country_code?.trim() || (formData as { country?: string }).country?.trim()
   if (resolvedCountryCode) {
     const label = getCountryByCode(resolvedCountryCode)?.name ?? resolvedCountryCode
-    addMessagePair(
-      'Select your primary operating country',
-      label,
-      'country_code',
-      { country_code: resolvedCountryCode }
-    )
+    addMessagePair('Select your primary operating country', label, 'country_code', {
+      country_code: resolvedCountryCode,
+    })
   }
 
   // Business Structure

@@ -208,14 +208,11 @@ describe('getSafeMercuryReturnUrl', () => {
   })
 
   it('honors the seller dashboard celebration marker via an explicit return_url too', () => {
-    const out = getSafeMercuryReturnUrl(
-      'https://www.upswitch.app/nl/business/dashboard',
-      {
-        celebrateMercuryReturn: true,
-        sourceApp: 'mercury_seller_saas_arr',
-        locale: 'nl',
-      }
-    )
+    const out = getSafeMercuryReturnUrl('https://www.upswitch.app/nl/business/dashboard', {
+      celebrateMercuryReturn: true,
+      sourceApp: 'mercury_seller_saas_arr',
+      locale: 'nl',
+    })
     expect(out).toContain('/nl/business/dashboard')
     expect(out).toContain('from=valuation')
   })
@@ -225,14 +222,11 @@ describe('getSafeMercuryReturnUrl', () => {
     // `celebrateMercuryReturn: true` when `report.valuation` is finite OR the
     // session has a valuationResult/htmlReport. A plain back-button exit must
     // therefore NOT trigger Mercury's refresh-on-return toast.
-    const out = getSafeMercuryReturnUrl(
-      'https://www.upswitch.app/nl/business/dashboard',
-      {
-        celebrateMercuryReturn: false,
-        sourceApp: 'business_dashboard_orphaned_seller',
-        locale: 'nl',
-      }
-    )
+    const out = getSafeMercuryReturnUrl('https://www.upswitch.app/nl/business/dashboard', {
+      celebrateMercuryReturn: false,
+      sourceApp: 'business_dashboard_orphaned_seller',
+      locale: 'nl',
+    })
     expect(out).toContain('/nl/business/dashboard')
     expect(out).not.toContain('from=valuation')
     expect(out).not.toContain('from=venus')
@@ -319,24 +313,24 @@ describe('fallbackDashboardForSource', () => {
   })
 
   it('is case-insensitive', () => {
-    expect(
-      fallbackDashboardForSource('MERCURY_SELLER_HERO', 'en', mercury)
-    ).toBe('https://upswitch.app/en/business/dashboard')
+    expect(fallbackDashboardForSource('MERCURY_SELLER_HERO', 'en', mercury)).toBe(
+      'https://upswitch.app/en/business/dashboard'
+    )
   })
 
   it('strips a trailing slash on the mercuryUrl base', () => {
-    expect(
-      fallbackDashboardForSource('seller_dashboard', 'nl', 'https://upswitch.app/')
-    ).toBe('https://upswitch.app/nl/business/dashboard')
+    expect(fallbackDashboardForSource('seller_dashboard', 'nl', 'https://upswitch.app/')).toBe(
+      'https://upswitch.app/nl/business/dashboard'
+    )
   })
 
   it('prefers accountant routing when both tokens appear (advisor wins by check order)', () => {
     // Edge case: a hypothetical `advisor_for_seller` source. Advisor is
     // checked first so we never silently change destinations for an
     // accountant flow that pairs an owner-ish token with the advisor mode.
-    expect(
-      fallbackDashboardForSource('advisor_for_seller', 'nl', mercury)
-    ).toBe('https://upswitch.app/nl/advisor/dashboard')
+    expect(fallbackDashboardForSource('advisor_for_seller', 'nl', mercury)).toBe(
+      'https://upswitch.app/nl/advisor/dashboard'
+    )
   })
 
   it('routes the StartupValuationTile source `client_dashboard` to /business/dashboard (was a latent gap)', () => {
@@ -356,17 +350,17 @@ describe('fallbackDashboardForSource', () => {
     // The new `mercury_seller_saas_arr` source already matches `seller`, but
     // we pin it explicitly so a future renaming PR cannot drop the contract
     // without flipping a test red.
-    expect(
-      fallbackDashboardForSource('mercury_seller_saas_arr', 'nl', mercury)
-    ).toBe('https://upswitch.app/nl/business/dashboard')
+    expect(fallbackDashboardForSource('mercury_seller_saas_arr', 'nl', mercury)).toBe(
+      'https://upswitch.app/nl/business/dashboard'
+    )
   })
 
   it('routes `for_owners`-prefixed sources to /business/dashboard (covers the existing market-approach hand-off)', () => {
     // `apps/mercury/shared/utils/buildStartupValuationVenusUrl.ts` emits
     // `source=for_owners_landing` for the owner-market hand-off. Pin it so
     // a future rename can't drop the persona signal silently.
-    expect(
-      fallbackDashboardForSource('for_owners_landing', 'nl', mercury)
-    ).toBe('https://upswitch.app/nl/business/dashboard')
+    expect(fallbackDashboardForSource('for_owners_landing', 'nl', mercury)).toBe(
+      'https://upswitch.app/nl/business/dashboard'
+    )
   })
 })

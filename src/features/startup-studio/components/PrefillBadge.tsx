@@ -30,8 +30,8 @@
  * variant is supplied so consumers can drop it in unconditionally.
  */
 
-import { useTranslations } from 'next-intl'
 import { Sparkles, User2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 export type PrefillVariant =
   | 'sector_default'
@@ -57,16 +57,12 @@ const VARIANT_KEY: Record<NonNullable<PrefillVariant>, string> = {
 }
 
 const VARIANT_TONE: Record<NonNullable<PrefillVariant>, string> = {
-  sector_default:
-    'border-primary/25 bg-primary/[0.06] text-primary/90',
-  stage_default:
-    'border-primary/25 bg-primary/[0.06] text-primary/90',
-  benchmark_default:
-    'border-primary/25 bg-primary/[0.06] text-primary/90',
+  sector_default: 'border-primary/25 bg-primary/[0.06] text-primary/90',
+  stage_default: 'border-primary/25 bg-primary/[0.06] text-primary/90',
+  benchmark_default: 'border-primary/25 bg-primary/[0.06] text-primary/90',
   mercury:
     'border-violet-300/50 bg-violet-50/70 text-violet-800 dark:border-violet-700/40 dark:bg-violet-950/30 dark:text-violet-200',
-  your_override:
-    'border-foreground/15 bg-foreground/[0.04] text-foreground/65',
+  your_override: 'border-foreground/15 bg-foreground/[0.04] text-foreground/65',
 }
 
 export function PrefillBadge({ variant, className }: PrefillBadgeProps) {

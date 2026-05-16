@@ -17,7 +17,7 @@
  * to `@/hooks/`.
  */
 
-import { useEffect, useRef, type MutableRefObject } from 'react'
+import { type MutableRefObject, useEffect, useRef } from 'react'
 
 /**
  * Returns a ref whose `current` is `true` while the component is mounted

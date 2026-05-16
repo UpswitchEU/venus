@@ -63,9 +63,7 @@ export function LiquidationSectionStack({
       liqLiabilityBuckets={{
         estate_costs: formData.liq_lb_estate_costs as number | undefined,
         secured: formData.liq_lb_secured as number | undefined,
-        super_preferent_employees: formData.liq_lb_super_preferent_employees as
-          | number
-          | undefined,
+        super_preferent_employees: formData.liq_lb_super_preferent_employees as number | undefined,
         preferent_tax: formData.liq_lb_preferent_tax as number | undefined,
         preferent_other: formData.liq_lb_preferent_other as number | undefined,
         unsecured: formData.liq_lb_unsecured as number | undefined,

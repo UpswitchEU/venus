@@ -32,8 +32,8 @@ import { toast } from 'sonner'
 import { AuroraButton as Button, Checkbox } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
-import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
+import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import { formatVersionAuthor } from '../../utils/formatters'
@@ -202,8 +202,8 @@ function VisualTimeline({
         {/* Version Dots */}
         <div className="relative flex justify-between px-4 py-2">
           {[...versions].reverse().map((version, index) => {
-            const isFirst = index === 0
-            const isLast = index === versions.length - 1
+            const _isFirst = index === 0
+            const _isLast = index === versions.length - 1
 
             return (
               <div key={version.id} className="flex flex-col items-center">
@@ -290,7 +290,8 @@ function ValuationSummaryCard({
                   {hp('bandwidth')}
                 </p>
                 <p className="text-xs font-medium text-foreground/80 font-mono">
-                  {formatCurrency(version.valuationLow, locale)} — {formatCurrency(version.valuationHigh, locale)}
+                  {formatCurrency(version.valuationLow, locale)} —{' '}
+                  {formatCurrency(version.valuationHigh, locale)}
                 </p>
               </div>
             )}
@@ -324,7 +325,11 @@ function ValuationSummaryCard({
 // MAIN COMPONENT
 // ─────────────────────────────────────────
 
-export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore }: HistoryPanelProps) {
+export function HistoryPanel({
+  report,
+  reportId: reportIdProp,
+  onVersionRestore,
+}: HistoryPanelProps) {
   const { user } = useAuth()
   const hp = useTranslations('historyPanel')
   const locale = useLocale() as 'nl' | 'en'
@@ -334,7 +339,7 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
   const storeVersions = useVersionHistoryStore((s) => (reportId ? s.versions[reportId] || [] : []))
   const fetchVersions = useVersionHistoryStore((s) => s.fetchVersions)
   const storeLoading = useVersionHistoryStore((s) =>
-    reportId ? s.syncStatus[reportId]?.isSyncing ?? false : false
+    reportId ? (s.syncStatus[reportId]?.isSyncing ?? false) : false
   )
   const storeError = useVersionHistoryStore((s) => s.error)
   const activeVersionNumber = useVersionHistoryStore((s) =>
@@ -378,7 +383,8 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
           user: hp('user'),
           guest: hp('guest'),
         })
-        const authorInitials = authorDisplay.substring(0, 2).toUpperCase().replace(/\s/g, '') || '??'
+        const authorInitials =
+          authorDisplay.substring(0, 2).toUpperCase().replace(/\s/g, '') || '??'
         return {
           id: v.id || String(v.versionNumber),
           version: v.versionNumber || 1,
@@ -428,7 +434,7 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
     if (current && expandedVersions.size === 0) {
       setExpandedVersions(new Set([current.id]))
     }
-  }, [historyVersions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [historyVersions, expandedVersions.size]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false)
@@ -571,7 +577,9 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
       </div>
 
       {/* Visual Timeline */}
-      {historyVersions.length > 0 && <VisualTimeline versions={historyVersions} hp={hp} locale={locale} />}
+      {historyVersions.length > 0 && (
+        <VisualTimeline versions={historyVersions} hp={hp} locale={locale} />
+      )}
 
       {/* Timeline List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide pb-20 sm:pb-6">
@@ -612,7 +620,7 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
           {historyVersions.map((version, index) => {
             const config = typeConfig[version.type]
-            const TypeIcon = config.icon
+            const _TypeIcon = config.icon
             const isExpanded = expandedVersions.has(version.id)
             const prevVersion = historyVersions[index + 1]
             const valuationDiff =

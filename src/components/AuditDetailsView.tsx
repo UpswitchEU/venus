@@ -11,10 +11,14 @@
 
 import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { formatDateLikeToLocaleString } from '@/utils/date-like'
 import { useAuth } from '../hooks/useAuth'
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { formatDateLikeToLocaleString } from '@/utils/date-like'
-import { formatCurrency, formatShareholdingPercentage, formatVersionAuthor } from '../utils/formatters'
+import {
+  formatCurrency,
+  formatShareholdingPercentage,
+  formatVersionAuthor,
+} from '../utils/formatters'
 
 export interface AuditDetailsViewProps {
   version: ValuationVersion | null
@@ -334,9 +338,10 @@ interface FieldChangeRowProps {
 }
 
 function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldChangeRowProps) {
-  const hasPercentChange = change.percentChange !== undefined && change.percentChange !== null
-  const isIncrease = hasPercentChange && change.percentChange! > 0
-  const isDecrease = hasPercentChange && change.percentChange! < 0
+  const percentChange = change.percentChange
+  const hasPercentChange = percentChange !== undefined && percentChange !== null
+  const isIncrease = hasPercentChange && percentChange > 0
+  const isDecrease = hasPercentChange && percentChange < 0
 
   return (
     <div
@@ -372,7 +377,7 @@ function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldC
           >
             {isIncrease && <ArrowUpRight className="w-4 h-4" />}
             {isDecrease && <ArrowDownRight className="w-4 h-4" />}
-            <span>{Math.abs(change.percentChange!).toFixed(1)}%</span>
+            <span>{Math.abs(percentChange).toFixed(1)}%</span>
           </div>
         )}
       </div>

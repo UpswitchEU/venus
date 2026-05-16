@@ -1,5 +1,5 @@
-import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
+import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FilingYearPrompt } from '../FilingYearPrompt'
 
@@ -11,9 +11,9 @@ const translations: Record<string, Record<string, string>> = {
     filingYearLabelSafeDefault: 'Veilige standaard',
     filingYearLabelBooksClosed: 'Boeken al gesloten',
     filingYearLabelRecommended: 'Aanbevolen — laatst afgesloten boekjaar',
-    filingYearAriaSafeDefault: 'Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is',
-    filingYearAriaBooksClosed:
-      'Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond',
+    filingYearAriaSafeDefault:
+      'Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is',
+    filingYearAriaBooksClosed: 'Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond',
     filingYearOther: 'Ander jaar...',
   },
   'common.actions': {

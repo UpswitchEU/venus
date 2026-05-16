@@ -8,7 +8,8 @@ import type { MethodPreviewAuditRegistry } from './types'
 export const METHOD_PREVIEW_AUDIT = {
   upswitch_adaptive: {
     bonusSections: [] as const,
-    clientPreview: 'headline equity range comes from full valuation response; no duplicate formula in Venus',
+    clientPreview:
+      'headline equity range comes from full valuation response; no duplicate formula in Venus',
   },
   omzet_multiple: {
     bonusSections: ['revenue_quality'] as const,
@@ -45,6 +46,7 @@ export const METHOD_PREVIEW_AUDIT = {
   /** Omni secondary key; same economics as `omzet_multiple` in coordinator. */
   revenue_multiple: {
     bonusSections: ['revenue_quality'] as const,
-    clientPreview: 'Same as omzet_multiple — revenue-quality section; EV/Revenue from calibration server-side',
+    clientPreview:
+      'Same as omzet_multiple — revenue-quality section; EV/Revenue from calibration server-side',
   },
 } as const satisfies MethodPreviewAuditRegistry

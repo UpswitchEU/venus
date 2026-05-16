@@ -17,17 +17,14 @@
  * the panel.
  */
 
-import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react'
 import {
   applyDcfProjectionPreviewToForecastRows,
   deriveDcfProjectionPreview,
 } from '@/components/calculator/sections/dcfProjectionPreview'
 import { methodKeyRequiresForecastYears } from '@/lib/methods/registry'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
-import {
-  dcfInjectionAddedRowCount,
-  injectDefaultDcfForecastYears,
-} from '@/utils/forecastYears'
+import { dcfInjectionAddedRowCount, injectDefaultDcfForecastYears } from '@/utils/forecastYears'
 import { dcfSmartDefaultsFromForm } from './smartDefaultsFromForm'
 
 /**
@@ -133,7 +130,7 @@ export function useDcfForecastSync({
         return current
       })
     }
-  }, [effectiveMethod, hasDcfSelected])
+  }, [effectiveMethod, hasDcfSelected, setFormData, setShowForecastRemovalConfirm, translate])
 
   return {
     markPrevMethod: (method) => {

@@ -580,13 +580,9 @@ export class VersionAPI {
       tags: backendVersion.tags || [],
       notes: backendVersion.notes,
       normalization_data:
-        backendVersion.normalization_data ||
-        versionData.normalization_data ||
-        undefined,
+        backendVersion.normalization_data || versionData.normalization_data || undefined,
       tax_latency_data:
-        backendVersion.tax_latency_data ||
-        versionData.tax_latency_data ||
-        undefined,
+        backendVersion.tax_latency_data || versionData.tax_latency_data || undefined,
     }
   }
 

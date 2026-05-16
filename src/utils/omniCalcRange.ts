@@ -11,7 +11,10 @@ export interface OmniMethodRangeInput {
   details?: Record<string, unknown> | null
 }
 
-function pickNumeric(details: Record<string, unknown> | null | undefined, keys: string[]): number | null {
+function pickNumeric(
+  details: Record<string, unknown> | null | undefined,
+  keys: string[]
+): number | null {
   if (!details) return null
   for (const k of keys) {
     const v = details[k]
@@ -30,10 +33,15 @@ export function getOmniMethodEquityRange(method: OmniMethodRangeInput): {
   high: number
   source: OmniRangeSource
 } | null {
-  if (!method.available || method.value == null || !Number.isFinite(Number(method.value))) return null
+  if (!method.available || method.value == null || !Number.isFinite(Number(method.value)))
+    return null
   const mid = Number(method.value)
   const low = pickNumeric(method.details, ['equity_range_low', 'equity_low', 'equity_value_low'])
-  const high = pickNumeric(method.details, ['equity_range_high', 'equity_high', 'equity_value_high'])
+  const high = pickNumeric(method.details, [
+    'equity_range_high',
+    'equity_high',
+    'equity_value_high',
+  ])
   if (low != null && high != null && low > 0 && high > 0) {
     return {
       low: Math.round(Math.min(low, high)),

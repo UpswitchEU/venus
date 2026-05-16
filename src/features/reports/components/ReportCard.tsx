@@ -36,7 +36,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
 
   // Extract data from report
   const companyName = report.partialData?.company_name || t('untitledValuation')
-  const industry = report.partialData?.industry || 'business'
+  const _industry = report.partialData?.industry || 'business'
   const countryCode = report.partialData?.country_code || 'BE'
   const createdAt = report.createdAt
   const currentView = report.currentView || 'manual'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dcfMethodSpec, DCF_METHOD_KEY } from './spec'
+import { DCF_METHOD_KEY, dcfMethodSpec } from './spec'
 
 describe('dcfMethodSpec', () => {
   it('uses the canonical "dcf" key', () => {

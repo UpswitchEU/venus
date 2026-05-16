@@ -25,18 +25,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST } from './route'
 
-function request(
-  body: unknown,
-  headers: Record<string, string> = {},
-): NextRequest {
+function request(body: unknown, headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('https://valuation.upswitch.app/api/sellability/score', {
     method: 'POST',
-    body:
-      typeof body === 'string'
-        ? body
-        : body === undefined
-          ? undefined
-          : JSON.stringify(body),
+    body: typeof body === 'string' ? body : body === undefined ? undefined : JSON.stringify(body),
     headers: {
       'Content-Type': 'application/json',
       cookie: 'upswitch_access_token=jwt-token-here',
@@ -55,9 +47,7 @@ function titanJsonResponse(status: number, body: unknown): Response {
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(
-      titanJsonResponse(200, { assessmentId: 'a1', score: 50 }),
-    ),
+    vi.fn().mockResolvedValue(titanJsonResponse(200, { assessmentId: 'a1', score: 50 }))
   )
 })
 
@@ -71,14 +61,11 @@ afterEach(() => {
 
 describe('auth gate', () => {
   it('returns 401 when cookie lacks upswitch_access_token', async () => {
-    const req = new NextRequest(
-      'https://valuation.upswitch.app/api/sellability/score',
-      {
-        method: 'POST',
-        body: JSON.stringify({}),
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
+    const req = new NextRequest('https://valuation.upswitch.app/api/sellability/score', {
+      method: 'POST',
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' },
+    })
 
     const res = await POST(req)
     const body = await res.json()
@@ -123,7 +110,7 @@ describe('body parsing', () => {
       request({
         questionAnswers: { top3ConcentrationPct: 42 },
         valuationReportId: 'some-id',
-      }),
+      })
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -166,8 +153,8 @@ describe('header forwarding', () => {
           'X-Client-User-Id': 'cu-1',
           'X-Accountant-User-Id': 'au-1',
           'X-Relationship-Id': 'rel-1',
-        },
-      ),
+        }
+      )
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -188,8 +175,8 @@ describe('header forwarding', () => {
           'X-Client-Context-User': 'legacy-client',
           'X-Client-Context-Accountant': 'legacy-accountant',
           'X-Client-Context-Relationship': 'legacy-rel',
-        },
-      ),
+        }
+      )
     )
 
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
@@ -214,10 +201,7 @@ describe('success', () => {
       score: 75,
       band: 'sale_ready_in_most_ways',
     }
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(titanJsonResponse(200, titanData)),
-    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanJsonResponse(200, titanData)))
 
     const res = await POST(request({}))
     const body = await res.json()
@@ -235,9 +219,7 @@ describe('error pass-through', () => {
   it('forwards Titan non-OK with the upstream message when present', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        titanJsonResponse(422, { message: 'Owner profile incomplete' }),
-      ),
+      vi.fn().mockResolvedValue(titanJsonResponse(422, { message: 'Owner profile incomplete' }))
     )
 
     const res = await POST(request({}))
@@ -251,10 +233,7 @@ describe('error pass-through', () => {
   })
 
   it('falls back to "Sellability service unavailable" when Titan non-OK has no message', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(titanJsonResponse(500, { code: 'internal' })),
-    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanJsonResponse(500, { code: 'internal' })))
 
     const res = await POST(request({}))
     const body = await res.json()
@@ -270,8 +249,8 @@ describe('error pass-through', () => {
         new Response('not-json', {
           status: 503,
           headers: { 'Content-Type': 'text/plain' },
-        }),
-      ),
+        })
+      )
     )
 
     const res = await POST(request({}))
@@ -287,8 +266,8 @@ describe('error pass-through', () => {
       vi.fn().mockResolvedValue(
         titanJsonResponse(402, {
           message: 'AI chat credit limit reached.',
-        }),
-      ),
+        })
+      )
     )
 
     const res = await POST(request({}))
@@ -319,7 +298,7 @@ describe('network failures', () => {
     })
   })
 
-  it('returns 500 with the thrown error\'s message on other errors', async () => {
+  it("returns 500 with the thrown error's message on other errors", async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')))
 
     const res = await POST(request({}))

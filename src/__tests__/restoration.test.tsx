@@ -222,7 +222,7 @@ describe('Valuation Restoration', () => {
         // Missing html_report!
       }
 
-      const errorSpy = vi.spyOn(storeLogger, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(storeLogger, 'error').mockImplementation(() => undefined)
 
       const { setResult } = useManualResultsStore.getState()
       setResult(mockResult)
@@ -441,8 +441,8 @@ describe('Valuation Restoration', () => {
       const { setResult } = useManualResultsStore.getState()
       const resultWithHtml = {
         ...mockSession.valuationResult,
-        html_report: mockSession.htmlReport || mockSession.valuationResult!.html_report,
-        info_tab_html: mockSession.infoTabHtml || mockSession.valuationResult!.info_tab_html,
+        html_report: mockSession.htmlReport || mockSession.valuationResult?.html_report,
+        info_tab_html: mockSession.infoTabHtml || mockSession.valuationResult?.info_tab_html,
       }
 
       setResult(resultWithHtml as any)

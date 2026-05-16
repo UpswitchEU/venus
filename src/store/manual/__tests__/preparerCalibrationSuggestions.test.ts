@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  SCENARIO_PRESETS,
-  SUGGESTED_DELTA_BAND,
   detectDossierSignal,
   projectSuggestedMultiple,
+  SCENARIO_PRESETS,
+  SUGGESTED_DELTA_BAND,
 } from '../preparerCalibrationSuggestions'
 
 describe('SUGGESTED_DELTA_BAND', () => {
@@ -42,7 +42,7 @@ describe('detectDossierSignal', () => {
         recurringRevenuePercentage: 0.2,
         ownerConcentrationRisk: 'LOW',
         customerConcentrationPct: 0.1,
-      }),
+      })
     ).toBeNull()
   })
 
@@ -52,8 +52,8 @@ describe('detectDossierSignal', () => {
       recurringRevenuePercentage: 0.95, // would otherwise win
     })
     expect(signal).not.toBeNull()
-    expect(signal!.reasonKey).toBe('key_person_discount')
-    expect(signal!.i18nKey).toBe('signalOwnerCritical')
+    expect(signal?.reasonKey).toBe('key_person_discount')
+    expect(signal?.i18nKey).toBe('signalOwnerCritical')
   })
 
   it('returns recurring-revenue premium when only that signal is present', () => {
@@ -61,9 +61,9 @@ describe('detectDossierSignal', () => {
       recurringRevenuePercentage: 0.72,
     })
     expect(signal).not.toBeNull()
-    expect(signal!.reasonKey).toBe('recurring_revenue_premium')
-    expect(signal!.band.direction).toBe('premium')
-    expect(signal!.i18nValues?.percent).toBe(72)
+    expect(signal?.reasonKey).toBe('recurring_revenue_premium')
+    expect(signal?.band.direction).toBe('premium')
+    expect(signal?.i18nValues?.percent).toBe(72)
   })
 
   it('returns customer-concentration discount at ≥25% top-client share', () => {
@@ -71,8 +71,8 @@ describe('detectDossierSignal', () => {
       customerConcentrationPct: 0.32,
     })
     expect(signal).not.toBeNull()
-    expect(signal!.reasonKey).toBe('customer_concentration')
-    expect(signal!.i18nValues?.percent).toBe(32)
+    expect(signal?.reasonKey).toBe('customer_concentration')
+    expect(signal?.i18nValues?.percent).toBe(32)
   })
 
   it('skips the suggestion when the engine has already discounted for it', () => {
@@ -145,10 +145,7 @@ describe('projectSuggestedMultiple', () => {
 
   it('applies a premium factor (1 + midPct/100) to the benchmark', () => {
     // strategic-buyer premium midPct=25 → 5.50× × 1.25 = 6.88×
-    const projected = projectSuggestedMultiple(
-      5.5,
-      SUGGESTED_DELTA_BAND.strategic_buyer_premium!,
-    )
+    const projected = projectSuggestedMultiple(5.5, SUGGESTED_DELTA_BAND.strategic_buyer_premium!)
     expect(projected).toBe(6.88)
   })
 

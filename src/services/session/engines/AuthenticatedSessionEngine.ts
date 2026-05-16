@@ -55,9 +55,7 @@ const BACKEND_COMPUTED_SESSION_KEYS = new Set<string>([
   'report_context',
 ])
 
-function stripBackendComputedFields(
-  payload: Record<string, unknown>,
-): Record<string, unknown> {
+function stripBackendComputedFields(payload: Record<string, unknown>): Record<string, unknown> {
   const stripped: Record<string, unknown> = {}
   let removedCount = 0
   let removedBytes = 0
@@ -77,10 +75,13 @@ function stripBackendComputedFields(
     stripped[key] = value
   }
   if (removedCount > 0) {
-    generalLogger.debug('[AuthenticatedSessionEngine] Stripped backend-computed keys from autosave', {
-      removedCount,
-      approxBytesRemoved: removedBytes,
-    })
+    generalLogger.debug(
+      '[AuthenticatedSessionEngine] Stripped backend-computed keys from autosave',
+      {
+        removedCount,
+        approxBytesRemoved: removedBytes,
+      }
+    )
   }
   return stripped
 }

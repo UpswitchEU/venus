@@ -22,20 +22,20 @@
  * without spinning up the full `ValuationReport` React tree.
  */
 
-export const STANDALONE_REPORT_READY_HASH = '#ready' as const;
-export const LEGACY_STANDALONE_REPORT_READY_HASH = '#venus-ready' as const;
+export const STANDALONE_REPORT_READY_HASH = '#ready' as const
+export const LEGACY_STANDALONE_REPORT_READY_HASH = '#venus-ready' as const
 
 export interface StandaloneReportReadyHashInput {
-	pathname: string;
-	search: string;
-	hash: string;
+  pathname: string
+  search: string
+  hash: string
 }
 
 export interface StandaloneReportReadyHashResult {
-	/** True if the caller should invoke `history.replaceState` with `nextUrl`. */
-	shouldReplace: boolean;
-	/** Full URL (path + search + hash) to write when `shouldReplace` is true. */
-	nextUrl: string;
+  /** True if the caller should invoke `history.replaceState` with `nextUrl`. */
+  shouldReplace: boolean
+  /** Full URL (path + search + hash) to write when `shouldReplace` is true. */
+  nextUrl: string
 }
 
 /**
@@ -49,17 +49,14 @@ export interface StandaloneReportReadyHashResult {
  * The function never reveals the internal codename in `nextUrl`.
  */
 export function resolveStandaloneReportReadyHash(
-	input: StandaloneReportReadyHashInput
+  input: StandaloneReportReadyHashInput
 ): StandaloneReportReadyHashResult {
-	const { pathname, search, hash } = input;
-	if (
-		hash === STANDALONE_REPORT_READY_HASH ||
-		hash === LEGACY_STANDALONE_REPORT_READY_HASH
-	) {
-		return { shouldReplace: false, nextUrl: `${pathname}${search}${hash}` };
-	}
-	return {
-		shouldReplace: true,
-		nextUrl: `${pathname}${search}${STANDALONE_REPORT_READY_HASH}`,
-	};
+  const { pathname, search, hash } = input
+  if (hash === STANDALONE_REPORT_READY_HASH || hash === LEGACY_STANDALONE_REPORT_READY_HASH) {
+    return { shouldReplace: false, nextUrl: `${pathname}${search}${hash}` }
+  }
+  return {
+    shouldReplace: true,
+    nextUrl: `${pathname}${search}${STANDALONE_REPORT_READY_HASH}`,
+  }
 }

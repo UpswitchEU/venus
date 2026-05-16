@@ -193,9 +193,9 @@ export function NavEquipmentLifespanSection({
             placeholder="10"
             disabled={disabled}
             trailingLabelAccessory={
-              prefilled?.economic_useful_life_years
-                ? <PrefilledBadge label={tPrefill('badge')} />
-                : undefined
+              prefilled?.economic_useful_life_years ? (
+                <PrefilledBadge label={tPrefill('badge')} />
+              ) : undefined
             }
           />
           <CurrencyInput

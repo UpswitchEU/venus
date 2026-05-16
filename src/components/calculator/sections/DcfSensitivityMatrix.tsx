@@ -1,5 +1,7 @@
 'use client'
 
+import { Grid3X3 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   TableBody,
   TableCaption,
@@ -10,8 +12,6 @@ import {
   TableRow,
 } from '@/design-system/components/Table'
 import { cn } from '@/design-system/utils'
-import { Grid3X3 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 
 interface DcfSensitivityMatrixProps {
@@ -43,13 +43,12 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   }
   const secondaryAxisKey = sensitivityData.secondary_axis_key ?? 'terminal_growth'
   const secondaryAxisFormat =
-    sensitivityData.secondary_axis_format ?? (secondaryAxisKey === 'exit_multiple' ? 'multiple' : 'percent')
+    sensitivityData.secondary_axis_format ??
+    (secondaryAxisKey === 'exit_multiple' ? 'multiple' : 'percent')
 
   const formatPercent = (value: number) => `${ratioFormatter.format(value * 100)}%`
   const formatSecondaryValue = (value: number) =>
-    secondaryAxisFormat === 'multiple'
-      ? `${ratioFormatter.format(value)}×`
-      : formatPercent(value)
+    secondaryAxisFormat === 'multiple' ? `${ratioFormatter.format(value)}×` : formatPercent(value)
 
   const centerRowIndex = Math.floor(sensitivityData.wacc_values.length / 2)
   const centerColumnIndex = Math.floor(secondaryValues.length / 2)
@@ -114,7 +113,9 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                         'bg-primary/10 text-primary'
                     )}
                   >
-                    {formatEurCompact(Number(sensitivityData.ev_matrix[rowIndex]?.[columnIndex] ?? 0))}
+                    {formatEurCompact(
+                      Number(sensitivityData.ev_matrix[rowIndex]?.[columnIndex] ?? 0)
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

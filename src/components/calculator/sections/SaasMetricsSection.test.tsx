@@ -1,5 +1,5 @@
-import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
+import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { SaasMetricsSection } from './SaasMetricsSection'
 
@@ -152,9 +152,7 @@ describe('SaasMetricsSection', () => {
 
     it('derives MRR from ARR via the universal SaaS identity (ARR / 12) at mount when ARR is already present', () => {
       const onFieldChange = vi.fn()
-      render(
-        <SaasMetricsSection onFieldChange={onFieldChange} saasArr={1200000} naceCode={null} />
-      )
+      render(<SaasMetricsSection onFieldChange={onFieldChange} saasArr={1200000} naceCode={null} />)
 
       const mrrCall = onFieldChange.mock.calls.find(([key]) => key === 'saas_mrr')
       expect(mrrCall?.[1]).toBe(100000)

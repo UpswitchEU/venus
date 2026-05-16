@@ -68,7 +68,10 @@ export function deriveDcfReadinessInsight(args: {
   if (actualTaxYears < actualYears.length) {
     missingSignals.push('taxes')
   }
-  if (actualWorkingCapitalYears + derivedWorkingCapitalYears < Math.max(0, actualYears.length - 1)) {
+  if (
+    actualWorkingCapitalYears + derivedWorkingCapitalYears <
+    Math.max(0, actualYears.length - 1)
+  ) {
     missingSignals.push('working_capital')
   }
 

@@ -115,9 +115,7 @@ export function EnterpriseEquityWaterfallChart({
                 className="fill-foreground text-[8px] font-mono tabular-nums"
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               >
-                {formatCompactEur(
-                  isTotal ? (step.end_value ?? 0) : (step.delta_value ?? 0)
-                )}
+                {formatCompactEur(isTotal ? (step.end_value ?? 0) : (step.delta_value ?? 0))}
               </text>
             </g>
           )

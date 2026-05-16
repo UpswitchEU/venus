@@ -301,7 +301,7 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
   // Auto-scroll to bottom on new messages
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [])
 
   return (
     <div className={cn('aurora-theme relative flex flex-col h-full bg-background', className)}>

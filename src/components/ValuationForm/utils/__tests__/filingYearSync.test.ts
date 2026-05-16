@@ -337,9 +337,7 @@ describe('pickForecastRowsToPreserve', () => {
   })
 
   it('returns an empty array when none are forecasts', () => {
-    expect(
-      pickForecastRowsToPreserve([{ year: 2024, revenue: 1000, ebitda: 100 }])
-    ).toEqual([])
+    expect(pickForecastRowsToPreserve([{ year: 2024, revenue: 1000, ebitda: 100 }])).toEqual([])
   })
 
   it('returns an empty array for empty input', () => {

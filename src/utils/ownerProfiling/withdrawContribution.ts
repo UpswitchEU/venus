@@ -36,9 +36,7 @@ interface WithdrawArgs {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  )
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
 /**
@@ -94,13 +92,9 @@ export async function withdrawAnonymizedContribution({
   const contributorReference =
     typeof o.contributor_reference === 'string' ? o.contributor_reference : ref
 
-  if (
-    status !== 'withdrawn' &&
-    status !== 'already_withdrawn' &&
-    status !== 'not_found'
-  ) {
+  if (status !== 'withdrawn' && status !== 'already_withdrawn' && status !== 'not_found') {
     throw new Error(
-      `Withdraw: unexpected status ${typeof status === 'string' ? status : 'unknown'}`,
+      `Withdraw: unexpected status ${typeof status === 'string' ? status : 'unknown'}`
     )
   }
 

@@ -95,7 +95,7 @@ export function isOnline(): boolean {
  * Listen for online/offline events
  */
 export function onOnlineStatusChange(callback: (isOnline: boolean) => void): () => void {
-  if (typeof window === 'undefined') return () => {}
+  if (typeof window === 'undefined') return () => undefined
 
   const handleOnline = () => callback(true)
   const handleOffline = () => callback(false)

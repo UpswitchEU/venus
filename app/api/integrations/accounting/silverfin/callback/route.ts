@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify(body),
       },
-      15_000,
+      15_000
     )
 
     const data = await response.json().catch(() => ({}))
@@ -30,10 +30,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           message:
-            (typeof data?.message === 'string' && data.message) ||
-            'Failed to connect Silverfin',
+            (typeof data?.message === 'string' && data.message) || 'Failed to connect Silverfin',
         },
-        { status: response.status },
+        { status: response.status }
       )
     }
 

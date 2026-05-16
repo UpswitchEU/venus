@@ -54,7 +54,7 @@ export const STAGE_SEED_MAX_AGE_YEARS = 3
  * unit-testable.
  */
 export function inferStartupStageFromFoundingYear(
-  input: InferStartupStageInput,
+  input: InferStartupStageInput
 ): StartupStage | null {
   const fy = input.foundingYear
   if (typeof fy !== 'number' || !Number.isFinite(fy)) return null

@@ -1,1 +1,1 @@
-export { ebitdaMultipleMethodSpec, EBITDA_MULTIPLE_METHOD_KEY } from './spec'
+export { EBITDA_MULTIPLE_METHOD_KEY, ebitdaMultipleMethodSpec } from './spec'

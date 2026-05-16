@@ -280,7 +280,7 @@ export class ReportService {
             }
             logger.error(
               '[ReportService] Failed to reload session after report save — restored pre-save cache',
-              { reportId, hadPreSaveCache: !!preSaveCache },
+              { reportId, hadPreSaveCache: !!preSaveCache }
             )
           }
         }
@@ -368,7 +368,7 @@ export class ReportService {
 
       // Import ReportAPI dynamically to avoid circular dependencies
       const { ReportAPI } = await import('../api/report')
-      const reportAPI = new ReportAPI()
+      const _reportAPI = new ReportAPI()
 
       // NOTE: completeReport method not available in ReportAPI
       // Credit tracking is handled by backend during calculation

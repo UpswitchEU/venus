@@ -279,12 +279,12 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         : `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`
     const inputId = React.useId()
     const displayLabel = label ?? t('companyNameOrKbo')
-    const displayPlaceholder = placeholder ?? t('searchPlaceholder')
+    const _displayPlaceholder = placeholder ?? t('searchPlaceholder')
     const [isFocused, setIsFocused] = React.useState(false)
     const [isSearching, setIsSearching] = React.useState(false)
     const [results, setResults] = React.useState<KBOCompany[]>([])
     const [searchError, setSearchError] = React.useState<string | null>(null)
-    const [retryTrigger, setRetryTrigger] = React.useState(0)
+    const [_retryTrigger, setRetryTrigger] = React.useState(0)
     const [showDropdown, setShowDropdown] = React.useState(false)
     const [focusedIndex, setFocusedIndex] = React.useState(-1)
     const [dropdownRect, setDropdownRect] = React.useState<{
@@ -292,7 +292,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       left: number
       width: number
     } | null>(null)
-    const [naceSearchResult, setNaceSearchResult] = React.useState<BusinessType | null>(null)
+    const [_naceSearchResult, _setNaceSearchResult] = React.useState<BusinessType | null>(null)
     const getActivityCodeShort = React.useCallback(
       (code?: string) =>
         getFinancialTerm('activityCode', code ?? countryCode)
@@ -300,7 +300,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           .trim(),
       [countryCode]
     )
-    const [isLoadingNaceSearch, setIsLoadingNaceSearch] = React.useState(false)
+    const [_isLoadingNaceSearch, _setIsLoadingNaceSearch] = React.useState(false)
     const inputRef = React.useRef<HTMLInputElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -405,7 +405,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           abortControllerRef.current = null
         }
       }
-    }, [value, trimmedValue, trimmedValueLength, selectedCompany, searchFn, minQueryLength, debounceMs, retryTrigger])
+    }, [trimmedValue, trimmedValueLength, selectedCompany, searchFn, minQueryLength, debounceMs, t])
 
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
@@ -567,11 +567,14 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         </div>
 
         {/* Helper text to avoid "nothing happens" dead-end */}
-        {!selectedCompany && !disabled && trimmedValueLength > 0 && trimmedValueLength < minQueryLength && (
-          <p className="mt-2 text-xs text-foreground/50">
-            {t('minCharsHint', { count: minQueryLength })}
-          </p>
-        )}
+        {!selectedCompany &&
+          !disabled &&
+          trimmedValueLength > 0 &&
+          trimmedValueLength < minQueryLength && (
+            <p className="mt-2 text-xs text-foreground/50">
+              {t('minCharsHint', { count: minQueryLength })}
+            </p>
+          )}
 
         {description && !selectedCompany && !disabled && (
           <p className="mt-2 text-xs text-foreground/50">{description}</p>
@@ -753,9 +756,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     <div className="flex items-center gap-1.5 mt-2">
                       <span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
                         {getActivityCodeShort(selectedCompany.countryCode)}{' '}
-                        {safeString(
-                          selectedCompany.activityCode ?? selectedCompany.naceCode
-                        )}
+                        {safeString(selectedCompany.activityCode ?? selectedCompany.naceCode)}
                       </span>
                       <span className="text-[11px] text-foreground/50 truncate">
                         {safeString(selectedCompany.naceDescription)}
@@ -1398,7 +1399,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
         })
 
       return () => controller.abort()
-  }, [isOpen, search, effectiveCountryCode])
+    }, [isOpen, search, effectiveCountryCode])
 
     const handleSelect = (type: BusinessType) => {
       onChange(type.id, type)
@@ -1606,7 +1607,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
                 </div>
               ) : (
                 combinedFilteredTypes.slice(0, 10).map((type, index) => {
-                  const TypeIcon = type.icon
+                  const _TypeIcon = type.icon
                   return (
                     <button
                       key={type.id}

@@ -43,9 +43,7 @@ describe('useStudioIssues', () => {
     useStartupValuationStore.getState().setCapField('pre_money_target', 1_700_000)
 
     const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
-    expect(
-      result.current.warnings.some((w) => w.id === 'high_priced_round_slice'),
-    ).toBe(true)
+    expect(result.current.warnings.some((w) => w.id === 'high_priced_round_slice')).toBe(true)
   })
 
   it('does not flag high slice when SAFE notes exist (ownership TBD until conversion)', () => {
@@ -54,9 +52,7 @@ describe('useStudioIssues', () => {
     useStartupValuationStore.getState().addSafeNote()
 
     const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
-    expect(
-      result.current.warnings.some((w) => w.id === 'high_priced_round_slice'),
-    ).toBe(false)
+    expect(result.current.warnings.some((w) => w.id === 'high_priced_round_slice')).toBe(false)
   })
 
   it('recurring-sector traction warning uses human sector labels, not enum slugs', () => {
@@ -71,9 +67,8 @@ describe('useStudioIssues', () => {
     const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
     const w = result.current.warnings.find((i) => i.id === 'recurring_sector_no_arr')
     expect(w).toBeDefined()
-    expect(w!.title.en).toContain('B2B SaaS')
-    expect(w!.title.en).not.toMatch(/logged for SAAS\b/i)
-    expect(w!.title.nl).toContain('B2B SaaS')
+    expect(w?.title.en).toContain('B2B SaaS')
+    expect(w?.title.en).not.toMatch(/logged for SAAS\b/i)
+    expect(w?.title.nl).toContain('B2B SaaS')
   })
-
 })

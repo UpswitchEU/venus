@@ -177,7 +177,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
 
     // Memoize flow type calculation
-    const flowType = useMemo(() => {
+    const _flowType = useMemo(() => {
       return session?.currentView === 'manual' ? 'manual' : 'conversational'
     }, [session?.currentView])
 

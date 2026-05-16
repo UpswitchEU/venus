@@ -152,7 +152,9 @@ describe('sessionHelpers', () => {
           value: 250000,
         },
       })
-      expect((result.sessionData as any)?.valuation_result?.details?.valuation_results).toMatchObject({
+      expect(
+        (result.sessionData as any)?.valuation_result?.details?.valuation_results
+      ).toMatchObject({
         ebitda_multiple: {
           available: true,
           value: 250000,

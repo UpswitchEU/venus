@@ -36,13 +36,13 @@ describe('computeYoyRevenueGrowthPct', () => {
       computeYoyRevenueGrowthPct([
         { year: '2023', revenue: 0 },
         { year: '2024', revenue: 200_000 },
-      ]),
+      ])
     ).toBeNull()
     expect(
       computeYoyRevenueGrowthPct([
         { year: '2023', revenue: -10_000 },
         { year: '2024', revenue: 200_000 },
-      ]),
+      ])
     ).toBeNull()
   })
 
@@ -76,7 +76,7 @@ describe('computeYoyRevenueGrowthPct', () => {
       computeYoyRevenueGrowthPct([
         { year: 2023, revenue: 1_000_000 },
         { year: 2024, revenue: 1_200_000 },
-      ]),
+      ])
     ).toBe(20)
   })
 })

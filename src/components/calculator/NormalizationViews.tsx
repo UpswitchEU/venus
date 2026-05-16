@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import {
   TooltipContent,
@@ -33,7 +34,6 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
   isImportedLedgerNormalizationItem,
   type NormalizationItem,
@@ -297,10 +297,7 @@ export function NormalizationTableView({
                   <td className="px-4 py-4 align-top border-r border-foreground/[0.08] min-w-[min(28rem,85vw)]">
                     <div className="flex min-w-0 flex-col gap-1">
                       <span
-                        className={cn(
-                          'font-medium text-foreground',
-                          LEDGER_LABEL_TEXT_CLASSES
-                        )}
+                        className={cn('font-medium text-foreground', LEDGER_LABEL_TEXT_CLASSES)}
                         title={item.ledgerName}
                       >
                         {item.ledgerName}
@@ -796,10 +793,7 @@ export function NormalizationBentoView({
                   {/* Reason */}
                   {item.reason && (
                     <p
-                      className={cn(
-                        'text-xs text-foreground/40 mt-2',
-                        LEDGER_LABEL_TEXT_CLASSES
-                      )}
+                      className={cn('text-xs text-foreground/40 mt-2', LEDGER_LABEL_TEXT_CLASSES)}
                       title={item.reason}
                     >
                       {item.reason}

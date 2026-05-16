@@ -18,7 +18,10 @@
 import { useTranslations } from 'next-intl'
 import { SCORECARD_FACTORS } from '@/features/startup-studio/data/maturityOptions'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
-import { STUDIO_SCORECARD_KEYS, useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import {
+  STUDIO_SCORECARD_KEYS,
+  useStartupValuationStore,
+} from '@/store/manual/useStartupValuationStore'
 import { MilestoneCard } from './MilestoneCard'
 
 interface ScorecardStepProps {
@@ -43,13 +46,13 @@ export function ScorecardStep(_props: ScorecardStepProps) {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-4">
-        <p className="text-sm leading-relaxed text-foreground/75">
-          {t('introInputPrompt')}
-        </p>
+        <p className="text-sm leading-relaxed text-foreground/75">{t('introInputPrompt')}</p>
         <p className="mt-2 text-[11px] text-foreground/55">
           {t('contextLine', { country, stage: stageLabel, sector: sectorLabel })}
           {isFallback && (
-            <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700">{tCommon('offline')}</span>
+            <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
+              {tCommon('offline')}
+            </span>
           )}
         </p>
       </div>

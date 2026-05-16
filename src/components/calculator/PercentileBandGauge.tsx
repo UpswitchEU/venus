@@ -71,7 +71,7 @@ export interface PercentileBandGaugeProps {
 export function projectOntoGauge(
   value: number,
   domainMin: number,
-  domainMax: number,
+  domainMax: number
 ): { clamped: number; outOfRange: boolean } {
   if (!Number.isFinite(value) || !Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
     return { clamped: 0, outOfRange: true }
@@ -110,19 +110,44 @@ export function PercentileBandGauge({
   // gate the include themselves.
   const markers: MarkerSpec[] = []
   if (band.p10 != null && band.p10 > 0) {
-    markers.push({ pct: projectOntoGauge(band.p10, domainMin, domainMax).clamped, value: band.p10, label: 'p10', emphasis: 'low' })
+    markers.push({
+      pct: projectOntoGauge(band.p10, domainMin, domainMax).clamped,
+      value: band.p10,
+      label: 'p10',
+      emphasis: 'low',
+    })
   }
   if (band.p25 != null && band.p25 > 0) {
-    markers.push({ pct: projectOntoGauge(band.p25, domainMin, domainMax).clamped, value: band.p25, label: 'p25', emphasis: 'mid' })
+    markers.push({
+      pct: projectOntoGauge(band.p25, domainMin, domainMax).clamped,
+      value: band.p25,
+      label: 'p25',
+      emphasis: 'mid',
+    })
   }
   if (band.p50 != null && band.p50 > 0) {
-    markers.push({ pct: projectOntoGauge(band.p50, domainMin, domainMax).clamped, value: band.p50, label: 'p50', emphasis: 'mid' })
+    markers.push({
+      pct: projectOntoGauge(band.p50, domainMin, domainMax).clamped,
+      value: band.p50,
+      label: 'p50',
+      emphasis: 'mid',
+    })
   }
   if (band.p75 != null && band.p75 > 0) {
-    markers.push({ pct: projectOntoGauge(band.p75, domainMin, domainMax).clamped, value: band.p75, label: 'p75', emphasis: 'mid' })
+    markers.push({
+      pct: projectOntoGauge(band.p75, domainMin, domainMax).clamped,
+      value: band.p75,
+      label: 'p75',
+      emphasis: 'mid',
+    })
   }
   if (band.p90 != null && band.p90 > 0) {
-    markers.push({ pct: projectOntoGauge(band.p90, domainMin, domainMax).clamped, value: band.p90, label: 'p90', emphasis: 'high' })
+    markers.push({
+      pct: projectOntoGauge(band.p90, domainMin, domainMax).clamped,
+      value: band.p90,
+      label: 'p90',
+      emphasis: 'high',
+    })
   }
 
   const insufficient = markers.length < 2
@@ -143,14 +168,10 @@ export function PercentileBandGauge({
         : null
 
   const benchmarkProjection =
-    benchmark != null && benchmark > 0
-      ? projectOntoGauge(benchmark, domainMin, domainMax)
-      : null
+    benchmark != null && benchmark > 0 ? projectOntoGauge(benchmark, domainMin, domainMax) : null
 
   const appliedProjection =
-    applied != null && applied > 0
-      ? projectOntoGauge(applied, domainMin, domainMax)
-      : null
+    applied != null && applied > 0 ? projectOntoGauge(applied, domainMin, domainMax) : null
 
   return (
     <div className={cn('space-y-1.5', className)} role="group" aria-label={labels.legend}>
@@ -221,7 +242,7 @@ export function PercentileBandGauge({
                 vectorEffect="non-scaling-stroke"
               >
                 <title>
-                  {labels.benchmark}: {benchmark!.toFixed(2)}×
+                  {labels.benchmark}: {benchmark?.toFixed(2)}×
                 </title>
               </polygon>
             )}
@@ -241,7 +262,7 @@ export function PercentileBandGauge({
                   vectorEffect="non-scaling-stroke"
                 />
                 <title>
-                  {labels.applied}: {applied!.toFixed(2)}×
+                  {labels.applied}: {applied?.toFixed(2)}×
                   {appliedProjection.outOfRange ? ` — ${labels.outOfBand}` : ''}
                 </title>
               </g>
@@ -257,7 +278,7 @@ export function PercentileBandGauge({
                 key={`label-${m.label}`}
                 className={cn(
                   'absolute -translate-x-1/2 text-[8.5px] font-mono tabular-nums',
-                  m.label === 'p50' ? 'text-primary/85 font-semibold' : 'text-foreground/45',
+                  m.label === 'p50' ? 'text-primary/85 font-semibold' : 'text-foreground/45'
                 )}
                 style={{ left: `${Math.min(98, Math.max(2, m.pct * 100))}%` }}
               >
@@ -269,16 +290,12 @@ export function PercentileBandGauge({
       )}
 
       {appliedProjection?.outOfRange && (
-        <p className="text-[10px] italic text-amber-700 dark:text-amber-400">
-          {labels.outOfBand}
-        </p>
+        <p className="text-[10px] italic text-amber-700 dark:text-amber-400">{labels.outOfBand}</p>
       )}
 
       {/* Inter-quartile / typical-band caption — lives at the call site so
           the caller can pin the exact wording per locale. */}
-      {caption ? (
-        <p className="text-[10px] leading-snug text-foreground/45">{caption}</p>
-      ) : null}
+      {caption ? <p className="text-[10px] leading-snug text-foreground/45">{caption}</p> : null}
     </div>
   )
 }

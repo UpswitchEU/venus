@@ -6,7 +6,10 @@
  */
 import { useMemo } from 'react'
 import { getPreSelectableMethodsForFirmAndRevenue } from '../constants/methodFieldConfig'
-import { type FormSnapshotForRevenueNav, parseCurrentYearRevenueForMethodNav } from '../utils/currentYearRevenueForMethodNav'
+import {
+  type FormSnapshotForRevenueNav,
+  parseCurrentYearRevenueForMethodNav,
+} from '../utils/currentYearRevenueForMethodNav'
 
 export function useUpfrontMethodNavInputs(
   formData: FormSnapshotForRevenueNav,
@@ -14,12 +17,11 @@ export function useUpfrontMethodNavInputs(
 ) {
   const currentYearRevenueForMethodNav = useMemo(
     () => parseCurrentYearRevenueForMethodNav(formData),
-    [formData.current_year_data, formData.revenue]
+    [formData.current_year_data, formData.revenue, formData]
   )
 
   const preSelectableMethodsForNav = useMemo(
-    () =>
-      getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenueForMethodNav),
+    () => getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenueForMethodNav),
     [firmCountryCode, currentYearRevenueForMethodNav]
   )
 

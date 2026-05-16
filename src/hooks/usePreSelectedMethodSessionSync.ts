@@ -15,10 +15,10 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { shallow } from 'zustand/shallow'
 import {
-  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
   SESSION_PRE_SELECTED_METHODS_KEY,
-  SESSION_USER_WEIGHTS_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
   SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
+  SESSION_USER_WEIGHTS_KEY,
   sanitizePreSelectedValuationMethod,
   sessionHasStoredPreSelectedMethod,
   toSessionPreSelectedFieldValue,
@@ -64,7 +64,13 @@ export function usePreSelectedMethodSessionSync({
   hasValuationResult,
   allowedMethodsForNav,
 }: UsePreSelectedMethodSessionSyncParams): void {
-  const { preSelectedMethod, selectedMethod, preSelectedMethods, userWeights, userWeightJustification } = useManualResultsStore(
+  const {
+    preSelectedMethod,
+    selectedMethod,
+    preSelectedMethods,
+    userWeights,
+    userWeightJustification,
+  } = useManualResultsStore(
     (s) => ({
       preSelectedMethod: s.preSelectedMethod,
       selectedMethod: s.selectedMethod,
@@ -91,14 +97,18 @@ export function usePreSelectedMethodSessionSync({
       if (!session?.reportId) return
 
       const store = useManualResultsStore.getState()
-      const valueToStore = toSessionPreSelectedFieldValue(store.preSelectedMethod, store.selectedMethod)
+      const valueToStore = toSessionPreSelectedFieldValue(
+        store.preSelectedMethod,
+        store.selectedMethod
+      )
 
       void (async () => {
         try {
           await updateSessionData({
             [SESSION_PRE_SELECTED_VALUATION_METHOD_KEY]: valueToStore,
             [SESSION_PRE_SELECTED_METHODS_KEY]: store.preSelectedMethods,
-            [SESSION_USER_WEIGHTS_KEY]: Object.keys(store.userWeights).length > 0 ? store.userWeights : null,
+            [SESSION_USER_WEIGHTS_KEY]:
+              Object.keys(store.userWeights).length > 0 ? store.userWeights : null,
             [SESSION_USER_WEIGHT_JUSTIFICATION_KEY]: store.userWeightJustification || null,
           })
           await saveSession('autosave')
@@ -111,16 +121,7 @@ export function usePreSelectedMethodSessionSync({
     }, PERSIST_DEBOUNCE_MS)
 
     return () => clearTimeout(handle)
-  }, [
-    preSelectedMethod,
-    selectedMethod,
-    preSelectedMethods,
-    userWeights,
-    userWeightJustification,
-    restorationComplete,
-    resolvedReportId,
-    reportId,
-  ])
+  }, [restorationComplete, resolvedReportId, reportId])
 
   // URL seed: reset per report, then apply at most once when conditions hold.
   //

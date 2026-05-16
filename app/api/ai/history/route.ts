@@ -8,11 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
-import {
-  CLIENT_CONTEXT_HEADERS,
-  LEGACY_CLIENT_CONTEXT_HEADERS,
-} from '@/constants/headers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,10 +27,8 @@ function getClientContextHeaders(request: NextRequest): Record<string, string> {
     request.headers.get(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID) ||
     request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID)
   if (clientUserId) headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientUserId
-  if (accountantUserId)
-    headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
-  if (relationshipId)
-    headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
+  if (accountantUserId) headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
+  if (relationshipId) headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
   return headers
 }
 

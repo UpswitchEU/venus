@@ -120,10 +120,7 @@ export function applyMercuryCelebrationQuery(urlString: string, celebrate: boole
         // are preserved so a round-trip through Venus does not erase the
         // seller's original campaign attribution.
         if (existingFrom === null || isMercuryOwnedCelebrationValue(existingFrom)) {
-          u.searchParams.set(
-            MERCURY_CELEBRATION_QUERY_KEY,
-            MERCURY_CELEBRATION_QUERY_VALUE
-          )
+          u.searchParams.set(MERCURY_CELEBRATION_QUERY_KEY, MERCURY_CELEBRATION_QUERY_VALUE)
         }
       }
     } else {
@@ -234,7 +231,9 @@ export function getSafeMercuryReturnUrl(
   const mercuryUrl = getMercuryUrl()
   /** When set, stored Mercury paths are rewritten to this locale; when omitted, stored URLs are kept as-is. */
   const explicitLocaleOpt =
-    options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale) ? options.locale : undefined
+    options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale)
+      ? options.locale
+      : undefined
   const pathLocale = mercuryPathLocale(explicitLocaleOpt ?? 'en')
   const celebrate = options?.celebrateMercuryReturn === true
 

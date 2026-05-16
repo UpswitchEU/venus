@@ -8,7 +8,6 @@
  */
 
 import { CreateValuationSessionRequest, UpdateValuationSessionRequest } from '../../../types/api'
-import type { ValuationSession } from '../../../types/valuation'
 import type {
   CreateValuationSessionResponse,
   SaveValuationResultResponse,
@@ -17,6 +16,7 @@ import type {
   ValuationSessionResponse,
 } from '../../../types/api-responses'
 import { APIError, AuthenticationError, ValidationError } from '../../../types/errors'
+import type { ValuationSession } from '../../../types/valuation'
 import { convertToApplicationError } from '../../../utils/errors/errorConverter'
 import {
   isNetworkError,
@@ -25,11 +25,11 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import { applyStableReportIdFromSessionKeys } from '../../../utils/sessionReportIdentity'
-import { normalizeSessionData } from '../../session/SessionNormalizer'
 import {
   stripReportBlobsFromSessionPatch,
   stripReportsFromValuationSessionPatchUpdates,
 } from '../../../utils/stripReportBlobsFromSessionPatch'
+import { normalizeSessionData } from '../../session/SessionNormalizer'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
@@ -70,9 +70,7 @@ export class SessionAPI extends HttpClient {
       ...payload,
       status: payload.status ?? normalized.status,
       reportReady:
-        typeof payload.reportReady === 'boolean'
-          ? payload.reportReady
-          : normalized.reportReady,
+        typeof payload.reportReady === 'boolean' ? payload.reportReady : normalized.reportReady,
       valuationResult: normalized.valuationResult,
       htmlReport: normalized.htmlReport,
       _normalizedFormData: normalized.formData,
@@ -112,16 +110,14 @@ export class SessionAPI extends HttpClient {
    * bodies + blob stripping (initial request, 429 retries, and any future call sites).
    */
   private static mapTitanPatchAndStripReportBlobs(
-    patch: Partial<ValuationSession> | undefined,
+    patch: Partial<ValuationSession> | undefined
   ): Record<string, unknown> {
     const p = patch as Record<string, unknown> | undefined
     if (!p) {
       return stripReportsFromValuationSessionPatchUpdates({}) as Record<string, unknown>
     }
-    const mappedCurrentView =
-      p.currentView === 'conversational' ? 'ai-guided' : p.currentView
-    const mappedDataSource =
-      p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
+    const mappedCurrentView = p.currentView === 'conversational' ? 'ai-guided' : p.currentView
+    const mappedDataSource = p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
     const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView as any }
     if (p.dataSource !== undefined) {
       merged.dataSource = mappedDataSource
@@ -135,7 +131,7 @@ export class SessionAPI extends HttpClient {
    */
   private static flattenStoreAndPatchIntoSessionDataForCreate(
     storeSessionData: Record<string, unknown> | undefined,
-    patch: Partial<ValuationSession> | undefined,
+    patch: Partial<ValuationSession> | undefined
   ): Record<string, unknown> {
     const u = (patch || {}) as Record<string, unknown>
     const base: Record<string, unknown> = { ...(storeSessionData || {}) }
@@ -603,13 +599,10 @@ export class SessionAPI extends HttpClient {
         // Check if we have session data in the store (indicating this is a real session, not deleted)
         try {
           if (SessionAPI.hasRecentDeletedSession(reportId)) {
-            apiLogger.warn(
-              'Skipping session auto-create because this session was just deleted',
-              {
-                reportId,
-                tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
-              }
-            )
+            apiLogger.warn('Skipping session auto-create because this session was just deleted', {
+              reportId,
+              tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
+            })
             return {
               success: true,
               session: null as any,
@@ -709,7 +702,7 @@ export class SessionAPI extends HttpClient {
                 // Merge only sessionData/partialData into session_data (never spread full PATCH)
                 const mergedSessionData = SessionAPI.flattenStoreAndPatchIntoSessionDataForCreate(
                   currentSession.sessionData as Record<string, unknown> | undefined,
-                  updates.updates,
+                  updates.updates
                 )
 
                 const sessionToCreate = {

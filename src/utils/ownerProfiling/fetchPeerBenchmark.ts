@@ -39,7 +39,7 @@ function isUnavailableShape(value: unknown): value is { available: false } {
 }
 
 function isAvailableShape(
-  value: unknown,
+  value: unknown
 ): value is { available: true; benchmark: VenusOwnerProfileBenchmark } {
   if (typeof value !== 'object' || value === null) return false
   const o = value as Record<string, unknown>

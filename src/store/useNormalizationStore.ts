@@ -68,10 +68,7 @@ export function mapBackendCategoryToFrontend(category: string): NormalizationIte
  * If `backendCategory` is provided (preserved from a prior load), it takes
  * priority so round-trips are lossless.
  */
-export function mapFrontendCategoryToBackend(
-  category: string,
-  backendCategory?: string,
-): string {
+export function mapFrontendCategoryToBackend(category: string, backendCategory?: string): string {
   if (backendCategory && VALID_BACKEND_CATEGORIES.has(backendCategory)) return backendCategory
   if (VALID_BACKEND_CATEGORIES.has(category)) return category
   return FRONTEND_TO_BACKEND_CATEGORY[category] || category
@@ -146,20 +143,28 @@ export function setNormalizationToastMessages(getter: ToastMessageGetter | null)
 
 const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
   normalizationNotSaved: 'Adjustments not saved',
-  normalizationNotSavedDesc: 'Your adjustments are saved locally. Sync will be retried automatically.',
+  normalizationNotSavedDesc:
+    'Your adjustments are saved locally. Sync will be retried automatically.',
   normalizationConflictDesc:
     'Another update finished first (e.g. valuation or sync). Retrying automatically…',
   normalizationNotSavedRetry: 'Retry now',
-  normalizationNotSavedSession: 'Session not found. Calculate your valuation first or refresh the page.',
+  normalizationNotSavedSession:
+    'Session not found. Calculate your valuation first or refresh the page.',
 }
 
 function getToastMessage(key: ToastMessageKey, error?: unknown): string {
   if (key === 'normalizationNotSavedDesc' && error instanceof NormalizationAPIError) {
     if (error.status === 404) {
-      return toastMessageGetter?.('normalizationNotSavedSession') ?? TOAST_FALLBACKS.normalizationNotSavedSession
+      return (
+        toastMessageGetter?.('normalizationNotSavedSession') ??
+        TOAST_FALLBACKS.normalizationNotSavedSession
+      )
     }
     if (error.status === 409) {
-      return toastMessageGetter?.('normalizationConflictDesc') ?? TOAST_FALLBACKS.normalizationConflictDesc
+      return (
+        toastMessageGetter?.('normalizationConflictDesc') ??
+        TOAST_FALLBACKS.normalizationConflictDesc
+      )
     }
   }
   return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
@@ -409,9 +414,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
         const accepted = items.filter((n) => n.status === 'accepted')
         if (accepted.length === 0) return
 
-        const yearsToPersist = years.filter((year) =>
-          accepted.some((n) => appliesToYear(n, year))
-        )
+        const yearsToPersist = years.filter((year) => accepted.some((n) => appliesToYear(n, year)))
         if (yearsToPersist.length === 0) return
 
         for (const year of yearsToPersist) {
@@ -525,7 +528,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
       getRejected: () => get().items.filter((n) => n.status === 'rejected'),
       getByYear: (year) =>
         get().items.filter(
-          (n) => n.applyAllYears || (n.applyYears && n.applyYears.length > 0 ? n.applyYears.includes(year) : n.year === year)
+          (n) =>
+            n.applyAllYears ||
+            (n.applyYears && n.applyYears.length > 0
+              ? n.applyYears.includes(year)
+              : n.year === year)
         ),
       getTotalAdjustment: () =>
         get().items.reduce((sum, n) => {

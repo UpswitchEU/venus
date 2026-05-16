@@ -1,12 +1,13 @@
-import React from 'react'
 import { render, screen } from '@testing-library/react'
+import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
 
 const translations: Record<string, string> = {
   sensitivityTitle: 'DCF sensitivity matrix',
   sensitivityDescription: 'Enterprise value under +/-1 point changes in WACC and terminal growth.',
-  sensitivityDescriptionExitMultiple: 'Enterprise value under +/-1 point changes in WACC and exit multiple.',
+  sensitivityDescriptionExitMultiple:
+    'Enterprise value under +/-1 point changes in WACC and exit multiple.',
   sensitivityWaccHeader: 'WACC / g',
   sensitivityWaccExitHeader: 'WACC / exit',
 }

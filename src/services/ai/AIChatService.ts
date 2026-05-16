@@ -12,17 +12,17 @@
  * X-Relationship-Id so Titan resolves session/report for the client.
  */
 
-import { createContextLogger } from '../../utils/logger'
 import { useClientContext } from '../../stores/clientContext'
+import { createContextLogger } from '../../utils/logger'
 import {
-  dispatchAIChatChunk,
-  makeChunkDispatchState,
-  parseAIChatToolResults,
   type BelgianCompanyBootstrap,
   type BuyerProfilePreview,
   type ClientDataReadinessPreview,
+  dispatchAIChatChunk,
   type ListingPreview,
   type MethodReadinessPreview,
+  makeChunkDispatchState,
+  parseAIChatToolResults,
 } from './tool-results-parser'
 
 const logger = createContextLogger('AIChatService')

@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
 import { AuroraInput as Input } from '@/design-system/components/Input'
@@ -45,7 +46,6 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
 
 // ─────────────────────────────────────────
@@ -85,13 +85,7 @@ export interface NormalisationReviewStepProps {
   suggestions: SuggestedNormalisation[]
   originalEbitda: number
   companyName: string
-  sourceIntegration?:
-    | 'yuki'
-    | 'exact'
-    | 'odoo'
-    | 'octopus'
-    | 'accountable'
-    | 'manual'
+  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'manual'
   onAccept: (id: string) => void
   onReject: (id: string) => void
   onAcceptAll: () => void

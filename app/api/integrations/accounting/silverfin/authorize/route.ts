@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
       },
-      15_000,
+      15_000
     )
 
     const data = await response.json().catch(() => ({}))
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
             (typeof data?.message === 'string' && data.message) ||
             'Failed to get Silverfin authorize URL',
         },
-        { status: response.status },
+        { status: response.status }
       )
     }
 

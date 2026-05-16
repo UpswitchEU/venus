@@ -67,7 +67,8 @@ describe('LiquidationInputsSection', () => {
     const labels = container.querySelectorAll<HTMLLabelElement>('label[for]')
     expect(labels.length).toBeGreaterThan(0)
     for (const label of Array.from(labels)) {
-      const targetId = label.getAttribute('for')!
+      const targetId = label.getAttribute('for')
+      expect(targetId).toBeTruthy()
       const target = container.querySelector(`#${CSS.escape(targetId)}`)
       expect(target, `label "${label.textContent}" should point at an input`).not.toBeNull()
     }
@@ -108,12 +109,12 @@ describe('LiquidationInputsSection', () => {
     const controlsId = toggle.getAttribute('aria-controls')
     expect(controlsId).toBeTruthy()
     // Panel isn't rendered until the toggle opens.
-    expect(document.getElementById(controlsId!)).toBeNull()
+    expect(document.getElementById(controlsId)).toBeNull()
     act(() => {
       fireEvent.click(toggle)
     })
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const panel = document.getElementById(controlsId!)
+    const panel = document.getElementById(controlsId)
     expect(panel).not.toBeNull()
     expect(panel).toHaveAttribute('role', 'region')
   })

@@ -20,11 +20,11 @@
  * Copy lives in `messages/startupStudio/{locale}.json` under `narrative`.
  */
 
+import type { AmbitionLevel } from '@/features/startup-studio/data/ambition'
+import type { TeamLevel } from '@/features/startup-studio/data/teamLevel'
+import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 import studioEn from '../../../../messages/startupStudio/en.json'
 import studioNl from '../../../../messages/startupStudio/nl.json'
-import type { TeamLevel } from '@/features/startup-studio/data/teamLevel'
-import type { AmbitionLevel } from '@/features/startup-studio/data/ambition'
-import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
 
 type NarrativeBundle = (typeof studioEn)['narrative']
 
@@ -78,10 +78,7 @@ function fmt(eur: number | null | undefined): string {
  * Build the headline narrative — the *one* sentence that goes on the deck.
  * Reads in any context (no jargon, no leg names, no method names).
  */
-export function buildHeadlineNarrative(
-  ctx: NarrativeContext,
-  locale: 'en' | 'nl' = 'en',
-): string {
+export function buildHeadlineNarrative(ctx: NarrativeContext, locale: 'en' | 'nl' = 'en'): string {
   const n = narrativeBundle(locale)
   const post = ctx.preMoney + ctx.raise
   const dilution = post > 0 ? (ctx.raise / post) * 100 : 0
@@ -101,10 +98,7 @@ export function buildHeadlineNarrative(
  * jargon footnote on the live receipt.  Two short paragraphs that any
  * non-finance owner can read aloud.
  */
-export function buildWhyNarrative(
-  ctx: NarrativeContext,
-  locale: 'en' | 'nl' = 'en',
-): string[] {
+export function buildWhyNarrative(ctx: NarrativeContext, locale: 'en' | 'nl' = 'en'): string[] {
   const n = narrativeBundle(locale)
   const lines: string[] = []
 
@@ -121,7 +115,7 @@ export function buildWhyNarrative(
       year5,
       preMoney: fmt(ctx.preMoney),
       raise: fmt(ctx.raise),
-    }),
+    })
   )
 
   const activeLegCount = [
@@ -142,7 +136,7 @@ export function buildWhyNarrative(
     interpolate(n.whyP2, {
       count: activeLegCount,
       overlay,
-    }),
+    })
   )
 
   return lines
@@ -169,10 +163,7 @@ export interface SensitivityResult {
   spreadPct: number
 }
 
-export function computeY5Sensitivity(
-  ctx: NarrativeContext,
-  pct = 20,
-): SensitivityResult | null {
+export function computeY5Sensitivity(ctx: NarrativeContext, pct = 20): SensitivityResult | null {
   if (ctx.preMoney <= 0) return null
   if (ctx.legs.vc == null || ctx.legs.vc <= 0) {
     // No VC leg active → sensitivity is degenerate.  Fall back to a

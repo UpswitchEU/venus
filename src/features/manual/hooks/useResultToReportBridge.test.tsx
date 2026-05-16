@@ -8,12 +8,12 @@
 
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ValuationResponse } from '@/types/valuation'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
+import type { ValuationResponse } from '@/types/valuation'
 import {
-  useResultToReportBridge,
   type UseResultToReportBridgeParams,
+  useResultToReportBridge,
 } from './useResultToReportBridge'
 
 function makeResult(partial: Partial<ValuationResponse> = {}): ValuationResponse {

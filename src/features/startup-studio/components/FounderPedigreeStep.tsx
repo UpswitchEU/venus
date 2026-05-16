@@ -90,7 +90,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
         setPendingFocusKey(key)
       }
     },
-    [evidence, setFlag],
+    [evidence, setFlag]
   )
 
   const multiplier = calculatePedigreeMultiplier(flags)
@@ -116,9 +116,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <p className="text-sm leading-relaxed text-foreground/70">
-              {t('introInputPrompt')}
-            </p>
+            <p className="text-sm leading-relaxed text-foreground/70">{t('introInputPrompt')}</p>
             {/* Solo-founder asymmetry citation + Strebulaev calibration
                 citation moved to the ValuationIQ report (advisor-CTA
                 partial / pedigree section) on 2026-05-10 — both were
@@ -132,7 +130,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                 : effectiveMultiplier < 1
                   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'bg-foreground/5 text-foreground/70',
+                  : 'bg-foreground/5 text-foreground/70'
             )}
           >
             <p className="text-[10px] uppercase tracking-wide opacity-75">
@@ -181,7 +179,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                     : evidenceMissing
                       ? 'border-amber-400 bg-amber-500/5 shadow-inner'
                       : 'border-primary bg-primary/5 shadow-inner'
-                  : 'border-foreground/10 bg-background/60 hover:border-primary/40 hover:bg-primary/[0.03]',
+                  : 'border-foreground/10 bg-background/60 hover:border-primary/40 hover:bg-primary/[0.03]'
               )}
             >
               <button
@@ -191,7 +189,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                 onClick={() => handleFlagToggle(key, !checked)}
                 className={cn(
                   'group block w-full rounded-2xl p-5 text-left',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/40',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/40'
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -212,7 +210,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                               // the chip's small "· pending" suffix.
                               'border-amber-500 bg-amber-500'
                             : 'border-primary bg-primary'
-                        : 'border-foreground/30 group-hover:border-primary/60',
+                        : 'border-foreground/30 group-hover:border-primary/60'
                     )}
                   >
                     {checked && (
@@ -239,7 +237,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                             ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                             : evidenceMissing
                               ? 'bg-foreground/10 text-foreground/55 line-through'
-                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                         )}
                         // Surface the gate inline on the chip so the
                         // founder sees "+0.30× pending evidence" the
@@ -264,7 +262,9 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                     <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">
                       {t(`options.${key}.description`)}
                     </p>
-                    <p className="mt-2 text-xs text-foreground/55">{t(`options.${key}.evidence`)}</p>
+                    <p className="mt-2 text-xs text-foreground/55">
+                      {t(`options.${key}.evidence`)}
+                    </p>
                   </div>
                 </div>
               </button>
@@ -275,9 +275,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                     htmlFor={`pedigree-evidence-${evidenceKey}`}
                     className="flex items-center gap-1.5 text-xs font-medium text-foreground/75"
                   >
-                    {evidenceMissing && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                    )}
+                    {evidenceMissing && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                     {t('evidenceLabel')}
                   </label>
                   <textarea
@@ -298,7 +296,7 @@ export function FounderPedigreeStep(_props: FounderPedigreeStepProps) {
                       'focus:outline-none focus:ring-2 focus:ring-primary/40',
                       evidenceMissing
                         ? 'border-amber-400/70'
-                        : 'border-foreground/15 focus:border-primary/60',
+                        : 'border-foreground/15 focus:border-primary/60'
                     )}
                     maxLength={PEDIGREE_EVIDENCE_MAX_LEN}
                   />

@@ -21,10 +21,10 @@
 import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useMemo } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
-import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
-import { XMultiplierInput } from '@/features/startup-studio/components/XMultiplierInput'
 import { getRegionalBaseline } from '@/components/calculator/sections/startup/regionalBaseline'
 import { InceptionLensPicker } from '@/features/startup-studio/components/InceptionLensPicker'
+import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
+import { XMultiplierInput } from '@/features/startup-studio/components/XMultiplierInput'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
@@ -64,7 +64,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),
-    [locale],
+    [locale]
   )
   const country = useStartupValuationStore((s) => s.country_code) || 'BE'
   const stage = useStartupValuationStore((s) => s.stage)
@@ -82,7 +82,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
   const stageLabel = tStageLabels(stage)
 
   const benchmarkMidMultiple = Math.round(
-    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2,
+    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2
   )
   const stageDefaultRoi = getRegionalBaseline(country, stage).default_target_roi_x
   const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector] ?? 5_000_000
@@ -92,10 +92,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
   // (€10M default), etc.  Founder briefly seeing an empty input on
   // first paint (before the seed effect fires) shouldn't see a number
   // that disagrees with what the store will fill in.
-  const y5Placeholder = useMemo(
-    () => intlFmt.format(sectorDefaultY5),
-    [intlFmt, sectorDefaultY5],
-  )
+  const y5Placeholder = useMemo(() => intlFmt.format(sectorDefaultY5), [intlFmt, sectorDefaultY5])
 
   // Pre-fill targetRoi and y5 only — the exit multiple is owned by the
   // ExitMultipleOverride subcomponent below (its own effect seeds the
@@ -107,13 +104,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
     if (y5 == null) {
       setField('year5_revenue_projection', sectorDefaultY5)
     }
-  }, [
-    targetRoi,
-    y5,
-    stageDefaultRoi,
-    sectorDefaultY5,
-    setField,
-  ])
+  }, [targetRoi, y5, stageDefaultRoi, sectorDefaultY5, setField])
 
   const applySectorDefaultY5 = () => {
     setField('year5_revenue_projection', sectorDefaultY5)
@@ -138,22 +129,14 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
   //      pre-revenue cohorts) so audacious-but-undefended numbers
   //      surface BEFORE the report renders a fragile headline.
   const currentArrSignal =
-    typeof arr === 'number' && arr > 0
-      ? arr
-      : typeof mrr === 'number' && mrr > 0
-        ? mrr * 12
-        : null
+    typeof arr === 'number' && arr > 0 ? arr : typeof mrr === 'number' && mrr > 0 ? mrr * 12 : null
   // Sector-default-anchored ceiling for pre-revenue founders. 5× the
   // sector default approximates the P95 for that stage — anything
   // above this needs a separate "moonshot" rationale or it'll look
   // like a typo to investors.
   const PRE_REVENUE_Y5_CEILING_MULT = 5
   const preRevenueCeiling = sectorDefaultY5 * PRE_REVENUE_Y5_CEILING_MULT
-  let y5SanityState:
-    | 'impossible'
-    | 'below_current'
-    | 'pre_revenue_too_high'
-    | null = null
+  let y5SanityState: 'impossible' | 'below_current' | 'pre_revenue_too_high' | null = null
   let y5SanityRatio = 0
   let y5SanityMonthlyGrowth = 0
   if (currentArrSignal != null && previewY5 > 0) {
@@ -208,9 +191,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
             tell which numbers were defaults and which were typed. */}
         <div className="mt-2">
           <PrefillBadge
-            variant={
-              y5 == null || y5 === sectorDefaultY5 ? 'sector_default' : 'your_override'
-            }
+            variant={y5 == null || y5 === sectorDefaultY5 ? 'sector_default' : 'your_override'}
           />
         </div>
 
@@ -275,11 +256,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <h3 className="mb-1 text-lg font-semibold text-foreground">{t('multipleOverrideTitle')}</h3>
         <p className="mb-4 text-sm text-foreground/60">{t('multipleOverrideLead')}</p>
-        <ExitMultipleOverride
-          stage={stage}
-          country={country}
-          sector={sector}
-        />
+        <ExitMultipleOverride stage={stage} country={country} sector={sector} />
       </div>
 
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
@@ -414,9 +391,7 @@ function ExitMultipleOverride({ stage, country, sector }: ExitMultipleOverridePr
   const setField = useStartupValuationStore((s) => s.setField)
   const { benchmark } = useStartupBenchmark(country, stage, sector)
 
-  const benchmarkMid = Math.round(
-    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2,
-  )
+  const benchmarkMid = Math.round((benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2)
   const sectorLabel = tSectorLabels(sector)
 
   // Prefill aggressively — first paint always shows the sector
@@ -432,8 +407,7 @@ function ExitMultipleOverride({ stage, country, sector }: ExitMultipleOverridePr
   const applied = exitMultiple ?? benchmarkMid
   const isOverridden = Math.abs(applied - benchmarkMid) > 0.01
   const outOfBand =
-    applied < benchmark.exit_multiple_low - 0.01 ||
-    applied > benchmark.exit_multiple_high + 0.01
+    applied < benchmark.exit_multiple_low - 0.01 || applied > benchmark.exit_multiple_high + 0.01
 
   return (
     <div className="space-y-4">
@@ -482,9 +456,7 @@ function ExitMultipleOverride({ stage, country, sector }: ExitMultipleOverridePr
           htmlFor="exit-multiple-rationale"
           className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foreground/55"
         >
-          {isOverridden
-            ? t('multipleRationaleLabel')
-            : t('multipleRationaleOptionalLabel')}
+          {isOverridden ? t('multipleRationaleLabel') : t('multipleRationaleOptionalLabel')}
         </label>
         <textarea
           id="exit-multiple-rationale"
@@ -495,9 +467,7 @@ function ExitMultipleOverride({ stage, country, sector }: ExitMultipleOverridePr
           maxLength={280}
           className="block w-full resize-none rounded-md border border-foreground/15 bg-background/80 px-3 py-2 text-sm leading-relaxed placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        <p className="mt-1 text-[11px] text-foreground/55">
-          {t('multipleRationaleHint')}
-        </p>
+        <p className="mt-1 text-[11px] text-foreground/55">{t('multipleRationaleHint')}</p>
       </div>
 
       {isOverridden && (
@@ -520,4 +490,3 @@ function ExitMultipleOverride({ stage, country, sector }: ExitMultipleOverridePr
 // to its own file (``./XMultiplierInput.tsx``) so it can be tested in
 // isolation and reused for any other multiplier-shaped input. The import
 // at the top of this file picks it up.
-

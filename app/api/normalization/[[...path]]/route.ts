@@ -58,7 +58,7 @@ const VERCEL_SEGMENT_MAX_SECONDS = 800
 
 const ROUTE_SEGMENT_MAX_SECONDS = Math.min(
   VERCEL_SEGMENT_MAX_SECONDS,
-  Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120)),
+  Math.max(10, parsePositiveSeconds('NORMALIZATION_ROUTE_SEGMENT_MAX_SECONDS', 120))
 )
 
 /** Next.js segment `maxDuration` must be a static literal ≤ Vercel platform max (800s on Pro). */
@@ -66,11 +66,11 @@ export const maxDuration = 800
 
 const NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS = Math.min(
   parseTimeoutMs('NORMALIZATION_PROXY_MUTATION_TIMEOUT_MS', 120_000),
-  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+  ROUTE_SEGMENT_MAX_SECONDS * 1000
 )
 const NORMALIZATION_PROXY_READ_TIMEOUT_MS = Math.min(
   parseTimeoutMs('NORMALIZATION_PROXY_READ_TIMEOUT_MS', 30_000),
-  ROUTE_SEGMENT_MAX_SECONDS * 1000,
+  ROUTE_SEGMENT_MAX_SECONDS * 1000
 )
 
 function proxyTimeoutMsForMethod(method: string): number {

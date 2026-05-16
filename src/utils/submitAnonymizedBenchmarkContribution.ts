@@ -1,5 +1,8 @@
 import type { ValuationMethodResult, ValuationResponse } from '../types/valuation'
-import { getValuationMethodResultForKey, hydrateClientValuationResultsMap } from './extractValuationResultsMap'
+import {
+  getValuationMethodResultForKey,
+  hydrateClientValuationResultsMap,
+} from './extractValuationResultsMap'
 import { generalLogger } from './logger'
 
 const RISK_LEVELS = new Set(['MINIMAL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
@@ -27,9 +30,7 @@ const METHODOLOGY_TOKENS = new Set([
  * Returns `null` if no owner-profile data is on the response — the caller
  * just omits these fields from the payload.
  */
-function extractOwnerProfileFields(
-  result: ValuationResponse,
-): null | {
+function extractOwnerProfileFields(result: ValuationResponse): null | {
   transferability_risk_index?: number
   owner_dependency_adjustment?: number
   owner_profiling_risk_level?: string
@@ -73,8 +74,7 @@ function extractOwnerProfileFields(
   const adjBounded = Math.max(-0.4, Math.min(0, adj))
 
   const riskLevel = typeof odr.risk_level === 'string' ? odr.risk_level.toUpperCase() : null
-  const riskLevelBounded =
-    riskLevel && RISK_LEVELS.has(riskLevel) ? riskLevel : null
+  const riskLevelBounded = riskLevel && RISK_LEVELS.has(riskLevel) ? riskLevel : null
 
   const out: {
     transferability_risk_index: number
@@ -157,10 +157,13 @@ export async function submitAnonymizedBenchmarkContribution(
     (evEbitda != null && ebitda != null && Number.isFinite(ebitda)) ||
     (evRevenue != null && revenue != null && Number.isFinite(revenue))
   if (!hasContributionData) {
-    generalLogger.info('Skipping anonymized benchmark contribution (incomplete valuation payload)', {
-      businessType: businessTypeId,
-      hasValuationResults: !!result.valuation_results,
-    })
+    generalLogger.info(
+      'Skipping anonymized benchmark contribution (incomplete valuation payload)',
+      {
+        businessType: businessTypeId,
+        hasValuationResults: !!result.valuation_results,
+      }
+    )
     return
   }
 
@@ -172,9 +175,7 @@ export async function submitAnonymizedBenchmarkContribution(
   // migration 064 enforces this server-side, and Titan returns a clean
   // `status: "deduplicated"` 200 instead of a noisy P2002.
   const valuationId = typeof row.valuation_id === 'string' ? row.valuation_id : null
-  const contributorReference = valuationId
-    ? valuationId.slice(0, 128)
-    : undefined
+  const contributorReference = valuationId ? valuationId.slice(0, 128) : undefined
 
   const res = await fetch(`${titanUrl}/api/v2/multiples/contribute`, {
     method: 'POST',

@@ -156,9 +156,7 @@ export function pickConnectedImportProvider(
 }
 
 /** Full status row for the chosen provider (for UI subtitle: company name, etc.). */
-export function pickConnectedImportStatus(
-  statuses: IntegrationStatus[]
-): IntegrationStatus | null {
+export function pickConnectedImportStatus(statuses: IntegrationStatus[]): IntegrationStatus | null {
   const byProvider = new Map(statuses.map((s) => [s.provider, s]))
   for (const p of ACCOUNTING_IMPORT_PROVIDER_ORDER) {
     const row = byProvider.get(p)
@@ -233,9 +231,12 @@ class AccountingAPI extends HttpClient {
     if (state) {
       qs.set('state', state)
     }
-    const response = await fetch(`/api/integrations/accounting/silverfin/authorize?${qs.toString()}`, {
-      credentials: 'include',
-    })
+    const response = await fetch(
+      `/api/integrations/accounting/silverfin/authorize?${qs.toString()}`,
+      {
+        credentials: 'include',
+      }
+    )
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       throw new Error(
@@ -283,9 +284,7 @@ class AccountingAPI extends HttpClient {
     })
     if (!response.ok && response.status !== 204) {
       const data = await response.json().catch(() => ({}))
-      throw new Error(
-        (data as { message?: string }).message || 'Failed to disconnect Silverfin'
-      )
+      throw new Error((data as { message?: string }).message || 'Failed to disconnect Silverfin')
     }
   }
 

@@ -125,7 +125,7 @@ export function useValuationPersistenceCoordinator(
 
   // Forward-declared so `runIntent.finally` can drain the queue after a
   // successful or failed run. The actual function is assigned below.
-  const drainQueueRef = useRef<() => void>(() => {})
+  const drainQueueRef = useRef<() => void>(() => undefined)
 
   const runIntent = useCallback(
     (intent: PersistIntent): void => {
@@ -134,7 +134,8 @@ export function useValuationPersistenceCoordinator(
       inFlightKindRef.current = intent.kind
       recomputeIsPersisting()
 
-      runnerRef.current(intent, controller.signal)
+      runnerRef
+        .current(intent, controller.signal)
         .then(() => {
           if (controller.signal.aborted) return
           if (intent.kind === 'method') {

@@ -1,10 +1,10 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { cn } from '@/design-system/utils'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
-import { cn } from '@/design-system/utils'
 import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFromNace'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
@@ -60,7 +60,9 @@ function SaasPanel({
   return (
     <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
       <div className="space-y-1">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">{title}</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+          {title}
+        </h4>
         <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
       {children}
@@ -102,7 +104,7 @@ function PrefilledFieldChip({
     <span
       className={cn(
         'mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-tight',
-        tone,
+        tone
       )}
       title={tooltip}
     >
@@ -219,12 +221,12 @@ export function SaasMetricsSection({
   // available or the prior-year revenue is non-positive.
   const yoyGrowthPct = useMemo(
     () => computeYoyRevenueGrowthPct(yearlyFinancials),
-    [yearlyFinancials],
+    [yearlyFinancials]
   )
   const prefilledKeysRef = useRef<Set<string>>(new Set())
   const prefilledSourceRef = useRef<Map<string, PrefillSource>>(new Map())
   const prefilledRanRef = useRef(false)
-  const [prefilledKeys, setPrefilledKeys] = useState<readonly string[]>([])
+  const [_prefilledKeys, setPrefilledKeys] = useState<readonly string[]>([])
 
   useEffect(() => {
     if (prefilledRanRef.current) return
@@ -313,7 +315,7 @@ export function SaasMetricsSection({
     },
     // prefilledKeys state used to force a re-render when the set changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [prefilledKeys],
+    []
   )
   const handleFieldChange = useCallback(
     (key: string, value: number | undefined) => {
@@ -322,7 +324,7 @@ export function SaasMetricsSection({
       }
       onFieldChange(key, value)
     },
-    [onFieldChange],
+    [onFieldChange]
   )
 
   // ─── Live ARR → MRR derivation ─────────────────────────────────
@@ -371,21 +373,35 @@ export function SaasMetricsSection({
       saasMrr,
       saasNrrPct,
       saasSmSpend,
-    ],
+    ]
   )
 
   const filledCount = useMemo(() => {
     const fields = [
-      saasArr, saasMrr, saasArrGrowthPct, saasChurnPct,
-      saasCustomerChurnPct, saasNrrPct, saasGrossMarginPct,
-      saasCac, saasSmSpend, saasCustomerConcentrationPct,
+      saasArr,
+      saasMrr,
+      saasArrGrowthPct,
+      saasChurnPct,
+      saasCustomerChurnPct,
+      saasNrrPct,
+      saasGrossMarginPct,
+      saasCac,
+      saasSmSpend,
+      saasCustomerConcentrationPct,
       saasExpansionRevenuePct,
     ]
     return fields.filter((v) => v != null && Number.isFinite(v)).length
   }, [
-    saasArr, saasMrr, saasArrGrowthPct, saasChurnPct,
-    saasCustomerChurnPct, saasNrrPct, saasGrossMarginPct,
-    saasCac, saasSmSpend, saasCustomerConcentrationPct,
+    saasArr,
+    saasMrr,
+    saasArrGrowthPct,
+    saasChurnPct,
+    saasCustomerChurnPct,
+    saasNrrPct,
+    saasGrossMarginPct,
+    saasCac,
+    saasSmSpend,
+    saasCustomerConcentrationPct,
     saasExpansionRevenuePct,
   ])
 
@@ -525,8 +541,12 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_arr_growth_pct')}
             source={prefilledSourceRef.current.get('saas_arr_growth_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') ?? 'benchmark'}`)}
-            tooltip={t(`prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') === 'history' ? 'historyTooltip' : 'benchmarkTooltip'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') ?? 'benchmark'}`
+            )}
+            tooltip={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_arr_growth_pct') === 'history' ? 'historyTooltip' : 'benchmarkTooltip'}`
+            )}
           >
             <AdaptivePercentInput
               label={t('fields.saasArrGrowthPct')}
@@ -541,7 +561,9 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_nrr_pct')}
             source={prefilledSourceRef.current.get('saas_nrr_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_nrr_pct') ?? 'benchmark'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_nrr_pct') ?? 'benchmark'}`
+            )}
             tooltip={t('prefillSource.benchmarkTooltip')}
           >
             <AdaptivePercentInput
@@ -565,7 +587,9 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_churn_pct')}
             source={prefilledSourceRef.current.get('saas_churn_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_churn_pct') ?? 'benchmark'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_churn_pct') ?? 'benchmark'}`
+            )}
             tooltip={t('prefillSource.benchmarkTooltip')}
           >
             <AdaptivePercentInput
@@ -581,7 +605,9 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_customer_churn_pct')}
             source={prefilledSourceRef.current.get('saas_customer_churn_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_customer_churn_pct') ?? 'benchmark'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_customer_churn_pct') ?? 'benchmark'}`
+            )}
             tooltip={t('prefillSource.benchmarkTooltip')}
           >
             <AdaptivePercentInput
@@ -597,7 +623,9 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_expansion_revenue_pct')}
             source={prefilledSourceRef.current.get('saas_expansion_revenue_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_expansion_revenue_pct') ?? 'benchmark'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_expansion_revenue_pct') ?? 'benchmark'}`
+            )}
             tooltip={t('prefillSource.benchmarkTooltip')}
           >
             <AdaptivePercentInput
@@ -613,7 +641,9 @@ export function SaasMetricsSection({
           <FieldWithSourceChip
             prefilled={isStillPrefilled('saas_gross_margin_pct')}
             source={prefilledSourceRef.current.get('saas_gross_margin_pct') ?? null}
-            label={t(`prefillSource.${prefilledSourceRef.current.get('saas_gross_margin_pct') ?? 'benchmark'}`)}
+            label={t(
+              `prefillSource.${prefilledSourceRef.current.get('saas_gross_margin_pct') ?? 'benchmark'}`
+            )}
             tooltip={t('prefillSource.benchmarkTooltip')}
           >
             <AdaptivePercentInput
@@ -705,13 +735,40 @@ export function SaasMetricsSection({
           <span className="text-[10px] text-foreground/45">{t('fields.saasAutoCalculated')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {([
-            { key: 'ruleOf40', label: t('fields.ruleOf40Score'), value: derivedMetrics.ruleOf40, suffix: '%' },
-            { key: 'ltvCac', label: t('fields.ltvCacRatio'), value: derivedMetrics.ltvCac, suffix: 'x' },
-            { key: 'cacPaybackMonths', label: t('fields.cacPaybackMonths'), value: derivedMetrics.cacPaybackMonths, suffix: '' },
-            { key: 'magicNumber', label: t('fields.magicNumber'), value: derivedMetrics.magicNumber, suffix: 'x' },
-            { key: 'nrrExpansionSpread', label: t('fields.nrrExpansionSpread'), value: derivedMetrics.nrrExpansionSpread, suffix: ' pts' },
-          ] as const).map(({ key, label, value, suffix }) => {
+          {(
+            [
+              {
+                key: 'ruleOf40',
+                label: t('fields.ruleOf40Score'),
+                value: derivedMetrics.ruleOf40,
+                suffix: '%',
+              },
+              {
+                key: 'ltvCac',
+                label: t('fields.ltvCacRatio'),
+                value: derivedMetrics.ltvCac,
+                suffix: 'x',
+              },
+              {
+                key: 'cacPaybackMonths',
+                label: t('fields.cacPaybackMonths'),
+                value: derivedMetrics.cacPaybackMonths,
+                suffix: '',
+              },
+              {
+                key: 'magicNumber',
+                label: t('fields.magicNumber'),
+                value: derivedMetrics.magicNumber,
+                suffix: 'x',
+              },
+              {
+                key: 'nrrExpansionSpread',
+                label: t('fields.nrrExpansionSpread'),
+                value: derivedMetrics.nrrExpansionSpread,
+                suffix: ' pts',
+              },
+            ] as const
+          ).map(({ key, label, value, suffix }) => {
             const status = getHealthStatus(key, value)
             // The `title` attribute carries the formula so an
             // accountant verifying the engine output can see the math

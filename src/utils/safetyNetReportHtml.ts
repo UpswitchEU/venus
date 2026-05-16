@@ -40,10 +40,7 @@ export function getRenderableReportHtmlFromCurrentOrFallback(
 
   const currentFingerprint = options?.currentRenderFingerprint?.trim()
   const fallbackFingerprint = options?.fallbackRenderFingerprint?.trim()
-  if (
-    currentFingerprint &&
-    (!fallbackFingerprint || fallbackFingerprint !== currentFingerprint)
-  ) {
+  if (currentFingerprint && (!fallbackFingerprint || fallbackFingerprint !== currentFingerprint)) {
     return undefined
   }
 

@@ -51,7 +51,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
   } = useEbitdaNormalizationStore()
 
   const normalization = normalizations[year]
-  const suggestions = marketRateSuggestions[year] || []
+  const _suggestions = marketRateSuggestions[year] || []
 
   const [expandedCategories, setExpandedCategories] = useState<Set<NormalizationCategory>>(
     new Set()
@@ -75,7 +75,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
       })
       setLocalAdjustments(adjustmentsMap)
     }
-  }, [normalization?.adjustments])
+  }, [normalization?.adjustments, normalization])
 
   if (!isOpen || !normalization) return null
 
@@ -151,7 +151,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
 
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
-  const formatCurrency = (value: number) => {
+  const _formatCurrency = (value: number) => {
     return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',

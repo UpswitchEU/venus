@@ -105,8 +105,7 @@ export function StudioCoPilot({
     if (peekOpen && visibleIssues.length === 0) setPeekOpen(false)
   }, [peekOpen, visibleIssues.length])
 
-  const fabLabel =
-    fabBadgeCount > 0 ? t('fabToFix', { count: fabBadgeCount }) : t('fabAllClear')
+  const fabLabel = fabBadgeCount > 0 ? t('fabToFix', { count: fabBadgeCount }) : t('fabAllClear')
 
   return (
     <>

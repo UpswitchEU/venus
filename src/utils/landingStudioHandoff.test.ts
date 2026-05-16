@@ -72,7 +72,7 @@ describe('landingStudioHandoff', () => {
   it('returns null when the snapshot is missing the studio block', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ formData: SAMPLE_FORM_DATA, written_at_ms: Date.now() }),
+      JSON.stringify({ formData: SAMPLE_FORM_DATA, written_at_ms: Date.now() })
     )
     expect(consumeLandingStudioHandoff()).toBeNull()
   })
@@ -80,7 +80,7 @@ describe('landingStudioHandoff', () => {
   it('returns null when the snapshot is missing the formData block', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ studio: SAMPLE_STUDIO, written_at_ms: Date.now() }),
+      JSON.stringify({ studio: SAMPLE_STUDIO, written_at_ms: Date.now() })
     )
     expect(consumeLandingStudioHandoff()).toBeNull()
   })
@@ -106,7 +106,7 @@ describe('landingStudioHandoff', () => {
         formData: SAMPLE_FORM_DATA,
         written_at_ms: 'not-a-number',
         source: 'landing',
-      }),
+      })
     )
     expect(consumeLandingStudioHandoff()).toBeNull()
   })
@@ -139,7 +139,7 @@ describe('landingStudioHandoff', () => {
         formData: SAMPLE_FORM_DATA,
         written_at_ms: Date.now(),
         source: 'landing',
-      }),
+      })
     )
     expect(consumeLandingStudioHandoff()).toBeNull()
   })
@@ -151,7 +151,7 @@ describe('landingStudioHandoff', () => {
         throw new Error('QuotaExceededError')
       })
     expect(() =>
-      writeLandingStudioHandoff({ studio: SAMPLE_STUDIO, formData: SAMPLE_FORM_DATA }),
+      writeLandingStudioHandoff({ studio: SAMPLE_STUDIO, formData: SAMPLE_FORM_DATA })
     ).not.toThrow()
     setItemSpy.mockRestore()
   })

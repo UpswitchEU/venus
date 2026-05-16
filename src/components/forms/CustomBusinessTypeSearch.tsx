@@ -58,7 +58,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, businessTypes]) // Only depend on value and businessTypes to prevent loops
+  }, [value, businessTypes, initialQuery, query]) // Only depend on value and businessTypes to prevent loops
 
   // Set initialQuery once when component mounts or when initialQuery first becomes available
   useEffect(() => {
@@ -67,7 +67,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
       initialQuerySetRef.current = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount
+  }, [initialQuery, query, value]) // Only run once on mount
 
   const filteredTypes = React.useMemo(() => {
     if (!query.trim()) {

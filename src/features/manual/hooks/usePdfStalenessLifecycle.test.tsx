@@ -20,13 +20,11 @@ import { useManualResultsStore } from '@/store/manual'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import {
-  usePdfStalenessLifecycle,
   type UsePdfStalenessLifecycleParams,
+  usePdfStalenessLifecycle,
 } from './usePdfStalenessLifecycle'
 
-function makeReport(
-  partial: Partial<ValuationReportData> = {}
-): ValuationReportData {
+function makeReport(partial: Partial<ValuationReportData> = {}): ValuationReportData {
   return {
     id: 'rep_1',
     companyName: 'Test BV',
@@ -43,9 +41,7 @@ function makeReport(
   } as ValuationReportData
 }
 
-function makeFreshResponse(
-  partial: Partial<ValuationResponse> = {}
-): ValuationResponse {
+function makeFreshResponse(partial: Partial<ValuationResponse> = {}): ValuationResponse {
   return {
     valuation_id: 'rep_1',
     company_name: 'Test BV',
@@ -90,9 +86,7 @@ describe('usePdfStalenessLifecycle', () => {
 
   describe('pdfStale derivation', () => {
     it('returns false when no report is present', () => {
-      const { result } = renderHook(() =>
-        usePdfStalenessLifecycle(makeParams({ report: null }))
-      )
+      const { result } = renderHook(() => usePdfStalenessLifecycle(makeParams({ report: null })))
       expect(result.current.pdfStale).toBe(false)
     })
 
@@ -101,9 +95,7 @@ describe('usePdfStalenessLifecycle', () => {
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
         pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
       })
-      const { result } = renderHook(() =>
-        usePdfStalenessLifecycle(makeParams({ report }))
-      )
+      const { result } = renderHook(() => usePdfStalenessLifecycle(makeParams({ report })))
       expect(result.current.pdfStale).toBe(true)
     })
 
@@ -188,9 +180,7 @@ describe('usePdfStalenessLifecycle', () => {
       })
       const getReport = vi.fn().mockResolvedValue(makeFreshResponse())
       renderHook(() =>
-        usePdfStalenessLifecycle(
-          makeParams({ report, getReport, persistedReportLookupId: null })
-        )
+        usePdfStalenessLifecycle(makeParams({ report, getReport, persistedReportLookupId: null }))
       )
 
       await act(async () => {

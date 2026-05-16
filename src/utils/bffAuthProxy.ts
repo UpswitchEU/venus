@@ -21,8 +21,8 @@ export class AuthUpstreamTimeoutError extends Error {
 export const AUTH_FETCH_TIMEOUT_MS = 10_000
 
 /**
- * Each BFF→Titan hop for `/api/auth/me` (refresh and/or `GET /me`). Keep **below** client
- * `CLIENT_AUTH_ME_FETCH_TIMEOUT_MS` in `auth-fetch-timeout.ts` — the handler may chain **two** hops.
+ * BFF→Titan hop for `/api/auth/me` and auth diagnostics. Keep below client
+ * `CLIENT_AUTH_ME_FETCH_TIMEOUT_MS` in `auth-fetch-timeout.ts`.
  */
 export const AUTH_FETCH_TIMEOUT_AUTH_ME_MS = 9_000
 

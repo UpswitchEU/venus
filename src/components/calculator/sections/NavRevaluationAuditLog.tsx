@@ -39,7 +39,11 @@ export type DeferredTaxBreakdownRow = {
   meerwaarde: number
   rate_pct: number
   deferred_tax: number
-  rate_source: 'user_override' | 'global_user_rate' | 'engine_default_per_asset' | 'engine_default_global'
+  rate_source:
+    | 'user_override'
+    | 'global_user_rate'
+    | 'engine_default_per_asset'
+    | 'engine_default_global'
 }
 
 export type SmeEligibilityPayload = {
@@ -118,23 +122,23 @@ export function NavRevaluationAuditLog({
             <div>
               <dt className="text-[10px] uppercase tracking-wide text-foreground/45">Book value</dt>
               <dd className="mt-0.5 tabular-nums text-foreground/75">
-                {currency.format(realEstate!.book_value)}
+                {currency.format(realEstate?.book_value)}
               </dd>
             </div>
             <div>
               <dt className="text-[10px] uppercase tracking-wide text-foreground/45">Appraisal</dt>
               <dd className="mt-0.5 tabular-nums text-foreground/75">
-                {currency.format(realEstate!.appraisal_value)}
+                {currency.format(realEstate?.appraisal_value)}
               </dd>
             </div>
             <div>
               <dt className="text-[10px] uppercase tracking-wide text-foreground/45">Meerwaarde</dt>
               <dd
                 className={`mt-0.5 tabular-nums font-semibold ${
-                  realEstate!.meerwaarde >= 0 ? 'text-emerald-600' : 'text-rose-500'
+                  realEstate?.meerwaarde >= 0 ? 'text-emerald-600' : 'text-rose-500'
                 }`}
               >
-                {currency.format(realEstate!.meerwaarde)}
+                {currency.format(realEstate?.meerwaarde)}
               </dd>
             </div>
           </dl>
@@ -154,7 +158,7 @@ export function NavRevaluationAuditLog({
               </tr>
             </thead>
             <tbody className="divide-y divide-foreground/[0.04]">
-              {breakdown!.map((row) => (
+              {breakdown?.map((row) => (
                 <tr key={row.asset_class}>
                   <td className="py-2 text-foreground/75">
                     {ASSET_LABELS[row.asset_class] ?? row.asset_class}
@@ -185,7 +189,10 @@ export function NavRevaluationAuditLog({
                       </span>
                     ) : null}
                   </td>
-                  <td colSpan={3} className="pt-2 text-right tabular-nums font-semibold text-rose-500">
+                  <td
+                    colSpan={3}
+                    className="pt-2 text-right tabular-nums font-semibold text-rose-500"
+                  >
                     −{currency.format(taxLatencyDeduction)}
                   </td>
                 </tr>
@@ -203,16 +210,17 @@ export function NavRevaluationAuditLog({
             </h5>
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                smeEligibility!.is_eligible
+                smeEligibility?.is_eligible
                   ? 'bg-emerald-500/[0.12] text-emerald-700'
                   : 'bg-foreground/[0.06] text-foreground/65'
               }`}
             >
-              {smeEligibility!.rate_pct.toFixed(0)}%{smeEligibility!.is_eligible ? ' SME' : ' standard'}
+              {smeEligibility?.rate_pct.toFixed(0)}%
+              {smeEligibility?.is_eligible ? ' SME' : ' standard'}
             </span>
           </div>
           <ul className="mt-2 space-y-1 text-[11px] leading-snug text-foreground/55">
-            {smeEligibility!.reasons.map((reason, idx) => (
+            {smeEligibility?.reasons.map((reason, idx) => (
               <li key={idx} className="flex gap-1.5">
                 <span className="text-foreground/35">•</span>
                 <span>{reason}</span>

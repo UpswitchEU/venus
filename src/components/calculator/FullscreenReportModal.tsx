@@ -15,9 +15,9 @@
 import { Download, Loader2, Printer, Share2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
 import { AuroraButton } from '@/design-system'
 import { Modal, ModalContent } from '@/design-system/components/Modal'
-import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
 import { HTMLProcessor } from '@/utils/htmlProcessor'
 import type { ValuationReportData } from './types'
 
@@ -182,9 +182,7 @@ export function FullscreenReportModal({
                 {t('methodBreakdown.historicalFcfReadiness') || 'Historical FCF readiness'}
               </div>
               <p className="mt-1 text-sm text-foreground/80">
-                {t(
-                  `calculator.fcfReadiness.${report.dcfHistoricalFcfReadiness.status}.title`
-                )}
+                {t(`calculator.fcfReadiness.${report.dcfHistoricalFcfReadiness.status}.title`)}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-foreground/55">
                 {t(

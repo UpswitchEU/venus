@@ -8,16 +8,16 @@
 import type { ConfidenceScoreValue, NormalizationCategory } from './canonical/normalization'
 
 export {
-  NormalizationCategory,
-  ConfidenceScore,
-  NORMALIZATION_CATEGORY_VALUES,
   CATEGORY_METADATA,
+  ConfidenceScore,
   type ConfidenceScoreValue,
-  type NormalizationType,
-  type NormalizationStatus,
-  type NormalizationSource,
-  type NormalizationItemBase,
+  NORMALIZATION_CATEGORY_VALUES,
+  NormalizationCategory,
   type NormalizationCategoryMetadata,
+  type NormalizationItemBase,
+  type NormalizationSource,
+  type NormalizationStatus,
+  type NormalizationType,
 } from './canonical/normalization'
 
 export interface CustomAdjustment {

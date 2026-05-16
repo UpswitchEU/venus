@@ -156,7 +156,7 @@ export interface UnifiedNormalizationModalProps {
 // CONSTANTS
 // ─────────────────────────────────────────
 
-const categoryConfig: Record<NormalizationItem['category'], { icon: string; labelKey: string }> = {
+const _categoryConfig: Record<NormalizationItem['category'], { icon: string; labelKey: string }> = {
   salary: { icon: '👤', labelKey: 'categories.salary' },
   rent: { icon: '🏢', labelKey: 'categories.rent' },
   vehicle: { icon: '🚗', labelKey: 'categories.vehicle' },
@@ -504,7 +504,7 @@ export function UnifiedNormalizationModal({
     } else if (inputContainerRef.current) {
       setDropdownAnchorRect(inputContainerRef.current.getBoundingClientRect())
     }
-  }, [showLedgerDropdown, dropdownSource, searchQuery])
+  }, [showLedgerDropdown, dropdownSource])
 
   // Escape key closes dropdown without clearing selection
   useEffect(() => {
@@ -546,7 +546,7 @@ export function UnifiedNormalizationModal({
   }, [currentYear, financialYears])
 
   // Get unique years from normalizations for filter
-  const yearsInData = useMemo(() => {
+  const _yearsInData = useMemo(() => {
     const years = new Set<number>()
     normalizations.forEach((n) => {
       if (n.applyYears && n.applyYears.length > 0) {
@@ -842,7 +842,7 @@ export function UnifiedNormalizationModal({
       for (const y of years) {
         if (!Number.isFinite(y)) continue
         if (!groups.has(y)) groups.set(y, [])
-        groups.get(y)!.push(n)
+        groups.get(y)?.push(n)
       }
     })
 
@@ -929,7 +929,7 @@ export function UnifiedNormalizationModal({
       return
     onNormalizationsChange(normalizations.filter((n) => !selectedIds.has(n.id)))
     setSelectedIds(new Set())
-  }, [normalizations, onNormalizationsChange, selectedIds])
+  }, [normalizations, onNormalizationsChange, selectedIds, nh])
 
   const startEditing = useCallback(
     (item: NormalizationItem) => {
@@ -983,7 +983,7 @@ export function UnifiedNormalizationModal({
       if (typeof window !== 'undefined' && !window.confirm(nh('confirmRemoveNormalization'))) return
       removeNormalization(id)
     },
-    [removeNormalization]
+    [removeNormalization, nh]
   )
 
   const addNormalization = useCallback(() => {
@@ -1097,6 +1097,7 @@ export function UnifiedNormalizationModal({
     onNormalizationsChange,
     editingId,
     safeOriginalEBITDA,
+    nh,
   ])
 
   // File input ref for CSV upload
@@ -1161,7 +1162,7 @@ export function UnifiedNormalizationModal({
       setSearchQuery(value)
       setShowLedgerDropdown(true)
     },
-    [availableLedgers]
+    [availableLedgers, normalizationPresets.find]
   )
 
   return (
@@ -1418,379 +1419,341 @@ export function UnifiedNormalizationModal({
                 </div>
               )}
 
-            <section className="px-6 pt-4 pb-2 shrink-0" role="region" aria-labelledby="section1-header">
-              <button
-                type="button"
-                onClick={() => setIsEditorExpanded((expanded) => !expanded)}
-                aria-expanded={isEditorExpanded}
-                aria-controls="normalization-editor-panel"
-                className="flex w-full items-start justify-between gap-3 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
+              <section
+                className="px-6 pt-4 pb-2 shrink-0"
+                role="region"
+                aria-labelledby="section1-header"
               >
-                <div className="min-w-0 pr-2">
-                  <h3 id="section1-header" className="text-sm font-semibold text-foreground">
-                    {nh('editorToggleTitle')}
-                  </h3>
-                  <p
-                    className={cn(
-                      'mt-0.5 text-xs text-foreground/50 leading-snug',
-                      LEDGER_LABEL_TEXT_CLASSES,
-                      isEditorExpanded && 'sr-only'
-                    )}
-                  >
-                    {nh('editorToggleSubtitle')}
-                  </p>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 shrink-0 text-foreground/40 transition-transform mt-0.5',
-                    isEditorExpanded && 'rotate-180'
-                  )}
-                />
-              </button>
-            </section>
-
-            {/* Prompt Input Area - Compact */}
-            <AnimatePresence initial={false}>
-              {isEditorExpanded && (
-                <motion.div
-                  id="normalization-editor-panel"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.18, ease: 'easeInOut' }}
-                  className="overflow-hidden border-b border-foreground/[0.06] shrink-0"
+                <button
+                  type="button"
+                  onClick={() => setIsEditorExpanded((expanded) => !expanded)}
+                  aria-expanded={isEditorExpanded}
+                  aria-controls="normalization-editor-panel"
+                  className="flex w-full items-start justify-between gap-3 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
                 >
-                  <div ref={inputContainerRef} className="px-6 py-4 relative shrink-0">
+                  <div className="min-w-0 pr-2">
+                    <h3 id="section1-header" className="text-sm font-semibold text-foreground">
+                      {nh('editorToggleTitle')}
+                    </h3>
                     <p
                       className={cn(
-                        'text-xs text-foreground/50 leading-snug mb-3',
-                        LEDGER_LABEL_TEXT_CLASSES
+                        'mt-0.5 text-xs text-foreground/50 leading-snug',
+                        LEDGER_LABEL_TEXT_CLASSES,
+                        isEditorExpanded && 'sr-only'
                       )}
                     >
                       {nh('editorToggleSubtitle')}
                     </p>
-                    {/* Main Input Container - Enhanced glassmorphism with glow focus */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn(
-                        'relative rounded-2xl',
-                        'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
-                        'backdrop-blur-sm',
-                        'border border-foreground/[0.08]',
-                        'transition-all duration-300',
-                        'focus-within:border-foreground/20 focus-within:shadow-[0_0_20px_-8px_hsl(var(--foreground)/0.06)]'
-                      )}
-                    >
-                      {/* Hidden file input */}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 shrink-0 text-foreground/40 transition-transform mt-0.5',
+                      isEditorExpanded && 'rotate-180'
+                    )}
+                  />
+                </button>
+              </section>
 
-                      {/* Input Row */}
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        <Search className="w-4 h-4 text-foreground/40 flex-shrink-0" />
+              {/* Prompt Input Area - Compact */}
+              <AnimatePresence initial={false}>
+                {isEditorExpanded && (
+                  <motion.div
+                    id="normalization-editor-panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeInOut' }}
+                    className="overflow-hidden border-b border-foreground/[0.06] shrink-0"
+                  >
+                    <div ref={inputContainerRef} className="px-6 py-4 relative shrink-0">
+                      <p
+                        className={cn(
+                          'text-xs text-foreground/50 leading-snug mb-3',
+                          LEDGER_LABEL_TEXT_CLASSES
+                        )}
+                      >
+                        {nh('editorToggleSubtitle')}
+                      </p>
+                      {/* Main Input Container - Enhanced glassmorphism with glow focus */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn(
+                          'relative rounded-2xl',
+                          'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
+                          'backdrop-blur-sm',
+                          'border border-foreground/[0.08]',
+                          'transition-all duration-300',
+                          'focus-within:border-foreground/20 focus-within:shadow-[0_0_20px_-8px_hsl(var(--foreground)/0.06)]'
+                        )}
+                      >
+                        {/* Hidden file input */}
                         <input
-                          ref={searchInputRef}
-                          type="text"
-                          placeholder={
-                            showAddForm
-                              ? nh('searchOtherLedger')
-                              : normalizations.length > 0
-                                ? nh('searchOrAddNew')
-                                : nh('typeCodeOrChoose')
-                          }
-                          value={searchQuery}
-                          title={searchQuery.trim().length > 0 ? searchQuery : undefined}
-                          onChange={(e) => {
-                            const newQuery = e.target.value
-                            setSearchQuery(newQuery)
-                            setDropdownSource('search')
-                            // Only show dropdown when user types something
-                            if (newQuery.trim()) {
-                              setShowLedgerDropdown(true)
-                            } else {
-                              setShowLedgerDropdown(false)
-                            }
-                            // Clear selected ledger when typing (allows changing it in edit mode)
-                            if (
-                              selectedLedger &&
-                              newQuery !== `${selectedLedger.code} · ${selectedLedger.name}`
-                            ) {
-                              setSelectedLedger(null)
-                              // Don't clear values when editing - keep them for the new ledger selection
-                              if (!editingId) {
-                                setNewValue('')
-                                setNewReason('')
-                              }
-                            }
-                          }}
-                          // Intentionally DO NOT open dropdown on focus (only on typing)
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && searchQuery.trim()) {
-                              e.preventDefault()
-                              handlePromptSubmit(searchQuery)
-                            }
-                          }}
-                          className={cn(
-                            'flex-1 bg-transparent border-none outline-none',
-                            'focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent',
-                            'text-sm text-foreground placeholder:text-foreground/35',
-                            'min-w-0'
-                          )}
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".csv,.xlsx,.xls"
+                          onChange={handleFileUpload}
+                          className="hidden"
                         />
 
-                        {/* Upload Button - only action needed */}
-                        <motion.button
-                          type="button"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => fileInputRef.current?.click()}
-                          className={cn(
-                            'p-2 rounded-lg flex items-center gap-1.5',
-                            'text-foreground/50 hover:text-foreground/70',
-                            'bg-foreground/[0.04] hover:bg-foreground/[0.08]',
-                            'border border-foreground/[0.06]',
-                            'transition-all duration-200'
-                          )}
-                          title={nh('importLedger')}
-                        >
-                          <Upload className="w-4 h-4" />
-                        </motion.button>
-                      </div>
-
-                      {/* Suggestion Pills Row - Hidden when add form is visible */}
-                      <AnimatePresence>
-                        {!showAddForm && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="px-4 pb-3 pt-2"
-                          >
-                            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
-                              {normalizationPresets.slice(0, 6).map((preset, index) => (
-                                <motion.button
-                                  key={preset.id}
-                                  initial={{ opacity: 0, y: 8 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{
-                                    delay: 0.05 * index,
-                                    type: 'spring',
-                                    stiffness: 400,
-                                    damping: 25,
-                                  }}
-                                  whileHover={{ y: -2, scale: 1.02 }}
-                                  whileTap={{ scale: 0.97 }}
-                                  onClick={() => {
-                                    setIsEditorExpanded(true)
-                                    setEditingId(null)
-                                    setSelectedLedger({
-                                      code: preset.ledgerCode,
-                                      name: preset.ledgerName,
-                                    })
-                                    setSearchQuery(`${preset.ledgerCode} · ${preset.ledgerName}`)
-                                    setNewType(preset.defaultType)
-                                    setNewValue('')
-                                    setNewReason(preset.description)
-                                    setShowAddForm(true)
-                                  }}
-                                  className={cn(
-                                    'inline-flex shrink-0 items-center px-4 py-2 rounded-xl',
-                                    'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
-                                    'border border-foreground/[0.08]',
-                                    'text-xs text-foreground/70 font-medium',
-                                    'hover:bg-gradient-to-br hover:from-foreground/[0.08] hover:to-foreground/[0.04]',
-                                    'hover:border-foreground/[0.15] hover:text-foreground',
-                                    'hover:shadow-md hover:shadow-foreground/[0.03]',
-                                    'transition-all duration-200'
-                                  )}
-                                >
-                                  {preset.label}
-                                </motion.button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Ledger dropdown - rendered via portal for proper z-index. Anchored to search input or ledger pill (Wijzig) */}
-                      {showLedgerDropdown &&
-                        searchQuery.trim().length > 0 &&
-                        dropdownAnchorRect &&
-                        createPortal(
-                          // NOTE: pointer-events are carefully managed to avoid the backdrop intercepting item clicks.
-                          <div className="fixed inset-0 z-[11000] pointer-events-none">
-                            {/* Backdrop to close dropdown */}
-                            <button
-                              type="button"
-                              aria-label={nh('closeLedgerDropdown')}
-                              className="absolute inset-0 pointer-events-auto bg-transparent"
-                              onClick={() => {
+                        {/* Input Row */}
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <Search className="w-4 h-4 text-foreground/40 flex-shrink-0" />
+                          <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder={
+                              showAddForm
+                                ? nh('searchOtherLedger')
+                                : normalizations.length > 0
+                                  ? nh('searchOrAddNew')
+                                  : nh('typeCodeOrChoose')
+                            }
+                            value={searchQuery}
+                            title={searchQuery.trim().length > 0 ? searchQuery : undefined}
+                            onChange={(e) => {
+                              const newQuery = e.target.value
+                              setSearchQuery(newQuery)
+                              setDropdownSource('search')
+                              // Only show dropdown when user types something
+                              if (newQuery.trim()) {
+                                setShowLedgerDropdown(true)
+                              } else {
                                 setShowLedgerDropdown(false)
-                                setDropdownSource('search')
-                              }}
-                            />
-                            {/* Dropdown content - clickable, dense two-line layout */}
+                              }
+                              // Clear selected ledger when typing (allows changing it in edit mode)
+                              if (
+                                selectedLedger &&
+                                newQuery !== `${selectedLedger.code} · ${selectedLedger.name}`
+                              ) {
+                                setSelectedLedger(null)
+                                // Don't clear values when editing - keep them for the new ledger selection
+                                if (!editingId) {
+                                  setNewValue('')
+                                  setNewReason('')
+                                }
+                              }
+                            }}
+                            // Intentionally DO NOT open dropdown on focus (only on typing)
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && searchQuery.trim()) {
+                                e.preventDefault()
+                                handlePromptSubmit(searchQuery)
+                              }
+                            }}
+                            className={cn(
+                              'flex-1 bg-transparent border-none outline-none',
+                              'focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent',
+                              'text-sm text-foreground placeholder:text-foreground/35',
+                              'min-w-0'
+                            )}
+                          />
+
+                          {/* Upload Button - only action needed */}
+                          <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={cn(
+                              'p-2 rounded-lg flex items-center gap-1.5',
+                              'text-foreground/50 hover:text-foreground/70',
+                              'bg-foreground/[0.04] hover:bg-foreground/[0.08]',
+                              'border border-foreground/[0.06]',
+                              'transition-all duration-200'
+                            )}
+                            title={nh('importLedger')}
+                          >
+                            <Upload className="w-4 h-4" />
+                          </motion.button>
+                        </div>
+
+                        {/* Suggestion Pills Row - Hidden when add form is visible */}
+                        <AnimatePresence>
+                          {!showAddForm && (
                             <motion.div
-                              initial={{ opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -4 }}
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
                               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                              className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[min(26rem,55vh)] overflow-y-auto"
-                              style={{
-                                top: dropdownAnchorRect.bottom + 4,
-                                left: dropdownAnchorRect.left,
-                                width: Math.max(dropdownAnchorRect.width, 320),
-                              }}
-                              onClick={(e) => e.stopPropagation()}
+                              className="px-4 pb-3 pt-2"
                             >
-                              <div className="px-3 py-1.5 border-b border-foreground/[0.06] flex items-center justify-between sticky top-0 bg-background z-10">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                                  {nh('ledgerAccounts')}
-                                </span>
-                                <span className="text-[10px] text-foreground/30 tabular-nums">
-                                  {filteredLedgers.length > 0
-                                    ? nh('foundCount', { count: filteredLedgers.length })
-                                    : nh('customLedgerCode')}
-                                </span>
+                              <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+                                {normalizationPresets.slice(0, 6).map((preset, index) => (
+                                  <motion.button
+                                    key={preset.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{
+                                      delay: 0.05 * index,
+                                      type: 'spring',
+                                      stiffness: 400,
+                                      damping: 25,
+                                    }}
+                                    whileHover={{ y: -2, scale: 1.02 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={() => {
+                                      setIsEditorExpanded(true)
+                                      setEditingId(null)
+                                      setSelectedLedger({
+                                        code: preset.ledgerCode,
+                                        name: preset.ledgerName,
+                                      })
+                                      setSearchQuery(`${preset.ledgerCode} · ${preset.ledgerName}`)
+                                      setNewType(preset.defaultType)
+                                      setNewValue('')
+                                      setNewReason(preset.description)
+                                      setShowAddForm(true)
+                                    }}
+                                    className={cn(
+                                      'inline-flex shrink-0 items-center px-4 py-2 rounded-xl',
+                                      'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
+                                      'border border-foreground/[0.08]',
+                                      'text-xs text-foreground/70 font-medium',
+                                      'hover:bg-gradient-to-br hover:from-foreground/[0.08] hover:to-foreground/[0.04]',
+                                      'hover:border-foreground/[0.15] hover:text-foreground',
+                                      'hover:shadow-md hover:shadow-foreground/[0.03]',
+                                      'transition-all duration-200'
+                                    )}
+                                  >
+                                    {preset.label}
+                                  </motion.button>
+                                ))}
                               </div>
-                              <div className="py-0.5">
-                                {filteredLedgers.map((account, index) => {
-                                  // Type assertion for fuzzy match indices
-                                  const codeIndices = (account as any)._codeIndices || []
-                                  const nameIndices = (account as any)._nameIndices || []
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
 
-                                  // Highlight matched characters in code
-                                  const renderHighlightedCode = () => {
-                                    if (codeIndices.length === 0) return account.code
-                                    return account.code.split('').map((char, i) => (
-                                      <span
-                                        key={i}
-                                        className={
-                                          codeIndices.includes(i) ? 'text-primary font-bold' : ''
-                                        }
-                                      >
-                                        {char}
-                                      </span>
-                                    ))
-                                  }
+                        {/* Ledger dropdown - rendered via portal for proper z-index. Anchored to search input or ledger pill (Wijzig) */}
+                        {showLedgerDropdown &&
+                          searchQuery.trim().length > 0 &&
+                          dropdownAnchorRect &&
+                          createPortal(
+                            // NOTE: pointer-events are carefully managed to avoid the backdrop intercepting item clicks.
+                            <div className="fixed inset-0 z-[11000] pointer-events-none">
+                              {/* Backdrop to close dropdown */}
+                              <button
+                                type="button"
+                                aria-label={nh('closeLedgerDropdown')}
+                                className="absolute inset-0 pointer-events-auto bg-transparent"
+                                onClick={() => {
+                                  setShowLedgerDropdown(false)
+                                  setDropdownSource('search')
+                                }}
+                              />
+                              {/* Dropdown content - clickable, dense two-line layout */}
+                              <motion.div
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -4 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[min(26rem,55vh)] overflow-y-auto"
+                                style={{
+                                  top: dropdownAnchorRect.bottom + 4,
+                                  left: dropdownAnchorRect.left,
+                                  width: Math.max(dropdownAnchorRect.width, 320),
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="px-3 py-1.5 border-b border-foreground/[0.06] flex items-center justify-between sticky top-0 bg-background z-10">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
+                                    {nh('ledgerAccounts')}
+                                  </span>
+                                  <span className="text-[10px] text-foreground/30 tabular-nums">
+                                    {filteredLedgers.length > 0
+                                      ? nh('foundCount', { count: filteredLedgers.length })
+                                      : nh('customLedgerCode')}
+                                  </span>
+                                </div>
+                                <div className="py-0.5">
+                                  {filteredLedgers.map((account, index) => {
+                                    // Type assertion for fuzzy match indices
+                                    const codeIndices = (account as any)._codeIndices || []
+                                    const nameIndices = (account as any)._nameIndices || []
 
-                                  // Highlight matched characters in name
-                                  const renderHighlightedName = () => {
-                                    if (nameIndices.length === 0) return account.name
-                                    return account.name.split('').map((char, i) => (
-                                      <span
-                                        key={i}
-                                        className={
-                                          nameIndices.includes(i)
-                                            ? 'text-primary font-semibold'
-                                            : ''
-                                        }
-                                      >
-                                        {char}
-                                      </span>
-                                    ))
-                                  }
-
-                                  return (
-                                    <motion.button
-                                      key={account.code}
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      transition={{ delay: Math.min(index * 0.015, 0.15) }}
-                                      onClick={() => {
-                                        setSelectedLedger(account)
-                                        setSearchQuery(`${account.code} · ${account.name}`)
-                                        setNewValue('')
-                                        setShowLedgerDropdown(false)
-                                        setShowAddForm(true)
-                                      }}
-                                      className={cn(
-                                        'w-full px-3 py-2.5 text-left hover:bg-primary/5 flex items-start gap-2.5 transition-colors group'
-                                      )}
-                                    >
-                                      {/* Code badge - compact */}
-                                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center group-hover:bg-primary/15 transition-colors flex-shrink-0 mt-0.5">
-                                        {renderHighlightedCode()}
-                                      </span>
-                                      {/* Name + category: wrap fully (no ellipsis) for long ledger labels */}
-                                      <div className="flex-1 min-w-0">
-                                        <p
-                                          className={cn(
-                                            'text-sm text-foreground/90 leading-snug',
-                                            LEDGER_LABEL_TEXT_CLASSES
-                                          )}
+                                    // Highlight matched characters in code
+                                    const renderHighlightedCode = () => {
+                                      if (codeIndices.length === 0) return account.code
+                                      return account.code.split('').map((char, i) => (
+                                        <span
+                                          key={i}
+                                          className={
+                                            codeIndices.includes(i) ? 'text-primary font-bold' : ''
+                                          }
                                         >
-                                          {renderHighlightedName()}
-                                        </p>
-                                        {account.category && (
+                                          {char}
+                                        </span>
+                                      ))
+                                    }
+
+                                    // Highlight matched characters in name
+                                    const renderHighlightedName = () => {
+                                      if (nameIndices.length === 0) return account.name
+                                      return account.name.split('').map((char, i) => (
+                                        <span
+                                          key={i}
+                                          className={
+                                            nameIndices.includes(i)
+                                              ? 'text-primary font-semibold'
+                                              : ''
+                                          }
+                                        >
+                                          {char}
+                                        </span>
+                                      ))
+                                    }
+
+                                    return (
+                                      <motion.button
+                                        key={account.code}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: Math.min(index * 0.015, 0.15) }}
+                                        onClick={() => {
+                                          setSelectedLedger(account)
+                                          setSearchQuery(`${account.code} · ${account.name}`)
+                                          setNewValue('')
+                                          setShowLedgerDropdown(false)
+                                          setShowAddForm(true)
+                                        }}
+                                        className={cn(
+                                          'w-full px-3 py-2.5 text-left hover:bg-primary/5 flex items-start gap-2.5 transition-colors group'
+                                        )}
+                                      >
+                                        {/* Code badge - compact */}
+                                        <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center group-hover:bg-primary/15 transition-colors flex-shrink-0 mt-0.5">
+                                          {renderHighlightedCode()}
+                                        </span>
+                                        {/* Name + category: wrap fully (no ellipsis) for long ledger labels */}
+                                        <div className="flex-1 min-w-0">
                                           <p
                                             className={cn(
-                                              'text-[10px] text-foreground/40 leading-snug mt-0.5',
+                                              'text-sm text-foreground/90 leading-snug',
                                               LEDGER_LABEL_TEXT_CLASSES
                                             )}
                                           >
-                                            {account.category}
+                                            {renderHighlightedName()}
                                           </p>
-                                        )}
-                                      </div>
-                                    </motion.button>
-                                  )
-                                })}
-                                {/* Always show custom option when user has typed - allows custom codes not in the list */}
-                                {searchQuery.trim() && (
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => {
-                                      const { code, name } = parseCustomLedgerFromQuery(searchQuery)
-                                      setSelectedLedger({ code, name })
-                                      setSearchQuery(`${code} · ${name}`)
-                                      setNewValue('')
-                                      setShowLedgerDropdown(false)
-                                      setShowAddForm(true)
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault()
-                                        const { code, name } =
-                                          parseCustomLedgerFromQuery(searchQuery)
-                                        setSelectedLedger({ code, name })
-                                        setSearchQuery(`${code} · ${name}`)
-                                        setNewValue('')
-                                        setShowLedgerDropdown(false)
-                                        setShowAddForm(true)
-                                      }
-                                    }}
-                                    className={cn(
-                                      'w-full px-3 py-3 text-left hover:bg-primary/5 flex items-center justify-between gap-2.5 transition-colors min-h-[52px] cursor-pointer',
-                                      filteredLedgers.length > 0 &&
-                                        'border-t border-foreground/[0.06]'
-                                    )}
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center flex-shrink-0">
-                                        +
-                                      </span>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-foreground/90 font-medium">
-                                          {nh('useCustomCode', { query: searchQuery.trim() })}
-                                        </p>
-                                        <p className="text-[10px] text-foreground/40 mt-0.5">
-                                          {nh('customLedgerCode')}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
+                                          {account.category && (
+                                            <p
+                                              className={cn(
+                                                'text-[10px] text-foreground/40 leading-snug mt-0.5',
+                                                LEDGER_LABEL_TEXT_CLASSES
+                                              )}
+                                            >
+                                              {account.category}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </motion.button>
+                                    )
+                                  })}
+                                  {/* Always show custom option when user has typed - allows custom codes not in the list */}
+                                  {searchQuery.trim() && (
+                                    <div
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => {
                                         const { code, name } =
                                           parseCustomLedgerFromQuery(searchQuery)
                                         setSelectedLedger({ code, name })
@@ -1799,802 +1762,849 @@ export function UnifiedNormalizationModal({
                                         setShowLedgerDropdown(false)
                                         setShowAddForm(true)
                                       }}
-                                      className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          const { code, name } =
+                                            parseCustomLedgerFromQuery(searchQuery)
+                                          setSelectedLedger({ code, name })
+                                          setSearchQuery(`${code} · ${name}`)
+                                          setNewValue('')
+                                          setShowLedgerDropdown(false)
+                                          setShowAddForm(true)
+                                        }
+                                      }}
+                                      className={cn(
+                                        'w-full px-3 py-3 text-left hover:bg-primary/5 flex items-center justify-between gap-2.5 transition-colors min-h-[52px] cursor-pointer',
+                                        filteredLedgers.length > 0 &&
+                                          'border-t border-foreground/[0.06]'
+                                      )}
                                     >
-                                      {nh('actions.add')}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
-                          </div>,
-                          document.body
-                        )}
-                    </motion.div>
-                  </div>
+                                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                        <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center flex-shrink-0">
+                                          +
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm text-foreground/90 font-medium">
+                                            {nh('useCustomCode', { query: searchQuery.trim() })}
+                                          </p>
+                                          <p className="text-[10px] text-foreground/40 mt-0.5">
+                                            {nh('customLedgerCode')}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const { code, name } =
+                                            parseCustomLedgerFromQuery(searchQuery)
+                                          setSelectedLedger({ code, name })
+                                          setSearchQuery(`${code} · ${name}`)
+                                          setNewValue('')
+                                          setShowLedgerDropdown(false)
+                                          setShowAddForm(true)
+                                        }}
+                                        className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                                      >
+                                        {nh('actions.add')}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            </div>,
+                            document.body
+                          )}
+                      </motion.div>
+                    </div>
 
-                  {/* Toolbar: Year Filter + View Mode Toggle */}
-                  <div className="px-6 py-3 border-t border-foreground/[0.06] bg-muted/30 shrink-0">
-                    <div className="flex items-center justify-end gap-4">
-                      <div className="flex items-center gap-3">
-                        {/* Year Filter Pills - show all available financial years */}
-                        {availableYears.length > 1 && (
-                          <div className="flex items-center gap-1 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
-                            <button
-                              onClick={() => setYearFilter(null)}
-                              className={cn(
-                                'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all',
-                                yearFilter === null
-                                  ? 'bg-primary text-primary-foreground shadow-sm'
-                                  : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
-                              )}
-                            >
-                              {nh('all')}
-                            </button>
-                            {availableYears.slice(0, 4).map((year) => (
+                    {/* Toolbar: Year Filter + View Mode Toggle */}
+                    <div className="px-6 py-3 border-t border-foreground/[0.06] bg-muted/30 shrink-0">
+                      <div className="flex items-center justify-end gap-4">
+                        <div className="flex items-center gap-3">
+                          {/* Year Filter Pills - show all available financial years */}
+                          {availableYears.length > 1 && (
+                            <div className="flex items-center gap-1 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
                               <button
-                                key={year}
-                                onClick={() => setYearFilter(yearFilter === year ? null : year)}
+                                onClick={() => setYearFilter(null)}
                                 className={cn(
-                                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all tabular-nums',
-                                  yearFilter === year
+                                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all',
+                                  yearFilter === null
                                     ? 'bg-primary text-primary-foreground shadow-sm'
                                     : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
                                 )}
                               >
-                                {year}
+                                {nh('all')}
                               </button>
-                            ))}
+                              {availableYears.slice(0, 4).map((year) => (
+                                <button
+                                  key={year}
+                                  onClick={() => setYearFilter(yearFilter === year ? null : year)}
+                                  className={cn(
+                                    'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all tabular-nums',
+                                    yearFilter === year
+                                      ? 'bg-primary text-primary-foreground shadow-sm'
+                                      : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
+                                  )}
+                                >
+                                  {year}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* View Mode Toggle */}
+                          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
+                            <TooltipProvider>
+                              <TooltipRoot>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setViewMode('compact')}
+                                    className={cn(
+                                      'p-1.5 rounded-lg transition-all',
+                                      viewMode === 'compact'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
+                                    )}
+                                  >
+                                    <LayoutList className="w-3.5 h-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px]">
+                                  {nh('viewCompact')}
+                                </TooltipContent>
+                              </TooltipRoot>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <TooltipRoot>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setViewMode('financial')}
+                                    className={cn(
+                                      'p-1.5 rounded-lg transition-all',
+                                      viewMode === 'financial'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
+                                    )}
+                                  >
+                                    <Table2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px]">
+                                  {nh('viewFinancial')}
+                                </TooltipContent>
+                              </TooltipRoot>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <TooltipRoot>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setViewMode('bento')}
+                                    className={cn(
+                                      'p-1.5 rounded-lg transition-all',
+                                      viewMode === 'bento'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
+                                    )}
+                                  >
+                                    <LayoutGrid className="w-3.5 h-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px]">
+                                  {nh('viewBento')}
+                                </TooltipContent>
+                              </TooltipRoot>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Bulk Actions Bar */}
+              <AnimatePresence>
+                {selectedIds.size > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="px-6 pb-3 shrink-0"
+                  >
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-foreground/70">
+                          {nh('bulkSelected', { count: selectedIds.size })}
+                        </span>
+                        <button
+                          onClick={deselectAll}
+                          className="text-xs text-foreground/50 hover:text-foreground/70 underline"
+                        >
+                          {nh('bulkDeselect')}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => bulkUpdateStatus('rejected')}
+                          className="text-xs h-8 px-3 text-secondary hover:text-secondary hover:bg-secondary/10"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1.5" />
+                          {ca('reject')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => bulkUpdateStatus('accepted')}
+                          className="text-xs h-8 px-3 text-success hover:text-success hover:bg-success/10"
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1.5" />
+                          {ca('accept')}
+                        </Button>
+                        <div className="w-px h-6 bg-foreground/10" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={bulkDelete}
+                          className="text-xs h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                          {tCommon('remove')}
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Content */}
+              <div className="px-6 pb-6 shrink-0">
+                <>
+                  {/* Inline Add Form - Appears FIRST when adding for immediate visibility */}
+                  <AnimatePresence>
+                    {showAddForm && (
+                      <motion.div
+                        ref={addFormRef}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="p-4 rounded-xl bg-primary/[0.03] border border-primary/20 mb-4"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-primary" />
+                            {nh('addNormalization')}
+                          </span>
+                          <button
+                            onClick={cancelEditing}
+                            className="p-1.5 rounded-lg hover:bg-foreground/10 text-foreground/40 hover:text-foreground/60 transition-colors"
+                            aria-label={nh('actions.cancel')}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Selected Ledger Pill - Clickable to change */}
+                        {selectedLedger && (
+                          <div className="mb-4">
+                            <label className="text-xs font-medium text-foreground/60 mb-1.5 block">
+                              {nh('ledgerAccountLabel')}
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <button
+                                ref={ledgerButtonRef}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  e.preventDefault()
+                                  setSearchQuery(`${selectedLedger.code} · ${selectedLedger.name}`)
+                                  setDropdownSource('ledger')
+                                  setShowLedgerDropdown(true)
+                                  requestAnimationFrame(() => {
+                                    searchInputRef.current?.focus()
+                                  })
+                                }}
+                                className="flex-1 flex items-start gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
+                                aria-label={nh('clickToChooseLedger')}
+                              >
+                                <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-bold group-hover:bg-primary/15 transition-colors shrink-0">
+                                  {selectedLedger.code}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'text-sm text-foreground flex-1 min-w-0 text-left',
+                                    LEDGER_LABEL_TEXT_CLASSES
+                                  )}
+                                >
+                                  {selectedLedger.name}
+                                </span>
+                                <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1 shrink-0 pt-0.5">
+                                  <Edit3 className="w-3 h-3" />
+                                  {nh('changeLedgerButton')}
+                                </span>
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-foreground/40 mt-1">
+                              {nh('clickToChooseLedger')}
+                            </p>
                           </div>
                         )}
 
-                        {/* View Mode Toggle */}
-                        <div className="flex items-center gap-0.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
-                          <TooltipProvider>
-                            <TooltipRoot>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => setViewMode('compact')}
-                                  className={cn(
-                                    'p-1.5 rounded-lg transition-all',
-                                    viewMode === 'compact'
-                                      ? 'bg-primary text-primary-foreground shadow-sm'
-                                      : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
-                                  )}
-                                >
-                                  <LayoutList className="w-3.5 h-3.5" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="text-[10px]">
-                                {nh('viewCompact')}
-                              </TooltipContent>
-                            </TooltipRoot>
-                          </TooltipProvider>
-                          <TooltipProvider>
-                            <TooltipRoot>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => setViewMode('financial')}
-                                  className={cn(
-                                    'p-1.5 rounded-lg transition-all',
-                                    viewMode === 'financial'
-                                      ? 'bg-primary text-primary-foreground shadow-sm'
-                                      : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
-                                  )}
-                                >
-                                  <Table2 className="w-3.5 h-3.5" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="text-[10px]">
-                                {nh('viewFinancial')}
-                              </TooltipContent>
-                            </TooltipRoot>
-                          </TooltipProvider>
-                          <TooltipProvider>
-                            <TooltipRoot>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => setViewMode('bento')}
-                                  className={cn(
-                                    'p-1.5 rounded-lg transition-all',
-                                    viewMode === 'bento'
-                                      ? 'bg-primary text-primary-foreground shadow-sm'
-                                      : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.05]'
-                                  )}
-                                >
-                                  <LayoutGrid className="w-3.5 h-3.5" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="text-[10px]">
-                                {nh('viewBento')}
-                              </TooltipContent>
-                            </TooltipRoot>
-                          </TooltipProvider>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Bulk Actions Bar */}
-            <AnimatePresence>
-              {selectedIds.size > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="px-6 pb-3 shrink-0"
-                >
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-foreground/70">
-                        {nh('bulkSelected', { count: selectedIds.size })}
-                      </span>
-                      <button
-                        onClick={deselectAll}
-                        className="text-xs text-foreground/50 hover:text-foreground/70 underline"
-                      >
-                        {nh('bulkDeselect')}
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => bulkUpdateStatus('rejected')}
-                        className="text-xs h-8 px-3 text-secondary hover:text-secondary hover:bg-secondary/10"
-                      >
-                        <X className="w-3.5 h-3.5 mr-1.5" />
-                        {ca('reject')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => bulkUpdateStatus('accepted')}
-                        className="text-xs h-8 px-3 text-success hover:text-success hover:bg-success/10"
-                      >
-                        <Check className="w-3.5 h-3.5 mr-1.5" />
-                        {ca('accept')}
-                      </Button>
-                      <div className="w-px h-6 bg-foreground/10" />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={bulkDelete}
-                        className="text-xs h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                        {tCommon('remove')}
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Content */}
-            <div className="px-6 pb-6 shrink-0">
-              <>
-                {/* Inline Add Form - Appears FIRST when adding for immediate visibility */}
-                <AnimatePresence>
-                  {showAddForm && (
-                    <motion.div
-                      ref={addFormRef}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-4 rounded-xl bg-primary/[0.03] border border-primary/20 mb-4"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                          <Plus className="w-4 h-4 text-primary" />
-                          {nh('addNormalization')}
-                        </span>
-                        <button
-                          onClick={cancelEditing}
-                          className="p-1.5 rounded-lg hover:bg-foreground/10 text-foreground/40 hover:text-foreground/60 transition-colors"
-                          aria-label={nh('actions.cancel')}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Selected Ledger Pill - Clickable to change */}
-                      {selectedLedger && (
-                        <div className="mb-4">
-                          <label className="text-xs font-medium text-foreground/60 mb-1.5 block">
-                            {nh('ledgerAccountLabel')}
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <button
-                              ref={ledgerButtonRef}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                e.preventDefault()
-                                setSearchQuery(`${selectedLedger.code} · ${selectedLedger.name}`)
-                                setDropdownSource('ledger')
-                                setShowLedgerDropdown(true)
-                                requestAnimationFrame(() => {
-                                  searchInputRef.current?.focus()
-                                })
-                              }}
-                              className="flex-1 flex items-start gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
-                              aria-label={nh('clickToChooseLedger')}
-                            >
-                              <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-bold group-hover:bg-primary/15 transition-colors shrink-0">
-                                {selectedLedger.code}
-                              </span>
-                              <span
-                                className={cn(
-                                  'text-sm text-foreground flex-1 min-w-0 text-left',
-                                  LEDGER_LABEL_TEXT_CLASSES
-                                )}
-                              >
-                                {selectedLedger.name}
-                              </span>
-                              <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1 shrink-0 pt-0.5">
-                                <Edit3 className="w-3 h-3" />
-                                {nh('changeLedgerButton')}
-                              </span>
-                            </button>
+                        {/* Inline form row */}
+                        <div className="flex flex-wrap gap-3 items-end">
+                          {/* Type Selector */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-foreground/60">
+                              {nh('type')}
+                            </label>
+                            <div className="flex gap-1">
+                              {typeOptions.map((option) => (
+                                <TooltipProvider key={option.value}>
+                                  <TooltipRoot>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => setNewType(option.value)}
+                                        className={cn(
+                                          'px-3 py-2 rounded-lg text-xs font-medium transition-all',
+                                          newType === option.value
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
+                                        )}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                                      {nh(option.tooltipKey)}
+                                    </TooltipContent>
+                                  </TooltipRoot>
+                                </TooltipProvider>
+                              ))}
+                            </div>
                           </div>
-                          <p className="text-[10px] text-foreground/40 mt-1">
-                            {nh('clickToChooseLedger')}
-                          </p>
-                        </div>
-                      )}
 
-                      {/* Inline form row */}
-                      <div className="flex flex-wrap gap-3 items-end">
-                        {/* Type Selector */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-foreground/60">
-                            {nh('type')}
-                          </label>
-                          <div className="flex gap-1">
-                            {typeOptions.map((option) => (
-                              <TooltipProvider key={option.value}>
-                                <TooltipRoot>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      onClick={() => setNewType(option.value)}
-                                      className={cn(
-                                        'px-3 py-2 rounded-lg text-xs font-medium transition-all',
-                                        newType === option.value
-                                          ? 'bg-primary text-primary-foreground'
-                                          : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                                      )}
-                                    >
-                                      {option.label}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-[200px] text-xs">
-                                    {nh(option.tooltipKey)}
-                                  </TooltipContent>
-                                </TooltipRoot>
-                              </TooltipProvider>
-                            ))}
+                          {/* Value Input with label */}
+                          <div className="flex-1 min-w-[140px]">
+                            <Input
+                              label={newType.includes('percent') ? nh('percentage') : nh('amount')}
+                              type="text"
+                              placeholder={newType.includes('percent') ? '10' : '0'}
+                              value={newValue}
+                              onChange={(e) => setNewValue(e.target.value)}
+                              leftIcon={
+                                <span className="text-foreground/40 text-sm font-medium">
+                                  {newType.includes('percent') ? '%' : '€'}
+                                </span>
+                              }
+                              size="sm"
+                              truncateLabel={false}
+                            />
                           </div>
-                        </div>
 
-                        {/* Value Input with label */}
-                        <div className="flex-1 min-w-[140px]">
-                          <Input
-                            label={newType.includes('percent') ? nh('percentage') : nh('amount')}
-                            type="text"
-                            placeholder={newType.includes('percent') ? '10' : '0'}
-                            value={newValue}
-                            onChange={(e) => setNewValue(e.target.value)}
-                            leftIcon={
-                              <span className="text-foreground/40 text-sm font-medium">
-                                {newType.includes('percent') ? '%' : '€'}
-                              </span>
-                            }
-                            size="sm"
-                            truncateLabel={false}
-                          />
-                        </div>
-
-                        {/* Year Scope Selection - Individual year buttons */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-foreground/60">
-                            {nh('applyTo')}
-                          </label>
-                          <div className="flex items-center gap-1 p-1 rounded-lg bg-foreground/[0.03]">
-                            {availableYears.map((year) => (
-                              <button
-                                key={year}
-                                type="button"
-                                onClick={() => {
-                                  if (newSelectedYears.includes(year)) {
-                                    if (newSelectedYears.length > 1) {
+                          {/* Year Scope Selection - Individual year buttons */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-foreground/60">
+                              {nh('applyTo')}
+                            </label>
+                            <div className="flex items-center gap-1 p-1 rounded-lg bg-foreground/[0.03]">
+                              {availableYears.map((year) => (
+                                <button
+                                  key={year}
+                                  type="button"
+                                  onClick={() => {
+                                    if (newSelectedYears.includes(year)) {
+                                      if (newSelectedYears.length > 1) {
+                                        setNewSelectedYears(
+                                          newSelectedYears.filter((y) => y !== year)
+                                        )
+                                      }
+                                    } else {
                                       setNewSelectedYears(
-                                        newSelectedYears.filter((y) => y !== year)
+                                        [...newSelectedYears, year].sort((a, b) => b - a)
                                       )
                                     }
-                                  } else {
-                                    setNewSelectedYears(
-                                      [...newSelectedYears, year].sort((a, b) => b - a)
-                                    )
-                                  }
-                                }}
+                                  }}
+                                  className={cn(
+                                    'px-2.5 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap',
+                                    newSelectedYears.includes(year)
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]'
+                                  )}
+                                >
+                                  {year}
+                                </button>
+                              ))}
+                              <div className="w-px h-6 bg-foreground/10 mx-1" />
+                              <button
+                                type="button"
+                                onClick={() => setNewSelectedYears([...availableYears])}
                                 className={cn(
                                   'px-2.5 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap',
-                                  newSelectedYears.includes(year)
+                                  newSelectedYears.length === availableYears.length
                                     ? 'bg-primary text-primary-foreground'
                                     : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]'
                                 )}
                               >
-                                {year}
+                                {nh('all')}
                               </button>
-                            ))}
-                            <div className="w-px h-6 bg-foreground/10 mx-1" />
-                            <button
-                              type="button"
-                              onClick={() => setNewSelectedYears([...availableYears])}
-                              className={cn(
-                                'px-2.5 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap',
-                                newSelectedYears.length === availableYears.length
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]'
-                              )}
-                            >
-                              {nh('all')}
-                            </button>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Add Button */}
-                        <Button
-                          onClick={addNormalization}
-                          disabled={!newValue || !selectedLedger}
-                          size="sm"
-                          className="gap-1.5 h-10 self-end"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {editingId ? tCommon('save') : tCommon('add')}
-                        </Button>
-
-                        {/* Cancel button when editing */}
-                        {editingId && (
+                          {/* Add Button */}
                           <Button
-                            onClick={cancelEditing}
-                            variant="ghost"
+                            onClick={addNormalization}
+                            disabled={!newValue || !selectedLedger}
                             size="sm"
                             className="gap-1.5 h-10 self-end"
                           >
-                            <X className="w-3.5 h-3.5" />
-                            {tCommon('cancel')}
+                            <Check className="w-3.5 h-3.5" />
+                            {editingId ? tCommon('save') : tCommon('add')}
                           </Button>
-                        )}
-                      </div>
 
-                      {/* Percentage Preview: Original → Outcome */}
-                      {(newType === 'add_percent' || newType === 'subtract_percent') &&
-                        newValue && (
-                          <div className="mt-4 p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">
-                                  {nh('originalEbitda')}
-                                </p>
-                                <p className="text-sm font-mono font-medium text-foreground/60">
-                                  {formatCurrency(safeOriginalEBITDA)}
-                                </p>
-                              </div>
-                              <div className="text-foreground/30">→</div>
-                              <div>
-                                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">
-                                  {nh('adjustment')}
-                                </p>
-                                <p
-                                  className={cn(
-                                    'text-sm font-mono font-semibold',
-                                    newType === 'add_percent' ? 'text-success' : 'text-secondary'
-                                  )}
-                                >
-                                  {newType === 'add_percent' ? '+' : '-'}
-                                  {formatCurrency(
-                                    Math.abs(
-                                      getNormalizationAmountForBase(
-                                        {
-                                          type: newType,
-                                          value: coalesceFiniteNumber(
-                                            newValue.replace(/[^0-9.-]/g, '')
-                                          ),
-                                          adjustment: 0,
-                                        },
-                                        safeOriginalEBITDA
-                                      )
-                                    )
-                                  )}
-                                </p>
-                              </div>
-                              <div className="text-foreground/30">→</div>
-                              <div>
-                                <p className="text-[9px] font-medium text-primary uppercase tracking-wider mb-0.5">
-                                  {nh('outcome')}
-                                </p>
-                                <p className="text-sm font-mono font-bold text-foreground">
-                                  {formatCurrency(
-                                    safeOriginalEBITDA +
-                                      getNormalizationAmountForBase(
-                                        {
-                                          type: newType,
-                                          value: coalesceFiniteNumber(
-                                            newValue.replace(/[^0-9.-]/g, '')
-                                          ),
-                                          adjustment: 0,
-                                        },
-                                        safeOriginalEBITDA
-                                      )
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Reason Input with label */}
-                      <div className="mt-4">
-                        <Input
-                          label={nh('explanation')}
-                          placeholder={nh('explanationPlaceholder')}
-                          value={newReason}
-                          onChange={(e) => setNewReason(e.target.value)}
-                          size="sm"
-                          truncateLabel={false}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* View Mode Content */}
-                {viewMode === 'financial' ? (
-                  /* Professional Financial Table View */
-                  <NormalizationTableView
-                    items={filteredNormalizations}
-                    years={availableYears}
-                    originalEBITDA={safeOriginalEBITDA}
-                    originalEBITDAByYear={originalEBITDAByYear}
-                    onAccept={(id) => updateStatus(id, 'accepted')}
-                    onReject={(id) => updateStatus(id, 'rejected')}
-                    onRemove={removeWithConfirmation}
-                    onRestore={(id) => updateStatus(id, 'pending')}
-                    onEdit={(item) => startEditing(item)}
-                  />
-                ) : viewMode === 'bento' ? (
-                  /* Premium Bento Grid View */
-                  <NormalizationBentoView
-                    items={filteredNormalizations}
-                    years={availableYears}
-                    originalEBITDA={safeOriginalEBITDA}
-                    originalEBITDAByYear={originalEBITDAByYear}
-                    onAccept={(id) => updateStatus(id, 'accepted')}
-                    onReject={(id) => updateStatus(id, 'rejected')}
-                    onRemove={removeWithConfirmation}
-                    onRestore={(id) => updateStatus(id, 'pending')}
-                    onEdit={(item) => startEditing(item)}
-                  />
-                ) : (
-                  /* Compact Table View (Original) */
-                  <>
-                    {/* Table Header for compact mode - only show when not using year groups or when a year filter is active */}
-                    {filteredNormalizations.length > 0 && yearFilter !== null && (
-                      <div className="mb-1 min-w-0 overflow-x-auto">
-                        <div className="min-w-[920px]">
-                          <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-b border-foreground/[0.06]">
-                            {/* Checkbox column */}
-                            <div className="w-6 flex-shrink-0">
-                              <button
-                                onClick={() => (isAllSelected ? deselectAll() : selectAll())}
-                                className="p-0.5 rounded hover:bg-foreground/10 transition-colors"
-                              >
-                                {isAllSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-primary" />
-                                ) : isSomeSelected ? (
-                                  <MinusSquare className="w-4 h-4 text-primary/60" />
-                                ) : (
-                                  <Square className="w-4 h-4 text-foreground/30" />
-                                )}
-                              </button>
-                            </div>
-                            <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
-                            <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
-                            <div className="w-20 flex-shrink-0 text-center">{nh('table.jaar')}</div>
-                            <div className="w-36 flex-shrink-0 text-center">{nh('table.bron')}</div>
-                            <div className="w-32 flex-shrink-0 text-center">
-                              {nh('table.status')}
-                            </div>
-                            <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                            <div className="w-20 flex-shrink-0 text-right">
-                              {nh('table.acties')}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Cross-year pending suggestions consolidated to one card per
-                  (code, reason). Collapses 5 noisy "rent flag fires every
-                  year" rows into a single review affordance. */}
-                    {crossYearPendingGroups.length > 0 && (
-                      <div className="mb-3 rounded-xl border border-warning/20 bg-warning/[0.03] overflow-hidden">
-                        <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-warning/80 border-b border-warning/15 bg-warning/[0.04]">
-                          {nh('crossYearSuggestionsTitle', {
-                            count: crossYearPendingGroups.length,
-                          })}
-                        </div>
-                        <div className="divide-y divide-warning/10">
-                          {crossYearPendingGroups.map((bucket) => {
-                            const code = bucket.sample.ledgerCode
-                            const ledgerLabel = getLedgerDisplayName(
-                              bucket.sample.ledgerCode,
-                              bucket.sample.ledgerName
-                            )
-                            const yearsLabel =
-                              bucket.years.length > 1
-                                ? `${bucket.years[bucket.years.length - 1]}–${bucket.years[0]} (${bucket.years.length})`
-                                : String(bucket.years[0] ?? '')
-                            return (
-                              <div
-                                key={bucket.ids.join(',')}
-                                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/70">
-                                      {code}
-                                    </span>
-                                    <span
-                                      className={cn(
-                                        'text-sm font-medium text-foreground min-w-0',
-                                        LEDGER_LABEL_TEXT_CLASSES
-                                      )}
-                                      title={ledgerLabel}
-                                    >
-                                      {ledgerLabel}
-                                    </span>
-                                    <span className="text-[11px] text-foreground/55">
-                                      {yearsLabel}
-                                    </span>
-                                  </div>
-                                  {bucket.sample.reason && (
-                                    <p
-                                      className={cn(
-                                        'mt-1 text-xs text-foreground/55',
-                                        LEDGER_LABEL_TEXT_CLASSES
-                                      )}
-                                      title={bucket.sample.reason}
-                                    >
-                                      {bucket.sample.reason}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      for (const id of bucket.ids) updateStatus(id, 'rejected')
-                                    }}
-                                    className="h-7 px-2.5 rounded-md text-[11px] font-medium text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
-                                  >
-                                    {nh('actions.reject')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditing(bucket.sample)}
-                                    className="h-7 px-3 rounded-md text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                                  >
-                                    {nh('actions.review')}
-                                  </button>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Year-Grouped Collapsible Sections */}
-                    {filteredNormalizations.length > 0 ? (
-                      <div className="space-y-3">
-                        {groupedByYear.map(({ year, items }) => {
-                          const isCollapsed = collapsedYears.has(year)
-                          const yearSummary = summarizeAcceptedNormalizations(
-                            items,
-                            getReportedEbitdaBaseline({
-                              year,
-                              originalEBITDAByYear,
-                              fallbackCandidates: [safeOriginalEBITDA],
-                            })
-                          )
-                          const yearEbitda = yearSummary.original
-                          const yearTotal = yearSummary.adjustment
-
-                          return (
-                            <div
-                              key={year}
-                              className="rounded-xl border border-foreground/[0.06] overflow-hidden"
+                          {/* Cancel button when editing */}
+                          {editingId && (
+                            <Button
+                              onClick={cancelEditing}
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1.5 h-10 self-end"
                             >
-                              {/* Year Header - Collapsible */}
-                              <button
-                                onClick={() => toggleYearCollapse(year)}
-                                className={cn(
-                                  'w-full flex items-center justify-between px-4 py-3',
-                                  'bg-foreground/[0.02] hover:bg-foreground/[0.04]',
-                                  'transition-colors'
-                                )}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <motion.div
-                                    animate={{ rotate: isCollapsed ? -90 : 0 }}
-                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                  >
-                                    <ChevronDown className="w-4 h-4 text-foreground/40" />
-                                  </motion.div>
-                                  <span className="text-sm font-semibold text-foreground tabular-nums">
-                                    {year}
-                                  </span>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
-                                    {nh('itemCount', { count: items.length })}
-                                  </span>
+                              <X className="w-3.5 h-3.5" />
+                              {tCommon('cancel')}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Percentage Preview: Original → Outcome */}
+                        {(newType === 'add_percent' || newType === 'subtract_percent') &&
+                          newValue && (
+                            <div className="mt-4 p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">
+                                    {nh('originalEbitda')}
+                                  </p>
+                                  <p className="text-sm font-mono font-medium text-foreground/60">
+                                    {formatCurrency(safeOriginalEBITDA)}
+                                  </p>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <span
+                                <div className="text-foreground/30">→</div>
+                                <div>
+                                  <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">
+                                    {nh('adjustment')}
+                                  </p>
+                                  <p
                                     className={cn(
-                                      'text-sm font-mono font-semibold tabular-nums',
-                                      yearTotal > 0
-                                        ? 'text-success'
-                                        : yearTotal < 0
-                                          ? 'text-secondary'
-                                          : 'text-foreground/40'
+                                      'text-sm font-mono font-semibold',
+                                      newType === 'add_percent' ? 'text-success' : 'text-secondary'
                                     )}
                                   >
-                                    {yearTotal > 0 ? '+' : ''}
-                                    {formatCurrency(yearTotal)}
-                                  </span>
+                                    {newType === 'add_percent' ? '+' : '-'}
+                                    {formatCurrency(
+                                      Math.abs(
+                                        getNormalizationAmountForBase(
+                                          {
+                                            type: newType,
+                                            value: coalesceFiniteNumber(
+                                              newValue.replace(/[^0-9.-]/g, '')
+                                            ),
+                                            adjustment: 0,
+                                          },
+                                          safeOriginalEBITDA
+                                        )
+                                      )
+                                    )}
+                                  </p>
                                 </div>
-                              </button>
+                                <div className="text-foreground/30">→</div>
+                                <div>
+                                  <p className="text-[9px] font-medium text-primary uppercase tracking-wider mb-0.5">
+                                    {nh('outcome')}
+                                  </p>
+                                  <p className="text-sm font-mono font-bold text-foreground">
+                                    {formatCurrency(
+                                      safeOriginalEBITDA +
+                                        getNormalizationAmountForBase(
+                                          {
+                                            type: newType,
+                                            value: coalesceFiniteNumber(
+                                              newValue.replace(/[^0-9.-]/g, '')
+                                            ),
+                                            adjustment: 0,
+                                          },
+                                          safeOriginalEBITDA
+                                        )
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                              {/* Collapsible Content */}
-                              <AnimatePresence initial={false}>
-                                {!isCollapsed && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                  >
-                                    <div className="min-w-0 overflow-x-auto">
-                                      <div className="min-w-[920px]">
-                                        <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
-                                          <div className="w-6 flex-shrink-0" />
-                                          <div className="w-16 flex-shrink-0">
-                                            {nh('table.code')}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            {nh('table.grootboekrekening')}
-                                          </div>
-                                          <div className="w-36 flex-shrink-0 text-center">
-                                            {nh('table.bron')}
-                                          </div>
-                                          <div className="w-32 flex-shrink-0 text-center">
-                                            {nh('table.status')}
-                                          </div>
-                                          <div className="w-28 flex-shrink-0 text-right">
-                                            {nh('amount')}
-                                          </div>
-                                          <div className="w-20 flex-shrink-0 text-right">
-                                            {nh('table.acties')}
-                                          </div>
-                                        </div>
+                        {/* Reason Input with label */}
+                        <div className="mt-4">
+                          <Input
+                            label={nh('explanation')}
+                            placeholder={nh('explanationPlaceholder')}
+                            value={newReason}
+                            onChange={(e) => setNewReason(e.target.value)}
+                            size="sm"
+                            truncateLabel={false}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                                        <div>
-                                          {items.map((item) => {
-                                            const isSelected = selectedIds.has(item.id)
+                  {/* View Mode Content */}
+                  {viewMode === 'financial' ? (
+                    /* Professional Financial Table View */
+                    <NormalizationTableView
+                      items={filteredNormalizations}
+                      years={availableYears}
+                      originalEBITDA={safeOriginalEBITDA}
+                      originalEBITDAByYear={originalEBITDAByYear}
+                      onAccept={(id) => updateStatus(id, 'accepted')}
+                      onReject={(id) => updateStatus(id, 'rejected')}
+                      onRemove={removeWithConfirmation}
+                      onRestore={(id) => updateStatus(id, 'pending')}
+                      onEdit={(item) => startEditing(item)}
+                    />
+                  ) : viewMode === 'bento' ? (
+                    /* Premium Bento Grid View */
+                    <NormalizationBentoView
+                      items={filteredNormalizations}
+                      years={availableYears}
+                      originalEBITDA={safeOriginalEBITDA}
+                      originalEBITDAByYear={originalEBITDAByYear}
+                      onAccept={(id) => updateStatus(id, 'accepted')}
+                      onReject={(id) => updateStatus(id, 'rejected')}
+                      onRemove={removeWithConfirmation}
+                      onRestore={(id) => updateStatus(id, 'pending')}
+                      onEdit={(item) => startEditing(item)}
+                    />
+                  ) : (
+                    /* Compact Table View (Original) */
+                    <>
+                      {/* Table Header for compact mode - only show when not using year groups or when a year filter is active */}
+                      {filteredNormalizations.length > 0 && yearFilter !== null && (
+                        <div className="mb-1 min-w-0 overflow-x-auto">
+                          <div className="min-w-[920px]">
+                            <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-b border-foreground/[0.06]">
+                              {/* Checkbox column */}
+                              <div className="w-6 flex-shrink-0">
+                                <button
+                                  onClick={() => (isAllSelected ? deselectAll() : selectAll())}
+                                  className="p-0.5 rounded hover:bg-foreground/10 transition-colors"
+                                >
+                                  {isAllSelected ? (
+                                    <CheckSquare className="w-4 h-4 text-primary" />
+                                  ) : isSomeSelected ? (
+                                    <MinusSquare className="w-4 h-4 text-primary/60" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-foreground/30" />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
+                              <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
+                              <div className="w-20 flex-shrink-0 text-center">
+                                {nh('table.jaar')}
+                              </div>
+                              <div className="w-36 flex-shrink-0 text-center">
+                                {nh('table.bron')}
+                              </div>
+                              <div className="w-32 flex-shrink-0 text-center">
+                                {nh('table.status')}
+                              </div>
+                              <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
+                              <div className="w-20 flex-shrink-0 text-right">
+                                {nh('table.acties')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                                            return (
-                                              <CompactTableRow
-                                                key={item.id}
-                                                item={item}
-                                                isSelected={isSelected}
-                                                getLedgerDisplayName={getLedgerDisplayName}
-                                                onToggleSelect={() => toggleSelect(item.id)}
-                                                onAccept={() => updateStatus(item.id, 'accepted')}
-                                                onReject={() => updateStatus(item.id, 'rejected')}
-                                                onRemove={() => removeWithConfirmation(item.id)}
-                                                onRestore={() => updateStatus(item.id, 'pending')}
-                                                onEdit={() => startEditing(item)}
-                                                hideYear
-                                                yearEbitda={yearEbitda}
-                                              />
-                                            )
-                                          })}
+                      {/* Cross-year pending suggestions consolidated to one card per
+                  (code, reason). Collapses 5 noisy "rent flag fires every
+                  year" rows into a single review affordance. */}
+                      {crossYearPendingGroups.length > 0 && (
+                        <div className="mb-3 rounded-xl border border-warning/20 bg-warning/[0.03] overflow-hidden">
+                          <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-warning/80 border-b border-warning/15 bg-warning/[0.04]">
+                            {nh('crossYearSuggestionsTitle', {
+                              count: crossYearPendingGroups.length,
+                            })}
+                          </div>
+                          <div className="divide-y divide-warning/10">
+                            {crossYearPendingGroups.map((bucket) => {
+                              const code = bucket.sample.ledgerCode
+                              const ledgerLabel = getLedgerDisplayName(
+                                bucket.sample.ledgerCode,
+                                bucket.sample.ledgerName
+                              )
+                              const yearsLabel =
+                                bucket.years.length > 1
+                                  ? `${bucket.years[bucket.years.length - 1]}–${bucket.years[0]} (${bucket.years.length})`
+                                  : String(bucket.years[0] ?? '')
+                              return (
+                                <div
+                                  key={bucket.ids.join(',')}
+                                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/70">
+                                        {code}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          'text-sm font-medium text-foreground min-w-0',
+                                          LEDGER_LABEL_TEXT_CLASSES
+                                        )}
+                                        title={ledgerLabel}
+                                      >
+                                        {ledgerLabel}
+                                      </span>
+                                      <span className="text-[11px] text-foreground/55">
+                                        {yearsLabel}
+                                      </span>
+                                    </div>
+                                    {bucket.sample.reason && (
+                                      <p
+                                        className={cn(
+                                          'mt-1 text-xs text-foreground/55',
+                                          LEDGER_LABEL_TEXT_CLASSES
+                                        )}
+                                        title={bucket.sample.reason}
+                                      >
+                                        {bucket.sample.reason}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        for (const id of bucket.ids) updateStatus(id, 'rejected')
+                                      }}
+                                      className="h-7 px-2.5 rounded-md text-[11px] font-medium text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+                                    >
+                                      {nh('actions.reject')}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditing(bucket.sample)}
+                                      className="h-7 px-3 rounded-md text-[11px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                    >
+                                      {nh('actions.review')}
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Year-Grouped Collapsible Sections */}
+                      {filteredNormalizations.length > 0 ? (
+                        <div className="space-y-3">
+                          {groupedByYear.map(({ year, items }) => {
+                            const isCollapsed = collapsedYears.has(year)
+                            const yearSummary = summarizeAcceptedNormalizations(
+                              items,
+                              getReportedEbitdaBaseline({
+                                year,
+                                originalEBITDAByYear,
+                                fallbackCandidates: [safeOriginalEBITDA],
+                              })
+                            )
+                            const yearEbitda = yearSummary.original
+                            const yearTotal = yearSummary.adjustment
+
+                            return (
+                              <div
+                                key={year}
+                                className="rounded-xl border border-foreground/[0.06] overflow-hidden"
+                              >
+                                {/* Year Header - Collapsible */}
+                                <button
+                                  onClick={() => toggleYearCollapse(year)}
+                                  className={cn(
+                                    'w-full flex items-center justify-between px-4 py-3',
+                                    'bg-foreground/[0.02] hover:bg-foreground/[0.04]',
+                                    'transition-colors'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <motion.div
+                                      animate={{ rotate: isCollapsed ? -90 : 0 }}
+                                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    >
+                                      <ChevronDown className="w-4 h-4 text-foreground/40" />
+                                    </motion.div>
+                                    <span className="text-sm font-semibold text-foreground tabular-nums">
+                                      {year}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
+                                      {nh('itemCount', { count: items.length })}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <span
+                                      className={cn(
+                                        'text-sm font-mono font-semibold tabular-nums',
+                                        yearTotal > 0
+                                          ? 'text-success'
+                                          : yearTotal < 0
+                                            ? 'text-secondary'
+                                            : 'text-foreground/40'
+                                      )}
+                                    >
+                                      {yearTotal > 0 ? '+' : ''}
+                                      {formatCurrency(yearTotal)}
+                                    </span>
+                                  </div>
+                                </button>
+
+                                {/* Collapsible Content */}
+                                <AnimatePresence initial={false}>
+                                  {!isCollapsed && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    >
+                                      <div className="min-w-0 overflow-x-auto">
+                                        <div className="min-w-[920px]">
+                                          <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
+                                            <div className="w-6 flex-shrink-0" />
+                                            <div className="w-16 flex-shrink-0">
+                                              {nh('table.code')}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              {nh('table.grootboekrekening')}
+                                            </div>
+                                            <div className="w-36 flex-shrink-0 text-center">
+                                              {nh('table.bron')}
+                                            </div>
+                                            <div className="w-32 flex-shrink-0 text-center">
+                                              {nh('table.status')}
+                                            </div>
+                                            <div className="w-28 flex-shrink-0 text-right">
+                                              {nh('amount')}
+                                            </div>
+                                            <div className="w-20 flex-shrink-0 text-right">
+                                              {nh('table.acties')}
+                                            </div>
+                                          </div>
+
+                                          <div>
+                                            {items.map((item) => {
+                                              const isSelected = selectedIds.has(item.id)
+
+                                              return (
+                                                <CompactTableRow
+                                                  key={item.id}
+                                                  item={item}
+                                                  isSelected={isSelected}
+                                                  getLedgerDisplayName={getLedgerDisplayName}
+                                                  onToggleSelect={() => toggleSelect(item.id)}
+                                                  onAccept={() => updateStatus(item.id, 'accepted')}
+                                                  onReject={() => updateStatus(item.id, 'rejected')}
+                                                  onRemove={() => removeWithConfirmation(item.id)}
+                                                  onRestore={() => updateStatus(item.id, 'pending')}
+                                                  onEdit={() => startEditing(item)}
+                                                  hideYear
+                                                  yearEbitda={yearEbitda}
+                                                />
+                                              )
+                                            })}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="py-20 text-center"
+                        >
+                          {/* Elegant floating illustration */}
+                          <motion.div
+                            className="relative w-24 h-24 mx-auto mb-8"
+                            animate={{ y: [0, -6, 0] }}
+                            transition={{
+                              duration: 4,
+                              repeat: Infinity,
+                              ease: 'easeInOut',
+                            }}
+                          >
+                            {/* Outer glow ring */}
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent blur-sm" />
+                            {/* Background circle */}
+                            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/8 to-primary/4" />
+                            {/* Inner icon container */}
+                            <div className="absolute inset-3 rounded-full bg-background/90 backdrop-blur-sm border border-foreground/[0.08] shadow-sm flex items-center justify-center">
+                              <PenLine className="w-8 h-8 text-foreground/30" />
                             </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
+                          </motion.div>
+
+                          {/* Title */}
+                          <p className="text-lg font-medium text-foreground/80 mb-2">
+                            {nh('noNormalizationsYet')}
+                          </p>
+
+                          {/* Helpful subtext */}
+                          <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
+                            {nh('useSearchOrQuickAdd')}
+                          </p>
+                        </motion.div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Empty state for financial and bento views */}
+                  {(viewMode === 'financial' || viewMode === 'bento') &&
+                    filteredNormalizations.length === 0 && (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="py-20 text-center"
                       >
-                        {/* Elegant floating illustration */}
                         <motion.div
                           className="relative w-24 h-24 mx-auto mb-8"
                           animate={{ y: [0, -6, 0] }}
-                          transition={{
-                            duration: 4,
-                            repeat: Infinity,
-                            ease: 'easeInOut',
-                          }}
+                          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                         >
-                          {/* Outer glow ring */}
                           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent blur-sm" />
-                          {/* Background circle */}
                           <div className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/8 to-primary/4" />
-                          {/* Inner icon container */}
                           <div className="absolute inset-3 rounded-full bg-background/90 backdrop-blur-sm border border-foreground/[0.08] shadow-sm flex items-center justify-center">
                             <PenLine className="w-8 h-8 text-foreground/30" />
                           </div>
                         </motion.div>
-
-                        {/* Title */}
                         <p className="text-lg font-medium text-foreground/80 mb-2">
                           {nh('noNormalizationsYet')}
                         </p>
-
-                        {/* Helpful subtext */}
                         <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
                           {nh('useSearchOrQuickAdd')}
                         </p>
                       </motion.div>
                     )}
-                  </>
-                )}
-
-                {/* Empty state for financial and bento views */}
-                {(viewMode === 'financial' || viewMode === 'bento') &&
-                  filteredNormalizations.length === 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="py-20 text-center"
-                    >
-                      <motion.div
-                        className="relative w-24 h-24 mx-auto mb-8"
-                        animate={{ y: [0, -6, 0] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                      >
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent blur-sm" />
-                        <div className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/8 to-primary/4" />
-                        <div className="absolute inset-3 rounded-full bg-background/90 backdrop-blur-sm border border-foreground/[0.08] shadow-sm flex items-center justify-center">
-                          <PenLine className="w-8 h-8 text-foreground/30" />
-                        </div>
-                      </motion.div>
-                      <p className="text-lg font-medium text-foreground/80 mb-2">
-                        {nh('noNormalizationsYet')}
-                      </p>
-                      <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
-                        {nh('useSearchOrQuickAdd')}
-                      </p>
-                    </motion.div>
-                  )}
-              </>
+                </>
+              </div>
             </div>
-          </div>
           ) : (
             <div
               id="balans-tab-content"

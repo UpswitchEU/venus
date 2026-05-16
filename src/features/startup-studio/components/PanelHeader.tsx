@@ -40,9 +40,7 @@ export function PanelHeader(_props: PanelHeaderProps) {
         <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
           {t('badge')}
         </span>
-        <h1 className="text-base font-semibold leading-tight text-foreground">
-          {t('title')}
-        </h1>
+        <h1 className="text-base font-semibold leading-tight text-foreground">{t('title')}</h1>
       </div>
     </header>
   )

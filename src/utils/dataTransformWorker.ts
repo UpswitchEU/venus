@@ -22,15 +22,7 @@ export interface FilterDataResult<T = any> {
 }
 
 /** Leaf ops compare `getByPath(item, field)` to value(s). Use dot paths for nesting, e.g. `user.name`. */
-export type FilterLeafOp =
-  | 'eq'
-  | 'neq'
-  | 'gt'
-  | 'gte'
-  | 'lt'
-  | 'lte'
-  | 'in'
-  | 'contains'
+export type FilterLeafOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains'
 
 export type FilterLeaf = {
   op: FilterLeafOp
@@ -169,7 +161,7 @@ class DataTransformWorkerClient {
 
       this.pendingRequests.set(id, { resolve, reject })
 
-      this.worker!.postMessage({ id, type, ...params })
+      this.worker?.postMessage({ id, type, ...params })
 
       // Timeout after 30 seconds
       setTimeout(() => {

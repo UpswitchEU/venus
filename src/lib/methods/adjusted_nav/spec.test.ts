@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adjustedNavMethodSpec, ADJUSTED_NAV_METHOD_KEY } from './spec'
+import { ADJUSTED_NAV_METHOD_KEY, adjustedNavMethodSpec } from './spec'
 
 describe('adjustedNavMethodSpec', () => {
   it('uses the canonical "adjusted_nav" key', () => {

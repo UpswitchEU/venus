@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useTaxLatencyStore, type TaxLatencyCandidate } from './useTaxLatencyStore'
+import { type TaxLatencyCandidate, useTaxLatencyStore } from './useTaxLatencyStore'
 
 function candidate(overrides: Partial<TaxLatencyCandidate>): TaxLatencyCandidate {
   return {

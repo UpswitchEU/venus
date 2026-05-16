@@ -8,8 +8,8 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { SdeSalaryPrefillNormalizationItem } from '@/lib/sde'
 import {
-  useSdeOwnerCompensationPrefill,
   type UseSdeOwnerCompensationPrefillParams,
+  useSdeOwnerCompensationPrefill,
 } from './useSdeOwnerCompensationPrefill'
 
 function item(

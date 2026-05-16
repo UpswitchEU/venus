@@ -79,19 +79,13 @@ async function proxyToTitan(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const searchParams = request.nextUrl.searchParams.toString()
   return proxyToTitan(request, id, 'GET', searchParams)
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return proxyToTitan(request, id, 'POST')
 }

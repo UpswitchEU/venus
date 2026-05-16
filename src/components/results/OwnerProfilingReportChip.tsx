@@ -5,9 +5,7 @@ import React, { memo } from 'react'
 import { OP_BAND_TAILWIND } from '../../design-system/owner-profiling-bands'
 import type { OwnerProfilingChip } from '../../utils/ownerProfiling/coverChip'
 
-function bandChrome(
-  band: OwnerProfilingChip['colorBand'],
-): { box: string; text: string } {
+function bandChrome(band: OwnerProfilingChip['colorBand']): { box: string; text: string } {
   // Aurora Clarity OP band tokens. Source of truth + parity contract:
   // see `apps/venus/src/design-system/owner-profiling-bands.ts` and the
   // Mercury mirror.

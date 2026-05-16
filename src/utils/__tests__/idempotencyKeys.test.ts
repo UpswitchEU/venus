@@ -168,7 +168,7 @@ describe('idempotencyKeys', () => {
       it('should remove expired keys', () => {
         // Create key with very short expiry
         const oldTimestamp = Date.now() - 25 * 60 * 60 * 1000 // 25 hours ago
-        const key = `val_123-create-${oldTimestamp}`
+        const _key = `val_123-create-${oldTimestamp}`
 
         // Manually add expired key
         manager.getOrCreate('val_123', 'create')

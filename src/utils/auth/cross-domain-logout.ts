@@ -61,7 +61,7 @@ export function broadcastLogout(): void {
         const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
         channel.postMessage(message)
         channel.close() // Close after sending
-      } catch (error) {
+      } catch (_error) {
         // Fallback to postMessage
       }
     }
@@ -81,7 +81,7 @@ export function broadcastLogout(): void {
  */
 export function listenForLogout(callback: () => void): () => void {
   if (typeof window === 'undefined') {
-    return () => {} // No-op cleanup function
+    return () => undefined // No-op cleanup function
   }
 
   let channel: BroadcastChannel | null = null
@@ -125,7 +125,7 @@ export function listenForLogout(callback: () => void): () => void {
  */
 export function listenForLogin(callback: () => void): () => void {
   if (typeof window === 'undefined') {
-    return () => {} // No-op cleanup function
+    return () => undefined // No-op cleanup function
   }
 
   let channel: BroadcastChannel | null = null
@@ -188,7 +188,7 @@ export function broadcastLogin(): void {
         const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
         channel.postMessage(message)
         channel.close() // Close after sending
-      } catch (error) {
+      } catch (_error) {
         // Fallback to postMessage
       }
     }
@@ -271,7 +271,7 @@ export function setupAuthStateWatcher(
   onAuthStateChange: (isAuthenticated: boolean) => void
 ): () => void {
   if (typeof window === 'undefined') {
-    return () => {} // No-op cleanup function
+    return () => undefined // No-op cleanup function
   }
 
   // Simple check function - promise cache handles concurrency
@@ -327,7 +327,7 @@ export function broadcastReportCreated(reportData: {
         const channel = new BroadcastChannel('upswitch-report-sync')
         channel.postMessage(message)
         channel.close()
-      } catch (error) {
+      } catch (_error) {
         // Fallback to postMessage
       }
     }
@@ -381,7 +381,7 @@ export function broadcastReportUpdated(reportData: {
         const channel = new BroadcastChannel('upswitch-report-sync')
         channel.postMessage(message)
         channel.close()
-      } catch (error) {
+      } catch (_error) {
         // Fallback to postMessage
       }
     }
@@ -412,7 +412,7 @@ export function broadcastReportDeleted(reportData: { reportId: string; clientId?
         const channel = new BroadcastChannel('upswitch-report-sync')
         channel.postMessage(message)
         channel.close()
-      } catch (error) {
+      } catch (_error) {
         // Fallback to postMessage
       }
     }
@@ -458,7 +458,7 @@ export function listenForReportEvents(callbacks: {
   onReportDeleted?: (data: { reportId: string; clientId?: string }) => void
 }): () => void {
   if (typeof window === 'undefined') {
-    return () => {} // No-op cleanup function
+    return () => undefined // No-op cleanup function
   }
 
   let channel: BroadcastChannel | null = null

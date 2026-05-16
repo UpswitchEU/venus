@@ -7,13 +7,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
-import { useDcfForecastSync, type UseDcfForecastSyncParams } from './useDcfForecastSync'
+import { type UseDcfForecastSyncParams, useDcfForecastSync } from './useDcfForecastSync'
 
 type Updater = (current: ManualValuationFormData) => ManualValuationFormData
 
-function makeForm(
-  overrides: Partial<ManualValuationFormData> = {}
-): ManualValuationFormData {
+function makeForm(overrides: Partial<ManualValuationFormData> = {}): ManualValuationFormData {
   return {
     yearlyFinancials: [
       { year: '2022', revenue: 1_000_000, ebitda: 200_000 },
@@ -29,8 +27,7 @@ function makeForm(
 function setup(initial: Partial<UseDcfForecastSyncParams>) {
   const formStateRef: { current: ManualValuationFormData } = { current: makeForm() }
   const setFormData = vi.fn((arg: ManualValuationFormData | Updater) => {
-    formStateRef.current =
-      typeof arg === 'function' ? (arg as Updater)(formStateRef.current) : arg
+    formStateRef.current = typeof arg === 'function' ? (arg as Updater)(formStateRef.current) : arg
   })
   const setShowForecastRemovalConfirm = vi.fn()
   const translate = vi.fn((key: string) => key)
@@ -44,18 +41,16 @@ function setup(initial: Partial<UseDcfForecastSyncParams>) {
     ...initial,
   }
 
-  const { rerender } = renderHook(
-    (props: UseDcfForecastSyncParams) => useDcfForecastSync(props),
-    { initialProps: params }
-  )
+  const { rerender } = renderHook((props: UseDcfForecastSyncParams) => useDcfForecastSync(props), {
+    initialProps: params,
+  })
 
   return {
     setFormData,
     setShowForecastRemovalConfirm,
     translate,
     formStateRef,
-    rerender: (next: Partial<UseDcfForecastSyncParams>) =>
-      rerender({ ...params, ...next }),
+    rerender: (next: Partial<UseDcfForecastSyncParams>) => rerender({ ...params, ...next }),
   }
 }
 
@@ -230,9 +225,7 @@ describe('useDcfForecastSync', () => {
       act(() => result.current.markPrevMethod('dcf'))
 
       setFormData.mockClear()
-      act(() =>
-        rerender({ ...initialParams, effectiveMethod: 'dcf', hasDcfSelected: false })
-      )
+      act(() => rerender({ ...initialParams, effectiveMethod: 'dcf', hasDcfSelected: false }))
 
       // Method unchanged from the hook's perspective (markPrevMethod pinned it to 'dcf'),
       // so the inject path does not fire.

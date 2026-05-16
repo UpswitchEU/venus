@@ -163,14 +163,14 @@ class BackendAPI {
         acknowledged_extreme?: boolean
       }
       clear_preparer_override?: boolean
-    },
+    }
   ): Promise<{ selected_method: string; html_report?: string }> {
     return this.valuationAPI.updateSelectedMethod(
       reportId,
       selectedMethod,
       overrideReason,
       overrideNote,
-      options,
+      options
     )
   }
 
@@ -234,9 +234,7 @@ class BackendAPI {
     return this.sessionAPI.switchValuationView(reportId, view)
   }
 
-  async deleteValuationSession(
-    reportId: string
-  ): Promise<{ success: boolean; message?: string }> {
+  async deleteValuationSession(reportId: string): Promise<{ success: boolean; message?: string }> {
     return this.sessionAPI.deleteValuationSession(reportId)
   }
 

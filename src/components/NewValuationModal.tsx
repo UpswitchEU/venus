@@ -6,8 +6,8 @@
  * Requires explicit checkbox confirmation for destructive action.
  */
 
-import React, { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useState } from 'react'
 
 interface NewValuationModalProps {
   isOpen: boolean
@@ -74,9 +74,7 @@ export const NewValuationModal: React.FC<NewValuationModalProps> = ({
           </div>
 
           {/* Content */}
-          <h3 className="text-xl font-semibold text-foreground mb-2 text-center">
-            {t('title')}
-          </h3>
+          <h3 className="text-xl font-semibold text-foreground mb-2 text-center">{t('title')}</h3>
 
           <p className="text-muted-foreground mb-4 text-center">{t('description')}</p>
 

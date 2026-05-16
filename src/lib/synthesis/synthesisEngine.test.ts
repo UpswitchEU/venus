@@ -3,8 +3,8 @@ import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation
 import {
   bestBlendedValue,
   evaluateSynthesisBlend,
-  shouldWarnSynthesisSkipped,
   type SynthesisEvaluation,
+  shouldWarnSynthesisSkipped,
 } from './synthesisEngine'
 
 function method(
@@ -395,7 +395,12 @@ describe('bestBlendedValue', () => {
 describe('shouldWarnSynthesisSkipped', () => {
   it('warns when the client is blocked and the server has no value', () => {
     const ev: SynthesisEvaluation = {
-      client: { kind: 'blocked', blockerMethod: 'multiples', blockerReason: null, weightsByMethod: {} },
+      client: {
+        kind: 'blocked',
+        blockerMethod: 'multiples',
+        blockerReason: null,
+        weightsByMethod: {},
+      },
       serverBlended: null,
     }
     expect(shouldWarnSynthesisSkipped(ev)).toBe(true)
@@ -403,7 +408,12 @@ describe('shouldWarnSynthesisSkipped', () => {
 
   it('does not warn when the server provided a blend, even if the client is blocked', () => {
     const ev: SynthesisEvaluation = {
-      client: { kind: 'blocked', blockerMethod: 'multiples', blockerReason: null, weightsByMethod: {} },
+      client: {
+        kind: 'blocked',
+        blockerMethod: 'multiples',
+        blockerReason: null,
+        weightsByMethod: {},
+      },
       serverBlended: 850_000,
     }
     expect(shouldWarnSynthesisSkipped(ev)).toBe(false)

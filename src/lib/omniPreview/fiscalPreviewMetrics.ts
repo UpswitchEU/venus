@@ -10,7 +10,9 @@ import { ownershipMultiplierFromSharesForSale } from './ownershipMultiplier'
 export const FISCAL_EBITDA_MULTIPLIER = 4
 
 /** Matches how EBITDA is sourced in the preview — aligns with headline weighted normalized vs single-year reported. */
-export type FiscalPreviewEbitdaSource = 'weighted_normalized_historical' | 'reported_latest_complete_year'
+export type FiscalPreviewEbitdaSource =
+  | 'weighted_normalized_historical'
+  | 'reported_latest_complete_year'
 
 export type Fiscal4xPreviewInputs = {
   countryCode: string
@@ -113,10 +115,7 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
     }
   }
 
-  const impliedFiscalEquity = Math.max(
-    (bookEquity + fiscalAnchor) * ownershipMultiplier,
-    0
-  )
+  const impliedFiscalEquity = Math.max((bookEquity + fiscalAnchor) * ownershipMultiplier, 0)
 
   return {
     available: true,

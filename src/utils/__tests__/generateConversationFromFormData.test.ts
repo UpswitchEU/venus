@@ -19,8 +19,12 @@ describe('generateConversationFromFormData', () => {
       'report-123'
     )
 
-    expect(messages.some((message) => message.content === 'What was your revenue in 2024?')).toBe(true)
-    expect(messages.some((message) => message.content === 'What was your EBITDA in 2024?')).toBe(true)
+    expect(messages.some((message) => message.content === 'What was your revenue in 2024?')).toBe(
+      true
+    )
+    expect(messages.some((message) => message.content === 'What was your EBITDA in 2024?')).toBe(
+      true
+    )
   })
 
   it('preserves an explicit current_year_data.year when provided', () => {
@@ -36,8 +40,12 @@ describe('generateConversationFromFormData', () => {
       'report-456'
     )
 
-    expect(messages.some((message) => message.content === 'What was your revenue in 2022?')).toBe(true)
-    expect(messages.some((message) => message.content === 'What was your EBITDA in 2022?')).toBe(true)
+    expect(messages.some((message) => message.content === 'What was your revenue in 2022?')).toBe(
+      true
+    )
+    expect(messages.some((message) => message.content === 'What was your EBITDA in 2022?')).toBe(
+      true
+    )
   })
 
   it('includes a revenue turn when revenue is explicitly zero (pre-revenue)', () => {
@@ -70,7 +78,11 @@ describe('generateConversationFromFormData', () => {
       'report-789'
     )
 
-    expect(messages.some((message) => message.content === 'What was your revenue in 2024?')).toBe(true)
-    expect(messages.some((message) => message.content === 'What was your EBITDA in 2024?')).toBe(true)
+    expect(messages.some((message) => message.content === 'What was your revenue in 2024?')).toBe(
+      true
+    )
+    expect(messages.some((message) => message.content === 'What was your EBITDA in 2024?')).toBe(
+      true
+    )
   })
 })

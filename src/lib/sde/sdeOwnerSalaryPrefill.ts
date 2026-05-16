@@ -66,7 +66,7 @@ const EMPTY: SdeSalaryPrefillResult = {
  * responsible for never overwriting a value the user has already typed.
  */
 export function computeSdeOwnerSalaryPrefill(
-  items: ReadonlyArray<SdeSalaryPrefillNormalizationItem> | null | undefined,
+  items: ReadonlyArray<SdeSalaryPrefillNormalizationItem> | null | undefined
 ): SdeSalaryPrefillResult {
   if (!items || items.length === 0) return EMPTY
 
@@ -85,9 +85,7 @@ export function computeSdeOwnerSalaryPrefill(
     if (bestYear === null || year > bestYear) {
       bestYear = year
       bestValue = value
-      bestSource = isImportedLedgerLedgerCode(item.ledgerCode)
-        ? 'imported_ledger'
-        : 'manual_entry'
+      bestSource = isImportedLedgerLedgerCode(item.ledgerCode) ? 'imported_ledger' : 'manual_entry'
     }
   }
 
@@ -108,5 +106,10 @@ export function computeSdeOwnerSalaryPrefill(
 function isImportedLedgerLedgerCode(code: string | undefined | null): boolean {
   if (!code) return false
   const normalized = code.trim()
-  return normalized === '620' || normalized === '618' || normalized.startsWith('620') || normalized.startsWith('618')
+  return (
+    normalized === '620' ||
+    normalized === '618' ||
+    normalized.startsWith('620') ||
+    normalized.startsWith('618')
+  )
 }

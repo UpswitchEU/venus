@@ -25,7 +25,6 @@ import { dateLikeToUnixMs } from '../../utils/date-like'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../../utils/identifiers'
-import { mergeSessionDataEnvelopesFromRoot } from '../../utils/sessionReportIdentity'
 import { createContextLogger } from '../../utils/logger'
 import {
   mergeSessionSurfaceForOptionalPrefill,
@@ -44,7 +43,10 @@ import {
   resolveEnsureHtmlAlternateReportId,
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
-import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
+import {
+  extractStableSessionKeyFromMergedSession,
+  mergeSessionDataEnvelopesFromRoot,
+} from '../../utils/sessionReportIdentity'
 import { validateSessionData } from '../../utils/sessionValidation'
 import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
 import { backendAPI } from '../backendApi'
@@ -637,7 +639,7 @@ export class SessionService {
         }
       }
       return undefined
-    } catch (error) {
+    } catch (_error) {
       logger.debug('No current report found', { reportId })
       return undefined
     }
@@ -652,7 +654,7 @@ export class SessionService {
       const { versionService } = await import('../version/VersionService')
       const response = await versionService.fetchVersions(reportId)
       return response?.versions || undefined
-    } catch (error) {
+    } catch (_error) {
       logger.debug('No version history found', { reportId })
       return undefined
     }
@@ -869,7 +871,7 @@ export class SessionService {
         const hasRenderableHtmlReport = !!getFirstRenderableReportHtml(
           htmlFromEnvelope(sessionData?._htmlReport),
           htmlFromEnvelope(sessionData?.html_report),
-          session?.htmlReport,
+          session?.htmlReport
         )
         const hasValuationResult = !!(
           session?.valuationResult ||
@@ -1988,9 +1990,7 @@ export class SessionService {
   }
 
   private pickTitanReportIdForEnsure(urlId: string, s: ValuationSession): string | null {
-    const sessionKey = extractStableSessionKeyFromMergedSession(
-      s as unknown as Record<string, any>,
-    )
+    const sessionKey = extractStableSessionKeyFromMergedSession(s as unknown as Record<string, any>)
 
     const mergedReport =
       typeof s.reportId === 'string' && (isUuid(s.reportId) || isSessionKey(s.reportId))
@@ -2250,11 +2250,14 @@ export class SessionService {
               hasHtmlReport: !!safeHtmlForStores,
             })
           } else {
-            logger.debug('Skipping store update - active session does not match revalidated report', {
-              revalidationKey: reportId,
-              canonicalReportId,
-              currentStoreReportId: storeRid,
-            })
+            logger.debug(
+              'Skipping store update - active session does not match revalidated report',
+              {
+                revalidationKey: reportId,
+                canonicalReportId,
+                currentStoreReportId: storeRid,
+              }
+            )
           }
         } catch (storeError) {
           // Non-critical error - cache is still updated

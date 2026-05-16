@@ -7,30 +7,30 @@
  * @module components/ValuationForm/hooks/useValuationFormSubmission
  */
 
-import { useCallback } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
-import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useSessionStore } from '../../../store/useSessionStore'
+import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
-import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
-import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
-import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
+import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
+import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -274,8 +274,7 @@ export const useValuationFormSubmission = (
         ;(request as any).dataSource = 'manual'
 
         const calculationRequestIdentifiers = {
-          reportId:
-            reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
+          reportId: reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
           sessionKey: reportId && isSessionKey(reportId) ? reportId : undefined,
         }
 
@@ -397,14 +396,17 @@ export const useValuationFormSubmission = (
 
           // Warn if renderable html_report is missing
           if (!renderableHtmlReport) {
-            generalLogger.error('CRITICAL: renderable html_report missing or empty in valuation result', {
-              valuationId: result.valuation_id,
-              hasHtmlReport: !!result.html_report,
-              htmlReportLength: result.html_report?.length || 0,
-              resultKeys: Object.keys(result),
-              resultType: typeof result,
-              resultStringified: JSON.stringify(result).substring(0, 500),
-            })
+            generalLogger.error(
+              'CRITICAL: renderable html_report missing or empty in valuation result',
+              {
+                valuationId: result.valuation_id,
+                hasHtmlReport: !!result.html_report,
+                htmlReportLength: result.html_report?.length || 0,
+                resultKeys: Object.keys(result),
+                resultType: typeof result,
+                resultStringified: JSON.stringify(result).substring(0, 500),
+              }
+            )
           }
 
           // Store result in results store
@@ -578,7 +580,7 @@ export const useValuationFormSubmission = (
           ? 'The valuation service is temporarily unavailable. Please try again in a moment.'
           : isValidationError
             ? rawMsg
-          : 'The valuation could not be completed. Please review your inputs and try again.'
+            : 'The valuation could not be completed. Please review your inputs and try again.'
 
         toast.error(userMessage, { duration: 6000 })
         setEmployeeCountError(isValidationError ? rawMsg : null)

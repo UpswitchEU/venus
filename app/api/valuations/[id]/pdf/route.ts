@@ -115,7 +115,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (response.status === 402) {
         const errBody = await response.json().catch(() => ({}))
         return NextResponse.json(
-          { success: false, error: errBody.message || 'PDF download requires a Starter plan or above.', upgradeRequired: true },
+          {
+            success: false,
+            error: errBody.message || 'PDF download requires a Starter plan or above.',
+            upgradeRequired: true,
+          },
           { status: 402 }
         )
       }

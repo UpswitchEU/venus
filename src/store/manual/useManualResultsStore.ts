@@ -257,7 +257,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           hydratedValuationResults &&
           getValuationMethodResultForKey(hydratedValuationResults, hydratedMethodFromPayload)
             ? hydratedMethodFromPayload
-              : hydratedValuationResults &&
+            : hydratedValuationResults &&
                 getValuationMethodResultForKey(hydratedValuationResults, state.selectedMethod)
               ? state.selectedMethod
               : hydratedValuationResults &&

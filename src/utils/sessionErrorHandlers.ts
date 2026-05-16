@@ -226,7 +226,7 @@ export async function createOrLoadSession(
   const correlationId = createCorrelationId(CorrelationPrefixes.SESSION_CREATE)
 
   // Generate idempotency key for safe retries
-  const idempotencyKey = generateIdempotencyKey(reportId, 'create')
+  const _idempotencyKey = generateIdempotencyKey(reportId, 'create')
 
   const startTime = performance.now()
 

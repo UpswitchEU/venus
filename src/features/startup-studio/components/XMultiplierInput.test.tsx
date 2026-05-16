@@ -20,12 +20,7 @@ import { XMultiplierInput } from './XMultiplierInput'
 
 describe('XMultiplierInput', () => {
   it('renders the label and the trailing × glyph', () => {
-    render(
-      <XMultiplierInput
-        label="VC's target return multiple"
-        onChange={vi.fn()}
-      />,
-    )
+    render(<XMultiplierInput label="VC's target return multiple" onChange={vi.fn()} />)
     expect(screen.getByText("VC's target return multiple")).toBeTruthy()
     // The right-icon glyph is rendered as a literal ``×`` character.
     // ``aria-hidden`` keeps it off the a11y tree but it's still in the
@@ -56,13 +51,7 @@ describe('XMultiplierInput', () => {
   })
 
   it('renders the placeholder when value is empty', () => {
-    render(
-      <XMultiplierInput
-        label="Target ROI"
-        placeholder="20"
-        onChange={vi.fn()}
-      />,
-    )
+    render(<XMultiplierInput label="Target ROI" placeholder="20" onChange={vi.fn()} />)
     const input = screen.getByRole('textbox') as HTMLInputElement
     expect(input.placeholder).toBe('20')
   })
@@ -73,7 +62,7 @@ describe('XMultiplierInput', () => {
         label="Target ROI"
         onChange={vi.fn()}
         description="We pre-filled 20× for seed."
-      />,
+      />
     )
     expect(screen.getByText('We pre-filled 20× for seed.')).toBeTruthy()
   })

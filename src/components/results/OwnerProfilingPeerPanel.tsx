@@ -25,8 +25,8 @@ import { useTranslations } from 'next-intl'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 
 import {
-  type VenusOwnerProfileBenchmark,
   fetchOwnerProfilePeerBenchmark,
+  type VenusOwnerProfileBenchmark,
 } from '../../utils/ownerProfiling/fetchPeerBenchmark'
 import { withdrawAnonymizedContribution } from '../../utils/ownerProfiling/withdrawContribution'
 
@@ -146,7 +146,7 @@ function OwnerProfilingPeerPanelInner({
       withdrawAbortRef.current?.abort()
       withdrawAbortRef.current = null
     },
-    [],
+    []
   )
 
   const onWithdrawClick = useCallback(() => {
@@ -211,19 +211,13 @@ function OwnerProfilingPeerPanelInner({
         >
           {t('heading')}
         </h3>
-        <span className="text-xs text-foreground/55">
-          {t('cohortSize', { n: benchmark.n })}
-        </span>
+        <span className="text-xs text-foreground/55">{t('cohortSize', { n: benchmark.n })}</span>
       </header>
 
       <div className="grid grid-cols-3 gap-3 text-center">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-foreground/55">
-            {t('p25')}
-          </div>
-          <div className={`text-lg font-bold tabular-nums ${c.accent}`}>
-            {benchmark.tri.p25}
-          </div>
+          <div className="text-[10px] uppercase tracking-wider text-foreground/55">{t('p25')}</div>
+          <div className={`text-lg font-bold tabular-nums ${c.accent}`}>{benchmark.tri.p25}</div>
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-wider text-foreground/55">
@@ -234,12 +228,8 @@ function OwnerProfilingPeerPanelInner({
           </div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-foreground/55">
-            {t('p75')}
-          </div>
-          <div className={`text-lg font-bold tabular-nums ${c.accent}`}>
-            {benchmark.tri.p75}
-          </div>
+          <div className="text-[10px] uppercase tracking-wider text-foreground/55">{t('p75')}</div>
+          <div className={`text-lg font-bold tabular-nums ${c.accent}`}>{benchmark.tri.p75}</div>
         </div>
       </div>
 
@@ -285,9 +275,7 @@ function OwnerProfilingPeerPanelInner({
           ) : null}
 
           {withdraw.kind === 'submitting' ? (
-            <span className="text-[11px] text-foreground/55">
-              {t('withdrawSubmitting')}
-            </span>
+            <span className="text-[11px] text-foreground/55">{t('withdrawSubmitting')}</span>
           ) : null}
 
           {withdraw.kind === 'error' ? (

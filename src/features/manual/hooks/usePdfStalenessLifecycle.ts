@@ -44,9 +44,7 @@ const PDF_STALE_WAIT_TIMEOUT_MS = 60_000
 const PDF_STALE_UNCHANGED_STREAK_THRESHOLD = 12
 
 /** Narrow signature for `t` from `useTranslations('toast')` (or equivalent). */
-export type PdfLifecycleTranslator = (
-  key: 'pdfExportFailed' | 'pdfExportFailedDesc'
-) => string
+export type PdfLifecycleTranslator = (key: 'pdfExportFailed' | 'pdfExportFailedDesc') => string
 
 /** Narrow signature for `backendAPI.getReport`. Accepted as a param for testability. */
 export type GetReportFn = (
@@ -72,16 +70,11 @@ export interface UsePdfStalenessLifecycleParams {
   /** State setter for the canonical `result`. Poll-success merges flow through this. */
   setResult: (next: ValuationResponse) => void
   /** State setter for the panel's `report` slot. */
-  setReport: (
-    updater: (prev: ValuationReportData | null) => ValuationReportData | null
-  ) => void
+  setReport: (updater: (prev: ValuationReportData | null) => ValuationReportData | null) => void
   /** Opens the starter paywall on 402 retry errors. */
   openStarterPaywall: (reason: 'pdf_download') => void
   /** Toast triggered on non-paywall retry failure. */
-  showRetryFailureToast: (
-    title: string,
-    options: { description: string }
-  ) => void
+  showRetryFailureToast: (title: string, options: { description: string }) => void
   /** Narrow translator for the two strings this hook surfaces. */
   translate: PdfLifecycleTranslator
 }
@@ -224,7 +217,7 @@ export function usePdfStalenessLifecycle(
   useEffect(() => {
     bySessionBackoffUntilRef.current = 0
     bySession404StreakRef.current = 0
-  }, [persistedReportLookupId])
+  }, [])
 
   // ─── Effect E — 60s wait timer + per-cycle reset ───────────────────────
   useEffect(() => {
@@ -244,7 +237,7 @@ export function usePdfStalenessLifecycle(
     unchangedStreakRef.current = 0
     const tid = setTimeout(() => setPdfWaitTimedOut(true), PDF_STALE_WAIT_TIMEOUT_MS)
     return () => clearTimeout(tid)
-  }, [pdfStale, report?.reportUpdatedAt, report?.pdfGeneratedAt])
+  }, [pdfStale])
 
   // ─── Effect F — 2.5s poll interval while stale-not-yet-stalled ────────
   useEffect(() => {
@@ -264,10 +257,7 @@ export function usePdfStalenessLifecycle(
     const id = setInterval(async () => {
       if (cancelled) return
       if (pollInFlightRef.current) return
-      if (
-        isSessionKey(persistedReportLookupId) &&
-        Date.now() < bySessionBackoffUntilRef.current
-      ) {
+      if (isSessionKey(persistedReportLookupId) && Date.now() < bySessionBackoffUntilRef.current) {
         return
       }
       pollInFlightRef.current = true
@@ -280,11 +270,12 @@ export function usePdfStalenessLifecycle(
         const latestExistingResult = useManualResultsStore.getState().result
         const mergedResult = mergePolledResultWithExisting(fresh, latestExistingResult)
         setResult(mergedResult)
-        setReport((prev) => (prev ? { ...prev, ...reportPatchFromFreshResponse(fresh, canDownloadPdf) } : prev))
+        setReport((prev) =>
+          prev ? { ...prev, ...reportPatchFromFreshResponse(fresh, canDownloadPdf) } : prev
+        )
         bySession404StreakRef.current = 0
         setPdfPollErrorCount(0)
-        const stillNoPdf =
-          fresh.pdf_generated_at == null || String(fresh.pdf_generated_at) === ''
+        const stillNoPdf = fresh.pdf_generated_at == null || String(fresh.pdf_generated_at) === ''
         if (stillNoPdf) {
           const streak = ++unchangedStreakRef.current
           if (streak >= PDF_STALE_UNCHANGED_STREAK_THRESHOLD) {
@@ -296,9 +287,7 @@ export function usePdfStalenessLifecycle(
       } catch (err) {
         if (cancelled) return
         const isSession404 =
-          err instanceof APIError &&
-          err.statusCode === 404 &&
-          isSessionKey(persistedReportLookupId)
+          err instanceof APIError && err.statusCode === 404 && isSessionKey(persistedReportLookupId)
         if (isSession404) {
           const streak = ++bySession404StreakRef.current
           const delayMs = Math.min(
@@ -353,8 +342,7 @@ export function usePdfStalenessLifecycle(
     // the post-await `isStillRelevant()` guards bail before any writes
     // reach the global `useManualResultsStore` / `setReport`.
     const startLookupId = persistedReportLookupId
-    const isStillRelevant = () =>
-      isMountedRef.current && lookupIdRef.current === startLookupId
+    const isStillRelevant = () => isMountedRef.current && lookupIdRef.current === startLookupId
 
     setIsPdfRetrying(true)
     // Reset streak + wait state so the poll loop re-arms if the retry kicks
@@ -371,7 +359,9 @@ export function usePdfStalenessLifecycle(
       const latestExistingResult = useManualResultsStore.getState().result
       const mergedResult = mergePolledResultWithExisting(fresh, latestExistingResult)
       setResult(mergedResult)
-      setReport((prev) => (prev ? { ...prev, ...reportPatchFromFreshResponse(fresh, canDownloadPdf) } : prev))
+      setReport((prev) =>
+        prev ? { ...prev, ...reportPatchFromFreshResponse(fresh, canDownloadPdf) } : prev
+      )
       setPdfPollErrorCount(0)
     } catch (err) {
       if (!isStillRelevant()) return
@@ -398,6 +388,8 @@ export function usePdfStalenessLifecycle(
     openStarterPaywall,
     showRetryFailureToast,
     translate,
+    isMountedRef.current,
+    lookupIdRef.current,
   ])
 
   return { pdfStale, pdfWaitTimedOut, pdfPollErrorCount, isPdfRetrying, retry }

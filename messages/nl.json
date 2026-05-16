@@ -2403,6 +2403,16 @@
 				"noBenchmark": "Geen gekoppelde benchmark",
 				"noPreview": "Nog onvoldoende data"
 			},
+			"clientDataReadiness": {
+				"titleReady": "Clientdata klaar",
+				"titleReview": "Import-review nodig",
+				"titleBlocked": "Clientdata nog niet klaar",
+				"syncedLabel": "gesynchroniseerd",
+				"notSyncedLabel": "niet gesynchroniseerd",
+				"flagCount": "{count} reviewflag(s)",
+				"flagsLabel": "Reviewflag",
+				"nextActionLabel": "Volgende"
+			},
 			"methodReadiness": {
 				"titleReady": "Waarderingsmethodes klaar",
 				"titleBlocked": "Waarderingsmethodes hebben data nodig",

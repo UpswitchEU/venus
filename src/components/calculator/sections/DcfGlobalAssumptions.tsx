@@ -155,15 +155,18 @@ export function DcfGlobalAssumptions({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- stable defaults; we want a one-shot seed per missing field
   useEffect(() => {
     if (disabled) return
-    const finite = (v: unknown): v is number =>
-      typeof v === 'number' && Number.isFinite(v)
+    const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
     const pick = (...sources: Array<number | null | undefined>): number | undefined => {
       for (const s of sources) {
         if (finite(s)) return s
       }
       return undefined
     }
-    const seedIfMissing = (current: number | undefined, field: string, value: number | undefined) => {
+    const seedIfMissing = (
+      current: number | undefined,
+      field: string,
+      value: number | undefined
+    ) => {
       if (finite(current)) return
       if (value === undefined) return
       onFieldChange(field, value)
@@ -176,32 +179,28 @@ export function DcfGlobalAssumptions({
       seedIfMissing(
         dcfRevenueGrowthPct,
         'dcf_revenue_growth_pct',
-        pick(smartDefaults?.revenueGrowthPct, DCF_DEFAULT_REVENUE_GROWTH_PCT),
+        pick(smartDefaults?.revenueGrowthPct, DCF_DEFAULT_REVENUE_GROWTH_PCT)
       )
       seedIfMissing(
         dcfEbitdaMarginPct,
         'dcf_ebitda_margin_pct',
-        pick(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT),
+        pick(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)
       )
       seedIfMissing(
         dcfCapexPct,
         'dcf_capex_pct',
-        pick(integrationCapexPct, smartDefaults?.capexPct, DCF_DEFAULT_CAPEX_PCT),
+        pick(integrationCapexPct, smartDefaults?.capexPct, DCF_DEFAULT_CAPEX_PCT)
       )
       seedIfMissing(
         dcfDaPct,
         'dcf_da_pct',
-        pick(integrationDaPct, smartDefaults?.daPct, DCF_DEFAULT_DA_PCT),
+        pick(integrationDaPct, smartDefaults?.daPct, DCF_DEFAULT_DA_PCT)
       )
-      seedIfMissing(
-        dcfNwcPct,
-        'dcf_nwc_pct',
-        pick(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT),
-      )
+      seedIfMissing(dcfNwcPct, 'dcf_nwc_pct', pick(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT))
       seedIfMissing(
         dcfTaxRatePct,
         'dcf_tax_rate_pct',
-        pick(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT),
+        pick(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT)
       )
     }
 
@@ -210,25 +209,16 @@ export function DcfGlobalAssumptions({
       // WACC: prefer history-derived (sector-classified) over static 10%.
       // The build-up panel computes its own value when expanded; that path
       // takes over via WaccBreakdownPanel.useEffect (see WaccBreakdownPanel.tsx).
-      seedIfMissing(
-        dcfWaccPct,
-        'dcf_wacc_pct',
-        pick(smartDefaults?.waccPct, 10),
-      )
-      const onPerpetual =
-        dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth'
+      seedIfMissing(dcfWaccPct, 'dcf_wacc_pct', pick(smartDefaults?.waccPct, 10))
+      const onPerpetual = dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth'
       if (onPerpetual) {
         seedIfMissing(
           dcfTerminalGrowthPct,
           'dcf_terminal_growth_pct',
-          pick(smartDefaults?.terminalGrowthPct, DCF_DEFAULT_TERMINAL_GROWTH_PCT),
+          pick(smartDefaults?.terminalGrowthPct, DCF_DEFAULT_TERMINAL_GROWTH_PCT)
         )
       } else {
-        seedIfMissing(
-          dcfExitMultiple,
-          'dcf_exit_multiple',
-          pick(smartDefaults?.exitMultiple, 6),
-        )
+        seedIfMissing(dcfExitMultiple, 'dcf_exit_multiple', pick(smartDefaults?.exitMultiple, 6))
       }
     }
   }, [
@@ -248,6 +238,16 @@ export function DcfGlobalAssumptions({
     smartDefaults?.exitMultiple,
     integrationCapexPct,
     integrationDaPct,
+    dcfCapexPct,
+    dcfDaPct,
+    dcfEbitdaMarginPct,
+    dcfExitMultiple,
+    dcfNwcPct,
+    dcfRevenueGrowthPct,
+    dcfTaxRatePct,
+    dcfTerminalGrowthPct,
+    dcfWaccPct,
+    onFieldChange,
   ])
 
   const segmentOptions = TERMINAL_METHOD_VALUES.map((value) => ({
@@ -340,18 +340,16 @@ export function DcfGlobalAssumptions({
           sector-only fallbacks. Surface that explicitly so the user knows the
           calibration is loose and can act (add historical years above).
           Only render in EBITDA-mode forecast block — FCFF-only doesn't use these. */}
-      {variant === 'forecastDefaultsOnly' &&
-        dcfInputMode === 'ebitda' &&
-        smartDefaults == null && (
-          <div
-            className="-mt-0.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2"
-            role="note"
-          >
-            <p className="text-[11px] leading-snug text-amber-900 dark:text-amber-200/90">
-              {t('forecastDefaultsNoHistoryNote')}
-            </p>
-          </div>
-        )}
+      {variant === 'forecastDefaultsOnly' && dcfInputMode === 'ebitda' && smartDefaults == null && (
+        <div
+          className="-mt-0.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2"
+          role="note"
+        >
+          <p className="text-[11px] leading-snug text-amber-900 dark:text-amber-200/90">
+            {t('forecastDefaultsNoHistoryNote')}
+          </p>
+        </div>
+      )}
 
       {variant === 'forecastDefaultsOnly' && dcfDefaultsProvenance !== 'none' && (
         <div

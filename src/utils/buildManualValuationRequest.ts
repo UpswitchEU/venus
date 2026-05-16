@@ -9,10 +9,10 @@
  * @module utils/buildManualValuationRequest
  */
 
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useStartupValuationStore } from '../store/manual/useStartupValuationStore'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
-import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { buildStartupValuationRequest } from './buildStartupValuationRequest'
 import { buildValuationRequest } from './buildValuationRequest'
 import { resolveVentureCountryIso2 } from './resolveVentureCountryIso2'
@@ -29,8 +29,7 @@ export function buildManualValuationRequest(
   if (effectiveMethod === 'startup_valuation') {
     const resolvedCountry = resolveVentureCountryIso2(formData)
     const startupInputsBase = useStartupValuationStore.getState().toRequestPayload()
-    const naceTrim =
-      formData.nace_code?.trim() || formData.canonical_nace_code?.trim() || ''
+    const naceTrim = formData.nace_code?.trim() || formData.canonical_nace_code?.trim() || ''
     const startupInputs = {
       ...startupInputsBase,
       country_code: resolvedCountry,

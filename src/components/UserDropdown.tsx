@@ -50,8 +50,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     session?.reportId || (isOnReportPage ? pathname?.split('/reports/')[1]?.split('?')[0] : null)
 
   /** Only then may Mercury show "valuation added to business card" — not on plain exit. */
-  const celebrateMercuryReturn =
-    !!session?.valuationResult || !!session?.htmlReport
+  const celebrateMercuryReturn = !!session?.valuationResult || !!session?.htmlReport
 
   // Debug logging for pathname detection
   useEffect(() => {
@@ -295,8 +294,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     }
 
     // Check report state
-    const hasValuationResults =
-      !!session?.valuationResult || !!session?.htmlReport
+    const hasValuationResults = !!session?.valuationResult || !!session?.htmlReport
     const hasMeaningfulData = hasMeaningfulSessionData(session?.sessionData || {}, session)
 
     generalLogger.info('[UserDropdown] Report state check', {
@@ -529,7 +527,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         hasBackToHome: guestMenuItems.some((item) => item.key === 'back-to-home'),
       })
     }
-  }, [user, isOnReportPage, pathname, guestMenuItems.length])
+  }, [user, isOnReportPage, pathname, guestMenuItems.length, guestMenuItems.some])
 
   const menuItems = user ? authenticatedMenuItems : guestMenuItems
 
@@ -542,7 +540,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       isOnReportPage,
       pathname,
     })
-  }, [user, menuItems.length, isOnReportPage, pathname])
+  }, [user, menuItems.length, isOnReportPage, pathname, menuItems.map])
 
   return (
     <div ref={dropdownRef} className="relative" style={{ zIndex: 10001, position: 'relative' }}>
@@ -697,9 +695,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         onConfirm={handleExitReport}
         onSaveAndExit={handleSaveAndExit}
         hasUnsavedChanges={hasUnsavedChanges}
-        hasValuationResults={
-          !!session?.valuationResult || !!session?.htmlReport
-        }
+        hasValuationResults={!!session?.valuationResult || !!session?.htmlReport}
         isSaving={isSaving}
       />
     </div>

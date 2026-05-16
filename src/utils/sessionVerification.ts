@@ -9,8 +9,8 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationSession } from '../types/valuation'
-import { dateLikeToUnixMs } from './date-like'
 import { createContextLogger } from '../utils/logger'
+import { dateLikeToUnixMs } from './date-like'
 import { globalSessionCache } from './sessionCacheManager'
 import { normalizeSessionDates } from './sessionHelpers'
 import { validateSessionData } from './sessionValidation'
@@ -69,8 +69,7 @@ export function verifySessionInBackground(reportId: string, cachedSession: Valua
     VERIFICATION_LOGGER.debug('Cache is fresh, skipping verification', {
       reportId,
       cacheAge_minutes: Math.floor(
-        (Date.now() - (dateLikeToUnixMs(cachedSession.updatedAt) ?? Date.now())) /
-          (60 * 1000)
+        (Date.now() - (dateLikeToUnixMs(cachedSession.updatedAt) ?? Date.now())) / (60 * 1000)
       ),
     })
     return

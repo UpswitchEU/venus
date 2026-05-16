@@ -34,11 +34,11 @@ const MIN_GROWTH_PCT = -50
 const MAX_GROWTH_PCT = 500
 
 export function computeYoyRevenueGrowthPct(
-  yearlyFinancials: ReadonlyArray<YearlyFinancialsRow> | null | undefined,
+  yearlyFinancials: ReadonlyArray<YearlyFinancialsRow> | null | undefined
 ): number | null {
   if (!yearlyFinancials || yearlyFinancials.length < 2) return null
   const historical = yearlyFinancials.filter(
-    (row) => row && row.isForecast !== true && Number.isFinite(row.revenue),
+    (row) => row && row.isForecast !== true && Number.isFinite(row.revenue)
   )
   if (historical.length < 2) return null
   const sorted = [...historical].sort((a, b) => Number(b.year) - Number(a.year))

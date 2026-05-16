@@ -43,7 +43,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   } = useVersionHistoryStore()
 
   // WORLD-CLASS: Track total version count from bootstrap for pagination
-  const [totalVersionCount, setTotalVersionCount] = useState<number | undefined>(undefined)
+  const [totalVersionCount, _setTotalVersionCount] = useState<number | undefined>(undefined)
 
   const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null)
 
@@ -67,12 +67,8 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     if (!existing) {
       versionMap.set(version.versionNumber, version)
     } else {
-      const versionCreatedAt = version.createdAt
-        ? dateLikeToUnixMs(version.createdAt) ?? 0
-        : 0
-      const existingCreatedAt = existing.createdAt
-        ? dateLikeToUnixMs(existing.createdAt) ?? 0
-        : 0
+      const versionCreatedAt = version.createdAt ? (dateLikeToUnixMs(version.createdAt) ?? 0) : 0
+      const existingCreatedAt = existing.createdAt ? (dateLikeToUnixMs(existing.createdAt) ?? 0) : 0
 
       // Keep the version with the latest createdAt
       if (versionCreatedAt > existingCreatedAt) {
@@ -113,7 +109,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   }
 
   // Get selected version data
-  const selectedVersion = selectedVersionNumber
+  const _selectedVersion = selectedVersionNumber
     ? versions.find((v) => v.versionNumber === selectedVersionNumber)
     : null
 

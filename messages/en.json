@@ -2403,6 +2403,16 @@
 				"noBenchmark": "No mapped benchmark",
 				"noPreview": "Not enough data"
 			},
+			"clientDataReadiness": {
+				"titleReady": "Client data ready",
+				"titleReview": "Import review needed",
+				"titleBlocked": "Client data not ready",
+				"syncedLabel": "synced",
+				"notSyncedLabel": "not synced",
+				"flagCount": "{count} review flag(s)",
+				"flagsLabel": "Review flag",
+				"nextActionLabel": "Next"
+			},
 			"methodReadiness": {
 				"titleReady": "Valuation methods ready",
 				"titleBlocked": "Valuation methods need data",

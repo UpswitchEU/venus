@@ -14,13 +14,21 @@ import {
   AUTH_FETCH_TIMEOUT_AUTH_ME_MS,
   AuthUpstreamTimeoutError,
   getBffCookieHeaderForTitan,
+  getResponseSetCookieList,
 } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-export const maxDuration = 30
+/** Mirrors `/api/auth/me`: one Titan `/me-or-refresh` hop plus route/cookie overhead. */
+export const maxDuration = 15
+
+function appendForwardedSetCookies(res: NextResponse, setCookies: string[]): void {
+  for (const c of setCookies) {
+    res.headers.append('Set-Cookie', c)
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,31 +53,36 @@ export async function GET(request: NextRequest) {
 
     const titanApiUrl = getTitanApiUrl(request)
     const meResponse = await fetchWithTimeout(
-      `${titanApiUrl}/api/v2/auth/me`,
+      `${titanApiUrl}/api/v2/auth/me-or-refresh`,
       {
         method: 'GET',
         headers: { Cookie: cookieHeader },
       },
       AUTH_FETCH_TIMEOUT_AUTH_ME_MS
     )
+    const setCookiesToForward = getResponseSetCookieList(meResponse)
 
     if (!meResponse.ok) {
-      return NextResponse.json(
+      const res401 = NextResponse.json(
         {
           ...health,
           status: 'auth_failed',
-          message: 'auth/me returned non-OK',
+          message: 'auth/me-or-refresh returned non-OK',
           authMeStatus: meResponse.status,
         },
         { status: 401 }
       )
+      appendForwardedSetCookies(res401, setCookiesToForward)
+      return res401
     }
 
-    return NextResponse.json({
+    const resOk = NextResponse.json({
       ...health,
       status: 'ok',
       message: 'Auth cookies valid',
     })
+    appendForwardedSetCookies(resOk, setCookiesToForward)
+    return resOk
   } catch (error) {
     if (error instanceof AuthUpstreamTimeoutError) {
       return NextResponse.json(

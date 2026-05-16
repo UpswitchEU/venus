@@ -1,9 +1,9 @@
 export {
-  startupValuationMethodSpec,
   STARTUP_VALUATION_METHOD_KEY,
+  startupValuationMethodSpec,
 } from './spec'
 export {
-  useStartupAssistantSurface,
   type UseStartupAssistantSurfaceParams,
   type UseStartupAssistantSurfaceResult,
+  useStartupAssistantSurface,
 } from './useStartupAssistantSurface'

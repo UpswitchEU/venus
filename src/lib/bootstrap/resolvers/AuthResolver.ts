@@ -11,11 +11,7 @@
  * @module lib/bootstrap/resolvers/AuthResolver
  */
 
-import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
-import {
-  markRefreshCompleted,
-  wasRefreshedRecently,
-} from '@/utils/auth/cross-tab-refresh'
+import { markRefreshCompleted, wasRefreshedRecently } from '@/utils/auth/cross-tab-refresh'
 import { getLogoutAbortSignal } from '@/utils/auth/logout-abort'
 import {
   awaitMercuryAuthBootstrap,
@@ -24,6 +20,7 @@ import {
   type MercuryAuthBootstrap,
 } from '@/utils/auth/mercury-auth-bootstrap'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
+import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   BootstrapContext,
@@ -265,7 +262,8 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const clientContext: ClientContext = {
         clientUserId: contextData.clientUser?.id ?? null,
         clientEmail: contextData.clientUser?.email ?? null,
-        clientCompanyName: contextData.clientUser?.company_name ?? contextData.relationship.customer_name,
+        clientCompanyName:
+          contextData.clientUser?.company_name ?? contextData.relationship.customer_name,
         accountantUserId: contextData.accountantUser.id,
         accountantEmail: contextData.accountantUser.email,
         relationshipId: contextData.relationship.id,
@@ -515,11 +513,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const contextState = useClientContext.getState()
 
       // Check if we have valid client context (client null when invitation not accepted)
-      if (
-        contextState.isActingAsClient &&
-        contextState.accountant &&
-        contextState.relationshipId
-      ) {
+      if (contextState.isActingAsClient && contextState.accountant && contextState.relationshipId) {
         this.logger.info('[AuthResolver] Found existing client context in store', {
           clientId: truncateForLog(contextState.client?.id ?? 'null'),
           accountantId: truncateForLog(contextState.accountant.id),

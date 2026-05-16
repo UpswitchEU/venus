@@ -5,14 +5,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const TITAN_API_URL = (() => {
-  const url = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL
   if (!url) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_BASE_URL must be set in production');
+      throw new Error(
+        'NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_BASE_URL must be set in production'
+      )
     }
-    return 'http://localhost:3002';
+    return 'http://localhost:3002'
   }
-  return url;
+  return url
 })()
 
 export async function POST(request: NextRequest) {
@@ -61,9 +63,12 @@ export async function POST(request: NextRequest) {
       {
         error: 'Internal server error',
         code: 'INTERNAL_ERROR',
-        message: process.env.NODE_ENV === 'development'
-          ? error instanceof Error ? error.message : String(error)
-          : 'An unexpected error occurred',
+        message:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : 'An unexpected error occurred',
       },
       { status: 500 }
     )

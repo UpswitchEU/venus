@@ -32,23 +32,25 @@ interface PreparerMultipleState {
   note: string
   acknowledgedExtreme: boolean
   /** Sync from valuation result: prefer unadjusted as Upswitch benchmark */
-  syncFromValuationResult: (result: {
-    multiples_valuation?: {
-      ebitda_multiple?: number
-      unadjusted_ebitda_multiple?: number
-      p10_ebitda_multiple?: number
-      p25_ebitda_multiple?: number
-      p75_ebitda_multiple?: number
-      p90_ebitda_multiple?: number
+  syncFromValuationResult: (
+    result: {
+      multiples_valuation?: {
+        ebitda_multiple?: number
+        unadjusted_ebitda_multiple?: number
+        p10_ebitda_multiple?: number
+        p25_ebitda_multiple?: number
+        p75_ebitda_multiple?: number
+        p90_ebitda_multiple?: number
+      } | null
+      multiple_adjustment_summary?: {
+        benchmark_multiple?: number | null
+        selected_multiple?: number | null
+        reason_key?: string | null
+        free_text_reason?: string | null
+        acknowledged_extreme?: boolean
+      } | null
     } | null
-    multiple_adjustment_summary?: {
-      benchmark_multiple?: number | null
-      selected_multiple?: number | null
-      reason_key?: string | null
-      free_text_reason?: string | null
-      acknowledged_extreme?: boolean
-    } | null
-  } | null) => void
+  ) => void
   setAppliedMedian: (v: number | null) => void
   setReasonKey: (v: PreparerEbitdaReasonKey | '') => void
   setNote: (v: string) => void
@@ -67,7 +69,8 @@ export const usePreparerMultipleStore = create<PreparerMultipleState>((set, get)
     const mv = result?.multiples_valuation
     const summary = result?.multiple_adjustment_summary
     const summaryReasonKey =
-      summary?.reason_key && PREPARER_EBITDA_REASON_KEYS.includes(summary.reason_key as PreparerEbitdaReasonKey)
+      summary?.reason_key &&
+      PREPARER_EBITDA_REASON_KEYS.includes(summary.reason_key as PreparerEbitdaReasonKey)
         ? (summary.reason_key as PreparerEbitdaReasonKey)
         : ''
 
@@ -77,17 +80,17 @@ export const usePreparerMultipleStore = create<PreparerMultipleState>((set, get)
         ? Number(summary.benchmark_multiple)
         : mv?.unadjusted_ebitda_multiple != null &&
             Number.isFinite(Number(mv.unadjusted_ebitda_multiple))
-        ? Number(mv.unadjusted_ebitda_multiple)
-        : mv?.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
-          ? Number(mv.ebitda_multiple)
-          : null
+          ? Number(mv.unadjusted_ebitda_multiple)
+          : mv?.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
+            ? Number(mv.ebitda_multiple)
+            : null
     if (bench == null) return
     const applied =
       summary?.selected_multiple != null && Number.isFinite(Number(summary.selected_multiple))
         ? Number(summary.selected_multiple)
         : mv?.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
-        ? Number(mv.ebitda_multiple)
-        : bench
+          ? Number(mv.ebitda_multiple)
+          : bench
     set({
       benchmarkMedian: bench,
       appliedMedian: applied,
@@ -123,18 +126,13 @@ export function clientShouldWarnExtremeMultiple(
   p90?: number | null,
   baseline?: number | null,
   p25?: number | null,
-  p75?: number | null,
+  p75?: number | null
 ): boolean {
   const hi = p90 != null && p90 > 0 ? p90 : p75
   const lo = p10 != null && p10 > 0 ? p10 : p25
   if (hi != null && hi > 0 && applied > hi * 1.25) return true
   if (lo != null && lo > 0 && applied < lo * 0.75) return true
-  if (
-    (lo == null || lo <= 0) &&
-    (hi == null || hi <= 0) &&
-    baseline != null &&
-    baseline > 0
-  ) {
+  if ((lo == null || lo <= 0) && (hi == null || hi <= 0) && baseline != null && baseline > 0) {
     if (applied > baseline * 2.5) return true
     if (applied < baseline * 0.4) return true
   }
@@ -148,10 +146,12 @@ export function mergePreparerMultipleIntoRequest(request: Record<string, unknown
   request.preparer_ev_ebitda_override = payload.preparer_ev_ebitda_override
 }
 
-export function buildPreparerMultiplePayload(state: Pick<
-  PreparerMultipleState,
-  'benchmarkMedian' | 'appliedMedian' | 'reasonKey' | 'note' | 'acknowledgedExtreme'
->): PreparerMultiplePatchPayload | null {
+export function buildPreparerMultiplePayload(
+  state: Pick<
+    PreparerMultipleState,
+    'benchmarkMedian' | 'appliedMedian' | 'reasonKey' | 'note' | 'acknowledgedExtreme'
+  >
+): PreparerMultiplePatchPayload | null {
   const { benchmarkMedian, appliedMedian, reasonKey, note, acknowledgedExtreme } = state
   if (benchmarkMedian == null || appliedMedian == null || appliedMedian <= 0) return null
   if (Math.abs(appliedMedian - benchmarkMedian) < 0.005) return null
@@ -167,15 +167,17 @@ export function buildPreparerMultiplePayload(state: Pick<
   }
 }
 
-export function buildPersistedPreparerMultiplePayload(result: {
-  multiple_adjustment_summary?: {
-    benchmark_multiple?: number | null
-    selected_multiple?: number | null
-    reason_key?: string | null
-    free_text_reason?: string | null
-    acknowledged_extreme?: boolean
+export function buildPersistedPreparerMultiplePayload(
+  result: {
+    multiple_adjustment_summary?: {
+      benchmark_multiple?: number | null
+      selected_multiple?: number | null
+      reason_key?: string | null
+      free_text_reason?: string | null
+      acknowledged_extreme?: boolean
+    } | null
   } | null
-} | null): PreparerMultiplePatchPayload | null {
+): PreparerMultiplePatchPayload | null {
   const summary = result?.multiple_adjustment_summary
   if (!summary?.reason_key) return null
   if (!PREPARER_EBITDA_REASON_KEYS.includes(summary.reason_key as PreparerEbitdaReasonKey)) {

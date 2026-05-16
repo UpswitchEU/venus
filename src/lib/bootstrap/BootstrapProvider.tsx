@@ -55,9 +55,7 @@ let bootstrapCompletedGlobally = false
 // BootstrapProviders. Cleared only on logout or explicit force-refresh.
 let lastGlobalResult: SessionBootstrapState | null = null
 
-function hasMeaningfulBootstrapPrefill(
-  prefillData: SessionBootstrapState['prefillData']
-): boolean {
+function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefillData']): boolean {
   if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
   if (prefillData.confidence >= 0.05) return true
   if (prefillData.companyInfo?.companyName?.trim()) return true
@@ -164,7 +162,7 @@ export function BootstrapProvider({
   onBootstrapError,
 }: BootstrapProviderProps) {
   // ✅ WORLD CLASS: Detect if coming from Mercury to optimize loading flow
-  const isFromMercury = React.useMemo(() => {
+  const _isFromMercury = React.useMemo(() => {
     if (context?.sourceApp === 'mercury') return true
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search)
@@ -180,7 +178,7 @@ export function BootstrapProvider({
   // Prevent duplicate bootstrap calls using refs
   const bootstrapStartedRef = useRef(false)
   const bootstrapCompletedRef = useRef(false)
-  const contextReportIdRef = useRef(context?.reportId)
+  const _contextReportIdRef = useRef(context?.reportId)
 
   // Stable refs for parent callbacks — avoids runBootstrap re-creation
   // when parent passes new closure references on every render.
@@ -263,7 +261,7 @@ export function BootstrapProvider({
     setIsBootstrapping(true)
     setBootstrapError(null)
 
-    const startTime = performance.now()
+    const _startTime = performance.now()
 
     try {
       const bootstrapContext =
@@ -495,7 +493,7 @@ export function BootstrapProvider({
       if (mountedRef.current) setIsBootstrapping(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context, method, isFromMercury])
+  }, [context, method, mountedRef.current])
 
   // Explicit retry: resets all guards and forces a fresh bootstrap call.
   // Used when bootstrap fails and the user/UI needs to retry.
@@ -508,7 +506,7 @@ export function BootstrapProvider({
     bootstrapService.resetCircuitBreaker()
     if (mountedRef.current) setBootstrapError(null)
     await runBootstrap()
-  }, [runBootstrap])
+  }, [runBootstrap, mountedRef.current])
 
   // Auth-readiness subscription. Required for optimistic AuthGate paths:
   // when AuthGate renders children before auth has settled, the first
@@ -549,7 +547,7 @@ export function BootstrapProvider({
       runBootstrap()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady])
+  }, [authReady, autoBootstrap, initialState, runBootstrap])
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:

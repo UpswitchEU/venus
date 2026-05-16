@@ -108,12 +108,8 @@ export function VersionTimeline({
     if (!existing) {
       versionMap.set(version.versionNumber, version)
     } else {
-      const versionCreatedAt = version.createdAt
-        ? dateLikeToUnixMs(version.createdAt) ?? 0
-        : 0
-      const existingCreatedAt = existing.createdAt
-        ? dateLikeToUnixMs(existing.createdAt) ?? 0
-        : 0
+      const versionCreatedAt = version.createdAt ? (dateLikeToUnixMs(version.createdAt) ?? 0) : 0
+      const existingCreatedAt = existing.createdAt ? (dateLikeToUnixMs(existing.createdAt) ?? 0) : 0
 
       if (versionCreatedAt > existingCreatedAt) {
         versionMap.set(version.versionNumber, version)
@@ -156,7 +152,7 @@ export function VersionTimeline({
   return (
     <div className="w-full p-6">
       <div className="relative">
-          {displayedVersions.map((version, index) => (
+        {displayedVersions.map((version, index) => (
           <div key={version.id} className="relative pb-8">
             <VersionTimelineItem
               version={version}
@@ -237,7 +233,7 @@ function VersionTimelineItem({
         hour: '2-digit',
         minute: '2-digit',
       })
-    } catch (error) {
+    } catch (_error) {
       return t('invalidDate')
     }
   }
@@ -711,7 +707,7 @@ export function CompactVersionSelector({
   if (versions.length === 0) return null
 
   const sortedVersions = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
-  const activeVersionData = versions.find((v) => v.versionNumber === activeVersion)
+  const _activeVersionData = versions.find((v) => v.versionNumber === activeVersion)
 
   return (
     <div className="relative">

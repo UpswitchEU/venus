@@ -119,9 +119,7 @@ export function SafeNotesEditor<T extends SafeNoteEditorRow>({
               <CurrencyInput
                 label={t('amount')}
                 value={note.amount ?? undefined}
-                onChange={(value) =>
-                  onUpdate(note.id, { amount: value ?? null } as Partial<T>)
-                }
+                onChange={(value) => onUpdate(note.id, { amount: value ?? null } as Partial<T>)}
                 placeholder="100.000"
                 size="sm"
                 truncateLabel={false}

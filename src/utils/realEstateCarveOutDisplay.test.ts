@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REAL_ESTATE_CARVE_OUT_METHODS,
   getAnnualFictiveRentDeductionForDisplay,
+  REAL_ESTATE_CARVE_OUT_METHODS,
   realEstateCarveOutAppliesTo,
 } from './realEstateCarveOutDisplay'
 
@@ -51,12 +51,8 @@ describe('realEstateCarveOutAppliesTo', () => {
   })
 
   it('returns true if any selected method consumes the carve-out (mixed run)', () => {
-    expect(
-      realEstateCarveOutAppliesTo(['liquidation_analysis', 'ebitda_multiple'])
-    ).toBe(true)
-    expect(
-      realEstateCarveOutAppliesTo(['adjusted_nav', 'dcf'])
-    ).toBe(true)
+    expect(realEstateCarveOutAppliesTo(['liquidation_analysis', 'ebitda_multiple'])).toBe(true)
+    expect(realEstateCarveOutAppliesTo(['adjusted_nav', 'dcf'])).toBe(true)
   })
 
   it('returns false for empty / nullish inputs', () => {

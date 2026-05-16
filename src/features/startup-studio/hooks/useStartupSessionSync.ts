@@ -152,11 +152,13 @@ export function useStartupSessionSync(): void {
         // kbo_number, legal_form, nace_code/description,
         // business_type_id, industry).  Anything else stays whatever
         // the bootstrap had populated.
-        useManualFormStore.getState().updateFormData(
-          handoff.formData as Parameters<
-            ReturnType<typeof useManualFormStore.getState>['updateFormData']
-          >[0]
-        )
+        useManualFormStore
+          .getState()
+          .updateFormData(
+            handoff.formData as Parameters<
+              ReturnType<typeof useManualFormStore.getState>['updateFormData']
+            >[0]
+          )
       } catch (err) {
         generalLogger.warn('[StartupSessionSync] Landing handoff: formData apply failed', {
           error: err instanceof Error ? err.message : String(err),

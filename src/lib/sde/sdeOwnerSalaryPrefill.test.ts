@@ -5,7 +5,7 @@ import {
 } from './sdeOwnerSalaryPrefill'
 
 const item = (
-  partial: Partial<SdeSalaryPrefillNormalizationItem>,
+  partial: Partial<SdeSalaryPrefillNormalizationItem>
 ): SdeSalaryPrefillNormalizationItem => ({
   category: 'salary',
   status: 'accepted',
@@ -43,28 +43,26 @@ describe('computeSdeOwnerSalaryPrefill', () => {
   })
 
   it('flags imported_ledger when ledgerCode is 620 / 620xxx', () => {
-    expect(
-      computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620' })]).source,
-    ).toBe('imported_ledger')
-    expect(
-      computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620000' })]).source,
-    ).toBe('imported_ledger')
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620' })]).source).toBe(
+      'imported_ledger'
+    )
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620000' })]).source).toBe(
+      'imported_ledger'
+    )
   })
 
   it('flags imported_ledger when ledgerCode is 618 / 618xxx (Titan auto-norm)', () => {
-    expect(
-      computeSdeOwnerSalaryPrefill([item({ ledgerCode: '618' })]).source,
-    ).toBe('imported_ledger')
-    expect(
-      computeSdeOwnerSalaryPrefill([item({ ledgerCode: '618100' })]).source,
-    ).toBe('imported_ledger')
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '618' })]).source).toBe(
+      'imported_ledger'
+    )
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '618100' })]).source).toBe(
+      'imported_ledger'
+    )
   })
 
   it('flags manual_entry when ledgerCode is missing or non-payroll', () => {
     expect(computeSdeOwnerSalaryPrefill([item({})]).source).toBe('manual_entry')
-    expect(
-      computeSdeOwnerSalaryPrefill([item({ ledgerCode: '610' })]).source,
-    ).toBe('manual_entry')
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '610' })]).source).toBe('manual_entry')
   })
 
   it('skips zero / negative / non-finite values', () => {

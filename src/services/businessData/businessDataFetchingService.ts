@@ -62,7 +62,10 @@ export class BusinessDataFetchingService {
   /**
    * Get business type analysis for methodology recommendation
    */
-  async getBusinessTypeAnalysis(businessType: string, countryCode: string = 'BE'): Promise<BusinessTypeAnalysis | null> {
+  async getBusinessTypeAnalysis(
+    businessType: string,
+    countryCode: string = 'BE'
+  ): Promise<BusinessTypeAnalysis | null> {
     try {
       // Use Node.js backend instead of direct Python engine calls
       // FIX: Fallback should be Node.js backend (proxy), not Python engine directly

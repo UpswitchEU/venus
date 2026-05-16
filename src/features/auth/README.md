@@ -148,7 +148,7 @@ function ConversationalFlow() {
       hasCredits={hasCredits}
       isBlocked={isBlocked}
       showOutOfCreditsModal={showModal}
-      onCloseModal={() => {}}
+      onCloseModal={() => undefined}
       onSignUp={() => navigate('/signup')}
       onTryManual={() => navigate('/manual')}
     >

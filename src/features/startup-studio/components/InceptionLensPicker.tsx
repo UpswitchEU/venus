@@ -25,13 +25,13 @@
 import { motion } from 'framer-motion'
 import { Check, Compass } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { cn } from '@/lib/utils'
 import {
   INCEPTION_LENS_ORDER,
   INCEPTION_LENS_OVERLAY,
   type InceptionLens,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { cn } from '@/lib/utils'
 
 /** @deprecated Locale comes from next-intl. */
 interface InceptionLensPickerProps {
@@ -85,7 +85,7 @@ export function InceptionLensPicker(_props: InceptionLensPickerProps) {
                 'focus:outline-none focus:ring-2 focus:ring-primary/40',
                 isActive
                   ? 'border-primary bg-primary/[0.06] shadow-md'
-                  : 'border-foreground/10 bg-background/80 hover:border-primary/40 hover:bg-primary/[0.03]',
+                  : 'border-foreground/10 bg-background/80 hover:border-primary/40 hover:bg-primary/[0.03]'
               )}
               aria-pressed={isActive}
             >

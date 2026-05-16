@@ -39,12 +39,7 @@ function slimEmbeddedValuationForSessionPatch(v: unknown): unknown {
     return v
   }
   const r = v as Record<string, unknown>
-  let trimmed = omitKeys(r, [
-    'html_report',
-    'htmlReport',
-    'pdf_html_report',
-    'pdfHtmlReport',
-  ])
+  let trimmed = omitKeys(r, ['html_report', 'htmlReport', 'pdf_html_report', 'pdfHtmlReport'])
   const details = trimmed.details
   if (details && typeof details === 'object' && !Array.isArray(details)) {
     trimmed = {
@@ -79,7 +74,7 @@ export function stripReportBlobsFromSessionPatch(sessionData: unknown, depth = 0
       inner != null &&
       typeof inner === 'object' &&
       !Array.isArray(inner) &&
-      Object.prototype.hasOwnProperty.call(next, nest)
+      Object.hasOwn(next, nest)
     ) {
       next = { ...next, [nest]: stripReportBlobsFromSessionPatch(inner, depth + 1) }
     }
@@ -92,7 +87,7 @@ export function stripReportBlobsFromSessionPatch(sessionData: unknown, depth = 0
  * `session_data` (camelCase + snake_case).
  */
 export function stripReportsFromValuationSessionPatchUpdates(
-  updates: Record<string, unknown> | null | undefined,
+  updates: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null | undefined {
   if (updates == null || typeof updates !== 'object' || Array.isArray(updates)) {
     return updates as null | undefined

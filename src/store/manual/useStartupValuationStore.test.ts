@@ -5,11 +5,12 @@
  * to widen the public surface for what is purely a test-only assertion.
  */
 const PRE_MONEY_TARGET_MAX_EUR = 1e15
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  STARTUP_STAGE_DEFAULT_RAISE,
   calculatePedigreeMultiplier,
   PEDIGREE_EVIDENCE_MAX_LEN,
+  STARTUP_STAGE_DEFAULT_RAISE,
   useStartupValuationStore,
 } from './useStartupValuationStore'
 
@@ -63,9 +64,9 @@ describe('useStartupValuationStore', () => {
 
   it('addSafeNote / updateSafeNote / removeSafeNote round-trip', () => {
     useStartupValuationStore.getState().addSafeNote()
-    const id = useStartupValuationStore.getState().cap_table.safe_notes[0]!.id
+    const id = useStartupValuationStore.getState().cap_table.safe_notes[0]?.id
     useStartupValuationStore.getState().updateSafeNote(id, { amount: 100000 })
-    expect(useStartupValuationStore.getState().cap_table.safe_notes[0]!.amount).toBe(100000)
+    expect(useStartupValuationStore.getState().cap_table.safe_notes[0]?.amount).toBe(100000)
     useStartupValuationStore.getState().removeSafeNote(id)
     expect(useStartupValuationStore.getState().cap_table.safe_notes).toHaveLength(0)
   })
@@ -129,8 +130,8 @@ describe('useStartupValuationStore', () => {
     s.addSafeNote()
     s.addSafeNote()
     const [first, second] = useStartupValuationStore.getState().cap_table.safe_notes
-    s.updateSafeNote(first!.id, { amount: 50000, valuation_cap: 5_000_000 })
-    s.updateSafeNote(second!.id, { amount: 0 })
+    s.updateSafeNote(first?.id, { amount: 50000, valuation_cap: 5_000_000 })
+    s.updateSafeNote(second?.id, { amount: 0 })
 
     const payload = useStartupValuationStore.getState().toRequestPayload() as {
       cap_table: { safe_notes: Array<Record<string, unknown>> }
@@ -164,7 +165,7 @@ describe('useStartupValuationStore', () => {
         tam_sam_som: { tam: 1_000_000, sam: 500_000, som: 100_000 },
         studio_v2: { tam_sam_som: { tam: 99 } },
         description: 'a survivor field',
-      }),
+      })
     ).not.toThrow()
     const after = useStartupValuationStore.getState() as Record<string, unknown>
     expect('tam_sam_som' in after).toBe(false)
@@ -186,9 +187,7 @@ describe('useStartupValuationStore', () => {
 
   describe('applyPreset — one-click smart defaults', () => {
     it('applies the Upswitch demo preset end-to-end', async () => {
-      const { UPSWITCH_DEMO_PRESET } = await import(
-        '@/features/startup-studio/data/presets'
-      )
+      const { UPSWITCH_DEMO_PRESET } = await import('@/features/startup-studio/data/presets')
       useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
       const s = useStartupValuationStore.getState()
 
@@ -251,9 +250,7 @@ describe('useStartupValuationStore', () => {
     })
 
     it('Upswitch preset lifts the pedigree multiplier to 1.35× (veteran)', async () => {
-      const { UPSWITCH_DEMO_PRESET } = await import(
-        '@/features/startup-studio/data/presets'
-      )
+      const { UPSWITCH_DEMO_PRESET } = await import('@/features/startup-studio/data/presets')
       useStartupValuationStore.getState().applyPreset(UPSWITCH_DEMO_PRESET)
       const flags = useStartupValuationStore.getState().founder_pedigree
       // domain_expert_10y (+0.15) + second_time_founder (+0.10)
@@ -264,9 +261,7 @@ describe('useStartupValuationStore', () => {
 
   describe('inception lens overlay', () => {
     it('defaults to milestones_driven (no-op overlay)', () => {
-      expect(useStartupValuationStore.getState().inception_lens).toBe(
-        'milestones_driven',
-      )
+      expect(useStartupValuationStore.getState().inception_lens).toBe('milestones_driven')
     })
 
     it('omits lens from payload when default', () => {
@@ -288,13 +283,9 @@ describe('useStartupValuationStore', () => {
     it('momentum_driven and inception_bet are valid options', () => {
       const s = useStartupValuationStore.getState()
       s.setField('inception_lens', 'momentum_driven')
-      expect(useStartupValuationStore.getState().inception_lens).toBe(
-        'momentum_driven',
-      )
+      expect(useStartupValuationStore.getState().inception_lens).toBe('momentum_driven')
       s.setField('inception_lens', 'inception_bet')
-      expect(useStartupValuationStore.getState().inception_lens).toBe(
-        'inception_bet',
-      )
+      expect(useStartupValuationStore.getState().inception_lens).toBe('inception_bet')
     })
   })
 
@@ -325,8 +316,8 @@ describe('useStartupValuationStore', () => {
         founder_pedigree?: Record<string, boolean>
       }
       expect(payload.founder_pedigree).toBeDefined()
-      expect(payload.founder_pedigree!.prior_exit).toBe(true)
-      expect(payload.founder_pedigree!.solo_founder).toBe(false)
+      expect(payload.founder_pedigree?.prior_exit).toBe(true)
+      expect(payload.founder_pedigree?.solo_founder).toBe(false)
     })
 
     it('mutually excludes solo_founder and has_technical_cofounder', () => {
@@ -365,8 +356,8 @@ describe('useStartupValuationStore', () => {
         }
       }
       expect(payload.founder_pedigree).toBeDefined()
-      expect(payload.founder_pedigree!.prior_exit).toBe(true)
-      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+      expect(payload.founder_pedigree?.prior_exit).toBe(true)
+      expect(payload.founder_pedigree?.pedigree_evidence).toEqual({
         prior_exit: 'https://crunchbase.com/exits/example',
       })
     })
@@ -377,12 +368,12 @@ describe('useStartupValuationStore', () => {
         .getState()
         .setPedigreeEvidence('prior_exit', '  https://example.com/ref  ')
       expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toBe(
-        '  https://example.com/ref  ',
+        '  https://example.com/ref  '
       )
       const payload = useStartupValuationStore.getState().toRequestPayload() as {
         founder_pedigree?: { pedigree_evidence?: Record<string, string> }
       }
-      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+      expect(payload.founder_pedigree?.pedigree_evidence).toEqual({
         prior_exit: 'https://example.com/ref',
       })
     })
@@ -399,7 +390,7 @@ describe('useStartupValuationStore', () => {
       const payload = useStartupValuationStore.getState().toRequestPayload() as {
         founder_pedigree?: { pedigree_evidence?: Record<string, string> }
       }
-      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({
+      expect(payload.founder_pedigree?.pedigree_evidence).toEqual({
         prior_exit: 'exit ref',
       })
     })
@@ -411,11 +402,11 @@ describe('useStartupValuationStore', () => {
       const payload = useStartupValuationStore.getState().toRequestPayload() as {
         founder_pedigree?: { pedigree_evidence?: Record<string, string> }
       }
-      expect(payload.founder_pedigree!.pedigree_evidence!.prior_exit).toHaveLength(
-        PEDIGREE_EVIDENCE_MAX_LEN,
+      expect(payload.founder_pedigree?.pedigree_evidence?.prior_exit).toHaveLength(
+        PEDIGREE_EVIDENCE_MAX_LEN
       )
-      expect(payload.founder_pedigree!.pedigree_evidence!.prior_exit).toBe(
-        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN),
+      expect(payload.founder_pedigree?.pedigree_evidence?.prior_exit).toBe(
+        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN)
       )
     })
 
@@ -430,7 +421,7 @@ describe('useStartupValuationStore', () => {
       const payload = useStartupValuationStore.getState().toRequestPayload() as {
         founder_pedigree?: { pedigree_evidence?: Record<string, string> }
       }
-      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({ prior_exit: 'ok' })
+      expect(payload.founder_pedigree?.pedigree_evidence).toEqual({ prior_exit: 'ok' })
     })
 
     it('strips empty/whitespace-only evidence strings from the persisted dict', () => {
@@ -447,7 +438,7 @@ describe('useStartupValuationStore', () => {
       s.setPedigreeFlag('domain_expert_10y', true)
       s.setPedigreeEvidence('domain_expert_10y', '12y M&A ')
       expect(useStartupValuationStore.getState().pedigree_evidence.domain_expert_10y).toBe(
-        '12y M&A ',
+        '12y M&A '
       )
     })
 
@@ -457,10 +448,10 @@ describe('useStartupValuationStore', () => {
       const long = `${'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN)}${suffix}`
       useStartupValuationStore.getState().setPedigreeEvidence('prior_exit', long)
       expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toHaveLength(
-        PEDIGREE_EVIDENCE_MAX_LEN,
+        PEDIGREE_EVIDENCE_MAX_LEN
       )
       expect(useStartupValuationStore.getState().pedigree_evidence.prior_exit).toBe(
-        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN),
+        'a'.repeat(PEDIGREE_EVIDENCE_MAX_LEN)
       )
     })
 
@@ -508,7 +499,7 @@ describe('useStartupValuationStore', () => {
           pedigree_evidence?: Record<string, string>
         }
       }
-      expect(payload.founder_pedigree!.pedigree_evidence).toEqual({})
+      expect(payload.founder_pedigree?.pedigree_evidence).toEqual({})
     })
 
     it('calculatePedigreeMultiplier sums active deltas with clamp', () => {
@@ -521,7 +512,7 @@ describe('useStartupValuationStore', () => {
           second_time_founder: false,
           has_technical_cofounder: false,
           solo_founder: false,
-        }),
+        })
       ).toBeCloseTo(1.3, 5)
 
       // Maxed-out case (all positive) clamps at the 1.80 ceiling.
@@ -533,7 +524,7 @@ describe('useStartupValuationStore', () => {
           second_time_founder: true,
           has_technical_cofounder: true,
           solo_founder: false,
-        }),
+        })
       ).toBe(1.8)
 
       // Solo-only case lands at 0.80 — above the floor.
@@ -545,7 +536,7 @@ describe('useStartupValuationStore', () => {
           second_time_founder: false,
           has_technical_cofounder: false,
           solo_founder: true,
-        }),
+        })
       ).toBeCloseTo(0.8, 5)
     })
   })

@@ -20,7 +20,7 @@ export async function DELETE(request: NextRequest) {
           ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
       },
-      15_000,
+      15_000
     )
 
     if (!response.ok && response.status !== 204) {
@@ -32,7 +32,7 @@ export async function DELETE(request: NextRequest) {
               (data as { message: string }).message) ||
             'Failed to disconnect Silverfin',
         },
-        { status: response.status },
+        { status: response.status }
       )
     }
 

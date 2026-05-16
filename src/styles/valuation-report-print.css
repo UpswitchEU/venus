@@ -92,7 +92,9 @@
   margin: 0 auto 24px auto;
   background: hsl(var(--report-bg)) !important;
   position: relative;
-  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 8px 48px -8px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 24px -4px rgba(0, 0, 0, 0.12),
+    0 8px 48px -8px rgba(0, 0, 0, 0.08);
 }
 
 /* Cover page — dark slate so it stands out from white panel (match Clarity design) */
@@ -107,7 +109,9 @@
   overflow: visible;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 8px 48px -8px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 24px -4px rgba(0, 0, 0, 0.12),
+    0 8px 48px -8px rgba(0, 0, 0, 0.08);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
   color-adjust: exact;
@@ -120,7 +124,12 @@
   left: 0;
   right: 0;
   height: 4pt;
-  background: linear-gradient(90deg, hsl(var(--report-teal)) 0%, hsl(var(--report-teal)) 60%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    hsl(var(--report-teal)) 0%,
+    hsl(var(--report-teal)) 60%,
+    transparent 100%
+  );
 }
 
 /* Display Typography */

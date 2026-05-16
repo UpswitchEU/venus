@@ -7,12 +7,41 @@ export {
   type UseAdjustedNavPrefillCoordinatorResult,
   useAdjustedNavPrefillCoordinator,
 } from './adjusted_nav'
-export { ARR_MULTIPLE_METHOD_KEY, arrMultipleMethodSpec } from './arr_multiple'
-export { DCF_METHOD_KEY, dcfMethodSpec } from './dcf'
-export { EBITDA_MULTIPLE_METHOD_KEY, ebitdaMultipleMethodSpec } from './ebitda_multiple'
-export { FISCAL_4X_METHOD_KEY, fiscal4xMethodSpec } from './fiscal_4x'
 export {
+  ARR_MULTIPLE_METHOD_KEY,
+  arrMultipleMethodSpec,
+  deriveImportedSaasProvenance,
+  deriveSaasSectionComplete,
+  type ImportedSaasProvenance,
+  SaasMetricsSectionStack,
+  type SaasMetricsSectionStackProps,
+} from './arr_multiple'
+export {
+  DCF_METHOD_KEY,
+  DcfForecastWorkspaceSectionStack,
+  type DcfForecastWorkspaceSectionStackProps,
+  DcfGlobalAssumptionsSectionStack,
+  type DcfGlobalAssumptionsSectionStackProps,
+  dcfMethodSpec,
+  shouldMountDcfGlobalAssumptionsSectionStack,
+  type TerminalValueMethod,
+} from './dcf'
+export { EBITDA_MULTIPLE_METHOD_KEY, ebitdaMultipleMethodSpec } from './ebitda_multiple'
+export {
+  FISCAL_4X_METHOD_KEY,
+  FiscalReferenceSectionStack,
+  type FiscalReferenceSectionStackProps,
+  fiscal4xMethodSpec,
+  shouldMountFiscalReferenceSectionStack,
+  shouldRenderFiscalInputs,
+  shouldShowFiscalReferenceNotice,
+} from './fiscal_4x'
+export {
+  deriveLiquidationDeferredTaxPrefillSource,
+  deriveLiquidationPaidUpCapitalPrefillSource,
   LIQUIDATION_ANALYSIS_METHOD_KEY,
+  LiquidationSectionStack,
+  type LiquidationSectionStackProps,
   liquidationAnalysisMethodSpec,
 } from './liquidation_analysis'
 export {
@@ -54,9 +83,16 @@ export {
   selectionRequiresForecastYears,
   selectionRequiresOwnerCompensation,
 } from './registry'
-export { REVENUE_MULTIPLE_METHOD_KEY, revenueMultipleMethodSpec } from './revenue_multiple'
+export {
+  REVENUE_MULTIPLE_METHOD_KEY,
+  RevenueQualitySectionStack,
+  type RevenueQualitySectionStackProps,
+  revenueMultipleMethodSpec,
+} from './revenue_multiple'
 export {
   SDE_MULTIPLE_METHOD_KEY,
+  SdeOwnerCompensationSectionStack,
+  type SdeOwnerCompensationSectionStackProps,
   sdeManualInputAdapter,
   sdeMultipleMethodSpec,
   type UseSdeOwnerCompensationPrefillParams,

@@ -1,6 +1,5 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   Calculator,
@@ -12,16 +11,30 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { cn } from '@/design-system/utils'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraSelect } from '@/design-system/components/Select'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/design-system/components/Modal'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { AuroraSelect } from '@/design-system/components/Select'
+import { cn } from '@/design-system/utils'
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-} from '@/design-system/components/Modal'
+  getValuationMethodResultForKey,
+  isRevenueMethodologyKey,
+} from '@/utils/extractValuationResultsMap'
+import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
+import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
+import {
+  detectDossierSignal,
+  projectSuggestedMultiple,
+  SCENARIO_PRESETS,
+  SUGGESTED_DELTA_BAND,
+} from '../../store/manual/preparerCalibrationSuggestions'
+import {
+  clientShouldWarnExtremeMultiple,
+  PREPARER_EBITDA_REASON_KEYS,
+  usePreparerMultipleStore,
+} from '../../store/manual/usePreparerMultipleStore'
 import type {
   HistoricalFcfReadiness,
   MultiplePipelineStage,
@@ -29,24 +42,9 @@ import type {
   ValuationResponse,
   WaterfallStep,
 } from '../../types/valuation'
-import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
-import { getValuationMethodResultForKey, isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
-import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
-import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
-import {
-  PREPARER_EBITDA_REASON_KEYS,
-  clientShouldWarnExtremeMultiple,
-  usePreparerMultipleStore,
-} from '../../store/manual/usePreparerMultipleStore'
-import {
-  SCENARIO_PRESETS,
-  SUGGESTED_DELTA_BAND,
-  detectDossierSignal,
-  projectSuggestedMultiple,
-} from '../../store/manual/preparerCalibrationSuggestions'
-import { DcfSensitivityMatrix } from './sections/DcfSensitivityMatrix'
 import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 import { PercentileBandGauge } from './PercentileBandGauge'
+import { DcfSensitivityMatrix } from './sections/DcfSensitivityMatrix'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -69,8 +67,7 @@ const formatCurrency = (amount: number) => {
       : `${sign}€${rounded}`
 }
 
-const formatMultiple = (value: number | null) =>
-  value == null ? null : `${value.toFixed(2)}×`
+const formatMultiple = (value: number | null) => (value == null ? null : `${value.toFixed(2)}×`)
 
 const formatPercent = (value: number | null, scale = 1) =>
   value == null ? null : `${(value * scale).toFixed(1)}%`
@@ -132,10 +129,7 @@ function normalizeComparablesQualityKey(raw: string): string {
   return k
 }
 
-function getComparablesQualityLabel(
-  tBreakdown: (key: string) => string,
-  raw: string,
-): string {
+function getComparablesQualityLabel(tBreakdown: (key: string) => string, raw: string): string {
   const nestedKey = `comparablesQualityValues.${normalizeComparablesQualityKey(raw)}`
   const translated = tBreakdown(nestedKey as never)
   if (
@@ -146,9 +140,7 @@ function getComparablesQualityLabel(
   ) {
     return translated
   }
-  return raw
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function BreakdownMetricCard({
@@ -167,16 +159,14 @@ function BreakdownMetricCard({
     <div
       className={cn(
         'rounded-lg border px-3 py-2',
-        muted ? 'border-border/40 bg-background/40' : 'border-border/60 bg-background/60',
+        muted ? 'border-border/40 bg-background/40' : 'border-border/60 bg-background/60'
       )}
     >
-      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-        {label}
-      </p>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">{label}</p>
       <p
         className={cn(
           'mt-1 text-sm font-mono font-semibold tabular-nums',
-          muted ? 'text-foreground/35' : accent ? 'text-primary' : 'text-foreground/80',
+          muted ? 'text-foreground/35' : accent ? 'text-primary' : 'text-foreground/80'
         )}
       >
         {value}
@@ -273,7 +263,7 @@ function MethodBreakdownSection({
     toNumberOrNull(details.enterprise_value) ??
     toNumberOrNull(result?.multiples_valuation?.enterprise_value) ??
     toNumberOrNull(
-      (resultAny?.valuation_result as Record<string, unknown> | undefined)?.enterpriseValueMid,
+      (resultAny?.valuation_result as Record<string, unknown> | undefined)?.enterpriseValueMid
     )
   const equityValue = toNumberOrNull(method.value)
   const wacc = toNumberOrNull(method.wacc ?? details.wacc)
@@ -321,14 +311,14 @@ function MethodBreakdownSection({
   const saasNrr = toNumberOrNull(saasMetrics?.nrr_pct)
   const comparablesCount = toNumberOrNull(result?.multiples_valuation?.comparables_count)
   const comparablesQuality = result?.multiples_valuation?.comparables_quality ?? null
-  const pipelineRows = (
-    result?.multiple_pipeline?.discount_waterfall?.slice(0, 4) ?? []
-  ).map((row: WaterfallStep) => ({
-    label: row.step_name,
-    before: toNumberOrNull(row.multiple_before_mid) ?? toNumberOrNull(row.multiple_before_low),
-    after: toNumberOrNull(row.multiple_after_mid) ?? toNumberOrNull(row.multiple_after_low),
-    discount: toNumberOrNull(row.discount_percentage),
-  }))
+  const pipelineRows = (result?.multiple_pipeline?.discount_waterfall?.slice(0, 4) ?? []).map(
+    (row: WaterfallStep) => ({
+      label: row.step_name,
+      before: toNumberOrNull(row.multiple_before_mid) ?? toNumberOrNull(row.multiple_before_low),
+      after: toNumberOrNull(row.multiple_after_mid) ?? toNumberOrNull(row.multiple_after_low),
+      discount: toNumberOrNull(row.discount_percentage),
+    })
+  )
 
   const fallbackPipelineRows =
     pipelineRows.length > 0
@@ -339,7 +329,7 @@ function MethodBreakdownSection({
             before: toNumberOrNull(stage.multiple_before_mid ?? stage.multiple_before),
             after: toNumberOrNull(stage.multiple_after_mid ?? stage.multiple_after),
             discount: toNumberOrNull(stage.discount_percentage),
-          }),
+          })
         )
 
   const effectiveAppliedMultiple =
@@ -358,8 +348,7 @@ function MethodBreakdownSection({
           ...(dcfReadiness.actual_tax_years < dcfReadiness.historical_years_count
             ? [tFcfReadiness('fields.taxes')]
             : []),
-          ...(dcfReadiness.actual_nwc_years <
-          Math.max(0, dcfReadiness.historical_years_count - 1)
+          ...(dcfReadiness.actual_nwc_years < Math.max(0, dcfReadiness.historical_years_count - 1)
             ? [tFcfReadiness('fields.working_capital')]
             : []),
         ]
@@ -469,10 +458,7 @@ function MethodBreakdownSection({
             />
           )}
           {netDebt != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('netDebt')}
-              value={formatCurrency(netDebt)}
-            />
+            <BreakdownMetricCard label={tBreakdown('netDebt')} value={formatCurrency(netDebt)} />
           )}
           {equityValue != null && (
             <BreakdownMetricCard
@@ -520,10 +506,7 @@ function MethodBreakdownSection({
             />
           )}
           {netDebt != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('netDebt')}
-              value={formatCurrency(netDebt)}
-            />
+            <BreakdownMetricCard label={tBreakdown('netDebt')} value={formatCurrency(netDebt)} />
           )}
           {equityValue != null && (
             <BreakdownMetricCard
@@ -536,10 +519,7 @@ function MethodBreakdownSection({
       ) : methodKey === 'arr_multiple' ? (
         <div className="grid gap-2 sm:grid-cols-2">
           {arrValue != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('arr')}
-              value={formatCurrency(arrValue)}
-            />
+            <BreakdownMetricCard label={tBreakdown('arr')} value={formatCurrency(arrValue)} />
           )}
           {effectiveAppliedMultiple != null && (
             <BreakdownMetricCard
@@ -566,10 +546,7 @@ function MethodBreakdownSection({
             />
           )}
           {netDebt != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('netDebt')}
-              value={formatCurrency(netDebt)}
-            />
+            <BreakdownMetricCard label={tBreakdown('netDebt')} value={formatCurrency(netDebt)} />
           )}
           {equityValue != null && (
             <BreakdownMetricCard
@@ -619,7 +596,11 @@ function MethodBreakdownSection({
             />
             <StableMetricCard
               label={tBreakdown('balanceSheetAdjustments')}
-              value={balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 ? balanceSheetAdjustments : null}
+              value={
+                balanceSheetAdjustments != null && balanceSheetAdjustments !== 0
+                  ? balanceSheetAdjustments
+                  : null
+              }
               formatter={formatCurrency}
             />
             <StableMetricCard
@@ -703,13 +684,13 @@ function MethodBreakdownSection({
               ? tBreakdown('formulaFiscal')
               : methodKey === 'adjusted_nav'
                 ? tBreakdown('formulaNav')
-              : methodKey === 'sde_multiple'
-                ? tBreakdown('formulaSde')
-                : methodKey === 'arr_multiple'
-                  ? tBreakdown('formulaArr')
-                : isRevenueMethodologyKey(methodKey)
-                  ? tBreakdown('formulaRevenue')
-                : tBreakdown('formulaMultiple')}
+                : methodKey === 'sde_multiple'
+                  ? tBreakdown('formulaSde')
+                  : methodKey === 'arr_multiple'
+                    ? tBreakdown('formulaArr')
+                    : isRevenueMethodologyKey(methodKey)
+                      ? tBreakdown('formulaRevenue')
+                      : tBreakdown('formulaMultiple')}
         </p>
         {/* Concrete numeric example built from this run's actual values when
             we have what we need. Renders in mono with proper × and → for M&A polish. */}
@@ -746,7 +727,9 @@ function MethodBreakdownSection({
               {balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 && (
                 <>
                   {' '}
-                  <span className="text-foreground/40">{balanceSheetAdjustments > 0 ? '+' : '−'}</span>{' '}
+                  <span className="text-foreground/40">
+                    {balanceSheetAdjustments > 0 ? '+' : '−'}
+                  </span>{' '}
                   {formatCurrency(Math.abs(balanceSheetAdjustments))}
                 </>
               )}{' '}
@@ -775,9 +758,7 @@ function StakeCalculatorSection({ equityValue }: { equityValue: number | null })
         <Percent className="w-3.5 h-3.5" aria-hidden />
         {tModal('stakeSection')}
       </div>
-      <p className="text-[11px] leading-snug text-foreground/50">
-        {tModal('stakeDescription')}
-      </p>
+      <p className="text-[11px] leading-snug text-foreground/50">{tModal('stakeDescription')}</p>
 
       <div className="grid gap-1">
         <label
@@ -814,7 +795,10 @@ function StakeCalculatorSection({ equityValue }: { equityValue: number | null })
       {isPartial && (
         <div className="rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden />
+            <AlertTriangle
+              className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0"
+              aria-hidden
+            />
             <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
               {tModal('stakeIndicative')}
             </span>
@@ -932,7 +916,7 @@ export function ValuationEditModal({
 
   const adaptiveLabel = t('currentMethodAdaptive')
   const [mode, setMode] = useState<'ai' | 'manual'>(
-    selectedMethod !== 'upswitch_adaptive' ? 'manual' : 'ai',
+    selectedMethod !== 'upswitch_adaptive' ? 'manual' : 'ai'
   )
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
@@ -1062,7 +1046,7 @@ export function ValuationEditModal({
       mv?.p90_ebitda_multiple,
       benchmarkMedian,
       mv?.p25_ebitda_multiple,
-      mv?.p75_ebitda_multiple,
+      mv?.p75_ebitda_multiple
     )
   const bench = benchmarkNum ?? 5
 
@@ -1119,9 +1103,7 @@ export function ValuationEditModal({
           'discount_percentage' in row && typeof row.discount_percentage === 'number'
             ? row.discount_percentage
             : null
-        return name && pct != null && Math.abs(pct) >= TRIVIAL
-          ? { name: name.trim(), pct }
-          : null
+        return name && pct != null && Math.abs(pct) >= TRIVIAL ? { name: name.trim(), pct } : null
       })
       .filter((row): row is { name: string; pct: number } => row !== null)
       .slice(0, 6) // keep the card scannable on a narrow modal column
@@ -1134,9 +1116,7 @@ export function ValuationEditModal({
   //    `preparerCalibrationSuggestions.detectDossierSignal` for the rules. #}
   const dossierSignal = useMemo(() => {
     const resultRecord = (result ?? null) as Record<string, unknown> | null
-    const recurringRevenuePercentage = toNumberOrNull(
-      resultRecord?.recurring_revenue_percentage,
-    )
+    const recurringRevenuePercentage = toNumberOrNull(resultRecord?.recurring_revenue_percentage)
     const ownerConcRisk =
       typeof mv?.owner_concentration?.risk_level === 'string'
         ? mv.owner_concentration.risk_level
@@ -1173,17 +1153,14 @@ export function ValuationEditModal({
     }
   }
   const contextSegments = [businessTypeLabel, industryLabel, regionName].filter(
-    (s): s is string => typeof s === 'string' && s.trim().length > 0,
+    (s): s is string => typeof s === 'string' && s.trim().length > 0
   )
   const benchmarkContext =
     contextSegments.length > 0 ? contextSegments.join(tPrep('contextSeparator')) : null
 
   const qualityRaw = `${mv?.comparables_quality ?? ''} ${mv?.confidence ?? ''}`.toUpperCase()
-  let confidenceKey:
-    | 'confidenceHigh'
-    | 'confidenceMedium'
-    | 'confidenceLow'
-    | 'confidenceDefault' = 'confidenceDefault'
+  let confidenceKey: 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceDefault' =
+    'confidenceDefault'
   if (qualityRaw.includes('HIGH')) confidenceKey = 'confidenceHigh'
   else if (qualityRaw.includes('MEDIUM') || qualityRaw.includes('MODERATE'))
     confidenceKey = 'confidenceMedium'
@@ -1192,8 +1169,7 @@ export function ValuationEditModal({
   const hasPrepData = !!(result?.multiples_valuation?.ebitda_multiple || benchmarkMedian != null)
   const nonEbitdaMethodSelected =
     selectedMethod !== 'upswitch_adaptive' && selectedMethod !== 'ebitda_multiple'
-  const effectiveDisabled =
-    preparerDisabled || nonEbitdaMethodSelected || isMethodPersisting
+  const effectiveDisabled = preparerDisabled || nonEbitdaMethodSelected || isMethodPersisting
 
   const savedSummary = result?.multiple_adjustment_summary
   const livePreview =
@@ -1216,7 +1192,9 @@ export function ValuationEditModal({
       : (savedSummary?.generated_footnote_en ?? savedSummary?.generated_footnote ?? null)
   const previewText = livePreview ?? savedPreview
   const resultDetails =
-    result && (result as Record<string, any>).details && typeof (result as Record<string, any>).details === 'object'
+    result &&
+    (result as Record<string, any>).details &&
+    typeof (result as Record<string, any>).details === 'object'
       ? (((result as Record<string, any>).details as Record<string, unknown>) ?? {})
       : {}
   const previewNetDebt =
@@ -1244,7 +1222,7 @@ export function ValuationEditModal({
   const liveEquityPreview =
     sustainableEbitda != null && previewMultiple != null && previewMultiple > 0
       ? Math.round(
-          sustainableEbitda * previewMultiple - previewNetDebt + previewBalanceSheetAdjustments,
+          sustainableEbitda * previewMultiple - previewNetDebt + previewBalanceSheetAdjustments
         )
       : null
   const activeMetricValue = toNumberOrNull(activeMethod?.value)
@@ -1266,7 +1244,11 @@ export function ValuationEditModal({
           : t('unavailableBlurbLegacy')
     return (
       <Modal open={open} onOpenChange={(v) => !v && onClose()}>
-        <ModalContent size="2xl" description={tModal('description')} className="max-h-[92vh] flex flex-col overflow-hidden">
+        <ModalContent
+          size="2xl"
+          description={tModal('description')}
+          className="max-h-[92vh] flex flex-col overflow-hidden"
+        >
           <ModalHeader className="shrink-0">
             <ModalTitle>{tModal('title')}</ModalTitle>
           </ModalHeader>
@@ -1274,9 +1256,7 @@ export function ValuationEditModal({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
               {title}
             </p>
-            <p className="text-[11px] leading-snug text-foreground/50">
-              {blurb}
-            </p>
+            <p className="text-[11px] leading-snug text-foreground/50">{blurb}</p>
             {methodDataLoadError === 'report_pending' && onContinueImportReview ? (
               <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
                 <AuroraButton
@@ -1350,157 +1330,163 @@ export function ValuationEditModal({
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
           {/* Left: method mode, panorama selection, override */}
           <div className="space-y-3 min-h-0 min-w-0 flex-1 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto lg:pr-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1 min-w-0">
-              <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
-                {tModal('methodSection')}
-              </h4>
-              <p className="text-[11px] leading-snug text-foreground/50">{t('subtitle')}</p>
-            </div>
-            <div className="shrink-0 text-right max-w-[55%]">
-              <span className="text-[10px] text-foreground/40 leading-tight block">
-                {t('methodsReadyBadge', { available: availableCount, total: panoramaEntries.length })}
-              </span>
-              <div className="mt-1 inline-flex items-center rounded-full border border-primary/15 bg-primary/[0.05] px-2 py-1 text-[10px] font-medium text-primary/80 max-w-full">
-                <span className="truncate">
-                  {t('currentMethodLabel', { method: currentMethodLabel })}
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1 min-w-0">
+                <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
+                  {tModal('methodSection')}
+                </h4>
+                <p className="text-[11px] leading-snug text-foreground/50">{t('subtitle')}</p>
+              </div>
+              <div className="shrink-0 text-right max-w-[55%]">
+                <span className="text-[10px] text-foreground/40 leading-tight block">
+                  {t('methodsReadyBadge', {
+                    available: availableCount,
+                    total: panoramaEntries.length,
+                  })}
                 </span>
+                <div className="mt-1 inline-flex items-center rounded-full border border-primary/15 bg-primary/[0.05] px-2 py-1 text-[10px] font-medium text-primary/80 max-w-full">
+                  <span className="truncate">
+                    {t('currentMethodLabel', { method: currentMethodLabel })}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <SegmentedControl
-            options={[
-              {
-                value: 'ai' as const,
-                label: t('modeAi'),
-              },
-              {
-                value: 'manual' as const,
-                label: t('modeManual'),
-                icon: <Pencil className="w-3 h-3" />,
-              },
-            ]}
-            value={mode}
-            onChange={handleModeChange}
-            size="sm"
-            fullWidth
-            disabled={methodSelectionLocked}
-            aria-label={t('modeLabel')}
-          />
+            <SegmentedControl
+              options={[
+                {
+                  value: 'ai' as const,
+                  label: t('modeAi'),
+                },
+                {
+                  value: 'manual' as const,
+                  label: t('modeManual'),
+                  icon: <Pencil className="w-3 h-3" />,
+                },
+              ]}
+              value={mode}
+              onChange={handleModeChange}
+              size="sm"
+              fullWidth
+              disabled={methodSelectionLocked}
+              aria-label={t('modeLabel')}
+            />
 
-          <div
-            role="status"
-            aria-live="polite"
-            className={cn('rounded-md border px-3 py-2 text-[11px] leading-snug', guidanceTone)}
-          >
-            {guidanceText}
-          </div>
-
-          {isMethodPersisting && (
-            <p
-              className="text-[11px] text-foreground/50 mt-2 flex items-center gap-2"
+            <div
               role="status"
               aria-live="polite"
+              className={cn('rounded-md border px-3 py-2 text-[11px] leading-snug', guidanceTone)}
             >
-              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-primary/70" aria-hidden />
-              {tModal('persistingMethod')}
-            </p>
-          )}
+              {guidanceText}
+            </div>
 
-          {showMethodList && (
-            <OmniMethodPanorama
-              valuationResults={panoramaValuationResults}
-              selectedMethod={selectedMethod}
-              pendingMethod={pendingMethod}
-              methodSelectionLocked={methodSelectionLocked}
-              onMethodClick={handleMethodClick}
-              firmCountryCode={firmCountryCode}
-              onPlanLockedMethodClick={onPlanLockedMethodClick}
-              comparablesCount={
-                mv?.comparables_count != null ? Number(mv.comparables_count) : null
-              }
-              comparablesQuality={mv?.comparables_quality ?? null}
-            />
-          )}
+            {isMethodPersisting && (
+              <p
+                className="text-[11px] text-foreground/50 mt-2 flex items-center gap-2"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2
+                  className="w-3.5 h-3.5 animate-spin shrink-0 text-primary/70"
+                  aria-hidden
+                />
+                {tModal('persistingMethod')}
+              </p>
+            )}
 
-          {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
-            <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-3 space-y-2">
-              {pendingOverrideRow?.label && (
-                <p className="text-[10px] font-medium text-foreground/55">
-                  {t('overrideConfirmingFor', {
-                    method: pendingOverrideRow.label,
-                  })}
+            {showMethodList && (
+              <OmniMethodPanorama
+                valuationResults={panoramaValuationResults}
+                selectedMethod={selectedMethod}
+                pendingMethod={pendingMethod}
+                methodSelectionLocked={methodSelectionLocked}
+                onMethodClick={handleMethodClick}
+                firmCountryCode={firmCountryCode}
+                onPlanLockedMethodClick={onPlanLockedMethodClick}
+                comparablesCount={
+                  mv?.comparables_count != null ? Number(mv.comparables_count) : null
+                }
+                comparablesQuality={mv?.comparables_quality ?? null}
+              />
+            )}
+
+            {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
+              <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-3 space-y-2">
+                {pendingOverrideRow?.label && (
+                  <p className="text-[10px] font-medium text-foreground/55">
+                    {t('overrideConfirmingFor', {
+                      method: pendingOverrideRow.label,
+                    })}
+                  </p>
+                )}
+                <p className="text-[11px] font-semibold text-primary/80 uppercase tracking-wider">
+                  {t('overrideJustificationTitle')}
                 </p>
-              )}
-              <p className="text-[11px] font-semibold text-primary/80 uppercase tracking-wider">
-                {t('overrideJustificationTitle')}
-              </p>
-              <p className="text-[10px] text-foreground/50 leading-snug">
-                {t('overrideJustificationBlurb')}
-              </p>
-              <AuroraSelect
-                size="sm"
-                value={overrideReasonKey}
-                onChange={(v) => setOverrideReasonKey(v)}
-                label={t('overrideJustificationTitle')}
-                placeholder={t('overrideReasonPlaceholder')}
-                options={METHOD_OVERRIDE_REASON_KEYS.map((k) => ({
-                  value: k,
-                  label: t(`overrideReasons.${k}`),
-                }))}
-              />
-              <textarea
-                value={overrideNote}
-                onChange={(e) => setOverrideNote(e.target.value)}
-                rows={2}
-                maxLength={500}
-                placeholder={t('overrideNotePlaceholder')}
-                aria-label={t('overrideNotePlaceholder')}
-                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
-              />
-              <div className="flex gap-2">
-                <AuroraButton
-                  type="button"
-                  variant="primary"
+                <p className="text-[10px] text-foreground/50 leading-snug">
+                  {t('overrideJustificationBlurb')}
+                </p>
+                <AuroraSelect
                   size="sm"
-                  disabled={!overrideReasonKey || methodSelectionLocked}
-                  className="flex-1 text-xs"
-                  onClick={handleConfirmOverride}
-                >
-                  {t('overrideConfirm')}
-                </AuroraButton>
-                <AuroraButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={methodSelectionLocked}
-                  className="text-xs"
-                  onClick={() => setPendingMethod(null)}
-                >
-                  {t('overrideCancel')}
-                </AuroraButton>
+                  value={overrideReasonKey}
+                  onChange={(v) => setOverrideReasonKey(v)}
+                  label={t('overrideJustificationTitle')}
+                  placeholder={t('overrideReasonPlaceholder')}
+                  options={METHOD_OVERRIDE_REASON_KEYS.map((k) => ({
+                    value: k,
+                    label: t(`overrideReasons.${k}`),
+                  }))}
+                />
+                <textarea
+                  value={overrideNote}
+                  onChange={(e) => setOverrideNote(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  placeholder={t('overrideNotePlaceholder')}
+                  aria-label={t('overrideNotePlaceholder')}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
+                />
+                <div className="flex gap-2">
+                  <AuroraButton
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={!overrideReasonKey || methodSelectionLocked}
+                    className="flex-1 text-xs"
+                    onClick={handleConfirmOverride}
+                  >
+                    {t('overrideConfirm')}
+                  </AuroraButton>
+                  <AuroraButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={methodSelectionLocked}
+                    className="text-xs"
+                    onClick={() => setPendingMethod(null)}
+                  >
+                    {t('overrideCancel')}
+                  </AuroraButton>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {showFiscalAnchorRow &&
-            fiscalAnchor != null &&
-            !getValuationMethodResultForKey(valuationResults, 'fiscal_4x') && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
-                <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">
-                  {t('fiscalAnchor')}
-                </span>
-                <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
-                  {formatCurrency(Number(fiscalAnchor))}
-                </span>
-              </div>
-              <p className="text-[9px] text-foreground/40 leading-snug px-1">
-                {t('fiscalAnchorFootnote')}
-              </p>
-            </div>
-          )}
+            {showFiscalAnchorRow &&
+              fiscalAnchor != null &&
+              !getValuationMethodResultForKey(valuationResults, 'fiscal_4x') && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
+                    <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">
+                      {t('fiscalAnchor')}
+                    </span>
+                    <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
+                      {formatCurrency(Number(fiscalAnchor))}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-foreground/40 leading-snug px-1">
+                    {t('fiscalAnchorFootnote')}
+                  </p>
+                </div>
+              )}
           </div>
 
           {/* Right: calculation transparency, EV/EBITDA preparer, Zero Draft */}
@@ -1519,216 +1505,211 @@ export function ValuationEditModal({
               previewEquity={liveEquityPreview}
             />
 
-        {/* ─── Calibrate EV/EBITDA multiple ─── */}
-        {showPreparerMultiple && hasPrepData && (
-          <div className={cn('space-y-3', nonEbitdaMethodSelected && 'opacity-60')}>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
-                    {tModal('multipleSection')}
-                  </h4>
-                  {wasRestoredFromSave && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-medium text-primary/85"
-                      title={tPrep('restoredBadgeLabel')}
-                    >
-                      <svg
-                        className="w-2.5 h-2.5"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
+            {/* ─── Calibrate EV/EBITDA multiple ─── */}
+            {showPreparerMultiple && hasPrepData && (
+              <div className={cn('space-y-3', nonEbitdaMethodSelected && 'opacity-60')}>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
+                      {tModal('multipleSection')}
+                    </h4>
+                    {wasRestoredFromSave && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-medium text-primary/85"
+                        title={tPrep('restoredBadgeLabel')}
                       >
-                        <path d="M6 1v4l2.5 1.5" />
-                        <circle cx="6" cy="6" r="5" />
-                      </svg>
-                      {tPrep('restoredBadgeLabel')}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] leading-snug text-foreground/55">
-                  {tModal('multipleSectionLead')}
-                </p>
-              </div>
-
-              {nonEbitdaMethodSelected && (
-                <div className="rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
-                    {selectedMethod === 'fiscal_4x'
-                      ? tPrep('hintFiscalMethod')
-                      : tPrep('hintOtherMethod')}
+                        <svg
+                          className="w-2.5 h-2.5"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M6 1v4l2.5 1.5" />
+                          <circle cx="6" cy="6" r="5" />
+                        </svg>
+                        {tPrep('restoredBadgeLabel')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] leading-snug text-foreground/55">
+                    {tModal('multipleSectionLead')}
                   </p>
                 </div>
-              )}
 
-              {/* Benchmark anchor — single big number with caption above. */}
-              <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                  {tPrep('benchmark')}
-                </p>
-                <p className="text-[11px] text-foreground/60 leading-snug mt-0.5">
-                  {benchmarkContext
-                    ? tPrep('benchmarkAnchored', {
-                        context: benchmarkContext,
-                        multiple: (benchmarkMedian ?? bench).toFixed(2),
-                      })
-                    : tPrep('benchmarkAnchoredShort', {
-                        multiple: (benchmarkMedian ?? bench).toFixed(2),
-                      })}
-                </p>
-                <div className="mt-1.5 flex items-baseline gap-2">
-                  <span className="text-2xl font-mono font-semibold tabular-nums text-primary leading-none">
-                    {(benchmarkMedian ?? bench).toFixed(2)}×
-                  </span>
-                  <span className="text-[10px] text-foreground/45">
-                    {tPrep('benchmarkConfidence', { level: tPrep(confidenceKey) })}
-                    {mv?.confidence_score != null && Number.isFinite(Number(mv.confidence_score))
-                      ? ` · ${tPrep('scoreLabel', { score: Math.round(Number(mv.confidence_score)) })}`
-                      : ''}
-                  </span>
+                {nonEbitdaMethodSelected && (
+                  <div className="rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
+                      {selectedMethod === 'fiscal_4x'
+                        ? tPrep('hintFiscalMethod')
+                        : tPrep('hintOtherMethod')}
+                    </p>
+                  </div>
+                )}
+
+                {/* Benchmark anchor — single big number with caption above. */}
+                <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
+                    {tPrep('benchmark')}
+                  </p>
+                  <p className="text-[11px] text-foreground/60 leading-snug mt-0.5">
+                    {benchmarkContext
+                      ? tPrep('benchmarkAnchored', {
+                          context: benchmarkContext,
+                          multiple: (benchmarkMedian ?? bench).toFixed(2),
+                        })
+                      : tPrep('benchmarkAnchoredShort', {
+                          multiple: (benchmarkMedian ?? bench).toFixed(2),
+                        })}
+                  </p>
+                  <div className="mt-1.5 flex items-baseline gap-2">
+                    <span className="text-2xl font-mono font-semibold tabular-nums text-primary leading-none">
+                      {(benchmarkMedian ?? bench).toFixed(2)}×
+                    </span>
+                    <span className="text-[10px] text-foreground/45">
+                      {tPrep('benchmarkConfidence', { level: tPrep(confidenceKey) })}
+                      {mv?.confidence_score != null && Number.isFinite(Number(mv.confidence_score))
+                        ? ` · ${tPrep('scoreLabel', { score: Math.round(Number(mv.confidence_score)) })}`
+                        : ''}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* "Already in the benchmark" — surfaces the engine's own discount
+                {/* "Already in the benchmark" — surfaces the engine's own discount
                   cascade so the preparer sees what's already priced in BEFORE
                   adding their own override. Without this card, every override
                   risks double-counting an effect the engine already booked. */}
-              <details
-                className="rounded-lg border border-border/50 bg-background/40 group"
-                open={engineDiscountSteps.length > 0 && engineDiscountSteps.length <= 3}
-              >
-                <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-foreground/55 marker:hidden flex items-center justify-between gap-2 select-none">
-                  <span>{tPrep('alreadyInBenchmarkTitle')}</span>
-                  <span className="font-mono tabular-nums text-foreground/40">
-                    {engineDiscountSteps.length > 0
-                      ? `${engineDiscountSteps.length}`
-                      : '—'}
-                  </span>
-                </summary>
-                <div className="px-3 pb-2.5 pt-1 space-y-1.5 border-t border-border/30">
-                  <p className="text-[10px] leading-snug text-foreground/50">
-                    {tPrep('alreadyInBenchmarkSubtitle')}
-                  </p>
-                  {engineDiscountSteps.length === 0 ? (
-                    <p className="text-[10px] italic text-foreground/45 pt-1">
-                      {tPrep('alreadyInBenchmarkEmpty')}
+                <details
+                  className="rounded-lg border border-border/50 bg-background/40 group"
+                  open={engineDiscountSteps.length > 0 && engineDiscountSteps.length <= 3}
+                >
+                  <summary className="cursor-pointer px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-foreground/55 marker:hidden flex items-center justify-between gap-2 select-none">
+                    <span>{tPrep('alreadyInBenchmarkTitle')}</span>
+                    <span className="font-mono tabular-nums text-foreground/40">
+                      {engineDiscountSteps.length > 0 ? `${engineDiscountSteps.length}` : '—'}
+                    </span>
+                  </summary>
+                  <div className="px-3 pb-2.5 pt-1 space-y-1.5 border-t border-border/30">
+                    <p className="text-[10px] leading-snug text-foreground/50">
+                      {tPrep('alreadyInBenchmarkSubtitle')}
                     </p>
-                  ) : (
-                    <ul className="space-y-1 text-[11px]">
-                      {engineDiscountSteps.map((step, idx) => (
-                        <li
-                          key={`${step.name}-${idx}`}
-                          className="flex items-baseline justify-between gap-2 font-mono tabular-nums"
-                        >
-                          <span className="font-sans text-foreground/70 truncate">
-                            {step.name}
-                          </span>
-                          <span
-                            className={cn(
-                              'shrink-0 font-semibold',
-                              step.pct < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400',
-                            )}
+                    {engineDiscountSteps.length === 0 ? (
+                      <p className="text-[10px] italic text-foreground/45 pt-1">
+                        {tPrep('alreadyInBenchmarkEmpty')}
+                      </p>
+                    ) : (
+                      <ul className="space-y-1 text-[11px]">
+                        {engineDiscountSteps.map((step, idx) => (
+                          <li
+                            key={`${step.name}-${idx}`}
+                            className="flex items-baseline justify-between gap-2 font-mono tabular-nums"
                           >
-                            {step.pct > 0 ? '+' : '−'}
-                            {Math.abs(step.pct).toFixed(1)}%
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </details>
+                            <span className="font-sans text-foreground/70 truncate">
+                              {step.name}
+                            </span>
+                            <span
+                              className={cn(
+                                'shrink-0 font-semibold',
+                                step.pct < 0
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              )}
+                            >
+                              {step.pct > 0 ? '+' : '−'}
+                              {Math.abs(step.pct).toFixed(1)}%
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </details>
 
-              {/* Auto-suggested calibration. Surfaced only when:
+                {/* Auto-suggested calibration. Surfaced only when:
                   – a clear dossier signal applies (e.g. CRITICAL owner risk)
                   – the engine hasn't already discounted for that signal
                   – the preparer hasn't dismissed it for this session.
                   One-click apply pre-fills both reasonKey and appliedMedian.
                   We respect any saved override (don't override the saved
                   reasonKey unless suggestion differs and user clicks). */}
-              {dossierSignal != null &&
-                !suggestionDismissed &&
-                !nonEbitdaMethodSelected &&
-                benchmarkNum != null &&
-                benchmarkNum > 0 &&
-                !(wasRestoredFromSave && reasonKey === dossierSignal.reasonKey) && (
-                  <div className="rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                        {tPrep('suggestedBadgeLabel')}
-                      </span>
-                    </div>
-                    <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 leading-snug">
-                      {tPrep('suggestionPanelTitle')}
-                    </p>
-                    <p className="text-[11px] leading-snug text-amber-800/85 dark:text-amber-200/85">
-                      {tPrep('suggestionPanelBody', {
-                        signal: tPrep(dossierSignal.i18nKey, dossierSignal.i18nValues ?? {}),
-                        direction_label:
-                          dossierSignal.band.direction === 'discount'
-                            ? tPrep('signalDirectionDiscount')
-                            : tPrep('signalDirectionPremium'),
-                        low: dossierSignal.band.lowPct,
-                        high: dossierSignal.band.highPct,
-                      })}
-                    </p>
-                    <div className="flex gap-2 pt-0.5">
-                      <AuroraButton
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        disabled={effectiveDisabled}
-                        className="flex-1 text-[11px]"
-                        onClick={() => {
-                          const projected = projectSuggestedMultiple(
-                            benchmarkNum,
-                            dossierSignal.band,
-                          )
-                          // Clamp into the slider band so the suggested value
-                          // is always reachable by the input/slider afterward.
-                          const clamped = Math.min(
-                            sliderMax,
-                            Math.max(sliderMin, projected),
-                          )
-                          setAppliedMedian(clamped)
-                          setReasonKey(dossierSignal.reasonKey)
-                          setSuggestionDismissed(true)
-                        }}
-                      >
-                        {tPrep('suggestionApplyCta', {
-                          percent: dossierSignal.band.midPct,
+                {dossierSignal != null &&
+                  !suggestionDismissed &&
+                  !nonEbitdaMethodSelected &&
+                  benchmarkNum != null &&
+                  benchmarkNum > 0 &&
+                  !(wasRestoredFromSave && reasonKey === dossierSignal.reasonKey) && (
+                    <div className="rounded-lg border border-amber-300/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                          {tPrep('suggestedBadgeLabel')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 leading-snug">
+                        {tPrep('suggestionPanelTitle')}
+                      </p>
+                      <p className="text-[11px] leading-snug text-amber-800/85 dark:text-amber-200/85">
+                        {tPrep('suggestionPanelBody', {
+                          signal: tPrep(dossierSignal.i18nKey, dossierSignal.i18nValues ?? {}),
                           direction_label:
                             dossierSignal.band.direction === 'discount'
                               ? tPrep('signalDirectionDiscount')
                               : tPrep('signalDirectionPremium'),
+                          low: dossierSignal.band.lowPct,
+                          high: dossierSignal.band.highPct,
                         })}
-                      </AuroraButton>
-                      <AuroraButton
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={effectiveDisabled}
-                        className="text-[11px]"
-                        onClick={() => setSuggestionDismissed(true)}
-                      >
-                        {tPrep('suggestionDismissCta')}
-                      </AuroraButton>
+                      </p>
+                      <div className="flex gap-2 pt-0.5">
+                        <AuroraButton
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          disabled={effectiveDisabled}
+                          className="flex-1 text-[11px]"
+                          onClick={() => {
+                            const projected = projectSuggestedMultiple(
+                              benchmarkNum,
+                              dossierSignal.band
+                            )
+                            // Clamp into the slider band so the suggested value
+                            // is always reachable by the input/slider afterward.
+                            const clamped = Math.min(sliderMax, Math.max(sliderMin, projected))
+                            setAppliedMedian(clamped)
+                            setReasonKey(dossierSignal.reasonKey)
+                            setSuggestionDismissed(true)
+                          }}
+                        >
+                          {tPrep('suggestionApplyCta', {
+                            percent: dossierSignal.band.midPct,
+                            direction_label:
+                              dossierSignal.band.direction === 'discount'
+                                ? tPrep('signalDirectionDiscount')
+                                : tPrep('signalDirectionPremium'),
+                          })}
+                        </AuroraButton>
+                        <AuroraButton
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={effectiveDisabled}
+                          className="text-[11px]"
+                          onClick={() => setSuggestionDismissed(true)}
+                        >
+                          {tPrep('suggestionDismissCta')}
+                        </AuroraButton>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-              {/* Quick scenarios — one-click M&A scenarios that pre-fill
+                {/* Quick scenarios — one-click M&A scenarios that pre-fill
                   reason + applied multiple. The auto-suggest panel above
                   is dossier-driven (single best-fit signal); this row gives
                   the preparer the standard "shapes" they reach for daily.
                   Both surfaces share SUGGESTED_DELTA_BAND so the resulting
                   multiples are identical. */}
-              {!nonEbitdaMethodSelected &&
-                benchmarkNum != null &&
-                benchmarkNum > 0 && (
+                {!nonEbitdaMethodSelected && benchmarkNum != null && benchmarkNum > 0 && (
                   <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2.5 space-y-2">
                     <div className="space-y-0.5">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
@@ -1756,13 +1737,10 @@ export function ValuationEditModal({
                                 ? 'border-primary/40 bg-primary/[0.08]'
                                 : preset.band.direction === 'discount'
                                   ? 'border-rose-500/20 bg-rose-500/[0.04] hover:border-rose-500/35 hover:bg-rose-500/[0.06]'
-                                  : 'border-emerald-500/20 bg-emerald-500/[0.04] hover:border-emerald-500/35 hover:bg-emerald-500/[0.06]',
+                                  : 'border-emerald-500/20 bg-emerald-500/[0.04] hover:border-emerald-500/35 hover:bg-emerald-500/[0.06]'
                             )}
                             onClick={() => {
-                              const clamped = Math.min(
-                                sliderMax,
-                                Math.max(sliderMin, projected),
-                              )
+                              const clamped = Math.min(sliderMax, Math.max(sliderMin, projected))
                               setAppliedMedian(clamped)
                               setReasonKey(preset.reasonKey)
                               // Suppress the auto-suggest panel once the user
@@ -1773,7 +1751,7 @@ export function ValuationEditModal({
                             <span
                               className={cn(
                                 'flex items-center justify-between w-full text-[11px] font-semibold',
-                                isActive ? 'text-primary' : 'text-foreground/85',
+                                isActive ? 'text-primary' : 'text-foreground/85'
                               )}
                             >
                               <span className="truncate">{tPrep(preset.labelI18nKey)}</span>
@@ -1782,7 +1760,7 @@ export function ValuationEditModal({
                                   'shrink-0 ml-2 text-[10px] font-mono tabular-nums',
                                   preset.band.direction === 'discount'
                                     ? 'text-rose-700 dark:text-rose-400'
-                                    : 'text-emerald-700 dark:text-emerald-400',
+                                    : 'text-emerald-700 dark:text-emerald-400'
                                 )}
                               >
                                 {preset.band.direction === 'discount' ? '−' : '+'}
@@ -1802,379 +1780,380 @@ export function ValuationEditModal({
                   </div>
                 )}
 
-              <div className="grid gap-1">
-                <label
-                  className="text-[10px] font-medium text-foreground/45 uppercase"
-                  htmlFor="modal-prep-ev-ebitda"
-                >
-                  {tPrep('applied')}
-                </label>
-                {prepDeltaNum != null && Math.abs(prepDeltaNum) >= 0.005 && benchmarkNum != null && benchmarkNum > 0 && (
-                  <div
-                    className={cn(
-                      'flex items-center justify-between rounded-md border px-2.5 py-1.5 text-[11px]',
-                      prepDeltaNum > 0
-                        ? 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-300'
-                        : 'border-rose-500/25 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300',
-                    )}
+                <div className="grid gap-1">
+                  <label
+                    className="text-[10px] font-medium text-foreground/45 uppercase"
+                    htmlFor="modal-prep-ev-ebitda"
                   >
-                    <span className="font-semibold uppercase tracking-wide text-[10px]">
-                      {prepDeltaNum > 0
-                        ? tPrep('deltaPremiumLabel')
-                        : tPrep('deltaDiscountLabel')}
-                    </span>
-                    <span className="font-mono tabular-nums">
-                      {prepDeltaNum > 0 ? '+' : '−'}
-                      {Math.abs(prepDeltaNum).toFixed(2)}×
-                      <span className="opacity-70 ml-2">
-                        ({prepDeltaNum > 0 ? '+' : '−'}
-                        {((Math.abs(prepDeltaNum) / benchmarkNum) * 100).toFixed(1)}%)
-                      </span>
-                    </span>
-                  </div>
-                )}
-                <input
-                  id="modal-prep-ev-ebitda"
-                  type="number"
-                  step={0.05}
-                  min={sliderMin}
-                  max={sliderMax}
-                  disabled={effectiveDisabled}
-                  value={appliedMedian ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v === '') {
-                      setAppliedMedian(null)
-                      return
+                    {tPrep('applied')}
+                  </label>
+                  {prepDeltaNum != null &&
+                    Math.abs(prepDeltaNum) >= 0.005 &&
+                    benchmarkNum != null &&
+                    benchmarkNum > 0 && (
+                      <div
+                        className={cn(
+                          'flex items-center justify-between rounded-md border px-2.5 py-1.5 text-[11px]',
+                          prepDeltaNum > 0
+                            ? 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-300'
+                            : 'border-rose-500/25 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300'
+                        )}
+                      >
+                        <span className="font-semibold uppercase tracking-wide text-[10px]">
+                          {prepDeltaNum > 0
+                            ? tPrep('deltaPremiumLabel')
+                            : tPrep('deltaDiscountLabel')}
+                        </span>
+                        <span className="font-mono tabular-nums">
+                          {prepDeltaNum > 0 ? '+' : '−'}
+                          {Math.abs(prepDeltaNum).toFixed(2)}×
+                          <span className="opacity-70 ml-2">
+                            ({prepDeltaNum > 0 ? '+' : '−'}
+                            {((Math.abs(prepDeltaNum) / benchmarkNum) * 100).toFixed(1)}%)
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  <input
+                    id="modal-prep-ev-ebitda"
+                    type="number"
+                    step={0.05}
+                    min={sliderMin}
+                    max={sliderMax}
+                    disabled={effectiveDisabled}
+                    value={appliedMedian ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (v === '') {
+                        setAppliedMedian(null)
+                        return
+                      }
+                      const n = parseFloat(v)
+                      if (Number.isFinite(n))
+                        setAppliedMedian(Math.min(sliderMax, Math.max(sliderMin, n)))
+                    }}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
+                  />
+                  <input
+                    type="range"
+                    aria-label={tPrep('applied')}
+                    disabled={effectiveDisabled}
+                    min={sliderMin}
+                    max={sliderMax}
+                    step={0.05}
+                    value={
+                      appliedMedian != null && Number.isFinite(appliedMedian)
+                        ? Math.min(sliderMax, Math.max(sliderMin, appliedMedian))
+                        : Math.min(sliderMax, Math.max(sliderMin, bench))
                     }
-                    const n = parseFloat(v)
-                    if (Number.isFinite(n))
-                      setAppliedMedian(Math.min(sliderMax, Math.max(sliderMin, n)))
-                  }}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
-                />
-                <input
-                  type="range"
-                  aria-label={tPrep('applied')}
-                  disabled={effectiveDisabled}
-                  min={sliderMin}
-                  max={sliderMax}
-                  step={0.05}
-                  value={
-                    appliedMedian != null && Number.isFinite(appliedMedian)
-                      ? Math.min(sliderMax, Math.max(sliderMin, appliedMedian))
-                      : Math.min(sliderMax, Math.max(sliderMin, bench))
-                  }
-                  onChange={(e) => {
-                    const n = parseFloat(e.target.value)
-                    if (Number.isFinite(n)) setAppliedMedian(n)
-                  }}
-                  className="w-full h-2 mt-1 accent-primary"
-                />
-                {/* Visual peer-set gauge — replaces the plain "min — max"
+                    onChange={(e) => {
+                      const n = parseFloat(e.target.value)
+                      if (Number.isFinite(n)) setAppliedMedian(n)
+                    }}
+                    className="w-full h-2 mt-1 accent-primary"
+                  />
+                  {/* Visual peer-set gauge — replaces the plain "min — max"
                     line. Shows where the applied multiple sits relative to
                     p10/p25/p50/p75/p90 of the peer set. Falls back to a
                     note when fewer than two percentiles are available. */}
-                <PercentileBandGauge
-                  band={{
-                    p10: mv?.p10_ebitda_multiple ?? null,
-                    p25: mv?.p25_ebitda_multiple ?? null,
-                    p50: mv?.p50_ebitda_multiple ?? benchmarkNum,
-                    p75: mv?.p75_ebitda_multiple ?? null,
-                    p90: mv?.p90_ebitda_multiple ?? null,
-                  }}
-                  benchmark={benchmarkNum}
-                  applied={appliedNum}
-                  domainMin={sliderMin}
-                  domainMax={sliderMax}
-                  caption={tPrep('gaugeCaption')}
-                  labels={{
-                    legend: tPrep('gaugeLegend'),
-                    benchmark: tPrep('gaugeBenchmarkLabel'),
-                    applied: tPrep('gaugeAppliedLabel'),
-                    typicalBand: tPrep('gaugeTypicalBandLabel'),
-                    outOfBand: tPrep('gaugeOutOfBandLabel'),
-                  }}
-                  className="mt-2"
-                />
-                <p className="text-[10px] text-foreground/35">{tPrep('sliderHint')}</p>
-              </div>
+                  <PercentileBandGauge
+                    band={{
+                      p10: mv?.p10_ebitda_multiple ?? null,
+                      p25: mv?.p25_ebitda_multiple ?? null,
+                      p50: mv?.p50_ebitda_multiple ?? benchmarkNum,
+                      p75: mv?.p75_ebitda_multiple ?? null,
+                      p90: mv?.p90_ebitda_multiple ?? null,
+                    }}
+                    benchmark={benchmarkNum}
+                    applied={appliedNum}
+                    domainMin={sliderMin}
+                    domainMax={sliderMax}
+                    caption={tPrep('gaugeCaption')}
+                    labels={{
+                      legend: tPrep('gaugeLegend'),
+                      benchmark: tPrep('gaugeBenchmarkLabel'),
+                      applied: tPrep('gaugeAppliedLabel'),
+                      typicalBand: tPrep('gaugeTypicalBandLabel'),
+                      outOfBand: tPrep('gaugeOutOfBandLabel'),
+                    }}
+                    className="mt-2"
+                  />
+                  <p className="text-[10px] text-foreground/35">{tPrep('sliderHint')}</p>
+                </div>
 
-              {/* Always render the live preview when EBITDA + a multiple are
+                {/* Always render the live preview when EBITDA + a multiple are
                   known. Delta vs the persisted headline drives colour. */}
-              {liveEquityPreview != null && (
-                <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
-                      {tBreakdown('previewEquity')}
-                    </span>
-                    <span className="text-[10px] text-primary/65">
-                      {tBreakdown('previewLabel')}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                        {formatCurrency(liveEquityPreview)}
-                      </p>
-                      <p className="text-[11px] leading-snug text-foreground/55">
-                        {tBreakdown('previewBlurb')}
-                      </p>
+                {liveEquityPreview != null && (
+                  <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+                        {tBreakdown('previewEquity')}
+                      </span>
+                      <span className="text-[10px] text-primary/65">
+                        {tBreakdown('previewLabel')}
+                      </span>
                     </div>
-                    {activeMetricValue != null && (
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wide text-foreground/45">
-                          {tBreakdown('deltaToHeadline')}
+                    <div className="mt-1 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                          {formatCurrency(liveEquityPreview)}
                         </p>
-                        <p
-                          className={cn(
-                            'text-[11px] font-mono tabular-nums',
-                            liveEquityPreview - activeMetricValue === 0
-                              ? 'text-foreground/55'
-                              : liveEquityPreview - activeMetricValue > 0
-                                ? 'text-success'
-                                : 'text-warning',
-                          )}
-                        >
-                          {liveEquityPreview - activeMetricValue === 0
-                            ? '±'
-                            : liveEquityPreview - activeMetricValue > 0
-                              ? '+'
-                              : '−'}
-                          {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
+                        <p className="text-[11px] leading-snug text-foreground/55">
+                          {tBreakdown('previewBlurb')}
                         </p>
                       </div>
-                    )}
+                      {activeMetricValue != null && (
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wide text-foreground/45">
+                            {tBreakdown('deltaToHeadline')}
+                          </p>
+                          <p
+                            className={cn(
+                              'text-[11px] font-mono tabular-nums',
+                              liveEquityPreview - activeMetricValue === 0
+                                ? 'text-foreground/55'
+                                : liveEquityPreview - activeMetricValue > 0
+                                  ? 'text-success'
+                                  : 'text-warning'
+                            )}
+                          >
+                            {liveEquityPreview - activeMetricValue === 0
+                              ? '±'
+                              : liveEquityPreview - activeMetricValue > 0
+                                ? '+'
+                                : '−'}
+                            {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="grid gap-1">
-                <label
-                  className="text-[10px] font-medium text-foreground/45 uppercase"
-                  htmlFor="modal-prep-reason"
-                >
-                  {tPrep('reason')}
-                </label>
-                <AuroraSelect
-                  size="sm"
-                  value={reasonKey}
-                  onChange={(v) =>
-                    setReasonKey(v as (typeof PREPARER_EBITDA_REASON_KEYS)[number] | '')
-                  }
-                  disabled={effectiveDisabled}
-                  placeholder={tPrep('reasonPlaceholder')}
-                  options={PREPARER_EBITDA_REASON_KEYS.map((k) => ({
-                    value: k,
-                    label: tPrep(`reasons.${k}`),
-                  }))}
-                  clearable
-                />
-                {/* Typical-band caption for the selected reason. Sourced from
+                <div className="grid gap-1">
+                  <label
+                    className="text-[10px] font-medium text-foreground/45 uppercase"
+                    htmlFor="modal-prep-reason"
+                  >
+                    {tPrep('reason')}
+                  </label>
+                  <AuroraSelect
+                    size="sm"
+                    value={reasonKey}
+                    onChange={(v) =>
+                      setReasonKey(v as (typeof PREPARER_EBITDA_REASON_KEYS)[number] | '')
+                    }
+                    disabled={effectiveDisabled}
+                    placeholder={tPrep('reasonPlaceholder')}
+                    options={PREPARER_EBITDA_REASON_KEYS.map((k) => ({
+                      value: k,
+                      label: tPrep(`reasons.${k}`),
+                    }))}
+                    clearable
+                  />
+                  {/* Typical-band caption for the selected reason. Sourced from
                     SUGGESTED_DELTA_BAND (Pratt / Damodaran / Trugman / Marktlink).
                     Shown only for reasons with an academic anchor — `other`
                     intentionally has no band, so the preparer is forced to
                     justify in the note. */}
-                {selectedReasonBand != null && (
-                  <p className="text-[10px] leading-snug text-foreground/50 font-mono tabular-nums">
-                    {tPrep('reasonBandTooltip', {
-                      direction:
-                        selectedReasonBand.direction === 'discount'
-                          ? tPrep('signalDirectionDiscount')
-                          : tPrep('signalDirectionPremium'),
-                      low: selectedReasonBand.lowPct,
-                      high: selectedReasonBand.highPct,
-                    })}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid gap-1">
-                <div className="flex items-center justify-between gap-2">
-                  <label
-                    className="text-[10px] font-medium text-foreground/45 uppercase"
-                    htmlFor="modal-prep-note"
-                  >
-                    {tPrep('noteOptional')}
-                  </label>
-                  <span
-                    className={cn(
-                      'text-[10px] font-mono tabular-nums',
-                      note.length > 450 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground/40',
-                    )}
-                    aria-live="polite"
-                  >
-                    {tModal('noteCharCounter', { count: note.length, max: 500 })}
-                  </span>
+                  {selectedReasonBand != null && (
+                    <p className="text-[10px] leading-snug text-foreground/50 font-mono tabular-nums">
+                      {tPrep('reasonBandTooltip', {
+                        direction:
+                          selectedReasonBand.direction === 'discount'
+                            ? tPrep('signalDirectionDiscount')
+                            : tPrep('signalDirectionPremium'),
+                        low: selectedReasonBand.lowPct,
+                        high: selectedReasonBand.highPct,
+                      })}
+                    </p>
+                  )}
                 </div>
-                <textarea
-                  id="modal-prep-note"
-                  disabled={effectiveDisabled}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={2}
-                  maxLength={500}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
-                />
-              </div>
 
-              {/* Footnote preview — promoted: this is what appears verbatim
-                  in the calibration page of the PDF, so the reader needs
-                  to see it as primary copy, not muted. */}
-              {previewText && (
-                <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-3">
+                <div className="grid gap-1">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/85">
-                        {tPrep('previewTitle')}
-                      </p>
-                      <p className="text-[10px] text-primary/60">
-                        {tPrep('previewSubtitle')}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-primary/70 bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
-                      {livePreview ? tPrep('previewLive') : tPrep('previewSaved')}
+                    <label
+                      className="text-[10px] font-medium text-foreground/45 uppercase"
+                      htmlFor="modal-prep-note"
+                    >
+                      {tPrep('noteOptional')}
+                    </label>
+                    <span
+                      className={cn(
+                        'text-[10px] font-mono tabular-nums',
+                        note.length > 450
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-foreground/40'
+                      )}
+                      aria-live="polite"
+                    >
+                      {tModal('noteCharCounter', { count: note.length, max: 500 })}
                     </span>
                   </div>
-                  <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 italic">
-                    {previewText}
-                  </p>
-                </div>
-              )}
-
-              {showExtreme && (
-                <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
-                  <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-snug">
-                    {extremeBoundInfo && appliedNum != null
-                      ? tPrep('extremeWarningDetailed', {
-                          applied: appliedNum.toFixed(2),
-                          direction: extremeBoundInfo.direction,
-                          bound: extremeBoundInfo.bound,
-                          boundValue: extremeBoundInfo.boundValue,
-                          direction_label: extremeBoundInfo.directionLabel,
-                        })
-                      : tPrep('extremeWarning')}
-                  </p>
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      disabled={effectiveDisabled}
-                      checked={acknowledgedExtreme}
-                      onChange={(e) => setAcknowledgedExtreme(e.target.checked)}
-                      className="mt-1"
-                    />
-                    <span className="text-[11px] text-amber-700 dark:text-amber-300/90 leading-snug">
-                      {tPrep('extremeWarning')}
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2">
-                {onRecalculate && (
-                  <AuroraButton
-                    type="button"
-                    variant="primary"
-                    size="sm"
+                  <textarea
+                    id="modal-prep-note"
                     disabled={effectiveDisabled}
-                    className="w-full text-xs"
-                    onClick={() => {
-                      onRecalculate()
-                      onClose()
-                    }}
-                  >
-                    {tPrep('recalculate')}
-                  </AuroraButton>
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    maxLength={500}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
+                  />
+                </div>
+
+                {/* Footnote preview — promoted: this is what appears verbatim
+                  in the calibration page of the PDF, so the reader needs
+                  to see it as primary copy, not muted. */}
+                {previewText && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/85">
+                          {tPrep('previewTitle')}
+                        </p>
+                        <p className="text-[10px] text-primary/60">{tPrep('previewSubtitle')}</p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-primary/70 bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                        {livePreview ? tPrep('previewLive') : tPrep('previewSaved')}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[12px] leading-relaxed text-foreground/85 italic">
+                      {previewText}
+                    </p>
+                  </div>
                 )}
-                {!showResetConfirm ? (
+
+                {showExtreme && (
+                  <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                    <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 leading-snug">
+                      {extremeBoundInfo && appliedNum != null
+                        ? tPrep('extremeWarningDetailed', {
+                            applied: appliedNum.toFixed(2),
+                            direction: extremeBoundInfo.direction,
+                            bound: extremeBoundInfo.bound,
+                            boundValue: extremeBoundInfo.boundValue,
+                            direction_label: extremeBoundInfo.directionLabel,
+                          })
+                        : tPrep('extremeWarning')}
+                    </p>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        disabled={effectiveDisabled}
+                        checked={acknowledgedExtreme}
+                        onChange={(e) => setAcknowledgedExtreme(e.target.checked)}
+                        className="mt-1"
+                      />
+                      <span className="text-[11px] text-amber-700 dark:text-amber-300/90 leading-snug">
+                        {tPrep('extremeWarning')}
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {onRecalculate && (
+                    <AuroraButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={effectiveDisabled}
+                      className="w-full text-xs"
+                      onClick={() => {
+                        onRecalculate()
+                        onClose()
+                      }}
+                    >
+                      {tPrep('recalculate')}
+                    </AuroraButton>
+                  )}
+                  {!showResetConfirm ? (
+                    <AuroraButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={effectiveDisabled}
+                      className="w-full text-xs"
+                      onClick={() => setShowResetConfirm(true)}
+                    >
+                      {tPrep('resetBenchmark')}
+                    </AuroraButton>
+                  ) : (
+                    <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
+                      <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                        {tModal('resetConfirmTitle')}
+                      </p>
+                      <p className="text-[11px] leading-snug text-amber-700/90 dark:text-amber-300/85">
+                        {tModal('resetConfirmBody')}
+                      </p>
+                      <div className="flex gap-2">
+                        <AuroraButton
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={effectiveDisabled}
+                          className="flex-1 text-xs"
+                          onClick={() => setShowResetConfirm(false)}
+                        >
+                          {tModal('resetConfirmCancel')}
+                        </AuroraButton>
+                        <AuroraButton
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          disabled={effectiveDisabled}
+                          className="flex-1 text-xs"
+                          onClick={() => {
+                            resetToBenchmark()
+                            setShowResetConfirm(false)
+                          }}
+                        >
+                          {tModal('resetConfirmCta')}
+                        </AuroraButton>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── Stake Calculator (frontend-only pro-rata) ─── */}
+            {showPreparerMultiple && <StakeCalculatorSection equityValue={activeMetricValue} />}
+
+            {/* ─── Zero Draft Export ─── */}
+            {showZeroDraftExport &&
+              canExportZeroDraft &&
+              zeroDraftReportId &&
+              entries.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
+                    {t('zeroDraftBlurb')}
+                  </p>
                   <AuroraButton
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={effectiveDisabled}
-                    className="w-full text-xs"
-                    onClick={() => setShowResetConfirm(true)}
+                    className="w-full text-xs gap-2"
+                    onClick={() => {
+                      const csv = buildZeroDraftCsv({
+                        reportId: zeroDraftReportId,
+                        businessName: zeroDraftBusinessName,
+                        createdAt: zeroDraftCreatedAt ?? undefined,
+                        fiscalAnchor:
+                          showFiscalAnchorRow && fiscalAnchor != null ? fiscalAnchor : undefined,
+                        selectedMethod,
+                        methods: valuationResults,
+                      })
+                      const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
+                      const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
+                      downloadZeroDraftCsv(safeName, csv)
+                    }}
                   >
-                    {tPrep('resetBenchmark')}
+                    <Download className="w-3.5 h-3.5" />
+                    {t('exportZeroDraft')}
                   </AuroraButton>
-                ) : (
-                  <div className="rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 space-y-2">
-                    <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                      {tModal('resetConfirmTitle')}
-                    </p>
-                    <p className="text-[11px] leading-snug text-amber-700/90 dark:text-amber-300/85">
-                      {tModal('resetConfirmBody')}
-                    </p>
-                    <div className="flex gap-2">
-                      <AuroraButton
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={effectiveDisabled}
-                        className="flex-1 text-xs"
-                        onClick={() => setShowResetConfirm(false)}
-                      >
-                        {tModal('resetConfirmCancel')}
-                      </AuroraButton>
-                      <AuroraButton
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        disabled={effectiveDisabled}
-                        className="flex-1 text-xs"
-                        onClick={() => {
-                          resetToBenchmark()
-                          setShowResetConfirm(false)
-                        }}
-                      >
-                        {tModal('resetConfirmCta')}
-                      </AuroraButton>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-        )}
-
-        {/* ─── Stake Calculator (frontend-only pro-rata) ─── */}
-        {showPreparerMultiple && <StakeCalculatorSection
-          equityValue={activeMetricValue}
-        />}
-
-        {/* ─── Zero Draft Export ─── */}
-        {showZeroDraftExport && canExportZeroDraft && zeroDraftReportId && entries.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
-                {t('zeroDraftBlurb')}
-              </p>
-              <AuroraButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full text-xs gap-2"
-                onClick={() => {
-                  const csv = buildZeroDraftCsv({
-                    reportId: zeroDraftReportId,
-                    businessName: zeroDraftBusinessName,
-                    createdAt: zeroDraftCreatedAt ?? undefined,
-                    fiscalAnchor:
-                      showFiscalAnchorRow && fiscalAnchor != null
-                        ? fiscalAnchor
-                        : undefined,
-                    selectedMethod,
-                    methods: valuationResults,
-                  })
-                  const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
-                  const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
-                  downloadZeroDraftCsv(safeName, csv)
-                }}
-              >
-                <Download className="w-3.5 h-3.5" />
-                {t('exportZeroDraft')}
-                </AuroraButton>
-            </div>
-        )}
-
+                </div>
+              )}
           </div>
         </div>
       </ModalContent>

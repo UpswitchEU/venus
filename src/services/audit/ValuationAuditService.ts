@@ -317,8 +317,7 @@ export class ValuationAuditService {
 
     // Get first and last edit dates
     const sortedByDate = [...fieldChanges].sort(
-      (a, b) =>
-        (dateLikeToUnixMs(a.timestamp) ?? 0) - (dateLikeToUnixMs(b.timestamp) ?? 0)
+      (a, b) => (dateLikeToUnixMs(a.timestamp) ?? 0) - (dateLikeToUnixMs(b.timestamp) ?? 0)
     )
 
     return {

@@ -138,27 +138,16 @@ export function consumeLandingStudioHandoff(): LandingStudioHandoff | null {
     window.localStorage.removeItem(STORAGE_KEY)
     const parsed = JSON.parse(raw) as Partial<LandingStudioHandoff> | null
     if (!parsed || typeof parsed !== 'object') return null
-    if (
-      typeof parsed.written_at_ms !== 'number' ||
-      !Number.isFinite(parsed.written_at_ms)
-    ) {
+    if (typeof parsed.written_at_ms !== 'number' || !Number.isFinite(parsed.written_at_ms)) {
       return null
     }
     if (Date.now() - parsed.written_at_ms > TTL_MS) {
       return null
     }
-    if (
-      !parsed.studio ||
-      typeof parsed.studio !== 'object' ||
-      Array.isArray(parsed.studio)
-    ) {
+    if (!parsed.studio || typeof parsed.studio !== 'object' || Array.isArray(parsed.studio)) {
       return null
     }
-    if (
-      !parsed.formData ||
-      typeof parsed.formData !== 'object' ||
-      Array.isArray(parsed.formData)
-    ) {
+    if (!parsed.formData || typeof parsed.formData !== 'object' || Array.isArray(parsed.formData)) {
       return null
     }
     return {

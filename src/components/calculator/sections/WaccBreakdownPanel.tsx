@@ -117,8 +117,7 @@ export function WaccBreakdownPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot seed per missing field
   useEffect(() => {
     if (disabled) return
-    if (riskFreeRatePct == null)
-      onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
+    if (riskFreeRatePct == null) onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
     if (equityRiskPremiumPct == null)
       onFieldChange('dcf_equity_risk_premium_pct', DEFAULT_EQUITY_RISK_PREMIUM_PCT)
     if (beta == null) onFieldChange('dcf_beta', DEFAULT_BETA)
@@ -133,6 +132,7 @@ export function WaccBreakdownPanel({
     costOfDebtPct,
     debtEquityPct,
     taxShieldPct,
+    onFieldChange,
   ])
 
   const handleToggleExpanded = () => {

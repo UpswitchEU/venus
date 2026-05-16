@@ -1,15 +1,15 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import { cn } from '@/design-system/utils'
-import type { ValuationMethodResult } from '../../../types/valuation'
+import { useMemo } from 'react'
 import { compareOmniMethodKeys } from '@/constants/omniCalcMethods'
+import { cn } from '@/design-system/utils'
 import {
   getValuationMethodResultForKey,
   hydratedRevenueMethodKeysAreSameRef,
 } from '@/utils/extractValuationResultsMap'
+import type { ValuationMethodResult } from '../../../types/valuation'
 import { getOmniMethodEquityRange } from '../../../utils/omniCalcRange'
 
 interface OmniMethodPanoramaProps {
@@ -90,8 +90,7 @@ export function OmniMethodPanorama({
   const hasComparablesChip =
     comparablesCount != null && comparablesCount > 0 && comparablesQualityKey != null
 
-  const hideFiscalForNl =
-    firmCountryCode?.trim().toUpperCase().substring(0, 2) === 'NL'
+  const hideFiscalForNl = firmCountryCode?.trim().toUpperCase().substring(0, 2) === 'NL'
 
   const sortedMethodEntries = useMemo(() => {
     const entries = Object.entries(valuationResults)
@@ -107,8 +106,7 @@ export function OmniMethodPanorama({
   }, [valuationResults, hideFiscalForNl])
 
   const adaptive = getValuationMethodResultForKey(valuationResults, 'upswitch_adaptive')
-  const adaptiveValue =
-    adaptive?.value != null ? Number(adaptive.value) : null
+  const adaptiveValue = adaptive?.value != null ? Number(adaptive.value) : null
 
   const maxComparisonValue = useMemo(() => {
     return sortedMethodEntries.reduce((max, [, method]) => {
@@ -178,17 +176,15 @@ export function OmniMethodPanorama({
             typeof msg === 'string' &&
             msg.length > 0 &&
             msg !== `methodDescriptions.${key}` &&
-            !msg.startsWith('methodDescriptions.')
-              ? <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">{msg}</p>
-              : null
+            !msg.startsWith('methodDescriptions.') ? (
+              <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">{msg}</p>
+            ) : null
 
           return (
             <button
               key={key}
               type="button"
-              disabled={
-                methodSelectionLocked || (!isPlanTeaser && !isAvailable)
-              }
+              disabled={methodSelectionLocked || (!isPlanTeaser && !isAvailable)}
               aria-pressed={isSelected}
               aria-label={
                 isPlanTeaser
@@ -211,12 +207,12 @@ export function OmniMethodPanorama({
                 isPlanTeaser
                   ? 'border-amber-500/25 bg-amber-500/[0.04] cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/[0.07]'
                   : isSelected
-                  ? 'border-primary/45 bg-primary/[0.07] ring-1 ring-primary/15'
-                  : isPending
-                    ? 'border-primary/35 bg-primary/[0.04] ring-1 ring-primary/20'
-                    : isAvailable
-                      ? 'border-foreground/[0.08] bg-background/40 hover:border-primary/25 hover:bg-primary/[0.03]'
-                      : 'border-border/30 bg-background/30 opacity-[0.85] cursor-not-allowed',
+                    ? 'border-primary/45 bg-primary/[0.07] ring-1 ring-primary/15'
+                    : isPending
+                      ? 'border-primary/35 bg-primary/[0.04] ring-1 ring-primary/20'
+                      : isAvailable
+                        ? 'border-foreground/[0.08] bg-background/40 hover:border-primary/25 hover:bg-primary/[0.03]'
+                        : 'border-border/30 bg-background/30 opacity-[0.85] cursor-not-allowed'
               )}
             >
               <div className="flex flex-col gap-2.5">
@@ -226,7 +222,7 @@ export function OmniMethodPanorama({
                       <span
                         className={cn(
                           'text-sm font-semibold tracking-tight',
-                          isSelected || isPending ? 'text-primary' : 'text-foreground',
+                          isSelected || isPending ? 'text-primary' : 'text-foreground'
                         )}
                       >
                         {method.label}
@@ -273,7 +269,7 @@ export function OmniMethodPanorama({
                   <div
                     className={cn(
                       'flex flex-wrap items-start justify-end gap-x-4 gap-y-2 sm:gap-x-6 shrink-0',
-                      isPlanTeaser && 'blur-[2px] opacity-60 select-none',
+                      isPlanTeaser && 'blur-[2px] opacity-60 select-none'
                     )}
                   >
                     <div className="text-right min-w-[5.5rem]">
@@ -282,7 +278,7 @@ export function OmniMethodPanorama({
                           <span
                             className={cn(
                               'text-base font-mono font-semibold tabular-nums tracking-tight',
-                              isSelected || isPending ? 'text-primary' : 'text-foreground',
+                              isSelected || isPending ? 'text-primary' : 'text-foreground'
                             )}
                           >
                             {formatCurrency(value)}
@@ -293,7 +289,9 @@ export function OmniMethodPanorama({
                                 {formatCurrency(range.low)} – {formatCurrency(range.high)}
                               </span>
                               <span className="block text-[9px] text-foreground/25 uppercase tracking-wide">
-                                {range.source === 'model' ? t('rangeModel') : t('rangeIllustrative')}
+                                {range.source === 'model'
+                                  ? t('rangeModel')
+                                  : t('rangeIllustrative')}
                               </span>
                             </>
                           )}
@@ -327,7 +325,7 @@ export function OmniMethodPanorama({
                           <p
                             className={cn(
                               'text-sm font-mono font-semibold tabular-nums',
-                              deltaValue >= 0 ? 'text-success' : 'text-warning',
+                              deltaValue >= 0 ? 'text-success' : 'text-warning'
                             )}
                           >
                             {deltaValue >= 0 ? '+' : '−'}
@@ -336,7 +334,7 @@ export function OmniMethodPanorama({
                           <p
                             className={cn(
                               'text-[10px] font-mono tabular-nums',
-                              deltaValue >= 0 ? 'text-success/90' : 'text-warning/90',
+                              deltaValue >= 0 ? 'text-success/90' : 'text-warning/90'
                             )}
                           >
                             ({deltaPercent >= 0 ? '+' : ''}
@@ -357,7 +355,7 @@ export function OmniMethodPanorama({
                     <div
                       className={cn(
                         'h-full rounded-full transition-[width] duration-300 ease-out',
-                        isSelected || isPending ? 'bg-primary' : 'bg-primary/45',
+                        isSelected || isPending ? 'bg-primary' : 'bg-primary/45'
                       )}
                       style={{ width: barWidth }}
                     />

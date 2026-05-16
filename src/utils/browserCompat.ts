@@ -36,7 +36,7 @@ export const browserCompat = {
    * Detect if browser is Safari
    */
   isSafari(): boolean {
-    const ua = navigator.userAgent.toLowerCase()
+    const _ua = navigator.userAgent.toLowerCase()
     // Safari detection: has Safari in UA but not Chrome/Android
     return /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
   },
@@ -144,7 +144,7 @@ export const browserCompat = {
       localStorage.setItem(test, test)
       localStorage.removeItem(test)
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   },
@@ -158,7 +158,7 @@ export const browserCompat = {
       sessionStorage.setItem(test, test)
       sessionStorage.removeItem(test)
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   },
@@ -199,7 +199,7 @@ export const browserCompat = {
       document.cookie = 'test=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
 
       return supported
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   },

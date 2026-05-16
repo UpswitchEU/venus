@@ -65,7 +65,7 @@ export function CapitalHistorySection(_props: CapitalHistorySectionProps) {
   const optionPoolPct = formData.capital_option_pool_pct
   const safeNotes = useMemo<SafeNoteInput[]>(
     () => formData.capital_safe_notes ?? [],
-    [formData.capital_safe_notes],
+    [formData.capital_safe_notes]
   )
   const lastRoundAmount = formData.capital_last_round_amount
   const lastRoundPostMoney = formData.capital_last_round_post_money
@@ -120,7 +120,7 @@ export function CapitalHistorySection(_props: CapitalHistorySectionProps) {
         capital_safe_notes: safeNotes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
       })
     },
-    [safeNotes, updateFormData],
+    [safeNotes, updateFormData]
   )
 
   const handleRemoveSafe = useCallback(
@@ -129,7 +129,7 @@ export function CapitalHistorySection(_props: CapitalHistorySectionProps) {
         capital_safe_notes: safeNotes.filter((n) => n.id !== id),
       })
     },
-    [safeNotes, updateFormData],
+    [safeNotes, updateFormData]
   )
 
   return (

@@ -252,7 +252,7 @@ class BusinessTypesApiService {
    */
   async getBusinessTypeForNaceCode(
     naceCode: string,
-    countryCode?: string,
+    countryCode?: string
   ): Promise<BusinessType | null> {
     if (!naceCode?.trim()) return null
     const normalizedCountry = countryCode?.trim().toUpperCase() || ''
@@ -264,7 +264,7 @@ class BusinessTypesApiService {
         params.set('country_code', marketCountryCode)
       }
       const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(
-        naceCode.trim(),
+        naceCode.trim()
       )}/business-type?${params.toString()}`
       const response = await axios.get<{ business_type: any; confidence: number }>(url, {
         timeout: 5000,
@@ -294,17 +294,15 @@ class BusinessTypesApiService {
       // Only treat 404 as an expected "no mapping" response.
       // Any other status code (5xx, network timeout, parse error) is a real failure
       // that should be surfaced so monitoring can detect API degradation.
-      const status =
-        (err as any)?.response?.status ??
-        (err as any)?.status ??
-        (err as any)?.code
+      const status = (err as any)?.response?.status ?? (err as any)?.status ?? (err as any)?.code
 
       const isNotFound =
-        status === 404 ||
-        (err instanceof Error && err.message.toLowerCase().includes('not found'))
+        status === 404 || (err instanceof Error && err.message.toLowerCase().includes('not found'))
 
       if (isNotFound) {
-        generalLogger.debug('[BusinessTypesAPI] No business type mapping for NACE code', { naceCode })
+        generalLogger.debug('[BusinessTypesAPI] No business type mapping for NACE code', {
+          naceCode,
+        })
         return null
       }
 

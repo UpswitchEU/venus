@@ -2,14 +2,13 @@
 
 import { HelpCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
-import { cn } from '@/design-system/utils'
 import {
   TooltipContent,
   TooltipProvider,
   TooltipRoot,
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
+import { cn } from '@/design-system/utils'
 import type { Fiscal4xPreviewMetrics } from '@/lib/omniPreview'
 
 import { PreviewMetricCard } from './previewMetricCards'
@@ -250,10 +249,7 @@ function FormulaConnector({ symbol }: { symbol: '+' | '=' }) {
       >
         {symbol}
       </div>
-      <div
-        aria-hidden
-        className="flex items-center justify-center gap-2 select-none md:hidden"
-      >
+      <div aria-hidden className="flex items-center justify-center gap-2 select-none md:hidden">
         <span className="h-px flex-1 bg-foreground/[0.08]" />
         <span className="text-[11px] font-semibold text-foreground/40">{symbol}</span>
         <span className="h-px flex-1 bg-foreground/[0.08]" />

@@ -99,10 +99,10 @@ describe('computeY5Sensitivity', () => {
   it('produces a symmetric band around mid', () => {
     const r = computeY5Sensitivity(upswitchCtx)
     expect(r).not.toBeNull()
-    expect(r!.mid).toBe(upswitchCtx.preMoney)
+    expect(r?.mid).toBe(upswitchCtx.preMoney)
     // Symmetric within rounding
-    const lowDelta = r!.mid - r!.low
-    const highDelta = r!.high - r!.mid
+    const lowDelta = r?.mid - r?.low
+    const highDelta = r?.high - r?.mid
     expect(Math.abs(lowDelta - highDelta)).toBeLessThan(1)
   })
 
@@ -121,9 +121,9 @@ describe('computeY5Sensitivity', () => {
     }
     const r = computeY5Sensitivity(noVc)
     expect(r).not.toBeNull()
-    expect(r!.spreadPct).toBe(10)
-    expect(r!.low).toBeLessThan(r!.mid)
-    expect(r!.high).toBeGreaterThan(r!.mid)
+    expect(r?.spreadPct).toBe(10)
+    expect(r?.low).toBeLessThan(r?.mid)
+    expect(r?.high).toBeGreaterThan(r?.mid)
   })
 
   it('clamps the low end to zero (never produces negative pre-money)', () => {
@@ -132,6 +132,6 @@ describe('computeY5Sensitivity', () => {
     // founder facing this in the UI would be confused by "−€2M pre".
     const tiny: NarrativeContext = { ...upswitchCtx, preMoney: 1000 }
     const r = computeY5Sensitivity(tiny, 200)
-    expect(r!.low).toBeGreaterThanOrEqual(0)
+    expect(r?.low).toBeGreaterThanOrEqual(0)
   })
 })

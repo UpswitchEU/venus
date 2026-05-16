@@ -8,7 +8,7 @@
  */
 
 import { create } from 'zustand'
-import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
@@ -18,6 +18,7 @@ import type {
   VersionChanges,
   VersionComparison,
 } from '../types/ValuationVersion'
+import { dateLikeToUnixMs } from '../utils/date-like'
 import {
   getCurrentFilingYear,
   normalizeCurrentYearForFiling,
@@ -26,10 +27,9 @@ import {
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
-import { dateLikeToUnixMs } from '../utils/date-like'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
-import { useNormalizationStore, mapFrontendCategoryToBackend } from './useNormalizationStore'
+import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
@@ -145,8 +145,7 @@ function detectChanges(oldData: any, newData: any): VersionChanges {
   const oldRev = resolveFormRevenue(oldData)
   const newRev = resolveFormRevenue(newData)
   if (oldRev !== newRev) {
-    const percentChange =
-      oldRev !== 0 ? ((newRev - oldRev) / Math.abs(oldRev)) * 100 : 0
+    const percentChange = oldRev !== 0 ? ((newRev - oldRev) / Math.abs(oldRev)) * 100 : 0
     changes.revenue = {
       from: oldRev,
       to: newRev,
@@ -162,8 +161,7 @@ function detectChanges(oldData: any, newData: any): VersionChanges {
   const oldEbit = resolveFormEbitda(oldData)
   const newEbit = resolveFormEbitda(newData)
   if (oldEbit !== newEbit) {
-    const percentChange =
-      oldEbit !== 0 ? ((newEbit - oldEbit) / Math.abs(oldEbit)) * 100 : 0
+    const percentChange = oldEbit !== 0 ? ((newEbit - oldEbit) / Math.abs(oldEbit)) * 100 : 0
     changes.ebitda = {
       from: oldEbit,
       to: newEbit,
@@ -323,7 +321,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         const fetchWithRetry = async (): Promise<any> => {
           try {
             return await versionAPI.listVersions(reportId)
-          } catch (firstError) {
+          } catch (_firstError) {
             versionLogger.info('Retrying version fetch after 1s', { reportId })
             await new Promise((r) => setTimeout(r, 1000))
             return await versionAPI.listVersions(reportId)
@@ -819,7 +817,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             label: 'Revenue',
             oldValue: changes.revenue.from,
             newValue: changes.revenue.to,
-            impact: `${changes.revenue.percentChange! > 0 ? '+' : ''}${changes.revenue.percentChange!.toFixed(1)}%`,
+            impact: `${changes.revenue.percentChange! > 0 ? '+' : ''}${changes.revenue.percentChange?.toFixed(1)}%`,
           })
         }
         if (changes.ebitda) {
@@ -828,7 +826,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             label: 'EBITDA',
             oldValue: changes.ebitda.from,
             newValue: changes.ebitda.to,
-            impact: `${changes.ebitda.percentChange! > 0 ? '+' : ''}${changes.ebitda.percentChange!.toFixed(1)}%`,
+            impact: `${changes.ebitda.percentChange! > 0 ? '+' : ''}${changes.ebitda.percentChange?.toFixed(1)}%`,
           })
         }
 
@@ -884,10 +882,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         const reportIds = Object.entries(state.versions)
           .map(([id, vs]) => ({
             id,
-            latest: Math.max(
-              0,
-              ...vs.map((v) => dateLikeToUnixMs(v.createdAt) ?? 0)
-            ),
+            latest: Math.max(0, ...vs.map((v) => dateLikeToUnixMs(v.createdAt) ?? 0)),
           }))
           .sort((a, b) => b.latest - a.latest)
           .slice(0, MAX_REPORTS)

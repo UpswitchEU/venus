@@ -37,7 +37,7 @@
  * just means one fewer chip; the founder still sees the value.
  */
 
-import { Check, X, AlertCircle } from 'lucide-react'
+import { AlertCircle, Check, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo } from 'react'
 import { getRegionalBaseline } from '@/components/calculator/sections/startup/regionalBaseline'
@@ -109,7 +109,7 @@ export function ReviewDefaultsModal({
   const stageDefaultRoi = getRegionalBaseline(country, stage).default_target_roi_x
   const sectorDefaultY5 = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector] ?? 5_000_000
   const benchmarkMidMultiple = Math.round(
-    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2,
+    (benchmark.exit_multiple_low + benchmark.exit_multiple_high) / 2
   )
   const stageDefaultRaise = STARTUP_STAGE_DEFAULT_RAISE[stage]
   const stageDefaultDilution = DILUTION_DEFAULT_PCT_BY_STAGE[stage]
@@ -218,7 +218,7 @@ export function ReviewDefaultsModal({
       const el = document.getElementById(anchorId)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     },
-    [onJumpTo],
+    [onJumpTo]
   )
 
   if (!open) return null
