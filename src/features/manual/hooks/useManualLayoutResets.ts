@@ -44,6 +44,7 @@ export interface UseManualLayoutResetsParams {
 
 export function useManualLayoutResets(params: UseManualLayoutResetsParams): void {
   const {
+    reportId,
     result,
     isStartupAssistantRoute,
     setIsDirty,
@@ -63,13 +64,13 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   useEffect(() => {
     refs.lastQualityWarningResetKeyRef.current = null
     refs.lastSynthesisBlendSkippedRunKeyRef.current = null
-  }, [refs.lastQualityWarningResetKeyRef, refs.lastSynthesisBlendSkippedRunKeyRef])
+  }, [reportId, refs.lastQualityWarningResetKeyRef, refs.lastSynthesisBlendSkippedRunKeyRef])
 
   // Effect 1389: acknowledged startup issues set reset on reportId change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setAcknowledgedStartupIssues(new Set())
-  }, [setAcknowledgedStartupIssues])
+  }, [reportId, setAcknowledgedStartupIssues])
 
   // Effect 1980: form-dirty flag + last-submitted financial snapshot reset on
   // reportId change so a fresh valuation does not inherit prior edit-detection
@@ -78,7 +79,7 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   useEffect(() => {
     refs.lastSubmittedFinancialSnapshotRef.current = null
     setIsDirty(false)
-  }, [refs.lastSubmittedFinancialSnapshotRef, setIsDirty])
+  }, [reportId, refs.lastSubmittedFinancialSnapshotRef, setIsDirty])
 
   // Effect 2827: when a materially new result arrives, clear stale ack entries
   // so the user is re-prompted for warnings that the new run actually emits.
