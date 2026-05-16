@@ -16,9 +16,162 @@ export interface BuyerReadinessMissingDocument {
   reason: string
 }
 
+export type BuyerReadinessDataRoomCategory =
+  | 'financials'
+  | 'normalization'
+  | 'tax'
+  | 'commercial'
+  | 'transaction_pack'
+
+export interface BuyerReadinessDataRoomItem {
+  key: string
+  label: string
+  category: BuyerReadinessDataRoomCategory
+  status: BuyerReadinessItemStatus
+  required: boolean
+  detail: string
+  evidence: string[]
+}
+
+export interface BuyerReadinessDataRoomSection {
+  key: string
+  label: string
+  status: BuyerReadinessItemStatus
+  items: BuyerReadinessDataRoomItem[]
+}
+
+export interface BuyerReadinessDataRoomPlan {
+  status: BuyerReadinessItemStatus
+  completionPct: number
+  readyCount: number
+  totalRequired: number
+  sections: BuyerReadinessDataRoomSection[]
+  missingDocuments: BuyerReadinessMissingDocument[]
+}
+
 export interface BuyerReadinessFaqItem {
   question: string
   answer: string
+}
+
+export interface BuyerReadinessTeaserImDraft {
+  status: BuyerReadinessItemStatus
+  title: string
+  summary: string
+  highlights: string[]
+  buyerConsiderations: string[]
+  nextSteps: string[]
+}
+
+export interface BuyerReadinessNormalizationBridgeRow {
+  key: string
+  label: string
+  category: string
+  amount: number
+  rationale: string | null
+  source: string | null
+  confidence: string | null
+  evidenceStatus: BuyerReadinessItemStatus
+}
+
+export interface BuyerReadinessNormalizationBridge {
+  status: BuyerReadinessItemStatus
+  year: number | null
+  reportedEbitda: number | null
+  normalizedEbitda: number | null
+  totalAdjustments: number | null
+  currency: string
+  confidence: string | null
+  source: string | null
+  rows: BuyerReadinessNormalizationBridgeRow[]
+  auditTrail: {
+    adjustmentCount: number
+    customAdjustmentCount: number
+    taxLatencyCount: number
+    evidenceMissingCount: number
+  }
+}
+
+export type BuyerReadinessWorkingCapitalBasis =
+  | 'balance_sheet_detail'
+  | 'current_assets_liabilities'
+  | 'nwc_change_only'
+  | 'valuation_waterfall'
+  | 'missing'
+
+export interface BuyerReadinessWorkingCapitalPack {
+  status: BuyerReadinessItemStatus
+  currentYear: number | null
+  currentNwc: number | null
+  nwcChange: number | null
+  nwcSurplusDeficit: number | null
+  actualNwcYears: number
+  basis: BuyerReadinessWorkingCapitalBasis
+  confidence: 'high' | 'medium' | 'low' | null
+  evidence: string[]
+  missingInputs: string[]
+  detail: string
+}
+
+export type BuyerReadinessCommercialSignalKey =
+  | 'customer_concentration'
+  | 'owner_dependence'
+  | 'revenue_quality'
+  | 'contract_coverage'
+  | 'ip_asset_clarity'
+  | 'documentation_quality'
+
+export interface BuyerReadinessCommercialSignal {
+  key: BuyerReadinessCommercialSignalKey
+  label: string
+  status: BuyerReadinessItemStatus
+  score: number | null
+  value: string | null
+  detail: string
+  evidence: string[]
+  action: string | null
+  source: 'sellability_assessment' | 'form_input' | 'missing'
+}
+
+export interface BuyerReadinessCommercialReadiness {
+  status: BuyerReadinessItemStatus
+  readyCount: number
+  totalRequired: number
+  signals: BuyerReadinessCommercialSignal[]
+  priorityActions: BuyerReadinessSellabilityAction[]
+  evidenceGaps: string[]
+}
+
+export interface BuyerReadinessSellabilityAction {
+  key: string
+  factor: string
+  action: string
+  priority: 'primary' | 'secondary'
+  eurImpact: number | null
+  confidence: string | null
+  upliftPct: number | null
+}
+
+export interface BuyerReadinessSellabilityFactor {
+  key: string
+  label: string
+  score: number | null
+  weight: number | null
+  contribution: number | null
+  dataAvailable: boolean
+  status: BuyerReadinessItemStatus
+  detail: string
+}
+
+export interface BuyerReadinessSellabilityPlan {
+  status: BuyerReadinessItemStatus
+  assessmentId: string | null
+  score: number | null
+  band: string | null
+  confidence: string | null
+  factorBreakdown: BuyerReadinessSellabilityFactor[]
+  actions: BuyerReadinessSellabilityAction[]
+  evidenceGaps: string[]
 }
 
 export interface BuyerReadinessPackage {
@@ -66,7 +219,13 @@ export interface BuyerReadinessPackage {
   }
   checklist: BuyerReadinessChecklistItem[]
   missingDocuments: BuyerReadinessMissingDocument[]
+  dataRoomPlan?: BuyerReadinessDataRoomPlan
   buyerFaq: BuyerReadinessFaqItem[]
+  normalizationBridge?: BuyerReadinessNormalizationBridge
+  workingCapital?: BuyerReadinessWorkingCapitalPack
+  sellabilityPlan?: BuyerReadinessSellabilityPlan
+  commercialReadiness?: BuyerReadinessCommercialReadiness
+  teaserImDraft: BuyerReadinessTeaserImDraft
   privateComps: {
     contributionEndpoint: '/api/v2/multiples/contribute'
     eligible: boolean

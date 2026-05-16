@@ -12,23 +12,15 @@
  * - Each year can have its own set of adjustments
  */
 
-import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, Building2, Lock, Plus, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import type { ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
-import { type BusinessType, categoryIcons, type KBOCompany } from '@/design-system'
-import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
-import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 
 import {
   type GetBonusSectionsSaasSignals,
-  getBonusSections,
-  getBonusSectionsForMethods,
   getBonusSectionsSaasSignalsFromFormData,
   getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
@@ -36,131 +28,54 @@ import {
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
 import { useAuth } from '../../hooks/useAuth'
-import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
 import { useSyncOfficialVarianceFromForm } from '../../hooks/useSyncOfficialVarianceFromForm'
-import { methodKeyRequiresForecastYears, selectionRequiresForecastYears } from '../../lib/methods'
-import { dcfSmartDefaultsFromForm, useDcfForecastSync } from '../../lib/methods/dcf'
-import { registryService } from '../../services/registry/registryService'
-import type { CompanySearchResult } from '../../services/registry/types'
+import { selectionRequiresForecastYears } from '../../lib/methods'
+import { useDcfForecastSync } from '../../lib/methods/dcf'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
   ManualValuationFormData,
-  OfficialFinancialsPayload,
-  OfficialVarianceAnalysis,
-  OfficialVerificationBadge,
   ValuationMethodResult,
   YearlyFinancials,
 } from '../../types/valuation'
-import {
-  getCurrentFilingYear,
-  getFilingYearHistoricalOffset,
-  isFilingYearConfirmedValue,
-  normalizeHistoricalYearsForFiling,
-} from '../../utils/fiscalYear'
-import {
-  appendManualForecastYear,
-  canAppendForecastYear,
-  canAppendHistoricalYear,
-  canRemoveHistoricalYear,
-  countForecastYears,
-  getNextForecastYear,
-  getNextHistoricalYear,
-  removeForecastYear,
-  removeForecastYears,
-  removeHistoricalYear,
-} from '../../utils/forecastYears'
-import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import {
-  countNormalizationsBoundToFiscalYear,
-  removeNormalizationsForRemovedFiscalYear,
-} from '../../utils/normalizationMath'
-import { hasUsableOfficialFinancialsContent } from '../../utils/officialFinancialsContent'
-import {
-  getAnnualFictiveRentDeductionForDisplay,
-  realEstateCarveOutAppliesTo,
-} from '../../utils/realEstateCarveOutDisplay'
-import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
+import { realEstateCarveOutAppliesTo } from '../../utils/realEstateCarveOutDisplay'
 import {} from '../../utils/shareholding'
-import { buildCurrentYearData } from '../../utils/yearData'
 import {
   getLatestCompleteYearlyFinancial,
   hasExplicitNumericValue as hasExplicitFinancialValue,
-  historicalYearRowNeedsRemovalWarning,
-  isCompleteYearlyFinancial,
-  yearlyFinancialRowHasNonPlaceholderData,
 } from '../../utils/yearlyFinancials'
-import { CurrencyInput } from './CurrencyInput'
-import { type FieldHelpContext, FieldHelpTrigger } from './FieldHelpTrigger'
-import { FilingYearPrompt } from './FilingYearPrompt'
+import type { FieldHelpContext } from './FieldHelpTrigger'
 import { useManualAccountingImportController } from './hooks/useManualAccountingImportController'
+import { useManualCompanyIdentificationController } from './hooks/useManualCompanyIdentificationController'
+import { useManualDcfForecastController } from './hooks/useManualDcfForecastController'
+import { useManualFinancialRowsController } from './hooks/useManualFinancialRowsController'
 import { useManualInputFormDataSync } from './hooks/useManualInputFormDataSync'
 import { useManualInputPrefillSync } from './hooks/useManualInputPrefillSync'
-import { useManualNaceBusinessTypePrefill } from './hooks/useManualNaceBusinessTypePrefill'
 import { ManualInputPanelModals } from './ManualInputPanelModals'
-import {
-  // BelgianSmeAuditPanel — moved to the ValuationIQ report (advisory output)
-  DcfForecastWorkspace,
-  RealEstateCarveOutSection,
-  SECTION_HEADER_ROW_CLASS,
-  SectionStatusCircle,
-  SynthesisWeightingSection,
-} from './sections'
-import { AdaptiveSections } from './sections/AdaptiveSections'
+import { ManualInputSubmitBar } from './ManualInputSubmitBar'
 import { CompanyIdentificationSection } from './sections/CompanyIdentificationSection'
-import { NbbResetHint } from './sections/NbbResetHint'
+import { FinancialHistorySection } from './sections/FinancialHistorySection'
+import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
 import {
-  generateDefaultYearlyFinancials,
   getSeedBaseFilingYear,
-  getSeedCurrentYearData,
   getSeedYearlyFinancials,
-  hasMeaningfulYearlyFinancials,
   isSessionSeedYearStale,
 } from './utils/manualFinancialSeeds'
+import {
+  buildManualInputAdaptiveHeaderSteps,
+  getManualInputBalanceSheetCarveOutStep,
+  getManualInputSynthesisStep,
+} from './utils/manualInputAdaptiveSteps'
 import { buildManualInputFieldValidation } from './utils/manualInputFieldValidation'
-
-const DcfGlobalAssumptions = lazy(() =>
-  import('./sections/DcfGlobalAssumptions').then((m) => ({
-    default: m.DcfGlobalAssumptions,
-  }))
-)
-
-/**
- * Suspense fallback for lazy bonus sections — thin skeleton row keeps the
- * scroll position stable while the chunk arrives. Chunks are tiny (~10-40KB
- * each) so this typically flashes for <100ms on first paint of a section.
- */
-function BonusSectionFallback() {
-  return <div className="my-2 h-16 animate-pulse rounded-lg bg-foreground/[0.04]" aria-hidden />
-}
-
-import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-  DCF_DEFAULT_TERMINAL_GROWTH_PCT,
-  DCF_DEFAULT_WACC_PCT,
-} from './sections/dcfEngineDefaults'
-import {
-  type DcfForecastModelSnapshot,
-  snapshotFromForecastRowLike,
-  snapshotsClose,
-} from './sections/dcfForecastModelSync'
-import {
-  applyDcfProjectionPreviewToForecastRows,
-  buildProjectionRowFromForecastRow,
-  deriveDcfProjectionPreview,
-} from './sections/dcfProjectionPreview'
-import { deriveDcfSmartDefaults, deriveWaccSectorBand } from './sections/dcfSmartDefaults'
+import { buildManualInputInitialFormData } from './utils/manualInputInitialFormData'
+import { buildManualInputNormalizedData } from './utils/manualInputNormalizedData'
+import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
 
 // Types — `ManualValuationFormData` = `Partial<` canonical `ValuationFormData` + `ManualValuationFormUiBase` (`src/types/valuation.ts`)
 export type { ManualValuationFormData, YearlyFinancials }
@@ -173,39 +88,6 @@ export {
   isSessionSeedYearStale,
   shouldAutoConfirmPrefilledFilingYear,
 } from './utils/manualFinancialSeeds'
-
-export interface ImportedLedgerAnalysisSummary {
-  latest_fiscal_year?: number
-  sde_flags?: Array<{
-    ledger_code: string
-    ledger_name: string
-    amount: number
-    deviation_pct: number
-    benchmark_median_pct: number
-    benchmark_std_pct: number
-    actual_pct_of_revenue: number
-    z_score: number
-    confidence: number
-    year: number
-    potential_sde_addback: boolean
-    suggested_question: string
-    rationale: string
-    category: string
-  }>
-  ev_equity_bridge?: {
-    enterprise_value: number
-    cash_and_equivalents: number
-    long_term_debt: number
-    short_term_financial_debt: number
-    interest_bearing_debt: number
-    net_debt: number
-    equity_value: number
-  }
-  dcf_defaults?: {
-    average_depreciation: number
-    suggested_capex: number
-  }
-}
 
 export function getSelectedBelgianAuditEntries({
   valuationResults,
@@ -266,13 +148,6 @@ interface ManualInputPanelProps {
   onSynthesisPaywall?: () => void
 }
 
-const getLatestHistoricalYearlyFinancial = (
-  yearlyFinancials: YearlyFinancials[]
-): YearlyFinancials | undefined =>
-  [...yearlyFinancials]
-    .filter((year) => !year.isForecast)
-    .sort((a, b) => Number(b.year) - Number(a.year))[0]
-
 export function ManualInputPanel({
   onSubmit,
   onCSVImportComplete,
@@ -295,7 +170,6 @@ export function ManualInputPanel({
   const { user } = useAuth()
   const t = useTranslations()
   const mi = useTranslations('manualInput')
-  const tTax = useTranslations('taxLatency')
   const tKbo = useTranslations('forms.kboLookup')
   const locale = useLocale()
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
@@ -311,36 +185,9 @@ export function ManualInputPanel({
     (amount: number) => panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
     [panelCurrencyFormatter]
   )
-  const [formData, setFormData] = useState<ValuationFormData>({
-    companyName: initialData.companyName || '',
-    kboNumber: initialData.kboNumber || '',
-    legalForm: initialData.legalForm || '',
-    address: initialData.address || '',
-    naceCode: initialData.naceCode || '',
-    canonicalNaceCode: initialData.canonicalNaceCode?.trim() || initialData.naceCode?.trim() || '',
-    naceDescription: initialData.naceDescription || '',
-    businessType: initialData.businessType || '',
-    businessTypeCode: initialData.businessTypeCode || '',
-    industry: initialData.industry || '',
-    country: initialData.country || '',
-    yearFounded: initialData.yearFounded || '',
-    businessStructure: initialData.businessStructure || '',
-    ownerManagers: initialData.ownerManagers || 1,
-    fteEmployees: initialData.fteEmployees ?? 5,
-    yearlyFinancials: getSeedYearlyFinancials(initialData),
-    current_year_data: getSeedCurrentYearData(initialData),
-    historical_years_data: normalizeHistoricalYearsForFiling(
-      initialData.historical_years_data,
-      initialData.filingYearConfirmed
-    ),
-    forecast_years_data: initialData.forecast_years_data,
-    // Stale Jan–Mar seed → drop persisted confirmation so FilingYearPrompt
-    // re-appears with the bumped (live) filing year as the new default.
-    filingYearConfirmed: isSessionSeedYearStale(initialData)
-      ? false
-      : isFilingYearConfirmedValue(initialData.filingYearConfirmed),
-    dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
-  })
+  const [formData, setFormData] = useState<ValuationFormData>(() =>
+    buildManualInputInitialFormData(initialData)
+  )
   const currentFilingYear = getCurrentFilingYear()
   const accountingImportMessages = useMemo(
     () => ({
@@ -390,578 +237,100 @@ export function ManualInputPanel({
     [formData.yearlyFinancials]
   )
 
-  // Sync form financials to ref during render for sibling components (e.g. normalization modal)
-  // that need latest data without effect delay — eliminates race when opening modal immediately
-  if (formDataRef && formDataRef.current != null) {
-    const current = latestCompleteYearlyFinancial
-    const latestHistorical = getLatestHistoricalYearlyFinancial(formData.yearlyFinancials)
-    Object.assign(formDataRef.current, {
-      yearlyFinancials: formData.yearlyFinancials,
-      current_year_data: latestHistorical
-        ? buildCurrentYearData({
-            year: parseInt(latestHistorical.year, 10),
-            revenue: latestHistorical.revenue,
-            ebitda: latestHistorical.ebitda,
-            currentYearData: formData.current_year_data,
-          })
-        : formData.current_year_data,
-      ebitda: current?.ebitda,
-    })
-  }
-
-  // KBO verification state
-  const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null)
-  const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '')
   const updateFormData = useManualFormStore((s) => s.updateFormData)
   const storeBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const storeBusinessModel = useManualFormStore((s) => s.formData.business_model)
   const storeBusinessContext = useManualFormStore((s) => s.formData.business_context)
-  const sessionReportId = useSessionStore((s) => s.session?.reportId)
   useSyncOfficialVarianceFromForm()
 
-  // Zustand holds session/restoration/bootstrap prefill; local useState only seeds once — gap-fill method inputs
-  // (DCF, NAV, SaaS, multiples prep) into the panel when the store gains values the UI has not mirrored yet.
-  // requestAnimationFrame coalesces rapid store updates; getState() inside the frame always reads the latest snapshot.
-  useEffect(() => {
-    let raf = 0
-    const flush = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        const fd = useManualFormStore.getState().formData as unknown as Record<string, unknown>
-        setFormData((prevLocal) => {
-          const patch = mergeOptionalSessionPrefillFields(fd, prevLocal)
-          return Object.keys(patch).length > 0 ? { ...prevLocal, ...patch } : prevLocal
-        })
-      })
-    }
-    flush()
-    const unsub = useManualFormStore.subscribe(flush)
-    return () => {
-      cancelAnimationFrame(raf)
-      unsub()
-    }
-  }, [])
-
-  const prefillAbortRef = useRef<boolean>(false)
-  /** After user picks a country, do not overwrite from late prefill/session (panel remount resets). */
-  const countryUserOverrideRef = useRef(false)
-
-  /**
-   * Tracks the company identity that was loaded from session/platform prefill.
-   * Set once when prefill populates the company — never overwritten by user actions.
-   * Used to decide whether clearing the company requires a confirmation warning.
-   */
-  const prefillCompanyRef = useRef<{ name: string; kbo: string } | null>(null)
-  const [showChangeCompanyWarning, setShowChangeCompanyWarning] = useState(false)
-
-  // Dismiss the change-company warning whenever the selected company is cleared by any code path
-  // (country change, external clear, etc.) — single reactive rule instead of scattered dismissals.
-  useEffect(() => {
-    if (!selectedCompany && showChangeCompanyWarning) {
-      setShowChangeCompanyWarning(false)
-    }
-  }, [selectedCompany, showChangeCompanyWarning])
-
-  // Drop registry selection when operating country changes (e.g. firm NL prefill after BE default)
-  useEffect(() => {
-    const c = (formData.country || initialData.country || 'BE').toUpperCase()
-    setSelectedCompany((prev) => {
-      if (!prev) return prev
-      const pc = prev.countryCode?.toUpperCase()
-      if (pc && pc !== c) return null
-      return prev
-    })
-  }, [formData.country, initialData.country])
-
-  // Sync prefill from bootstrap/session when initialData arrives after mount
-  // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
-  useEffect(() => {
-    if (shouldAutoConfirmPrefilledFilingYear(initialData, currentFilingYear)) {
-      setFormData((prev) =>
-        isFilingYearConfirmedValue(prev.filingYearConfirmed)
-          ? prev
-          : { ...prev, filingYearConfirmed: true }
-      )
-    }
-  }, [
+  const {
+    companySearchValue,
+    countryUserOverrideRef,
+    executePrefillCompanyReset,
+    financialsStepRef,
+    prefillCompanyRef,
+    selectedCompany,
+    setCompanySearchValue,
+    setSelectedCompany,
+    setShowChangeCompanyWarning,
+    showChangeCompanyWarning,
+  } = useManualInputPrefillSync({
+    autoAdvancePastPrefilledSteps,
     currentFilingYear,
-    initialData.current_year_data?.year,
-    initialData.filingYearConfirmed,
-    initialData.yearlyFinancials,
-  ])
-
-  useEffect(() => {
-    const prefill = initialData
-    if (!prefill || typeof prefill !== 'object') return
-
-    // After restoration, session JSONB is authoritative — skip deferred initialData merge (reduces races and duplicate NACE work)
-    if (shouldSuppressMercurySessionPrefill(sessionReportId)) {
-      prefillAbortRef.current = false
-      return () => {
-        prefillAbortRef.current = true
-      }
-    }
-
-    prefillAbortRef.current = false
-    const isCurrent = () => !prefillAbortRef.current
-
-    // Apply only when field is empty - never overwrite user-entered data
-    const applyPrefill = (
-      prev: ValuationFormData,
-      updates: Record<string, unknown>,
-      key: keyof ValuationFormData,
-      value: string | number | undefined
-    ) => {
-      if (key === 'country') {
-        if (countryUserOverrideRef.current) return
-        if (value === undefined || value === null) return
-        const v = String(value).trim().toUpperCase()
-        if (!v) return
-        const cur = String(prev.country || '')
-          .trim()
-          .toUpperCase()
-        // Empty country is a placeholder until bootstrap/business-card context resolves.
-        if ((!cur || cur === 'BE') && v !== cur) {
-          ;(updates as Record<string, unknown>)[key] = v
-        }
-        return
-      }
-      if (value === undefined || value === null) return
-      if (typeof value === 'string' && value === '') return
-      const current = prev[key]
-      const isEmpty =
-        current === undefined ||
-        current === null ||
-        (typeof current === 'string' && current === '') ||
-        (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
-        // fteEmployees: apply when empty, or when default 5 and prefill has different value (e.g. 0 from restore)
-        (key === 'fteEmployees' &&
-          (current === undefined || (typeof current === 'number' && current === 5 && value !== 5)))
-      if (isEmpty) (updates as Record<string, unknown>)[key] = value
-    }
-
-    const businessStructure = mapLegalFormToBusinessStructure(prefill.legalForm)
-
-    const runPrefill = async () => {
-      let businessTypeToApply = prefill.businessType
-      let industryToApply = prefill.industry
-      if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
-        const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
-          businessTypeToApply.trim(),
-          undefined,
-          prefill.country
-        )
-        if (!isCurrent()) return
-        if (resolved?.id) {
-          businessTypeToApply = resolved.id
-          industryToApply = resolved.category || prefill.industry
-          updateFormData({ business_type_id: resolved.id, industry: industryToApply })
-        } else {
-          businessTypeToApply = ''
-        }
-      }
-      if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
-        businessTypeToApply = ''
-      }
-
-      if (!isCurrent()) return
-      let companyNameUpdate: string | undefined
-      setFormData((prev) => {
-        const updates: Record<string, unknown> = {}
-        applyPrefill(prev, updates, 'companyName', prefill.companyName)
-        applyPrefill(prev, updates, 'kboNumber', prefill.kboNumber)
-        applyPrefill(prev, updates, 'legalForm', prefill.legalForm)
-        applyPrefill(
-          prev,
-          updates,
-          'businessStructure',
-          prefill.businessStructure || businessStructure
-        )
-        applyPrefill(prev, updates, 'address', prefill.address)
-        applyPrefill(prev, updates, 'naceCode', prefill.naceCode)
-        applyPrefill(prev, updates, 'canonicalNaceCode', prefill.canonicalNaceCode)
-        applyPrefill(prev, updates, 'naceDescription', prefill.naceDescription)
-        applyPrefill(prev, updates, 'businessType', businessTypeToApply || undefined)
-        applyPrefill(prev, updates, 'businessTypeCode', prefill.businessTypeCode)
-        applyPrefill(prev, updates, 'industry', industryToApply)
-        applyPrefill(prev, updates, 'country', prefill.country)
-        applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded)
-        applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers)
-        applyPrefill(prev, updates, 'fteEmployees', prefill.fteEmployees)
-        if (
-          prefill.yearlyFinancials?.length &&
-          hasMeaningfulYearlyFinancials(prefill.yearlyFinancials)
-        ) {
-          const currentIsDefault = prev.yearlyFinancials.every(
-            (yf) => yf.revenue === 0 && yf.ebitda === 0
-          )
-          if (currentIsDefault) {
-            ;(updates as Record<string, unknown>).yearlyFinancials = prefill.yearlyFinancials
-          }
-        }
-        if (updates.companyName) companyNameUpdate = String(updates.companyName)
-        if (Object.keys(updates).length === 0) return prev
-        return { ...prev, ...updates }
-      })
-      if (companyNameUpdate) setCompanySearchValue(companyNameUpdate)
-      const hasExpandData =
-        prefill.kboNumber || prefill.legalForm || businessTypeToApply || prefill.industry
-      if (companyNameUpdate && hasExpandData) {
-        setSelectedCompany({
-          id: prefill.kboNumber || 'prefill',
-          name: companyNameUpdate,
-          kboNumber: prefill.kboNumber || '',
-          legalForm: prefill.legalForm || '',
-          address: prefill.address || '',
-          postalCode: '',
-          city: '',
-          naceCode: prefill.canonicalNaceCode || prefill.naceCode,
-          naceDescription: prefill.naceDescription,
-          canonicalNaceCode: prefill.canonicalNaceCode || prefill.naceCode,
-          activityCode:
-            prefill.naceCode &&
-            prefill.canonicalNaceCode &&
-            prefill.naceCode !== prefill.canonicalNaceCode
-              ? prefill.naceCode
-              : undefined,
-        })
-        if (!prefillCompanyRef.current) {
-          prefillCompanyRef.current = {
-            name: companyNameUpdate,
-            kbo: prefill.kboNumber || '',
-          }
-        }
-      }
-    }
-    runPrefill()
-    return () => {
-      prefillAbortRef.current = true
-    }
-  }, [
-    initialData?.companyName,
-    initialData?.kboNumber,
-    initialData?.legalForm,
-    initialData?.businessStructure,
-    initialData?.address,
-    initialData?.naceCode,
-    initialData?.canonicalNaceCode,
-    initialData?.naceDescription,
-    initialData?.businessType,
-    initialData?.industry,
-    initialData?.country,
-    initialData?.yearFounded,
-    initialData?.ownerManagers,
-    initialData?.fteEmployees,
-    initialData?.yearlyFinancials,
+    formData,
+    initialData,
+    setFormData,
     updateFormData,
-    sessionReportId,
-  ])
-
-  // STP: Auto-advance past pre-filled steps by scrolling to the financials section
-  const financialsStepRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    if (!autoAdvancePastPrefilledSteps) return
-    const hasPrefilledCompany = !!formData.companyName && !!formData.businessType
-
-    const timer = setTimeout(() => {
-      if (hasPrefilledCompany && financialsStepRef.current) {
-        financialsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [autoAdvancePastPrefilledSteps, formData.companyName, formData.businessType])
+  })
 
   useManualInputFormDataSync({
     formData,
+    formDataRef,
     latestCompleteYearlyFinancial,
     onFormDataChange,
     storeBusinessModel,
   })
 
-  // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)
-  // Only updates when companySearchValue is empty to avoid overwriting user input
-  useEffect(() => {
-    const name = initialData?.companyName?.trim()
-    if (name) {
-      setCompanySearchValue((prev) => (prev?.trim() ? prev : name))
-    }
-  }, [initialData?.companyName])
-
-  // Fallback: set selectedCompany when we have companyName + KBO data but selectedCompany is still null
-  // Handles case where first prefill effect's companyNameUpdate was not set (e.g. formData already had companyName)
-  useEffect(() => {
-    const name = initialData?.companyName?.trim()
-    const hasExpandData =
-      initialData?.kboNumber ||
-      initialData?.legalForm ||
-      initialData?.businessType ||
-      initialData?.industry
-    if (!name || !hasExpandData) return
-
-    setSelectedCompany((prev) => {
-      if (prev) return prev
-      if (!prefillCompanyRef.current) {
-        prefillCompanyRef.current = { name, kbo: initialData?.kboNumber || '' }
-      }
-      return {
-        id: initialData?.kboNumber || 'prefill',
-        name,
-        kboNumber: initialData?.kboNumber || '',
-        legalForm: initialData?.legalForm || '',
-        address: initialData?.address || '',
-        postalCode: '',
-        city: '',
-        naceCode: initialData?.naceCode,
-        naceDescription: initialData?.naceDescription,
-      }
-    })
-  }, [
-    initialData?.companyName,
-    initialData?.kboNumber,
-    initialData?.legalForm,
-    initialData?.businessType,
-    initialData?.industry,
-  ])
-
-  // Business type state
-  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null)
-
-  // Section collapse states
   const [showCSVUpload, setShowCSVUpload] = useState(false)
-  const [showForecastRemovalConfirm, setShowForecastRemovalConfirm] = useState(false)
-  const [historicalYearPendingRemove, setHistoricalYearPendingRemove] = useState<string | null>(
-    null
-  )
-
-  const commitRemoveHistoricalYear = useCallback((yearStr: string) => {
-    const y = Number.parseInt(yearStr, 10)
-    let didRemove = false
-    setFormData((prev) => {
-      if (!canRemoveHistoricalYear(prev.yearlyFinancials)) {
-        return prev
-      }
-      didRemove = true
-      return {
-        ...prev,
-        yearlyFinancials: removeHistoricalYear(prev.yearlyFinancials, yearStr),
-      }
-    })
-    if (didRemove && Number.isFinite(y)) {
-      const { items, setItems } = useNormalizationStore.getState()
-      setItems(removeNormalizationsForRemovedFiscalYear(items, y))
-    }
-    setHistoricalYearPendingRemove(null)
-  }, [])
-
-  const requestRemoveHistoricalYear = useCallback(
-    (yearStr: string) => {
-      if (!canRemoveHistoricalYear(formData.yearlyFinancials)) return
-      const row = formData.yearlyFinancials.find(
-        (yf) => String(yf.year) === yearStr && !yf.isForecast
-      )
-      if (!row) return
-      const yNum = Number.parseInt(yearStr, 10)
-      const normBoundCount = Number.isFinite(yNum)
-        ? countNormalizationsBoundToFiscalYear(normalizationItems, yNum)
-        : 0
-      if (historicalYearRowNeedsRemovalWarning(row, normBoundCount)) {
-        setHistoricalYearPendingRemove(yearStr)
-        return
-      }
-      commitRemoveHistoricalYear(yearStr)
-    },
-    [formData.yearlyFinancials, normalizationItems, commitRemoveHistoricalYear]
-  )
-
-  // Calculate normalized EBITDA per year and average using global normalization store
-  const normalizedData = useMemo(() => {
-    const acceptedItems = normalizationItems.filter((n) => n.status === 'accepted')
-    const annualFictiveRentDeduction = getAnnualFictiveRentDeductionForDisplay(
-      formData.exclude_real_estate,
-      formData.estimated_market_rent
-    )
-
-    const years = formData.yearlyFinancials.map((yf) => {
-      const yearNum = Number(yf.year)
-      const yearNorms = acceptedItems.filter((n) => {
-        if (n.applyAllYears) return true
-        if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(yearNum)
-        return n.year === yearNum
-      })
-      const rawEbitda = Number(yf.ebitda)
-      const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
-      const totalAdjustment = yearNorms.reduce((sum, n) => {
-        const rawVal = Number(n.value)
-        const val = Number.isFinite(rawVal) ? rawVal : 0
-        const rawAdj = Number(n.adjustment)
-        const adj = Number.isFinite(rawAdj) ? rawAdj : 0
-        if (
-          yearEbitda === 0 &&
-          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
-        ) {
-          return sum + adj
-        }
-        if (n.type === 'add_percent') return sum + (yearEbitda * val) / 100
-        if (n.type === 'subtract_percent') return sum - (yearEbitda * val) / 100
-        if (n.type === 'absolute') return sum + (val - yearEbitda)
-        return sum + adj
-      }, 0)
-      const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
-      const normalizedEbitda = yearEbitda + safeTotalAdj - annualFictiveRentDeduction
-      return {
-        ...yf,
-        normalizedEbitda,
-        totalAdjustment: safeTotalAdj,
-        normalizationCount: yearNorms.length,
-        fictiveRentDeduction: annualFictiveRentDeduction,
-      }
-    })
-
-    // Weighted average: most recent years weighted higher (McKinsey method).
-    // Include break-even and loss-making years, but ignore incomplete empty rows.
-    // Forecast years are excluded — this metric represents historical performance only.
-    const validYears = years
-      .filter(
-        (y) => !y.isForecast && y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100
-      )
-      .sort((a, b) => Number(a.year) - Number(b.year))
-    const completeHistoricalYears = validYears.filter((y) => isCompleteYearlyFinancial(y))
-    let weightedSum = 0
-    let totalWeight = 0
-    completeHistoricalYears.forEach((y, index) => {
-      const weight = index + 1 // Ascending: oldest=1, most recent=highest
-      const norm = Number.isFinite(y.normalizedEbitda) ? y.normalizedEbitda : 0
-      weightedSum += norm * weight
-      totalWeight += weight
-    })
-
-    const averageNormalizedEbitda = totalWeight > 0 ? weightedSum / totalWeight : 0
-
-    return {
-      years,
-      averageNormalizedEbitda,
-      totalYearsWithData: completeHistoricalYears.length,
-      annualFictiveRentDeduction,
-    }
-  }, [
-    formData.yearlyFinancials,
-    formData.exclude_real_estate,
-    formData.estimated_market_rent,
-    normalizationItems,
-  ])
-
-  const searchCountry = formData.country || initialData.country || 'BE'
-
-  // Registry search: routes to KBO (BE) or KVK (NL) based on form country
-  const kboSearchFn = useCallback(
-    async (query: string, signal?: AbortSignal): Promise<KBOCompany[]> => {
-      if (!query || query.trim().length < 2) return []
-      const response = await registryService.searchCompanies(
-        query.trim(),
-        searchCountry,
-        15,
-        signal
-      )
-      if (!response.success) {
-        throw new Error(response.error || tKbo('searchUnavailable'))
-      }
-      if (!response.results) return []
-      return response.results.map((r: CompanySearchResult, index: number) => {
-        const raw = r as unknown as Record<string, unknown>
-        const legalFormResolved =
-          pickLegalFormFromRegistryHit(raw) ||
-          (typeof r.legal_form === 'string' ? r.legal_form : '')
-        const canonical = (r.canonical_nace_code || r.nace_code)?.trim() || ''
-        const activity = (r.activity_code || '').trim()
-        const displayActivity =
-          activity && canonical && activity !== canonical ? activity : undefined
-        // Titan now resolves NACE/SBI → business type server-side and ships
-        // business_type_id / business_type_title in the search response. Pull
-        // both through so handleCompanySelect can skip the redundant client
-        // NACE → business-type round-trip when present.
-        const btIdRaw = raw['business_type_id']
-        const btTitleRaw = raw['business_type_title']
-        const businessTypeId =
-          typeof btIdRaw === 'string' && btIdRaw.trim() ? btIdRaw.trim() : undefined
-        const businessTypeTitle =
-          typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
-        return {
-          id:
-            r.company_id ||
-            (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
-          name: r.company_name,
-          kboNumber: r.kbo_number || r.registration_number,
-          legalForm: legalFormResolved,
-          address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
-          postalCode: r.postal_code || '',
-          city: r.city || '',
-          naceCode: canonical,
-          naceDescription: (r.activity_label || r.nace_description || '').trim() || '',
-          canonicalNaceCode: canonical || undefined,
-          activityCode: displayActivity,
-          activityLabel: (r.activity_label || r.nace_description || '').trim() || undefined,
-          activityTaxonomy: r.taxonomy,
-          countryCode: r.country_code || searchCountry,
-          businessTypeId,
-          businessTypeTitle,
-        }
-      })
-    },
-    [tKbo, searchCountry]
-  )
-
-  // Business types from Titan API (instead of hardcoded)
   const {
-    businessTypes,
-    loading: businessTypesLoading,
-    error: businessTypesError,
-    refetch: refetchBusinessTypes,
-  } = useBusinessTypes()
-  const businessTypesForSearch = useMemo((): BusinessType[] => {
-    const apiCategoryToIconKey: Record<string, string> = {
-      restaurant: 'food',
-      restaurants: 'food',
-      horeca: 'hospitality',
-      catering: 'food',
-      professional: 'consulting',
-      professionals: 'consulting',
-    }
-    return businessTypes.map((bt) => {
-      const cat =
-        typeof bt.category === 'string'
-          ? bt.category
-          : ((bt.category as Record<string, unknown>)?.name ??
-            (bt.category as Record<string, unknown>)?.title ??
-            'other')
-      const rawCategory = String(cat).toLowerCase().replace(/\s+/g, '-')
-      const iconKey = apiCategoryToIconKey[rawCategory] ?? rawCategory
-      const category = categoryIcons[iconKey] ? iconKey : 'other'
-      return {
-        id: bt.id,
-        code: bt.industryMapping || bt.id,
-        name: bt.title,
-        category,
-        icon: categoryIcons[iconKey] ?? categoryIcons['other'] ?? Building2,
-        emoji: bt.icon || '🏢',
-        popular: bt.popular ?? false,
-      }
-    })
-  }, [businessTypes])
-
-  const {
-    clearNacePrefillError,
-    nacePrefillError,
-    prefillBusinessTypeForCompany,
-    retryNacePrefill,
-  } = useManualNaceBusinessTypePrefill({
-    businessTypesForSearch,
+    commitRemoveHistoricalYear,
+    confirmRemoveForecastYears,
+    handleSelectFilingYear,
+    historicalYearPendingRemove,
+    partialYears,
+    requestRemoveHistoricalYear,
+    setHistoricalYearPendingRemove,
+    setShowForecastRemovalConfirm,
+    showForecastRemovalConfirm,
+    updateYearlyFinancials,
+  } = useManualFinancialRowsController({
     formData,
-    localizeActivityCodeCopy,
-    selectedBusinessTypeId: selectedBusinessType?.id,
-    selectedCompany,
+    normalizationItems,
     setFormData,
-    setSelectedBusinessType,
+  })
+
+  const normalizedData = useMemo(
+    () =>
+      buildManualInputNormalizedData({
+        estimatedMarketRent: formData.estimated_market_rent,
+        excludeRealEstate: formData.exclude_real_estate,
+        normalizationItems,
+        yearlyFinancials: formData.yearlyFinancials,
+      }),
+    [
+      formData.estimated_market_rent,
+      formData.exclude_real_estate,
+      formData.yearlyFinancials,
+      normalizationItems,
+    ]
+  )
+
+  const {
+    businessTypesError,
+    businessTypesForSearch,
+    businessTypesLoading,
+    executeClearCompany,
+    handleBusinessTypeSelect,
+    handleClearCompany,
+    handleCompanySelect,
+    kboSearchFn,
+    nacePrefillError,
+    refetchBusinessTypes,
+    retryNacePrefill,
+    searchCountry,
+    selectedBusinessType,
+  } = useManualCompanyIdentificationController({
+    executePrefillCompanyReset,
+    formData,
+    initialCountry: initialData.country,
+    localizeActivityCodeCopy,
+    prefillCompanyRef,
+    searchUnavailableMessage: tKbo('searchUnavailable'),
+    selectedCompany,
+    setCompanySearchValue,
+    setFormData,
+    setSelectedCompany,
+    setShowChangeCompanyWarning,
     translate: t,
     updateFormData,
   })
@@ -973,39 +342,6 @@ export function ManualInputPanel({
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateYearlyFinancials = (
-    year: string,
-    isForecast: boolean,
-    field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change' | 'free_cash_flow',
-    value: number | undefined
-  ) => {
-    const yearKey = String(year)
-    setFormData((prev) => ({
-      ...prev,
-      yearlyFinancials: prev.yearlyFinancials.map((yf) =>
-        String(yf.year) === yearKey && !!yf.isForecast === isForecast
-          ? field === 'free_cash_flow'
-            ? { ...yf, free_cash_flow: value }
-            : { ...yf, [field]: value ?? 0 }
-          : yf
-      ),
-    }))
-  }
-
-  const handleSelectFilingYear = useCallback((selectedYear: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      yearlyFinancials: generateDefaultYearlyFinancials(selectedYear),
-      filingYearConfirmed: true,
-      current_year_data: buildCurrentYearData({
-        year: selectedYear,
-        revenue: prev.current_year_data?.revenue ?? 0,
-        ebitda: prev.current_year_data?.ebitda ?? 0,
-        currentYearData: prev.current_year_data,
-      }),
-    }))
-  }, [])
-
   // DCF auto-injection: add forecast years when DCF is selected, prompt removal on switch-away.
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
@@ -1015,24 +351,6 @@ export function ManualInputPanel({
     () => getSynthesisMethodKeysForUi(effectiveMethods),
     [effectiveMethods]
   )
-  const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
-  const prevSynthesisMethodCountRef = useRef(0)
-  useEffect(() => {
-    const n = synthesisMethodsForPanel.length
-    const prev = prevSynthesisMethodCountRef.current
-    prevSynthesisMethodCountRef.current = n
-    if (n >= 2 && prev < 2) {
-      // Double rAF: let Framer height animation + layout settle before scrolling into view.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          synthesisPanelAnchorRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          })
-        })
-      })
-    }
-  }, [synthesisMethodsForPanel.length])
   const hasDcfSelected = selectionRequiresForecastYears(effectiveMethods)
   /**
    * Whether the real-estate carve-out toggle should be rendered.
@@ -1136,54 +454,14 @@ export function ManualInputPanel({
   )
 
   const adaptiveHeaderSteps = useMemo(() => {
-    const bonus =
-      effectiveMethods.length > 1
-        ? getBonusSectionsForMethods(
-            effectiveMethods,
-            resolvedBusinessCategoryForBonusSections,
-            resolvedBusinessTypeIdForBonusSections,
-            saasSignalsForBonusSections
-          )
-        : getBonusSections(
-            effectiveMethod,
-            resolvedBusinessCategoryForBonusSections,
-            resolvedBusinessTypeIdForBonusSections,
-            saasSignalsForBonusSections
-          )
-    /** With DCF forecast: steps 4–6 = embedded defaults / forecast / WACC+TV; bonus sections start at 8.
-     * Without DCF forecast, step 4 is reserved for the real-estate carve-out section.
-     */
-    let n = hasDcfForecastWorkspace ? 8 : 5
-    const out: {
-      dcfGlobal?: number
-      nav?: number
-      saas?: number
-      revenue?: number
-      sde?: number
-      fiscal?: number
-    } = {}
-    /** Fiscal-inputs section leads — meerwaarde dossier reads top-to-bottom
-     * (legal context → "hoogste van vier" → going-concern numerics).
-     * fiscal_4x is standalone, so this never co-renders with another bonus. */
-    if (bonus.includes('fiscal_inputs')) {
-      out.fiscal = n++
-    }
-    if (bonus.includes('dcf_projections')) {
-      out.dcfGlobal = hasDcfForecastWorkspace ? 4 : n++
-    }
-    if (bonus.includes('nav_asset_schedule')) {
-      out.nav = n++
-    }
-    if (bonus.includes('saas_metrics')) {
-      out.saas = n++
-    }
-    if (bonus.includes('revenue_quality')) {
-      out.revenue = n++
-    }
-    if (bonus.includes('sde_owner_compensation')) {
-      out.sde = n++
-    }
-    return out
+    return buildManualInputAdaptiveHeaderSteps({
+      effectiveMethod,
+      effectiveMethods,
+      hasDcfForecastWorkspace,
+      resolvedBusinessCategory: resolvedBusinessCategoryForBonusSections,
+      resolvedBusinessTypeId: resolvedBusinessTypeIdForBonusSections,
+      saasSignals: saasSignalsForBonusSections,
+    })
   }, [
     effectiveMethod,
     effectiveMethods,
@@ -1195,458 +473,18 @@ export function ManualInputPanel({
 
   /** After WACC & terminal (step 6) when DCF forecast exists; else step 4. */
   const balanceSheetCarveOutStep = useMemo(
-    () => (hasDcfForecastWorkspace ? 7 : 4),
+    () => getManualInputBalanceSheetCarveOutStep(hasDcfForecastWorkspace),
     [hasDcfForecastWorkspace]
   )
 
-  const synthesisStep = useMemo(() => {
-    const allSteps = [
-      3,
-      balanceSheetCarveOutStep,
-      adaptiveHeaderSteps.dcfGlobal,
-      adaptiveHeaderSteps.nav,
-      adaptiveHeaderSteps.saas,
-      adaptiveHeaderSteps.revenue,
-      adaptiveHeaderSteps.sde,
-      adaptiveHeaderSteps.fiscal,
-    ].filter((s): s is number => s != null)
-    return Math.max(...allSteps) + 1
-  }, [balanceSheetCarveOutStep, adaptiveHeaderSteps])
+  const synthesisStep = useMemo(
+    () => getManualInputSynthesisStep(balanceSheetCarveOutStep, adaptiveHeaderSteps),
+    [balanceSheetCarveOutStep, adaptiveHeaderSteps]
+  )
 
   const dcfForecastDefaultsStep = 4
   const dcfForecastWorkspaceStep = 5
   const dcfWaccTerminalStep = 6
-
-  const dcfModeSegmentOptions = useMemo(
-    () => [
-      { value: 'ebitda' as const, label: mi('dcfInputMode.ebitdaShort') },
-      { value: 'fcff_only' as const, label: mi('dcfInputMode.fcffOnlyShort') },
-    ],
-    [mi]
-  )
-
-  const [terminalValueMethod, setTerminalValueMethod] = useState<TerminalValueMethod>(() => {
-    if (formData.dcf_terminal_value_method) return formData.dcf_terminal_value_method
-    if (formData.dcf_exit_multiple != null && formData.dcf_terminal_growth_pct == null)
-      return 'exit_multiple'
-    return 'perpetual_growth'
-  })
-
-  const handleTerminalValueMethodChange = useCallback((method: TerminalValueMethod) => {
-    setTerminalValueMethod(method)
-    setFormData((prev) => ({ ...prev, dcf_terminal_value_method: method }))
-  }, [])
-
-  /** Last model-derived snapshot per forecast year; used to preserve manual overrides when DCF % change. */
-  const dcfLastModelSnapshotRef = useRef<Record<string, DcfForecastModelSnapshot>>({})
-
-  /** FCFF-only mode has no EBITDA on forecast rows; keep terminal method aligned with ValuationIQ (Gordon growth). */
-  useEffect(() => {
-    if (formData.dcf_input_mode !== 'fcff_only') return
-    if (terminalValueMethod !== 'exit_multiple') return
-    setTerminalValueMethod('perpetual_growth')
-    setFormData((prev) => ({ ...prev, dcf_terminal_value_method: 'perpetual_growth' }))
-  }, [formData.dcf_input_mode, terminalValueMethod])
-
-  const dcfProjectionAutofillRows = useMemo(
-    () =>
-      hasDcfSelected
-        ? deriveDcfProjectionPreview({
-            yearlyFinancials: formData.yearlyFinancials,
-            smartDefaults: dcfSmartDefaultsFromHistory,
-            revenueGrowthPct: formData.dcf_revenue_growth_pct,
-            ebitdaMarginPct: formData.dcf_ebitda_margin_pct,
-            capexPct: formData.dcf_capex_pct,
-            daPct: formData.dcf_da_pct,
-            nwcPct: formData.dcf_nwc_pct,
-            taxRatePct: formData.dcf_tax_rate_pct,
-            forecastYears: dcfForecastRows.map((row) => Number(row.year)),
-          })
-        : [],
-    [
-      dcfForecastRows,
-      dcfSmartDefaultsFromHistory,
-      hasDcfSelected,
-      formData.dcf_capex_pct,
-      formData.dcf_da_pct,
-      formData.dcf_ebitda_margin_pct,
-      formData.dcf_nwc_pct,
-      formData.dcf_revenue_growth_pct,
-      formData.dcf_tax_rate_pct,
-      formData.yearlyFinancials,
-    ]
-  )
-  const growthPctOk =
-    typeof formData.dcf_revenue_growth_pct === 'number' &&
-    Number.isFinite(formData.dcf_revenue_growth_pct)
-  const marginPctOk =
-    typeof formData.dcf_ebitda_margin_pct === 'number' &&
-    Number.isFinite(formData.dcf_ebitda_margin_pct)
-  const canApplyDcfProjectionAutofill =
-    formData.dcf_input_mode !== 'fcff_only' &&
-    dcfForecastRows.length > 0 &&
-    growthPctOk &&
-    marginPctOk &&
-    dcfProjectionAutofillRows.length > 0 &&
-    dcfProjectionAutofillRows.length === dcfForecastRows.length
-
-  const handleDcfInputModeChange = useCallback((mode: 'ebitda' | 'fcff_only') => {
-    if (mode === 'fcff_only') {
-      setTerminalValueMethod('perpetual_growth')
-    }
-    setFormData((prev) => {
-      if (mode === 'fcff_only') {
-        const globals = {
-          daPct: prev.dcf_da_pct ?? DCF_DEFAULT_DA_PCT,
-          capexPct: prev.dcf_capex_pct ?? DCF_DEFAULT_CAPEX_PCT,
-          nwcPct: prev.dcf_nwc_pct ?? DCF_DEFAULT_NWC_PCT,
-          taxRatePct: prev.dcf_tax_rate_pct ?? DCF_DEFAULT_TAX_RATE_PCT,
-        }
-        return {
-          ...prev,
-          dcf_input_mode: 'fcff_only',
-          dcf_terminal_value_method: 'perpetual_growth',
-          yearlyFinancials: prev.yearlyFinancials.map((yf) => {
-            if (!yf.isForecast) return yf
-            const fcff = buildProjectionRowFromForecastRow(
-              {
-                year: String(yf.year),
-                revenue: yf.revenue,
-                ebitda: yf.ebitda,
-                capex: yf.capex,
-                depreciation: yf.depreciation,
-                nwc_change: yf.nwc_change,
-                free_cash_flow: yf.free_cash_flow,
-              },
-              globals
-            ).fcff
-            return { ...yf, revenue: 0, ebitda: 0, free_cash_flow: fcff }
-          }),
-        }
-      }
-      const forecastYears = prev.yearlyFinancials
-        .filter((r) => r.isForecast)
-        .map((r) => Number(r.year))
-      const cleared = prev.yearlyFinancials.map((yf) =>
-        yf.isForecast ? { ...yf, free_cash_flow: undefined } : yf
-      )
-      const projectionRows = deriveDcfProjectionPreview({
-        yearlyFinancials: cleared,
-        smartDefaults: dcfSmartDefaultsFromForm(prev),
-        revenueGrowthPct: prev.dcf_revenue_growth_pct,
-        ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
-        capexPct: prev.dcf_capex_pct,
-        daPct: prev.dcf_da_pct,
-        nwcPct: prev.dcf_nwc_pct,
-        taxRatePct: prev.dcf_tax_rate_pct,
-        forecastYears,
-      })
-      if (projectionRows.length === 0) {
-        return {
-          ...prev,
-          dcf_input_mode: 'ebitda',
-          yearlyFinancials: cleared as YearlyFinancials[],
-        }
-      }
-      return {
-        ...prev,
-        dcf_input_mode: 'ebitda',
-        yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
-          cleared as YearlyFinancials[],
-          projectionRows
-        ) as YearlyFinancials[],
-      }
-    })
-  }, [])
-
-  const handleApplyDcfProjectionAutofill = useCallback(() => {
-    if (!canApplyDcfProjectionAutofill) return
-
-    // Detect manual per-year edits BEFORE we overwrite. A row counts as
-    // manually edited when it carries explicit values for capex / depreciation
-    // / nwc_change / free_cash_flow — none of those are seeded by the defaults
-    // path, so their presence means the user opened the detailed table and
-    // tweaked something. Warning + undo prevents silent data loss.
-    let snapshot: YearlyFinancials[] | null = null
-    let manualEditCount = 0
-
-    setFormData((prev) => {
-      snapshot = prev.yearlyFinancials
-      manualEditCount = prev.yearlyFinancials.filter((row) => {
-        if (!row.isForecast) return false
-        const r = row as YearlyFinancials & {
-          capex?: number | null
-          depreciation?: number | null
-          nwc_change?: number | null
-          free_cash_flow?: number | null
-        }
-        return (
-          (typeof r.capex === 'number' && Number.isFinite(r.capex)) ||
-          (typeof r.depreciation === 'number' && Number.isFinite(r.depreciation)) ||
-          (typeof r.nwc_change === 'number' && Number.isFinite(r.nwc_change)) ||
-          (typeof r.free_cash_flow === 'number' && Number.isFinite(r.free_cash_flow))
-        )
-      }).length
-
-      return {
-        ...prev,
-        yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
-          prev.yearlyFinancials,
-          deriveDcfProjectionPreview({
-            yearlyFinancials: prev.yearlyFinancials,
-            smartDefaults: dcfSmartDefaultsFromForm(prev),
-            revenueGrowthPct: prev.dcf_revenue_growth_pct,
-            ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
-            capexPct: prev.dcf_capex_pct,
-            daPct: prev.dcf_da_pct,
-            nwcPct: prev.dcf_nwc_pct,
-            taxRatePct: prev.dcf_tax_rate_pct,
-            forecastYears: prev.yearlyFinancials
-              .filter((row) => row.isForecast)
-              .map((row) => Number(row.year)),
-          })
-        ) as YearlyFinancials[],
-      }
-    })
-
-    void import('sonner').then(({ toast }) => {
-      const undoLabel = mi('dcfProjectionAutofillUndo') || 'Undo'
-      const baseMsg = mi('dcfProjectionAutofillApplied', { count: dcfForecastRows.length })
-      const overwriteSuffix =
-        manualEditCount > 0
-          ? ` ${mi('dcfProjectionAutofillOverwrote', { count: manualEditCount })}`
-          : ''
-      const restore = () => {
-        if (!snapshot) return
-        const restoreSnapshot = snapshot
-        setFormData((prev) => ({ ...prev, yearlyFinancials: restoreSnapshot }))
-      }
-      if (manualEditCount > 0) {
-        toast.warning(`${baseMsg}${overwriteSuffix}`, {
-          duration: 8000,
-          action: { label: undoLabel, onClick: restore },
-        })
-      } else {
-        toast.success(baseMsg, {
-          duration: 5000,
-          action: { label: undoLabel, onClick: restore },
-        })
-      }
-    })
-  }, [canApplyDcfProjectionAutofill, dcfForecastRows.length, mi])
-
-  const dcfForecastYearKeys = useMemo(
-    () =>
-      dcfForecastRows
-        .map((r) => String(r.year))
-        .sort()
-        .join(','),
-    [dcfForecastRows]
-  )
-
-  useEffect(() => {
-    const allowed = new Set(dcfForecastYearKeys.length > 0 ? dcfForecastYearKeys.split(',') : [])
-    const next: Record<string, DcfForecastModelSnapshot> = {}
-    for (const k of Object.keys(dcfLastModelSnapshotRef.current)) {
-      if (allowed.has(k)) next[k] = dcfLastModelSnapshotRef.current[k]
-    }
-    dcfLastModelSnapshotRef.current = next
-  }, [dcfForecastYearKeys])
-
-  useEffect(() => {
-    if (formData.dcf_input_mode === 'fcff_only') {
-      dcfLastModelSnapshotRef.current = {}
-    }
-  }, [formData.dcf_input_mode])
-
-  /** Seed DCF defaults: smart history + integration (Titan/Mercury), then static engine fallbacks. */
-  useEffect(() => {
-    if (!hasDcfSelected) return
-
-    const smart = dcfSmartDefaultsFromHistory
-
-    setFormData((prev) => {
-      const patch: Partial<ValuationFormData> = {}
-      const hasForecastRows = dcfForecastRows.length > 0
-
-      if (prev.dcf_wacc_pct == null || !Number.isFinite(prev.dcf_wacc_pct)) {
-        patch.dcf_wacc_pct = smart?.waccPct ?? DCF_DEFAULT_WACC_PCT
-      }
-      if (prev.dcf_terminal_growth_pct == null || !Number.isFinite(prev.dcf_terminal_growth_pct)) {
-        patch.dcf_terminal_growth_pct = smart?.terminalGrowthPct ?? DCF_DEFAULT_TERMINAL_GROWTH_PCT
-      }
-
-      if (prev.dcf_input_mode !== 'fcff_only' && hasForecastRows) {
-        if (prev.dcf_revenue_growth_pct == null || !Number.isFinite(prev.dcf_revenue_growth_pct)) {
-          patch.dcf_revenue_growth_pct = smart?.revenueGrowthPct ?? DCF_DEFAULT_REVENUE_GROWTH_PCT
-        }
-        if (prev.dcf_ebitda_margin_pct == null || !Number.isFinite(prev.dcf_ebitda_margin_pct)) {
-          if (smart) {
-            patch.dcf_ebitda_margin_pct = smart.ebitdaMarginPct
-          } else {
-            const rev = latestHistoricalRevenue
-            const ebitda = latestHistoricalEbitda
-            if (rev && rev > 0 && ebitda != null && Number.isFinite(ebitda)) {
-              patch.dcf_ebitda_margin_pct = Math.round((ebitda / rev) * 1000) / 10
-            } else {
-              patch.dcf_ebitda_margin_pct = DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT
-            }
-          }
-        }
-        if (prev.dcf_capex_pct == null || !Number.isFinite(prev.dcf_capex_pct)) {
-          patch.dcf_capex_pct =
-            integrationDerivedCapexPct ?? smart?.capexPct ?? DCF_DEFAULT_CAPEX_PCT
-        }
-        if (prev.dcf_da_pct == null || !Number.isFinite(prev.dcf_da_pct)) {
-          patch.dcf_da_pct = integrationDerivedDaPct ?? smart?.daPct ?? DCF_DEFAULT_DA_PCT
-        }
-        if (prev.dcf_nwc_pct == null || !Number.isFinite(prev.dcf_nwc_pct)) {
-          patch.dcf_nwc_pct = DCF_DEFAULT_NWC_PCT
-        }
-        if (prev.dcf_tax_rate_pct == null || !Number.isFinite(prev.dcf_tax_rate_pct)) {
-          patch.dcf_tax_rate_pct = smart?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT
-        }
-      }
-
-      if (Object.keys(patch).length === 0) return prev
-      return { ...prev, ...patch }
-    })
-  }, [
-    hasDcfSelected,
-    formData.dcf_input_mode,
-    dcfForecastRows.length,
-    latestHistoricalRevenue,
-    latestHistoricalEbitda,
-    dcfSmartDefaultsFromHistory,
-    integrationDerivedCapexPct,
-    integrationDerivedDaPct,
-  ])
-
-  /** Live-sync forecast rows from DCF %; rows that diverge from the last model snapshot are treated as manual overrides. */
-  useEffect(() => {
-    if (!hasDcfSelected || formData.dcf_input_mode === 'fcff_only') return
-    if (dcfForecastRows.length === 0) return
-
-    setFormData((prev) => {
-      const growth = prev.dcf_revenue_growth_pct
-      const margin = prev.dcf_ebitda_margin_pct
-      if (
-        growth == null ||
-        margin == null ||
-        !Number.isFinite(growth) ||
-        !Number.isFinite(margin)
-      ) {
-        return prev
-      }
-
-      const forecastYears = prev.yearlyFinancials
-        .filter((r) => r.isForecast)
-        .map((r) => Number(r.year))
-      const preview = deriveDcfProjectionPreview({
-        yearlyFinancials: prev.yearlyFinancials,
-        smartDefaults: dcfSmartDefaultsFromForm(prev),
-        revenueGrowthPct: growth,
-        ebitdaMarginPct: margin,
-        capexPct: prev.dcf_capex_pct,
-        daPct: prev.dcf_da_pct,
-        nwcPct: prev.dcf_nwc_pct,
-        taxRatePct: prev.dcf_tax_rate_pct,
-        forecastYears,
-      })
-      if (preview.length === 0) return prev
-
-      const ref = dcfLastModelSnapshotRef
-      let anyChange = false
-      const nextYf = prev.yearlyFinancials.map((yf) => {
-        if (!yf.isForecast) return yf
-        const proj = preview.find((p) => String(p.year) === String(yf.year))
-        if (!proj) return yf
-
-        const modelSnap: DcfForecastModelSnapshot = {
-          revenue: proj.revenue,
-          ebitda: proj.ebitda,
-          capex: proj.capex,
-          depreciation: proj.da,
-          nwc_change: proj.nwcChange,
-        }
-        const lastSnap = ref.current[String(yf.year)]
-        const curSnap = snapshotFromForecastRowLike(yf)
-        if (lastSnap && !snapshotsClose(curSnap, lastSnap)) {
-          return yf
-        }
-
-        const merged = {
-          ...yf,
-          revenue: proj.revenue,
-          ebitda: proj.ebitda,
-          capex: proj.capex,
-          depreciation: proj.da,
-          nwc_change: proj.nwcChange,
-          free_cash_flow: undefined,
-        }
-        if (
-          merged.revenue !== yf.revenue ||
-          merged.ebitda !== yf.ebitda ||
-          (merged.capex ?? 0) !== (yf.capex ?? 0) ||
-          (merged.depreciation ?? 0) !== (yf.depreciation ?? 0) ||
-          (merged.nwc_change ?? 0) !== (yf.nwc_change ?? 0)
-        ) {
-          anyChange = true
-        }
-        ref.current[String(yf.year)] = modelSnap
-        return merged
-      })
-
-      if (!anyChange) return prev
-      return { ...prev, yearlyFinancials: nextYf as YearlyFinancials[] }
-    })
-  }, [
-    hasDcfSelected,
-    formData.dcf_input_mode,
-    formData.dcf_revenue_growth_pct,
-    formData.dcf_ebitda_margin_pct,
-    formData.dcf_capex_pct,
-    formData.dcf_da_pct,
-    formData.dcf_nwc_pct,
-    formData.dcf_tax_rate_pct,
-    dcfForecastYearKeys,
-  ])
-
-  useEffect(() => {
-    const persistedAnalysis = formData.business_context?._imported_ledger_analysis as
-      | ImportedLedgerAnalysisSummary
-      | undefined
-    const suggestedCapex =
-      importBatchData?.dcf_defaults?.suggested_capex ??
-      persistedAnalysis?.dcf_defaults?.suggested_capex
-    if (
-      !hasDcfSelected ||
-      formData.dcf_input_mode === 'fcff_only' ||
-      !suggestedCapex ||
-      dcfForecastRows.length === 0
-    ) {
-      return
-    }
-
-    setFormData((prev) => {
-      let changed = false
-      const next = prev.yearlyFinancials.map((row) => {
-        if (row.isForecast && (row.capex == null || row.capex === 0)) {
-          changed = true
-          return { ...row, capex: suggestedCapex }
-        }
-        return row
-      })
-      if (!changed) return prev
-      return { ...prev, yearlyFinancials: next }
-    })
-  }, [
-    dcfForecastRows.length,
-    hasDcfSelected,
-    formData.business_context,
-    formData.dcf_input_mode,
-    importBatchData?.dcf_defaults?.suggested_capex,
-  ])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -1658,126 +496,14 @@ export function ManualInputPanel({
       )
       return
     }
-    const trust = useManualFormStore.getState().formData
-    const trustOfficialUsable = hasUsableOfficialFinancialsContent(trust.official_financials)
-    onSubmit({
-      ...formData,
-      averageNormalizedEbitda: normalizedData.averageNormalizedEbitda,
-      ...(trustOfficialUsable &&
-        trust.official_financials && { official_financials: trust.official_financials }),
-      ...(trustOfficialUsable &&
-        trust.official_variance_analysis != null && {
-          official_variance_analysis: trust.official_variance_analysis,
-        }),
-      ...(trustOfficialUsable &&
-        trust.official_verification_badge != null && {
-          official_verification_badge: trust.official_verification_badge,
-        }),
-    })
-  }
-
-  // Handle KBO company selection (Mercury parity: prefill business type from NACE)
-  const handleCompanySelect = useCallback(
-    async (company: KBOCompany) => {
-      setSelectedCompany(company)
-      setCompanySearchValue(company.name ?? '')
-
-      const addr = company.address ?? ''
-      const postal = company.postalCode ?? ''
-      const city = company.city ?? ''
-      const addressStr =
-        postal && addr && !addr.includes(postal) ? `${addr}, ${postal} ${city}` : addr
-
-      const canonical = company.canonicalNaceCode?.trim() || company.naceCode?.trim() || ''
-      const displayCode = company.activityCode?.trim() || company.naceCode?.trim() || ''
-      const baseUpdates: Partial<ValuationFormData> = {
-        companyName: company.name ?? '',
-        kboNumber: company.kboNumber ?? '',
-        legalForm: company.legalForm ?? '',
-        address: addressStr,
-        naceCode: displayCode,
-        canonicalNaceCode: canonical,
-        naceDescription: company.naceDescription ?? '',
-        businessStructure: mapLegalFormToBusinessStructure(company.legalForm ?? ''),
-      }
-
-      setFormData((prev) => ({ ...prev, ...baseUpdates }))
-      clearNacePrefillError()
-
-      updateFormData({
-        kbo_number: company.kboNumber ?? '',
-        legal_form: company.legalForm ?? '',
-        nace_code: canonical,
-        nace_description: baseUpdates.naceDescription || '',
-        // Clear stale SBI when switching to a BE row or when display matches canonical
-        ...(displayCode && canonical && displayCode !== canonical
-          ? { activity_code: displayCode }
-          : { activity_code: undefined }),
+    onSubmit(
+      buildManualInputSubmitPayload({
+        averageNormalizedEbitda: normalizedData.averageNormalizedEbitda,
+        formData,
+        trustFormData: useManualFormStore.getState().formData,
       })
-
-      await prefillBusinessTypeForCompany(
-        company,
-        baseUpdates,
-        canonical || company.naceCode?.trim()
-      )
-    },
-    [clearNacePrefillError, prefillBusinessTypeForCompany, updateFormData]
-  )
-
-  const handleBusinessTypeSelect = (value: string, businessType?: BusinessType) => {
-    setSelectedBusinessType(businessType || null)
-    updateField('businessType', value)
-    clearNacePrefillError()
-    if (businessType) {
-      updateField('businessTypeCode', businessType.code)
-      updateField('industry', businessType.category)
-      updateFormData({ business_type_id: value, industry: businessType.category })
-    } else {
-      updateField('businessTypeCode', '')
-      updateField('industry', '')
-      updateFormData({ business_type_id: undefined, industry: undefined })
-    }
+    )
   }
-
-  const executeClearCompany = useCallback(() => {
-    prefillCompanyRef.current = null
-    setSelectedCompany(null)
-    setCompanySearchValue('')
-    clearNacePrefillError()
-    setSelectedBusinessType(null)
-    setShowChangeCompanyWarning(false)
-    setFormData((prev) => ({
-      ...prev,
-      companyName: '',
-      kboNumber: '',
-      legalForm: '',
-      address: '',
-      naceCode: '',
-      canonicalNaceCode: '',
-      naceDescription: '',
-      businessStructure: '',
-      businessType: '',
-      businessTypeCode: '',
-      industry: '',
-    }))
-    updateFormData({
-      business_type_id: undefined,
-      industry: undefined,
-      kbo_number: '',
-      legal_form: '',
-      nace_code: '',
-      nace_description: '',
-      activity_code: undefined,
-    })
-  }, [clearNacePrefillError, updateFormData])
-
-  const handleClearCompany = useCallback(() => {
-    if (prefillCompanyRef.current && selectedCompany) {
-      setShowChangeCompanyWarning(true)
-      return
-    }
-    executeClearCompany()
-  }, [executeClearCompany, selectedCompany])
 
   const handleCSVFileSelected = useCallback(
     (_file: File, parsedData: ParsedCSVData) => {
@@ -1798,15 +524,6 @@ export function ManualInputPanel({
   ).length
   const { canSave, reason: canSaveReason } = useCanSave()
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
-
-  // Field-level: detect partially filled years (has one of revenue/ebitda but not both).
-  // Forecast years are excluded — they start as empty placeholders by design.
-  const partialYears = formData.yearlyFinancials
-    .filter(
-      (yf) =>
-        !yf.isForecast && hasExplicitNumericValue(yf.revenue) !== hasExplicitNumericValue(yf.ebitda)
-    )
-    .map((yf) => yf.year)
 
   // Round-4 audit: `selectedBelgianAuditEntries` was used to drive the
   // BelgianSmeAuditPanel mount in this component. That panel was
@@ -1864,825 +581,103 @@ export function ManualInputPanel({
               onFieldHelpRequest={onFieldHelpRequest}
             />
 
-            {/* Step 3: Multi-Year Financials */}
-            {selectedCompany && hasBusinessType && (
-              <motion.section
-                ref={financialsStepRef}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4 pt-2"
-              >
-                <div className={SECTION_HEADER_ROW_CLASS}>
-                  <SectionStatusCircle step={3} complete={hasFinancials} className="flex" />
-                  <h3 className="text-sm font-medium text-foreground">
-                    {mi('sections.financialHistory')}
-                  </h3>
-                </div>
+            <FinancialHistorySection
+              acceptedNormCount={acceptedNormCount}
+              adaptiveDcfGlobalStep={adaptiveHeaderSteps.dcfGlobal}
+              baseFilingYearForLabels={baseFilingYearForLabels}
+              bizzcontrolImport={bizzcontrolImport}
+              currentFilingYear={currentFilingYear}
+              dcfDefaultsProvenance={dcfDefaultsProvenance}
+              dcfForecastDefaultsStep={dcfForecastDefaultsStep}
+              dcfForecastRows={dcfForecastRows}
+              dcfForecastWorkspaceStep={dcfForecastWorkspaceStep}
+              dcfModeSegmentOptions={dcfModeSegmentOptions}
+              dcfProjectionAutofillRows={dcfProjectionAutofillRows}
+              dcfSmartDefaultsFromHistory={dcfSmartDefaultsFromHistory}
+              dcfWaccTerminalStep={dcfWaccTerminalStep}
+              fieldValidation={fieldValidation}
+              financialsStepRef={financialsStepRef}
+              formData={formData}
+              formatCurrency={formatCurrency}
+              handleDcfInputModeChange={handleDcfInputModeChange}
+              handleOpenLiveAccountingImport={handleOpenLiveAccountingImport}
+              handleSelectFilingYear={handleSelectFilingYear}
+              handleTerminalValueMethodChange={handleTerminalValueMethodChange}
+              hasBusinessType={hasBusinessType}
+              hasDcfSelected={hasDcfSelected}
+              hasEbitdaValue={hasEbitdaValue}
+              hasFinancials={hasFinancials}
+              historicalCardRows={historicalCardRows}
+              importAccountingError={importAccountingError}
+              integrationDerivedCapexPct={integrationDerivedCapexPct}
+              integrationDerivedDaPct={integrationDerivedDaPct}
+              isCalculating={isCalculating}
+              latestHistoricalEbitda={latestHistoricalEbitda}
+              latestHistoricalRevenue={latestHistoricalRevenue}
+              liveImportProviderName={liveImportProviderName}
+              normalizedData={normalizedData}
+              octopusImport={octopusImport}
+              onFieldHelpRequest={onFieldHelpRequest}
+              onViewAllNormalizations={onViewAllNormalizations}
+              openingLiveAccountingImport={openingLiveAccountingImport}
+              partialYears={partialYears}
+              requestRemoveHistoricalYear={requestRemoveHistoricalYear}
+              selectedCompany={selectedCompany}
+              setFormData={setFormData}
+              setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
+              taxLatencyCount={taxLatencyCount}
+              terminalValueMethod={terminalValueMethod}
+              totalYearsWithEbitda={totalYearsWithEbitda}
+              updateYearlyFinancials={updateYearlyFinancials}
+              waccSectorBand={waccSectorBand}
+            />
 
-                {importAccountingError && (
-                  <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
-                )}
+            <ManualInputMethodSections
+              adaptiveHeaderSteps={adaptiveHeaderSteps}
+              balanceSheetCarveOutStep={balanceSheetCarveOutStep}
+              canApplyDcfProjectionAutofill={canApplyDcfProjectionAutofill}
+              disabled={isCalculating}
+              effectiveMethod={effectiveMethod}
+              effectiveMethods={effectiveMethods}
+              firmCountryCode={user?.firm_country_code}
+              formData={formData}
+              hasDcfForecastWorkspace={hasDcfForecastWorkspace}
+              historicalCardRows={historicalCardRows}
+              normalizedData={normalizedData}
+              onApplyDcfProjectionAutofill={handleApplyDcfProjectionAutofill}
+              onSynthesisJustificationChange={onSynthesisJustificationChange}
+              onSynthesisPaywall={onSynthesisPaywall}
+              onSynthesisWeightsChange={onSynthesisWeightsChange}
+              onTerminalValueMethodChange={handleTerminalValueMethodChange}
+              onViewAllNormalizations={onViewAllNormalizations}
+              previewCurrencyFormatter={panelCurrencyFormatter}
+              resolvedBusinessCategory={resolvedBusinessCategoryForBonusSections}
+              resolvedBusinessTypeId={resolvedBusinessTypeIdForBonusSections}
+              saasSignals={saasSignalsForBonusSections}
+              setFormData={setFormData}
+              showRealEstateCarveOut={
+                Boolean(selectedCompany) &&
+                hasBusinessType &&
+                hasFinancials &&
+                showRealEstateCarveOut
+              }
+              synthesisJustification={synthesisJustification}
+              synthesisMethods={synthesisMethodsForPanel}
+              synthesisStep={synthesisStep}
+              synthesisUnlocked={synthesisUnlocked}
+              synthesisValuationResults={synthesisValuationResults}
+              synthesisWeights={synthesisWeights}
+              terminalValueMethod={terminalValueMethod}
+            />
 
-                {liveImportProviderName ? (
-                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:px-4">
-                    <p className="min-w-0 flex-1 text-xs text-foreground/75 leading-snug">
-                      {mi('liveAccountingImportHint', {
-                        provider: liveImportProviderName,
-                      })}
-                    </p>
-                    <AuroraButton
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="shrink-0"
-                      loading={openingLiveAccountingImport}
-                      loadingScreenReaderLabel={t('common.states.loading')}
-                      disabled={bizzcontrolImport.isImporting || octopusImport.isImporting}
-                      onClick={() => void handleOpenLiveAccountingImport()}
-                      aria-label={mi('importFromAccountingAria', {
-                        provider: liveImportProviderName,
-                      })}
-                    >
-                      {mi('importFromAccounting', {
-                        provider: liveImportProviderName,
-                      })}
-                    </AuroraButton>
-                  </div>
-                ) : null}
-
-                <FilingYearPrompt
-                  defaultYear={currentFilingYear}
-                  dismissed={
-                    isFilingYearConfirmedValue(formData.filingYearConfirmed) ||
-                    hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
-                  }
-                  onSelect={handleSelectFilingYear}
-                />
-
-                {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
-                {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
-                  <motion.div
-                    className={cn(
-                      'relative rounded-xl overflow-hidden transition-all duration-300',
-                      normalizedData.years.some(
-                        (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
-                      )
-                        ? 'shadow-sm'
-                        : ''
-                    )}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    {/* Animated Aurora gradient border - Kept but made more subtle */}
-                    <div
-                      className="absolute inset-0 rounded-xl opacity-40"
-                      style={{
-                        background:
-                          'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(175 60% 50%) 25%, hsl(264 80% 60%) 50%, hsl(var(--primary)) 75%, hsl(175 60% 50%) 100%)',
-                        backgroundSize: '300% 300%',
-                        animation: 'aurora-shift 12s ease-in-out infinite',
-                        padding: '1px',
-                      }}
-                    />
-
-                    {/* Inner content with solid background */}
-                    <div className="relative m-[1px] rounded-[11px] bg-background p-4">
-                      {/* Subtle inner glow */}
-                      <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
-
-                      <div className="relative">
-                        {/* Normalization Trigger - always visible when financials entered */}
-                        {hasFinancials ? (
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-foreground/60 mb-1">
-                                {mi('fields.normalizedEbitda')}
-                              </p>
-                              <div className="flex items-baseline gap-2 flex-wrap">
-                                <span className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">
-                                  {formatCurrency(normalizedData.averageNormalizedEbitda)}
-                                </span>
-                                <span className="text-xs text-foreground/50">
-                                  ({normalizedData.totalYearsWithData}{' '}
-                                  {normalizedData.totalYearsWithData === 1
-                                    ? mi('year')
-                                    : mi('years')}
-                                  )
-                                </span>
-                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) &&
-                                  (() => {
-                                    const yearsWithData = normalizedData.years.filter((y) =>
-                                      hasExplicitNumericValue(y.ebitda)
-                                    )
-                                    const adjSum = yearsWithData.reduce(
-                                      (sum, y) =>
-                                        sum +
-                                        (Number.isFinite(y.totalAdjustment)
-                                          ? y.totalAdjustment
-                                          : 0),
-                                      0
-                                    )
-                                    const avgAdj =
-                                      yearsWithData.length > 0 ? adjSum / yearsWithData.length : 0
-                                    const safeAvg = Number.isFinite(avgAdj) ? avgAdj : 0
-                                    return (
-                                      <span
-                                        className={cn(
-                                          'text-sm font-medium',
-                                          safeAvg > 0
-                                            ? 'text-success'
-                                            : safeAvg < 0
-                                              ? 'text-secondary'
-                                              : 'text-foreground/40'
-                                        )}
-                                      >
-                                        {safeAvg > 0 ? '+' : ''}
-                                        {formatCurrency(safeAvg)}
-                                      </span>
-                                    )
-                                  })()}
-                              </div>
-                              {normalizedData.annualFictiveRentDeduction > 0 && (
-                                <p className="mt-2 text-[11px] leading-snug text-foreground/45">
-                                  {mi('fictiveRentNormalizedFootnote', {
-                                    amount: formatCurrency(
-                                      normalizedData.annualFictiveRentDeduction
-                                    ),
-                                  })}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 sm:shrink-0">
-                              {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
-                                <button
-                                  type="button"
-                                  onClick={() => onViewAllNormalizations?.()}
-                                  className="text-xs font-medium text-foreground/60 hover:text-foreground transition-colors underline underline-offset-2 decoration-foreground/20 hover:decoration-foreground/40 whitespace-nowrap"
-                                >
-                                  {acceptedNormCount > 0 && taxLatencyCount > 0
-                                    ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} · ${tTax('summary', { count: taxLatencyCount })}`
-                                    : acceptedNormCount > 0
-                                      ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })}`
-                                      : tTax('summary', { count: taxLatencyCount })}
-                                </button>
-                              )}
-                              {/* Single, stable verb "Review adjustments" — replaces the
-                                  pre-existing toggle between "Normalize" (no adjustments
-                                  yet) and "Adjust" (some applied), which forced two
-                                  verbs for the same action and read as a state, not as
-                                  a destination. The count is shown on the sibling
-                                  underlined link to the left, so the button is now a
-                                  self-describing destination. The visual hierarchy
-                                  stays: primary when no adjustments exist (CTA) →
-                                  secondary once any have been accepted. */}
-                              <button
-                                type="button"
-                                onClick={() => onViewAllNormalizations?.()}
-                                className={cn(
-                                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
-                                  normalizedData.years.some(
-                                    (y) =>
-                                      y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
-                                  )
-                                    ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
-                                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                )}
-                              >
-                                {mi('reviewAdjustments')}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-foreground/60 leading-relaxed">
-                            <span className="text-foreground font-medium">
-                              {mi('whyNormalize')}
-                            </span>{' '}
-                            {mi('whyNormalizeExplanation')}{' '}
-                            <span className="text-foreground">{mi('marketConformLevels')}</span>.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Year-by-year financial input */}
-                <div className="space-y-3">
-                  {historicalCardRows.map((yearData, index) => {
-                    const normalizedYear = normalizedData.years.find(
-                      (y) => y.year === yearData.year && !!y.isForecast === !!yearData.isForecast
-                    )
-                    const normCount = Number(normalizedYear?.normalizationCount ?? 0)
-                    const histOffset = getFilingYearHistoricalOffset(
-                      yearData.year,
-                      baseFilingYearForLabels
-                    )
-                    const yearLabelForHelp =
-                      yearData.isForecast || histOffset === null
-                        ? String(yearData.year)
-                        : histOffset === 0
-                          ? `${yearData.year} (${mi('filingYearColumnBase')})`
-                          : `${yearData.year} (${mi('filingYearColumnBaseMinus', { n: histOffset })})`
-
-                    return (
-                      <div
-                        key={`${yearData.year}-${yearData.isForecast ? 'f' : 'h'}`}
-                        className={cn(
-                          'p-3 rounded-xl border transition-colors',
-                          yearData.isForecast
-                            ? 'border-dashed border-primary/20 bg-primary/[0.02]'
-                            : partialYears.includes(yearData.year)
-                              ? 'border-warning/40 bg-warning/[0.03]'
-                              : Number.isFinite(yearData.revenue) &&
-                                  Number.isFinite(yearData.ebitda)
-                                ? 'border-foreground/[0.08] bg-foreground/[0.02]'
-                                : 'border-dashed border-foreground/[0.06]'
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-semibold text-foreground">
-                            {yearData.year}
-                            {/*
-                             * Explicit JSX space between the calendar year and
-                             * the role chip — the visual gap comes from
-                             * ``ml-1.5`` on the span, but copy/paste and AT
-                             * read the text content without any margin, which
-                             * surfaced as "2025(Basis)" with no separator
-                             * (METANOUS bug report). Mirror the Python
-                             * report formatter (filing_year_labels.py) which
-                             * emits "2025 (Base)" with a real space.
-                             */}
-                            {!yearData.isForecast && histOffset === 0 && (
-                              <>
-                                {' '}
-                                <span className="text-xs font-normal text-muted-foreground">
-                                  ({mi('filingYearColumnBase')})
-                                </span>
-                              </>
-                            )}
-                            {!yearData.isForecast && histOffset !== null && histOffset > 0 && (
-                              <>
-                                {' '}
-                                <span className="text-xs font-normal text-muted-foreground">
-                                  ({mi('filingYearColumnBaseMinus', { n: histOffset })})
-                                </span>
-                              </>
-                            )}
-                            {yearData.isForecast && (
-                              <>
-                                {' '}
-                                <span className="text-xs font-normal text-primary/60">
-                                  ({mi('forecastLabel')})
-                                </span>
-                              </>
-                            )}
-                          </span>
-                          {(normCount > 0 ||
-                            yearData.isForecast ||
-                            (!yearData.isForecast &&
-                              canRemoveHistoricalYear(formData.yearlyFinancials))) && (
-                            <div className="flex items-center gap-2">
-                              {normCount > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => onViewAllNormalizations?.()}
-                                  className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
-                                >
-                                  {normCount} {mi('normalizations', { count: normCount as number })}
-                                </button>
-                              )}
-                              {yearData.isForecast && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      yearlyFinancials: removeForecastYear(
-                                        prev.yearlyFinancials,
-                                        yearData.year
-                                      ),
-                                    }))
-                                  }
-                                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/15 text-primary/60 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
-                                  aria-label={`${t('common.actions.delete')} ${mi('forecastLabel').toLowerCase()} ${yearData.year}`}
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              {!yearData.isForecast &&
-                                canRemoveHistoricalYear(formData.yearlyFinancials) && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      requestRemoveHistoricalYear(String(yearData.year))
-                                    }
-                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-foreground/10 text-foreground/50 transition-colors hover:border-destructive/30 hover:bg-destructive/[0.06] hover:text-destructive"
-                                    aria-label={mi('removeHistoricalYearAria', {
-                                      year: String(yearData.year),
-                                    })}
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className={cn('grid gap-3', 'grid-cols-1 sm:grid-cols-2')}>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <CurrencyInput
-                                label={mi('fields.revenue')}
-                                value={yearData.revenue}
-                                onChange={(v) =>
-                                  updateYearlyFinancials(
-                                    yearData.year,
-                                    !!yearData.isForecast,
-                                    'revenue',
-                                    v ?? 0
-                                  )
-                                }
-                                size="sm"
-                                placeholder="1.500.000"
-                                truncateLabel={false}
-                              />
-                            </div>
-                            {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
-                              fieldValidation.errors[`revenue-${yearData.year}`]) && (
-                              <p
-                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                              >
-                                {fieldValidation.errors[`revenue-${yearData.year}`] ||
-                                  fieldValidation.warnings[`revenue-${yearData.year}`]}
-                              </p>
-                            )}
-                          </div>
-                          <div className="relative">
-                            <div className="flex items-center gap-1.5">
-                              <CurrencyInput
-                                label={mi('fields.ebitda')}
-                                value={yearData.ebitda}
-                                onChange={(v) =>
-                                  updateYearlyFinancials(
-                                    yearData.year,
-                                    !!yearData.isForecast,
-                                    'ebitda',
-                                    v ?? 0
-                                  )
-                                }
-                                size="sm"
-                                placeholder="250.000"
-                                truncateLabel={false}
-                                rightIcon={
-                                  <FieldHelpTrigger
-                                    context={{
-                                      field: 'ebitda',
-                                      label: `EBITDA ${yearLabelForHelp}`,
-                                      value: yearData.ebitda,
-                                      hint: mi('ebitdaRelevantHint'),
-                                      normalizationType: 'other',
-                                    }}
-                                    onTrigger={onFieldHelpRequest}
-                                  />
-                                }
-                              />
-                            </div>
-                            {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                              fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                              fieldValidation.warnings[`margin-${yearData.year}`]) && (
-                              <p
-                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                              >
-                                {fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                                  fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                                  fieldValidation.warnings[`margin-${yearData.year}`]}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <NbbResetHint
-                          fiscalYear={yearData.year}
-                          currentRevenue={yearData.revenue}
-                          currentEbitda={yearData.ebitda}
-                          onReset={(field, value) =>
-                            updateYearlyFinancials(
-                              yearData.year,
-                              !!yearData.isForecast,
-                              field,
-                              value
-                            )
-                          }
-                        />
-
-                        {/* Show normalized EBITDA if different (normalizations and/or fictive rent carve-out) */}
-                        {hasExplicitNumericValue(yearData.ebitda) &&
-                          normalizedYear &&
-                          (normalizedYear.totalAdjustment !== 0 ||
-                            (normalizedYear.fictiveRentDeduction ?? 0) > 0) && (
-                            <div className="mt-2 flex items-center justify-between text-xs gap-2">
-                              <span className="text-foreground/50 shrink-0">
-                                {mi('fields.normalizedEbitdaLabel')}
-                              </span>
-                              <span
-                                className={cn(
-                                  'font-mono font-semibold text-right min-w-0',
-                                  normalizedYear.totalAdjustment > 0
-                                    ? 'text-success'
-                                    : normalizedYear.totalAdjustment < 0
-                                      ? 'text-secondary'
-                                      : 'text-foreground'
-                                )}
-                              >
-                                {formatCurrency(
-                                  Number.isFinite(normalizedYear.normalizedEbitda)
-                                    ? normalizedYear.normalizedEbitda
-                                    : 0
-                                )}
-                                <span className="text-foreground/40 ml-1.5 font-normal">
-                                  {' '}
-                                  (
-                                  {normalizedYear.totalAdjustment !== 0 && (
-                                    <>
-                                      {normalizedYear.totalAdjustment > 0 ? '+' : ''}
-                                      {formatCurrency(normalizedYear.totalAdjustment)}{' '}
-                                      {mi('fields.adjustmentSuffix')}
-                                    </>
-                                  )}
-                                  {normalizedYear.totalAdjustment !== 0 &&
-                                    (normalizedYear.fictiveRentDeduction ?? 0) > 0 &&
-                                    ' · '}
-                                  {(normalizedYear.fictiveRentDeduction ?? 0) > 0 && (
-                                    <>
-                                      −{formatCurrency(normalizedYear.fictiveRentDeduction)}{' '}
-                                      {mi('fields.fictiveRentInlineLabel')}
-                                    </>
-                                  )}
-                                  )
-                                </span>
-                              </span>
-                            </div>
-                          )}
-                        {/* Partial year warning */}
-                        {partialYears.includes(yearData.year) && (
-                          <div className="mt-2 flex items-center gap-1.5 text-xs text-warning">
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>{mi('fillBothFields')}</span>
-                          </div>
-                        )}
-                        {/* Inline EBITDA-margin readout — shown only when both
-                            revenue and EBITDA are present and revenue > 0.
-                            Pure data-input feedback (no advisory commentary):
-                            buyers always ask "what's the margin trend?" and
-                            without this readout the user has no anchor while
-                            typing the numbers. The check excludes partial
-                            years (the partial-year warning fires above) and
-                            non-positive revenue (NaN guard). */}
-                        {!partialYears.includes(yearData.year) &&
-                          Number.isFinite(yearData.revenue) &&
-                          Number.isFinite(yearData.ebitda) &&
-                          yearData.revenue > 0 &&
-                          (() => {
-                            const margin = (yearData.ebitda / yearData.revenue) * 100
-                            if (!Number.isFinite(margin)) return null
-                            return (
-                              <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">
-                                {margin.toFixed(1)}%{' '}
-                                <span className="font-sans">
-                                  {mi('fields.ebitdaMarginInlineLabel')}
-                                </span>
-                              </p>
-                            )
-                          })()}
-                      </div>
-                    )
-                  })}
-
-                  {/* Add Historical Year — directly under historical rows, before DCF forecast workspace */}
-                  {canAppendHistoricalYear(formData.yearlyFinancials) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          yearlyFinancials: [
-                            ...prev.yearlyFinancials,
-                            {
-                              year: String(getNextHistoricalYear(prev.yearlyFinancials)),
-                              revenue: 0,
-                              ebitda: 0,
-                            },
-                          ],
-                        }))
-                      }}
-                      className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
-                      aria-label={`${mi('addYear')} ${getNextHistoricalYear(formData.yearlyFinancials)}`}
-                    >
-                      <Plus className="w-4 h-4" aria-hidden />
-                      {mi('addYear')} ({getNextHistoricalYear(formData.yearlyFinancials)})
-                    </button>
-                  )}
-
-                  {hasDcfSelected &&
-                    dcfForecastRows.length > 0 &&
-                    adaptiveHeaderSteps.dcfGlobal != null &&
-                    terminalValueMethod && (
-                      <Suspense fallback={<BonusSectionFallback />}>
-                        <DcfGlobalAssumptions
-                          key="dcf_forecast_defaults_embedded"
-                          variant="forecastDefaultsOnly"
-                          className="mt-6 rounded-xl border border-primary/10 bg-primary/[0.03] p-4 sm:p-5"
-                          step={dcfForecastDefaultsStep}
-                          dcfRevenueGrowthPct={
-                            formData.dcf_revenue_growth_pct as number | undefined
-                          }
-                          dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-                          dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-                          dcfDaPct={formData.dcf_da_pct as number | undefined}
-                          dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-                          dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-                          dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-                          dcfTerminalGrowthPct={
-                            formData.dcf_terminal_growth_pct as number | undefined
-                          }
-                          dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-                          dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-                          dcfEquityRiskPremiumPct={
-                            formData.dcf_equity_risk_premium_pct as number | undefined
-                          }
-                          dcfBeta={formData.dcf_beta as number | undefined}
-                          dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-                          dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-                          dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-                          terminalValueMethod={terminalValueMethod}
-                          onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                          onFieldChange={(field, value) => {
-                            setFormData((prev) => ({ ...prev, [field]: value }))
-                          }}
-                          dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                          showDcfInputModeToggle
-                          dcfModeSegmentOptions={dcfModeSegmentOptions}
-                          onDcfInputModeChange={handleDcfInputModeChange}
-                          disabled={isCalculating}
-                          dcfDefaultsProvenance={dcfDefaultsProvenance}
-                          smartDefaults={dcfSmartDefaultsFromHistory}
-                          integrationCapexPct={integrationDerivedCapexPct}
-                          integrationDaPct={integrationDerivedDaPct}
-                          waccSectorBand={waccSectorBand}
-                        />
-                      </Suspense>
-                    )}
-
-                  {hasDcfSelected && dcfForecastRows.length > 0 && (
-                    <DcfForecastWorkspace
-                      step={dcfForecastWorkspaceStep}
-                      showModeToggle={false}
-                      forecastRows={dcfForecastRows}
-                      derivedProjectionPreview={dcfProjectionAutofillRows}
-                      latestHistoricalRevenue={latestHistoricalRevenue}
-                      latestHistoricalEbitda={latestHistoricalEbitda}
-                      fieldValidation={fieldValidation}
-                      globalCapexPct={formData.dcf_capex_pct}
-                      globalDaPct={formData.dcf_da_pct}
-                      globalNwcPct={formData.dcf_nwc_pct}
-                      globalTaxRatePct={formData.dcf_tax_rate_pct}
-                      disabled={isCalculating}
-                      canAddYear={canAppendForecastYear(formData.yearlyFinancials)}
-                      nextForecastYear={getNextForecastYear(formData.yearlyFinancials)}
-                      dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                      onDcfInputModeChange={handleDcfInputModeChange}
-                      onChange={(year, field, value) =>
-                        updateYearlyFinancials(year, true, field, value)
-                      }
-                      onAddYear={() => {
-                        setFormData((prev) => {
-                          const result = appendManualForecastYear(prev.yearlyFinancials)
-                          if (!result.ok) {
-                            if (result.reason === 'year_out_of_range') {
-                              import('sonner').then(({ toast }) =>
-                                toast.error(
-                                  mi('forecastYearOutOfRange') || 'Forecast year out of range'
-                                )
-                              )
-                            }
-                            return prev
-                          }
-                          return {
-                            ...prev,
-                            yearlyFinancials: result.yearlyFinancials as YearlyFinancials[],
-                          }
-                        })
-                      }}
-                      onRequestRemoveForecastYears={() => setShowForecastRemovalConfirm(true)}
-                    />
-                  )}
-
-                  {hasDcfSelected &&
-                    dcfForecastRows.length > 0 &&
-                    adaptiveHeaderSteps.dcfGlobal != null &&
-                    terminalValueMethod && (
-                      <Suspense fallback={<BonusSectionFallback />}>
-                        <DcfGlobalAssumptions
-                          key="dcf_discount_terminal_embedded"
-                          variant="discountTerminalOnly"
-                          className="mt-4"
-                          step={dcfWaccTerminalStep}
-                          dcfRevenueGrowthPct={
-                            formData.dcf_revenue_growth_pct as number | undefined
-                          }
-                          dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-                          dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-                          dcfDaPct={formData.dcf_da_pct as number | undefined}
-                          dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-                          dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-                          dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-                          dcfTerminalGrowthPct={
-                            formData.dcf_terminal_growth_pct as number | undefined
-                          }
-                          dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-                          dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-                          dcfEquityRiskPremiumPct={
-                            formData.dcf_equity_risk_premium_pct as number | undefined
-                          }
-                          dcfBeta={formData.dcf_beta as number | undefined}
-                          dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-                          dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-                          dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-                          terminalValueMethod={terminalValueMethod}
-                          onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                          onFieldChange={(field, value) => {
-                            setFormData((prev) => ({ ...prev, [field]: value }))
-                          }}
-                          dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
-                          disabled={isCalculating}
-                          smartDefaults={dcfSmartDefaultsFromHistory}
-                          integrationCapexPct={integrationDerivedCapexPct}
-                          integrationDaPct={integrationDerivedDaPct}
-                          waccSectorBand={waccSectorBand}
-                        />
-                      </Suspense>
-                    )}
-                </div>
-              </motion.section>
-            )}
-
-            {/* Real estate carve-out: sibling section after Financiële historie so DCF forecast/WACC content does not bury it.
-                Gated on method intent — the carve-out only changes a number on the report for EBITDA-income methods
-                (DCF, EBITDA, SDE, Adaptive). See realEstateCarveOutAppliesTo for the rationale per method. */}
-            {selectedCompany && hasBusinessType && hasFinancials && showRealEstateCarveOut && (
-              <div className="mt-4">
-                <RealEstateCarveOutSection
-                  step={balanceSheetCarveOutStep}
-                  excludeRealEstate={formData.exclude_real_estate}
-                  realEstateBookValue={formData.real_estate_book_value}
-                  estimatedMarketRent={formData.estimated_market_rent}
-                  onToggleChange={(checked) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      exclude_real_estate: checked,
-                      real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
-                      estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
-                    }))
-                  }}
-                  onFieldChange={(field, value) => {
-                    setFormData((prev) => ({ ...prev, [field]: value }))
-                  }}
-                  disabled={isCalculating}
-                />
-              </div>
-            )}
-            {/* Adaptive method-specific sections (DCF globals, NAV, SaaS, etc.) */}
-            <div className="mt-4 flex flex-col gap-6">
-              <AdaptiveSections
-                effectiveMethod={effectiveMethod}
-                effectiveMethods={effectiveMethods}
-                businessCategory={resolvedBusinessCategoryForBonusSections ?? undefined}
-                businessTypeId={resolvedBusinessTypeIdForBonusSections ?? undefined}
-                saasSignals={saasSignalsForBonusSections}
-                formData={formData}
-                firmCountryCode={user?.firm_country_code}
-                previewCurrencyFormatter={panelCurrencyFormatter}
-                sectionHeaderSteps={adaptiveHeaderSteps}
-                suppressDcfGlobalAssumptions={hasDcfForecastWorkspace}
-                onFieldChange={(field, value) => {
-                  setFormData((prev) => ({ ...prev, [field]: value }))
-                }}
-                onAnyFieldChange={(field, value) => {
-                  setFormData((prev) => ({ ...prev, [field]: value }))
-                }}
-                onViewAllNormalizations={onViewAllNormalizations}
-                currentFiscalYear={
-                  historicalCardRows.length > 0 ? Number(historicalCardRows[0].year) : undefined
-                }
-                onApplyDcfPercentAutofill={handleApplyDcfProjectionAutofill}
-                canApplyDcfPercentAutofill={canApplyDcfProjectionAutofill}
-                terminalValueMethod={terminalValueMethod}
-                onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                disabled={isCalculating}
-                fiscalWeightedNormalizedEbitda={
-                  normalizedData.totalYearsWithData > 0
-                    ? normalizedData.averageNormalizedEbitda
-                    : undefined
-                }
-                fiscalWeightedHistoricalYearCount={
-                  normalizedData.totalYearsWithData > 0
-                    ? normalizedData.totalYearsWithData
-                    : undefined
-                }
-              />
-
-              <AnimatePresence>
-                {synthesisMethodsForPanel.length >= 2 && (
-                  <motion.div
-                    ref={synthesisPanelAnchorRef}
-                    key="synthesis-panel"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div className="border-t border-foreground/[0.06] pt-6">
-                      {synthesisUnlocked ? (
-                        <SynthesisWeightingSection
-                          methods={synthesisMethodsForPanel}
-                          weights={synthesisWeights}
-                          justification={synthesisJustification}
-                          onWeightsChange={onSynthesisWeightsChange ?? (() => undefined)}
-                          onJustificationChange={
-                            onSynthesisJustificationChange ?? (() => undefined)
-                          }
-                          step={synthesisStep}
-                          disabled={isCalculating}
-                          valuationResults={synthesisValuationResults}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onSynthesisPaywall?.()}
-                          aria-label={mi('synthesis.lockedTitle')}
-                          className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
-                        >
-                          <div className="flex items-center justify-center gap-2 mb-1">
-                            <Lock className="w-3.5 h-3.5 text-foreground/40 group-hover:text-primary transition-colors" />
-                            <span className="text-xs font-semibold uppercase tracking-wider text-foreground/40 group-hover:text-primary transition-colors">
-                              {mi('synthesis.lockedTitle')}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-foreground/40">
-                            {mi('synthesis.lockedDescription')}
-                          </p>
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/*
-               * Round-4 audit: BelgianSmeAuditPanel was mounted here to
-               * surface SDE bridge, NAV revaluation log (deferred-tax
-               * breakdown, real-estate book→appraisal swap, equipment
-               * lifespan revaluation, SME-rate eligibility trail), and
-               * the deal-structure comparison. All of that is *advisory
-               * output* — it belongs in the ValuationIQ report, not the
-               * data-input panel. The audit-trail surfaces still live in
-               * the engine response (`result.details.*`); the
-               * `main_report{*}/pages/adjusted_nav_valuation.html` dossier
-               * renders them for the deliverable. See
-               * `selectedBelgianAuditEntries` (still computed for any
-               * remaining sub-section input feedback) and
-               * `BelgianSmeAuditPanel` itself, which stays in the
-               * codebase as the report-side renderer once we wire it
-               * into `main_report/pages/`.
-               */}
-            </div>
-
-            {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
-            <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 -mx-6 -mb-6 border-t border-foreground/[0.06] bg-background">
-              <AuroraButton
-                type="submit"
-                variant="primary"
-                size="lg"
-                fullWidth
-                loading={isCalculating}
-                disabled={!canSubmit}
-              >
-                {isCalculating ? mi('calculating') : mi('calculateEstimate')}
-              </AuroraButton>
-              {!canSubmit && (
-                <p className="text-center text-xs text-foreground/40 mt-2">
-                  {!canSave
-                    ? canSaveReason
-                    : !hasCompanyInfo
-                      ? mi('validation.enterCompanyName')
-                      : !hasBusinessType
-                        ? mi('validation.selectBusinessType')
-                        : mi('validation.enterFinancials')}
-                </p>
-              )}
-            </div>
+            <ManualInputSubmitBar
+              canSave={canSave}
+              canSaveReason={canSaveReason}
+              canSubmit={canSubmit}
+              hasBusinessType={hasBusinessType}
+              hasCompanyInfo={hasCompanyInfo}
+              isCalculating={isCalculating}
+            />
           </form>
         </div>
       </div>
@@ -2700,13 +695,7 @@ export function ManualInputPanel({
         setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
         setSelectedMethod={setSelectedMethod}
         markDcfForecastSyncPrevMethod={markDcfForecastSyncPrevMethod}
-        onConfirmRemoveForecastYears={() => {
-          setFormData((current) => ({
-            ...current,
-            yearlyFinancials: removeForecastYears(current.yearlyFinancials),
-          }))
-          setShowForecastRemovalConfirm(false)
-        }}
+        onConfirmRemoveForecastYears={confirmRemoveForecastYears}
       />
     </>
   )

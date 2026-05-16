@@ -47,7 +47,8 @@ export interface UseManualAiProposalActionsResult {
   handleApproveListingCreate: (
     proposalId: string,
     reportId?: string,
-    accountantCustomerId?: string | null
+    accountantCustomerId?: string | null,
+    visibility?: 'public' | 'private'
   ) => void
   handleRejectListingCreate: (proposalId: string) => void
 }
@@ -174,7 +175,12 @@ export function useManualAiProposalActions({
   )
 
   const handleApproveListingCreate = useCallback(
-    (proposalId: string, targetReportId?: string, targetAccountantCustomerId?: string | null) => {
+    (
+      proposalId: string,
+      targetReportId?: string,
+      targetAccountantCustomerId?: string | null,
+      visibility?: 'public' | 'private'
+    ) => {
       setChatMessages((prev) =>
         markManualChatProposalDecision(prev, 'listingCreateRequests', proposalId, 'approved')
       )
@@ -208,6 +214,7 @@ export function useManualAiProposalActions({
         locale: mercuryLocale,
         reportId: reportIdForListing,
         relationshipId,
+        visibility: visibility ?? 'private',
       })
     },
     [

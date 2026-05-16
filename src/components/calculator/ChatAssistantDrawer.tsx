@@ -654,7 +654,8 @@ interface ChatAssistantDrawerProps {
   onApproveListingCreate?: (
     proposalId: string,
     reportId?: string,
-    accountantCustomerId?: string | null
+    accountantCustomerId?: string | null,
+    visibility?: 'public' | 'private'
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
   // Quick suggestion pills for common normalizations
@@ -1535,7 +1536,8 @@ function MessageBubble({
   onApproveListingCreate?: (
     proposalId: string,
     reportId?: string,
-    accountantCustomerId?: string | null
+    accountantCustomerId?: string | null,
+    visibility?: 'public' | 'private'
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
   onCommandPillClick?: (command: string) => void
@@ -2545,7 +2547,12 @@ function MessageBubble({
                       <button
                         type="button"
                         onClick={() =>
-                          onApproveListingCreate?.(req.id, req.reportId, req.accountantCustomerId)
+                          onApproveListingCreate?.(
+                            req.id,
+                            req.reportId,
+                            req.accountantCustomerId,
+                            req.visibility
+                          )
                         }
                         className="text-primary/85 hover:text-primary transition-colors font-medium"
                       >

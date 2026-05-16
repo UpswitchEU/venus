@@ -3072,14 +3072,24 @@
 			"notRun": "Not run",
 			"sellabilityMissing": "Sellability missing",
 			"missingCount": "{count, plural, =0 {No open gaps} one {# open gap} other {# open gaps}}",
+			"dataRoomReady": "{ready}/{total} required ready",
+			"dataRoomPlan": "Data-room plan",
+			"dataRoomSectionItems": "{count, plural, one {# item} other {# items}}",
 			"readyShort": "Ready",
 			"notReadyShort": "Not ready",
 			"earningsBridge": "Earnings bridge",
 			"actionList": "Priority actions",
+			"adjustmentAuditTrail": "Adjustment audit trail",
+			"sellabilityDrivers": "Sellability drivers",
+			"commercialReadiness": "Commercial readiness",
+			"commercialSignalsReady": "{ready}/{total} signals ready",
+			"teaserDraft": "Teaser/IM draft",
 			"reportedEbitda": "Reported EBITDA",
 			"normalizedEbitda": "Normalized EBITDA",
 			"adjustments": "Adjustments",
 			"taxLatencies": "Tax latencies",
+			"workingCapital": "Working capital",
+			"actualNwcYears": "Actual NWC years",
 			"noOpenActions": "No open actions.",
 			"status": {
 				"ready": "Ready",
@@ -3089,6 +3099,11 @@
 			"normalizedStatus": {
 				"documented": "Documented",
 				"needs_review": "Needs review",
+				"missing": "Missing"
+			},
+			"itemStatus": {
+				"complete": "Complete",
+				"needs_attention": "Needs attention",
 				"missing": "Missing"
 			},
 			"metrics": {

@@ -211,14 +211,18 @@ describe('manualMercuryNavigation', () => {
         locale: 'nl',
         reportId: 'report 1',
         relationshipId: 'client 1',
+        visibility: 'private',
       })
-    ).toBe('https://mercury.test/nl/advisor/clients/client%201/listings/new?report_id=report%201')
+    ).toBe(
+      'https://mercury.test/nl/advisor/clients/client%201/listings/new?report_id=report%201&visibility=private'
+    )
 
     expect(
       buildManualListingWizardUrl({
         mercuryUrl: 'https://mercury.test/',
         locale: 'fr',
         reportId: 'report-1',
+        visibility: 'published',
       })
     ).toBe('https://mercury.test/en/business/listing/new?report_id=report-1')
   })

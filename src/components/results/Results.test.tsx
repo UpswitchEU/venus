@@ -107,12 +107,189 @@ describe('Results', () => {
               reason: 'Attach support.',
             },
           ],
+          dataRoomPlan: {
+            status: 'needs_attention',
+            completionPct: 88,
+            readyCount: 3,
+            totalRequired: 4,
+            sections: [
+              {
+                key: 'financials',
+                label: 'Financials',
+                status: 'complete',
+                items: [
+                  {
+                    key: 'financial_history',
+                    label: 'Last two to three years of financials',
+                    category: 'financials',
+                    status: 'complete',
+                    required: true,
+                    detail: 'Three years available.',
+                    evidence: ['2023-2025 accounts'],
+                  },
+                ],
+              },
+              {
+                key: 'normalization',
+                label: 'Normalization evidence',
+                status: 'needs_attention',
+                items: [
+                  {
+                    key: 'normalization_evidence',
+                    label: 'Evidence for EBITDA add-backs',
+                    category: 'normalization',
+                    status: 'needs_attention',
+                    required: true,
+                    detail: 'Attach support.',
+                    evidence: ['620000'],
+                  },
+                ],
+              },
+            ],
+            missingDocuments: [
+              {
+                key: 'normalization_evidence',
+                label: 'Evidence for EBITDA add-backs',
+                status: 'needs_attention',
+                reason: 'Attach support.',
+              },
+            ],
+          },
           buyerFaq: [
             {
               question: 'Which earnings number should a buyer underwrite?',
               answer: 'Use normalized EBITDA.',
             },
           ],
+          normalizationBridge: {
+            status: 'complete',
+            year: 2025,
+            reportedEbitda: 200_000,
+            normalizedEbitda: 260_000,
+            totalAdjustments: 60_000,
+            currency: 'EUR',
+            confidence: 'high',
+            source: 'valuation.normalization_metadata',
+            rows: [
+              {
+                key: 'owner-salary',
+                label: 'Owner salary normalization',
+                category: 'owner_compensation_adjustment',
+                amount: 60_000,
+                rationale: 'Owner salary above market benchmark.',
+                source: '620000',
+                confidence: 'high',
+                evidenceStatus: 'complete',
+              },
+            ],
+            auditTrail: {
+              adjustmentCount: 1,
+              customAdjustmentCount: 0,
+              taxLatencyCount: 1,
+              evidenceMissingCount: 0,
+            },
+          },
+          workingCapital: {
+            status: 'complete',
+            currentYear: 2025,
+            currentNwc: 280_000,
+            nwcChange: 30_000,
+            nwcSurplusDeficit: 10_000,
+            actualNwcYears: 2,
+            basis: 'current_assets_liabilities',
+            confidence: 'medium',
+            evidence: ['Current assets/current liabilities basis', 'Current NWC EUR 280,000'],
+            missingInputs: [],
+            detail:
+              'Working capital is supported by 2 actual year(s), current NWC of EUR 280,000, and NWC change of EUR 30,000.',
+          },
+          sellabilityPlan: {
+            status: 'needs_attention',
+            assessmentId: 'assessment-1',
+            score: 72,
+            band: 'sale_ready_in_most_ways',
+            confidence: 'high',
+            factorBreakdown: [
+              {
+                key: 'customer_concentration',
+                label: 'Customer concentration',
+                score: 42,
+                weight: 0.2,
+                contribution: 8.4,
+                dataAvailable: true,
+                status: 'needs_attention',
+                detail: 'Customer concentration is a buyer-risk driver to improve before outreach.',
+              },
+            ],
+            actions: [
+              {
+                key: 'primary:customer_concentration:0',
+                factor: 'customer_concentration',
+                action: 'Reduce top customer concentration.',
+                priority: 'primary',
+                eurImpact: 120_000,
+                confidence: 'high',
+                upliftPct: 0.12,
+              },
+            ],
+            evidenceGaps: [
+              'Customer concentration is a buyer-risk driver to improve before outreach.',
+            ],
+          },
+          commercialReadiness: {
+            status: 'needs_attention',
+            readyCount: 4,
+            totalRequired: 6,
+            signals: [
+              {
+                key: 'customer_concentration',
+                label: 'Customer concentration',
+                status: 'needs_attention',
+                score: 42,
+                value: '42/100',
+                detail: 'Customer concentration is a buyer-risk driver to improve before outreach.',
+                evidence: ['Titan sellability assessment', 'Customer concentration 42/100'],
+                action: 'Reduce top customer concentration.',
+                source: 'sellability_assessment',
+              },
+              {
+                key: 'contract_coverage',
+                label: 'Contract coverage',
+                status: 'missing',
+                score: null,
+                value: null,
+                detail: 'Customer contracts, backlog, or contracted-share evidence is missing.',
+                evidence: [],
+                action: null,
+                source: 'missing',
+              },
+            ],
+            priorityActions: [
+              {
+                key: 'primary:customer_concentration:0',
+                factor: 'customer_concentration',
+                action: 'Reduce top customer concentration.',
+                priority: 'primary',
+                eurImpact: 120_000,
+                confidence: 'high',
+                upliftPct: 0.12,
+              },
+            ],
+            evidenceGaps: [
+              'Customer concentration is a buyer-risk driver to improve before outreach.',
+              'Customer contracts, backlog, or contracted-share evidence is missing.',
+            ],
+          },
+          teaserImDraft: {
+            status: 'needs_attention',
+            title: 'Preliminary buyer teaser for Acme BV',
+            summary: 'Vertical software for installers.',
+            highlights: ['Operating in vertical SaaS.', 'Normalized earnings basis: EUR 260,000.'],
+            buyerConsiderations: ['Attach support.'],
+            nextSteps: [
+              'Attach source evidence for each EBITDA normalization before buyer outreach.',
+            ],
+          },
           privateComps: {
             contributionEndpoint: '/api/v2/multiples/contribute',
             eligible: true,
@@ -141,6 +318,16 @@ describe('Results', () => {
     render(<Results result={null} />)
 
     expect(screen.getByText('title')).toBeInTheDocument()
+    expect(screen.getByText('Owner salary normalization')).toBeInTheDocument()
+    expect(screen.getAllByText('workingCapital')).toHaveLength(2)
+    expect(screen.getByText('Current NWC EUR 280,000')).toBeInTheDocument()
+    expect(screen.getByText('3/4')).toBeInTheDocument()
+    expect(screen.getByText('dataRoomPlan')).toBeInTheDocument()
+    expect(screen.getByText('Financials')).toBeInTheDocument()
+    expect(screen.getAllByText('Customer concentration').length).toBeGreaterThan(0)
+    expect(screen.getByText('commercialReadiness')).toBeInTheDocument()
+    expect(screen.getByText('Contract coverage')).toBeInTheDocument()
+    expect(screen.getByText('Preliminary buyer teaser for Acme BV')).toBeInTheDocument()
     expect(screen.getByText('Reduce top customer concentration.')).toBeInTheDocument()
     expect(screen.getByText('Defensible normalized earnings bridge')).toBeInTheDocument()
     expect(screen.getByText('Ready report html')).toBeInTheDocument()

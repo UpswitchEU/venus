@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isManualAgentNextPrepareListing,
   isManualAgentNextProfileBuyers,
   isManualAgentNextRunValuation,
+  MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT,
   MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT,
   MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT,
   resolveManualAgentNextPrompt,
@@ -24,6 +26,14 @@ describe('manualAgentNextHandoff', () => {
     expect(isManualAgentNextProfileBuyers(undefined)).toBe(false)
   })
 
+  it('recognizes the post-valuation listing-prep handoff intent', () => {
+    expect(isManualAgentNextPrepareListing('prepare_listing')).toBe(true)
+    expect(isManualAgentNextPrepareListing(' prepare-listing ')).toBe(true)
+    expect(isManualAgentNextPrepareListing('prepareListing')).toBe(true)
+    expect(isManualAgentNextPrepareListing('profile_buyers')).toBe(false)
+    expect(isManualAgentNextPrepareListing(undefined)).toBe(false)
+  })
+
   it('uses a stable prompt for the Venus assistant handoff', () => {
     expect(MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT).toBe('Run the valuation for this client.')
   })
@@ -35,6 +45,14 @@ describe('manualAgentNextHandoff', () => {
     expect(MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT).toContain('until I ask to publish')
   })
 
+  it('uses a listing-prep prompt that keeps publication approval explicit', () => {
+    expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('Profile likely buyers')
+    expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('listing preview')
+    expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('buyer profile')
+    expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('private draft')
+    expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('Do not publish')
+  })
+
   it('resolves URL handoff intents to the prompt sent into the assistant drawer', () => {
     expect(resolveManualAgentNextPrompt('run_valuation')).toBe(
       MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT
@@ -44,6 +62,9 @@ describe('manualAgentNextHandoff', () => {
     )
     expect(resolveManualAgentNextPrompt('profileBuyers')).toBe(
       MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT
+    )
+    expect(resolveManualAgentNextPrompt('prepare_listing')).toBe(
+      MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT
     )
     expect(resolveManualAgentNextPrompt('unknown')).toBeNull()
   })

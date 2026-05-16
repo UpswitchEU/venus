@@ -303,6 +303,14 @@ export interface BuildManualListingWizardUrlParams {
   locale: string | null | undefined
   reportId: string
   relationshipId?: string | null
+  visibility?: string | null
+}
+
+function normalizeManualListingVisibility(
+  value: string | null | undefined
+): 'public' | 'private' | null {
+  const normalized = value?.trim().toLowerCase()
+  return normalized === 'public' || normalized === 'private' ? normalized : null
 }
 
 export function buildManualListingWizardUrl({
@@ -310,10 +318,16 @@ export function buildManualListingWizardUrl({
   locale,
   reportId,
   relationshipId,
+  visibility,
 }: BuildManualListingWizardUrlParams): string {
   const mercuryBaseUrl = normalizeMercuryBaseUrl(mercuryUrl)
   const mercuryLocale = getManualMercuryLocale(locale)
-  const qs = `?report_id=${encodeURIComponent(reportId)}`
+  const params = [`report_id=${encodeURIComponent(reportId)}`]
+  const normalizedVisibility = normalizeManualListingVisibility(visibility)
+  if (normalizedVisibility) {
+    params.push(`visibility=${normalizedVisibility}`)
+  }
+  const qs = `?${params.join('&')}`
   const wizardPath = relationshipId
     ? `/${mercuryLocale}/advisor/clients/${encodeURIComponent(relationshipId)}/listings/new${qs}`
     : `/${mercuryLocale}/business/listing/new${qs}`

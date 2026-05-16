@@ -54,13 +54,14 @@ export function useManualAgentPromptHandoff({
   setChatDrawerOpen,
   setPendingPostValuationAgentPrompt,
 }: UseManualAgentPromptHandoffParams) {
-  const agentNextConsumedRef = useRef(false)
+  const agentNextConsumedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     const nextPrompt = resolveManualAgentNextPrompt(initialAgentNext)
     if (!nextPrompt) return
-    if (agentNextConsumedRef.current) return
     if (!manualChatReportId) return
+    const agentNextKey = `${manualChatReportId}:${initialAgentNext?.trim() ?? ''}`
+    if (agentNextConsumedKeyRef.current === agentNextKey) return
 
     if (!chatDrawerOpen) {
       setChatDrawerOpen(true)
@@ -79,7 +80,7 @@ export function useManualAgentPromptHandoff({
       return
     }
 
-    agentNextConsumedRef.current = true
+    agentNextConsumedKeyRef.current = agentNextKey
 
     if (typeof window !== 'undefined') {
       const searchParams = new URL(window.location.href).searchParams

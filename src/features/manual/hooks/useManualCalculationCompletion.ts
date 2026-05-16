@@ -13,7 +13,7 @@ import type {
 } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT } from '../utils/manualAgentNextHandoff'
+import { MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT } from '../utils/manualAgentNextHandoff'
 import {
   buildSubmittedFinancialSnapshot,
   type SubmittedFinancialSnapshot,
@@ -170,7 +170,7 @@ export function useManualCalculationCompletion({
         if (postValuationListingHandoffPendingRef.current) {
           postValuationListingHandoffPendingRef.current = false
           if (isAccountantMode) {
-            setPendingPostValuationAgentPrompt(MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT)
+            setPendingPostValuationAgentPrompt(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT)
           }
         }
       }

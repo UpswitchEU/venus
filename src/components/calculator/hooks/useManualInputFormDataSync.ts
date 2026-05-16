@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { buildCurrentYearData } from '../../../utils/yearData'
 
@@ -7,6 +7,7 @@ export interface UseManualInputFormDataSyncParams {
   latestCompleteYearlyFinancial?: YearlyFinancials
   onFormDataChange?: (data: Record<string, unknown>) => void
   storeBusinessModel?: string
+  formDataRef?: MutableRefObject<Record<string, unknown> | null>
 }
 
 export function useManualInputFormDataSync({
@@ -14,9 +15,29 @@ export function useManualInputFormDataSync({
   latestCompleteYearlyFinancial,
   onFormDataChange,
   storeBusinessModel,
+  formDataRef,
 }: UseManualInputFormDataSyncParams) {
   const onFormDataChangeRef = useRef(onFormDataChange)
   onFormDataChangeRef.current = onFormDataChange
+
+  if (formDataRef?.current != null) {
+    const latestHistorical = [...formData.yearlyFinancials]
+      .filter((year) => !year.isForecast)
+      .sort((a, b) => Number(b.year) - Number(a.year))[0]
+
+    Object.assign(formDataRef.current, {
+      yearlyFinancials: formData.yearlyFinancials,
+      current_year_data: latestHistorical
+        ? buildCurrentYearData({
+            year: Number.parseInt(latestHistorical.year, 10),
+            revenue: latestHistorical.revenue,
+            ebitda: latestHistorical.ebitda,
+            currentYearData: formData.current_year_data,
+          })
+        : formData.current_year_data,
+      ebitda: latestCompleteYearlyFinancial?.ebitda,
+    })
+  }
 
   const syncFormData = useCallback(() => {
     if (!onFormDataChangeRef.current) return

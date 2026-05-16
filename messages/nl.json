@@ -3072,14 +3072,24 @@
 			"notRun": "Niet uitgevoerd",
 			"sellabilityMissing": "Sellability ontbreekt",
 			"missingCount": "{count, plural, =0 {Geen open punten} one {# open punt} other {# open punten}}",
+			"dataRoomReady": "{ready}/{total} verplicht klaar",
+			"dataRoomPlan": "Dataroomplan",
+			"dataRoomSectionItems": "{count, plural, one {# item} other {# items}}",
 			"readyShort": "Klaar",
 			"notReadyShort": "Niet klaar",
 			"earningsBridge": "EBITDA-brug",
 			"actionList": "Prioritaire acties",
+			"adjustmentAuditTrail": "Audit trail correcties",
+			"sellabilityDrivers": "Verkoopbaarheidsdrivers",
+			"commercialReadiness": "Commerciële gereedheid",
+			"commercialSignalsReady": "{ready}/{total} signalen klaar",
+			"teaserDraft": "Teaser/IM-concept",
 			"reportedEbitda": "Gerapporteerde EBITDA",
 			"normalizedEbitda": "Genormaliseerde EBITDA",
 			"adjustments": "Correcties",
 			"taxLatencies": "Fiscale latenties",
+			"workingCapital": "Werkkapitaal",
+			"actualNwcYears": "Actuele NWC-jaren",
 			"noOpenActions": "Geen open acties.",
 			"status": {
 				"ready": "Klaar",
@@ -3089,6 +3099,11 @@
 			"normalizedStatus": {
 				"documented": "Gedocumenteerd",
 				"needs_review": "Te beoordelen",
+				"missing": "Ontbreekt"
+			},
+			"itemStatus": {
+				"complete": "Compleet",
+				"needs_attention": "Aandacht nodig",
 				"missing": "Ontbreekt"
 			},
 			"metrics": {
