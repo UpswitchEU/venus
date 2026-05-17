@@ -16,6 +16,33 @@ const cacheLogger = createContextLogger('SessionCache')
 const CACHE_PREFIX = 'upswitch_session_cache_'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const MAX_CACHE_SIZE = 20 // Limit number of cached sessions (reduced to avoid quota pressure)
+const RENDERED_REPORT_BLOB_KEYS = [
+  'htmlReport',
+  'html_report',
+  '_htmlReport',
+  'reportHtml',
+  'report_html',
+  'pdfHtmlReport',
+  'pdf_html_report',
+  '_pdfHtmlReport',
+  'pdfReportHtml',
+  'pdf_report_html',
+  'accountantViewHtml',
+  'accountant_view_html',
+  'infoTabHtml',
+  'info_tab_html',
+] as const
+
+function isQuotaExceededError(error: unknown): boolean {
+  const candidate =
+    error && typeof error === 'object' ? (error as { code?: unknown; name?: unknown }) : {}
+
+  return candidate.name === 'QuotaExceededError' || candidate.code === 22
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
 interface CachedSession {
   session: ValuationSession
@@ -80,6 +107,48 @@ export class SessionCacheManager {
     return `${CACHE_PREFIX}${reportId}`
   }
 
+  private stripRenderedReportBlobs<T>(value: T): T {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+
+    const next = { ...(value as Record<string, unknown>) }
+    for (const key of RENDERED_REPORT_BLOB_KEYS) {
+      delete next[key]
+    }
+
+    if (next.details && typeof next.details === 'object' && !Array.isArray(next.details)) {
+      next.details = this.stripRenderedReportBlobs(next.details)
+    }
+
+    return next as T
+  }
+
+  private stripSessionForStorage(session: ValuationSession): ValuationSession {
+    const sessionRecord = this.stripRenderedReportBlobs(session) as ValuationSession & {
+      sessionData?: Record<string, unknown>
+      partialData?: Record<string, unknown>
+    }
+
+    if (sessionRecord.sessionData && typeof sessionRecord.sessionData === 'object') {
+      const sessionData = this.stripRenderedReportBlobs(sessionRecord.sessionData)
+      for (const key of ['valuationResult', 'valuation_result', '_valuationResult']) {
+        if (key in sessionData) {
+          sessionData[key] = this.stripRenderedReportBlobs(sessionData[key])
+        }
+      }
+      sessionRecord.sessionData = sessionData
+    }
+
+    if (sessionRecord.partialData && typeof sessionRecord.partialData === 'object') {
+      sessionRecord.partialData = this.stripRenderedReportBlobs(sessionRecord.partialData)
+    }
+
+    if (sessionRecord.valuationResult && typeof sessionRecord.valuationResult === 'object') {
+      sessionRecord.valuationResult = this.stripRenderedReportBlobs(sessionRecord.valuationResult)
+    }
+
+    return sessionRecord
+  }
+
   /**
    * Cache session to localStorage
    *
@@ -91,37 +160,9 @@ export class SessionCacheManager {
       // Validate before caching
       validateSessionData(session)
 
-      // Exclude large HTML reports from cache to prevent localStorage quota errors.
-      // HTML reports are fetched from backend on demand via background revalidation.
-      const { htmlReport, ...sessionWithoutHtml } = session
-
-      // Also strip HTML from nested sessionData (backend stores htmlReport/html_report inside session_data JSONB)
-      // Plan: strip _htmlReport (Titan-injected) to avoid localStorage bloat
-      if (sessionWithoutHtml.sessionData && typeof sessionWithoutHtml.sessionData === 'object') {
-        const sd = { ...sessionWithoutHtml.sessionData } as Record<string, unknown>
-        delete sd.htmlReport
-        delete sd.html_report
-        delete sd._htmlReport
-        const stripNestedHtml = (value: unknown) => {
-          if (!value || typeof value !== 'object') return value
-          const next = { ...(value as Record<string, unknown>) }
-          delete next.html_report
-          delete next.htmlReport
-          if (next.details && typeof next.details === 'object') {
-            next.details = { ...(next.details as Record<string, unknown>) }
-            delete (next.details as Record<string, unknown>).html_report
-            delete (next.details as Record<string, unknown>).htmlReport
-          }
-          return next
-        }
-        if ('valuationResult' in sd) {
-          sd.valuationResult = stripNestedHtml(sd.valuationResult)
-        }
-        if ('valuation_result' in sd) {
-          sd.valuation_result = stripNestedHtml(sd.valuation_result)
-        }
-        sessionWithoutHtml.sessionData = sd
-      }
+      // Exclude rendered HTML/PDF report assets from cache to prevent
+      // localStorage quota loops. They are fetched from Titan on demand.
+      const sessionWithoutHtml = this.stripSessionForStorage(session)
 
       const cached: CachedSession = {
         session: sessionWithoutHtml,
@@ -134,9 +175,9 @@ export class SessionCacheManager {
 
       try {
         localStorage.setItem(key, JSON.stringify(cached))
-      } catch (quotaError: any) {
+      } catch (quotaError: unknown) {
         // If still hitting quota (shouldn't happen now, but safety check)
-        if (quotaError.name === 'QuotaExceededError' || quotaError.code === 22) {
+        if (isQuotaExceededError(quotaError)) {
           cacheLogger.warn('Cache quota exceeded, clearing oldest entries and retrying', {
             reportId,
           })
@@ -147,12 +188,12 @@ export class SessionCacheManager {
           try {
             localStorage.setItem(key, JSON.stringify(cached))
             cacheLogger.info('Cache retry successful after cleanup', { reportId })
-          } catch (retryError: any) {
+          } catch (retryError: unknown) {
             // If retry still fails, the session might be too large even after cleanup
             // Try to cache a minimal version (just metadata, no large data)
             cacheLogger.warn('Cache retry failed, attempting minimal cache', {
               reportId,
-              error: retryError.message,
+              error: getErrorMessage(retryError),
             })
             try {
               // Create minimal cache: metadata only, no sessionData (can exceed quota).
@@ -243,7 +284,10 @@ export class SessionCacheManager {
       // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
       // The sanitizeSessionData function only preserves sessionData, not top-level valuationResult
       // So we need to check inside sessionData for the valuation result
-      const sessionData = (sanitized.sessionData as any) || {}
+      const sessionData =
+        sanitized.sessionData && typeof sanitized.sessionData === 'object'
+          ? (sanitized.sessionData as Record<string, unknown>)
+          : {}
       const hasValuationResult = !!(
         (
           sanitized.valuationResult || // Top-level (might not exist after sanitize)

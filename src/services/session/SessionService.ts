@@ -632,9 +632,10 @@ export class SessionService {
   > {
     try {
       const response = await backendAPI.getReport(reportId)
-      if (response?.html_report) {
+      const htmlReport = getFirstRenderableReportHtml(response?.html_report)
+      if (htmlReport) {
         return {
-          html_report: response.html_report,
+          html_report: htmlReport,
           valuation_result: response || null, // The response itself is the valuation result
         }
       }

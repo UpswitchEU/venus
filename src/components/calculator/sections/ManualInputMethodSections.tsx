@@ -3,14 +3,18 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import { AdaptiveSections } from './AdaptiveSections'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
-import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
+import {
+  AdvancedAdvisorControlsSection,
+  RealEstateCarveOutSection,
+  SynthesisWeightingSection,
+} from './index'
 
 interface ManualInputMethodSectionsProps {
   adaptiveHeaderSteps: ManualInputAdaptiveHeaderSteps
@@ -80,6 +84,31 @@ export function ManualInputMethodSections({
   const mi = useTranslations('manualInput')
   const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
   const prevSynthesisMethodCountRef = useRef(0)
+  const advisorWeightingYears = useMemo(() => {
+    const years = new Set<number>()
+    const currentYear = Number(formData.current_year_data?.year ?? historicalCardRows[0]?.year)
+    if (Number.isFinite(currentYear)) years.add(currentYear)
+    for (const yearData of formData.historical_years_data ?? []) {
+      const year = Number(yearData.year)
+      if (!yearData.is_forecast && Number.isFinite(year)) years.add(year)
+    }
+    return Array.from(years).sort((a, b) => a - b)
+  }, [formData.current_year_data?.year, formData.historical_years_data, historicalCardRows])
+  const sectorAverageMultiple = useMemo(() => {
+    const context = formData.business_context as Record<string, unknown> | undefined
+    const distribution = context?.ev_ebitda_multiple as Record<string, unknown> | undefined
+    const candidates = [
+      context?.benchmark_multiple,
+      context?.ev_ebitda_median,
+      distribution?.median,
+      distribution?.p50,
+    ]
+    for (const candidate of candidates) {
+      const value = Number(candidate)
+      if (Number.isFinite(value) && value > 0) return value
+    }
+    return null
+  }, [formData.business_context])
 
   useEffect(() => {
     const nextCount = synthesisMethods.length
@@ -103,15 +132,24 @@ export function ManualInputMethodSections({
         <div className="mt-4">
           <RealEstateCarveOutSection
             step={balanceSheetCarveOutStep}
+            realEstateTreatment={formData.real_estate_treatment}
             excludeRealEstate={formData.exclude_real_estate}
+            realEstateMarketValue={formData.real_estate_market_value}
             realEstateBookValue={formData.real_estate_book_value}
             estimatedMarketRent={formData.estimated_market_rent}
-            onToggleChange={(checked) => {
+            onTreatmentChange={(treatment) => {
               setFormData((prev) => ({
                 ...prev,
-                exclude_real_estate: checked,
-                real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
-                estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
+                real_estate_treatment: treatment,
+                exclude_real_estate: treatment === 'carve_out',
+                real_estate_market_value:
+                  treatment === 'included' ? prev.real_estate_market_value : undefined,
+                real_estate_book_value:
+                  treatment === 'carve_out' || treatment === 'included'
+                    ? prev.real_estate_book_value
+                    : undefined,
+                estimated_market_rent:
+                  treatment === 'carve_out' ? prev.estimated_market_rent : undefined,
               }))
             }}
             onFieldChange={(field, value) => {
@@ -121,6 +159,23 @@ export function ManualInputMethodSections({
           />
         </div>
       )}
+
+      <div className="mt-4">
+        <AdvancedAdvisorControlsSection
+          step={`${balanceSheetCarveOutStep}a`}
+          sectorAverageMultiple={sectorAverageMultiple}
+          multipleCalibrationAdjustment={formData.multiple_calibration_adjustment}
+          multipleCalibrationNote={formData.multiple_calibration_note}
+          historicalYears={advisorWeightingYears}
+          historicalEbitdaWeightingMode={formData.historical_ebitda_weighting_mode}
+          historicalEbitdaWeights={formData.historical_ebitda_weights}
+          showEnterpriseToEquityBridge={formData.show_enterprise_to_equity_bridge}
+          onFieldChange={(field, value) => {
+            setFormData((prev) => ({ ...prev, [field]: value }))
+          }}
+          disabled={disabled}
+        />
+      </div>
 
       <div className="mt-4 flex flex-col gap-6">
         <AdaptiveSections

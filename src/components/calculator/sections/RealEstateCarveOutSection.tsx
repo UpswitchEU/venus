@@ -3,40 +3,77 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
-import { Switch } from '../../../design-system/components/Switch'
+import { AuroraSelect, type SelectOption } from '../../../design-system/components/Select'
 import { CurrencyInput } from '../CurrencyInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
+type RealEstateTreatment = 'none' | 'carve_out' | 'included'
+
 interface RealEstateCarveOutSectionProps {
   step: number
+  realEstateTreatment?: RealEstateTreatment
   excludeRealEstate?: boolean
+  realEstateMarketValue?: number
   realEstateBookValue?: number
   estimatedMarketRent?: number
-  onToggleChange: (checked: boolean) => void
+  onTreatmentChange: (treatment: RealEstateTreatment) => void
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
 }
 
 export function RealEstateCarveOutSection({
   step,
+  realEstateTreatment,
   excludeRealEstate,
+  realEstateMarketValue,
   realEstateBookValue,
   estimatedMarketRent,
-  onToggleChange,
+  onTreatmentChange,
   onFieldChange,
   disabled,
 }: RealEstateCarveOutSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
+  const treatment = realEstateTreatment ?? (excludeRealEstate ? 'carve_out' : 'none')
+  const isCarveOut = treatment === 'carve_out'
+  const isIncluded = treatment === 'included'
 
   const sectionComplete = useMemo(() => {
-    if (!excludeRealEstate) return true
+    if (treatment === 'none') return true
+    if (treatment === 'carve_out') {
+      return (
+        realEstateBookValue !== undefined &&
+        realEstateBookValue !== null &&
+        estimatedMarketRent !== undefined &&
+        estimatedMarketRent !== null
+      )
+    }
     return (
       realEstateBookValue !== undefined &&
       realEstateBookValue !== null &&
-      estimatedMarketRent !== undefined &&
-      estimatedMarketRent !== null
+      realEstateMarketValue !== undefined &&
+      realEstateMarketValue !== null
     )
-  }, [excludeRealEstate, realEstateBookValue, estimatedMarketRent])
+  }, [treatment, realEstateBookValue, realEstateMarketValue, estimatedMarketRent])
+
+  const treatmentOptions = useMemo<SelectOption[]>(
+    () => [
+      {
+        value: 'none',
+        label: t('fields.realEstateNone'),
+      },
+      {
+        value: 'carve_out',
+        label: t('fields.realEstateCarveOutMode'),
+        description: t('realEstateCarveOutHint'),
+      },
+      {
+        value: 'included',
+        label: t('fields.realEstateIncluded'),
+        description: t('realEstateIncludedHint'),
+      },
+    ],
+    [t]
+  )
 
   return (
     <motion.section
@@ -52,18 +89,19 @@ export function RealEstateCarveOutSection({
         title={t('sections.realEstateCarveOut')}
       />
 
-      <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-4">
+      <div className="rounded-lg border border-primary/15 bg-primary/[0.03] p-4">
         <div className="space-y-3">
-          <Switch
-            checked={Boolean(excludeRealEstate)}
-            onChange={onToggleChange}
-            label={t('fields.excludeRealEstate')}
-            description={t('realEstateCarveOutHint')}
+          <AuroraSelect
+            value={treatment}
+            onChange={(value) => onTreatmentChange(value as RealEstateTreatment)}
+            options={treatmentOptions}
+            label={t('fields.realEstateTreatment')}
+            size="sm"
             disabled={disabled}
           />
 
           <AnimatePresence initial={false}>
-            {excludeRealEstate && (
+            {(isCarveOut || isIncluded) && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -72,20 +110,38 @@ export function RealEstateCarveOutSection({
                 className="overflow-hidden"
               >
                 <div className="grid grid-cols-1 gap-3 pt-1">
-                  <div className="space-y-1.5">
-                    <CurrencyInput
-                      label={t('fields.estimatedMarketRent')}
-                      value={estimatedMarketRent}
-                      onChange={(value) => onFieldChange('estimated_market_rent', value)}
-                      size="sm"
-                      placeholder="0"
-                      disabled={disabled}
-                      truncateLabel={false}
-                    />
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      {t('estimatedMarketRentEbitdaHint')}
-                    </p>
-                  </div>
+                  {isCarveOut && (
+                    <div className="space-y-1.5">
+                      <CurrencyInput
+                        label={t('fields.estimatedMarketRent')}
+                        value={estimatedMarketRent}
+                        onChange={(value) => onFieldChange('estimated_market_rent', value)}
+                        size="sm"
+                        placeholder="0"
+                        disabled={disabled}
+                        truncateLabel={false}
+                      />
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {t('estimatedMarketRentEbitdaHint')}
+                      </p>
+                    </div>
+                  )}
+                  {isIncluded && (
+                    <div className="space-y-1.5">
+                      <CurrencyInput
+                        label={t('fields.realEstateMarketValue')}
+                        value={realEstateMarketValue}
+                        onChange={(value) => onFieldChange('real_estate_market_value', value)}
+                        size="sm"
+                        placeholder="0"
+                        disabled={disabled}
+                        truncateLabel={false}
+                      />
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {t('realEstateIncludedSurplusHint')}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <CurrencyInput
                       label={t('fields.realEstateBookValue')}

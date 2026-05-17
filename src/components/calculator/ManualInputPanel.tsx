@@ -368,7 +368,10 @@ export function ManualInputPanel({
    * having silent state hidden by the UI.
    */
   const hasCarveOutData =
+    formData.real_estate_treatment === 'carve_out' ||
+    formData.real_estate_treatment === 'included' ||
     Boolean(formData.exclude_real_estate) ||
+    formData.real_estate_market_value != null ||
     formData.real_estate_book_value != null ||
     formData.estimated_market_rent != null
   const showRealEstateCarveOut = realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData

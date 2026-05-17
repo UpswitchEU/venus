@@ -1,9 +1,18 @@
 /**
- * Canonical Normalization Types (vendored for standalone Venus deploys)
+ * GENERATED FILE - DO NOT EDIT DIRECTLY.
  *
- * Keep in sync with `packages/types/src/normalization.ts` in the monorepo.
- * Venus on Vercel does not have `../../packages/types`; webpack cannot resolve
- * `@upswitch/types/*` without this local copy.
+ * Source: packages/types/src/normalization.ts
+ * Regenerate with: node scripts/sync-shared-contracts.mjs
+ */
+
+/**
+ * Canonical Normalization Types
+ *
+ * Single source of truth for EBITDA normalization types shared across
+ * Venus (calculator UI), Mercury (report), and Titan (backend API).
+ *
+ * 12 adjustment categories aligned with the DB CHECK constraint
+ * on valuation_adjustments.category.
  */
 
 export enum NormalizationCategory {
@@ -21,7 +30,7 @@ export enum NormalizationCategory {
   OTHER_ADJUSTMENTS = 'other_adjustments',
 }
 
-export const NORMALIZATION_CATEGORY_VALUES = Object.values(NormalizationCategory) as string[]
+export const NORMALIZATION_CATEGORY_VALUES = Object.values(NormalizationCategory) as string[];
 
 export enum ConfidenceScore {
   LOW = 'low',
@@ -30,53 +39,52 @@ export enum ConfidenceScore {
 }
 
 /** String literal union for contexts that only need the value, not the enum. */
-export type ConfidenceScoreValue = `${ConfidenceScore}`
+export type ConfidenceScoreValue = `${ConfidenceScore}`;
 
-export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
+export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute';
 
-export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
+export type NormalizationStatus = 'pending' | 'accepted' | 'rejected';
 
-export type NormalizationSource = 'manual' | 'suggestion' | 'import' | 'ai'
+export type NormalizationSource = 'manual' | 'suggestion' | 'import' | 'ai';
 
 export interface NormalizationItemBase {
-  id: string
-  category: string
-  amount: number
-  is_addback: boolean
-  description?: string
-  note?: string
-  confidence_score?: ConfidenceScore
-  year?: number
-  ledger_code?: string
-  ledger_name?: string
+  id: string;
+  category: string;
+  amount: number;
+  is_addback: boolean;
+  description?: string;
+  note?: string;
+  confidence_score?: ConfidenceScore;
+  year?: number;
+  ledger_code?: string;
+  ledger_name?: string;
   /**
-   * Owner role context — only meaningful for OWNER_COMPENSATION items.
+   * Owner role context. Only meaningful for owner-compensation items.
    *
-   * - 'working' : seller is an active operator. Add back the delta between
-   *   actual compensation and a market-rate replacement salary only.
-   * - 'passive' : seller is a non-operating shareholder. The full owner
-   *   compensation (salary + dividend + benefits) is added back to SDE
-   *   because the buyer does not need to replace the role.
+   * - working: seller is an active operator; add back only the delta between
+   *   actual compensation and a market-rate replacement salary.
+   * - passive: seller is a non-operating shareholder; add back the full owner
+   *   compensation because the buyer does not need to replace the role.
    */
-  owner_role?: 'working' | 'passive'
+  owner_role?: 'working' | 'passive';
   /**
-   * Replacement-manager benchmark salary used for the working-owner add-back
-   * computation. When present, the engine treats `amount` as the delta
-   * (actual_owner_compensation − replacement_salary).
+   * Replacement-manager benchmark salary used for the working-owner add-back.
+   * When present, engines treat `amount` as actual owner compensation minus
+   * this benchmark salary.
    */
-  replacement_salary_benchmark?: number
+  replacement_salary_benchmark?: number;
 }
 
 export interface NormalizationCategoryMetadata {
-  id: NormalizationCategory
-  label: string
-  description: string
-  examples: string[]
-  is_addback: boolean
+  id: NormalizationCategory;
+  label: string;
+  description: string;
+  examples: string[];
+  is_addback: boolean;
   typical_range?: {
-    min_percentage: number
-    max_percentage: number
-  }
+    min_percentage: number;
+    max_percentage: number;
+  };
 }
 
 export const CATEGORY_METADATA: Record<NormalizationCategory, NormalizationCategoryMetadata> = {
@@ -176,7 +184,7 @@ export const CATEGORY_METADATA: Record<NormalizationCategory, NormalizationCateg
     is_addback: true,
     typical_range: { min_percentage: 0, max_percentage: 5 },
   },
-}
+};
 
 /** Backward-compatible alias used by Titan. */
-export const NORMALIZATION_CATEGORIES = CATEGORY_METADATA
+export const NORMALIZATION_CATEGORIES = CATEGORY_METADATA;

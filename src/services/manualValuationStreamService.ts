@@ -5,6 +5,7 @@
 
 import type { ValuationRequest } from '../types/valuation'
 import { apiLogger } from '../utils/logger'
+import { getRenderableReportHtml, isSafetyNetReportHtml } from '../utils/safetyNetReportHtml'
 
 interface StreamEvent {
   type: 'progress' | 'section_loading' | 'report_section' | 'report_complete' | 'error'
@@ -20,14 +21,208 @@ interface StreamEvent {
   error?: string
   error_type?: string
   duration_seconds?: number
+  warning?: string
 }
 
 interface StreamCallbacks {
   onProgress?: (progress: number, message: string) => void
   onSectionLoading?: (section: string, phase: number, progress: number) => void
   onSectionUpdate?: (section: string, html: string, phase: number, progress: number) => void
-  onComplete?: (htmlReport: string, valuationId: string, fullResponse?: any) => void
+  onComplete?: (htmlReport: string, valuationId: string, fullResponse?: StreamEvent) => void
   onError?: (error: string, errorType?: string) => void
+}
+
+const MIN_STREAM_REPORT_HTML_LENGTH = 100
+
+function getRenderableStreamReportHtml(html: string | null | undefined): string | undefined {
+  const renderableHtml = getRenderableReportHtml(html)
+  if (!renderableHtml || renderableHtml.trim().length < MIN_STREAM_REPORT_HTML_LENGTH) {
+    return undefined
+  }
+  return renderableHtml
+}
+
+function getReportHtmlRejectReason(html: string | null | undefined): string {
+  if (!html) return 'missing'
+  if (isSafetyNetReportHtml(html)) return 'safety_net'
+  if (html.trim().length < MIN_STREAM_REPORT_HTML_LENGTH) return 'too_short'
+  return 'unknown'
+}
+
+function createMockEventSource(
+  streamUrl: string,
+  readyState: number,
+  close: () => void
+): EventSource {
+  return {
+    close,
+    readyState,
+    url: streamUrl,
+    withCredentials: false,
+    CONNECTING: EventSource.CONNECTING,
+    OPEN: EventSource.OPEN,
+    CLOSED: EventSource.CLOSED,
+    onopen: null,
+    onmessage: null,
+    onerror: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }
+}
+
+export function handleManualValuationStreamEvent(
+  event: StreamEvent,
+  callbacks: StreamCallbacks,
+  streamId: string
+): void {
+  apiLogger.debug('Handling stream event', {
+    requestId: streamId,
+    eventType: event.type,
+    progress: event.progress,
+  })
+
+  switch (event.type) {
+    case 'progress':
+      if (event.progress !== undefined && event.message) {
+        callbacks.onProgress?.(event.progress, event.message)
+      }
+      break
+
+    case 'section_loading':
+      if (event.section && event.phase !== undefined && event.progress !== undefined) {
+        callbacks.onSectionLoading?.(event.section, event.phase, event.progress)
+      }
+      break
+
+    case 'report_section':
+      if (
+        event.section &&
+        event.html &&
+        event.phase !== undefined &&
+        event.progress !== undefined
+      ) {
+        // Special handling for complete_report section - treat as completion event
+        if (event.section === 'complete_report') {
+          const renderableHtml = getRenderableStreamReportHtml(event.html)
+          const htmlLength = event.html.length
+
+          apiLogger.info('[STREAM-FRONTEND] Complete report section received', {
+            requestId: streamId,
+            section: event.section,
+            valuationId: event.valuation_id,
+            htmlLength,
+            hasRenderableHtml: !!renderableHtml,
+            rejectReason: renderableHtml ? undefined : getReportHtmlRejectReason(event.html),
+            htmlPreview: event.html.substring(0, 200),
+            phase: event.phase,
+            progress: event.progress,
+            hasOnCompleteCallback: !!callbacks.onComplete,
+          })
+
+          if (!renderableHtml || !event.valuation_id) {
+            apiLogger.warn(
+              '[STREAM-FRONTEND] complete_report section ignored because report HTML is not renderable',
+              {
+                requestId: streamId,
+                hasRenderableHtml: !!renderableHtml,
+                hasValuationId: !!event.valuation_id,
+                htmlLength,
+                rejectReason: getReportHtmlRejectReason(event.html),
+              }
+            )
+            break
+          }
+
+          const completionEvent: StreamEvent = {
+            ...event,
+            html: renderableHtml,
+            html_report: renderableHtml,
+          }
+
+          callbacks.onComplete?.(renderableHtml, event.valuation_id, completionEvent)
+
+          apiLogger.info('[STREAM-FRONTEND] onComplete callback triggered for complete_report', {
+            requestId: streamId,
+            valuationId: event.valuation_id,
+            htmlLength: renderableHtml.length,
+          })
+        } else {
+          // Regular section update
+          apiLogger.debug('[STREAM-FRONTEND] Regular section update received', {
+            requestId: streamId,
+            section: event.section,
+            htmlLength: event.html.length,
+            phase: event.phase,
+            progress: event.progress,
+          })
+          callbacks.onSectionUpdate?.(event.section, event.html, event.phase, event.progress)
+        }
+      }
+      break
+
+    case 'report_complete': {
+      const renderableHtmlReport = getRenderableStreamReportHtml(event.html_report)
+      const hasHtmlReport = !!event.html_report
+      const htmlReportLength = event.html_report?.length || 0
+      apiLogger.info('[STREAM-FRONTEND] report_complete event received', {
+        requestId: streamId,
+        valuationId: event.valuation_id,
+        hasHtmlReport,
+        hasRenderableHtmlReport: !!renderableHtmlReport,
+        rejectReason: renderableHtmlReport
+          ? undefined
+          : getReportHtmlRejectReason(event.html_report),
+        htmlReportLength,
+        htmlReportPreview: event.html_report?.substring(0, 200) || 'N/A',
+        progress: event.progress,
+        status: event.status,
+        hasOnCompleteCallback: !!callbacks.onComplete,
+      })
+
+      if (renderableHtmlReport && event.valuation_id) {
+        const completionEvent: StreamEvent = {
+          ...event,
+          html_report: renderableHtmlReport,
+        }
+
+        callbacks.onComplete?.(renderableHtmlReport, event.valuation_id, completionEvent)
+
+        apiLogger.info('[STREAM-FRONTEND] onComplete callback triggered for report_complete', {
+          requestId: streamId,
+          valuationId: event.valuation_id,
+          htmlReportLength: renderableHtmlReport.length,
+        })
+      } else {
+        apiLogger.warn(
+          '[STREAM-FRONTEND] report_complete event missing renderable html_report or valuation_id',
+          {
+            requestId: streamId,
+            hasHtmlReport,
+            hasRenderableHtmlReport: !!renderableHtmlReport,
+            hasValuationId: !!event.valuation_id,
+            htmlReportLength,
+            rejectReason: getReportHtmlRejectReason(event.html_report),
+          }
+        )
+        callbacks.onError?.(
+          'Valuation report HTML was not renderable. Please try recalculating the valuation.',
+          'ReportHtmlUnavailable'
+        )
+      }
+      break
+    }
+
+    case 'error':
+      callbacks.onError?.(event.error || event.message || 'Unknown error', event.error_type)
+      break
+
+    default:
+      apiLogger.warn('Unknown stream event type', {
+        requestId: streamId,
+        eventType: event.type,
+      })
+  }
 }
 
 class ManualValuationStreamService {
@@ -36,6 +231,7 @@ class ManualValuationStreamService {
     { controller: AbortController; reader?: ReadableStreamDefaultReader }
   > = new Map()
   private streamTimeouts: Map<string, NodeJS.Timeout> = new Map()
+  private completedStreams: Set<string> = new Set()
   // BANK-GRADE: Cascading Timeout Chain - Venus (85s) > Titan (80s) > ValuationIQ (70s)
   private readonly DEFAULT_TIMEOUT = 85000 // 85 seconds (cascade)
 
@@ -134,27 +330,9 @@ class ManualValuationStreamService {
       })
 
       // Return a mock EventSource-like object for compatibility
-      return {
-        close: () => {
-          this.closeStream(streamId)
-        },
-        readyState: EventSource.CONNECTING,
-        url: streamUrl,
-        withCredentials: false,
-        CONNECTING: EventSource.CONNECTING,
-        OPEN: EventSource.OPEN,
-        CLOSED: EventSource.CLOSED,
-        onopen: null,
-        onmessage: null,
-        onerror: null,
-        addEventListener: () => {
-          // Mock EventSource - no-op handler
-        },
-        removeEventListener: () => {
-          // Mock EventSource - no-op handler
-        },
-        dispatchEvent: () => false,
-      } as any
+      return createMockEventSource(streamUrl, EventSource.CONNECTING, () => {
+        this.closeStream(streamId)
+      })
     } catch (error) {
       // Cleanup on error
       this.closeStream(streamId)
@@ -166,21 +344,7 @@ class ManualValuationStreamService {
       ) {
         apiLogger.info('Stream cancelled by user', { streamId })
         callbacks.onError?.('Stream cancelled', 'AbortError')
-        return {
-          close: () => undefined,
-          readyState: EventSource.CLOSED,
-          url: streamUrl,
-          withCredentials: false,
-          CONNECTING: EventSource.CONNECTING,
-          OPEN: EventSource.OPEN,
-          CLOSED: EventSource.CLOSED,
-          onopen: null,
-          onmessage: null,
-          onerror: null,
-          addEventListener: () => undefined,
-          removeEventListener: () => undefined,
-          dispatchEvent: () => false,
-        } as any
+        return createMockEventSource(streamUrl, EventSource.CLOSED, () => undefined)
       }
 
       apiLogger.error('Failed to start manual valuation stream', {
@@ -256,6 +420,39 @@ class ManualValuationStreamService {
     } finally {
       reader.releaseLock()
       this.activeStreams.delete(streamId)
+      this.completedStreams.delete(streamId)
+    }
+  }
+
+  private callbacksWithSingleCompletion(
+    callbacks: StreamCallbacks,
+    streamId: string
+  ): StreamCallbacks {
+    return {
+      ...callbacks,
+      onComplete: (htmlReport, valuationId, fullResponse) => {
+        if (this.completedStreams.has(streamId)) {
+          apiLogger.debug('[STREAM-FRONTEND] Duplicate completion ignored', {
+            requestId: streamId,
+            valuationId,
+          })
+          return
+        }
+
+        this.completedStreams.add(streamId)
+        callbacks.onComplete?.(htmlReport, valuationId, fullResponse)
+      },
+      onError: (error, errorType) => {
+        if (this.completedStreams.has(streamId) && errorType === 'ReportHtmlUnavailable') {
+          apiLogger.debug('[STREAM-FRONTEND] Post-completion report HTML error ignored', {
+            requestId: streamId,
+            errorType,
+          })
+          return
+        }
+
+        callbacks.onError?.(error, errorType)
+      },
     }
   }
 
@@ -264,120 +461,11 @@ class ManualValuationStreamService {
     callbacks: StreamCallbacks,
     streamId: string
   ): void {
-    apiLogger.debug('Handling stream event', {
-      requestId: streamId,
-      eventType: event.type,
-      progress: event.progress,
-    })
-
-    switch (event.type) {
-      case 'progress':
-        if (event.progress !== undefined && event.message) {
-          callbacks.onProgress?.(event.progress, event.message)
-        }
-        break
-
-      case 'section_loading':
-        if (event.section && event.phase !== undefined && event.progress !== undefined) {
-          callbacks.onSectionLoading?.(event.section, event.phase, event.progress)
-        }
-        break
-
-      case 'report_section':
-        if (
-          event.section &&
-          event.html &&
-          event.phase !== undefined &&
-          event.progress !== undefined
-        ) {
-          // Special handling for complete_report section - treat as completion event
-          if (event.section === 'complete_report' && event.valuation_id) {
-            // DIAGNOSTIC: Log when complete_report is received
-            const htmlLength = event.html?.length || 0
-            apiLogger.info('[STREAM-FRONTEND] Complete report section received', {
-              requestId: streamId,
-              section: event.section,
-              valuationId: event.valuation_id,
-              htmlLength,
-              htmlPreview: event.html?.substring(0, 200) || 'N/A',
-              phase: event.phase,
-              progress: event.progress,
-              hasOnCompleteCallback: !!callbacks.onComplete,
-            })
-
-            // This is the full HTML report, trigger completion instead of section update
-            callbacks.onComplete?.(
-              event.html,
-              event.valuation_id,
-              event as any // Pass full event as fullResponse
-            )
-
-            apiLogger.info('[STREAM-FRONTEND] onComplete callback triggered for complete_report', {
-              requestId: streamId,
-              valuationId: event.valuation_id,
-              htmlLength,
-            })
-          } else {
-            // Regular section update
-            apiLogger.debug('[STREAM-FRONTEND] Regular section update received', {
-              requestId: streamId,
-              section: event.section,
-              htmlLength: event.html?.length || 0,
-              phase: event.phase,
-              progress: event.progress,
-            })
-            callbacks.onSectionUpdate?.(event.section, event.html, event.phase, event.progress)
-          }
-        }
-        break
-
-      case 'report_complete': {
-        // DIAGNOSTIC: Log when report_complete event is received
-        const hasHtmlReport = !!event.html_report
-        const htmlReportLength = event.html_report?.length || 0
-        apiLogger.info('[STREAM-FRONTEND] report_complete event received', {
-          requestId: streamId,
-          valuationId: event.valuation_id,
-          hasHtmlReport,
-          htmlReportLength,
-          htmlReportPreview: event.html_report?.substring(0, 200) || 'N/A',
-          progress: event.progress,
-          status: event.status,
-          hasOnCompleteCallback: !!callbacks.onComplete,
-        })
-
-        if (event.html_report && event.valuation_id) {
-          callbacks.onComplete?.(event.html_report, event.valuation_id, event as any)
-
-          apiLogger.info('[STREAM-FRONTEND] onComplete callback triggered for report_complete', {
-            requestId: streamId,
-            valuationId: event.valuation_id,
-            htmlReportLength,
-          })
-        } else {
-          apiLogger.warn(
-            '[STREAM-FRONTEND] report_complete event missing html_report or valuation_id',
-            {
-              requestId: streamId,
-              hasHtmlReport,
-              hasValuationId: !!event.valuation_id,
-              htmlReportLength,
-            }
-          )
-        }
-        break
-      }
-
-      case 'error':
-        callbacks.onError?.(event.error || event.message || 'Unknown error', event.error_type)
-        break
-
-      default:
-        apiLogger.warn('Unknown stream event type', {
-          requestId: streamId,
-          eventType: event.type,
-        })
-    }
+    handleManualValuationStreamEvent(
+      event,
+      this.callbacksWithSingleCompletion(callbacks, streamId),
+      streamId
+    )
   }
 
   /**
@@ -393,6 +481,7 @@ class ManualValuationStreamService {
         })
       }
       this.activeStreams.delete(streamId)
+      this.completedStreams.delete(streamId)
 
       const timeout = this.streamTimeouts.get(streamId)
       if (timeout) {
@@ -425,6 +514,7 @@ class ManualValuationStreamService {
     }
     this.activeStreams.clear()
     this.streamTimeouts.clear()
+    this.completedStreams.clear()
   }
 }
 

@@ -1,4 +1,5 @@
 export { AdaptivePercentInput } from './AdaptivePercentInput'
+export { AdvancedAdvisorControlsSection } from './AdvancedAdvisorControlsSection'
 // Round-6 audit: `BelgianSmeAuditPanel` no longer exported from the
 // sections barrel. It renders advisory output (SDE bridge, NAV
 // revaluation log, deal-structure comparison) — that lives in the

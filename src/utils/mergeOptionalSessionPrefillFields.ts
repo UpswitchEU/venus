@@ -280,9 +280,15 @@ const OPTIONAL_SCALAR_KEYS = [
   'nav_other_revaluations',
   'nav_tax_latency_pct',
   'nav_off_balance_items',
+  'real_estate_treatment',
+  'real_estate_market_value',
   'exclude_real_estate',
   'real_estate_book_value',
   'estimated_market_rent',
+  'multiple_calibration_adjustment',
+  'multiple_calibration_note',
+  'historical_ebitda_weighting_mode',
+  'show_enterprise_to_equity_bridge',
   'business_highlights',
   'reason_for_selling',
   'owner_role',
@@ -350,6 +356,7 @@ export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
   'nav_per_asset_tax_rates',
   'nav_equipment_revaluation',
   'capital_safe_notes',
+  'historical_ebitda_weights',
   /** Method blend + startup path — large blobs; merge only into empty form slots. */
   /** Multi-method blend persisted on session — gap-fill when store empty (Mercury handoff). */
   '_pre_selected_valuation_methods',

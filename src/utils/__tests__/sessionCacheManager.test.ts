@@ -27,7 +27,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
     valuationResult: {
       valuation_id: 'val_123',
       final_valuation_eur: 1000000,
-    } as any,
+    } as ValuationSession['valuationResult'],
   }
 
   const incompleteSession: ValuationSession = {
@@ -182,7 +182,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const partiallyCompleteSession = {
         ...incompleteSession,
         htmlReport: '<html>Report only</html>',
-        valuationResult: { valuation_id: 'v1', final_valuation_eur: 1 } as any,
+        valuationResult: {
+          valuation_id: 'v1',
+          final_valuation_eur: 1,
+        } as ValuationSession['valuationResult'],
       }
 
       cacheManager.set(mockReportId, partiallyCompleteSession)
@@ -192,6 +195,77 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBeUndefined()
       expect(result?.valuationResult).toBeTruthy()
+    })
+
+    it('should strip rendered HTML and PDF blobs from every cached session shape', () => {
+      const hugeHtml = '<html>'.padEnd(2_000, 'H')
+      const hugePdfHtml = '<html>'.padEnd(2_000, 'P')
+      const sessionWithRenderedBlobs = {
+        ...completeSession,
+        htmlReport: hugeHtml,
+        pdfHtmlReport: hugePdfHtml,
+        infoTabHtml: hugeHtml,
+        valuationResult: {
+          valuation_id: 'val_blob',
+          final_valuation_eur: 123,
+          html_report: hugeHtml,
+          pdf_html_report: hugePdfHtml,
+          details: {
+            html_report: hugeHtml,
+            pdf_html_report: hugePdfHtml,
+            equity_value_mid: 123,
+          },
+        },
+        sessionData: {
+          company_name: 'Blob Corp',
+          htmlReport: hugeHtml,
+          html_report: hugeHtml,
+          _htmlReport: hugeHtml,
+          pdfHtmlReport: hugePdfHtml,
+          pdf_html_report: hugePdfHtml,
+          valuationResult: {
+            equity_value_mid: 123,
+            html_report: hugeHtml,
+            pdf_html_report: hugePdfHtml,
+            details: {
+              html_report: hugeHtml,
+              pdf_html_report: hugePdfHtml,
+              confidence_score: 55,
+            },
+          },
+          valuation_result: {
+            equity_value_mid: 456,
+            html_report: hugeHtml,
+            pdf_html_report: hugePdfHtml,
+          },
+        },
+        partialData: {
+          revenue: 1000,
+          html_report: hugeHtml,
+          pdf_html_report: hugePdfHtml,
+        },
+      } as unknown as ValuationSession
+
+      cacheManager.set(mockReportId, sessionWithRenderedBlobs)
+
+      const cached = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
+      expect(cached).toBeTruthy()
+      expect(cached).not.toContain(hugeHtml)
+      expect(cached).not.toContain(hugePdfHtml)
+
+      const parsed = JSON.parse(cached as string)
+      expect(parsed.session.htmlReport).toBeUndefined()
+      expect(parsed.session.pdfHtmlReport).toBeUndefined()
+      expect(parsed.session.infoTabHtml).toBeUndefined()
+      expect(parsed.session.valuationResult.html_report).toBeUndefined()
+      expect(parsed.session.valuationResult.pdf_html_report).toBeUndefined()
+      expect(parsed.session.valuationResult.details.html_report).toBeUndefined()
+      expect(parsed.session.valuationResult.details.pdf_html_report).toBeUndefined()
+      expect(parsed.session.valuationResult.final_valuation_eur).toBe(123)
+      expect(parsed.session.sessionData.valuationResult.equity_value_mid).toBe(123)
+      expect(parsed.session.sessionData.valuationResult.details.confidence_score).toBe(55)
+      expect(parsed.session.sessionData.valuation_result.equity_value_mid).toBe(456)
+      expect(parsed.session.partialData.revenue).toBe(1000)
     })
   })
 

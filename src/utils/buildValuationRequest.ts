@@ -864,6 +864,23 @@ export function buildValuationRequest(
         ? existingBusinessContext
         : undefined
 
+  const realEstateTreatment =
+    fd.real_estate_treatment ??
+    (fd.exclude_real_estate === true ? ('carve_out' as const) : ('none' as const))
+  const multipleCalibrationAdjustment = toFiniteNumber(fd.multiple_calibration_adjustment)
+  const multipleCalibrationNote =
+    typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
+  const historicalEbitdaWeights: Record<number, number> = {}
+  if (fd.historical_ebitda_weights && typeof fd.historical_ebitda_weights === 'object') {
+    for (const [year, weight] of Object.entries(fd.historical_ebitda_weights)) {
+      const numericYear = Number(year)
+      const numericWeight = toFiniteNumber(weight)
+      if (Number.isFinite(numericYear) && numericWeight != null) {
+        historicalEbitdaWeights[numericYear] = numericWeight
+      }
+    }
+  }
+
   // Build ValuationRequest
   const request: ValuationRequest = {
     company_name: companyName,
@@ -893,12 +910,37 @@ export function buildValuationRequest(
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,
-    ...(fd.exclude_real_estate != null && { exclude_real_estate: Boolean(fd.exclude_real_estate) }),
-    ...(fd.real_estate_book_value != null && {
-      real_estate_book_value: Number(fd.real_estate_book_value),
+    real_estate_treatment: realEstateTreatment,
+    exclude_real_estate: realEstateTreatment === 'carve_out',
+    ...(realEstateTreatment === 'included' &&
+      fd.real_estate_market_value != null && {
+        real_estate_market_value: Number(fd.real_estate_market_value),
+      }),
+    ...((realEstateTreatment === 'carve_out' || realEstateTreatment === 'included') &&
+      fd.real_estate_book_value != null && {
+        real_estate_book_value: Number(fd.real_estate_book_value),
+      }),
+    ...(realEstateTreatment === 'carve_out' &&
+      fd.estimated_market_rent != null && {
+        estimated_market_rent: Number(fd.estimated_market_rent),
+      }),
+    ...(multipleCalibrationAdjustment != null && {
+      multiple_calibration_adjustment: multipleCalibrationAdjustment,
     }),
-    ...(fd.estimated_market_rent != null && {
-      estimated_market_rent: Number(fd.estimated_market_rent),
+    ...(multipleCalibrationAdjustment != null &&
+      multipleCalibrationAdjustment !== 0 &&
+      multipleCalibrationNote && {
+        multiple_calibration_note: multipleCalibrationNote,
+      }),
+    ...(fd.historical_ebitda_weighting_mode && {
+      historical_ebitda_weighting_mode: fd.historical_ebitda_weighting_mode,
+    }),
+    ...(fd.historical_ebitda_weighting_mode === 'weighted' &&
+      Object.keys(historicalEbitdaWeights).length > 0 && {
+        historical_ebitda_weights: historicalEbitdaWeights,
+      }),
+    ...(fd.show_enterprise_to_equity_bridge != null && {
+      show_enterprise_to_equity_bridge: Boolean(fd.show_enterprise_to_equity_bridge),
     }),
     ...(fd.owner_salary_addback != null &&
       Number.isFinite(Number(fd.owner_salary_addback)) && {

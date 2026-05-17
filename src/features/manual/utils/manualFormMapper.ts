@@ -200,11 +200,32 @@ export function mapClarityFormToVenusStore(
     ...(data.exclude_real_estate != null && {
       exclude_real_estate: data.exclude_real_estate,
     }),
+    ...(data.real_estate_treatment != null && {
+      real_estate_treatment: data.real_estate_treatment,
+    }),
+    ...(data.real_estate_market_value != null && {
+      real_estate_market_value: data.real_estate_market_value,
+    }),
     ...(data.real_estate_book_value != null && {
       real_estate_book_value: data.real_estate_book_value,
     }),
     ...(data.estimated_market_rent != null && {
       estimated_market_rent: data.estimated_market_rent,
+    }),
+    ...(data.multiple_calibration_adjustment != null && {
+      multiple_calibration_adjustment: data.multiple_calibration_adjustment,
+    }),
+    ...(data.multiple_calibration_note != null && {
+      multiple_calibration_note: data.multiple_calibration_note,
+    }),
+    ...(data.historical_ebitda_weighting_mode != null && {
+      historical_ebitda_weighting_mode: data.historical_ebitda_weighting_mode,
+    }),
+    ...(data.historical_ebitda_weights != null && {
+      historical_ebitda_weights: data.historical_ebitda_weights,
+    }),
+    ...(data.show_enterprise_to_equity_bridge != null && {
+      show_enterprise_to_equity_bridge: data.show_enterprise_to_equity_bridge,
     }),
     ...(data.nav_inventory_adjustment != null && {
       nav_inventory_adjustment: data.nav_inventory_adjustment,

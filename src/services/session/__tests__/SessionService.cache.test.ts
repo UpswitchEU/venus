@@ -29,6 +29,7 @@ vi.mock('../../backendApi', () => ({
     getValuationSession: vi.fn(),
     updateValuationSession: vi.fn(),
     createValuationSession: vi.fn(),
+    getReport: vi.fn(),
   },
 }))
 
@@ -37,6 +38,18 @@ vi.mock('../../../utils/sessionCacheManager', () => ({
     get: vi.fn(),
     set: vi.fn(),
     remove: vi.fn(),
+  },
+}))
+
+vi.mock('../../version/VersionService', () => ({
+  versionService: {
+    fetchVersions: vi.fn().mockResolvedValue({ versions: [] }),
+  },
+}))
+
+vi.mock('../../../lib/auth', () => ({
+  useAuthStore: {
+    getState: () => ({ user: null }),
   },
 }))
 
@@ -173,6 +186,40 @@ describe('SessionService - Cache Update Strategy', () => {
 
       // Should NOT trigger backend revalidation
       expect(backendAPI.getValuationSession).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('loadCompleteValuationData - report restoration guard', () => {
+    it('does not restore safety-net HTML as the current report', async () => {
+      vi.mocked(globalSessionCache.get).mockReturnValue(mockSession)
+      vi.mocked(backendAPI.getReport).mockResolvedValue({
+        html_report:
+          '<html><body><section class="valuation-summary">Valuation — Summary fallback</section></body></html>',
+        equity_value_low: 100,
+        equity_value_mid: 150,
+        equity_value_high: 200,
+      })
+
+      const result = await sessionService.loadCompleteValuationData(mockReportId)
+
+      expect(result?.currentReport).toBeUndefined()
+    })
+
+    it('restores renderable report HTML as the current report', async () => {
+      const renderableHtml =
+        '<html><body><main>' + 'Templated valuation report content. '.repeat(8) + '</main></body></html>'
+      vi.mocked(globalSessionCache.get).mockReturnValue(mockSession)
+      vi.mocked(backendAPI.getReport).mockResolvedValue({
+        html_report: renderableHtml,
+        equity_value_low: 100,
+        equity_value_mid: 150,
+        equity_value_high: 200,
+      })
+
+      const result = await sessionService.loadCompleteValuationData(mockReportId)
+
+      expect(result?.currentReport?.html_report).toBe(renderableHtml)
+      expect(result?.pricingRange).toEqual({ min: 100, suggested: 150, max: 200 })
     })
   })
 

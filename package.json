@@ -35,6 +35,7 @@
     "verify:auth-fetch-timeout-contracts": "node ../../scripts/verify-auth-fetch-timeout-contracts.mjs",
     "verify:valuation-extract": "node ../../scripts/verify-valuation-extract-parity.mjs",
     "verify:brand-favicons": "node ../../scripts/verify-brand-favicons.mjs",
+    "sync:shared-contracts": "node ../../scripts/sync-shared-contracts.mjs",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",
     "deploy:netlify": "./deploy.sh netlify",

@@ -21,6 +21,32 @@ interface ResultsComponentProps {
   result?: ValuationResponse | null
 }
 
+function readEnterpriseBridgePreference(source?: Record<string, unknown> | null): boolean | null {
+  if (!source) return null
+  if (typeof source.show_enterprise_to_equity_bridge === 'boolean') {
+    return source.show_enterprise_to_equity_bridge
+  }
+  const metadata = source.metadata
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const value = (metadata as Record<string, unknown>).show_enterprise_to_equity_bridge
+    if (typeof value === 'boolean') return value
+  }
+  const reportContext = source.report_context
+  if (reportContext && typeof reportContext === 'object' && !Array.isArray(reportContext)) {
+    const value = (reportContext as Record<string, unknown>).show_enterprise_to_equity_bridge
+    if (typeof value === 'boolean') return value
+  }
+  const details = source.details
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const nestedContext = (details as Record<string, unknown>).report_context
+    if (nestedContext && typeof nestedContext === 'object' && !Array.isArray(nestedContext)) {
+      const value = (nestedContext as Record<string, unknown>).show_enterprise_to_equity_bridge
+      if (typeof value === 'boolean') return value
+    }
+  }
+  return null
+}
+
 /**
  * Results Component - Renders the Python-generated HTML valuation report.
  *
@@ -39,6 +65,10 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // BANK-GRADE FIX: Subscribe to session htmlReport to update when session loads
   // Previous approach used getState() which doesn't trigger re-renders
   const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
+  const sessionShowEnterpriseBridge = useSessionStore((state) => {
+    const sessionData = state.session?.sessionData as Record<string, unknown> | undefined
+    return sessionData?.show_enterprise_to_equity_bridge
+  })
   const sessionWaterfall = useSessionStore((state) =>
     extractEvEquityWaterfallSteps(state.session?.valuationResult as ValuationResponse | undefined)
   )
@@ -104,6 +134,14 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // Prefer session HTML, but do not let legacy safety-net HTML mask a real result report.
   const htmlReport = getFirstRenderableReportHtml(sessionHtmlReport, result?.html_report)
   const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
+  const showEnterpriseBridge = useMemo(() => {
+    if (typeof sessionShowEnterpriseBridge === 'boolean') return sessionShowEnterpriseBridge
+    return (
+      readEnterpriseBridgePreference(sessionValuationResult as unknown as Record<string, unknown>) ??
+      readEnterpriseBridgePreference(result as unknown as Record<string, unknown>) ??
+      true
+    )
+  }, [sessionShowEnterpriseBridge, sessionValuationResult, result])
 
   // Verification logging: Track when result changes
   useEffect(() => {
@@ -178,7 +216,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     const hasBand = !!(
       sessionBuyerReadiness ||
       ownerProfilingState ||
-      (evEquitySteps && evEquitySteps.length > 0)
+      (showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0)
     )
 
     if (hasBand) {
@@ -196,7 +234,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
               userTri={peerPanelInputs.userTri}
               valuationId={peerPanelInputs.valuationId}
             />
-            {evEquitySteps && evEquitySteps.length > 0 ? (
+            {showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0 ? (
               <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
             ) : null}
           </div>
@@ -240,7 +278,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     <div className="valuation-report-container h-full overflow-y-auto bg-background">
       {(sessionBuyerReadiness ||
         ownerProfilingState ||
-        (evEquitySteps && evEquitySteps.length > 0)) && (
+        (showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0)) && (
         <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
           <BuyerReadinessPanel readiness={sessionBuyerReadiness} />
           {ownerProfilingState?.mode === 'chip' ? (
@@ -252,7 +290,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
             countryCode={peerPanelInputs.countryCode}
             userTri={peerPanelInputs.userTri}
           />
-          {evEquitySteps && evEquitySteps.length > 0 ? (
+          {showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0 ? (
             <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
           ) : null}
         </div>

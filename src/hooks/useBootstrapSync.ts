@@ -41,6 +41,7 @@ import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 const logger = createContextLogger('BootstrapSync')
 
 type PrefillDataParam = SessionBootstrapState['prefillData']
+type BootstrapMinimalSession = Partial<ValuationSession> & { pdfUrl?: string }
 
 function isEmptyLike(value: unknown): boolean {
   if (value === undefined || value === null) return true
@@ -668,7 +669,7 @@ function syncSession(state: SessionBootstrapState): void {
           ...buildPrefillSessionFields(prefillData),
         }
 
-        const minimalSession: Partial<ValuationSession> = {
+        const minimalSession: BootstrapMinimalSession = {
           reportId: report.reportId,
           currentView: 'manual' as const,
           dataSource: 'manual' as const,
@@ -800,7 +801,7 @@ function syncSession(state: SessionBootstrapState): void {
       // Phase 1.3: Always create minimal session for existing reports (even when package empty)
       // Enables ValuationSessionManager to detect session and trigger loadSession when assets missing
       {
-        const minimalSession: Partial<ValuationSession> = {
+        const minimalSession: BootstrapMinimalSession = {
           reportId: report.reportId,
           currentView: 'manual' as const,
           dataSource: 'manual' as const,
@@ -809,18 +810,22 @@ function syncSession(state: SessionBootstrapState): void {
           partialData: {},
           sessionData: sessionData as any,
         }
-        // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.)
-        if (hasPackage && pkg?.htmlReport) {
-          ;(minimalSession as any).htmlReport = pkg.htmlReport
-          if (pkg.pdf?.url) (minimalSession as any).pdfUrl = pkg.pdf.url
+        // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.).
+        // Only promote HTML that survived the renderability guard; pricing/PDF
+        // metadata may still hydrate without a report preview.
+        if (hasPackage && pkg) {
+          if (packageRenderableHtml) {
+            minimalSession.htmlReport = packageRenderableHtml
+          }
+          if (pkg.pdf?.url) minimalSession.pdfUrl = pkg.pdf.url
           if (pkg.buyerReadiness) minimalSession.buyerReadiness = pkg.buyerReadiness
           if (pkg.pricingRange) {
-            ;(minimalSession as any).valuationResult = {
+            minimalSession.valuationResult = {
               equity_value_low: pkg.pricingRange.min,
               equity_value_mid: pkg.pricingRange.mid,
               equity_value_high: pkg.pricingRange.max,
               currency: pkg.pricingRange.currency,
-            }
+            } as unknown as ValuationSession['valuationResult']
           }
         }
         sessionStore.hydrateSession(minimalSession)

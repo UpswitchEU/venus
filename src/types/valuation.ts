@@ -363,10 +363,17 @@ export interface ValuationRequest {
   tax_latencies?: TaxLatencyInput[]
   balance_sheet_adjustments?: BalanceSheetAdjustmentInput[]
 
-  // Real estate carve-out for share deals where the property remains with the seller
+  // Advanced advisor controls (UPS-ADV-300)
+  real_estate_treatment?: 'none' | 'carve_out' | 'included'
   exclude_real_estate?: boolean
+  real_estate_market_value?: number
   real_estate_book_value?: number
   estimated_market_rent?: number
+  multiple_calibration_adjustment?: number
+  multiple_calibration_note?: string
+  historical_ebitda_weighting_mode?: 'standard' | 'weighted'
+  historical_ebitda_weights?: Record<number, number>
+  show_enterprise_to_equity_bridge?: boolean
 
   /** Accountant-tier: override EV/EBITDA median vs Upswitch benchmark (see preparer_ev_ebitda_override) */
   preparer_ev_ebitda_median?: number
@@ -542,9 +549,16 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   is_holding_more_than_50pct_shares?: boolean
   sme_rate_override?: boolean
   // M&A transaction structure
+  real_estate_treatment?: 'none' | 'carve_out' | 'included'
   exclude_real_estate?: boolean
+  real_estate_market_value?: number
   real_estate_book_value?: number
   estimated_market_rent?: number
+  multiple_calibration_adjustment?: number
+  multiple_calibration_note?: string
+  historical_ebitda_weighting_mode?: 'standard' | 'weighted'
+  historical_ebitda_weights?: Record<number, number>
+  show_enterprise_to_equity_bridge?: boolean
   /**
    * Asset-vs-share deal selector. 'compare' returns both scenarios.
    * Triggers `deal_structure_comparison` in the engine response.

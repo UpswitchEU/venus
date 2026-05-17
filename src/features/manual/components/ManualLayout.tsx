@@ -293,11 +293,65 @@ function toastModalEditPersistError(err: unknown, tToast: (key: string) => strin
   toast.error(tToast(toastConfig.titleKey))
 }
 
+function ManualLayoutSessionError({
+  message,
+  reloadLabel,
+  title,
+}: {
+  message: string
+  reloadLabel: string
+  title: string
+}) {
+  return (
+    <div className="flex items-center justify-center h-full min-h-[400px]">
+      <div className="max-w-md mx-auto text-center">
+        <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-destructive mb-2">{title}</h3>
+          <p className="text-destructive/80 mb-6">{message}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-white rounded-lg transition-colors font-medium"
+          >
+            {reloadLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────
 
-export const ManualLayout: React.FC<ManualLayoutProps> = ({
+export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
+  const tErrors = useTranslations('errors')
+  const status = useSessionStore((s) => s.status)
+  const session = useSessionStore((s) => s.session)
+  const sessionError = useSessionStore((s) => s.errorMessage)
+  const sessionMatchesReport = manualSessionMatchesReport(session, props.reportId)
+  const isLoading = status === 'loading'
+  const isInitializing = status === 'idle' || status === 'loading'
+
+  if (isLoading || isInitializing || !session || !sessionMatchesReport) {
+    return <CalculatorShellSkeleton />
+  }
+
+  if (sessionError) {
+    return (
+      <ManualLayoutSessionError
+        message={sessionError}
+        reloadLabel={tErrors('session.reloadPage')}
+        title={tErrors('session.title')}
+      />
+    )
+  }
+
+  return <ManualLayoutLoaded {...props} />
+}
+
+const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   reportId,
   onComplete,
   initialVersion,
@@ -418,11 +472,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [allowedMethodKeys, preSelectableMethodsForNav])
   const ebitdaNormalizationLocked = Boolean(planFeatures && !planFeatures.ebitda_normalization)
   const versionControlLocked = Boolean(planFeatures && !planFeatures.version_control)
-  const status = useSessionStore((s) => s.status)
   const session = useSessionStore((s) => s.session)
   const activeSessionKey = getManualSessionKey(session)
-  const sessionError = useSessionStore((s) => s.errorMessage)
-  const _reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
   const importQualityMap = useImportQualityStore((s) => s.importQuality)
@@ -547,36 +598,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportHydrationLookupId = useMemo(() => {
     return resolveManualReportHydrationLookupId({ session, resolvedReportId, reportId })
   }, [session, resolvedReportId, reportId])
-
-  // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
-  const sessionMatchesReport = manualSessionMatchesReport(session, reportId)
-
-  // Async loading: show calculator shell skeleton instead of blocking LoadingState
-  const isLoading = status === 'loading'
-  const isInitializing = status === 'idle' || status === 'loading'
-  if (isLoading || isInitializing || !session || !sessionMatchesReport) {
-    return <CalculatorShellSkeleton />
-  }
-  if (sessionError) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="max-w-md mx-auto text-center">
-          <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-destructive mb-2">
-              {tErrors('session.title')}
-            </h3>
-            <p className="text-destructive/80 mb-6">{sessionError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-white rounded-lg transition-colors font-medium"
-            >
-              {tErrors('session.reloadPage')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   // ─── Report & Generation State ───
   const [report, setReport] = useState<ValuationReportData | null>(null)

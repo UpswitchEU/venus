@@ -16,7 +16,10 @@
  * ```
  */
 
-import { manualValuationStreamService } from '../../../services/manualValuationStreamService'
+import {
+  manualValuationStreamService,
+  type StreamEvent,
+} from '../../../services/manualValuationStreamService'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { IValuationService } from './interfaces'
@@ -43,7 +46,7 @@ export class ValuationService implements IValuationService {
 
         manualValuationStreamService
           .streamManualValuation(request, {
-            onComplete: (htmlReport: string, valuationId: string, fullResponse?: any) => {
+            onComplete: (htmlReport: string, valuationId: string, fullResponse?: StreamEvent) => {
               finalResult = {
                 ...fullResponse,
                 html_report: htmlReport,
@@ -105,7 +108,7 @@ export class ValuationService implements IValuationService {
 
       const stream = await manualValuationStreamService.streamManualValuation(request, {
         onProgress,
-        onComplete: (htmlReport: string, valuationId: string, fullResponse?: any) => {
+        onComplete: (htmlReport: string, valuationId: string, fullResponse?: StreamEvent) => {
           const result: ValuationResponse = {
             ...fullResponse,
             html_report: htmlReport,
