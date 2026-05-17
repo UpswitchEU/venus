@@ -59,6 +59,16 @@ function hasValidHistoricalEbitdaWeights(weights: Record<number, number>): boole
   return Math.abs(total - 100) <= 2 || Math.abs(total - 1) <= 0.02
 }
 
+function toBooleanOrNull(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (typeof value !== 'string') return null
+
+  const normalized = value.trim().toLowerCase()
+  if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true
+  if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false
+  return null
+}
+
 function requireNonNegativeRevenue(value: unknown, field: string): number {
   const revenue = toFiniteNumber(value)
 
@@ -876,6 +886,26 @@ export function buildValuationRequest(
   const realEstateTreatment =
     fd.real_estate_treatment ??
     (fd.exclude_real_estate === true ? ('carve_out' as const) : ('none' as const))
+  const realEstateMarketValue = toFiniteNumber(fd.real_estate_market_value)
+  const realEstateBookValue = toFiniteNumber(fd.real_estate_book_value)
+  const estimatedMarketRent = toFiniteNumber(fd.estimated_market_rent)
+  if (realEstateTreatment === 'included') {
+    if (realEstateMarketValue === null) {
+      throw new ValidationError(
+        'Market value of real estate is required when real estate is included in the transaction.',
+        'real_estate_market_value',
+        fd.real_estate_market_value
+      )
+    }
+    if (realEstateBookValue === null) {
+      throw new ValidationError(
+        'Book value of real estate is required when real estate is included in the transaction.',
+        'real_estate_book_value',
+        fd.real_estate_book_value
+      )
+    }
+  }
+
   const multipleCalibrationAdjustment = toFiniteNumber(fd.multiple_calibration_adjustment)
   const multipleCalibrationNote =
     typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
@@ -914,6 +944,7 @@ export function buildValuationRequest(
       fd.historical_ebitda_weights
     )
   }
+  const showEnterpriseToEquityBridge = toBooleanOrNull(fd.show_enterprise_to_equity_bridge)
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -946,17 +977,16 @@ export function buildValuationRequest(
     business_context: businessContext,
     real_estate_treatment: realEstateTreatment,
     exclude_real_estate: realEstateTreatment === 'carve_out',
-    ...(realEstateTreatment === 'included' &&
-      fd.real_estate_market_value != null && {
-        real_estate_market_value: Number(fd.real_estate_market_value),
-      }),
+    ...(realEstateTreatment === 'included' && {
+      real_estate_market_value: realEstateMarketValue,
+    }),
     ...((realEstateTreatment === 'carve_out' || realEstateTreatment === 'included') &&
-      fd.real_estate_book_value != null && {
-        real_estate_book_value: Number(fd.real_estate_book_value),
+      realEstateBookValue != null && {
+        real_estate_book_value: realEstateBookValue,
       }),
     ...(realEstateTreatment === 'carve_out' &&
-      fd.estimated_market_rent != null && {
-        estimated_market_rent: Number(fd.estimated_market_rent),
+      estimatedMarketRent != null && {
+        estimated_market_rent: estimatedMarketRent,
       }),
     ...(multipleCalibrationAdjustment != null && {
       multiple_calibration_adjustment: multipleCalibrationAdjustment,
@@ -972,8 +1002,8 @@ export function buildValuationRequest(
     ...(hasValidCustomHistoricalEbitdaWeights && {
       historical_ebitda_weights: historicalEbitdaWeights,
     }),
-    ...(fd.show_enterprise_to_equity_bridge != null && {
-      show_enterprise_to_equity_bridge: Boolean(fd.show_enterprise_to_equity_bridge),
+    ...(showEnterpriseToEquityBridge != null && {
+      show_enterprise_to_equity_bridge: showEnterpriseToEquityBridge,
     }),
     ...(fd.owner_salary_addback != null &&
       Number.isFinite(Number(fd.owner_salary_addback)) && {

@@ -827,6 +827,29 @@ describe('buildValuationRequest', () => {
     expect(result.real_estate_market_value).toBeUndefined()
   })
 
+  it('rejects included real estate without market and book values', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          real_estate_treatment: 'included',
+          real_estate_market_value: Number.NaN,
+          real_estate_book_value: 650_000,
+        }),
+        []
+      )
+    ).toThrow('Market value of real estate is required')
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          real_estate_treatment: 'included',
+          real_estate_market_value: 900_000,
+        }),
+        []
+      )
+    ).toThrow('Book value of real estate is required')
+  })
+
   it('rejects multiple calibration adjustments without an audit note', () => {
     expect(() =>
       buildValuationRequest(
@@ -877,6 +900,17 @@ describe('buildValuationRequest', () => {
       [getCurrentFilingYear() - 2]: 0.3,
       [getCurrentFilingYear() - 1]: 0.6,
     })
+  })
+
+  it('normalizes restored string bridge toggles without truthy string coercion', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        show_enterprise_to_equity_bridge: 'false',
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.show_enterprise_to_equity_bridge).toBe(false)
   })
 
   it('serializes adaptive DCF and NAV inputs into business_context', () => {
