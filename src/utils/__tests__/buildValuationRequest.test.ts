@@ -862,6 +862,28 @@ describe('buildValuationRequest', () => {
     ).toThrow('Calibration note is required')
   })
 
+  it('rejects multiple calibration adjustments outside the engine-supported range', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          multiple_calibration_adjustment: 10.1,
+          multiple_calibration_note: 'Opslag buiten bandbreedte',
+        }),
+        []
+      )
+    ).toThrow('Specific risk/quality premium must be between -10.0x and +10.0x.')
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          multiple_calibration_adjustment: -10.1,
+          multiple_calibration_note: 'Afslag buiten bandbreedte',
+        }),
+        []
+      )
+    ).toThrow('Specific risk/quality premium must be between -10.0x and +10.0x.')
+  })
+
   it('rejects malformed historical EBITDA weights before calling the valuation engine', () => {
     expect(() =>
       buildValuationRequest(

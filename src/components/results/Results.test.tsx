@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../../types/valuation'
@@ -447,6 +447,48 @@ describe('Results', () => {
     )
 
     expect(screen.getByText('Full ValuationIQ report')).toBeInTheDocument()
+    expect(screen.queryByLabelText('ariaLabel')).not.toBeInTheDocument()
+  })
+
+  it('lets advisors toggle the EV-to-equity bridge from the Results page', () => {
+    render(
+      <Results
+        result={
+          {
+            html_report:
+              '<article><div class="ev-equity-waterfall-section">Backend bridge</div>Full ValuationIQ report</article>',
+            ev_equity_waterfall_steps: [
+              {
+                label: 'Enterprise value',
+                short_label: 'EV',
+                kind: 'base',
+                end_value: 1_000_000,
+              },
+              {
+                label: 'Equity value',
+                short_label: 'Equity',
+                kind: 'total',
+                end_value: 850_000,
+              },
+            ],
+          } as ValuationResponse
+        }
+      />
+    )
+
+    const toggle = screen.getByRole('switch', { name: 'enterpriseBridgeToggle' })
+    const container = screen
+      .getByText('Full ValuationIQ report')
+      .closest('.valuation-report-container')
+
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(container).toHaveAttribute('data-show-enterprise-bridge', 'true')
+    expect(screen.getByLabelText('ariaLabel')).toBeInTheDocument()
+
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(container).toHaveAttribute('data-show-enterprise-bridge', 'false')
     expect(screen.queryByLabelText('ariaLabel')).not.toBeInTheDocument()
   })
 })

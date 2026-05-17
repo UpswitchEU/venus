@@ -911,6 +911,16 @@ export function buildValuationRequest(
     typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
   if (
     multipleCalibrationAdjustment != null &&
+    (multipleCalibrationAdjustment < -10 || multipleCalibrationAdjustment > 10)
+  ) {
+    throw new ValidationError(
+      'Specific risk/quality premium must be between -10.0x and +10.0x.',
+      'multiple_calibration_adjustment',
+      fd.multiple_calibration_adjustment
+    )
+  }
+  if (
+    multipleCalibrationAdjustment != null &&
     multipleCalibrationAdjustment !== 0 &&
     !multipleCalibrationNote
   ) {

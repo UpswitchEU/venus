@@ -127,6 +127,8 @@ export function AdvancedAdvisorControlsSection({
           </div>
           <AuroraInput
             type="number"
+            min="-10"
+            max="10"
             step="0.1"
             label={t('specificPremium')}
             size="sm"

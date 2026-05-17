@@ -6,6 +6,7 @@
  */
 import posthog from 'posthog-js'
 
+import { scrubPostHogParams } from './pii-redact'
 import { getPostHogApiHost, getPostHogProjectToken } from './posthog-env'
 
 export { getPostHogApiHost, getPostHogProjectToken } from './posthog-env'
@@ -131,21 +132,26 @@ export function capturePostHogOrQueue(
   params?: Record<string, string | number | boolean>
 ): void {
   if (!getPostHogProjectToken() || typeof window === 'undefined') return
+  // P0-4 — scrub every string param value through `redactStructuredPii`
+  // before either capture or queue. Defense-in-depth — see Mercury's
+  // capturePostHogOrQueue for the rationale (single chokepoint catches
+  // accidental PII in event properties from any call site).
+  const scrubbed = scrubPostHogParams(params)
   if (!initialized) {
     if (preInitQueue.length >= MAX_QUEUE) preInitQueue.shift()
-    preInitQueue.push({ name, params })
+    preInitQueue.push({ name, params: scrubbed })
     return
   }
   if (isPostHogCaptureAllowed()) {
     try {
-      posthog.capture(name, params)
+      posthog.capture(name, scrubbed)
     } catch {
       /* never block UI */
     }
     return
   }
   if (queue.length >= MAX_QUEUE) queue.shift()
-  queue.push({ name, params })
+  queue.push({ name, params: scrubbed })
 }
 
 export function identifyPostHogOrQueue(userId: string, role?: string): void {

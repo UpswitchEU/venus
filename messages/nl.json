@@ -3081,6 +3081,8 @@
 		"reportNotAvailable": "Rapport niet beschikbaar",
 		"reportNotAvailableDesc": "HTML-rapport is niet gegenereerd door de backend",
 		"failedToLoadReport": "Rapport laden mislukt",
+		"enterpriseBridgeToggle": "Toon Enterprise-to-Equity Bridge (Waterfall)",
+		"enterpriseBridgeToggleDescription": "Bepaalt of de bridge verschijnt in deze rapportpreview en opgeslagen rapportinstellingen.",
 		"date": "Datum",
 		"emptyTitle": "Jouw bedrijfsschatting",
 		"emptyDesc": "Vul de gegevens in of start een gesprek om je gepersonaliseerde indicatieve schattingsrapport te genereren.",

@@ -6,6 +6,14 @@ Venus is the valuation calculator frontend application that provides an intuitiv
 
 Part of the **Upswitch Platform** alongside Mercury (Main Frontend), Titan API (Backend), and ValuationIQ (Valuation Engine).
 
+## Readiness-case role
+
+Venus is the polished readiness-room surface for the Upswitch Readiness Case. It
+should present the valuation range, sellability score, EBITDA bridge, missing
+docs, buyer FAQ, IM draft, vault, and handoff package as one client-facing room.
+Venus should not grow integration or review chrome; Mercury remains the advisor
+cockpit and Titan remains the workflow source of truth.
+
 ## ✨ Features
 
 - 💰 **Instant Valuations** - Real-time business valuation calculations
@@ -82,4 +90,3 @@ UNLICENSED - Proprietary
 ## 👥 Team
 
 Upswitch Team
-

@@ -1,5 +1,6 @@
 import { useTranslations } from 'next-intl'
-import React, { memo, useEffect, useMemo, useRef } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Switch } from '../../design-system/components/Switch'
 import { trackOwnerProfilingCapBindRendered } from '../../lib/analytics'
 import { useSessionStore } from '../../store/useSessionStore'
 import { isBuyerReadinessPackage } from '../../types/buyerReadiness'
@@ -69,9 +70,16 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     const sessionData = state.session?.sessionData as Record<string, unknown> | undefined
     return sessionData?.show_enterprise_to_equity_bridge
   })
+  const sessionReportId = useSessionStore((state) => state.session?.reportId ?? null)
+  const sessionEngine = useSessionStore((state) => state.engine)
+  const updateSessionData = useSessionStore((state) => state.updateSessionData)
+  const saveSession = useSessionStore((state) => state.saveSession)
   const sessionWaterfall = useSessionStore((state) =>
     extractEvEquityWaterfallSteps(state.session?.valuationResult as ValuationResponse | undefined)
   )
+  const [localEnterpriseBridgePreference, setLocalEnterpriseBridgePreference] = useState<
+    boolean | null
+  >(null)
 
   const sessionValuationResult = useSessionStore((state) =>
     state.session?.valuationResult
@@ -135,13 +143,48 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const htmlReport = getFirstRenderableReportHtml(sessionHtmlReport, result?.html_report)
   const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
   const showEnterpriseBridge = useMemo(() => {
+    if (typeof localEnterpriseBridgePreference === 'boolean') return localEnterpriseBridgePreference
     if (typeof sessionShowEnterpriseBridge === 'boolean') return sessionShowEnterpriseBridge
     return (
       readEnterpriseBridgePreference(sessionValuationResult as unknown as Record<string, unknown>) ??
       readEnterpriseBridgePreference(result as unknown as Record<string, unknown>) ??
       true
     )
-  }, [sessionShowEnterpriseBridge, sessionValuationResult, result])
+  }, [localEnterpriseBridgePreference, sessionShowEnterpriseBridge, sessionValuationResult, result])
+  const hasEvEquitySteps = !!(evEquitySteps && evEquitySteps.length > 0)
+  const showEnterpriseBridgeToolbar = !!htmlReport || hasEvEquitySteps
+  const handleEnterpriseBridgeToggle = useCallback(
+    (checked: boolean) => {
+      setLocalEnterpriseBridgePreference(checked)
+
+      if (!sessionReportId || !sessionEngine) return
+
+      void (async () => {
+        try {
+          await updateSessionData({ show_enterprise_to_equity_bridge: checked })
+          await saveSession('user')
+        } catch (error) {
+          generalLogger.warn('Failed to persist Enterprise-to-Equity bridge preference', {
+            reportId: sessionReportId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      })()
+    },
+    [saveSession, sessionEngine, sessionReportId, updateSessionData]
+  )
+  const enterpriseBridgeToolbar = showEnterpriseBridgeToolbar ? (
+    <div className="rounded-lg border border-foreground/10 bg-background/90 px-3 py-2 shadow-sm">
+      <Switch
+        size="sm"
+        checked={showEnterpriseBridge}
+        onChange={handleEnterpriseBridgeToggle}
+        label={t('enterpriseBridgeToggle')}
+        description={t('enterpriseBridgeToggleDescription')}
+        aria-label={t('enterpriseBridgeToggle')}
+      />
+    </div>
+  ) : null
 
   // Verification logging: Track when result changes
   useEffect(() => {
@@ -216,13 +259,18 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     const hasBand = !!(
       sessionBuyerReadiness ||
       ownerProfilingState ||
-      (showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0)
+      hasEvEquitySteps ||
+      showEnterpriseBridgeToolbar
     )
 
     if (hasBand) {
       return (
-        <div className="valuation-report-container h-full overflow-y-auto bg-background">
+        <div
+          className="valuation-report-container h-full overflow-y-auto bg-background"
+          data-show-enterprise-bridge={showEnterpriseBridge ? 'true' : 'false'}
+        >
           <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+            {enterpriseBridgeToolbar}
             <BuyerReadinessPanel readiness={sessionBuyerReadiness} />
             {ownerProfilingState?.mode === 'chip' ? (
               <OwnerProfilingReportChip chip={ownerProfilingState.chip} />
@@ -234,7 +282,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
               userTri={peerPanelInputs.userTri}
               valuationId={peerPanelInputs.valuationId}
             />
-            {showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0 ? (
+            {showEnterpriseBridge && hasEvEquitySteps ? (
               <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
             ) : null}
           </div>
@@ -275,11 +323,24 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const sanitizedHtml = HTMLProcessor.sanitize(htmlReport)
 
   return (
-    <div className="valuation-report-container h-full overflow-y-auto bg-background">
+    <div
+      className="valuation-report-container h-full overflow-y-auto bg-background"
+      data-show-enterprise-bridge={showEnterpriseBridge ? 'true' : 'false'}
+    >
+      <style>
+        {`
+          .valuation-report-container[data-show-enterprise-bridge="false"] .valuation-report .ev-equity-bridge-section,
+          .valuation-report-container[data-show-enterprise-bridge="false"] .valuation-report .ev-equity-waterfall-section {
+            display: none !important;
+          }
+        `}
+      </style>
       {(sessionBuyerReadiness ||
         ownerProfilingState ||
-        (showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0)) && (
+        hasEvEquitySteps ||
+        showEnterpriseBridgeToolbar) && (
         <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+          {enterpriseBridgeToolbar}
           <BuyerReadinessPanel readiness={sessionBuyerReadiness} />
           {ownerProfilingState?.mode === 'chip' ? (
             <OwnerProfilingReportChip chip={ownerProfilingState.chip} />
@@ -290,7 +351,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
             countryCode={peerPanelInputs.countryCode}
             userTri={peerPanelInputs.userTri}
           />
-          {showEnterpriseBridge && evEquitySteps && evEquitySteps.length > 0 ? (
+          {showEnterpriseBridge && hasEvEquitySteps ? (
             <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
           ) : null}
         </div>
