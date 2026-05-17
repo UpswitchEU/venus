@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { shallow } from 'zustand/shallow'
+import { useShallow } from 'zustand/react/shallow'
 import {
   SESSION_PRE_SELECTED_METHODS_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
@@ -65,14 +65,13 @@ export function usePreSelectedMethodSessionSync({
   allowedMethodsForNav,
 }: UsePreSelectedMethodSessionSyncParams): void {
   useManualResultsStore(
-    (s) => ({
+    useShallow((s) => ({
       preSelectedMethod: s.preSelectedMethod,
       selectedMethod: s.selectedMethod,
       preSelectedMethods: s.preSelectedMethods,
       userWeights: s.userWeights,
       userWeightJustification: s.userWeightJustification,
-    }),
-    shallow
+    }))
   )
 
   const urlSeedDoneRef = useRef(false)

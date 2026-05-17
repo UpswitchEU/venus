@@ -12,6 +12,7 @@ type MethodReadinessCard = NonNullable<ChatMessage['methodReadinessPreviews']>[n
 type ListingPreviewCard = NonNullable<ChatMessage['listingPreviews']>[number]
 type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[number]
 type BuyerProfilePreviewCard = NonNullable<ChatMessage['buyerProfilePreviews']>[number]
+type RegistrySearchResultsCard = NonNullable<ChatMessage['registrySearchResults']>[number]
 type ProposalCardKey =
   | 'valuationRunRequests'
   | 'reportGenerationRequests'
@@ -31,6 +32,7 @@ export interface ManualChatToolCards {
   listingPreviews?: ListingPreviewCard[]
   listingCreateRequests?: ListingCreateCard[]
   buyerProfilePreviews?: BuyerProfilePreviewCard[]
+  registrySearchResults?: RegistrySearchResultsCard[]
 }
 
 interface ManualChatToolCardsInput {
@@ -45,6 +47,7 @@ interface ManualChatToolCardsInput {
   listingPreviews?: readonly unknown[]
   listingCreateRequests?: readonly unknown[]
   buyerProfilePreviews?: readonly unknown[]
+  registrySearchResults?: readonly unknown[]
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -180,6 +183,17 @@ export function addIdsToManualChatToolCards(
         }) as BuyerProfilePreviewCard
     )
   )
+  pushIfAny(
+    out,
+    'registrySearchResults',
+    (cards.registrySearchResults ?? []).map(
+      (entry) =>
+        ({
+          ...(asRecord(entry) ?? {}),
+          id: createId(),
+        }) as RegistrySearchResultsCard
+    )
+  )
 
   return out
 }
@@ -216,6 +230,9 @@ export function parseManualChatStreamToolResult(
         return { type: 'listing_create_request', data }
       case 'get_buyer_profile_preview':
         return { type: 'buyer_profile_preview', data }
+      case 'search_kbo_registry':
+      case 'search_kvk_registry':
+        return { type: 'registry_search_results', data }
       default:
         return null
     }
@@ -240,7 +257,8 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.methodReadinessPreviews?.length ?? 0) > 0 ||
         (cards.listingPreviews?.length ?? 0) > 0 ||
         (cards.listingCreateRequests?.length ?? 0) > 0 ||
-        (cards.buyerProfilePreviews?.length ?? 0) > 0)
+        (cards.buyerProfilePreviews?.length ?? 0) > 0 ||
+        (cards.registrySearchResults?.length ?? 0) > 0)
   )
 }
 
@@ -308,6 +326,12 @@ export function appendManualChatToolCardsToMessage(
       buyerProfilePreviews: [
         ...(message.buyerProfilePreviews ?? []),
         ...cards.buyerProfilePreviews,
+      ],
+    }),
+    ...(cards.registrySearchResults && {
+      registrySearchResults: [
+        ...(message.registrySearchResults ?? []),
+        ...cards.registrySearchResults,
       ],
     }),
   }

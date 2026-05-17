@@ -36,6 +36,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingPreviews: [],
       listingCreateRequests: [],
       buyerProfilePreviews: [],
+      registrySearchResults: [],
     }
     expect(parseAIChatToolResults(undefined)).toEqual(empty)
     expect(parseAIChatToolResults(null)).toEqual(empty)
@@ -57,6 +58,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingPreviews: [],
       listingCreateRequests: [],
       buyerProfilePreviews: [],
+      registrySearchResults: [],
     })
   })
 
@@ -105,6 +107,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingPreviews: [],
       listingCreateRequests: [],
       buyerProfilePreviews: [],
+      registrySearchResults: [],
     })
   })
 })

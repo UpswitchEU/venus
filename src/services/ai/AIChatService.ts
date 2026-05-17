@@ -23,6 +23,7 @@ import {
   type MethodReadinessPreview,
   makeChunkDispatchState,
   parseAIChatToolResults,
+  type RegistrySearchResults,
 } from './tool-results-parser'
 
 const logger = createContextLogger('AIChatService')
@@ -197,6 +198,14 @@ export interface AIChatResponse {
     message?: string
   }>
   buyerProfilePreviews?: BuyerProfilePreview[]
+  /**
+   * Read-only registry-search picker results from `search_kbo_registry`
+   * (BE) or `search_kvk_registry` (NL). The drawer renders these as a
+   * clickable hit list mirroring the Mercury card. Click a row to send
+   * a follow-up "Use {name} ({registry} {number})" message and let
+   * the agent chain to the next step.
+   */
+  registrySearchResults?: RegistrySearchResults[]
   fallback?: boolean
   error?: string
 }
@@ -331,6 +340,9 @@ class AIChatServiceImpl {
         }
         if (parsed.buyerProfilePreviews.length > 0) {
           aiResponse.buyerProfilePreviews = parsed.buyerProfilePreviews
+        }
+        if (parsed.registrySearchResults.length > 0) {
+          aiResponse.registrySearchResults = parsed.registrySearchResults
         }
       }
 

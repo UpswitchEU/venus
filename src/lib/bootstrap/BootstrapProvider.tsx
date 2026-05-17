@@ -288,24 +288,31 @@ export function BootstrapProvider({
       const returnedId = result.report.reportId?.trim()
 
       if (requestedId && requestedId !== returnedId) {
-        // This is a critical bug that can cause data to be saved to wrong report!
-        generalLogger.error(
-          '[BootstrapProvider] Bootstrap returned different reportId than requested',
-          {
-            requested: requestedId.substring(0, 30),
-            returned: returnedId?.substring(0, 30),
-            mode: result.report.mode,
-          }
-        )
-
-        // ALWAYS override with the requested reportId when there's a mismatch
-        result = {
-          ...result,
-          report: {
-            ...result.report,
-            reportId: requestedId,
-          },
+        // The "new" → UUID mint is the expected creation path; accept it.
+        // Any other mismatch is a contract violation: Titan resolved a session
+        // for a different report than the URL asks for. Silently swapping the
+        // id (the previous behavior) labelled the wrong report's data as the
+        // requested one — saves and edits then leaked across reports.
+        // Fail loud so ValuationSessionManager can show the error / trigger
+        // its stale-recovery redirect to /reports/new.
+        const isExpectedMint = requestedId === 'new' && !!returnedId
+        if (!isExpectedMint) {
+          generalLogger.error(
+            '[BootstrapProvider] Bootstrap returned different reportId than requested - aborting',
+            {
+              requested: requestedId.substring(0, 30),
+              returned: returnedId?.substring(0, 30),
+              mode: result.report.mode,
+            }
+          )
+          throw new Error(
+            `Report not available: requested ${requestedId.substring(0, 8)} but resolved ${returnedId?.substring(0, 8) ?? 'null'}. ` +
+              `The report may not exist, you may not have access, or your session may be stale.`
+          )
         }
+        generalLogger.debug('[BootstrapProvider] New report minted by server', {
+          minted: returnedId?.substring(0, 30),
+        })
       }
 
       // ✅ CREDIT CHECK: Check if credits are insufficient

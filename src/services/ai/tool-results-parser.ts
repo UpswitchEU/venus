@@ -225,6 +225,39 @@ export interface BuyerProfilePreview {
   }>
 }
 
+export interface RegistrySearchHit {
+  companyNumber: string
+  companyName: string
+  legalForm?: string | null
+  city?: string | null
+  postalCode?: string | null
+  address?: string | null
+  countryCode?: string | null
+  naceCode?: string | null
+  naceDescription?: string | null
+  businessTypeId?: string | null
+  businessTypeTitle?: string | null
+  foundationDate?: string | null
+  isActive?: boolean | null
+}
+
+/**
+ * Read-only registry-search picker preview surfaced by `search_kbo_registry`
+ * (BE) and `search_kvk_registry` (NL). Mirrors the Mercury card shape so
+ * the Venus drawer can adopt the same renderer in a follow-up ship. For now
+ * the parse-side is wired through so the contract test (which partitions
+ * `renderableEnvelopeTypes` into parsed + ignored) stays green.
+ */
+export interface RegistrySearchResults {
+  registry: 'KBO' | 'KVK'
+  query: string
+  totalFound: number
+  hits: RegistrySearchHit[]
+  coverageWarning?: 'kvk_not_in_dataset' | 'upstream_degraded'
+  note?: string
+  status?: 'ok' | 'failed'
+}
+
 export interface BelgianCompanyBootstrap {
   status: 'ok' | 'partial' | 'blocked' | 'failed'
   reason?: string
@@ -286,6 +319,7 @@ export interface ParsedToolResults {
   listingPreviews: ListingPreview[]
   listingCreateRequests: ListingCreateRequest[]
   buyerProfilePreviews: BuyerProfilePreview[]
+  registrySearchResults: RegistrySearchResults[]
 }
 
 function emptyResult(): ParsedToolResults {
@@ -301,6 +335,7 @@ function emptyResult(): ParsedToolResults {
     listingPreviews: [],
     listingCreateRequests: [],
     buyerProfilePreviews: [],
+    registrySearchResults: [],
   }
 }
 
@@ -393,6 +428,10 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
 
       case 'buyer_profile_preview':
         out.buyerProfilePreviews.push(...parseBuyerProfilePreview(data))
+        break
+
+      case 'registry_search_results':
+        out.registrySearchResults.push(...parseRegistrySearchResults(data))
         break
 
       default:
@@ -953,4 +992,85 @@ function parseListingCreateRequest(data: unknown): ListingCreateRequest[] {
     ]
   }
   return []
+}
+
+/**
+ * Mirror of Mercury's `registry_search_results` parser branch. Both KBO
+ * (BE) and KVK (NL) tool results collapse to one envelope so the consumer
+ * can dispatch on shape, not registry — the `registry` field carries the
+ * label. Defensive: drops malformed hits, returns `[]` on bad input.
+ */
+function parseRegistrySearchResults(data: unknown): RegistrySearchResults[] {
+  if (!data || typeof data !== 'object') return []
+  const d = data as Record<string, unknown>
+  const registryRaw = typeof d.registry_name === 'string' ? d.registry_name : ''
+  const registry: 'KBO' | 'KVK' = registryRaw === 'KVK' ? 'KVK' : 'KBO'
+
+  const hitsArr = Array.isArray(d.results) ? d.results : []
+  const hits: RegistrySearchHit[] = hitsArr
+    .filter(
+      (h): h is Record<string, unknown> => typeof h === 'object' && h !== null
+    )
+    .map((h) => {
+      const num =
+        typeof h.kvk_number === 'string'
+          ? h.kvk_number
+          : typeof h.kbo_number === 'string'
+            ? h.kbo_number
+            : ''
+      return {
+        companyNumber: num,
+        companyName: typeof h.company_name === 'string' ? h.company_name : '',
+        legalForm: typeof h.legal_form === 'string' ? h.legal_form : null,
+        city: typeof h.city === 'string' ? h.city : null,
+        postalCode: typeof h.postal_code === 'string' ? h.postal_code : null,
+        address: typeof h.address === 'string' ? h.address : null,
+        countryCode:
+          typeof h.country_code === 'string'
+            ? h.country_code
+            : registry === 'KVK'
+              ? 'NL'
+              : 'BE',
+        naceCode: typeof h.nace_code === 'string' ? h.nace_code : null,
+        naceDescription:
+          typeof h.nace_description === 'string' ? h.nace_description : null,
+        businessTypeId:
+          typeof h.business_type_id === 'string' ? h.business_type_id : null,
+        businessTypeTitle:
+          typeof h.business_type_title === 'string'
+            ? h.business_type_title
+            : null,
+        foundationDate:
+          typeof h.foundation_date === 'string' ? h.foundation_date : null,
+        isActive: typeof h.is_active === 'boolean' ? h.is_active : null,
+      }
+    })
+    .filter((h) => h.companyNumber.length > 0 && h.companyName.length > 0)
+
+  const totalFound =
+    typeof d.total_found === 'number' ? d.total_found : hits.length
+  const coverageWarningRaw =
+    typeof d.coverage_warning === 'string' ? d.coverage_warning : null
+  const coverageWarning:
+    | 'kvk_not_in_dataset'
+    | 'upstream_degraded'
+    | undefined =
+    coverageWarningRaw === 'kvk_not_in_dataset' ||
+    coverageWarningRaw === 'upstream_degraded'
+      ? coverageWarningRaw
+      : undefined
+  const status: 'ok' | 'failed' =
+    typeof d.status === 'string' && d.status === 'failed' ? 'failed' : 'ok'
+
+  return [
+    {
+      registry,
+      query: hits[0]?.companyName ?? '',
+      totalFound,
+      hits,
+      ...(coverageWarning ? { coverageWarning } : {}),
+      ...(typeof d.note === 'string' ? { note: d.note } : {}),
+      status,
+    },
+  ]
 }

@@ -583,6 +583,36 @@ export interface ChatMessage {
   listingCreateRequests?: ListingCreateRequest[]
   // AI-generated buyer profile previews (read-only; not real matched buyers)
   buyerProfilePreviews?: BuyerProfilePreview[]
+  /**
+   * Read-only registry-search picker rendered when the agent calls
+   * search_kbo_registry (BE) or search_kvk_registry (NL). Click a row
+   * to fire a follow-up "Use {name} ({registry} {number})" message and
+   * let the agent chain. Mirrors the Mercury RegistrySearchResultsCard.
+   */
+  registrySearchResults?: Array<{
+    id: string
+    registry: 'KBO' | 'KVK'
+    query: string
+    totalFound: number
+    hits: Array<{
+      companyNumber: string
+      companyName: string
+      legalForm?: string | null
+      city?: string | null
+      postalCode?: string | null
+      address?: string | null
+      countryCode?: string | null
+      naceCode?: string | null
+      naceDescription?: string | null
+      businessTypeId?: string | null
+      businessTypeTitle?: string | null
+      foundationDate?: string | null
+      isActive?: boolean | null
+    }>
+    coverageWarning?: 'kvk_not_in_dataset' | 'upstream_degraded'
+    note?: string
+    status?: 'ok' | 'failed'
+  }>
   // Task-driven: open tasks the user can complete
   tasks?: {
     id: string
@@ -1250,6 +1280,9 @@ export function ChatAssistantDrawer({
                         onRejectListingCreate={onRejectListingCreate}
                         onCommandPillClick={handleCommandPillClick}
                         onRetry={onRetry}
+                        onSendFollowUp={(content) =>
+                          onSendMessage(content, undefined, undefined, undefined)
+                        }
                       />
                     ))}
                   </AnimatePresence>
@@ -1581,6 +1614,7 @@ function MessageBubble({
   onRejectListingCreate,
   onCommandPillClick,
   onRetry,
+  onSendFollowUp,
 }: {
   message: ChatMessage
   isStreaming?: boolean
@@ -1602,6 +1636,13 @@ function MessageBubble({
   onRejectListingCreate?: (proposalId: string) => void
   onCommandPillClick?: (command: string) => void
   onRetry?: (messageId: string) => void
+  /**
+   * Programmatic follow-up sender used by the registry-search picker —
+   * clicking a row fires "Use {name} ({registry} {number})" so the agent
+   * can chain to bootstrap_belgian_company or create_client without the
+   * user re-typing. Optional because most renderable cards don't need it.
+   */
+  onSendFollowUp?: (content: string) => void
 }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
@@ -2632,6 +2673,115 @@ function MessageBubble({
                           )}
                         </div>
                       ))}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Registry-search picker — KBO/KVK hit list. Click a row to fire a
+            follow-up "Use {name} ({registry} {number})" message so the agent
+            can chain to bootstrap_belgian_company or create_client without
+            the user re-typing the company. Mirrors Mercury's
+            RegistrySearchResultsCard. */}
+        {message.registrySearchResults && message.registrySearchResults.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+            {message.registrySearchResults.map((picker) => {
+              const isFailed =
+                picker.status === 'failed' ||
+                picker.coverageWarning === 'upstream_degraded'
+              const isMissing = picker.coverageWarning === 'kvk_not_in_dataset'
+              const hasHits = picker.hits.length > 0
+              const heading =
+                picker.registry === 'KVK'
+                  ? 'Dutch KVK registry'
+                  : 'Belgian KBO registry'
+              const countLabel = !hasHits
+                ? picker.query.length > 0
+                  ? `No matches found for "${picker.query}"`
+                  : 'No matches found'
+                : picker.totalFound === 1
+                  ? `Found ${picker.totalFound} match for "${picker.query}"`
+                  : `Found ${picker.totalFound} matches for "${picker.query}"`
+              const formatNumber = (num: string) => {
+                if (picker.registry === 'KBO' && /^\d{10}$/.test(num)) {
+                  return `${num.slice(0, 4)}.${num.slice(4, 7)}.${num.slice(7, 10)}`
+                }
+                return num
+              }
+              return (
+                <motion.div
+                  key={picker.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="text-sm leading-relaxed"
+                >
+                  <p className="text-foreground font-medium">{heading}</p>
+                  <p className="text-foreground/55 text-xs mt-0.5">{countLabel}</p>
+                  {isFailed && (
+                    <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
+                      The registry was temporarily unavailable. Try the company
+                      number directly, or retry in a moment.
+                    </p>
+                  )}
+                  {isMissing && (
+                    <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
+                      Not in Overheid.io&apos;s public-data mirror. Verify the
+                      KVK number — about 4% of Handelsregister entries fall in
+                      this gap.
+                    </p>
+                  )}
+                  {hasHits && (
+                    <div className="mt-2 space-y-1">
+                      {picker.hits.slice(0, 10).map((hit) => {
+                        const sector =
+                          hit.businessTypeTitle ?? hit.naceDescription ?? null
+                        const location = hit.city
+                          ? hit.postalCode
+                            ? `${hit.postalCode} ${hit.city}`
+                            : hit.city
+                          : null
+                        const display = formatNumber(hit.companyNumber)
+                        return (
+                          <button
+                            key={`${picker.registry}-${hit.companyNumber}`}
+                            type="button"
+                            onClick={() => {
+                              if (typeof onSendFollowUp !== 'function') return
+                              const ref = `${picker.registry} ${hit.companyNumber}`
+                              onSendFollowUp(
+                                `Use ${hit.companyName} (${ref})`
+                              )
+                            }}
+                            disabled={typeof onSendFollowUp !== 'function'}
+                            className="w-full text-left rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035]"
+                            aria-label={`Use ${hit.companyName}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-foreground/85 truncate">
+                                {hit.companyName}
+                                {hit.legalForm && (
+                                  <span className="text-foreground/55 font-normal">
+                                    {' '}
+                                    · {hit.legalForm}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0 font-mono text-foreground/55">
+                                {display}
+                              </span>
+                            </div>
+                            {(location || sector) && (
+                              <p className="mt-0.5 text-foreground/55 truncate">
+                                {[location, sector].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </motion.div>
