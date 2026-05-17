@@ -4,9 +4,9 @@ import { Info, RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import {
-  applyRemainderRebalance,
   equalWeightsFor,
   normalizeRemainderWeights,
+  rebalanceMethodWeights,
 } from '@/constants/methodFieldConfig'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
@@ -63,7 +63,9 @@ export function AdvancedAdvisorControlsSection({
     const fallback = equalWeightsFor(yearKeys)
     for (const year of years) {
       const existing = historicalEbitdaWeights?.[year]
-      out[String(year)] = Number.isFinite(Number(existing)) ? Number(existing) : fallback[String(year)]
+      out[String(year)] = Number.isFinite(Number(existing))
+        ? Number(existing)
+        : fallback[String(year)]
     }
     return normalizeRemainderWeights(yearKeys, out)
   }, [yearKeys, years, historicalEbitdaWeights])
@@ -78,7 +80,7 @@ export function AdvancedAdvisorControlsSection({
   const complete = noteComplete && (mode !== 'weighted' || !canWeight || years.length >= 3)
 
   const updateWeight = (year: number, nextValue: number) => {
-    const next = applyRemainderRebalance(yearKeys, rawWeights, String(year), nextValue)
+    const next = rebalanceMethodWeights(rawWeights, String(year), Math.round(nextValue))
     onFieldChange(
       'historical_ebitda_weights',
       Object.fromEntries(Object.entries(next).map(([key, value]) => [Number(key), value]))
@@ -145,11 +147,16 @@ export function AdvancedAdvisorControlsSection({
 
         {requiresCalibrationNote && (
           <AuroraTextarea
+            id="multiple-calibration-note"
+            name="multiple_calibration_note"
             label={t('calibrationNote')}
             value={multipleCalibrationNote ?? ''}
             onChange={(event) => onFieldChange('multiple_calibration_note', event.target.value)}
             size="sm"
             rows={3}
+            required
+            touched={requiresCalibrationNote}
+            error={!noteComplete ? t('calibrationNoteRequired') : undefined}
             disabled={disabled}
           />
         )}
@@ -206,6 +213,7 @@ export function AdvancedAdvisorControlsSection({
                       disabled={disabled}
                       showTooltip
                       formatValue={(v) => `${Math.round(v)}%`}
+                      aria-label={`${year} ${t('historicalWeighting')}`}
                     />
                     <span className="font-mono text-xs text-foreground/65 tabular-nums">
                       {Math.round(value)}%

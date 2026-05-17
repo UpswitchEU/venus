@@ -1969,6 +1969,7 @@
 				"specificPremium": "Specifieke risico-/kwaliteitspremie",
 				"calibratedMultiple": "Gekalibreerde multiple",
 				"calibrationNote": "Onderbouwing calibratie",
+				"calibrationNoteRequired": "Voeg een korte toelichting toe voor het auditspoor.",
 				"historicalWeighting": "Historische EBITDA-weging",
 				"standardAverage": "Standaard gemiddelde",
 				"weightedAverage": "Gewogen gemiddelde",

@@ -380,4 +380,73 @@ describe('Results', () => {
     expect(screen.queryByText(/Waardeschatting/)).not.toBeInTheDocument()
     expect(screen.getByText('Full ValuationIQ report')).toBeInTheDocument()
   })
+
+  it('shows the EV-to-equity waterfall by default when bridge steps are present', () => {
+    render(
+      <Results
+        result={
+          {
+            html_report: '<article>Full ValuationIQ report</article>',
+            ev_equity_waterfall_steps: [
+              {
+                label: 'Enterprise value',
+                short_label: 'EV',
+                kind: 'base',
+                end_value: 1_000_000,
+              },
+              {
+                label: 'Net debt',
+                short_label: 'Debt',
+                kind: 'adjustment',
+                tone: 'negative',
+                delta_value: -150_000,
+                end_value: 850_000,
+              },
+              {
+                label: 'Equity value',
+                short_label: 'Equity',
+                kind: 'total',
+                end_value: 850_000,
+              },
+            ],
+          } as ValuationResponse
+        }
+      />
+    )
+
+    expect(screen.getByText('Full ValuationIQ report')).toBeInTheDocument()
+    expect(screen.getByLabelText('ariaLabel')).toBeInTheDocument()
+  })
+
+  it('hides the EV-to-equity waterfall when the advisor transparency toggle is off', () => {
+    render(
+      <Results
+        result={
+          {
+            html_report: '<article>Full ValuationIQ report</article>',
+            metadata: {
+              show_enterprise_to_equity_bridge: false,
+            },
+            ev_equity_waterfall_steps: [
+              {
+                label: 'Enterprise value',
+                short_label: 'EV',
+                kind: 'base',
+                end_value: 1_000_000,
+              },
+              {
+                label: 'Equity value',
+                short_label: 'Equity',
+                kind: 'total',
+                end_value: 850_000,
+              },
+            ],
+          } as ValuationResponse
+        }
+      />
+    )
+
+    expect(screen.getByText('Full ValuationIQ report')).toBeInTheDocument()
+    expect(screen.queryByLabelText('ariaLabel')).not.toBeInTheDocument()
+  })
 })

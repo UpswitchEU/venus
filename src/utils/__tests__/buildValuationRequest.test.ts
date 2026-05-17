@@ -769,9 +769,114 @@ describe('buildValuationRequest', () => {
   it('omits owner_salary_addback when unset or non-finite', () => {
     expect(buildValuationRequest(makeFormData({}), []).owner_salary_addback).toBeUndefined()
     expect(
-      buildValuationRequest(makeFormData({ owner_salary_addback: Number.NaN as any }), [])
+      buildValuationRequest(makeFormData({ owner_salary_addback: Number.NaN }), [])
         .owner_salary_addback
     ).toBeUndefined()
+  })
+
+  it('emits advanced advisor controls for included real estate, multiple calibration, weighting, and bridge display', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        real_estate_treatment: 'included',
+        real_estate_market_value: 900_000,
+        real_estate_book_value: 650_000,
+        estimated_market_rent: 42_000,
+        multiple_calibration_adjustment: -1,
+        multiple_calibration_note: '  Afslag wegens leveranciersafhankelijkheid  ',
+        historical_ebitda_weighting_mode: 'weighted',
+        historical_ebitda_weights: {
+          [getCurrentFilingYear() - 3]: 10,
+          [getCurrentFilingYear() - 2]: 30,
+          [getCurrentFilingYear() - 1]: 60,
+        },
+        show_enterprise_to_equity_bridge: false,
+      }),
+      []
+    )
+
+    expect(result.real_estate_treatment).toBe('included')
+    expect(result.exclude_real_estate).toBe(false)
+    expect(result.real_estate_market_value).toBe(900_000)
+    expect(result.real_estate_book_value).toBe(650_000)
+    expect(result.estimated_market_rent).toBeUndefined()
+    expect(result.multiple_calibration_adjustment).toBe(-1)
+    expect(result.multiple_calibration_note).toBe('Afslag wegens leveranciersafhankelijkheid')
+    expect(result.historical_ebitda_weighting_mode).toBe('weighted')
+    expect(result.historical_ebitda_weights).toEqual({
+      [getCurrentFilingYear() - 3]: 10,
+      [getCurrentFilingYear() - 2]: 30,
+      [getCurrentFilingYear() - 1]: 60,
+    })
+    expect(result.show_enterprise_to_equity_bridge).toBe(false)
+  })
+
+  it('maps the legacy real-estate carve-out toggle to the new transaction treatment', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        exclude_real_estate: true,
+        real_estate_book_value: 300_000,
+        estimated_market_rent: 36_000,
+      }),
+      []
+    )
+
+    expect(result.real_estate_treatment).toBe('carve_out')
+    expect(result.exclude_real_estate).toBe(true)
+    expect(result.real_estate_book_value).toBe(300_000)
+    expect(result.estimated_market_rent).toBe(36_000)
+    expect(result.real_estate_market_value).toBeUndefined()
+  })
+
+  it('rejects multiple calibration adjustments without an audit note', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          multiple_calibration_adjustment: 0.5,
+          multiple_calibration_note: '   ',
+        }),
+        []
+      )
+    ).toThrow('Calibration note is required')
+  })
+
+  it('rejects malformed historical EBITDA weights before calling the valuation engine', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          historical_ebitda_weighting_mode: 'weighted',
+          historical_ebitda_weights: {
+            [getCurrentFilingYear() - 2]: 40,
+            [getCurrentFilingYear() - 1]: Number.NaN,
+          },
+        }),
+        []
+      )
+    ).toThrow('Historical EBITDA weights must contain 3 to 5 fiscal years and sum to 100%.')
+  })
+
+  it('accepts fractional historical EBITDA weights that sum to one', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        multiple_calibration_adjustment: 0.5,
+        multiple_calibration_note: 'Opslag wegens hoge omzetkwaliteit',
+        historical_ebitda_weighting_mode: 'weighted',
+        historical_ebitda_weights: {
+          [getCurrentFilingYear() - 3]: 0.1,
+          [getCurrentFilingYear() - 2]: 0.3,
+          [getCurrentFilingYear() - 1]: 0.6,
+        },
+      }),
+      []
+    )
+
+    expect(result.multiple_calibration_adjustment).toBe(0.5)
+    expect(result.multiple_calibration_note).toBe('Opslag wegens hoge omzetkwaliteit')
+    expect(result.historical_ebitda_weighting_mode).toBe('weighted')
+    expect(result.historical_ebitda_weights).toEqual({
+      [getCurrentFilingYear() - 3]: 0.1,
+      [getCurrentFilingYear() - 2]: 0.3,
+      [getCurrentFilingYear() - 1]: 0.6,
+    })
   })
 
   it('serializes adaptive DCF and NAV inputs into business_context', () => {

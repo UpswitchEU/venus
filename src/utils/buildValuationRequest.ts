@@ -50,6 +50,15 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+function hasValidHistoricalEbitdaWeights(weights: Record<number, number>): boolean {
+  const values = Object.values(weights)
+  if (values.length < 3 || values.length > 5) return false
+  if (values.some((weight) => weight < 0)) return false
+
+  const total = values.reduce((sum, weight) => sum + weight, 0)
+  return Math.abs(total - 100) <= 2 || Math.abs(total - 1) <= 0.02
+}
+
 function requireNonNegativeRevenue(value: unknown, field: string): number {
   const revenue = toFiniteNumber(value)
 
@@ -870,6 +879,18 @@ export function buildValuationRequest(
   const multipleCalibrationAdjustment = toFiniteNumber(fd.multiple_calibration_adjustment)
   const multipleCalibrationNote =
     typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
+  if (
+    multipleCalibrationAdjustment != null &&
+    multipleCalibrationAdjustment !== 0 &&
+    !multipleCalibrationNote
+  ) {
+    throw new ValidationError(
+      'Calibration note is required when applying a specific risk/quality premium.',
+      'multiple_calibration_note',
+      fd.multiple_calibration_note
+    )
+  }
+
   const historicalEbitdaWeights: Record<number, number> = {}
   if (fd.historical_ebitda_weights && typeof fd.historical_ebitda_weights === 'object') {
     for (const [year, weight] of Object.entries(fd.historical_ebitda_weights)) {
@@ -879,6 +900,19 @@ export function buildValuationRequest(
         historicalEbitdaWeights[numericYear] = numericWeight
       }
     }
+  }
+  const hasValidCustomHistoricalEbitdaWeights =
+    fd.historical_ebitda_weighting_mode === 'weighted' &&
+    hasValidHistoricalEbitdaWeights(historicalEbitdaWeights)
+  if (
+    fd.historical_ebitda_weighting_mode === 'weighted' &&
+    !hasValidCustomHistoricalEbitdaWeights
+  ) {
+    throw new ValidationError(
+      'Historical EBITDA weights must contain 3 to 5 fiscal years and sum to 100%.',
+      'historical_ebitda_weights',
+      fd.historical_ebitda_weights
+    )
   }
 
   // Build ValuationRequest
@@ -935,10 +969,9 @@ export function buildValuationRequest(
     ...(fd.historical_ebitda_weighting_mode && {
       historical_ebitda_weighting_mode: fd.historical_ebitda_weighting_mode,
     }),
-    ...(fd.historical_ebitda_weighting_mode === 'weighted' &&
-      Object.keys(historicalEbitdaWeights).length > 0 && {
-        historical_ebitda_weights: historicalEbitdaWeights,
-      }),
+    ...(hasValidCustomHistoricalEbitdaWeights && {
+      historical_ebitda_weights: historicalEbitdaWeights,
+    }),
     ...(fd.show_enterprise_to_equity_bridge != null && {
       show_enterprise_to_equity_bridge: Boolean(fd.show_enterprise_to_equity_bridge),
     }),

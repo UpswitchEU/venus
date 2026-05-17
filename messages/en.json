@@ -1969,6 +1969,7 @@
 				"specificPremium": "Specific risk/quality premium",
 				"calibratedMultiple": "Calibrated multiple",
 				"calibrationNote": "Calibration note",
+				"calibrationNoteRequired": "Add a short note for the calibration audit trail.",
 				"historicalWeighting": "Historical EBITDA weighting",
 				"standardAverage": "Standard average",
 				"weightedAverage": "Weighted average",
