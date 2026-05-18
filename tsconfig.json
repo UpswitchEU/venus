@@ -37,9 +37,6 @@
       "@/utils/*": [
         "./src/utils/*"
       ],
-      "@upswitch/types/*": [
-        "../../packages/types/src/*"
-      ],
       "@/types/*": [
         "./src/types/*"
       ]

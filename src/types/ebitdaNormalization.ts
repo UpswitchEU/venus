@@ -1,8 +1,8 @@
 /**
  * EBITDA Normalization Types (Venus)
  *
- * Canonical enums/metadata are re-exported from `@upswitch/types` via
- * `./canonical/normalization` so this app keeps one shared runtime contract.
+ * Canonical enums/metadata are generated into `./canonical/normalization`
+ * so this app keeps a self-contained copy of the shared runtime contract.
  */
 
 import type { ConfidenceScoreValue, NormalizationCategory } from './canonical/normalization'
