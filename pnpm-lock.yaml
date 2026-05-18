@@ -45,6 +45,9 @@ importers:
       '@types/dompurify':
         specifier: ^3.0.5
         version: 3.2.0
+      '@upswitch/types':
+        specifier: file:../../packages/types
+        version: file:../../packages/types
       axios:
         specifier: ^1.15.2
         version: 1.16.0
@@ -2926,6 +2929,9 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+
+  '@upswitch/types@file:../../packages/types':
+    resolution: {directory: ../../packages/types, type: directory}
 
   '@vitejs/plugin-react@5.1.4':
     resolution: {integrity: sha512-VIcFLdRi/VYRU8OL/puL7QXMYafHmqOnwTZY50U1JPlCNj30PxCMx65c494b1K9be9hX83KVt0+gTEwTWLqToA==}
@@ -8418,6 +8424,8 @@ snapshots:
   '@types/unist@3.0.3': {}
 
   '@ungap/structured-clone@1.3.0': {}
+
+  '@upswitch/types@file:../../packages/types': {}
 
   '@vitejs/plugin-react@5.1.4(vite@7.3.1(@types/node@24.10.13)(jiti@1.21.7))':
     dependencies:

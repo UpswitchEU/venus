@@ -1,8 +1,8 @@
 /**
  * EBITDA Normalization Types (Venus)
  *
- * Canonical enums/metadata are vendored in `./canonical/normalization` so
- * standalone Vercel builds resolve without the monorepo `packages/types` tree.
+ * Canonical enums/metadata are re-exported from `@upswitch/types` via
+ * `./canonical/normalization` so this app keeps one shared runtime contract.
  */
 
 import type { ConfidenceScoreValue, NormalizationCategory } from './canonical/normalization'
