@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { extractBuyerReadinessFromPackageResponse } from '@/features/buyer-ready/readiness-room/readiness-room-model'
 import type {
   BuyerReadyImSnapshot,
   BuyerReadyRoomPayload,
@@ -9,7 +7,9 @@ import type {
   BuyerReadyWcTaxDto,
   ReadinessCaseDto,
 } from '@/features/buyer-ready/readiness-room/types'
-import { extractBuyerReadinessFromPackageResponse } from '@/features/buyer-ready/readiness-room/readiness-room-model'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -99,10 +99,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
   if (!hasAuthCookie(cookieHeader)) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
   }
 
   try {
@@ -119,14 +116,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(
         {
           success: false,
-          error: packageResult.status === 404 ? 'Buyer-ready package not found' : 'Package fetch failed',
+          error:
+            packageResult.status === 404 ? 'Buyer-ready package not found' : 'Package fetch failed',
         },
         { status: packageResult.status }
       )
     }
 
     const [imResult, wcTaxResult, vaultResult, readinessCaseResult] = await Promise.all([
-      fetchTitanJson<unknown>(request, cookieHeader, `/api/v1/buyer-ready/im/${encoded}`, 'im', 12_000),
+      fetchTitanJson<unknown>(
+        request,
+        cookieHeader,
+        `/api/v1/buyer-ready/im/${encoded}`,
+        'im',
+        12_000
+      ),
       fetchTitanJson<unknown>(
         request,
         cookieHeader,

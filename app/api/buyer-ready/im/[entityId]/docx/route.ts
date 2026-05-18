@@ -38,10 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
   if (!hasAuthCookie(cookieHeader)) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
   }
 
   try {

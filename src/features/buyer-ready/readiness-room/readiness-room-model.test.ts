@@ -7,7 +7,7 @@ import {
   orderedImSections,
   summarizeRoom,
 } from './readiness-room-model'
-import type { BuyerReadyRoomPayload, BuyerReadinessPackage } from './types'
+import type { BuyerReadinessPackage, BuyerReadyRoomPayload } from './types'
 
 function readiness(overrides: Partial<BuyerReadinessPackage> = {}): BuyerReadinessPackage {
   return {
@@ -213,7 +213,7 @@ describe('readiness room model', () => {
     const summary = buildPackageSummaryDownload(room)
 
     expect(evidence.map((row) => row.label)).toContain('tax-return.pdf')
-    expect(evidence.map((row) => row.label)).toContain('Latest tax filing missing.')
+    expect(evidence.map((row) => row.source)).toContain('Latest tax filing missing.')
     expect(summary.readinessCompletionPct).toBe(82)
     expect(summary.imVersion).toBe(2)
   })

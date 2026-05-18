@@ -16,7 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthGate } from '@/components/AuthGate'
 import { AuroraButton, Badge, Progress } from '@/design-system'
 import { cn } from '@/lib/utils'
@@ -31,10 +31,10 @@ import {
   summarizeRoom,
 } from './readiness-room-model'
 import type {
+  BuyerReadinessItemStatus,
   BuyerReadyImSection,
   BuyerReadyRoomPayload,
   BuyerReadyVaultDoc,
-  BuyerReadinessItemStatus,
 } from './types'
 
 interface BuyerReadyRoomClientProps {
@@ -48,9 +48,13 @@ interface RoomResponse {
   error?: string
 }
 
-function statusVariant(status: string | null | undefined): 'success' | 'warning' | 'destructive' | 'neutral' {
+function statusVariant(
+  status: string | null | undefined
+): 'success' | 'warning' | 'destructive' | 'neutral' {
   if (!status) return 'neutral'
-  return statusTone(status as BuyerReadinessItemStatus | 'ready' | 'blocked' | 'documented' | 'weak_evidence')
+  return statusTone(
+    status as BuyerReadinessItemStatus | 'ready' | 'blocked' | 'documented' | 'weak_evidence'
+  )
 }
 
 function formatDate(value: string | null | undefined, locale: string): string {
@@ -97,7 +101,7 @@ function BuyerReadyRoom({ entityId, locale }: BuyerReadyRoomClientProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -107,15 +111,15 @@ function BuyerReadyRoom({ entityId, locale }: BuyerReadyRoomClientProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [entityId])
 
   useEffect(() => {
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId])
+  }, [load])
 
   if (loading) return <RoomSkeleton />
-  if (error || !payload) return <RoomError message={error ?? 'Buyer-ready room failed'} onRetry={load} />
+  if (error || !payload)
+    return <RoomError message={error ?? 'Buyer-ready room failed'} onRetry={load} />
 
   return <RoomContent payload={payload} locale={locale} />
 }
@@ -128,7 +132,9 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
   const readiness = payload.buyerReadiness
   const bridge = readiness?.normalizationBridge
   const pdfUrl =
-    payload.package?.pdf.status === 'ready' && payload.package.pdf.url ? payload.package.pdf.url : null
+    payload.package?.pdf.status === 'ready' && payload.package.pdf.url
+      ? payload.package.pdf.url
+      : null
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -193,7 +199,10 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
               <button
                 type="button"
                 onClick={() =>
-                  downloadJson('buyer-ready-package-summary.json', buildPackageSummaryDownload(payload))
+                  downloadJson(
+                    'buyer-ready-package-summary.json',
+                    buildPackageSummaryDownload(payload)
+                  )
                 }
                 className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
@@ -268,7 +277,10 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                     </thead>
                     <tbody>
                       {bridge.rows.map((row) => (
-                        <tr key={row.key} className="border-b border-foreground/[0.06] last:border-0">
+                        <tr
+                          key={row.key}
+                          className="border-b border-foreground/[0.06] last:border-0"
+                        >
                           <td className="py-3 pr-3 font-medium text-foreground/80">{row.label}</td>
                           <td className="py-3 pr-3 text-right font-mono text-foreground/70">
                             {formatMoney(row.amount, locale)}
@@ -278,7 +290,9 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                               {statusLabel(row.evidenceStatus)}
                             </Badge>
                           </td>
-                          <td className="py-3 text-foreground/60">{row.rationale ?? row.source ?? '-'}</td>
+                          <td className="py-3 text-foreground/60">
+                            {row.rationale ?? row.source ?? '-'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -304,7 +318,9 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                 <EmptyState
                   icon={FileText}
                   title={readiness?.teaserImDraft.title ?? 'IM draft pending'}
-                  detail={readiness?.teaserImDraft.summary ?? 'No generated IM snapshot available yet'}
+                  detail={
+                    readiness?.teaserImDraft.summary ?? 'No generated IM snapshot available yet'
+                  }
                 />
               )}
             </SectionShell>
@@ -316,7 +332,8 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                 <div className="flex items-end justify-between">
                   <span className="text-sm text-foreground/55">Completion</span>
                   <span className="font-mono text-2xl font-semibold text-foreground">
-                    {summary.completionPct ?? '-'}{summary.completionPct === null ? '' : '%'}
+                    {summary.completionPct ?? '-'}
+                    {summary.completionPct === null ? '' : '%'}
                   </span>
                 </div>
                 <Progress
@@ -331,8 +348,9 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                   }
                 />
                 <p className="text-sm leading-6 text-foreground/60">
-                  {readiness?.summary.complete ?? 0} complete, {readiness?.summary.needsAttention ?? 0}{' '}
-                  needs attention, {readiness?.summary.missing ?? 0} missing
+                  {readiness?.summary.complete ?? 0} complete,{' '}
+                  {readiness?.summary.needsAttention ?? 0} needs attention,{' '}
+                  {readiness?.summary.missing ?? 0} missing
                 </p>
               </div>
             </SectionShell>
@@ -361,7 +379,11 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                   ))}
                 </div>
               ) : (
-                <EmptyState icon={CheckCircle2} title="No open document gaps" detail="Checklist is green" />
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="No open document gaps"
+                  detail="Checklist is green"
+                />
               )}
             </SectionShell>
 
@@ -370,16 +392,22 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                 <div className="rounded-lg border border-foreground/[0.08] bg-background px-3 py-3">
                   <p className="text-xs text-foreground/45">Working-capital peg</p>
                   <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-                    {payload.wcTax?.wcPeg ? formatMoney(payload.wcTax.wcPeg.target_eur, locale) : '-'}
+                    {payload.wcTax?.wcPeg
+                      ? formatMoney(payload.wcTax.wcPeg.target_eur, locale)
+                      : '-'}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-foreground/55">
-                    {payload.wcTax?.wcPeg?.one_liner ?? readiness?.workingCapital?.detail ?? 'No peg available'}
+                    {payload.wcTax?.wcPeg?.one_liner ??
+                      readiness?.workingCapital?.detail ??
+                      'No peg available'}
                   </p>
                 </div>
                 <div className="rounded-lg border border-foreground/[0.08] bg-background px-3 py-3">
                   <p className="text-xs text-foreground/45">Tax latency</p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
-                    {payload.wcTax?.taxLatency.flag_count ?? readiness?.normalizedEarnings.taxLatencyCount ?? 0}{' '}
+                    {payload.wcTax?.taxLatency.flag_count ??
+                      readiness?.normalizedEarnings.taxLatencyCount ??
+                      0}{' '}
                     flag
                     {(payload.wcTax?.taxLatency.flag_count ??
                       readiness?.normalizedEarnings.taxLatencyCount ??
@@ -411,7 +439,11 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                 ))}
               </div>
             ) : (
-              <EmptyState icon={FolderOpen} title="Vault is empty" detail="No readiness documents uploaded" />
+              <EmptyState
+                icon={FolderOpen}
+                title="Vault is empty"
+                detail="No readiness documents uploaded"
+              />
             )}
           </SectionShell>
 
@@ -427,10 +459,14 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
                       <div>
                         <p className="text-sm font-medium text-foreground/85">{task.title}</p>
                         <p className="mt-1 text-xs text-foreground/50">
-                          {statusLabel(task.assigneeRole)} · {task.deadlineAt ? formatDate(task.deadlineAt, locale) : 'No deadline'}
+                          {statusLabel(task.assigneeRole)} ·{' '}
+                          {task.deadlineAt ? formatDate(task.deadlineAt, locale) : 'No deadline'}
                         </p>
                       </div>
-                      <Badge variant={statusVariant(task.status as BuyerReadinessItemStatus)} size="sm">
+                      <Badge
+                        variant={statusVariant(task.status as BuyerReadinessItemStatus)}
+                        size="sm"
+                      >
                         {statusLabel(task.status)}
                       </Badge>
                     </div>
@@ -451,15 +487,7 @@ function RoomContent({ payload, locale }: { payload: BuyerReadyRoomPayload; loca
   )
 }
 
-function Metric({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string
-  value: string
-  icon: LucideIcon
-}) {
+function Metric({ label, value, icon: Icon }: { label: string; value: string; icon: LucideIcon }) {
   return (
     <div className="rounded-lg border border-foreground/[0.08] bg-card px-4 py-4">
       <div className="flex items-center justify-between gap-3">
@@ -518,13 +546,25 @@ function ImSectionPreview({ section }: { section: BuyerReadyImSection }) {
     <article className="rounded-lg border border-foreground/[0.08] bg-background px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">{section.heading}</h3>
-        <Badge variant={section.confidence === 'high' ? 'success' : section.confidence === 'medium' ? 'warning' : 'destructive'} size="sm">
+        <Badge
+          variant={
+            section.confidence === 'high'
+              ? 'success'
+              : section.confidence === 'medium'
+                ? 'warning'
+                : 'destructive'
+          }
+          size="sm"
+        >
           {section.confidence}
         </Badge>
       </div>
       <div className="mt-2 space-y-2">
         {section.narrative_paragraphs.slice(0, 2).map((paragraph, index) => (
-          <p key={`${section.section_key}-${index}`} className="text-sm leading-6 text-foreground/65">
+          <p
+            key={`${section.section_key}-${index}`}
+            className="text-sm leading-6 text-foreground/65"
+          >
             {paragraph}
           </p>
         ))}

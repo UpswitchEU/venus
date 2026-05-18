@@ -1,9 +1,9 @@
 import type {
+  BuyerReadinessItemStatus,
+  BuyerReadinessPackage,
   BuyerReadyImSection,
   BuyerReadyRoomPayload,
   BuyerReadyVaultDoc,
-  BuyerReadinessItemStatus,
-  BuyerReadinessPackage,
   PricingRange,
 } from './types'
 
@@ -61,7 +61,10 @@ export function formatMoney(value: number | null | undefined, locale: string): s
   }).format(value)
 }
 
-export function formatValuationRange(range: PricingRange | null | undefined, locale: string): string {
+export function formatValuationRange(
+  range: PricingRange | null | undefined,
+  locale: string
+): string {
   if (!range) return '-'
   if (Number.isFinite(range.min) && Number.isFinite(range.max)) {
     return `${formatMoney(range.min, locale)} - ${formatMoney(range.max, locale)}`
@@ -71,9 +74,7 @@ export function formatValuationRange(range: PricingRange | null | undefined, loc
 
 export function statusLabel(status: string | null | undefined): string {
   if (!status) return 'Unknown'
-  return status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
 export function statusTone(
@@ -85,7 +86,9 @@ export function statusTone(
   return 'neutral'
 }
 
-export function orderedImSections(sections: Record<string, BuyerReadyImSection> | null | undefined) {
+export function orderedImSections(
+  sections: Record<string, BuyerReadyImSection> | null | undefined
+) {
   if (!sections) return []
   const preferred = [
     'cover',
@@ -110,7 +113,10 @@ export function orderedImSections(sections: Record<string, BuyerReadyImSection> 
   })
 }
 
-export function summarizeRoom(payload: BuyerReadyRoomPayload, locale: string): ReadinessRoomSummary {
+export function summarizeRoom(
+  payload: BuyerReadyRoomPayload,
+  locale: string
+): ReadinessRoomSummary {
   const readiness = payload.buyerReadiness
   const report = payload.package?.report
   return {

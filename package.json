@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "packageManager": "pnpm@10.26.2",
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=10.26.2"
+  },
   "description": "Venus - UpSwitch Valuation Calculator Frontend - The Oracle's wisdom for business insights",
   "type": "module",
   "scripts": {
