@@ -2690,14 +2690,11 @@ function MessageBubble({
           <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.registrySearchResults.map((picker) => {
               const isFailed =
-                picker.status === 'failed' ||
-                picker.coverageWarning === 'upstream_degraded'
+                picker.status === 'failed' || picker.coverageWarning === 'upstream_degraded'
               const isMissing = picker.coverageWarning === 'kvk_not_in_dataset'
               const hasHits = picker.hits.length > 0
               const heading =
-                picker.registry === 'KVK'
-                  ? 'Dutch KVK registry'
-                  : 'Belgian KBO registry'
+                picker.registry === 'KVK' ? 'Dutch KVK registry' : 'Belgian KBO registry'
               const countLabel = !hasHits
                 ? picker.query.length > 0
                   ? `No matches found for "${picker.query}"`
@@ -2723,22 +2720,20 @@ function MessageBubble({
                   <p className="text-foreground/55 text-xs mt-0.5">{countLabel}</p>
                   {isFailed && (
                     <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
-                      The registry was temporarily unavailable. Try the company
-                      number directly, or retry in a moment.
+                      The registry was temporarily unavailable. Try the company number directly, or
+                      retry in a moment.
                     </p>
                   )}
                   {isMissing && (
                     <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
-                      Not in Overheid.io&apos;s public-data mirror. Verify the
-                      KVK number — about 4% of Handelsregister entries fall in
-                      this gap.
+                      Not in Overheid.io&apos;s public-data mirror. Verify the KVK number — about 4%
+                      of Handelsregister entries fall in this gap.
                     </p>
                   )}
                   {hasHits && (
                     <div className="mt-2 space-y-1">
                       {picker.hits.slice(0, 10).map((hit) => {
-                        const sector =
-                          hit.businessTypeTitle ?? hit.naceDescription ?? null
+                        const sector = hit.businessTypeTitle ?? hit.naceDescription ?? null
                         const location = hit.city
                           ? hit.postalCode
                             ? `${hit.postalCode} ${hit.city}`
@@ -2752,9 +2747,7 @@ function MessageBubble({
                             onClick={() => {
                               if (typeof onSendFollowUp !== 'function') return
                               const ref = `${picker.registry} ${hit.companyNumber}`
-                              onSendFollowUp(
-                                `Use ${hit.companyName} (${ref})`
-                              )
+                              onSendFollowUp(`Use ${hit.companyName} (${ref})`)
                             }}
                             disabled={typeof onSendFollowUp !== 'function'}
                             className="w-full text-left rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035]"

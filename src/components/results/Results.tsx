@@ -146,7 +146,9 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     if (typeof localEnterpriseBridgePreference === 'boolean') return localEnterpriseBridgePreference
     if (typeof sessionShowEnterpriseBridge === 'boolean') return sessionShowEnterpriseBridge
     return (
-      readEnterpriseBridgePreference(sessionValuationResult as unknown as Record<string, unknown>) ??
+      readEnterpriseBridgePreference(
+        sessionValuationResult as unknown as Record<string, unknown>
+      ) ??
       readEnterpriseBridgePreference(result as unknown as Record<string, unknown>) ??
       true
     )

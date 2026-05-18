@@ -10,6 +10,8 @@ package-lock.json
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js — never commit (webpack pack files exceed GitHub’s 100MB limit)
 .next/
@@ -30,10 +32,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 dev.log
+*.log
+biome_output.txt
+logs/
+build-output.log
 
 # local env files
 .env*.local
 .env
+.env.*.local
 
 # vercel
 .vercel

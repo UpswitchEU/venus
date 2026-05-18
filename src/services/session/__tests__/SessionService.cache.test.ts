@@ -207,7 +207,9 @@ describe('SessionService - Cache Update Strategy', () => {
 
     it('restores renderable report HTML as the current report', async () => {
       const renderableHtml =
-        '<html><body><main>' + 'Templated valuation report content. '.repeat(8) + '</main></body></html>'
+        '<html><body><main>' +
+        'Templated valuation report content. '.repeat(8) +
+        '</main></body></html>'
       vi.mocked(globalSessionCache.get).mockReturnValue(mockSession)
       vi.mocked(backendAPI.getReport).mockResolvedValue({
         html_report: renderableHtml,

@@ -29,15 +29,15 @@ cockpit and Titan remains the workflow source of truth.
 
 ```bash
 cd apps/venus
-npm install
-# or
-yarn install
+nvm use
+corepack enable
+pnpm install
 ```
 
 ### Development
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 The application will be available at `http://localhost:3001` (or the port specified in your configuration).
@@ -45,17 +45,31 @@ The application will be available at `http://localhost:3001` (or the port specif
 ### Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
 ## 🏗️ Tech Stack
 
-- **Next.js 13** - React framework
+- **Next.js 15.5.x** - React framework
 - **TypeScript** - Type safety
 - **TailwindCSS** - Styling
-- **HeroUI** - Component library
 - **Recharts** - Data visualization
 - **Axios** - HTTP client
+
+## Code Quality
+
+```bash
+pnpm type-check
+pnpm lint
+pnpm run guard:repo-hygiene
+pnpm run guard:type-debt
+pnpm audit --prod
+pnpm build
+pnpm run guard:bundle-budget
+pnpm test:run
+```
+
+Venus uses Node 20.19.6 and pnpm 10.26.x. Do not commit generated output such as `.next/`, `dist/`, `playwright-report/`, `test-results/`, logs, or local env files. Explicit `any` and TypeScript/lint suppressions are frozen by `guard:type-debt`; reduce the baseline when paying debt down.
 
 ## 🔗 Integration
 

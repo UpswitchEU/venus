@@ -1008,9 +1008,7 @@ function parseRegistrySearchResults(data: unknown): RegistrySearchResults[] {
 
   const hitsArr = Array.isArray(d.results) ? d.results : []
   const hits: RegistrySearchHit[] = hitsArr
-    .filter(
-      (h): h is Record<string, unknown> => typeof h === 'object' && h !== null
-    )
+    .filter((h): h is Record<string, unknown> => typeof h === 'object' && h !== null)
     .map((h) => {
       const num =
         typeof h.kvk_number === 'string'
@@ -1026,37 +1024,21 @@ function parseRegistrySearchResults(data: unknown): RegistrySearchResults[] {
         postalCode: typeof h.postal_code === 'string' ? h.postal_code : null,
         address: typeof h.address === 'string' ? h.address : null,
         countryCode:
-          typeof h.country_code === 'string'
-            ? h.country_code
-            : registry === 'KVK'
-              ? 'NL'
-              : 'BE',
+          typeof h.country_code === 'string' ? h.country_code : registry === 'KVK' ? 'NL' : 'BE',
         naceCode: typeof h.nace_code === 'string' ? h.nace_code : null,
-        naceDescription:
-          typeof h.nace_description === 'string' ? h.nace_description : null,
-        businessTypeId:
-          typeof h.business_type_id === 'string' ? h.business_type_id : null,
-        businessTypeTitle:
-          typeof h.business_type_title === 'string'
-            ? h.business_type_title
-            : null,
-        foundationDate:
-          typeof h.foundation_date === 'string' ? h.foundation_date : null,
+        naceDescription: typeof h.nace_description === 'string' ? h.nace_description : null,
+        businessTypeId: typeof h.business_type_id === 'string' ? h.business_type_id : null,
+        businessTypeTitle: typeof h.business_type_title === 'string' ? h.business_type_title : null,
+        foundationDate: typeof h.foundation_date === 'string' ? h.foundation_date : null,
         isActive: typeof h.is_active === 'boolean' ? h.is_active : null,
       }
     })
     .filter((h) => h.companyNumber.length > 0 && h.companyName.length > 0)
 
-  const totalFound =
-    typeof d.total_found === 'number' ? d.total_found : hits.length
-  const coverageWarningRaw =
-    typeof d.coverage_warning === 'string' ? d.coverage_warning : null
-  const coverageWarning:
-    | 'kvk_not_in_dataset'
-    | 'upstream_degraded'
-    | undefined =
-    coverageWarningRaw === 'kvk_not_in_dataset' ||
-    coverageWarningRaw === 'upstream_degraded'
+  const totalFound = typeof d.total_found === 'number' ? d.total_found : hits.length
+  const coverageWarningRaw = typeof d.coverage_warning === 'string' ? d.coverage_warning : null
+  const coverageWarning: 'kvk_not_in_dataset' | 'upstream_degraded' | undefined =
+    coverageWarningRaw === 'kvk_not_in_dataset' || coverageWarningRaw === 'upstream_degraded'
       ? coverageWarningRaw
       : undefined
   const status: 'ok' | 'failed' =

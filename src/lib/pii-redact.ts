@@ -34,7 +34,7 @@ export function redactStructuredPii(raw: string | null | undefined): string {
 }
 
 export function scrubPostHogParams(
-  params: Record<string, string | number | boolean> | undefined,
+  params: Record<string, string | number | boolean> | undefined
 ): Record<string, string | number | boolean> | undefined {
   if (!params) return params
   const out: Record<string, string | number | boolean> = {}

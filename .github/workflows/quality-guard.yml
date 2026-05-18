@@ -1,0 +1,66 @@
+name: Quality Guard
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "src/**"
+      - "scripts/**"
+      - "docs/architecture/type-debt-baseline.json"
+      - ".github/workflows/quality-guard.yml"
+      - ".gitignore"
+      - "biome.json"
+      - "next.config.js"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+  push:
+    paths:
+      - "app/**"
+      - "src/**"
+      - "scripts/**"
+      - "docs/architecture/type-debt-baseline.json"
+      - ".github/workflows/quality-guard.yml"
+      - ".gitignore"
+      - "biome.json"
+      - "next.config.js"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.6"
+
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10.26.2 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Guard repo hygiene
+        run: pnpm run guard:repo-hygiene
+
+      - name: Guard type debt
+        run: pnpm run guard:type-debt
+
+      - name: Production dependency audit
+        run: pnpm audit --prod
+
+      - name: Type check
+        run: pnpm run type-check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Guard bundle budget
+        run: pnpm run guard:bundle-budget

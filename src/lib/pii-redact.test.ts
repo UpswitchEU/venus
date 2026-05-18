@@ -12,7 +12,7 @@ import { redactStructuredPii, scrubPostHogParams } from './pii-redact'
 describe('redactStructuredPii (Venus observability scrubber)', () => {
   it('redacts email, URL, IBAN, VAT, KBO, phone, long digit runs', () => {
     const out = redactStructuredPii(
-      'Contact admin@acme.be BTW BE0123456789 kbo 0123.456.789 zie https://x.test en +32 475 12 34 56',
+      'Contact admin@acme.be BTW BE0123456789 kbo 0123.456.789 zie https://x.test en +32 475 12 34 56'
     )
     expect(out).toContain('[email]')
     expect(out).toContain('[vat]')
@@ -49,7 +49,9 @@ describe('scrubPostHogParams (Venus observability scrubber)', () => {
       amount_eur: 1500,
       internal: true,
     }
-    const out = scrubPostHogParams(params)!
+    const out = scrubPostHogParams(params)
+    expect(out).toBeDefined()
+    if (!out) throw new Error('Expected scrubbed PostHog params')
     expect(out.event_kind).toBe('profile_update')
     expect(out.user_email).toBe('[email]')
     expect(out.amount_eur).toBe(1500)
@@ -62,7 +64,9 @@ describe('scrubPostHogParams (Venus observability scrubber)', () => {
 
   it('does not mutate the input', () => {
     const input = { foo: 'admin@acme.be', count: 1 }
-    const out = scrubPostHogParams(input)!
+    const out = scrubPostHogParams(input)
+    expect(out).toBeDefined()
+    if (!out) throw new Error('Expected scrubbed PostHog params')
     expect(input.foo).toBe('admin@acme.be')
     expect(out.foo).toBe('[email]')
     expect(out).not.toBe(input)

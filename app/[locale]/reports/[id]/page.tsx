@@ -1,17 +1,7 @@
-import nextDynamic from 'next/dynamic'
 import { generalLogger } from '@/utils/logger'
 import { parseReportModeForInitialUi } from '@/utils/reportMode'
-import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ReportNotFoundMessage } from './ReportNotFoundMessage'
-
-// Dynamically import the client component with no SSR
-// ssr: false means it only renders on the client, so no Suspense needed
-// Use default import to avoid "Cannot access .then on server" error
-// ✅ Async loading: Show calculator shell skeleton instead of blocking LoadingState
-const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
-  ssr: false,
-  loading: () => <CalculatorShellSkeleton />,
-})
+import { ValuationReportClientLoader } from './ValuationReportClientLoader'
 
 interface PageProps {
   params: Promise<{
@@ -30,8 +20,8 @@ export const dynamicParams = true
 /**
  * Valuation Report Page - Ultra-minimal Server Component
  *
- * This uses dynamic imports with ssr: false to completely bypass
- * Server Component rendering of the ValuationReport component.
+ * Server Component shell that resolves route/search params before handing off
+ * to the client-only valuation report tree.
  */
 export default async function Page({ params, searchParams }: PageProps) {
   let id = ''
@@ -99,8 +89,8 @@ export default async function Page({ params, searchParams }: PageProps) {
     hasClientId: !!urlParams.clientId,
   })
 
-  // Dynamic import handles loading state via `loading` option
+  // Client loader handles the no-SSR dynamic import and loading state.
   // Route-level error.tsx handles Server Component errors
   // Client-side ErrorBoundary inside ValuationReportClient handles client errors
-  return <ValuationReportClient {...clientProps} />
+  return <ValuationReportClientLoader {...clientProps} />
 }
