@@ -5,6 +5,7 @@ Start here: [Quick start](./QUICK_START.md).
 ## Architecture and auth
 
 - [Architecture index](./ARCHITECTURE_INDEX.md)
+- [Toolchain decision](./architecture/TOOLCHAIN_DECISION.md)
 - [Twin-engine architecture](./ARCHITECTURE_TWIN_ENGINE.md)
 - [Auth architecture](./AUTH_ARCHITECTURE.md)
 - [Auth-first architecture](./AUTH_FIRST_ARCHITECTURE.md)

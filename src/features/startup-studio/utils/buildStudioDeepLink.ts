@@ -39,6 +39,7 @@ export type StudioDeepLinkSector =
   | 'fintech'
   | 'biotech_healthtech'
   | 'deeptech_ai'
+  | 'vertical_ai'
   | 'consumer'
   | 'hardware'
   | 'other'
@@ -86,13 +87,14 @@ export function buildStudioDeepLink(basePath: string, params: StudioDeepLinkPara
   if (params.stage === 'pre_seed' || params.stage === 'seed' || params.stage === 'series_a') {
     usp.set('stage', params.stage)
   }
-  // Validate sector against the canonical 8-value enum.
+  // Validate sector against the canonical 9-value enum.
   const validSectors: ReadonlyArray<StudioDeepLinkSector> = [
     'saas',
     'marketplace',
     'fintech',
     'biotech_healthtech',
     'deeptech_ai',
+    'vertical_ai',
     'consumer',
     'hardware',
     'other',

@@ -7,7 +7,10 @@
  * @module services/api/session/SessionAPI
  */
 
-import { CreateValuationSessionRequest, UpdateValuationSessionRequest } from '../../../types/api'
+import type {
+  CreateValuationSessionRequest,
+  UpdateValuationSessionRequest,
+} from '../../../types/api'
 import type {
   CreateValuationSessionResponse,
   SaveValuationResultResponse,
@@ -16,7 +19,7 @@ import type {
   ValuationSessionResponse,
 } from '../../../types/api-responses'
 import { APIError, AuthenticationError, ValidationError } from '../../../types/errors'
-import type { ValuationSession } from '../../../types/valuation'
+import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
 import { convertToApplicationError } from '../../../utils/errors/errorConverter'
 import {
   isNetworkError,
@@ -24,60 +27,60 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
-import { applyStableReportIdFromSessionKeys } from '../../../utils/sessionReportIdentity'
 import {
   stripReportBlobsFromSessionPatch,
   stripReportsFromValuationSessionPatchUpdates,
 } from '../../../utils/stripReportBlobsFromSessionPatch'
-import { normalizeSessionData } from '../../session/SessionNormalizer'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
+import {
+  isHttpStatus,
+  isTimeoutLikeError,
+  requestConfig,
+  responseMessage,
+  toAxiosLikeError,
+} from './SessionApiHttp'
+import {
+  asSessionRecord,
+  normalizeBackendSessionPayload,
+  normalizeSessionView,
+  parseGetSessionResponse,
+  type SessionRecord,
+} from './SessionApiNormalization'
 
-export class SessionAPI extends HttpClient {
-  private normalizeBackendSessionPayload(sessionData: any): any {
-    const payload = { ...sessionData }
+type SessionEnvelope<T> = {
+  success?: boolean
+  data?: T
+  error?: string
+}
 
-    applyStableReportIdFromSessionKeys(payload)
-
-    if (payload.view_type === 'simple' && !payload.currentView) {
-      payload.currentView = 'manual'
-    } else if (payload.view_type === 'advanced' && !payload.currentView) {
-      payload.currentView = 'conversational'
-    }
-
-    if (payload.session_data && typeof payload.session_data === 'object') {
-      const backendSessionData = payload.session_data
-      payload.sessionData = payload.sessionData
-        ? { ...backendSessionData, ...payload.sessionData }
-        : backendSessionData
-      payload.partialData = payload.partialData
-        ? { ...backendSessionData, ...payload.partialData }
-        : backendSessionData
-
-      if (backendSessionData.currentView && !payload.currentView) {
-        payload.currentView = backendSessionData.currentView
-      }
-    }
-
-    if ((payload.currentView as string) === 'ai-guided') {
-      payload.currentView = 'conversational'
-    }
-    if (payload.dataSource === 'ai-guided') {
-      payload.dataSource = 'conversational'
-    }
-
-    const normalized = normalizeSessionData(payload)
-    return {
-      ...payload,
-      status: payload.status ?? normalized.status,
-      reportReady:
-        typeof payload.reportReady === 'boolean' ? payload.reportReady : normalized.reportReady,
-      valuationResult: normalized.valuationResult,
-      htmlReport: normalized.htmlReport,
-      _normalizedFormData: normalized.formData,
-      _isNormalized: true,
-    }
+type CreateValuationSessionInput = Partial<CreateValuationSessionRequest> &
+  Omit<Partial<ValuationSession>, 'partialData' | 'sessionData'> & {
+    current_step?: number
+    partialData?: SessionRecord
+    sessionData?: SessionRecord
+    session_key?: string
   }
 
+type SaveValuationResultPayload = {
+  sessionData?: SessionRecord
+  valuationResult?: Partial<ValuationResponse> | SessionRecord
+  htmlReport?: string
+  name?: string
+}
+
+function asRecord(value: unknown): SessionRecord | null {
+  return asSessionRecord(value)
+}
+
+function emptyOptimisticUpdate(): UpdateValuationSessionResponse {
+  return {
+    success: true,
+    session: null as unknown as ValuationSession,
+    updated: false,
+  }
+}
+
+export class SessionAPI extends HttpClient {
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
 
@@ -118,7 +121,7 @@ export class SessionAPI extends HttpClient {
     }
     const mappedCurrentView = p.currentView === 'conversational' ? 'ai-guided' : p.currentView
     const mappedDataSource = p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
-    const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView as any }
+    const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView }
     if (p.dataSource !== undefined) {
       merged.dataSource = mappedDataSource
     }
@@ -186,127 +189,34 @@ export class SessionAPI extends HttpClient {
       //   - response.data.data = sessionObject
       //   - So HttpClient returns sessionObject directly
       // Therefore, response IS the session object
-      const response = await this.executeRequest<any>(
-        {
+      const response = await this.executeRequest<unknown>(
+        requestConfig({
           method: 'GET',
           url: `/api/v2/valuations/sessions/${reportId}`,
           headers: {},
-        } as any,
+        }),
         timeoutOptions
       )
 
       // ✅ FIX: HttpClient already unwrapped the response, so response IS the session data
       // But handle edge cases where structure might be different
-      let sessionData: any
-      let success: boolean
-
-      if (!response || typeof response !== 'object') {
-        apiLogger.debug('Session not found - invalid response', { reportId })
+      const parsedResponse = parseGetSessionResponse(response, reportId)
+      if (!parsedResponse) {
         return null
-      }
-
-      // Check if response has nested data structure (edge case)
-      if (
-        'data' in response &&
-        response.data &&
-        typeof response.data === 'object' &&
-        !('reportId' in response)
-      ) {
-        // Response is { success: true, data: {...} } - extract inner data
-        sessionData = response.data
-        success = (response as any).success ?? true
-      } else if ('reportId' in response || 'currentView' in response) {
-        // Response is the session object directly (most common case)
-        sessionData = response
-        success = (response as any).success ?? true
-      } else {
-        // Invalid structure
-        apiLogger.debug('Session not found - invalid response structure', {
-          reportId,
-          responseKeys: Object.keys(response),
-        })
-        return null
-      }
-
-      if (!sessionData) {
-        apiLogger.debug('Session not found', { reportId })
-        return null
-      }
-
-      applyStableReportIdFromSessionKeys(sessionData)
-
-      // Map backend view types to frontend view types
-      // Backend: 'simple' | 'advanced'
-      // Frontend: 'manual' | 'conversational'
-      if (sessionData.view_type === 'simple' && !sessionData.currentView) {
-        sessionData.currentView = 'manual'
-      } else if (sessionData.view_type === 'advanced' && !sessionData.currentView) {
-        sessionData.currentView = 'conversational'
-      }
-
-      // ✅ CRITICAL FIX: Extract session_data from backend response and map to sessionData/partialData
-      // Backend returns: { session_data: {...}, ... }
-      // Frontend expects: { sessionData: {...}, partialData: {...}, ... }
-      if (sessionData.session_data && typeof sessionData.session_data === 'object') {
-        // Extract session_data and use it for both sessionData and partialData
-        // sessionData is the complete merged data, partialData is for incremental updates
-        const backendSessionData = sessionData.session_data
-
-        // Map session_data to sessionData (complete data)
-        if (!sessionData.sessionData) {
-          sessionData.sessionData = backendSessionData
-        } else {
-          // Merge backend session_data into existing sessionData
-          sessionData.sessionData = {
-            ...backendSessionData,
-            ...sessionData.sessionData, // Frontend data takes precedence
-          }
-        }
-
-        // Map session_data to partialData (incremental updates)
-        if (!sessionData.partialData) {
-          sessionData.partialData = backendSessionData
-        } else {
-          // Merge backend session_data into existing partialData
-          sessionData.partialData = {
-            ...backendSessionData,
-            ...sessionData.partialData, // Frontend data takes precedence
-          }
-        }
-
-        // Also check session_data for currentView
-        if (backendSessionData.currentView) {
-          sessionData.currentView = backendSessionData.currentView
-        }
-      } else if (sessionData.session_data?.currentView) {
-        // Fallback: check nested session_data for currentView
-        sessionData.currentView = sessionData.session_data.currentView
-      }
-
-      // Map backend 'ai-guided' to frontend 'conversational'
-      if ((sessionData.currentView as string) === 'ai-guided') {
-        sessionData.currentView = 'conversational'
-      }
-      // Map dataSource: 'ai-guided' → 'conversational'
-      if (sessionData.dataSource === 'ai-guided') {
-        sessionData.dataSource = 'conversational'
       }
 
       // ✅ WORLD-CLASS: Normalize session data at API boundary
       // This is the SINGLE place where we convert backend naming to frontend naming
-      const enrichedSessionData = this.normalizeBackendSessionPayload(sessionData)
+      const enrichedSessionData = normalizeBackendSessionPayload(parsedResponse.sessionData)
 
       // Return in expected format
       return {
-        success,
+        success: parsedResponse.success,
         session: enrichedSessionData,
       }
     } catch (error) {
       // Retry logic with exponential backoff
-      const isRetryable =
-        isNetworkError(error) ||
-        (error as any).code === 'ECONNABORTED' ||
-        (error as any).message?.includes('timeout')
+      const isRetryable = isNetworkError(error) || isTimeoutLikeError(error)
 
       if (isRetryable && attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt)
@@ -323,7 +233,7 @@ export class SessionAPI extends HttpClient {
       }
 
       // Max retries reached or non-retryable error
-      const axiosError = error as any
+      const axiosError = toAxiosLikeError(error)
 
       apiLogger.error('[SessionAPI] GET session error', {
         reportId,
@@ -332,7 +242,7 @@ export class SessionAPI extends HttpClient {
       })
 
       // Handle 404 gracefully - session doesn't exist yet
-      if (axiosError?.response?.status === 404) {
+      if (axiosError.response?.status === 404) {
         apiLogger.debug('Session does not exist yet', { reportId })
         return null
       }
@@ -350,7 +260,7 @@ export class SessionAPI extends HttpClient {
    * Maps frontend 'conversational' to backend 'ai-guided' for both currentView and dataSource.
    */
   async createValuationSession(
-    session: CreateValuationSessionRequest | any,
+    session: CreateValuationSessionInput,
     options?: APIRequestConfig
   ): Promise<CreateValuationSessionResponse> {
     try {
@@ -365,23 +275,20 @@ export class SessionAPI extends HttpClient {
         note: 'Timing information for race condition detection',
       })
 
-      // Handle both CreateValuationSessionRequest and ValuationSession types
-      const sessionAny = session as any
-
       // Map frontend view types to backend view types
       // Frontend: 'manual' | 'conversational'
       // Backend: 'simple' | 'advanced'
-      const currentView = session.currentView || sessionAny.currentView || 'manual'
+      const currentView = normalizeSessionView(session.currentView)
       const viewType = currentView === 'conversational' ? 'advanced' : 'simple'
 
       // Build session_data object to send to Titan
       // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
       const sessionDataPayload = stripReportBlobsFromSessionPatch({
-        ...(sessionAny.sessionData || {}),
-        ...(sessionAny.partialData || {}),
+        ...(session.sessionData || {}),
+        ...(session.partialData || {}),
         // Preserve currentView in session_data for restoration
         currentView: currentView,
-        ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
+        ...(session.dataSource && { dataSource: session.dataSource }),
       }) as Record<string, unknown>
 
       // AUTH-FIRST: Guest session handling removed - authentication is required
@@ -389,13 +296,14 @@ export class SessionAPI extends HttpClient {
 
       // Use reportId as session_key if session_key is not provided
       // This ensures idempotency - if a reportId exists, use it as the session_key
-      const sessionKey = sessionAny.session_key || sessionAny.reportId
+      const sessionKeyCandidate = session.session_key || session.reportId
+      const sessionKey = typeof sessionKeyCandidate === 'string' ? sessionKeyCandidate : undefined
       SessionAPI.clearDeletedSessionMarker(sessionKey)
 
       const backendSession = {
         session_data: sessionDataPayload,
         view_type: viewType,
-        current_step: sessionAny.current_step || 1,
+        current_step: typeof session.current_step === 'number' ? session.current_step : 1,
         // Also send currentView at top level for DTO transformation
         currentView: currentView,
         // Always include session_key if available (from session_key or reportId)
@@ -411,14 +319,16 @@ export class SessionAPI extends HttpClient {
       // If session_key is provided in payload, Titan will use it (for idempotency)
       // Otherwise, Titan generates a new HMAC-signed session_key
       // Response will contain: { session_key, session_data, view_type, status, ... }
-      const sessionData = await this.executeRequest<any>(
-        {
-          method: 'POST',
-          url: '/api/v2/valuations/sessions',
-          data: backendSession,
-          headers: {}, // HttpClient interceptor adds client context headers automatically
-        } as any,
-        options
+      const sessionData = asRecord(
+        await this.executeRequest<unknown>(
+          requestConfig({
+            method: 'POST',
+            url: '/api/v2/valuations/sessions',
+            data: backendSession,
+            headers: {}, // HttpClient interceptor adds client context headers automatically
+          }),
+          options
+        )
       )
 
       // CRITICAL: Validate sessionData exists before accessing properties
@@ -427,12 +337,15 @@ export class SessionAPI extends HttpClient {
       }
 
       // Titan returns session_key, map it to reportId for Venus
-      const reportId = sessionData.session_key || sessionData.reportId
+      const reportIdCandidate = sessionData.session_key || sessionData.reportId
+      const reportId = typeof reportIdCandidate === 'string' ? reportIdCandidate : undefined
 
       // CRITICAL: Validate required fields exist
       if (!reportId) {
         throw new Error(`Backend returned incomplete session data: missing session_key`)
       }
+
+      const responseSessionData = asRecord(sessionData.session_data) ?? {}
 
       // Build Venus-compatible session object
       // Titan's response: { id, session_key, session_data, view_type, status, ... }
@@ -440,16 +353,16 @@ export class SessionAPI extends HttpClient {
       const venusSession = {
         ...sessionData,
         reportId: reportId, // Use session_key as reportId
-        currentView: session.currentView || 'manual', // Preserve requested view
-        sessionData: sessionData.session_data || {},
-      }
+        currentView: currentView, // Preserve requested view
+        sessionData: responseSessionData,
+      } as unknown as ValuationSession
 
       // Map backend 'ai-guided' to frontend 'conversational' (if it exists in session_data)
-      if (venusSession.sessionData?.currentView === 'ai-guided') {
+      if (responseSessionData.currentView === 'ai-guided') {
         venusSession.currentView = 'conversational'
       }
-      if (venusSession.sessionData?.dataSource === 'ai-guided') {
-        venusSession.sessionData.dataSource = 'conversational'
+      if (responseSessionData.dataSource === 'ai-guided') {
+        responseSessionData.dataSource = 'conversational'
       }
 
       return {
@@ -468,8 +381,11 @@ export class SessionAPI extends HttpClient {
    *
    * WORLD-CLASS: Stores both promise and error state to prevent infinite retry loops
    */
-  private static sessionCreationPromises = new Map<string, Promise<any>>()
-  private static sessionCreationErrors = new Map<string, { error: any; timestamp: number }>()
+  private static sessionCreationPromises = new Map<
+    string,
+    Promise<CreateValuationSessionResponse>
+  >()
+  private static sessionCreationErrors = new Map<string, { error: unknown; timestamp: number }>()
   private static readonly ERROR_COOLDOWN_MS = 30000 // 30 seconds cooldown after rate limit error
 
   /**
@@ -490,13 +406,13 @@ export class SessionAPI extends HttpClient {
       const patchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
-      const response = await this.executeRequest<{ success: boolean; data: any }>(
-        {
+      const response = await this.executeRequest<SessionEnvelope<SessionRecord>>(
+        requestConfig({
           method: 'PATCH',
           url: `/api/v2/valuations/sessions/${reportId}`,
           data: patchBody,
           headers: {},
-        } as any,
+        }),
         options
       )
 
@@ -506,7 +422,7 @@ export class SessionAPI extends HttpClient {
 
       // Map backend 'ai-guided' to frontend 'conversational'
       if (sessionData) {
-        if ((sessionData.currentView as string) === 'ai-guided') {
+        if (sessionData.currentView === 'ai-guided') {
           sessionData.currentView = 'conversational'
         }
         // Map dataSource: 'ai-guided' → 'conversational'
@@ -516,18 +432,18 @@ export class SessionAPI extends HttpClient {
       }
 
       return {
-        success: response.success,
-        session: sessionData,
+        success: response.success ?? true,
+        session: sessionData as unknown as ValuationSession,
         updated: true,
       }
     } catch (error) {
-      const axiosError = error as any
+      const axiosError = toAxiosLikeError(error)
 
       // ✅ WORLD-CLASS FIX: Handle 429 rate limit with exponential backoff
-      if (axiosError?.response?.status === 429) {
+      if (axiosError.response?.status === 429) {
         apiLogger.warn('Rate limit hit during session update, retrying with backoff', {
           reportId,
-          retryAfter: axiosError?.response?.headers?.['retry-after'],
+          retryAfter: axiosError.response?.headers?.['retry-after'],
         })
 
         // Use exponential backoff for rate limit retries
@@ -537,13 +453,13 @@ export class SessionAPI extends HttpClient {
 
           const retriedResponse = await retryWithBackoff(
             async () => {
-              return await this.executeRequest<{ success: boolean; data: any }>(
-                {
+              return await this.executeRequest<SessionEnvelope<SessionRecord>>(
+                requestConfig({
                   method: 'PATCH',
                   url: `/api/v2/valuations/sessions/${reportId}`,
                   data: retryPatchBody,
                   headers: {},
-                } as any,
+                }),
                 options
               )
             },
@@ -557,7 +473,7 @@ export class SessionAPI extends HttpClient {
 
           const sessionData = retriedResponse.data
           if (sessionData) {
-            if ((sessionData.currentView as string) === 'ai-guided') {
+            if (sessionData.currentView === 'ai-guided') {
               sessionData.currentView = 'conversational'
             }
             if (sessionData.dataSource === 'ai-guided') {
@@ -566,8 +482,8 @@ export class SessionAPI extends HttpClient {
           }
 
           return {
-            success: retriedResponse.success,
-            session: sessionData,
+            success: retriedResponse.success ?? true,
+            session: sessionData as unknown as ValuationSession,
             updated: true,
           }
         } catch (retryError) {
@@ -582,18 +498,14 @@ export class SessionAPI extends HttpClient {
               }
             )
             // Return optimistic success - the update will be retried on next change
-            return {
-              success: true,
-              session: null as any,
-              updated: false, // Indicates update was not persisted
-            }
+            return emptyOptimisticUpdate()
           }
           // Critical update failed - re-throw
           this.handleSessionError(retryError, 'update session')
         }
       }
 
-      if (axiosError?.response?.status === 404) {
+      if (axiosError.response?.status === 404) {
         // ✅ TWIN ENGINE ARCHITECTURE: Handle 404 for authenticated users only
         // GuestSessionEngine never calls this method, so all callers are authenticated
         // Check if we have session data in the store (indicating this is a real session, not deleted)
@@ -603,11 +515,7 @@ export class SessionAPI extends HttpClient {
               reportId,
               tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
             })
-            return {
-              success: true,
-              session: null as any,
-              updated: false,
-            }
+            return emptyOptimisticUpdate()
           }
 
           const { useSessionStore } = await import('../../../store/useSessionStore')
@@ -640,11 +548,7 @@ export class SessionAPI extends HttpClient {
                   updates.updates?.sessionData || updates.updates?.currentView
                 )
                 if (!isCriticalUpdate) {
-                  return {
-                    success: true,
-                    session: null as any,
-                    updated: false,
-                  }
+                  return emptyOptimisticUpdate()
                 }
               } else {
                 // Cooldown expired - clear error and retry
@@ -671,18 +575,13 @@ export class SessionAPI extends HttpClient {
                 }
               } catch (promiseError) {
                 // If existing promise failed, check if it was a rate limit
-                const promiseAxiosError = promiseError as any
-                if (promiseAxiosError?.response?.status === 429) {
+                if (isHttpStatus(promiseError, 429)) {
                   // Rate limit - return optimistic success for non-critical updates
                   const isCriticalUpdate = !!(
                     updates.updates?.sessionData || updates.updates?.currentView
                   )
                   if (!isCriticalUpdate) {
-                    return {
-                      success: true,
-                      session: null as any,
-                      updated: false,
-                    }
+                    return emptyOptimisticUpdate()
                   }
                 }
                 // Re-throw if critical or non-rate-limit error
@@ -705,7 +604,7 @@ export class SessionAPI extends HttpClient {
                   updates.updates
                 )
 
-                const sessionToCreate = {
+                const sessionToCreate: CreateValuationSessionInput = {
                   session_key: reportId,
                   reportId,
                   currentView:
@@ -716,7 +615,7 @@ export class SessionAPI extends HttpClient {
                   sessionData: mergedSessionData,
                   name: updates.updates?.name || currentSession.name,
                   dataSource: updates.updates?.dataSource || currentSession.dataSource,
-                } as any
+                }
 
                 const createResponse = await this.createValuationSession(sessionToCreate, options)
                 // Clear any previous errors on success
@@ -724,8 +623,7 @@ export class SessionAPI extends HttpClient {
                 return createResponse
               } catch (createError) {
                 // Store error for cooldown period if it's a rate limit
-                const createAxiosError = createError as any
-                if (createAxiosError?.response?.status === 429) {
+                if (isHttpStatus(createError, 429)) {
                   SessionAPI.sessionCreationErrors.set(reportId, {
                     error: createError,
                     timestamp: Date.now(),
@@ -759,18 +657,13 @@ export class SessionAPI extends HttpClient {
               }
             } catch (createError) {
               // If creation failed, check if it's a rate limit
-              const createAxiosError = createError as any
-              if (createAxiosError?.response?.status === 429) {
+              if (isHttpStatus(createError, 429)) {
                 // Rate limit - return optimistic success for non-critical updates
                 const isCriticalUpdate = !!(
                   updates.updates?.sessionData || updates.updates?.currentView
                 )
                 if (!isCriticalUpdate) {
-                  return {
-                    success: true,
-                    session: null as any,
-                    updated: false,
-                  }
+                  return emptyOptimisticUpdate()
                 }
               }
               // Re-throw if critical or non-rate-limit error
@@ -790,31 +683,21 @@ export class SessionAPI extends HttpClient {
                 isCriticalUpdate,
                 note: 'Non-critical update - will be retried on next change',
               })
-              return {
-                success: true,
-                session: null as any,
-                updated: false,
-              }
+              return emptyOptimisticUpdate()
             }
 
             // For critical updates, log error but don't crash
             apiLogger.warn('Session not found during update - session does not exist in store', {
               reportId,
               note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
-              errorMessage:
-                axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+              errorMessage: responseMessage(axiosError) || 'Unknown error',
             })
             // Return optimistic success instead of crashing
-            return {
-              success: true,
-              session: null as any,
-              updated: false,
-            }
+            return emptyOptimisticUpdate()
           }
         } catch (createError) {
           // If auto-create fails, check if it's a rate limit
-          const createAxiosError = createError as any
-          if (createAxiosError?.response?.status === 429) {
+          if (isHttpStatus(createError, 429)) {
             // Store error for cooldown period
             SessionAPI.sessionCreationErrors.set(reportId, {
               error: createError,
@@ -833,22 +716,14 @@ export class SessionAPI extends HttpClient {
               updates.updates?.sessionData || updates.updates?.currentView
             )
             if (!isCriticalUpdate) {
-              return {
-                success: true,
-                session: null as any,
-                updated: false,
-              }
+              return emptyOptimisticUpdate()
             }
             // For critical updates, still return optimistic success but log warning
             apiLogger.warn('Rate limit hit for critical update, returning optimistic success', {
               reportId,
               updateKeys: Object.keys(updates.updates || {}),
             })
-            return {
-              success: true,
-              session: null as any,
-              updated: false,
-            }
+            return emptyOptimisticUpdate()
           }
 
           // If auto-create fails with non-rate-limit error, log and return optimistic success
@@ -856,16 +731,11 @@ export class SessionAPI extends HttpClient {
           apiLogger.warn('Failed to auto-create session after 404, returning optimistic success', {
             reportId,
             createError: createError instanceof Error ? createError.message : String(createError),
-            originalError:
-              axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+            originalError: responseMessage(axiosError) || 'Unknown error',
             note: 'Guest users can continue working - session will be created on explicit save',
           })
           // Return optimistic success - don't crash UI
-          return {
-            success: true,
-            session: null as any,
-            updated: false,
-          }
+          return emptyOptimisticUpdate()
         }
       } else {
         // Non-404/429 error - re-throw as normal
@@ -887,20 +757,20 @@ export class SessionAPI extends HttpClient {
       const backendView = view === 'conversational' ? 'ai-guided' : view
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId/switch-view (POST, not PUT)
-      const response = await this.executeRequest<{ success: boolean; data?: any }>(
-        {
+      const response = await this.executeRequest<SessionEnvelope<SessionRecord>>(
+        requestConfig({
           method: 'POST',
           url: `/api/v2/valuations/sessions/${reportId}/switch-view`,
           data: { view: backendView },
           headers: {},
-        } as any,
+        }),
         options
       )
 
       // Backend returns { success: true, data: {...} }
       // FIX: Add null checks to prevent "Cannot read properties of undefined" errors
-      if (!response || !response.success) {
-        const errorMessage = (response as any)?.error || 'Failed to switch view'
+      if (!response.success) {
+        const errorMessage = response.error || 'Failed to switch view'
         throw new APIError(errorMessage, 400, undefined, false)
       }
 
@@ -921,35 +791,27 @@ export class SessionAPI extends HttpClient {
       }
 
       // Map backend 'ai-guided' to frontend 'conversational'
-      const currentView =
-        sessionData.currentView === 'ai-guided'
-          ? 'conversational'
-          : sessionData.currentView === 'conversational'
-            ? 'conversational'
-            : 'manual'
+      const currentView = normalizeSessionView(sessionData.currentView)
+      const previousView =
+        sessionData.previousView === 'ai-guided' || sessionData.previousView === 'conversational'
+          ? normalizeSessionView(sessionData.previousView)
+          : undefined
 
       // Map response back - previousView is optional and not always returned
       return {
         success: true,
-        currentView: currentView as 'manual' | 'conversational',
-        previousView: sessionData.previousView
-          ? sessionData.previousView === 'ai-guided'
-            ? 'conversational'
-            : sessionData.previousView
-          : undefined,
+        currentView,
+        previousView,
       }
     } catch (error) {
       const appError = convertToApplicationError(error, { reportId, view })
 
       // Handle rate limiting gracefully (429)
-      if (
-        (appError as any).code === 'RATE_LIMIT_ERROR' ||
-        (appError as any).code === 'TOO_MANY_REQUESTS_ERROR'
-      ) {
+      if (appError.code === 'RATE_LIMIT_ERROR' || appError.code === 'TOO_MANY_REQUESTS_ERROR') {
         apiLogger.warn('Rate limited on switch view - keeping optimistic update', {
           reportId,
           view,
-          code: (appError as any).code,
+          code: appError.code,
         })
         // Return success with requested view - optimistic update already happened
         // Don't throw error, just log it
@@ -973,11 +835,11 @@ export class SessionAPI extends HttpClient {
 
     try {
       const response = await this.executeRequest<{ success?: boolean; message?: string }>(
-        {
+        requestConfig({
           method: 'DELETE',
           url: `/api/v2/valuations/sessions/${reportId}`,
           headers: {},
-        } as any,
+        }),
         {
           ...options,
           retry: options?.retry ?? { maxRetries: 0 },
@@ -989,8 +851,8 @@ export class SessionAPI extends HttpClient {
         message: response?.message,
       }
     } catch (error) {
-      const axiosError = error as any
-      if (axiosError?.response?.status === 404) {
+      const axiosError = toAxiosLikeError(error)
+      if (axiosError.response?.status === 404) {
         return {
           success: true,
           message: 'Session already deleted',
@@ -1006,48 +868,53 @@ export class SessionAPI extends HttpClient {
    */
   private handleSessionError(error: unknown, operation: string): never {
     const appError = convertToApplicationError(error, { operation })
+    const appErrorDetails = {
+      message: appError.message,
+      code: appError.code,
+      context: appError.context,
+    }
 
     // Log with specific error type
     if (isNetworkError(appError)) {
       apiLogger.error(`Session ${operation} failed - network error`, {
-        error: (appError as any).message,
-        code: (appError as any).code,
+        error: appErrorDetails.message,
+        code: appErrorDetails.code,
         operation,
-        context: (appError as any).context,
+        context: appErrorDetails.context,
       })
     } else if (isSessionConflictError(appError)) {
       apiLogger.warn(`Session ${operation} failed - conflict`, {
-        error: (appError as any).message,
-        code: (appError as any).code,
+        error: appErrorDetails.message,
+        code: appErrorDetails.code,
         operation,
-        context: (appError as any).context,
+        context: appErrorDetails.context,
       })
     } else if (isValidationError(appError)) {
       apiLogger.error(`Session ${operation} failed - validation error`, {
-        error: (appError as any).message,
-        code: (appError as any).code,
+        error: appErrorDetails.message,
+        code: appErrorDetails.code,
         operation,
-        context: (appError as any).context,
+        context: appErrorDetails.context,
       })
     } else {
       apiLogger.error(`Session ${operation} failed`, {
-        error: (appError as any).message,
-        code: (appError as any).code,
+        error: appErrorDetails.message,
+        code: appErrorDetails.code,
         operation,
-        context: (appError as any).context,
+        context: appErrorDetails.context,
       })
     }
 
     // Re-throw as appropriate error type
-    if ((appError as any).code === 'NOT_FOUND_ERROR') {
+    if (appErrorDetails.code === 'NOT_FOUND_ERROR') {
       throw new APIError('Session not found', 404, undefined, true)
     }
 
-    if ((appError as any).code === 'AUTH_ERROR' || (appError as any).code === 'PERMISSION_ERROR') {
+    if (appErrorDetails.code === 'AUTH_ERROR' || appErrorDetails.code === 'PERMISSION_ERROR') {
       throw new AuthenticationError('Authentication required for session operation')
     }
 
-    if ((appError as any).code === 'SESSION_CONFLICT') {
+    if (appErrorDetails.code === 'SESSION_CONFLICT') {
       throw new APIError('Session conflict - please refresh and try again', 409, undefined, true)
     }
 
@@ -1063,17 +930,12 @@ export class SessionAPI extends HttpClient {
    */
   async saveValuationResult(
     reportId: string,
-    data: {
-      sessionData?: any // ✅ NEW: Input data (form fields or collected data)
-      valuationResult: any
-      htmlReport?: string
-      name?: string // ✅ NEW: Custom valuation name (e.g., "Amadeus report")
-    },
+    data: SaveValuationResultPayload,
     options?: APIRequestConfig
   ): Promise<SaveValuationResultResponse> {
     try {
       const response = await this.executeRequest<SaveValuationResultResponse>(
-        {
+        requestConfig({
           method: 'PUT',
           url: `/api/v2/valuations/sessions/${reportId}/result`,
           data: {
@@ -1083,7 +945,7 @@ export class SessionAPI extends HttpClient {
             name: data.name, // ✅ NEW: Send custom valuation name
           },
           headers: {},
-        } as any,
+        }),
         options
       )
 
@@ -1108,7 +970,7 @@ export class SessionAPI extends HttpClient {
       return {
         ...response,
         session: response.session
-          ? this.normalizeBackendSessionPayload(response.session)
+          ? normalizeBackendSessionPayload(response.session)
           : response.session,
       }
     } catch (error) {

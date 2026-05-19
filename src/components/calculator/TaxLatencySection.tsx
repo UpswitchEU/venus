@@ -11,13 +11,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
-  Check,
   ChevronDown,
   ChevronRight,
   Edit3,
   HelpCircle,
   Plus,
-  Search,
   Trash2,
   X,
 } from 'lucide-react'
@@ -42,113 +40,19 @@ import {
   calculateLatencyAmount,
   formatCurrencyTaxLatency,
   getNetTaxLatencyImpact,
-  type TaxLatencyCandidate,
   type TaxLatencyItem,
   type TaxLatencyType,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
-
-// ─────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────
-
-function generateId(): string {
-  return `tl-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-}
-
-function sanitizeNumericInput(value: string): string {
-  return value.replace(/[^\d.,]/g, '')
-}
-
-function parseNumericInput(value: string): number {
-  const raw = sanitizeNumericInput(value)
-  if (raw === '') return 0
-  const parsed = Number(raw.replace(',', '.'))
-  return Number.isNaN(parsed) ? 0 : parsed
-}
-
-function getLedgerDisplayLabel(code?: string, name?: string): string {
-  if (code && name) return `${code} · ${name}`
-  return code || name || '—'
-}
-
-export interface GroupedTaxLatencyCandidate {
-  id: string
-  candidate: TaxLatencyCandidate
-  candidateIds: string[]
-  years: number[]
-}
-
-function normalizeGroupingValue(value?: string | number | null): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-}
-
-export function groupTaxLatencyCandidates(
-  candidates: TaxLatencyCandidate[]
-): GroupedTaxLatencyCandidate[] {
-  const groups = new Map<string, GroupedTaxLatencyCandidate>()
-
-  for (const candidate of candidates) {
-    const key = [
-      normalizeGroupingValue(candidate.accountCode),
-      normalizeGroupingValue(candidate.accountName),
-      normalizeGroupingValue(candidate.type),
-      normalizeGroupingValue(candidate.taxRate),
-      normalizeGroupingValue(candidate.description),
-    ].join('|')
-
-    const existing = groups.get(key)
-    if (existing) {
-      existing.candidateIds.push(candidate.id)
-      if (candidate.year != null && !existing.years.includes(candidate.year)) {
-        existing.years.push(candidate.year)
-        existing.years.sort((a, b) => a - b)
-      }
-      if (existing.candidate.temporaryDifference == null && candidate.temporaryDifference != null) {
-        existing.candidate = candidate
-      }
-      continue
-    }
-
-    groups.set(key, {
-      id: key,
-      candidate,
-      candidateIds: [candidate.id],
-      years: candidate.year != null ? [candidate.year] : [],
-    })
-  }
-
-  return Array.from(groups.values())
-}
-
-const fuzzyMatch = (text: string, query: string): { matches: boolean; score: number } => {
-  const normalizedText = text.toLowerCase()
-  const normalizedQuery = query.toLowerCase()
-
-  if (!normalizedQuery) return { matches: true, score: 0 }
-  if (normalizedText.includes(normalizedQuery)) {
-    return { matches: true, score: normalizedQuery.length * 10 }
-  }
-
-  let textIndex = 0
-  let queryIndex = 0
-  let score = 0
-
-  while (textIndex < normalizedText.length && queryIndex < normalizedQuery.length) {
-    if (normalizedText[textIndex] === normalizedQuery[queryIndex]) {
-      queryIndex += 1
-      score += 1
-    }
-    textIndex += 1
-  }
-
-  return {
-    matches: queryIndex === normalizedQuery.length,
-    score,
-  }
-}
+import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
+import {
+  fuzzyMatch,
+  generateTaxLatencyId,
+  getLedgerDisplayLabel,
+  groupTaxLatencyCandidates,
+  parseNumericInput,
+  type GroupedTaxLatencyCandidate,
+} from './TaxLatencySection.utils'
 
 // ─────────────────────────────────────────
 // READ-ONLY ITEM ROW
@@ -585,7 +489,7 @@ export function TaxLatencySection({
       })
     } else {
       addItem({
-        id: generateId(),
+        id: generateTaxLatencyId(),
         type: draftType,
         accountCode: draftAccountCode,
         accountName: selectedLedger?.name || draftAccountName || '',
@@ -670,7 +574,7 @@ export function TaxLatencySection({
         candidate.temporaryDifference > 0
       ) {
         addItem({
-          id: generateId(),
+          id: generateTaxLatencyId(),
           type: candidate.type,
           accountCode: candidate.accountCode,
           accountName: candidate.accountName,
@@ -727,310 +631,37 @@ export function TaxLatencySection({
   }, [alwaysExpanded, candidates.length, hasItems])
 
   const inputForm = (
-    <div
-      className={cn(
-        'rounded-xl border p-4 transition-colors',
-        editingId
-          ? 'border-primary/30 bg-primary/[0.02]'
-          : 'border-foreground/[0.08] bg-foreground/[0.02]'
-      )}
-    >
-      {/* Form heading when editing */}
-      {editingId && (
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold text-primary flex items-center gap-1.5">
-            <Edit3 className="w-3.5 h-3.5" />
-            {t('editItem')}
-          </span>
-          <button
-            type="button"
-            onClick={handleCancelEdit}
-            className="text-xs text-foreground/50 hover:text-foreground/70 underline transition-colors"
-          >
-            {t('cancelEdit')}
-          </button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
-        <div>
-          <div className="flex items-center gap-1 mb-1">
-            <label className="text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
-              {t('type')}
-            </label>
-            <TooltipProvider delayDuration={200}>
-              <TooltipRoot>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex text-foreground/30 hover:text-foreground/50 transition-colors cursor-help">
-                    <HelpCircle className="w-3 h-3" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[240px] text-xs">
-                  {draftType === 'active' ? t('activeTooltip') : t('passiveTooltip')}
-                </TooltipContent>
-              </TooltipRoot>
-            </TooltipProvider>
-          </div>
-          <div className="relative">
-            <select
-              value={draftType}
-              onChange={(e) => setDraftType(e.target.value as TaxLatencyType)}
-              className={cn(
-                'w-full min-w-[180px] h-9 pl-2.5 pr-7 rounded-md text-xs font-medium appearance-none cursor-pointer',
-                'bg-background border border-foreground/[0.08]',
-                'hover:border-foreground/[0.15] focus:border-primary focus:ring-1 focus:ring-primary/20',
-                'transition-all outline-none',
-                draftType === 'active'
-                  ? 'text-moss-700 dark:text-moss-400'
-                  : 'text-rust-700 dark:text-rust-400'
-              )}
-            >
-              <option value="active" className="bg-background text-foreground">
-                {t('typeActive')}
-              </option>
-              <option value="passive" className="bg-background text-foreground">
-                {t('typePassive')}
-              </option>
-            </select>
-            <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-foreground/30 rotate-90 pointer-events-none" />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
-            {t('account')}
-          </label>
-          <div className="relative">
-            <div
-              className={cn(
-                'flex items-center gap-2 h-9 px-2.5 rounded-md',
-                'bg-background border border-foreground/[0.08]',
-                'hover:border-foreground/[0.15] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20',
-                'transition-all'
-              )}
-            >
-              <Search className="w-3.5 h-3.5 text-foreground/35 flex-shrink-0" />
-              <input
-                type="text"
-                value={ledgerQuery}
-                title={ledgerQuery.trim().length > 0 ? ledgerQuery : undefined}
-                placeholder={t('accountPlaceholder')}
-                onFocus={() => setShowLedgerDropdown(true)}
-                onChange={(event) => {
-                  const query = event.target.value
-                  setLedgerQuery(query)
-                  setShowLedgerDropdown(query.trim().length > 0)
-                  if (query !== getLedgerDisplayLabel(selectedLedger?.code, selectedLedger?.name)) {
-                    setDraftAccountCode('')
-                    setDraftAccountName('')
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') setShowLedgerDropdown(false)
-                }}
-                className="w-full bg-transparent border-none outline-none text-xs text-foreground placeholder:text-foreground/25"
-              />
-            </div>
-            {showLedgerDropdown && (
-              <div className="absolute z-20 mt-1 w-full rounded-xl border border-foreground/[0.08] bg-background shadow-xl overflow-hidden">
-                <div className="max-h-[min(22rem,50vh)] overflow-y-auto py-1">
-                  {filteredLedgers.length > 0 ? (
-                    filteredLedgers.map((ledger) => (
-                      <button
-                        key={ledger.code}
-                        type="button"
-                        onClick={() => handleSelectLedger(ledger)}
-                        className="w-full flex items-start justify-between gap-3 px-3 py-2 text-left hover:bg-foreground/[0.04] transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-mono font-semibold text-foreground tabular-nums">
-                            {ledger.code}
-                          </div>
-                          <div
-                            className={cn(
-                              'text-[11px] text-foreground/55 mt-0.5 leading-snug',
-                              LEDGER_LABEL_TEXT_CLASSES
-                            )}
-                            title={ledger.name}
-                          >
-                            {ledger.name}
-                          </div>
-                        </div>
-                        {ledger.category ? (
-                          <span
-                            className={cn(
-                              'text-[10px] uppercase tracking-wide text-foreground/35 shrink-0 max-w-[40%] text-right leading-snug',
-                              LEDGER_LABEL_TEXT_CLASSES
-                            )}
-                          >
-                            {ledger.category}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-3 text-xs text-foreground/45">
-                      {t('noLedgerResults')}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_100px_auto] gap-3 items-end mt-3">
-        <div>
-          <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
-            {t('description')}
-          </label>
-          <input
-            type="text"
-            value={draftDescription}
-            onChange={(e) => setDraftDescription(e.target.value)}
-            placeholder={t('descriptionPlaceholder')}
-            maxLength={200}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSubmit()
-            }}
-            className={cn(
-              'w-full h-9 px-2.5 rounded-md text-xs',
-              'bg-background border border-foreground/[0.08]',
-              'hover:border-foreground/[0.15] focus:border-primary focus:ring-1 focus:ring-primary/20',
-              'transition-all outline-none placeholder:text-foreground/25'
-            )}
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
-            {t('grossSurplusValue')}
-          </label>
-          <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-foreground/40 font-medium">
-              €
-            </span>
-            <input
-              ref={amountInputRef}
-              type="text"
-              inputMode="decimal"
-              value={draftAmount}
-              onChange={(e) => setDraftAmount(sanitizeNumericInput(e.target.value))}
-              placeholder="0"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit()
-              }}
-              className={cn(
-                'w-full h-9 pl-6 pr-2.5 rounded-md text-xs tabular-nums text-right',
-                'bg-background border border-foreground/[0.08]',
-                'hover:border-foreground/[0.15] focus:border-primary focus:ring-1 focus:ring-primary/20',
-                'transition-all outline-none'
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Tax Rate */}
-        <div>
-          <div className="flex items-center gap-1 mb-1">
-            <label className="block text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
-              {t('taxRate')}
-            </label>
-            {/* Surface where the default came from so accountants understand why a new
-                row defaults to e.g. 0% (participation exemption) vs the BE 25% fallback. */}
-            {defaultRateSource === 'navSchedule' && !editingId && (
-              <TooltipProvider delayDuration={200}>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center px-1 py-0 rounded text-[9px] font-semibold uppercase tracking-wide bg-primary/10 text-primary cursor-help">
-                      {t('navDefaultBadge')}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px] text-xs">
-                    {t('navDefaultTooltip', { rate: effectiveDefaultRate })}
-                  </TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-            )}
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={draftRate}
-              onChange={(e) => setDraftRate(sanitizeNumericInput(e.target.value))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit()
-              }}
-              className={cn(
-                'w-full h-9 pl-2.5 pr-6 rounded-md text-xs tabular-nums text-right',
-                'bg-background border border-foreground/[0.08]',
-                'hover:border-foreground/[0.15] focus:border-primary focus:ring-1 focus:ring-primary/20',
-                'transition-all outline-none'
-              )}
-            />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-foreground/40 font-medium">
-              %
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className={cn(
-              'h-9 px-4 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap',
-              canSubmit
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
-                : 'bg-foreground/[0.06] text-foreground/30 cursor-not-allowed'
-            )}
-          >
-            {editingId ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                {t('saveCta')}
-              </>
-            ) : (
-              <>
-                <Plus className="w-3.5 h-3.5" />
-                {t('addCta')}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {canSubmit && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-            className="mt-3 flex items-center gap-2 text-xs text-foreground/50"
-          >
-            <span>
-              {getLedgerDisplayLabel(selectedLedger?.code, selectedLedger?.name)} ·{' '}
-              {formatCurrencyTaxLatency(parsedAmount, currencyLocale)} × {parsedRate}% =
-            </span>
-            <span
-              className={cn(
-                'font-bold tabular-nums',
-                draftPreview > 0
-                  ? 'text-moss-600 dark:text-moss-400'
-                  : 'text-rust-600 dark:text-rust-400'
-              )}
-            >
-              {draftPreview > 0 ? '+' : ''}
-              {formatCurrencyTaxLatency(draftPreview, currencyLocale)}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <TaxLatencyEditorForm
+      amountInputRef={amountInputRef}
+      canSubmit={canSubmit}
+      currencyLocale={currencyLocale}
+      defaultRateSource={defaultRateSource}
+      draftAmount={draftAmount}
+      draftDescription={draftDescription}
+      draftPreview={draftPreview}
+      draftRate={draftRate}
+      draftType={draftType}
+      editingId={editingId}
+      effectiveDefaultRate={effectiveDefaultRate}
+      filteredLedgers={filteredLedgers}
+      ledgerQuery={ledgerQuery}
+      parsedAmount={parsedAmount}
+      parsedRate={parsedRate}
+      selectedLedger={selectedLedger}
+      showLedgerDropdown={showLedgerDropdown}
+      t={t}
+      onCancelEdit={handleCancelEdit}
+      onSelectLedger={handleSelectLedger}
+      onSubmit={handleSubmit}
+      setDraftAccountCode={setDraftAccountCode}
+      setDraftAccountName={setDraftAccountName}
+      setDraftAmount={setDraftAmount}
+      setDraftDescription={setDraftDescription}
+      setDraftRate={setDraftRate}
+      setDraftType={setDraftType}
+      setLedgerQuery={setLedgerQuery}
+      setShowLedgerDropdown={setShowLedgerDropdown}
+    />
   )
 
   const itemsList = (

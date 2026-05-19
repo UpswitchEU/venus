@@ -1,0 +1,455 @@
+{
+  "owner": "Architecture",
+  "updated": "2026-05-19",
+  "rule": "Freeze direct console.*, alert(), and debugger usage in production paths. New or increased direct debug surfaces fail guard:debug-surface; approved reductions must update this baseline.",
+  "scanRoots": [
+    "app",
+    "src"
+  ],
+  "allowlistedFiles": [
+    "src/lib/authLogger.ts",
+    "src/utils/auth/authLogger.ts",
+    "src/utils/debugLogger.ts",
+    "src/utils/logger.ts",
+    "src/utils/loggers.ts"
+  ],
+  "totals": {
+    "console": 90,
+    "alert": 2,
+    "debugger": 0
+  },
+  "files": {
+    "app/[locale]/error.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/[locale]/home/page.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/[locale]/layout.tsx": {
+      "console": 4,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 3,
+        "warn": 1
+      }
+    },
+    "app/[locale]/page.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/[locale]/reports/new/page.tsx": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 2
+      }
+    },
+    "app/api/ai/chat/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/ai/history/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/ai/normalize/route.ts": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1,
+        "warn": 1
+      }
+    },
+    "app/api/ai/suggestion/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/auth/logout/route.ts": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 2
+      }
+    },
+    "app/api/auth/refresh/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/buyer-ready/im/[entityId]/docx/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/buyer-ready/room/[entityId]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/integrations/accounting/silverfin/authorize/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/integrations/accounting/silverfin/callback/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/integrations/accounting/silverfin/disconnect/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/jobs/[jobId]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/nace/search/route.ts": {
+      "console": 3,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 3
+      }
+    },
+    "app/api/normalization/[[...path]]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/orchestration/[...path]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/registry/search/route.ts": {
+      "console": 3,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 3
+      }
+    },
+    "app/api/reports/[reportId]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/reports/route.ts": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 2
+      }
+    },
+    "app/api/user/language/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/valuations/[id]/pdf/download/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/valuations/[id]/pdf/route.ts": {
+      "console": 3,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 3
+      }
+    },
+    "app/api/valuations/pdf/status/[jobId]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/valuations/sessions/[id]/versions/[...path]/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/api/valuations/sessions/[id]/versions/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/error.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/global-error.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "app/manifest.json/route.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/components/AsyncArchitectureInitializer.tsx": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 2
+      }
+    },
+    "src/components/ErrorBoundary.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/components/ErrorFallback.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/components/pages/HomePage.tsx": {
+      "console": 0,
+      "alert": 1,
+      "debugger": 0,
+      "consoleMethods": {}
+    },
+    "src/components/ValuationFlowSelector.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/features/reports/components/RecentReportsSection.tsx": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "debug": 1,
+        "error": 1
+      }
+    },
+    "src/features/reports/components/ReportCard.tsx": {
+      "console": 1,
+      "alert": 1,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/features/shared/components/ErrorBoundary.tsx": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/hooks/useCredits.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/lib/posthog-init.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 1
+      }
+    },
+    "src/services/analytics.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "log": 1
+      }
+    },
+    "src/services/cache/businessTypesCache.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1
+      }
+    },
+    "src/services/ebitdaNormalizationService.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "info": 1
+      }
+    },
+    "src/utils/auth/cross-domain-logout.ts": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1,
+        "warn": 1
+      }
+    },
+    "src/utils/auth/offlineAuth.ts": {
+      "console": 3,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 3
+      }
+    },
+    "src/utils/auth/sessionSync.ts": {
+      "console": 5,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 2,
+        "warn": 3
+      }
+    },
+    "src/utils/browserCompat.ts": {
+      "console": 14,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 2,
+        "group": 1,
+        "groupEnd": 1,
+        "log": 10
+      }
+    },
+    "src/utils/decimal.ts": {
+      "console": 3,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 3
+      }
+    },
+    "src/utils/numberUtils.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 1
+      }
+    },
+    "src/utils/performance.ts": {
+      "console": 1,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "warn": 1
+      }
+    },
+    "src/utils/performanceMonitor.ts": {
+      "console": 2,
+      "alert": 0,
+      "debugger": 0,
+      "consoleMethods": {
+        "error": 1,
+        "warn": 1
+      }
+    }
+  },
+  "totalFiles": 53
+}

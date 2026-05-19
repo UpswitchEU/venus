@@ -14,41 +14,50 @@
  * @module services/session/SessionNormalizer
  */
 
-import {
-  SESSION_PRE_SELECTED_METHODS_KEY,
-  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
-  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
-  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
-  SESSION_USER_WEIGHTS_KEY,
-} from '../../constants/sessionUiKeys'
-import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
-import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
-import {
-  normalizeCurrentYearForFiling,
-  normalizeHistoricalYearsForFiling,
-} from '../../utils/fiscalYear'
 import { isSessionKey } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
-import {
-  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
-  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
-  sessionEnvelopeHasIdentitySignals,
-} from '../../utils/mergeOptionalSessionPrefillFields'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { sessionEnvelopeHasIdentitySignals } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
   extractStableSessionKeyFromMergedSession,
   mergeSessionDataEnvelopesFromRoot,
 } from '../../utils/sessionReportIdentity'
+import { extractFormData } from './SessionFormDataNormalizer'
+import {
+  extractMethodSelectionHints,
+  type SessionMethodSelectionHints,
+} from './SessionMethodSelectionNormalizer'
+import {
+  extractHtmlReport,
+  extractPricingRange,
+  extractValuationResult,
+  type PricingRange,
+} from './SessionValuationOutputNormalizer'
 
-/**
- * Pricing range structure for valuation results
- */
-export interface PricingRange {
-  min: number
-  mid: number
-  max: number
-  currency: string
+type SessionRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is SessionRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): SessionRecord | null {
+  return isRecord(value) ? value : null
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function optionalDate(value: unknown): Date | null {
+  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) {
+    return null
+  }
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function normalizeStatus(value: unknown): NormalizedSessionData['status'] {
+  return value === 'completed' || value === 'expired' ? value : 'active'
 }
 
 /**
@@ -91,14 +100,14 @@ export interface NormalizedSessionData {
    * Only used when no valuation result exists yet; otherwise `selected_valuation_method` on the result wins.
    * `undefined` = key absent (do not overwrite store); `null` = explicitly adaptive; string = method key.
    */
-  preSelectedValuationMethod: string | null | undefined
+  preSelectedValuationMethod: SessionMethodSelectionHints['preSelectedValuationMethod']
 
   /** Multi-method selection for blended valuation. */
-  preSelectedMethods: string[] | undefined
+  preSelectedMethods: SessionMethodSelectionHints['preSelectedMethods']
   /** User-configured weights (method_key → 0-100). */
-  userWeights: Record<string, number> | undefined
+  userWeights: SessionMethodSelectionHints['userWeights']
   /** Accountant justification for chosen weighting. */
-  userWeightJustification: string | undefined
+  userWeightJustification: SessionMethodSelectionHints['userWeightJustification']
 
   /**
    * Raw session JSONB used at restore time — same blob passed to {@link extractFormData}.
@@ -127,547 +136,27 @@ function normalizeFlowType(input: string | undefined | null): 'manual' | 'conver
   }
 }
 
-function snakeToCamelAlias(key: string): string | null {
-  if (!key || key.startsWith('_')) return null
-  return key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())
-}
-
-/**
- * Extract form data from session data
- * Handles both camelCase and snake_case field names
- */
-function extractFormData(sessionData: any): Partial<ValuationRequest> {
-  if (!sessionData || typeof sessionData !== 'object') {
-    return {}
-  }
-
-  // List of all form fields we want to extract
-  // Each entry: [camelCase, snake_case alternatives...]
-  const fieldMappings: [string, ...string[]][] = [
-    ['company_name', 'companyName'],
-    ['country_code', 'countryCode'],
-    ['industry'],
-    ['business_model', 'businessModel'],
-    ['founding_year', 'foundingYear'],
-    ['current_year_data', 'currentYearData'],
-    ['historical_years_data', 'historicalYearsData'],
-    ['forecast_years_data', 'forecastYearsData'],
-    ['filing_year_confirmed', 'filingYearConfirmed'],
-    ['number_of_employees', 'numberOfEmployees', 'employee_count', 'employeeCount'],
-    ['number_of_owners', 'numberOfOwners'],
-    ['recurring_revenue_percentage', 'recurringRevenuePercentage'],
-    ['shares_for_sale', 'sharesForSale'],
-    ['business_type', 'businessType'],
-    ['revenue'],
-    ['business_description', 'businessDescription'],
-    ['business_highlights', 'businessHighlights'],
-    ['reason_for_selling', 'reasonForSelling'],
-    ['city'],
-    ['kbo_number', 'kboNumber'],
-    ['vat_number', 'vatNumber'],
-    ['postal_code', 'postalCode'],
-    ['legal_form', 'legalForm'],
-    ['nace_code', 'naceCode'],
-    ['nace_description', 'naceDescription'],
-    ['activity_code', 'activityCode'],
-    ['activity_label', 'activityLabel'],
-    ['taxonomy'],
-    ['canonical_nace_code', 'canonicalNaceCode'],
-    ['business_type_id', 'businessTypeId'],
-    ['business_context', 'businessContext'],
-    ['government_bond_yield', 'governmentBondYield'],
-    ['long_term_gdp_growth', 'longTermGdpGrowth'],
-    ['ebitda'],
-    ['use_dcf', 'useDcf'],
-    ['use_multiples', 'useMultiples'],
-    ['user_configured_dcf', 'userConfiguredDcf'],
-    ['projection_years', 'projectionYears'],
-    ['comparables'],
-    ['_normalizations'],
-    ['_taxLatencies'],
-    ['_import_quality'],
-    // Adjusted NAV + real-estate carve-out (manual left panel) — must round-trip through extractFormData
-    ['nav_real_estate_adjustment', 'navRealEstateAdjustment'],
-    ['nav_inventory_adjustment', 'navInventoryAdjustment'],
-    ['nav_hidden_reserves', 'navHiddenReserves'],
-    ['nav_goodwill_writeoff', 'navGoodwillWriteoff'],
-    ['nav_receivables_adjustment', 'navReceivablesAdjustment'],
-    ['nav_other_revaluations', 'navOtherRevaluations'],
-    ['nav_tax_latency_pct', 'navTaxLatencyPct'],
-    ['nav_off_balance_items', 'navOffBalanceItems'],
-    ['real_estate_treatment', 'realEstateTreatment'],
-    ['real_estate_market_value', 'realEstateMarketValue'],
-    ['exclude_real_estate', 'excludeRealEstate'],
-    ['real_estate_book_value', 'realEstateBookValue'],
-    ['estimated_market_rent', 'estimatedMarketRent'],
-    ['multiple_calibration_adjustment', 'multipleCalibrationAdjustment'],
-    ['multiple_calibration_note', 'multipleCalibrationNote'],
-    ['historical_ebitda_weighting_mode', 'historicalEbitdaWeightingMode'],
-    ['historical_ebitda_weights', 'historicalEbitdaWeights'],
-    ['show_enterprise_to_equity_bridge', 'showEnterpriseToEquityBridge'],
-    ['owner_salary_addback', 'ownerSalaryAddback'],
-    // DCF left-panel inputs — persisted by useFormSessionSync; must hydrate into manual form on restore
-    ['dcf_input_mode', 'dcfInputMode'],
-    ['dcf_revenue_growth_pct', 'dcfRevenueGrowthPct'],
-    ['dcf_ebitda_margin_pct', 'dcfEbitdaMarginPct'],
-    ['dcf_capex_pct', 'dcfCapexPct'],
-    ['dcf_da_pct', 'dcfDaPct'],
-    ['dcf_nwc_pct', 'dcfNwcPct'],
-    ['dcf_tax_rate_pct', 'dcfTaxRatePct'],
-    ['dcf_wacc_pct', 'dcfWaccPct'],
-    ['dcf_terminal_growth_pct', 'dcfTerminalGrowthPct'],
-    ['dcf_exit_multiple', 'dcfExitMultiple'],
-    ['dcf_risk_free_rate_pct', 'dcfRiskFreeRatePct'],
-    ['dcf_equity_risk_premium_pct', 'dcfEquityRiskPremiumPct'],
-    ['dcf_beta', 'dcfBeta'],
-    ['dcf_cost_of_debt_pct', 'dcfCostOfDebtPct'],
-    ['dcf_debt_equity_pct', 'dcfDebtEquityPct'],
-    ['dcf_tax_shield_pct', 'dcfTaxShieldPct'],
-    ['dcf_terminal_value_method', 'dcfTerminalValueMethod'],
-    // Adaptive / SaaS / revenue-quality / preparer / legacy tax rows — must mirror
-    // `OPTIONAL_SESSION_PREFILL_SCALAR_KEYS` in mergeOptionalSessionPrefillFields.ts (except keys
-    // already listed above: revenue, ebitda, shares, number_of_owners, business_highlights, etc.).
-    ['subIndustry'],
-    ['net_income', 'netIncome'],
-    ['owner_role', 'ownerRole'],
-    ['owner_hours', 'ownerHours'],
-    ['delegation_capability', 'delegationCapability'],
-    ['succession_plan', 'successionPlan'],
-    ['saas_arr', 'saasArr'],
-    ['saas_mrr', 'saasMrr'],
-    ['saas_arr_growth_pct', 'saasArrGrowthPct'],
-    ['saas_churn_pct', 'saasChurnPct'],
-    ['saas_customer_churn_pct', 'saasCustomerChurnPct'],
-    ['saas_nrr_pct', 'saasNrrPct'],
-    ['saas_gross_margin_pct', 'saasGrossMarginPct'],
-    ['saas_cac', 'saasCac'],
-    ['saas_customer_concentration_pct', 'saasCustomerConcentrationPct'],
-    ['saas_expansion_revenue_pct', 'saasExpansionRevenuePct'],
-    ['saas_sm_spend', 'saasSmSpend'],
-    ['rev_recurring_pct', 'revRecurringPct'],
-    ['rev_recurring_amount', 'revRecurringAmount'],
-    ['rev_top_client_concentration_pct', 'revTopClientConcentrationPct'],
-    ['rev_top_client_amount', 'revTopClientAmount'],
-    ['rev_contract_backlog', 'revContractBacklog'],
-    ['rev_gross_churn_pct', 'revGrossChurnPct'],
-    ['rev_capitalized_rd_amount', 'revCapitalizedRdAmount'],
-    ['preparer_ev_ebitda_median', 'preparerEvEbitdaMedian'],
-    ['preparer_ev_ebitda_override', 'preparerEvEbitdaOverride'],
-    ['_internal_dcf_preference'],
-    ['_internal_multiples_preference'],
-    ['_internal_owner_dependency_impact'],
-    ['_internal_key_metrics'],
-    ['_internal_typical_employee_range'],
-    ['_internal_typical_revenue_range'],
-    ['tax_latencies', 'taxLatencies'],
-    ['balance_sheet_adjustments', 'balanceSheetAdjustments'],
-    // Official Belgian filing overlays (for trust/variance + badges)
-    ['official_financials', 'officialFinancials'],
-    ['official_variance_analysis', 'officialVarianceAnalysis'],
-    ['official_verification_badge', 'officialVerificationBadge'],
-    // Keep source financial map available for method hydration and sparse backfill
-    ['year_data', 'yearData'],
-    ['import_quality', 'importQuality'],
-    ['_imported_ledger_analysis'],
-    ['_imported_saas_metrics'],
-    ['_imported_saas_provenance'],
-    ['_financial_data_source'],
-  ]
-
-  // Auto-include optional method keys so extractFormData cannot drift whenever
-  // OPTIONAL_SESSION_PREFILL_* is extended.
-  const existingPrimary = new Set(fieldMappings.map(([primary]) => primary))
-  const appendOptionalMapping = (key: string) => {
-    if (existingPrimary.has(key)) return
-    const camel = snakeToCamelAlias(key)
-    const tuple = (camel ? [key, camel] : [key]) as [string, ...string[]]
-    fieldMappings.push(tuple)
-    existingPrimary.add(key)
-  }
-  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) appendOptionalMapping(key)
-  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) appendOptionalMapping(key)
-
-  const formData: Partial<ValuationRequest> = {}
-
-  for (const [primaryKey, ...alternatives] of fieldMappings) {
-    // Try primary key first, then alternatives
-    let value = sessionData[primaryKey]
-
-    if (value === undefined || value === null) {
-      for (const alt of alternatives) {
-        if (sessionData[alt] !== undefined && sessionData[alt] !== null) {
-          value = sessionData[alt]
-          break
-        }
-      }
-    }
-
-    if (value !== undefined && value !== null) {
-      ;(formData as any)[primaryKey] = value
-    }
-  }
-
-  // Venus now treats ownership percentage as a fixed 100% valuation invariant.
-  // Normalize any legacy restored value so stale partial-share sessions cannot
-  // re-enter current product state, but avoid fabricating data for truly empty sessions.
-  if (Object.keys(formData).length > 0) {
-    ;(formData as Partial<ValuationRequest>).shares_for_sale = 100
-  }
-
-  // Preserve manual history exactly as stored. Do not fabricate historical years from
-  // current-year fields because that changes accountant-entered intent on restore.
-  const fd = formData as Record<string, unknown>
-  const toOptionalNumeric = (value: unknown): number | undefined => {
-    if (value === null || value === undefined || value === '') return undefined
-    const n = Number(value)
-    return Number.isFinite(n) ? n : undefined
-  }
-  const isPlaceholderNumeric = (value: unknown): boolean => {
-    const n = toOptionalNumeric(value)
-    return n == null || n === 0
-  }
-  const hasRealRevenueOrEbitda = (row: { revenue?: number; ebitda?: number }): boolean =>
-    (row.revenue != null && row.revenue !== 0) || (row.ebitda != null && row.ebitda !== 0)
-
-  // Build historical_years_data from year_data when missing (PrefillResolver/bootstrap format)
-  const yearData = sessionData.year_data ?? sessionData.yearData
-  const yearRowsFromMap = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
-  if (yearData && typeof yearData === 'object' && !Array.isArray(yearData)) {
-    for (const rawYear of Object.keys(yearData)) {
-      const year = Number(rawYear)
-      if (!Number.isFinite(year) || year < 2000 || year > 2100) continue
-      const row = (yearData as Record<string, unknown>)[rawYear]
-      if (!row || typeof row !== 'object' || Array.isArray(row)) continue
-      const rowObj = row as Record<string, unknown>
-      yearRowsFromMap.set(year, {
-        year,
-        revenue: toOptionalNumeric(rowObj.revenue),
-        ebitda: toOptionalNumeric(rowObj.ebitda),
-      })
-    }
-  }
-  if (!fd.historical_years_data && yearRowsFromMap.size > 0) {
-    const years = Array.from(yearRowsFromMap.keys())
-    if (years.length > 0) {
-      fd.historical_years_data = years
-        .sort((a, b) => a - b)
-        .map((year) => {
-          const data = yearRowsFromMap.get(year)
-          return {
-            year,
-            revenue: data?.revenue ?? 0,
-            ebitda: data?.ebitda ?? 0,
-          }
-        })
-    }
-  }
-  if (Array.isArray(fd.historical_years_data) && yearRowsFromMap.size > 0) {
-    const mergedByYear = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
-    for (const row of fd.historical_years_data as Array<{
-      year?: number
-      revenue?: number
-      ebitda?: number
-    }>) {
-      if (!row || !Number.isFinite(Number(row.year))) continue
-      const year = Number(row.year)
-      mergedByYear.set(year, {
-        year,
-        revenue: toOptionalNumeric(row.revenue),
-        ebitda: toOptionalNumeric(row.ebitda),
-      })
-    }
-    for (const [year, incoming] of yearRowsFromMap.entries()) {
-      const existing = mergedByYear.get(year)
-      if (!existing) {
-        mergedByYear.set(year, incoming)
-        continue
-      }
-      const next = { ...existing }
-      if (isPlaceholderNumeric(next.revenue) && incoming.revenue != null) {
-        next.revenue = incoming.revenue
-      }
-      if (isPlaceholderNumeric(next.ebitda) && incoming.ebitda != null) {
-        next.ebitda = incoming.ebitda
-      }
-      mergedByYear.set(year, next)
-    }
-    fd.historical_years_data = Array.from(mergedByYear.values()).sort((a, b) => a.year - b.year)
-  }
-
-  if (Array.isArray(fd.historical_years_data)) {
-    fd.historical_years_data = normalizeHistoricalYearsForFiling(
-      fd.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
-      fd.filing_year_confirmed
-    )
-  }
-
-  // Fallback: populate revenue/ebitda from current_year_data when not at top-level
-  // Venus saves 2025 data in current_year_data; form expects formData.revenue, formData.ebitda
-  const cyd = fd.current_year_data as
-    | { year?: number; revenue?: number | null; ebitda?: number | null }
-    | undefined
-  if (cyd) {
-    cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
-    if (cyd.year != null) {
-      const candidate = yearRowsFromMap.get(cyd.year)
-      if (candidate && hasRealRevenueOrEbitda(candidate)) {
-        if (isPlaceholderNumeric(cyd.revenue) && candidate.revenue != null) {
-          cyd.revenue = candidate.revenue
-        }
-        if (isPlaceholderNumeric(cyd.ebitda) && candidate.ebitda != null) {
-          cyd.ebitda = candidate.ebitda
-        }
-      }
-    }
-  }
-  if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
-    if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)
-    if (fd.ebitda === undefined && cyd.ebitda != null) (fd as any).ebitda = Number(cyd.ebitda)
-  }
-
-  // Activity presentation: canonical NACE for lookups; prefer activity_label for description
-  const canonicalRaw =
-    (typeof fd.canonical_nace_code === 'string' && fd.canonical_nace_code.trim()) ||
-    (typeof fd.nace_code === 'string' && fd.nace_code.trim()) ||
-    ''
-  if (canonicalRaw) {
-    ;(fd as any).canonical_nace_code = canonicalRaw
-    ;(fd as any).nace_code = canonicalRaw
-  }
-  const activityLabel =
-    (typeof fd.activity_label === 'string' && fd.activity_label.trim()) ||
-    (typeof fd.nace_description === 'string' && fd.nace_description.trim()) ||
-    ''
-  if (activityLabel) {
-    ;(fd as any).nace_description = activityLabel
-  }
-
-  promoteAdaptiveFieldsFromBusinessContext(fd, sessionData as Record<string, unknown>)
-
-  return formData
-}
-
-/** Core financials / registry keys — never pull from `business_context` when top-level is missing. */
-const SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE = new Set<string>([
-  'revenue',
-  'ebitda',
-  'shares_for_sale',
-  'activity_code',
-  'canonical_nace_code',
-])
-
-/**
- * Titan persists adaptive inputs under `business_context`; Venus autosave also keeps top-level
- * `saas_*`, `dcf_*`, etc. Legacy blobs may only nest them — promote so the panel and
- * `buildValuationRequest` match.
- */
-function promoteAdaptiveFieldsFromBusinessContext(
-  fd: Record<string, unknown>,
-  sessionData: Record<string, unknown>
-): void {
-  const rawBc = fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
-  if (!rawBc || typeof rawBc !== 'object' || Array.isArray(rawBc)) return
-  const bc = rawBc as Record<string, unknown>
-  const hasScalarValue = (value: unknown): boolean => {
-    if (value === undefined || value === null) return false
-    if (typeof value === 'string') return value.trim().length > 0
-    return true
-  }
-  const hasStructValue = (value: unknown): boolean => {
-    if (value === undefined || value === null) return false
-    if (Array.isArray(value)) return value.length > 0
-    if (typeof value === 'object') return Object.keys(value as object).length > 0
-    return true
-  }
-
-  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
-    if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
-    const cur = fd[key]
-    if (hasScalarValue(cur)) continue
-    const incoming = bc[key]
-    if (hasScalarValue(incoming)) {
-      fd[key] = incoming
-    }
-  }
-
-  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
-    const cur = fd[key]
-    if (hasStructValue(cur)) continue
-    const incoming = bc[key]
-    if (hasStructValue(incoming)) {
-      fd[key] = incoming
-    }
-  }
-
-  const camelToInternal: [string, string][] = [
-    ['keyMetrics', '_internal_key_metrics'],
-    ['typicalEmployeeRange', '_internal_typical_employee_range'],
-    ['typicalRevenueRange', '_internal_typical_revenue_range'],
-    ['dcfPreference', '_internal_dcf_preference'],
-    ['multiplesPreference', '_internal_multiples_preference'],
-    ['ownerDependencyImpact', '_internal_owner_dependency_impact'],
-  ]
-  for (const [camel, snake] of camelToInternal) {
-    const cur = fd[snake]
-    if (cur !== undefined && cur !== null) continue
-    const incoming = bc[camel]
-    if (incoming !== undefined && incoming !== null) {
-      fd[snake] = incoming
-    }
-  }
-}
-
-/**
- * Extract valuation result from session data
- * Checks multiple possible locations and naming conventions
- */
-function extractValuationResult(sessionData: any, topLevelSession: any): ValuationResponse | null {
-  const candidates = [
-    topLevelSession?.valuationResult,
-    sessionData?.valuationResult,
-    sessionData?.valuation_result,
-    topLevelSession?.valuation_result,
-    topLevelSession?.report?.valuation_result,
-    topLevelSession?.report?.valuationResult,
-  ].filter((candidate) => candidate && typeof candidate === 'object') as ValuationResponse[]
-
-  if (candidates.length === 0) return null
-
-  const scoreCandidate = (candidate: Record<string, any>) => {
-    let score = 0
-    const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
-    if (valuationResultsCandidate) {
-      score += 8
-    }
-    if (
-      getFirstRenderableReportHtml(
-        candidate.html_report,
-        candidate.htmlReport,
-        candidate.details?.html_report
-      )
-    ) {
-      score += 4
-    }
-    if (
-      candidate.equity_value_mid != null ||
-      candidate.valuation_midpoint != null ||
-      candidate.pricing_range ||
-      candidate.priceRange
-    ) {
-      score += 2
-    }
-    score += Math.min(Object.keys(candidate).length, 5)
-    return score
-  }
-
-  return candidates.reduce((best, candidate) =>
-    scoreCandidate(candidate as Record<string, any>) > scoreCandidate(best as Record<string, any>)
-      ? candidate
-      : best
-  )
-}
-
-/**
- * Extract HTML report from session data
- * Checks multiple locations including valuation result and Titan-injected fields
- */
-function extractHtmlReport(sessionData: any, topLevelSession: any): string | null {
-  // Get valuation result first (may contain html_report)
-  const valuationResult = extractValuationResult(sessionData, topLevelSession)
-  const valuationDetails =
-    valuationResult?.details && typeof valuationResult.details === 'object'
-      ? (valuationResult.details as Record<string, unknown>)
-      : null
-
-  return (
-    getFirstRenderableReportHtml(
-      // Direct top-level fields
-      topLevelSession?.htmlReport,
-      typeof sessionData?.htmlReport === 'string' ? sessionData.htmlReport : null,
-      typeof sessionData?.html_report === 'string' ? sessionData.html_report : null,
-      topLevelSession?.html_report,
-      // Titan-injected field (prefixed with _)
-      typeof sessionData?._htmlReport === 'string' ? sessionData._htmlReport : null,
-      // Inside valuation result
-      valuationResult?.html_report,
-      valuationResult?.htmlReport,
-      typeof valuationDetails?.html_report === 'string' ? valuationDetails.html_report : null
-    ) || null
-  )
-}
-
-/**
- * Extract pricing range from session data
- * Checks multiple locations including Titan-injected fields and valuation result
- */
-function extractPricingRange(sessionData: any, topLevelSession: any): PricingRange | null {
-  // Get valuation result for fallback extraction
-  const valuationResult = extractValuationResult(sessionData, topLevelSession)
-
-  // Priority 1: Titan-injected _pricingRange field
-  if (sessionData?._pricingRange) {
-    return sessionData._pricingRange
-  }
-
-  // Priority 2: Direct priceRange field (camelCase)
-  if (sessionData?.priceRange) {
-    return {
-      min: sessionData.priceRange.min,
-      mid: sessionData.priceRange.mid,
-      max: sessionData.priceRange.max,
-      currency: sessionData.priceRange.currency || 'EUR',
-    }
-  }
-
-  // Priority 3: pricing_range from valuation result
-  if ((valuationResult as any)?.pricing_range) {
-    return (valuationResult as any).pricing_range
-  }
-
-  // Priority 4: priceRange from valuation result (camelCase)
-  if ((valuationResult as any)?.priceRange) {
-    return (valuationResult as any).priceRange
-  }
-
-  // Priority 5: Extract from valuation result equity values
-  if (valuationResult) {
-    const min = valuationResult.equity_value_low || (valuationResult as any).valuation_min
-    const mid = valuationResult.equity_value_mid || (valuationResult as any).valuation_midpoint
-    const max = valuationResult.equity_value_high || (valuationResult as any).valuation_max
-
-    // Only return if we have at least one valid value
-    if (min !== undefined || mid !== undefined || max !== undefined) {
-      return {
-        min: coalesceFiniteNumber(min),
-        mid: coalesceFiniteNumber(mid),
-        max: coalesceFiniteNumber(max),
-        currency: (valuationResult as any).currency || 'EUR',
-      }
-    }
-  }
-
-  return null
-}
-
 /**
  * Extract client context from session data
  */
-function extractClientContext(sessionData: any): NormalizedSessionData['clientContext'] {
-  const context = sessionData?._client_context || sessionData?.clientContext
+function extractClientContext(sessionData: SessionRecord): NormalizedSessionData['clientContext'] {
+  const context = asRecord(sessionData._client_context) ?? asRecord(sessionData.clientContext)
 
   if (!context) return null
 
   // Normalize field names
-  const accountantUserId = context.accountant_user_id || context.accountantUserId
-  const clientUserIdSnake = context.client_user_id
-  const clientUserIdCamel = context.clientUserId
+  const accountantUserId =
+    optionalString(context.accountant_user_id) ?? optionalString(context.accountantUserId)
+  const clientUserIdSnake = optionalString(context.client_user_id)
+  const clientUserIdCamel = optionalString(context.clientUserId)
   const clientUserId: string | null =
     clientUserIdSnake !== undefined
       ? clientUserIdSnake
       : clientUserIdCamel !== undefined
         ? clientUserIdCamel
         : null
-  const relationshipId = context.relationship_id || context.relationshipId
+  const relationshipId =
+    optionalString(context.relationship_id) ?? optionalString(context.relationshipId)
 
   if (!accountantUserId || !relationshipId) return null
 
@@ -684,7 +173,7 @@ function extractClientContext(sessionData: any): NormalizedSessionData['clientCo
  */
 function hasExistingData(
   formData: Partial<ValuationRequest>,
-  valuationResult: any,
+  valuationResult: ValuationResponse | null,
   htmlReport?: string | null
 ): boolean {
   // Has form data if company_name or key financial data exists
@@ -707,16 +196,16 @@ function hasExistingData(
 }
 
 function deriveReportReady(params: {
-  backendSession: any
+  backendSession: SessionRecord
   valuationResult: ValuationResponse | null
   htmlReport: string | null
 }): boolean {
-  const explicitReady = params.backendSession?.reportReady
+  const explicitReady = params.backendSession.reportReady
   if (typeof explicitReady === 'boolean') {
     return explicitReady
   }
 
-  const status = params.backendSession?.status
+  const status = params.backendSession.status
   if (status === 'completed') {
     return !!(params.valuationResult || params.htmlReport?.trim())
   }
@@ -733,109 +222,44 @@ function deriveReportReady(params: {
  * @param backendSession - Raw session data from backend API
  * @returns Normalized session data ready for store hydration
  */
-export function normalizeSessionData(backendSession: any): NormalizedSessionData {
-  if (!backendSession) {
+export function normalizeSessionData(backendSession: unknown): NormalizedSessionData {
+  const backendRecord = asRecord(backendSession)
+  if (!backendRecord) {
     generalLogger.warn('[SessionNormalizer] Received null/undefined session')
     return createEmptyNormalizedData('')
   }
 
-  const sessionData = mergeSessionDataEnvelopesFromRoot(backendSession)
+  const sessionData = mergeSessionDataEnvelopesFromRoot(backendRecord)
 
   // Prefer stable val_* session_key over UUID reportId (Mercury / stale FK) so downstream
   // ensure-html + PDF flows resolve the same row Titan uses for GET session.
-  const preferredSessionKey = extractStableSessionKeyFromMergedSession(backendSession)
+  const preferredSessionKey = extractStableSessionKeyFromMergedSession(backendRecord)
 
   const explicitReportId =
-    typeof backendSession.reportId === 'string' ? backendSession.reportId.trim() : ''
+    typeof backendRecord.reportId === 'string' ? backendRecord.reportId.trim() : ''
 
   const reportId =
     preferredSessionKey ??
     explicitReportId ??
-    (typeof backendSession.id === 'string' && isSessionKey(backendSession.id.trim())
-      ? backendSession.id.trim()
+    (typeof backendRecord.id === 'string' && isSessionKey(backendRecord.id.trim())
+      ? backendRecord.id.trim()
       : '')
 
   // Extract and normalize all data
   const formData = extractFormData(sessionData)
-  const valuationResult = extractValuationResult(sessionData, backendSession)
-  const htmlReport = extractHtmlReport(sessionData, backendSession)
-  const pricingRange = extractPricingRange(sessionData, backendSession)
+  const valuationResult = extractValuationResult(sessionData, backendRecord)
+  const htmlReport = extractHtmlReport(sessionData, backendRecord)
+  const pricingRange = extractPricingRange(sessionData, backendRecord)
   const clientContext = extractClientContext(sessionData)
   const reportReady = deriveReportReady({
-    backendSession,
+    backendSession: backendRecord,
     valuationResult,
     htmlReport,
   })
 
   const hasMergedEnvelopeIdentity = sessionEnvelopeHasIdentitySignals(sessionData)
 
-  const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
-  const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
-  const hasLegacySinglePreKey =
-    sessionData &&
-    typeof sessionData === 'object' &&
-    (preKey in sessionData || altKey in sessionData)
-
-  const rawPreLegacy = hasLegacySinglePreKey
-    ? preKey in (sessionData as object)
-      ? (sessionData as Record<string, unknown>)[preKey]
-      : (sessionData as Record<string, unknown>)[altKey]
-    : undefined
-
-  const rawSelectedMethodFlat =
-    sessionData &&
-    typeof sessionData === 'object' &&
-    typeof (sessionData as Record<string, unknown>).selected_method === 'string'
-      ? (sessionData as Record<string, unknown>).selected_method
-      : undefined
-
-  const rawPre: unknown = rawPreLegacy !== undefined ? rawPreLegacy : rawSelectedMethodFlat
-
-  const hasAnySingleMethodHint =
-    hasLegacySinglePreKey ||
-    (rawSelectedMethodFlat !== undefined && typeof rawSelectedMethodFlat === 'string')
-
-  let preSelectedValuationMethod: string | null | undefined
-  if (!hasAnySingleMethodHint) {
-    preSelectedValuationMethod = undefined
-  } else if (rawPre === null || rawPre === '') {
-    preSelectedValuationMethod = null
-  } else if (typeof rawPre === 'string' && rawPre.trim().length > 0) {
-    preSelectedValuationMethod = rawPre.trim().toLowerCase()
-  } else {
-    preSelectedValuationMethod = undefined
-  }
-
-  const rawMethodsPrimary = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
-  const rawMethodsFlat = sessionData?.pre_selected_valuation_methods
-  const pickStringArray = (raw: unknown): string[] | undefined =>
-    Array.isArray(raw) && raw.length > 0 && raw.every((m: unknown) => typeof m === 'string')
-      ? (raw as string[])
-      : undefined
-  const preSelectedMethods: string[] | undefined =
-    pickStringArray(rawMethodsPrimary) ?? pickStringArray(rawMethodsFlat)
-
-  const pickWeightMap = (raw: unknown): Record<string, number> | undefined => {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
-    const o = raw as Record<string, number>
-    return Object.keys(o).length > 0 ? o : undefined
-  }
-  const rawWeightsUnderscore = sessionData?.[SESSION_USER_WEIGHTS_KEY]
-  const rawWeightsSnake = sessionData?.user_weights
-  const rawWeightsCamel = sessionData?.userWeights
-  const userWeights: Record<string, number> | undefined =
-    pickWeightMap(rawWeightsUnderscore) ??
-    pickWeightMap(rawWeightsSnake) ??
-    pickWeightMap(rawWeightsCamel)
-
-  const rawJustificationUnderscore = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
-  const rawJustificationSnake = sessionData?.user_weight_justification
-  const userWeightJustification: string | undefined =
-    typeof rawJustificationUnderscore === 'string'
-      ? rawJustificationUnderscore
-      : typeof rawJustificationSnake === 'string'
-        ? rawJustificationSnake
-        : undefined
+  const methodSelection = extractMethodSelectionHints(sessionData)
 
   const sessionDataEnvelope: Record<string, unknown> =
     sessionData && typeof sessionData === 'object' && !Array.isArray(sessionData)
@@ -845,13 +269,15 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
-    flowType: normalizeFlowType(backendSession.currentView || sessionData.currentView),
-    status: backendSession.status || 'active',
+    flowType: normalizeFlowType(
+      optionalString(backendRecord.currentView) ?? optionalString(sessionData.currentView)
+    ),
+    status: normalizeStatus(backendRecord.status),
 
     // Timestamps
-    createdAt: backendSession.createdAt ? new Date(backendSession.createdAt) : null,
-    updatedAt: backendSession.updatedAt ? new Date(backendSession.updatedAt) : null,
-    completedAt: backendSession.completedAt ? new Date(backendSession.completedAt) : null,
+    createdAt: optionalDate(backendRecord.createdAt),
+    updatedAt: optionalDate(backendRecord.updatedAt),
+    completedAt: optionalDate(backendRecord.completedAt),
 
     // Form data
     formData,
@@ -864,13 +290,15 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
 
     // Context
     clientContext,
-    dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
+    dataSource: normalizeFlowType(
+      optionalString(backendRecord.dataSource) ?? optionalString(sessionData.dataSource)
+    ),
     hasExistingData:
       hasExistingData(formData, valuationResult, htmlReport) || hasMergedEnvelopeIdentity,
-    preSelectedValuationMethod,
-    preSelectedMethods,
-    userWeights,
-    userWeightJustification,
+    preSelectedValuationMethod: methodSelection.preSelectedValuationMethod,
+    preSelectedMethods: methodSelection.preSelectedMethods,
+    userWeights: methodSelection.userWeights,
+    userWeightJustification: methodSelection.userWeightJustification,
 
     sessionDataEnvelope,
   }

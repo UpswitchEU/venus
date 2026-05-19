@@ -12,15 +12,23 @@
  */
 
 import { Calculator } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useEffect, useMemo, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { Slider } from '@/design-system/components/Slider'
 import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
-import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupPrefilledKeys } from '@/features/startup-studio/hooks/useStartupPrefilledKeys'
+import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+
+/** Empirical "real engagement" threshold mirrored from the engine's
+ *  `ENGAGEMENT_USERS_REAL_THRESHOLD` so the wizard advisory band matches
+ *  the defensibility bump exactly (no UI/engine drift). */
+const ENGAGEMENT_USERS_REAL_THRESHOLD = 1_000
+const ENGAGEMENT_USERS_TOKEN_THRESHOLD = 100
 
 interface TractionStepProps {
   /** @deprecated Route locale from next-intl is used. */
@@ -36,14 +44,33 @@ function hasRevenueSignal(mrr: number | null | undefined, arr: number | null | u
 export function TractionStep(_props: TractionStepProps) {
   const t = useTranslations('startupStudio.traction')
   const tCommon = useTranslations('startupStudio.common')
+  const locale = useLocale()
+  const intlFmt = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+        maximumFractionDigits: 0,
+        useGrouping: true,
+      }),
+    [locale]
+  )
   const mrr = useStartupValuationStore((s) => s.mrr)
   const storedArr = useStartupValuationStore((s) => s.arr)
   const growth = useStartupValuationStore((s) => s.mrr_growth_rate_pct)
   const churn = useStartupValuationStore((s) => s.monthly_churn_pct)
   const cac = useStartupValuationStore((s) => s.cac)
   const ltv = useStartupValuationStore((s) => s.ltv)
+  const activeUsers = useStartupValuationStore((s) => s.active_users)
   const revenueStatus = useStartupValuationStore((s) => s.revenue_status)
   const setField = useStartupValuationStore((s) => s.setField)
+  // Live valuation hook — drives the pre-money pill so the founder sees
+  // exactly how much (and how little) the MRR slider moves the headline.
+  // At pre-seed the modal movement is small by design; the pill makes
+  // that honest rather than hiding it behind a static number.
+  const country = useStartupValuationStore((s) => s.country_code) || 'BE'
+  const stage = useStartupValuationStore((s) => s.stage)
+  const sector = useStartupValuationStore((s) => s.sector)
+  const { benchmark } = useStartupBenchmark(country, stage, sector)
+  const valuation = useLiveValuation(benchmark)
   // Prefill-source map maintained by `useStartupPrefill` — when MRR
   // or ARR was synced from an accountant integration, the corresponding
   // key is in the set and we render a "from Mercury" badge under the
@@ -95,8 +122,103 @@ export function TractionStep(_props: TractionStepProps) {
     mrr && growth != null ? Math.round(mrr * Math.pow(1 + growth / 100, 12) * 12) : null
   const paybackMonths = cac && mrr && mrr > 0 ? Math.round(cac / (mrr / 12 || 1)) : null
 
+  const liveMid = valuation.blended?.mid ?? null
+  const engagementBadge =
+    activeUsers != null && activeUsers >= ENGAGEMENT_USERS_REAL_THRESHOLD
+      ? { tone: 'real' as const, key: 'engagementBadgeReal' }
+      : activeUsers != null && activeUsers >= ENGAGEMENT_USERS_TOKEN_THRESHOLD
+        ? { tone: 'token' as const, key: 'engagementBadgeToken' }
+        : { tone: 'none' as const, key: 'engagementBadgeNone' }
+
   return (
     <div className="space-y-5">
+      {/* Live pre-money pill — sits at the top of the step so the
+          founder sees the headline reacting as they drag the sliders
+          below.  At pre-seed the modal movement is small (Berkus +
+          Scorecard carry 75% of weight); the pill makes that explicit
+          rather than hiding it behind a static number — the founder
+          understands at a glance that the slider isn't a magic wand. */}
+      {liveMid != null && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-5 py-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-foreground/55">
+              {t('livePreMoneyLabel')}
+            </p>
+            <p className="text-lg font-semibold tabular-nums text-foreground">
+              {formatEur(liveMid)}
+            </p>
+          </div>
+          <p className="max-w-[55%] text-[11px] leading-snug text-foreground/55">
+            {t('livePreMoneyCaption')}
+          </p>
+        </div>
+      )}
+
+      {/* Active users — sector-agnostic engagement signal. Lives ABOVE
+          the revenue toggle because pre-revenue marketplace founders
+          should answer it first (engagement is their primary signal,
+          not revenue). Feeds the defensibility traction_signal sub-score
+          via active_users — see defensibility.py:STRONG_TRACTION_ARR_THRESHOLD
+          and _engagement_bump for the matching engine bands. */}
+      <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
+        <h3 className="mb-1 text-lg font-semibold text-foreground">{t('engagementTitle')}</h3>
+        <p className="mb-5 text-sm leading-relaxed text-foreground/60">
+          {t('engagementLead')}
+        </p>
+        <CurrencyInput
+          label={t('engagementLabel')}
+          value={activeUsers ?? undefined}
+          onChange={(value) =>
+            setField('active_users', value != null ? Math.round(value) : null)
+          }
+          placeholder="0"
+          size="sm"
+          truncateLabel={false}
+          /* Currency input but used as a plain integer field — the design
+             system component handles thousand-separators and accepts an
+             integer-shaped value just as cleanly. */
+        />
+        <div className="mt-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+              {t('engagementSliderLabel')}
+            </p>
+            <p className="font-mono text-[11px] tabular-nums text-foreground/60">
+              0 — {intlFmt.format(5000)}
+            </p>
+          </div>
+          <div className="mt-2">
+            <Slider
+              value={
+                typeof activeUsers === 'number' && Number.isFinite(activeUsers)
+                  ? Math.min(Math.max(activeUsers, 0), 5000)
+                  : 0
+              }
+              min={0}
+              max={5000}
+              step={50}
+              showTooltip
+              formatValue={(v) => intlFmt.format(v)}
+              onChange={(v) => setField('active_users', Math.round(v))}
+            />
+          </div>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-foreground/55">
+            {t('engagementSliderHint')}
+          </p>
+        </div>
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-[11px] leading-snug ${
+            engagementBadge.tone === 'real'
+              ? 'border-emerald-400/40 bg-emerald-50/60 text-emerald-900 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-100'
+              : engagementBadge.tone === 'token'
+                ? 'border-amber-400/40 bg-amber-50/60 text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-100'
+                : 'border-foreground/15 bg-foreground/[0.03] text-foreground/65'
+          }`}
+        >
+          {t(engagementBadge.key)}
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <p className="mb-4 text-sm leading-relaxed text-foreground/70">{t('revenuePrompt')}</p>
         <SegmentedControl
@@ -135,6 +257,43 @@ export function TractionStep(_props: TractionStepProps) {
                   <PrefillBadge variant={mrr === initialMrr ? 'mercury' : 'your_override'} />
                 </div>
               )}
+              {/* MRR what-if slider — mirrors the RaiseWhatIfSlider pattern on
+                  RoundSimulatorStep so the founder can drag to compare ARR
+                  scenarios.  Range capped at €25k MRR (≈€300k ARR) which is
+                  the empirical "passed the pilot-scale floor" line; typing
+                  any larger number into the CurrencyInput above still
+                  works.  At pre-seed the SaaS Forward weight is 10%
+                  ([synthesis.py:100-107]) so dragging won't move the headline
+                  much — the live pre-money pill at the top makes that
+                  honest movement visible. */}
+              <div className="mt-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+                    {t('mrrSliderLabel')}
+                  </p>
+                  <p className="font-mono text-[11px] tabular-nums text-foreground/60">
+                    €0 — €{intlFmt.format(25000)}
+                  </p>
+                </div>
+                <div className="mt-2">
+                  <Slider
+                    value={
+                      typeof mrr === 'number' && Number.isFinite(mrr)
+                        ? Math.min(Math.max(mrr, 0), 25000)
+                        : 0
+                    }
+                    min={0}
+                    max={25000}
+                    step={250}
+                    showTooltip
+                    formatValue={(v) => `€${intlFmt.format(v)}`}
+                    onChange={(v) => setField('mrr', v)}
+                  />
+                </div>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-foreground/55">
+                  {t('mrrSliderHint')}
+                </p>
+              </div>
             </div>
             <div>
               <AdaptivePercentInput

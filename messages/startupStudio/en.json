@@ -146,7 +146,19 @@
 		"currentArr": "Current ARR",
 		"forwardArr": "Forward 12mo ARR",
 		"payback": "Payback",
-		"ltvCacWarn": "LTV : CAC below 3× — recheck the inputs."
+		"ltvCacWarn": "LTV : CAC below 3× — recheck the inputs.",
+		"livePreMoneyLabel": "Estimated pre-money",
+		"livePreMoneyCaption": "Live blend of Berkus, Scorecard, VC method and SaaS forward — moves as you drag the sliders.",
+		"mrrSliderLabel": "Drag to compare MRR scenarios",
+		"mrrSliderHint": "0–€25k MRR covers the pre-seed / early-seed range. Type a precise number above for any value beyond that.",
+		"engagementTitle": "Active users / engagement",
+		"engagementLead": "Active accounts, MAU, weekly buyers — whatever your usage metric is. Counts above 100 lift the defensibility score; 1 000+ adds an engagement-multiple credit so a marketplace founder with light revenue still reads as real traction.",
+		"engagementLabel": "Active users today",
+		"engagementSliderLabel": "Drag to compare engagement scenarios",
+		"engagementSliderHint": "Type any larger number above. Vanity counts below 100 don't move the score — angels see through them.",
+		"engagementBadgeNone": "No credit until you cross ≥100 active users.",
+		"engagementBadgeToken": "Token engagement — +10% to defensibility traction signal.",
+		"engagementBadgeReal": "Real engagement — +25% to defensibility traction signal."
 	},
 	"exitStory": {
 		"y5Title": "Year-5 revenue thesis",
@@ -540,6 +552,7 @@
 			"fintech": "fintech",
 			"biotech_healthtech": "biotech / healthtech",
 			"deeptech_ai": "deeptech / AI",
+			"vertical_ai": "vertical AI / agentic workflow",
 			"consumer": "consumer",
 			"hardware": "hardware",
 			"other": "cross-sector"

@@ -31,6 +31,14 @@ export type StartupSector =
   | 'fintech'
   | 'biotech_healthtech'
   | 'deeptech_ai'
+  /**
+   * Vertical-AI workflow plays (Casetext / Harvey / AlphaSense / Hebbia
+   * lane). Application-layer AI that owns a workflow end-to-end with a
+   * proprietary data flywheel — distinct from generic SaaS or
+   * research-led deeptech.  Trades at premium multiples (10× pre-seed,
+   * 11-12× seed/Series A) anchored on the 2023-2026 public-comp set.
+   */
+  | 'vertical_ai'
   | 'consumer'
   | 'hardware'
   | 'other'
@@ -125,6 +133,7 @@ export const STARTUP_SECTOR_EXIT_MULTIPLES: Record<StartupSector, number> = {
   fintech: 8,
   biotech_healthtech: 10,
   deeptech_ai: 9,
+  vertical_ai: 10,
   consumer: 3,
   hardware: 3,
   other: 5,
@@ -137,6 +146,7 @@ export const STARTUP_SECTOR_DEFAULT_Y5_REVENUE: Record<StartupSector, number> = 
   fintech: 6_000_000,
   biotech_healthtech: 4_000_000,
   deeptech_ai: 5_000_000,
+  vertical_ai: 8_000_000,
   consumer: 10_000_000,
   hardware: 12_000_000,
   other: 5_000_000,
@@ -350,6 +360,13 @@ export interface StartupValuationState {
   burn_rate_monthly: number | null
   runway_months: number | null
   team_size: number | null
+  /**
+   * Engagement signal — MAU/MAA/DAU depending on sector. Feeds the
+   * defensibility traction-signal sub-score so a marketplace founder
+   * with light revenue but real usage earns more credit than someone
+   * with the same revenue and zero engagement.
+   */
+  active_users: number | null
 
   // VC method inputs
   year5_revenue_projection: number | null
@@ -593,6 +610,7 @@ const INITIAL_STATE: StartupValuationState = {
   burn_rate_monthly: null,
   runway_months: null,
   team_size: null,
+  active_users: null,
 
   year5_revenue_projection: null,
   exit_revenue_multiple: null,
@@ -869,6 +887,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
               'fintech',
               'biotech_healthtech',
               'deeptech_ai',
+              'vertical_ai',
               'consumer',
               'hardware',
               'other',
@@ -909,6 +928,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             'burn_rate_monthly',
             'runway_months',
             'team_size',
+            'active_users',
             'year5_revenue_projection',
             'exit_revenue_multiple',
             'target_roi_x',
@@ -1112,6 +1132,7 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             burn_rate_monthly: state.burn_rate_monthly,
             runway_months: state.runway_months,
             team_size: state.team_size,
+            active_users: state.active_users,
             year5_revenue_projection: state.year5_revenue_projection,
             exit_revenue_multiple: state.exit_revenue_multiple,
             exit_revenue_multiple_rationale: state.exit_revenue_multiple_rationale,

@@ -1,0 +1,294 @@
+export interface ValuationRunRequestPending {
+  status: 'pending_approval'
+  reportId?: string
+  methods?: string[] | null
+  estimatedCredits?: number
+  inputsSummary?: {
+    business_name: string | null
+    business_type: string | null
+    industry: string | null
+    revenue: string | null
+    ebitda: string | null
+    ebitda_normalized: string | null
+    pending_normalizations: number
+    applied_normalizations: number
+  }
+  note?: string | null
+  message?: string
+}
+
+export interface ValuationRunRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  missing?: string[]
+  message?: string
+}
+
+export type ValuationRunRequest = ValuationRunRequestPending | ValuationRunRequestBlocked
+
+export interface ReportGenerationRequestPending {
+  status: 'pending_approval'
+  reportId?: string
+  estimatedCredits?: number
+  resultSummary?: {
+    business_name: string | null
+    business_type: string | null
+    valuation_method: string | null
+    currency: string
+    midpoint: number | null
+    min: number | null
+    max: number | null
+    confidence_score: number | null
+    calculated_at: string | null
+  }
+  note?: string | null
+  message?: string
+}
+
+export interface ReportGenerationRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  message?: string
+}
+
+export type ReportGenerationRequest =
+  | ReportGenerationRequestPending
+  | ReportGenerationRequestBlocked
+
+export interface SellabilityRunRequestPending {
+  status: 'pending_approval'
+  estimatedCredits?: number
+  answers?: {
+    q1_top3_concentration_pct: number | null
+    q2_contracted_share: string | null
+    q3_books_cleanliness: string | null
+  }
+  currentScore?: {
+    score: number
+    band: string
+    computed_at: string | Date
+  } | null
+  note?: string | null
+  message?: string
+}
+
+export interface SellabilityRunRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  missing?: string[]
+  message?: string
+}
+
+export type SellabilityRunRequest = SellabilityRunRequestPending | SellabilityRunRequestBlocked
+
+export interface ListingPreview {
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  missingFields?: string[]
+  nextActionHint?: string | null
+  preview?: {
+    title?: string | null
+    businessType?: string | null
+    sector?: string | null
+    industry?: string | null
+    region?: string | null
+    province?: string | null
+    yearCommenced?: number | null
+    employeeRange?: string | null
+    revenueRange?: string | null
+    equityStake?: string | null
+    ownershipStructure?: string | null
+    ownerManagersCount?: number | null
+    status?: string | null
+    featured?: boolean | null
+    ndaRequired?: boolean | null
+    viewCount?: number | null
+    hasVerifiedValuation?: boolean | null
+  } | null
+}
+
+export interface ListingCreateRequestPending {
+  status: 'pending_approval' | 'auto_approved'
+  reportId?: string
+  accountantCustomerId?: string | null
+  visibility?: 'public' | 'private'
+  valuationSummary?: {
+    business_name?: string | null
+    business_type?: string | null
+    industry?: string | null
+    currency?: string
+    midpoint?: string | null
+    min?: string | null
+    max?: string | null
+  }
+  note?: string | null
+  message?: string
+}
+
+export interface ListingCreateRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  message?: string
+}
+
+export type ListingCreateRequest = ListingCreateRequestPending | ListingCreateRequestBlocked
+
+export interface MethodReadinessPreview {
+  status: 'ok' | 'blocked'
+  reportId?: string
+  businessName?: string | null
+  readinessSource?: string | null
+  readyMethods: string[]
+  blockedMethods: string[]
+  reason?: string
+  message?: string
+}
+
+export interface ClientDataReadinessPreview {
+  status: string
+  clientId?: string
+  businessName?: string | null
+  hasBusinessCard?: boolean
+  hasSyncedFinancials?: boolean
+  hasFinancialData?: boolean
+  financialSyncedAt?: string | null
+  stpStatus?: string | null
+  computedStpStatus?: string | null
+  latestValuationId?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  importQualitySummary?: {
+    years: string[]
+    minConfidence?: number | null
+    errorCount?: number
+    warningCount?: number
+    infoCount?: number
+    actionableFlagCount?: number
+    topFlags?: Array<{
+      year?: string
+      field?: string | null
+      code?: string | null
+      severity?: string | null
+      message?: string | null
+    }>
+  } | null
+  recommendedNextAction?: string
+  recommendedNextTool?: string | null
+  recommendedNextRoute?: string | null
+  message?: string
+}
+
+export interface BuyerProfilePreview {
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  listingReadiness?: {
+    status?: string | null
+    missingFields: string[]
+  } | null
+  buyerSegments?: Array<{
+    id?: string
+    label: string
+    fitScore?: number | null
+    recommendedAngle?: string | null
+  }>
+}
+
+export interface RegistrySearchHit {
+  companyNumber: string
+  companyName: string
+  legalForm?: string | null
+  city?: string | null
+  postalCode?: string | null
+  address?: string | null
+  countryCode?: string | null
+  naceCode?: string | null
+  naceDescription?: string | null
+  businessTypeId?: string | null
+  businessTypeTitle?: string | null
+  foundationDate?: string | null
+  isActive?: boolean | null
+}
+
+export interface RegistrySearchResults {
+  registry: 'KBO' | 'KVK'
+  query: string
+  totalFound: number
+  hits: RegistrySearchHit[]
+  coverageWarning?: 'kvk_not_in_dataset' | 'upstream_degraded'
+  note?: string
+  status?: 'ok' | 'failed'
+}
+
+export interface BelgianCompanyBootstrap {
+  status: 'ok' | 'partial' | 'blocked' | 'failed'
+  reason?: string
+  message?: string
+  identity?: {
+    legalName?: string | null
+    legalForm?: string | null
+    kboNumber?: string | null
+    address?: string | null
+    city?: string | null
+    postalCode?: string | null
+    naceCode?: string | null
+    naceDescription?: string | null
+    foundationDate?: string | null
+    isActive?: boolean | null
+  } | null
+  benchmark?: {
+    status?: string | null
+    businessTypeTitle?: string | null
+    evEbitdaMedian?: number | null
+    confidence?: string | null
+  } | null
+  filingSummary?: {
+    status?: string | null
+    source?: string | null
+    filingYear?: number | null
+    yearsAvailable?: number | null
+    revenue?: number | null
+    ebitda?: number | null
+    dataHealthMessage?: string | null
+  } | null
+  valuationPreview?: {
+    status?: string | null
+    method?: string | null
+    ebitdaUsed?: number | null
+    ebitdaYear?: number | null
+    evMid?: number | null
+    equityMid?: number | null
+  } | null
+}
+
+export interface FieldUpdateParsed {
+  field: string
+  value: number | string | boolean
+  label: string
+  source: 'ai'
+  confidence?: 'high' | 'medium' | 'low'
+}
+
+export interface ParsedToolResults {
+  normalisationSuggestions: unknown[]
+  fieldUpdates: FieldUpdateParsed[]
+  valuationRunRequests: ValuationRunRequest[]
+  reportGenerationRequests: ReportGenerationRequest[]
+  sellabilityRunRequests: SellabilityRunRequest[]
+  belgianCompanyBootstraps: BelgianCompanyBootstrap[]
+  clientDataReadinessPreviews: ClientDataReadinessPreview[]
+  methodReadinessPreviews: MethodReadinessPreview[]
+  listingPreviews: ListingPreview[]
+  listingCreateRequests: ListingCreateRequest[]
+  buyerProfilePreviews: BuyerProfilePreview[]
+  registrySearchResults: RegistrySearchResults[]
+}

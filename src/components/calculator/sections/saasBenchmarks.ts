@@ -90,6 +90,18 @@ export const SAAS_SECTOR_DEFAULTS: Record<StartupSector, SaasSectorBenchmark> = 
     annual_growth_pct: 80,
     expansion_revenue_pct: 18,
   },
+  vertical_ai: {
+    // Vertical-AI workflow benchmarks (Casetext / Harvey / AlphaSense
+    // band). Higher gross margin than generic deeptech_ai because the
+    // workflow surface is software-priced; lower churn than consumer
+    // SaaS because customers anchor on workflow lock-in.
+    gross_margin_pct: 72,
+    monthly_churn_pct: 2,
+    customer_churn_pct: 4,
+    nrr_pct: 125,
+    annual_growth_pct: 100,
+    expansion_revenue_pct: 22,
+  },
   consumer: {
     gross_margin_pct: 35,
     monthly_churn_pct: 7,

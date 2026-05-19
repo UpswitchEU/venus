@@ -29,6 +29,18 @@ import {
   buildYearlyFinancialsFromCurrentAndHistorical,
   yearlyFinancialsContainsNonPlaceholderData,
 } from './yearlyFinancials'
+import {
+  OPTIONAL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  SESSION_CARD_FALLBACK_NULLISH_SCALARS,
+  SESSION_CARD_FALLBACK_STRING_KEYS,
+  SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
+} from './optionalSessionPrefillKeys'
+
+export {
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+} from './optionalSessionPrefillKeys'
 
 /**
  * Session/bootstrap often ships multi-year figures as a map (`year_data`) rather than
@@ -60,39 +72,6 @@ function historicalRowsFromYearDataBlob(
  * business card blob, `{ ...bi, ...sd }` would keep the empty string. Fill from the card
  * only for blank / nullish placeholders — a non-empty top-level value still wins.
  */
-const SESSION_CARD_FALLBACK_STRING_KEYS = [
-  'company_name',
-  'kbo_number',
-  'vat_number',
-  'legal_form',
-  'business_description',
-  'city',
-  'postal_code',
-  'country_code',
-  'industry',
-  'business_model',
-  'nace_code',
-  'nace_description',
-  'activity_code',
-  'activity_label',
-  'taxonomy',
-  'canonical_nace_code',
-  'business_type_id',
-  'business_type',
-  'subIndustry',
-  'locale',
-] as const
-
-const SESSION_CARD_FALLBACK_NULLISH_SCALARS = [
-  'revenue',
-  'ebitda',
-  'founding_year',
-  'founded_year',
-  'number_of_employees',
-  'employee_count',
-  'employees',
-] as const
-
 function isBlankSessionString(value: unknown): boolean {
   return value === '' || (typeof value === 'string' && value.trim() === '')
 }
@@ -232,158 +211,6 @@ function sortedYearlyGridFingerprint(rows: unknown): string {
   return parts.join(';')
 }
 
-const OPTIONAL_SCALAR_KEYS = [
-  'revenue',
-  'ebitda',
-  'recurring_revenue_percentage',
-  'business_description',
-  'subIndustry',
-  'taxonomy',
-  'number_of_employees',
-  'employee_count',
-  'employees',
-  'locale',
-  'activity_code',
-  'canonical_nace_code',
-  'shares_for_sale',
-  'net_income',
-  'use_dcf',
-  'use_multiples',
-  'user_configured_dcf',
-  'projection_years',
-  'dcf_input_mode',
-  'government_bond_yield',
-  'long_term_gdp_growth',
-  'dcf_revenue_growth_pct',
-  'dcf_ebitda_margin_pct',
-  'dcf_capex_pct',
-  'dcf_da_pct',
-  'dcf_nwc_pct',
-  'dcf_tax_rate_pct',
-  'dcf_wacc_pct',
-  'dcf_terminal_growth_pct',
-  'dcf_exit_multiple',
-  'dcf_risk_free_rate_pct',
-  'dcf_equity_risk_premium_pct',
-  'dcf_beta',
-  'dcf_cost_of_debt_pct',
-  'dcf_debt_equity_pct',
-  'dcf_tax_shield_pct',
-  'dcf_terminal_value_method',
-  /** Blended valuation copy for PDF synthesis — gap-fill from session only when empty. */
-  'user_weight_justification',
-  'nav_real_estate_adjustment',
-  'nav_inventory_adjustment',
-  'nav_hidden_reserves',
-  'nav_goodwill_writeoff',
-  'nav_receivables_adjustment',
-  'nav_other_revaluations',
-  'nav_tax_latency_pct',
-  'nav_off_balance_items',
-  'real_estate_treatment',
-  'real_estate_market_value',
-  'exclude_real_estate',
-  'real_estate_book_value',
-  'estimated_market_rent',
-  'multiple_calibration_adjustment',
-  'multiple_calibration_note',
-  'historical_ebitda_weighting_mode',
-  'show_enterprise_to_equity_bridge',
-  'business_highlights',
-  'reason_for_selling',
-  'owner_role',
-  'owner_hours',
-  'delegation_capability',
-  'succession_plan',
-  'number_of_owners',
-  'saas_arr',
-  'saas_mrr',
-  'saas_arr_growth_pct',
-  'saas_churn_pct',
-  'saas_customer_churn_pct',
-  'saas_nrr_pct',
-  'saas_gross_margin_pct',
-  'saas_cac',
-  'saas_customer_concentration_pct',
-  'saas_expansion_revenue_pct',
-  'saas_sm_spend',
-  'rev_recurring_pct',
-  'rev_recurring_amount',
-  'rev_top_client_concentration_pct',
-  'rev_top_client_amount',
-  'rev_contract_backlog',
-  'rev_gross_churn_pct',
-  'rev_capitalized_rd_amount',
-  'owner_salary_addback',
-  'preparer_ev_ebitda_median',
-  'nav_real_estate_book_value',
-  'nav_real_estate_appraisal_value',
-  'taxable_profit',
-  'director_remuneration',
-  'is_financial_company',
-  'is_holding_more_than_50pct_shares',
-  'sme_rate_override',
-  'deal_type',
-  'deal_goodwill_amount',
-  'deal_seller_share_basis',
-  'deal_seller_is_individual',
-  'deal_buyer_discount_rate_pct',
-  'deal_registration_duty_pct',
-  'capital_history_enabled',
-  'capital_round_amount',
-  'capital_option_pool_pct',
-  'capital_last_round_amount',
-  'capital_last_round_post_money',
-  'capital_last_round_date',
-  /** SME engine method pin + venture round size (persisted on session for all method keys). */
-  'selected_method',
-  'investment_amount_sought',
-  '_internal_dcf_preference',
-  '_internal_multiples_preference',
-  '_internal_owner_dependency_impact',
-] as const
-
-/** Exported for tests and optional-change detection (store subscribe). */
-export const OPTIONAL_SESSION_PREFILL_SCALAR_KEYS = OPTIONAL_SCALAR_KEYS
-
-/**
- * Structured fields from business-type / adaptive context (not scalars) — must autosave + fingerprint.
- */
-export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
-  '_internal_key_metrics',
-  '_internal_typical_employee_range',
-  '_internal_typical_revenue_range',
-  'nav_per_asset_tax_rates',
-  'nav_equipment_revaluation',
-  'capital_safe_notes',
-  'historical_ebitda_weights',
-  /** Method blend + startup path — large blobs; merge only into empty form slots. */
-  /** Multi-method blend persisted on session — gap-fill when store empty (Mercury handoff). */
-  '_pre_selected_valuation_methods',
-  'user_weights',
-  'startup_inputs',
-  'cap_table',
-  /** Printed report / integrations may persist request.metadata (startup CTA overrides, etc.). */
-  'metadata',
-] as const
-
-/**
- * Underscore-prefixed session keys Titan/Mercury may persist — counted for envelope hashing.
- * Unknown `_…` keys (e.g. tests) are ignored so signatures stay stable for unrelated churn.
- */
-const _TRACKED_SESSION_UNDERSCORE_KEYS = new Set<string>([
-  '_businessInfo',
-  '_import_quality',
-  '_financial_data_source',
-  '_imported_ledger_analysis',
-  '_imported_saas_metrics',
-  '_imported_saas_provenance',
-  '_taxLatencies',
-  '_normalizations',
-  '_user_weights',
-  '_pre_selected_valuation_methods',
-])
-
 function sessionEnvelopeKeyCount(record: Record<string, unknown>): number {
   let n = 0
   for (const k of Object.keys(record)) {
@@ -407,15 +234,6 @@ function sessionEnvelopeKeyCount(record: Record<string, unknown>): number {
   }
   return n
 }
-
-/** Keep parity with SessionNormalizer: do not infer core financials from `business_context`. */
-const SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE = new Set<string>([
-  'revenue',
-  'ebitda',
-  'shares_for_sale',
-  'activity_code',
-  'canonical_nace_code',
-])
 
 /**
  * Compact stable fingerprint of optional prefill *sources* (session JSON, package blob).

@@ -54,6 +54,7 @@ const SECTOR_TO_DB_CATEGORY: Record<StartupSector, string[]> = {
   fintech: ['finance', 'software'],
   biotech_healthtech: ['healthcare'],
   deeptech_ai: ['technology', 'software'],
+  vertical_ai: ['technology', 'software', 'services'],
   consumer: ['retail', 'ecommerce'],
   hardware: ['manufacturing'],
   other: ['services', 'other'],

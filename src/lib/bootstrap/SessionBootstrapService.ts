@@ -14,11 +14,16 @@
 
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { getInitTraceId } from '../auth'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
+import {
+  buildCreditBlockedTitanState,
+  buildSuccessfulTitanState,
+  type SuccessfulTitanBootstrapData,
+  type TitanBootstrapResponsePayload,
+} from './TitanBootstrapResponseMapper'
 import type {
   BootstrapContext,
   BootstrapErrorInfo,
@@ -829,7 +834,7 @@ export class SessionBootstrapService {
         )
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as TitanBootstrapResponsePayload
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {
@@ -859,64 +864,7 @@ export class SessionBootstrapService {
 
         // Check if this is a credit error (allow viewing with limited data)
         if (data.data?.creditStatus && !data.data.creditStatus.allowed) {
-          // Credit check failed - return state with credit error
-          const { identity, report, prefill, ui, creditStatus } = data.data
-          return {
-            identity: identity
-              ? {
-                  type: identity.type,
-                  userId: identity.userId,
-                  clientContext: identity.clientContext,
-                  email: identity.email,
-                  firstName: identity.firstName,
-                  lastName: identity.lastName,
-                }
-              : DEFAULT_IDENTITY,
-            report: report
-              ? {
-                  mode: report.mode,
-                  reportId: report.reportId || context.reportId || generateReportId(),
-                  hasExistingData: report.hasExistingData || false,
-                  version: report.version,
-                  status: report.status || 'active',
-                  createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
-                  updatedAt: report.updatedAt ? new Date(report.updatedAt) : undefined,
-                  completedAt: report.completedAt ? new Date(report.completedAt) : undefined,
-                  currentStep: report.currentStep,
-                }
-              : DEFAULT_REPORT,
-            prefillData: prefill
-              ? {
-                  sources: prefill.sources || [],
-                  companyInfo: prefill.companyInfo,
-                  financials: prefill.financials,
-                  officialFinancials: prefill.officialFinancials,
-                  officialEnrichmentJobId: prefill.officialEnrichmentJobId,
-                  businessType: prefill.businessType,
-                  kboData: prefill.kboData,
-                  confidence: prefill.confidence || 0,
-                  fieldsPopulated: prefill.fieldsPopulated || [],
-                  fieldsRemaining: prefill.fieldsRemaining || [],
-                }
-              : DEFAULT_PREFILL,
-            ui: ui
-              ? {
-                  showWelcomeBack: ui.showWelcomeBack || false,
-                  resumableSession: ui.resumableSession || false,
-                  suggestedFlow: ui.suggestedFlow || 'manual',
-                  prefilledFieldCount: ui.prefilledFieldCount || 0,
-                  totalFieldCount: ui.totalFieldCount || 0,
-                  showKboVerification: ui.showKboVerification || false,
-                  showAccountantBanner: ui.showAccountantBanner || false,
-                  returnUrl: ui.returnUrl,
-                  sourceApp: ui.sourceApp,
-                }
-              : DEFAULT_UI_HINTS,
-            creditStatus: creditStatus, // Include credit status
-            bootstrapVersion: BOOTSTRAP_VERSION,
-            bootstrappedAt: new Date(),
-            bootstrapDurationMs: performance.now() - startTime,
-          }
+          return buildCreditBlockedTitanState(data.data, context, startTime)
         }
 
         // Check if error is retryable based on structured error info
@@ -940,74 +888,13 @@ export class SessionBootstrapService {
         throw new Error('Bootstrap returned no data')
       }
 
-      // Transform Titan response to SessionBootstrapState
-      const { identity, report, prefill, ui, creditStatus, valuationPackage } = data.data
-
-      const state: SessionBootstrapState = {
-        identity: {
-          type: identity.type,
-          userId: identity.userId,
-          clientContext: identity.clientContext,
-          email: identity.email,
-          firstName: identity.firstName,
-          lastName: identity.lastName,
-        },
-        report: {
-          mode: report.mode,
-          reportId: report.reportId,
-          hasExistingData: report.hasExistingData,
-          // WORLD-CLASS: Mark as having valuation result if package has HTML
-          hasValuationResult: report.hasValuationResult || !!valuationPackage?.htmlReport,
-          reportReady:
-            typeof report.reportReady === 'boolean'
-              ? report.reportReady
-              : report.status !== 'completed' || !!valuationPackage?.htmlReport,
-          version: report.version,
-          status: report.status,
-          createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
-          updatedAt: report.updatedAt ? new Date(report.updatedAt) : undefined,
-          completedAt: report.completedAt ? new Date(report.completedAt) : undefined,
-          currentStep: report.currentStep,
-        },
-        prefillData: {
-          sources: prefill.sources,
-          companyInfo: prefill.companyInfo,
-          financials: prefill.financials,
-          officialFinancials: prefill.officialFinancials,
-          officialEnrichmentJobId: prefill.officialEnrichmentJobId,
-          businessType: prefill.businessType,
-          kboData: prefill.kboData,
-          confidence: prefill.confidence,
-          fieldsPopulated: prefill.fieldsPopulated,
-          fieldsRemaining: prefill.fieldsRemaining,
-        },
-        ui: {
-          showWelcomeBack: ui.showWelcomeBack,
-          resumableSession: ui.resumableSession,
-          suggestedFlow: ui.suggestedFlow,
-          prefilledFieldCount: ui.prefilledFieldCount,
-          totalFieldCount: ui.totalFieldCount,
-          showKboVerification: ui.showKboVerification,
-          showAccountantBanner: ui.showAccountantBanner,
-          returnUrl: context.returnUrl,
-          sourceApp: context.sourceApp,
-        },
-        creditStatus: creditStatus, // Include credit status if present
-        // WORLD-CLASS: Extract valuationPackage for instant UI hydration
-        valuationPackage: valuationPackage
-          ? {
-              htmlReport: getFirstRenderableReportHtml(valuationPackage.htmlReport) ?? null,
-              pricingRange: valuationPackage.pricingRange || null,
-              versions: valuationPackage.versions || { current: 1, total: 1 },
-              pdf: valuationPackage.pdf || { url: null, status: 'none' },
-              formData: valuationPackage.formData || undefined,
-              buyerReadiness: valuationPackage.buyerReadiness || undefined,
-            }
-          : undefined,
-        bootstrapVersion: BOOTSTRAP_VERSION,
-        bootstrappedAt: new Date(),
-        bootstrapDurationMs: data.bootstrapDurationMs || performance.now() - startTime,
-      }
+      const valuationPackage = data.data.valuationPackage
+      const state = buildSuccessfulTitanState(
+        data.data as SuccessfulTitanBootstrapData,
+        context,
+        startTime,
+        data.bootstrapDurationMs
+      )
 
       const totalMs = Math.round(performance.now() - startTime)
       this.logger.info(`[Bootstrap:${traceId}] Titan bootstrap complete`, {

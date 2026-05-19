@@ -15,16 +15,10 @@
  * @module services/session/SessionRestorationService
  */
 
-import {
-  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
-  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
-  sanitizePreSelectedValuationMethod,
-  sessionHasStoredPreSelectedMethod,
-} from '../../constants/sessionUiKeys'
+import { sanitizePreSelectedValuationMethod } from '../../constants/sessionUiKeys'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
-import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import {
   recoverPendingNormalizations,
   useNormalizationStore,
@@ -32,8 +26,6 @@ import {
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { recoverPendingTaxLatencies, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import type { BuyerReadinessPackage } from '../../types/buyerReadiness'
 import {
   type FormSnapshotForRevenueNav,
   parseCurrentYearRevenueForMethodNav,
@@ -42,10 +34,6 @@ import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
 } from '../../utils/extractValuationResultsMap'
-import {
-  normalizeCurrentYearForFiling,
-  normalizeHistoricalYearsForFiling,
-} from '../../utils/fiscalYear'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
@@ -58,11 +46,13 @@ import {
   markMercurySessionPrefillSuppressed,
 } from '../../utils/prefillRestorationGate'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 import {
   type NormalizedSessionData,
   normalizeSessionData,
   validateNormalizedData,
 } from './SessionNormalizer'
+import { hydrateSessionFromPackage, type SessionHydrationPackage } from './SessionPackageHydrator'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -104,26 +94,6 @@ async function _withRetry<T>(
   }
 
   throw new Error(`${name} failed after ${maxAttempts} attempts`)
-}
-
-function seedNbbPrefillFromFormData(
-  formData: Record<string, unknown> | null | undefined,
-  reportId: string,
-  source: 'restore' | 'package'
-): void {
-  if (!formData) return
-  const official = formData.official_financials
-  if (!official || typeof official !== 'object' || Array.isArray(official)) return
-  const years =
-    ((official as { historicalYears?: unknown }).historicalYears as unknown[] | undefined) ??
-    ((official as { historical_years?: unknown }).historical_years as unknown[] | undefined)
-  if (!Array.isArray(years) || years.length === 0) return
-  useNbbPrefillStore.getState().setFromHistoricalYears(years as any)
-  generalLogger.info('[SessionRestoration] NBB prefill snapshots hydrated', {
-    reportId: reportId.substring(0, 30),
-    source,
-    yearsCount: years.length,
-  })
 }
 
 /**
@@ -948,449 +918,20 @@ class SessionRestorationServiceImpl {
    * Called during bootstrap to instantly populate stores with pre-fetched data.
    * This bypasses the full restoration flow for existing reports that have
    * complete package data, enabling < 100ms report display.
-   *
-   * @param reportId - Report ID
-   * @param pkg - Valuation package from bootstrap response
-   * @param flow - Flow type (manual or conversational)
    */
   hydrateFromPackage(
     reportId: string,
-    pkg: {
-      htmlReport: string | null
-      pricingRange: { min: number; mid: number; max: number; currency: string } | null
-      versions: {
-        current: number
-        total: number
-        history?: Array<{
-          version: number
-          createdAt: Date
-          summary: string | null
-          createdBy: string | null
-        }>
-      }
-      pdf: { url: string | null; status: 'ready' | 'generating' | 'none' }
-      formData?: Record<string, unknown>
-      buyerReadiness?: BuyerReadinessPackage
-    },
+    pkg: SessionHydrationPackage,
     flow: 'manual' | 'conversational' = 'manual'
   ): void {
-    const startTime = performance.now()
-
-    generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
-      reportId: reportId.substring(0, 30),
-      hasHtmlReport: !!pkg.htmlReport,
-      hasPricing: !!pkg.pricingRange,
-      formFieldCount: pkg.formData ? Object.keys(pkg.formData).length : 0,
-      versionCount: pkg.versions.total,
-      pdfStatus: pkg.pdf.status,
-      hasBuyerReadiness: !!pkg.buyerReadiness,
+    hydrateSessionFromPackage({
+      reportId,
+      pkg,
+      flow,
+      onRestored: (restoredReportId) => {
+        this.restoredReportIds.add(restoredReportId)
+      },
     })
-
-    try {
-      // WORLD-CLASS: Hydrate form store first (enables instant form display on refresh)
-      if (flow === 'manual' && pkg.formData && Object.keys(pkg.formData).length > 0) {
-        try {
-          const { updateFormData } = useManualFormStore.getState()
-          const raw = mergeSessionSurfaceForOptionalPrefill(pkg.formData)
-
-          // Map camelCase package keys to snake_case form store keys.
-          // Single-word keys (revenue, ebitda, city, industry) are the same in
-          // both conventions and are passed through via the spread below.
-          const camelToSnake: Record<string, string> = {
-            companyName: 'company_name',
-            kboNumber: 'kbo_number',
-            vatNumber: 'vat_number',
-            businessTypeId: 'business_type_id',
-            businessDescription: 'business_description',
-            subIndustry: 'subIndustry',
-            employeeCount: 'number_of_employees',
-            numberOfEmployees: 'number_of_employees',
-            employees: 'employees',
-            foundingYear: 'founding_year',
-            filingYearConfirmed: 'filing_year_confirmed',
-            countryCode: 'country_code',
-            postalCode: 'postal_code',
-            netIncome: 'net_income',
-            historicalYearsData: 'historical_years_data',
-            forecastYearsData: 'forecast_years_data',
-            currentYearData: 'current_year_data',
-            naceCode: 'nace_code',
-            naceDescription: 'nace_description',
-            canonicalNaceCode: 'canonical_nace_code',
-            activityCode: 'activity_code',
-            activityLabel: 'activity_label',
-            businessContext: 'business_context',
-            officialFinancials: 'official_financials',
-            officialVarianceAnalysis: 'official_variance_analysis',
-            officialVerificationBadge: 'official_verification_badge',
-            legalForm: 'legal_form',
-          }
-
-          const mapped: Record<string, unknown> = {}
-          for (const [key, value] of Object.entries(raw)) {
-            if (value === undefined) continue
-            const snakeKey = camelToSnake[key] ?? key
-            if (snakeKey === '_businessInfo' || snakeKey === 'businessInfo') continue
-            if (snakeKey.startsWith('_bootstrap')) continue
-            const current = mapped[snakeKey]
-            if (
-              current !== undefined &&
-              current !== null &&
-              !(typeof current === 'string' && current.trim() === '') &&
-              (value === null || (typeof value === 'string' && value.trim() === ''))
-            ) {
-              // Keep the richer existing value (e.g. `_businessInfo.company_name`) over blank aliases.
-              continue
-            }
-            mapped[snakeKey] = value
-          }
-
-          const mappedCurrentYearData = mapped.current_year_data as
-            | { year?: number; revenue?: number; ebitda?: number }
-            | undefined
-          if (mappedCurrentYearData && typeof mappedCurrentYearData === 'object') {
-            mapped.current_year_data = {
-              ...mappedCurrentYearData,
-              year: normalizeCurrentYearForFiling(
-                mappedCurrentYearData.year,
-                mapped.filing_year_confirmed
-              ),
-            }
-          }
-
-          if (Array.isArray(mapped.historical_years_data)) {
-            mapped.historical_years_data = normalizeHistoricalYearsForFiling(
-              mapped.historical_years_data as Array<{
-                year: number
-                revenue?: number
-                ebitda?: number
-              }>,
-              mapped.filing_year_confirmed
-            )
-          }
-
-          updateFormData(mapped as any)
-          const gapPatch = buildOptionalSessionGapFillPatch(
-            pkg.formData ?? {},
-            useManualFormStore.getState().formData
-          )
-          if (Object.keys(gapPatch).length > 0) {
-            updateFormData(gapPatch as any)
-            generalLogger.debug('[SessionRestoration] Package envelope gap-fill after map', {
-              reportId: reportId.substring(0, 30),
-              keys: Object.keys(gapPatch),
-            })
-          }
-
-          seedNbbPrefillFromFormData(
-            useManualFormStore.getState().formData as unknown as Record<string, unknown>,
-            reportId,
-            'package'
-          )
-          markMercurySessionPrefillSuppressed(reportId)
-
-          // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
-          // Priority: localStorage recovery (beforeunload buffer) > package formData.
-          // Both branches pass `{ source: 'system' }` so the latency auto-recalc
-          // subscription in ManualLayout skips them — at this point that
-          // subscription may already be active, and a fresh calc would either
-          // race with the page-load valuation fetch or overwrite it.
-          try {
-            const recoveredTL = recoverPendingTaxLatencies(reportId)
-            if (recoveredTL && recoveredTL.length > 0) {
-              useTaxLatencyStore.getState().setItems(recoveredTL, { source: 'system' })
-            } else if (
-              Array.isArray(
-                (
-                  raw as {
-                    _taxLatencies?: unknown
-                    tax_latencies?: unknown
-                    taxLatencies?: unknown
-                  }
-                )._taxLatencies ??
-                  (raw as { tax_latencies?: unknown }).tax_latencies ??
-                  (raw as { taxLatencies?: unknown }).taxLatencies
-              )
-            ) {
-              const rawTaxLatencies =
-                (
-                  raw as {
-                    _taxLatencies?: unknown
-                    tax_latencies?: unknown
-                    taxLatencies?: unknown
-                  }
-                )._taxLatencies ??
-                (raw as { tax_latencies?: unknown }).tax_latencies ??
-                (raw as { taxLatencies?: unknown }).taxLatencies
-              useTaxLatencyStore.getState().setItems(rawTaxLatencies as any, { source: 'system' })
-            }
-          } catch {
-            // Non-critical
-          }
-          try {
-            const recoveredNorm = recoverPendingNormalizations(reportId)
-            if (recoveredNorm && recoveredNorm.length > 0) {
-              useNormalizationStore.getState().setItems(recoveredNorm)
-            } else if (
-              Array.isArray(
-                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
-                  (raw as { normalizations?: unknown }).normalizations
-              ) &&
-              (
-                ((raw as { _normalizations?: unknown[] })._normalizations as
-                  | unknown[]
-                  | undefined) ??
-                ((raw as { normalizations?: unknown[] }).normalizations as unknown[] | undefined) ??
-                []
-              ).length > 0
-            ) {
-              const rawNormalizations =
-                (raw as { _normalizations?: unknown; normalizations?: unknown })._normalizations ??
-                (raw as { normalizations?: unknown }).normalizations
-              useNormalizationStore.getState().setItems(rawNormalizations as any)
-            }
-          } catch {
-            // Non-critical
-          }
-          try {
-            const rawImportQuality =
-              (
-                raw as {
-                  _import_quality?: unknown
-                  import_quality?: unknown
-                  importQuality?: unknown
-                }
-              )._import_quality ??
-              (raw as { import_quality?: unknown }).import_quality ??
-              (raw as { importQuality?: unknown }).importQuality
-            if (rawImportQuality && typeof rawImportQuality === 'object') {
-              const bc = (raw.business_context ?? raw.businessContext) as
-                | Record<string, unknown>
-                | undefined
-              const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)
-                ?.provider
-              useImportQualityStore.getState().setImportQuality(rawImportQuality as any, {
-                provider: typeof prov === 'string' ? prov : null,
-              })
-            }
-          } catch {
-            // Non-critical
-          }
-          try {
-            const ns = useNormalizationStore.getState()
-            useTaxLatencyStore.getState().setCandidates([])
-            const bc = (raw.business_context ?? raw.businessContext) as
-              | Record<string, unknown>
-              | undefined
-            const analysis =
-              bc?._imported_ledger_analysis ??
-              (raw as { _imported_ledger_analysis?: unknown })._imported_ledger_analysis
-            if (analysis && typeof analysis === 'object') {
-              if (ns.items.length === 0) {
-                const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis as any)
-                if (items.length > 0) {
-                  ns.addItems(items)
-                }
-              }
-              const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
-                analysis as any
-              )
-              useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
-            }
-          } catch {
-            // Non-critical
-          }
-
-          generalLogger.info('[SessionRestoration] Form data hydrated from package', {
-            reportId: reportId.substring(0, 30),
-            fieldCount: Object.keys(mapped).length,
-          })
-        } catch (formError) {
-          generalLogger.warn(
-            '[SessionRestoration] Form hydration from package failed (non-critical)',
-            {
-              error: formError instanceof Error ? formError.message : String(formError),
-            }
-          )
-        }
-      }
-
-      // WORLD-CLASS: Build complete result for ManualLayout report display
-      // Must include html_report so the report useEffect builds the ValuationReportData
-      const pricingResult = pkg.pricingRange
-        ? {
-            equity_value_low: pkg.pricingRange.min,
-            equity_value_mid: pkg.pricingRange.mid,
-            equity_value_high: pkg.pricingRange.max,
-            currency: pkg.pricingRange.currency,
-          }
-        : {}
-
-      if (flow === 'manual') {
-        const manualStore = useManualResultsStore.getState()
-        const existingResult = manualStore.result || {}
-        const pkgRenderableHtml = getFirstRenderableReportHtml(pkg.htmlReport)
-        const fullResult = {
-          valuation_id: reportId,
-          ...pricingResult,
-          html_report: pkgRenderableHtml,
-          valuation_results:
-            hydrateClientValuationResultsMap(existingResult as Record<string, any> | null) ??
-            undefined,
-        }
-        manualStore.setResult({
-          ...existingResult,
-          ...fullResult,
-        } as any)
-        // Explicitly set HTML assets for components that read them directly
-        if (pkgRenderableHtml) manualStore.setHtmlReport(pkgRenderableHtml)
-
-        const mergedAfterSet = useManualResultsStore.getState().result as Record<
-          string,
-          unknown
-        > | null
-        if (
-          mergedAfterSet &&
-          !(mergedAfterSet as { selected_valuation_method?: string }).selected_valuation_method &&
-          pkg.formData &&
-          typeof pkg.formData === 'object'
-        ) {
-          const rawPkg = pkg.formData as Record<string, unknown>
-          if (sessionHasStoredPreSelectedMethod(rawPkg)) {
-            const v =
-              rawPkg[SESSION_PRE_SELECTED_VALUATION_METHOD_KEY] ??
-              rawPkg[SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY]
-            if (v === null) {
-              useManualResultsStore.getState().setPreSelectedMethod(null)
-            } else if (typeof v === 'string') {
-              const revFromForm =
-                pkg.formData && typeof pkg.formData === 'object'
-                  ? parseCurrentYearRevenueForMethodNav(pkg.formData as FormSnapshotForRevenueNav)
-                  : undefined
-              const parsed = sanitizePreSelectedValuationMethod(v, null, revFromForm)
-              useManualResultsStore.getState().setPreSelectedMethod(parsed)
-            }
-          }
-        }
-        // Sync session store for instant display (Results component reads session.htmlReport)
-        // Include pdfUrl in sessionData so usePdfGeneration shows "ready" on refresh when PDF exists
-        try {
-          if (typeof window !== 'undefined') {
-            const { useSessionStore } = require('../../store/useSessionStore')
-            const session = useSessionStore.getState().session
-            if (session) {
-              useSessionStore.getState().hydrateSession({
-                htmlReport: getFirstRenderableReportHtml(pkg.htmlReport) || undefined,
-                valuationResult: { ...existingResult, ...fullResult },
-                ...(pkg.buyerReadiness ? { buyerReadiness: pkg.buyerReadiness } : {}),
-                sessionData: {
-                  ...(session.sessionData || {}),
-                  pdfUrl: pkg.pdf?.url || undefined,
-                  ...(pkg.buyerReadiness ? { _buyerReadiness: pkg.buyerReadiness } : {}),
-                },
-              } as any)
-            }
-          }
-        } catch {
-          // Non-critical: session may not be loaded yet
-        }
-      } else {
-        const _fullResult = {
-          valuation_id: reportId,
-          ...pricingResult,
-          html_report: getFirstRenderableReportHtml(pkg.htmlReport),
-        }
-        generalLogger.debug(
-          '[SessionRestoration] Skipping conversational hydration - stores removed',
-          {
-            reportId: reportId.substring(0, 30),
-          }
-        )
-      }
-
-      // WORLD-CLASS: Hydrate version history for instant version tab
-      if (pkg.versions.history && pkg.versions.history.length > 0) {
-        const versionStore = useVersionHistoryStore.getState()
-
-        // Type-safe partial version stub interface
-        // Contains only the fields available from package, full data loaded on-demand
-        interface VersionStub {
-          id: string
-          reportId: string
-          versionNumber: number
-          versionLabel: string
-          createdAt: Date
-          createdBy: string | null
-          formData: Record<string, unknown>
-          valuationResult: null
-          htmlReport: null
-          changesSummary: { totalChanges: number; sections: never[]; fields: never[] }
-          isActive: boolean
-          isPinned: boolean
-          notes: string | null
-        }
-
-        // Create version stubs from package history
-        const versions: VersionStub[] = pkg.versions.history.map((v) => ({
-          id: `pkg-${reportId}-v${v.version}`,
-          reportId,
-          versionNumber: v.version,
-          versionLabel: `Version ${v.version}`,
-          createdAt: new Date(v.createdAt),
-          createdBy: v.createdBy,
-          // Placeholder data - full details fetched on-demand when version is selected
-          formData: {},
-          valuationResult: null,
-          htmlReport: null,
-          changesSummary: { totalChanges: 0, sections: [], fields: [] },
-          isActive: v.version === pkg.versions.current,
-          isPinned: false,
-          notes: v.summary,
-        }))
-
-        // Merge with existing versions (package versions take priority)
-        const existingVersions = versionStore.versions[reportId] || []
-        const mergedVersions: VersionStub[] = [...versions]
-
-        // Add any existing versions not in the package
-        existingVersions.forEach((v) => {
-          if (!mergedVersions.find((pv) => pv.versionNumber === v.versionNumber)) {
-            // Cast existing version to VersionStub for compatibility
-            mergedVersions.push(v as unknown as VersionStub)
-          }
-        })
-
-        // Sort by version number descending
-        mergedVersions.sort((a, b) => b.versionNumber - a.versionNumber)
-
-        // Update store - cast to store's expected type
-        // The store accepts partial versions for display, full data loaded on-demand
-        versionStore.versions[reportId] = mergedVersions as unknown as typeof existingVersions
-
-        generalLogger.debug('[SessionRestoration] Hydrated version history from package', {
-          reportId: reportId.substring(0, 30),
-          versionCount: versions.length,
-          total: pkg.versions.total,
-        })
-      }
-
-      // Mark as restored to prevent duplicate restoration
-      this.restoredReportIds.add(reportId)
-      // CRITICAL: Unblock UI - ManualLayout waits for restorationComplete
-      useSessionStore.getState().setRestorationComplete(true)
-
-      const durationMs = performance.now() - startTime
-      generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration complete', {
-        reportId: reportId.substring(0, 30),
-        durationMs: Math.round(durationMs),
-      })
-    } catch (error) {
-      generalLogger.error('[SessionRestoration] Package hydration failed', {
-        reportId: reportId.substring(0, 30),
-        error: error instanceof Error ? error.message : String(error),
-      })
-      // Don't throw - fall back to normal restoration
-    }
   }
 
   /**

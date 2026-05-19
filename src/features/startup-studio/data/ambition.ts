@@ -77,6 +77,14 @@ const TABLE: Record<StartupSector, Record<AmbitionLevel, AmbitionAnchors>> = {
     standard: { year5_revenue: 8_000_000, exit_revenue_multiple: 9, target_roi_x: 18 },
     ambitious: { year5_revenue: 20_000_000, exit_revenue_multiple: 11, target_roi_x: 12 },
   },
+  vertical_ai: {
+    // Anchored on Casetext (~$10M ARR @ exit, ~$650M) and Harvey
+    // (~$20M ARR @ $1.5B post-money 2024).  Premium vs deeptech_ai
+    // because the workflow + data-flywheel combo trades higher.
+    conservative: { year5_revenue: 5_000_000, exit_revenue_multiple: 8, target_roi_x: 25 },
+    standard: { year5_revenue: 15_000_000, exit_revenue_multiple: 10, target_roi_x: 18 },
+    ambitious: { year5_revenue: 35_000_000, exit_revenue_multiple: 12, target_roi_x: 12 },
+  },
   consumer: {
     conservative: { year5_revenue: 5_000_000, exit_revenue_multiple: 2, target_roi_x: 25 },
     standard: { year5_revenue: 12_000_000, exit_revenue_multiple: 3, target_roi_x: 20 },

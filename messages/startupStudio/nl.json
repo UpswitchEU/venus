@@ -146,7 +146,19 @@
 		"currentArr": "Huidige ARR",
 		"forwardArr": "Prognose-ARR (12 mnd)",
 		"payback": "Terugverdientijd",
-		"ltvCacWarn": "LTV : CAC onder 3× — controleer de inputs."
+		"ltvCacWarn": "LTV : CAC onder 3× — controleer de inputs.",
+		"livePreMoneyLabel": "Geschatte pre-money",
+		"livePreMoneyCaption": "Live blend van Berkus, Scorecard, VC-methode en SaaS forward — beweegt zodra je aan de sliders trekt.",
+		"mrrSliderLabel": "Sleep om MRR-scenario's te vergelijken",
+		"mrrSliderHint": "0–€25k MRR dekt de pre-seed / vroege seed-fase. Typ een precieze waarde hierboven voor elke andere stand.",
+		"engagementTitle": "Actieve gebruikers / engagement",
+		"engagementLead": "Actieve accounts, MAU, wekelijkse kopers — wat jouw usage-metric ook is. Boven de 100 stijgt de defensibility-score; 1 000+ levert een engagement-multiple credit op, zodat een marketplace-oprichter met lichte omzet toch als echte tractie leest.",
+		"engagementLabel": "Actieve gebruikers vandaag",
+		"engagementSliderLabel": "Sleep om engagement-scenario's te vergelijken",
+		"engagementSliderHint": "Typ een groter aantal hierboven. IJdele aantallen onder de 100 bewegen de score niet — angels zien dat doorheen.",
+		"engagementBadgeNone": "Geen credit totdat je ≥100 actieve gebruikers hebt.",
+		"engagementBadgeToken": "Token engagement — +10% op defensibility-tractie.",
+		"engagementBadgeReal": "Echte engagement — +25% op defensibility-tractie."
 	},
 	"exitStory": {
 		"y5Title": "Jaar-5 omzetthese",
@@ -540,6 +552,7 @@
 			"fintech": "Fintech",
 			"biotech_healthtech": "Biotech / healthtech",
 			"deeptech_ai": "Deeptech / AI",
+			"vertical_ai": "Verticale AI / agentic workflow",
 			"consumer": "Consumer / B2C",
 			"hardware": "Hardware",
 			"other": "Meerdere sectoren"

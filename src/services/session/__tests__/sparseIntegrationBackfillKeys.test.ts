@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { BASE_SPARSE_BACKFILL_KEYS } from '../SessionSparseBackfill'
 
 /**
  * Contract: Hermes/integration blobs must stay in BASE_SPARSE_BACKFILL_KEYS so
@@ -24,12 +22,7 @@ const REQUIRED = [
 ] as const
 
 describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
-  const base = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', 'SessionService.ts'),
-    'utf8'
-  )
-
   it.each(REQUIRED)('includes %s', (key) => {
-    expect(base).toContain(`'${key}'`)
+    expect(BASE_SPARSE_BACKFILL_KEYS).toContain(key)
   })
 })

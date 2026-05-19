@@ -738,6 +738,7 @@ const SECTOR_OPTIONS: ReadonlyArray<StartupSector> = [
   'fintech',
   'biotech_healthtech',
   'deeptech_ai',
+  'vertical_ai',
   'consumer',
   'hardware',
   'other',

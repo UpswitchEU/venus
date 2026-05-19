@@ -1,38 +1,23 @@
 'use client'
 
-/**
- * Calculator Navigation Bar
- *
- * Aurora by Upswitch — Calculator Nav
- * Minimal navigation with essential actions grouped logically.
- * Integrated with Venus's session store and i18n.
- */
-
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
-  CheckCircle2,
   ChevronDown,
   Clock,
   CreditCard,
-  Database,
-  Download,
   Eye,
   FileSpreadsheet,
   FileText,
   GitBranch,
   HelpCircle,
-  History,
   Home,
   Loader2,
-  Lock,
   LogOut,
-  Maximize2,
   MessageCircle,
-  MoreHorizontal,
   MoreVertical,
   Pencil,
   Settings,
@@ -41,510 +26,32 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { MethodSelectorMenu } from '@/components/calculator/method-selector-menu'
 import {
   getPreSelectableMethodsForFirm,
   resolveDisplayPreSelectedMethodKey,
 } from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
-import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
+import { AuroraButton, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
-import { dateLikeAgeMs } from '@/utils/date-like'
+import { Dropdown } from './CalculatorNavDropdown'
+import { ToolbarOverflowMenu } from './CalculatorNavToolbarOverflowMenu'
+import type { CalculatorNavProps } from './CalculatorNav.types'
+import {
+  confidenceDotClassName,
+  formatPrice,
+  formatTimeAgo,
+  valuationNavAmountClass,
+} from './CalculatorNav.utils'
 
-// ─────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────
-
-export type RightPanelView = 'report' | 'preview' | 'history'
-
-export interface RecentValuation {
-  id: string
-  companyName: string
-  updatedAt: Date
-  isDraft?: boolean
-  deleteMode?: 'session' | 'report'
-}
-
-export interface ValuationVersion {
-  id: string
-  label: string
-  priceRange: { min: number; max: number }
-  askPrice: number
-  timestamp: Date
-  isActive?: boolean
-}
-
-// Download history item for the dropdown
-export interface DownloadHistoryItem {
-  id: string
-  fileName: string
-  timestamp: Date
-  size?: string
-  url?: string
-}
-
-export interface CalculatorNavProps {
-  companyName?: string
-  onBack?: () => void
-  onDownload?: () => void | Promise<void>
-  onFullscreen?: () => void
-  onPreview?: () => void
-  onShowHistory?: () => void
-  hasReport?: boolean
-  rightPanelView?: RightPanelView
-  userName?: string
-  userInitials?: string
-  /** User email for dropdown header (Mercury parity) */
-  userEmail?: string
-  /** Avatar URL from Titan/Mercury auth - when set, shows profile image */
-  avatarUrl?: string | null
-  onAccountSettings?: () => void
-  onSwitchWorkspace?: () => void
-  onLogout?: () => void
-  /** Accountant mode navigation (Mercury parity) */
-  onNavigateToDashboard?: () => void
-  onNavigateToBilling?: () => void
-  onNavigateToHelp?: () => void
-  // Recent valuations support
-  recentValuations?: RecentValuation[]
-  /** Current report ID for highlighting active valuation in dropdown */
-  activeReportId?: string
-  onSelectValuation?: (id: string) => void
-  onDeleteValuation?: (valuation: RecentValuation) => void
-  /** ID of valuation currently being deleted (shows loading state) */
-  deletingValuationId?: string | null
-  onNewValuation?: () => void
-  /** Hide "New Valuation" when calculation is in progress */
-  isCalculating?: boolean
-  // Chat Co-pilot drawer
-  onOpenAssistant?: () => void
-  isAssistantOpen?: boolean
-  // Normalization Hub - globally accessible
-  onOpenNormalization?: () => void
-  normalizationCount?: number
-  // Open tasks counter
-  openTasksCount?: number
-  // Valuation summary
-  valuationSummary?: {
-    priceRange: { min: number; max: number }
-    askPrice: number
-    confidence: 'high' | 'medium' | 'low'
-  }
-  valuationVersions?: ValuationVersion[]
-  selectedVersionId?: string
-  onSelectVersion?: (id: string) => void
-  onContinueToListing?: () => void
-  // PDF export state
-  isExporting?: boolean
-  downloadHistory?: DownloadHistoryItem[]
-  onRedownload?: (item: DownloadHistoryItem) => void
-  /** false = Free tier — show lock; onDownload still fires (opens upgrade paywall in ManualLayout) */
-  canDownloadPdf?: boolean
-  // Accountant mode — back button exits client view
-  isAccountantMode?: boolean
-  onExitClientView?: () => void
-  /** STP: import-quality provenance panel (trust but verify) */
-  showSourceDataToggle?: boolean
-  sourceDataOpen?: boolean
-  onToggleSourceData?: () => void
-  onOpenValuationEdit?: () => void
-  // Upfront method pre-selection
-  preSelectedMethod?: string
-  onPreSelectMethod?: (method: string) => void
-  // Multi-method selection for blended valuation
-  preSelectedMethods?: string[]
-  onToggleMethod?: (method: string) => void
-  /** Accountant firm country — hides BE-only fiscal method for NL */
-  firmCountryCode?: string
-  /**
-   * When provided (e.g. from ManualLayout), the allowed upfront methods — single source of truth.
-   * Otherwise derived from country only (templates / legacy callers).
-   */
-  preSelectableMethodsForNav?: readonly string[]
-  /** Free-plan teaser: methods visible but locked until Starter+ */
-  planLockedMethodKeys?: ReadonlySet<string>
-  onPlanLockedMethodAction?: () => void
-  /** Free plan: EBITDA normalization hub (incl. tax latencies in modal) — visible, Starter+ to use */
-  normalizationFeatureLocked?: boolean
-  onNormalizationFeatureLocked?: () => void
-  /** Free plan: multi-version history & audit trail */
-  versionControlFeatureLocked?: boolean
-  onVersionControlFeatureLocked?: () => void
-}
-
-// ─────────────────────────────────────────
-// UTILITIES
-// ─────────────────────────────────────────
-
-const formatTimeAgo = (date: Date, t: (key: string, values?: Record<string, number>) => string) => {
-  const diff = dateLikeAgeMs(date) ?? 0
-  const minutes = Math.floor(diff / (1000 * 60))
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  if (diff < 1000 * 60 * 60) return t('common.time.minutesAgo', { count: minutes })
-  if (diff < 1000 * 60 * 60 * 24) return t('common.time.hoursAgo', { count: hours })
-  return t('common.time.daysAgo', { count: days })
-}
-
-/** Formats EV-style amounts for the nav; safe for any API/method (NaN, ±Inf, missing coerced to 0). */
-const formatPrice = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return '—'
-  }
-  if (value >= 1000000) {
-    return `€${(value / 1000000).toFixed(1)}M`
-  }
-  return `€${Math.round(value / 1000)}K`
-}
-
-const valuationNavAmountClass = 'text-sm font-semibold text-foreground tracking-tight'
-
-function confidenceDotClassName(confidence: 'high' | 'medium' | 'low') {
-  const base = 'w-1.5 h-1.5 rounded-full shrink-0'
-  switch (confidence) {
-    case 'high':
-      return cn(base, 'bg-success')
-    case 'medium':
-      return cn(base, 'bg-warning')
-    case 'low':
-      return cn(base, 'bg-destructive')
-    default:
-      return cn(base, 'bg-foreground/40')
-  }
-}
-
-// ─────────────────────────────────────────
-// DROPDOWN MENU (Simple implementation)
-// ─────────────────────────────────────────
-
-interface DropdownProps {
-  trigger: React.ReactNode
-  children: React.ReactNode
-  align?: 'start' | 'center' | 'end'
-  variant?: 'default' | 'glass'
-  keepOpen?: boolean
-}
-
-const Dropdown: React.FC<DropdownProps> = ({
-  trigger,
-  children,
-  align = 'start',
-  variant = 'default',
-  keepOpen = false,
-}) => {
-  const [open, setOpen] = React.useState(false)
-  const dropdownRef = React.useRef<HTMLDivElement>(null)
-  const menuId = React.useId()
-
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  React.useEffect(() => {
-    if (!open) return
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [open])
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {React.isValidElement(trigger) ? (
-        React.cloneElement(trigger as React.ReactElement<any>, {
-          onClick: (event: React.MouseEvent) => {
-            trigger.props.onClick?.(event)
-            if (!event.defaultPrevented) setOpen((current: boolean) => !current)
-          },
-          'aria-expanded': open,
-          'aria-controls': menuId,
-        })
-      ) : (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setOpen((current) => !current)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault()
-              setOpen((current) => !current)
-            }
-          }}
-          aria-expanded={open}
-          aria-controls={menuId}
-        >
-          {trigger}
-        </div>
-      )}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id={menuId}
-            initial={{ opacity: 0, y: -4, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
-            className={cn(
-              'absolute z-50 mt-2 min-w-[200px] rounded-xl border border-foreground/[0.08]',
-              'backdrop-blur-xl shadow-xl',
-              variant === 'glass' ? 'bg-background/80' : 'bg-background/95',
-              align === 'end' && 'right-0',
-              align === 'center' && 'left-1/2 -translate-x-1/2',
-              align === 'start' && 'left-0'
-            )}
-            onClick={keepOpen ? undefined : () => setOpen(false)}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────
-// TOOLBAR OVERFLOW MENU
-// Hosts secondary actions (Brondata, Versiegeschiedenis, Download, Fullscreen)
-// to keep the top bar legible. The trigger gets a primary tint when a panel
-// toggle inside the menu is currently active, and swaps to a spinner during
-// PDF export so users still see that the long-running action is in progress.
-// ─────────────────────────────────────────
-
-interface ToolbarOverflowMenuProps {
-  navLocale: string
-  t: ReturnType<typeof useTranslations>
-  hasReport: boolean
-  rightPanelView: RightPanelView
-  showSourceDataToggle: boolean
-  sourceDataOpen: boolean
-  onToggleSourceData?: () => void
-  onShowHistory?: () => void
-  onDownload?: () => void | Promise<void>
-  onRedownload?: (item: DownloadHistoryItem) => void
-  onFullscreen?: () => void
-  isExporting: boolean
-  pdfPlanLocked: boolean
-  pdfDownloadTooltip: string | null
-  downloadHistory: DownloadHistoryItem[]
-  /** When true, sizes the trigger to satisfy a 44px tap target (mobile cluster). */
-  compactTouchTarget?: boolean
-}
-
-const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
-  navLocale,
-  t,
-  hasReport,
-  rightPanelView,
-  showSourceDataToggle,
-  sourceDataOpen,
-  onToggleSourceData,
-  onShowHistory,
-  onDownload,
-  onRedownload,
-  onFullscreen,
-  isExporting,
-  pdfPlanLocked,
-  pdfDownloadTooltip,
-  downloadHistory,
-  compactTouchTarget = false,
-}) => {
-  const hasSourceData = showSourceDataToggle && !!onToggleSourceData
-  const hasHistory = !!onShowHistory
-  const hasDownload = !!onDownload
-  const hasFullscreen = !!onFullscreen
-  const hasAnyAction = hasSourceData || hasHistory || hasDownload || hasFullscreen
-
-  // Don't render an empty trigger — caller may have wired none of the actions.
-  if (!hasAnyAction) return null
-
-  const sourceDataLabel = navLocale === 'nl' ? 'Brondata' : 'Source data'
-  const moreLabel = navLocale === 'nl' ? 'Meer acties' : 'More actions'
-  const upgradeLabel =
-    navLocale === 'nl'
-      ? 'Upgrade voor PDF-download (Starter)'
-      : 'Upgrade for PDF download (Starter)'
-  // Tint the trigger primary when any panel-toggle inside the menu is on, so
-  // the user still sees that the side panel is being driven from this menu.
-  const triggerActive =
-    (sourceDataOpen && hasSourceData) || (rightPanelView === 'history' && hasReport)
-
-  // Section divider only when both groups have at least one item to separate.
-  const showPanelDivider = (hasSourceData || hasHistory) && (hasDownload || hasFullscreen)
-
-  return (
-    <Dropdown
-      align="end"
-      trigger={
-        <button
-          type="button"
-          aria-label={moreLabel}
-          aria-haspopup="menu"
-          title={moreLabel}
-          className={cn(
-            'relative rounded-lg transition-colors flex items-center justify-center',
-            compactTouchTarget ? 'p-2 min-h-[44px] min-w-[44px]' : 'p-2',
-            triggerActive
-              ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
-              : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-          )}
-        >
-          {isExporting ? (
-            <Loader2 className="w-4 h-4 animate-spin text-primary" aria-hidden />
-          ) : (
-            <MoreHorizontal className="w-4 h-4" aria-hidden />
-          )}
-        </button>
-      }
-    >
-      <div className="p-1.5 w-64" role="menu">
-        {/* Brondata — toggle item: subtle bg + checkmark convey "panel is open" */}
-        {hasSourceData && (
-          <button
-            type="button"
-            role="menuitem"
-            aria-pressed={sourceDataOpen}
-            onClick={onToggleSourceData}
-            className={cn(
-              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
-              sourceDataOpen
-                ? 'bg-primary/[0.06] text-foreground'
-                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
-            )}
-          >
-            <Database className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
-            <span className="flex-1">{sourceDataLabel}</span>
-            {sourceDataOpen && <Check className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />}
-          </button>
-        )}
-
-        {/* Versiegeschiedenis — toggle item */}
-        {hasHistory && (
-          <button
-            type="button"
-            role="menuitem"
-            aria-pressed={rightPanelView === 'history'}
-            onClick={onShowHistory}
-            disabled={!hasReport}
-            className={cn(
-              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
-              !hasReport
-                ? 'text-foreground/30 cursor-not-allowed'
-                : rightPanelView === 'history'
-                  ? 'bg-primary/[0.06] text-foreground'
-                  : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
-            )}
-          >
-            <History className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
-            <span className="flex-1">{t('report.history')}</span>
-            {rightPanelView === 'history' && hasReport && (
-              <Check className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
-            )}
-          </button>
-        )}
-
-        {showPanelDivider && <div className="h-px bg-foreground/[0.06] my-1.5" />}
-
-        {/* Download */}
-        {hasDownload && (
-          <button
-            type="button"
-            role="menuitem"
-            onClick={onDownload}
-            disabled={!hasReport || isExporting}
-            title={pdfPlanLocked ? (pdfDownloadTooltip ?? undefined) : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
-              !hasReport || isExporting
-                ? 'opacity-50 cursor-not-allowed'
-                : pdfPlanLocked
-                  ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-500/10'
-                  : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
-            )}
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" aria-hidden />
-            ) : pdfPlanLocked ? (
-              <Lock
-                className="w-4 h-4 shrink-0 text-amber-600/90 dark:text-amber-400/90"
-                aria-hidden
-              />
-            ) : (
-              <Download className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
-            )}
-            <span className="flex-1">
-              {isExporting
-                ? t('report.generatingPDF')
-                : pdfPlanLocked
-                  ? upgradeLabel
-                  : t('report.downloadPDF')}
-            </span>
-          </button>
-        )}
-
-        {/* Fullscreen */}
-        {hasFullscreen && (
-          <button
-            type="button"
-            role="menuitem"
-            onClick={onFullscreen}
-            disabled={!hasReport}
-            className={cn(
-              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
-              !hasReport
-                ? 'text-foreground/30 cursor-not-allowed'
-                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
-            )}
-          >
-            <Maximize2 className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
-            <span className="flex-1">{t('report.fullscreen')}</span>
-          </button>
-        )}
-
-        {/* Recent downloads */}
-        {downloadHistory.length > 0 && (
-          <>
-            <div className="h-px bg-foreground/[0.06] my-1.5" />
-            <div className="text-[10px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-              {t('report.recentDownloads')}
-            </div>
-            {downloadHistory.slice(0, 5).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="menuitem"
-                onClick={() => (pdfPlanLocked ? void onDownload?.() : void onRedownload?.(item))}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors text-left"
-              >
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" aria-hidden />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{item.fileName}</p>
-                  <p className="text-[10px] text-foreground/40">
-                    {formatTimeAgo(item.timestamp, t)}
-                    {item.size && ` · ${item.size}`}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </>
-        )}
-      </div>
-    </Dropdown>
-  )
-}
-
-// ─────────────────────────────────────────
-// COMPONENT
-// ─────────────────────────────────────────
+export type {
+  CalculatorNavProps,
+  DownloadHistoryItem,
+  RecentValuation,
+  RightPanelView,
+  ValuationVersion,
+} from './CalculatorNav.types'
 
 export function CalculatorNav({
   companyName,
@@ -679,7 +186,6 @@ export function CalculatorNav({
           'pt-[env(safe-area-inset-top)]'
         )}
       >
-        {/* Left: Back + New Valuation + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Tooltip
             content={
@@ -695,7 +201,6 @@ export function CalculatorNav({
             </button>
           </Tooltip>
 
-          {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
               <button
@@ -835,7 +340,6 @@ export function CalculatorNav({
             </div>
           </Dropdown>
 
-          {/* Method Pre-Selector — compact pill next to company name */}
           {onPreSelectMethod && (
             <div className="hidden sm:flex min-w-0 items-center">
               <div className="h-5 w-px bg-foreground/[0.08] ml-1.5 mr-4 shrink-0" aria-hidden />
@@ -870,9 +374,7 @@ export function CalculatorNav({
           )}
         </div>
 
-        {/* Center: Valuation Summary */}
         <div className="hidden md:flex min-w-0 items-center justify-center px-2 lg:px-4">
-          {/* Valuation Summary Pill */}
           <AnimatePresence mode="wait">
             {displaySummary && hasReport && (
               <motion.div
@@ -889,7 +391,6 @@ export function CalculatorNav({
                     'p-0.5 gap-0.5'
                   )}
                 >
-                  {/* Valuation display */}
                   <Dropdown
                     trigger={
                       <button

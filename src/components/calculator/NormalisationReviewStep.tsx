@@ -17,19 +17,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
-  Calculator,
-  Calendar,
   CalendarRange,
   Check,
   ChevronRight,
   Edit3,
-  FileSpreadsheet,
-  Hash,
-  Minus,
-  Percent,
   Plus,
   Search,
-  Trash2,
   Undo2,
   X,
 } from 'lucide-react'
@@ -46,189 +39,29 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
+import type { LedgerAccount } from '../../constants/grootboek'
+import {
+  categoryIcons,
+  categoryLabelKeys,
+  defaultLedgerAccounts,
+  type NormalizationPreset,
+  normalizationPresets,
+  sourceLabels,
+  typeOptions,
+} from './NormalisationReviewStep.constants'
+import { NormalisationReviewStepHeader } from './NormalisationReviewStepHeader'
+import type {
+  NormalisationReviewStepProps,
+  NormalizationType,
+  SuggestedNormalisation,
+} from './NormalisationReviewStep.types'
 
-// ─────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────
-
-export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
-export type NormalizationSource =
-  | 'manual'
-  | 'yuki'
-  | 'exact'
-  | 'silverfin'
-  | 'bizzcontrol'
-  | 'odoo'
-  | 'octopus'
-  | 'accountable'
-  | 'csv'
-  | 'ai'
-  | 'auto'
-
-export interface SuggestedNormalisation {
-  id: string
-  code: string
-  description: string
-  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
-  amount: number
-  reason: string
-  sourceRef?: string
-  status: 'pending' | 'accepted' | 'rejected'
-  source?: NormalizationSource
-  type?: NormalizationType
-  applyAllYears?: boolean
-  marketBenchmark?: string
-}
-
-export interface NormalisationReviewStepProps {
-  suggestions: SuggestedNormalisation[]
-  originalEbitda: number
-  companyName: string
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'manual'
-  onAccept: (id: string) => void
-  onReject: (id: string) => void
-  onAcceptAll: () => void
-  onRejectAll: () => void
-  onContinue: () => void
-  onBack: () => void
-  onUpdate?: (id: string, updates: Partial<SuggestedNormalisation>) => void
-  onAdd?: (normalisation: Omit<SuggestedNormalisation, 'id' | 'status'>) => void
-  onRemove?: (id: string) => void
-}
-
-// ─────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────
-
-const categoryLabelKeys: Record<SuggestedNormalisation['category'], string> = {
-  salary: 'categories.salary',
-  rent: 'categories.rent',
-  vehicle: 'categories.vehicle',
-  'one-time': 'categories.oneTime',
-  personal: 'categories.personal',
-  depreciation: 'categories.depreciation',
-  other: 'categories.other',
-}
-
-const categoryIcons: Record<SuggestedNormalisation['category'], string> = {
-  salary: '👤',
-  rent: '🏢',
-  vehicle: '🚗',
-  'one-time': '⚡',
-  personal: '🏠',
-  depreciation: '📉',
-  other: '📋',
-}
-
-const sourceLabels: Record<NormalizationSource, { labelKey: string; color: string }> = {
-  manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
-  yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
-  exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
-  silverfin: { labelKey: 'sources.silverfin', color: 'bg-indigo-500/10 text-indigo-600' },
-  bizzcontrol: { labelKey: 'sources.bizzcontrol', color: 'bg-cyan-500/10 text-cyan-600' },
-  odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
-  octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
-  accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
-  csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
-  ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
-  auto: { labelKey: 'sources.auto', color: 'bg-success/10 text-success' },
-}
-
-const typeOptions: {
-  value: NormalizationType
-  label: string
-  icon: typeof Plus
-  tooltipKey: string
-}[] = [
-  { value: 'add', label: '+€', icon: Plus, tooltipKey: 'typeAddAmount' },
-  { value: 'subtract', label: '-€', icon: Minus, tooltipKey: 'typeSubtractAmount' },
-  { value: 'add_percent', label: '+%', icon: Percent, tooltipKey: 'typeAddPercent' },
-  { value: 'subtract_percent', label: '-%', icon: Percent, tooltipKey: 'typeSubtractPercent' },
-  { value: 'absolute', label: 'ABS', icon: Hash, tooltipKey: 'typeSetTarget' },
-]
-
-const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS
-
-// Quick presets with market-conform defaults (use labelKey/descriptionKey/reasonKey for i18n)
-interface NormalizationPreset {
-  id: string
-  labelKey: string
-  icon: string
-  code: string
-  descriptionKey: string
-  category: SuggestedNormalisation['category']
-  defaultAmount: number
-  reasonKey: string
-  marketBenchmark?: string
-}
-
-const normalizationPresets: NormalizationPreset[] = [
-  {
-    id: 'owner-salary',
-    labelKey: 'presets.ownerSalary',
-    icon: '👤',
-    code: '620',
-    descriptionKey: 'presets.ownerSalaryDesc',
-    category: 'salary',
-    defaultAmount: 60000,
-    reasonKey: 'presets.ownerSalaryReason',
-    marketBenchmark: '€55K - €75K',
-  },
-  {
-    id: 'family-salary',
-    labelKey: 'presets.familySalary',
-    icon: '👨‍👩‍👧',
-    code: '620',
-    descriptionKey: 'presets.familySalaryDesc',
-    category: 'personal',
-    defaultAmount: 35000,
-    reasonKey: 'presets.familySalaryReason',
-    marketBenchmark: '€25K - €40K',
-  },
-  {
-    id: 'rent',
-    labelKey: 'presets.rent',
-    icon: '🏢',
-    code: '610',
-    descriptionKey: 'presets.rentDesc',
-    category: 'rent',
-    defaultAmount: 24000,
-    reasonKey: 'presets.rentReason',
-    marketBenchmark: '€150 - €250/m²',
-  },
-  {
-    id: 'vehicle',
-    labelKey: 'presets.vehicle',
-    icon: '🚗',
-    code: '614',
-    descriptionKey: 'presets.vehicleDesc',
-    category: 'vehicle',
-    defaultAmount: 18000,
-    reasonKey: 'presets.vehicleReason',
-    marketBenchmark: '€12K - €24K/jaar',
-  },
-  {
-    id: 'legal',
-    labelKey: 'presets.legal',
-    icon: '⚖️',
-    code: '647',
-    descriptionKey: 'presets.legalDesc',
-    category: 'one-time',
-    defaultAmount: 25000,
-    reasonKey: 'presets.legalReason',
-  },
-  {
-    id: 'advisory',
-    labelKey: 'presets.advisory',
-    icon: '📊',
-    code: '613',
-    descriptionKey: 'presets.advisoryDesc',
-    category: 'one-time',
-    defaultAmount: 15000,
-    reasonKey: 'presets.advisoryReason',
-  },
-]
+export type {
+  NormalisationReviewStepProps,
+  NormalizationSource,
+  NormalizationType,
+  SuggestedNormalisation,
+} from './NormalisationReviewStep.types'
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -480,107 +313,28 @@ export function NormalisationReviewStep({
 
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="shrink-0 px-4 md:px-6 py-4 md:py-5 border-b border-foreground/[0.06]">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Calculator className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-base md:text-lg font-semibold text-foreground truncate">
-              Normalisatie Review
-            </h2>
-            <p className="text-xs md:text-sm text-foreground/50 truncate">{companyName}</p>
-          </div>
-        </div>
-
-        {/* Source Badge */}
-        <div className="flex items-center gap-2 mt-3">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-foreground/[0.04] text-[10px] md:text-xs text-foreground/60 border border-foreground/[0.08]">
-            <FileSpreadsheet className="w-3 h-3" />
-            <span>{integrationLabels[sourceIntegration]}</span>
-          </div>
-          <span className="text-[10px] md:text-xs text-foreground/40">
-            {nh('adjustmentsCount', { count: suggestions.length })}
-          </span>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="shrink-0 px-4 md:px-6 py-3 md:py-4 border-b border-foreground/[0.06] bg-foreground/[0.01]">
-        <div className="grid grid-cols-3 gap-2 md:gap-4">
-          <div className="text-center">
-            <p className="text-[8px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5 md:mb-1">
-              {nh('original')}
-            </p>
-            <p className="text-sm md:text-lg font-mono font-semibold text-foreground/70 line-through">
-              {formatCurrency(originalEbitda)}
-            </p>
-          </div>
-
-          <div className="text-center">
-            <p className="text-[8px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5 md:mb-1">
-              {nh('adjustment')}
-            </p>
-            <p
-              className={cn(
-                'text-sm md:text-lg font-mono font-semibold',
-                totalAcceptedAdjustment > 0
-                  ? 'text-success'
-                  : totalAcceptedAdjustment < 0
-                    ? 'text-secondary'
-                    : 'text-foreground/40'
-              )}
-            >
-              {totalAcceptedAdjustment > 0 ? '+' : ''}
-              {formatCurrency(totalAcceptedAdjustment)}
-            </p>
-          </div>
-
-          <div className="text-center">
-            <p className="text-[8px] md:text-[10px] font-medium text-primary uppercase tracking-wider mb-0.5 md:mb-1">
-              {nh('normalized')}
-            </p>
-            <p className="text-sm md:text-lg font-mono font-bold text-foreground">
-              {formatCurrency(normalizedEbitda)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions Bar */}
-      <div className="shrink-0 px-4 md:px-6 py-2 md:py-3 border-b border-foreground/[0.06] flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 md:gap-4 text-[10px] md:text-xs text-foreground/50">
-          <span>{acceptedCount} ✓</span>
-          <span>{rejectedCount} ✗</span>
-          {pendingCount > 0 && (
-            <span className="text-primary font-medium">
-              {pendingCount} {nh('toReviewShort')}
-            </span>
-          )}
-        </div>
-
-        {pendingCount > 0 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRejectAll}
-              className="text-foreground/50 text-xs px-2 md:px-3"
-            >
-              {nh('rejectAll')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleAcceptAll}
-              className="text-xs px-2 md:px-3"
-            >
-              {nh('acceptAll')}
-            </Button>
-          </div>
-        )}
-      </div>
+      <NormalisationReviewStepHeader
+        companyName={companyName}
+        sourceLabel={integrationLabels[sourceIntegration]}
+        acceptedCount={acceptedCount}
+        rejectedCount={rejectedCount}
+        pendingCount={pendingCount}
+        originalEbitda={originalEbitda}
+        totalAcceptedAdjustment={totalAcceptedAdjustment}
+        normalizedEbitda={normalizedEbitda}
+        formatCurrency={formatCurrency}
+        onRejectAll={onRejectAll}
+        onAcceptAll={handleAcceptAll}
+        labels={{
+          original: nh('original'),
+          adjustment: nh('adjustment'),
+          normalized: nh('normalized'),
+          toReviewShort: nh('toReviewShort'),
+          rejectAll: nh('rejectAll'),
+          acceptAll: nh('acceptAll'),
+          adjustmentsCount: nh('adjustmentsCount', { count: suggestions.length }),
+        }}
+      />
 
       {/* Suggestions List */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-3 md:py-4">

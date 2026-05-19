@@ -12,6 +12,10 @@ function trimString(v: unknown): string | undefined {
   return t.length > 0 ? t : undefined
 }
 
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+}
+
 /**
  * Merge top-level `sessionData` + `session_data` on a session-ish root (GET session payload,
  * Zustand session, etc.). Camel `sessionData` wins key conflicts (matches SessionAPI).
@@ -19,13 +23,12 @@ function trimString(v: unknown): string | undefined {
  * Plain `{}` is treated as “absent” so it cannot hide a populated sibling envelope (same bug
  * class as ensure-html / mergeSessionFields missing valuation HTML).
  */
-export function mergeSessionDataEnvelopesFromRoot(
-  root: Record<string, any> | null | undefined
-): Record<string, unknown> {
-  if (!root || typeof root !== 'object') return {}
+export function mergeSessionDataEnvelopesFromRoot(root: unknown): Record<string, unknown> {
+  const rootRecord = asRecord(root)
+  if (!rootRecord) return {}
 
-  const sd = root.sessionData
-  const snake = root.session_data
+  const sd = rootRecord.sessionData
+  const snake = rootRecord.session_data
 
   const rawSdObj =
     sd && typeof sd === 'object' && !Array.isArray(sd) ? (sd as Record<string, unknown>) : null
@@ -46,16 +49,18 @@ export function mergeSessionDataEnvelopesFromRoot(
 /**
  * Best-effort stable session key from merged session (top-level or nested sessionData).
  */
-export function extractStableSessionKeyFromMergedSession(
-  s: Record<string, any> | null | undefined
-): string | undefined {
-  if (!s || typeof s !== 'object') return undefined
+export function extractStableSessionKeyFromMergedSession(s: unknown): string | undefined {
+  const sessionRecord = asRecord(s)
+  if (!sessionRecord) return undefined
 
-  const candidates: (string | undefined)[] = [trimString(s.session_key), trimString(s.sessionKey)]
+  const candidates: (string | undefined)[] = [
+    trimString(sessionRecord.session_key),
+    trimString(sessionRecord.sessionKey),
+  ]
 
   // Both shapes can appear on merged sessions; prefer scanning both — an empty `sessionData`
   // object must not hide `session_data.session_key` from Titan payloads.
-  for (const nested of [s.sessionData, s.session_data]) {
+  for (const nested of [sessionRecord.sessionData, sessionRecord.session_data]) {
     if (nested && typeof nested === 'object') {
       const n = nested as Record<string, unknown>
       candidates.push(trimString(n.session_key))
@@ -77,7 +82,7 @@ export function extractStableSessionKeyFromMergedSession(
  * Scans nested `sessionData` / `session_data` so this runs safely before SessionAPI merges
  * envelopes (same ordering bug as empty `sessionData` hiding snake_case blobs).
  */
-export function applyStableReportIdFromSessionKeys(payload: Record<string, any>): void {
+export function applyStableReportIdFromSessionKeys(payload: Record<string, unknown>): void {
   const sessionKeyCandidate = extractStableSessionKeyFromMergedSession(payload)
 
   const explicitReportId = trimString(payload.reportId) ?? ''
