@@ -1,60 +1,48 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { PRIVATE_BFF_JSON_HEADERS } from '@/utils/bffResponseHeaders'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
+const REPORT_DELETE_TIMEOUT_MS = 10_000
+
 export async function DELETE(request: NextRequest, { params }: { params: { reportId: string } }) {
   try {
-    const titanApiUrl =
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      'https://api.upswitch.app'
+    const titanApiUrl = getTitanApiUrl(request)
     const { reportId } = params
 
     if (!reportId) {
       return NextResponse.json(
         { success: false, message: 'Report ID is required' },
-        { status: 400 }
+        { status: 400, headers: PRIVATE_BFF_JSON_HEADERS }
       )
     }
 
-    // CRITICAL: Prioritize request headers for cookies (works in iframe context)
-    // HTTP-only cookies set for .upswitch.app domain are sent in request headers
-    const requestCookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
-    // Also try cookies() helper as fallback
-    const cookieStore = await cookies()
-    const cookiePairs: string[] = []
-    cookieStore.getAll().forEach((cookie) => {
-      cookiePairs.push(`${cookie.name}=${cookie.value}`)
-    })
-    const cookieStoreHeader = cookiePairs.join('; ')
-
-    // Use request headers first (contains all cookies sent by browser), fallback to cookie store
-    const cookieHeader = requestCookieHeader || cookieStoreHeader
-
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Cookie: cookieHeader,
     }
+    if (cookieHeader) headers.Cookie = cookieHeader
 
     const guestSessionId = request.headers.get('x-guest-session-id')
     if (guestSessionId) {
-      ;(headers as Record<string, string>)['x-guest-session-id'] = guestSessionId
+      headers['x-guest-session-id'] = guestSessionId
     }
 
     const response = await fetchWithTimeout(
-      `${titanApiUrl}/api/v2/valuations/reports/${reportId}`,
+      `${titanApiUrl}/api/v2/valuations/reports/${encodeURIComponent(reportId)}`,
       {
         method: 'DELETE',
         headers,
         credentials: 'include',
       },
-      10_000
+      REPORT_DELETE_TIMEOUT_MS
     )
 
     if (!response.ok) {
@@ -64,18 +52,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { repor
           success: false,
           message: errorData.message || 'Failed to delete report',
         },
-        { status: response.status }
+        { status: response.status, headers: PRIVATE_BFF_JSON_HEADERS }
       )
     }
 
     const data = await response.json().catch(() => ({ success: true }))
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: PRIVATE_BFF_JSON_HEADERS })
   } catch (error) {
     console.error('[Venus /api/reports/[reportId]] Error:', error)
     const isTimeout = error instanceof Error && error.message.includes('timeout')
     return NextResponse.json(
       { error: isTimeout ? 'Request timed out' : 'Internal server error' },
-      { status: isTimeout ? 504 : 500 }
+      { status: isTimeout ? 504 : 500, headers: PRIVATE_BFF_JSON_HEADERS }
     )
   }
 }

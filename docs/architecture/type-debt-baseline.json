@@ -1,11 +1,10 @@
 {
   "owner": "Architecture",
-  "updated": "2026-05-19",
+  "updated": "2026-05-20",
   "rule": "Freeze current explicit any and TypeScript/lint suppression debt. New debt fails guard:type-debt; removed debt must also be removed from this baseline.",
   "explicitAny": {
-    "total": 773,
+    "total": 770,
     "files": {
-      "app/api/reports/route.ts": 3,
       "src/components/AuditDetailsView.tsx": 4,
       "src/components/BusinessTypeConfirmationCard.tsx": 2,
       "src/components/BusinessTypeSuggestionsList.tsx": 2,

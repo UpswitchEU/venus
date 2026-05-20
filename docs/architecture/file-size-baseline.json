@@ -1,6 +1,6 @@
 {
   "owner": "Architecture",
-  "updated": "2026-05-19",
+  "updated": "2026-05-20",
   "maxLines": 1000,
   "rule": "Freeze current oversized production files. New files over maxLines or growth in existing oversized files fails guard:file-size; shrinkage must also be removed from this baseline.",
   "files": {
@@ -10,8 +10,7 @@
     "src/design-system/components/EntitySearch.tsx": 1679,
     "src/features/manual/components/ManualLayout.tsx": 2402,
     "src/lib/auth.ts": 1571,
-    "src/store/manual/useStartupValuationStore.ts": 1330,
     "src/types/valuation.ts": 1902
   },
-  "totalFiles": 8
+  "totalFiles": 7
 }
