@@ -23,6 +23,19 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mocks = vi.hoisted(() => ({
+  getBffCookieHeaderForTitan: vi.fn(),
+  getTitanApiUrl: vi.fn(() => 'https://api.upswitch.app'),
+}))
+
+vi.mock('@/utils/bffAuthProxy', () => ({
+  getBffCookieHeaderForTitan: mocks.getBffCookieHeaderForTitan,
+}))
+
+vi.mock('@/utils/getTitanApiUrl', () => ({
+  getTitanApiUrl: mocks.getTitanApiUrl,
+}))
+
 import { POST } from './route'
 
 function request(body: unknown, headers: Record<string, string> = {}): NextRequest {
@@ -45,6 +58,15 @@ function titanJsonResponse(status: number, body: unknown): Response {
 }
 
 beforeEach(() => {
+  mocks.getBffCookieHeaderForTitan.mockReset()
+  mocks.getBffCookieHeaderForTitan.mockImplementation(
+    async (requestLike: Pick<Request, 'headers'>) => ({
+      cookieHeader: requestLike.headers.get('cookie') || '',
+      cookieSource: requestLike.headers.get('cookie') ? 'header' : 'cookieStore',
+    })
+  )
+  mocks.getTitanApiUrl.mockReset()
+  mocks.getTitanApiUrl.mockReturnValue('https://api.upswitch.app')
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(titanJsonResponse(200, { assessmentId: 'a1', score: 50 }))
@@ -143,6 +165,40 @@ describe('header forwarding', () => {
     expect(headers.Cookie).toBe('upswitch_access_token=jwt-token-here')
     expect(headers['Content-Type']).toBe('application/json')
     expect(headers.Accept).toBe('application/json')
+  })
+
+  it('uses merged cookie-store cookies when the raw request header is incomplete', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValueOnce({
+      cookieHeader: 'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh',
+      cookieSource: 'cookieStore',
+    })
+
+    await POST(
+      new NextRequest('https://valuation.upswitch.app/api/sellability/score', {
+        method: 'POST',
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = (init as RequestInit).headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer store-token')
+    expect(headers.Cookie).toBe(
+      'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh'
+    )
+  })
+
+  it('uses the shared local Titan URL resolver', async () => {
+    mocks.getTitanApiUrl.mockReturnValueOnce('http://localhost:3002')
+
+    await POST(request({}))
+
+    const [url] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3002/api/v2/sellability/score')
   })
 
   it('forwards canonical client-context headers (advisor-managed-client routing)', async () => {
