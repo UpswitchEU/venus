@@ -18,13 +18,10 @@ import { normalizePreMoneyTarget } from '@/features/startup-studio/utils/resolve
 import { inferStartupSectorFromNace } from './inferStartupSectorFromNace'
 import { inferStartupStageFromFoundingYear } from './inferStartupStageFromFoundingYear'
 import type {
-  FounderPedigreeEvidence,
   FounderPedigreeKey,
   MaturityLevel,
   StartupCapTableState,
   StartupSafeNote,
-  StartupSector,
-  StartupStage,
   StartupValuationState,
   StudioMilestoneKey,
 } from './startupValuationDomain'
@@ -32,11 +29,12 @@ import {
   INITIAL_PEDIGREE,
   MATURITY_TO_SCORE,
   PEDIGREE_EVIDENCE_MAX_LEN,
-  pedigreeEvidenceForPayload,
   STARTUP_STAGE_DEFAULT_RAISE,
   sanitizePedigreeEvidenceMap,
   scoreToMaturity,
 } from './startupValuationDomain'
+import { buildStartupValuationPayload } from './startupValuationPayload'
+import { applyStartupValuationSnapshot } from './startupValuationSnapshot'
 
 export type {
   FounderPedigreeEvidence,
@@ -262,16 +260,6 @@ function generateSafeNoteId(): string {
   return `safe_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
 }
 
-function omitNull<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {}
-  for (const [k, v] of Object.entries(obj) as [keyof T, T[keyof T]][]) {
-    if (v !== null && v !== undefined && v !== '') {
-      out[k] = v
-    }
-  }
-  return out
-}
-
 export const useStartupValuationStore = create<StartupValuationStore>()(
   persist(
     (set, get) => ({
@@ -459,306 +447,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
 
       applyFromSnapshot: (snapshot) => {
         if (!snapshot || typeof snapshot !== 'object') return
-        const s = snapshot as Record<string, unknown>
-        set((state) => {
-          const next = { ...state }
-          // Identity / framing fields ----------------------------------
-          if (
-            typeof s.stage === 'string' &&
-            (['pre_seed', 'seed', 'series_a'] as const).includes(s.stage as StartupStage)
-          ) {
-            next.stage = s.stage as StartupStage
-          }
-          if (typeof s.country_code === 'string' && s.country_code.trim()) {
-            next.country_code = s.country_code.trim().toUpperCase()
-          }
-          if (typeof s.sector === 'string') {
-            const valid: StartupSector[] = [
-              'saas',
-              'marketplace',
-              'fintech',
-              'biotech_healthtech',
-              'deeptech_ai',
-              'vertical_ai',
-              'consumer',
-              'hardware',
-              'other',
-            ]
-            if (valid.includes(s.sector as StartupSector)) {
-              next.sector = s.sector as StartupSector
-              // Treat a server-restored sector as user-set so the NACE
-              // smart-default never silently overrides it on rehydrate.
-              next._sectorWasUserSet = true
-            }
-          }
-          // Berkus + Scorecard 0–100 fields ----------------------------
-          for (const key of [
-            'sound_idea',
-            'prototype_status',
-            'management_strength',
-            'strategic_relationships',
-            'product_rollout',
-            'opportunity_size',
-            'competitive_environment',
-            'sales_marketing_channels',
-            'need_for_additional_funding',
-            'other_factors',
-          ] as const) {
-            const v = s[key]
-            if (typeof v === 'number' && Number.isFinite(v)) {
-              next[key] = v
-            }
-          }
-          // Forward-looking SaaS metrics + VC inputs (nullable) --------
-          for (const key of [
-            'mrr',
-            'arr',
-            'mrr_growth_rate_pct',
-            'monthly_churn_pct',
-            'cac',
-            'ltv',
-            'burn_rate_monthly',
-            'runway_months',
-            'team_size',
-            'active_users',
-            'year5_revenue_projection',
-            'exit_revenue_multiple',
-            'target_roi_x',
-            'dilution_assumption_pct',
-            'investment_amount_sought',
-          ] as const) {
-            const v = s[key]
-            if (typeof v === 'number' && Number.isFinite(v)) {
-              next[key] = v
-            } else if (v === null) {
-              next[key] = null
-            }
-          }
-          // Cap table + SAFE notes ------------------------------------
-          if (s.cap_table && typeof s.cap_table === 'object') {
-            const ct = s.cap_table as Record<string, unknown>
-            next.cap_table = {
-              ...next.cap_table,
-              ...(typeof ct.pre_money_target === 'number' || ct.pre_money_target === null
-                ? {
-                    pre_money_target: normalizePreMoneyTarget(ct.pre_money_target as number | null),
-                  }
-                : {}),
-              ...(typeof ct.option_pool_pct === 'number'
-                ? { option_pool_pct: ct.option_pool_pct }
-                : {}),
-              ...(typeof ct.last_round_amount === 'number' || ct.last_round_amount === null
-                ? { last_round_amount: ct.last_round_amount as number | null }
-                : {}),
-              ...(typeof ct.last_round_post_money === 'number' || ct.last_round_post_money === null
-                ? { last_round_post_money: ct.last_round_post_money as number | null }
-                : {}),
-              ...(typeof ct.last_round_date === 'string'
-                ? { last_round_date: ct.last_round_date }
-                : {}),
-              ...(Array.isArray(ct.safe_notes)
-                ? {
-                    safe_notes: (ct.safe_notes as Array<Record<string, unknown>>).map(
-                      (note, idx) => ({
-                        id:
-                          typeof note.id === 'string' && note.id
-                            ? note.id
-                            : `safe-${Date.now()}-${idx}`,
-                        amount:
-                          typeof note.amount === 'number' && Number.isFinite(note.amount)
-                            ? note.amount
-                            : null,
-                        valuation_cap:
-                          typeof note.valuation_cap === 'number' &&
-                          Number.isFinite(note.valuation_cap)
-                            ? note.valuation_cap
-                            : null,
-                        discount_pct:
-                          typeof note.discount_pct === 'number' &&
-                          Number.isFinite(note.discount_pct)
-                            ? note.discount_pct
-                            : null,
-                        holder_label:
-                          typeof note.holder_label === 'string' ? note.holder_label : '',
-                      })
-                    ),
-                  }
-                : {}),
-            }
-          }
-          // Founder pedigree flags -------------------------------------
-          if (s.founder_pedigree && typeof s.founder_pedigree === 'object') {
-            const fp = s.founder_pedigree as Record<string, unknown>
-            const merged: Record<string, boolean> = { ...next.founder_pedigree }
-            for (const k of Object.keys(merged)) {
-              if (typeof fp[k] === 'boolean') merged[k] = fp[k] as boolean
-            }
-            next.founder_pedigree = merged as typeof next.founder_pedigree
-
-            // Pedigree evidence dict — accepted in two shapes:
-            //   1. Top-level ``pedigree_evidence`` (current frontend store)
-            //   2. Nested under ``founder_pedigree.pedigree_evidence``
-            //      (the engine's payload contract — what the request
-            //      sends to the backend).  Restore from either so a
-            //      session round-tripped through the API doesn't lose
-            //      the evidence strings.
-            const pickEvidence = (raw: unknown): FounderPedigreeEvidence => {
-              if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-              return sanitizePedigreeEvidenceMap(raw as Record<string, unknown>)
-            }
-            const fromTop = pickEvidence(s.pedigree_evidence)
-            const fromNested = pickEvidence(fp.pedigree_evidence)
-            const restored = { ...fromNested, ...fromTop }
-            if (Object.keys(restored).length > 0) {
-              next.pedigree_evidence = restored
-            }
-          }
-          // Studio v2 — maturity buckets + evidence + description ------
-          if (s.maturity && typeof s.maturity === 'object') {
-            const m = s.maturity as Record<string, unknown>
-            const merged: Record<string, MaturityLevel> = { ...next.maturity }
-            for (const k of Object.keys(merged)) {
-              const v = m[k]
-              if (
-                typeof v === 'string' &&
-                (['none', 'basic', 'strong', 'exceptional'] as const).includes(v as MaturityLevel)
-              ) {
-                merged[k] = v as MaturityLevel
-              }
-            }
-            next.maturity = merged as typeof next.maturity
-          }
-          // Studio v2 metadata — `studio_v2` carries description /
-          // evidence_notes / tam_sam_som that the engine doesn't read
-          // today but the report rendering does.  Read both flat keys
-          // and the nested `studio_v2` wrapper for forward-compat.
-          const v2 =
-            s.studio_v2 && typeof s.studio_v2 === 'object'
-              ? (s.studio_v2 as Record<string, unknown>)
-              : ({} as Record<string, unknown>)
-          const description = (s.description ?? v2.description) as unknown
-          if (typeof description === 'string') next.description = description
-          const evidenceNotes = (s.evidence_notes ?? v2.evidence_notes) as unknown
-          if (evidenceNotes && typeof evidenceNotes === 'object') {
-            const merged: Record<string, string> = { ...next.evidence_notes }
-            for (const [k, v] of Object.entries(evidenceNotes as Record<string, unknown>)) {
-              if (k in merged && typeof v === 'string') merged[k] = v
-            }
-            next.evidence_notes = merged as typeof next.evidence_notes
-          }
-          // TAM/SAM/SOM was removed 2026-05-08; any persisted snapshot
-          // that still carries it under top-level or `studio_v2` keys
-          // is silently dropped here so legacy localStorage / API
-          // round-trips don't crash the restore.
-          if (typeof s.inception_lens === 'string') {
-            next.inception_lens = s.inception_lens as typeof next.inception_lens
-          }
-          return next
-        })
+        set((state) => applyStartupValuationSnapshot(state, snapshot as Record<string, unknown>))
       },
 
-      toRequestPayload: () => {
-        const state = get()
-        const capTable = omitNull({
-          pre_money_target: normalizePreMoneyTarget(state.cap_table.pre_money_target),
-          option_pool_pct: state.cap_table.option_pool_pct,
-          last_round_amount: state.cap_table.last_round_amount,
-          last_round_post_money: state.cap_table.last_round_post_money,
-          last_round_date: state.cap_table.last_round_date,
-        })
-        const safe_notes = state.cap_table.safe_notes
-          .filter((n) => typeof n.amount === 'number' && n.amount > 0)
-          .map((n) =>
-            omitNull({
-              amount: n.amount,
-              valuation_cap: n.valuation_cap,
-              discount_pct: n.discount_pct,
-              holder_label: n.holder_label,
-            })
-          )
-
-        // Studio v2 metadata — wizard-only signals that the engine
-        // ignores today (the v2 Claude scorer will read them).
-        const hasEvidence = Object.values(state.evidence_notes).some((v) => v.trim().length > 0)
-        const studioMetadata: Record<string, unknown> = {}
-        if (state.description.trim()) studioMetadata.description = state.description.trim()
-        if (hasEvidence) {
-          studioMetadata.evidence_notes = Object.fromEntries(
-            Object.entries(state.evidence_notes).filter(([, v]) => v.trim().length > 0)
-          )
-        }
-
-        return {
-          stage: state.stage,
-          country_code: state.country_code || 'BE',
-          sector: state.sector,
-          sound_idea: state.sound_idea,
-          prototype_status: state.prototype_status,
-          management_strength: state.management_strength,
-          strategic_relationships: state.strategic_relationships,
-          product_rollout: state.product_rollout,
-          opportunity_size: state.opportunity_size,
-          competitive_environment: state.competitive_environment,
-          sales_marketing_channels: state.sales_marketing_channels,
-          need_for_additional_funding: state.need_for_additional_funding,
-          other_factors: state.other_factors,
-          ...omitNull({
-            mrr: state.mrr,
-            // ARR auto-derive: the ValuationIQ SaaS-Forward leg gates on
-            // ``inputs.arr > 0`` ([saas_forward.py:191]). The wizard's
-            // Traction step accepts MRR alone as a "yes, has revenue"
-            // signal, so a founder who fills in MRR=€5k and skips ARR
-            // would have the SaaS-Forward leg silently dropped engine-side
-            // (audit issue #9). Backfill ARR = MRR × 12 here so the
-            // engine sees what the wizard's preview already showed.
-            arr:
-              state.arr != null
-                ? state.arr
-                : typeof state.mrr === 'number' && state.mrr > 0
-                  ? state.mrr * 12
-                  : null,
-            mrr_growth_rate_pct: state.mrr_growth_rate_pct,
-            monthly_churn_pct: state.monthly_churn_pct,
-            cac: state.cac,
-            ltv: state.ltv,
-            burn_rate_monthly: state.burn_rate_monthly,
-            runway_months: state.runway_months,
-            team_size: state.team_size,
-            active_users: state.active_users,
-            year5_revenue_projection: state.year5_revenue_projection,
-            exit_revenue_multiple: state.exit_revenue_multiple,
-            exit_revenue_multiple_rationale: state.exit_revenue_multiple_rationale,
-            target_roi_x: state.target_roi_x,
-            dilution_assumption_pct: state.dilution_assumption_pct,
-            investment_amount_sought: state.investment_amount_sought,
-          }),
-          cap_table: { ...capTable, safe_notes },
-          // Inception lens — only thread the field through when the
-          // founder has explicitly opted into a non-default lens.
-          // Engine treats absence as `milestones_driven` (no-op), so an
-          // explicit default would be a wasteful round-trip.
-          ...(state.inception_lens && state.inception_lens !== 'milestones_driven'
-            ? { inception_lens: state.inception_lens }
-            : {}),
-          // Include the pedigree object only when at least one flag is set.
-          // The engine treats the absence of the field as "no overlay"
-          // (default multiplier 1.0), so an all-false payload would be a
-          // wasteful round-trip with the same outcome.  When the pedigree
-          // object IS sent, also send the evidence dict (even if empty)
-          // so the engine's evidence gate has something to evaluate
-          // against — this is the contract that prevents silent multiplier
-          // collapse when the founder ticks a claim without evidence.
-          ...(Object.values(state.founder_pedigree).some(Boolean)
-            ? {
-                founder_pedigree: {
-                  ...state.founder_pedigree,
-                  pedigree_evidence: pedigreeEvidenceForPayload(state.pedigree_evidence),
-                },
-              }
-            : {}),
-          ...(Object.keys(studioMetadata).length > 0 ? { studio_v2: studioMetadata } : {}),
-        }
-      },
+      toRequestPayload: () => buildStartupValuationPayload(get()),
     }),
     {
       name: 'venus.startup_valuation.v1',
@@ -908,8 +600,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           updateSafeNote,
           removeSafeNote,
           seedSectorFromNaceIfDefault,
+          seedStageFromFoundingYearIfDefault,
           reset,
           toRequestPayload,
+          applyFromSnapshot,
           ...rest
         } = state
         void setField
@@ -923,8 +617,10 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         void updateSafeNote
         void removeSafeNote
         void seedSectorFromNaceIfDefault
+        void seedStageFromFoundingYearIfDefault
         void reset
         void toRequestPayload
+        void applyFromSnapshot
         return rest
       },
     }
