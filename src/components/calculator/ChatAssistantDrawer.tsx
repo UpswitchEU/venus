@@ -15,8 +15,10 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
+import { useAiConsent } from '@/hooks/useAiConsent'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
+import { AiConsentModal } from './AiConsentModal'
 import { EmptyState, MessageBubble } from './ChatAssistantMessageBubble'
 import {
   type ParsedCommand,
@@ -38,19 +40,28 @@ export type {
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
   ChatMessage,
+  ClientCreateRequest,
   ClientDataReadinessPreview,
+  CsvUploadRequest,
   FieldContext,
   FieldUpdate,
+  ImportReviewRequest,
+  IntegrationConnectRequest,
   ListingCreateRequest,
   ListingPreview,
   MethodReadinessPreview,
+  MultiSelectRequest,
   NormalisationSuggestion,
+  OwnerProfileAnswerRequest,
   QualityWarning,
   ReportGenerationRequest,
+  SecureCredentialRequest,
   SellabilityRunRequest,
+  SingleSelectRequest,
   StartupAssistantIssue,
   SuggestionContext,
   ValuationRunRequest,
+  ValuationSessionRequest,
 } from './ChatAssistantTypes'
 
 interface ChatAssistantDrawerProps {
@@ -125,6 +136,42 @@ interface ChatAssistantDrawerProps {
   onNewConversation?: () => void
 }
 
+function hasAssistantRenderableContent(message: ChatMessage): boolean {
+  if (message.role !== 'assistant') return true
+  if (message.content.trim().length > 0) return true
+  if (message.isError) return true
+
+  const cardCollections: Array<keyof ChatMessage> = [
+    'fieldUpdates',
+    'normalisationSuggestions',
+    'valuationRunRequests',
+    'reportGenerationRequests',
+    'sellabilityRunRequests',
+    'ownerProfileAnswerRequests',
+    'integrationConnectRequests',
+    'secureCredentialRequests',
+    'csvUploadRequests',
+    'multiSelectRequests',
+    'singleSelectRequests',
+    'clientCreateRequests',
+    'belgianCompanyBootstraps',
+    'valuationSessionRequests',
+    'clientDataReadinessPreviews',
+    'importReviewRequests',
+    'methodReadinessPreviews',
+    'listingPreviews',
+    'listingCreateRequests',
+    'buyerProfilePreviews',
+    'registrySearchResults',
+    'tasks',
+  ]
+
+  return cardCollections.some((key) => {
+    const value = message[key]
+    return Array.isArray(value) && value.length > 0
+  })
+}
+
 export function ChatAssistantDrawer({
   open,
   onOpenChange,
@@ -171,6 +218,16 @@ export function ChatAssistantDrawer({
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const [input, setInput] = useState('')
+  const [consentModalOpen, setConsentModalOpen] = useState(false)
+  const [consentRetryMessageId, setConsentRetryMessageId] = useState<string | null>(null)
+  const [isGrantingConsent, setIsGrantingConsent] = useState(false)
+  const {
+    status: aiConsentStatus,
+    error: aiConsentError,
+    grant: grantAiConsent,
+  } = useAiConsent({
+    enabled: consentModalOpen,
+  })
 
   // Handler for command pill clicks - auto-fills and sends
   const handleCommandPillClick = useCallback(
@@ -211,18 +268,46 @@ export function ChatAssistantDrawer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Scroll to bottom on new messages and during streaming content updates
-  const _lastMsgContent = messages[messages.length - 1]?.content
+  const messageRenderKey = messages
+    .map(
+      (message) =>
+        `${message.id}:${message.content.length}:${message.fieldUpdates?.length ?? 0}:${
+          message.normalisationSuggestions?.length ?? 0
+        }:${message.valuationRunRequests?.length ?? 0}:${
+          message.reportGenerationRequests?.length ?? 0
+        }:${message.sellabilityRunRequests?.length ?? 0}:${
+          message.ownerProfileAnswerRequests?.length ?? 0
+        }:${message.integrationConnectRequests?.length ?? 0}:${
+          message.secureCredentialRequests?.length ?? 0
+        }:${message.csvUploadRequests?.length ?? 0}:${message.multiSelectRequests?.length ?? 0}:${
+          message.singleSelectRequests?.length ?? 0
+        }:${message.clientCreateRequests?.length ?? 0}:${
+          message.belgianCompanyBootstraps?.length ?? 0
+        }:${message.valuationSessionRequests?.length ?? 0}:${
+          message.clientDataReadinessPreviews?.length ?? 0
+        }:${message.importReviewRequests?.length ?? 0}:${
+          message.methodReadinessPreviews?.length ?? 0
+        }:${message.listingPreviews?.length ?? 0}:${
+          message.listingCreateRequests?.length ?? 0
+        }:${message.buyerProfilePreviews?.length ?? 0}:${
+          message.registrySearchResults?.length ?? 0
+        }:${message.tasks?.length ?? 0}`
+    )
+    .join('|')
   useEffect(() => {
+    void messageRenderKey
+    if (!open) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+  }, [messageRenderKey, open])
 
   // Auto-resize textarea
   useEffect(() => {
+    void input
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, [])
+  }, [input])
 
   // Smart parsing - detect values and commands as user types
   useEffect(() => {
@@ -286,6 +371,25 @@ export function ChatAssistantDrawer({
     [input, attachments, detectedValues, detectedCommands, onSendMessage]
   )
 
+  const handleOpenConsent = useCallback((messageId: string) => {
+    setConsentRetryMessageId(messageId)
+    setConsentModalOpen(true)
+  }, [])
+
+  const handleGrantConsent = useCallback(async () => {
+    setIsGrantingConsent(true)
+    const ok = await grantAiConsent({ locale })
+    setIsGrantingConsent(false)
+    if (!ok) return
+
+    const retryMessageId = consentRetryMessageId
+    setConsentModalOpen(false)
+    setConsentRetryMessageId(null)
+    if (retryMessageId) {
+      onRetry?.(retryMessageId)
+    }
+  }, [consentRetryMessageId, grantAiConsent, locale, onRetry])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) setAttachments((prev) => [...prev, ...Array.from(files)])
@@ -302,8 +406,8 @@ export function ChatAssistantDrawer({
     }
   }
 
-  // Filter out empty streaming placeholders (content will appear via streaming)
-  const visibleMessages = messages.filter((m) => m.role !== 'assistant' || m.content)
+  // Filter out truly empty streaming placeholders, but keep tool-card-only turns.
+  const visibleMessages = messages.filter(hasAssistantRenderableContent)
   const isEmpty = visibleMessages.length === 0
   // Only show the loading skeleton when there's no assistant message actively receiving content
   const lastVisible = visibleMessages[visibleMessages.length - 1]
@@ -616,6 +720,7 @@ export function ChatAssistantDrawer({
                         onApproveListingCreate={onApproveListingCreate}
                         onRejectListingCreate={onRejectListingCreate}
                         onCommandPillClick={handleCommandPillClick}
+                        onOpenConsent={handleOpenConsent}
                         onRetry={onRetry}
                         onSendFollowUp={(content) =>
                           onSendMessage(content, undefined, undefined, undefined)
@@ -858,6 +963,19 @@ export function ChatAssistantDrawer({
               </div>
             </div>
           </motion.div>
+
+          <AiConsentModal
+            open={consentModalOpen}
+            error={aiConsentError}
+            isSubmitting={isGrantingConsent}
+            policyVersion={
+              aiConsentStatus?.currentPolicyVersion ||
+              visibleMessages.find((message) => message.id === consentRetryMessageId)
+                ?.consentPolicyVersion
+            }
+            onClose={() => setConsentModalOpen(false)}
+            onAgree={handleGrantConsent}
+          />
         </>
       )}
     </AnimatePresence>

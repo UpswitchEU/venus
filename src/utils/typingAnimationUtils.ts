@@ -129,13 +129,13 @@ export const smoothScrollToElement = (element: HTMLElement | null) => {
 /**
  * Debounce function for performance optimization
  */
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
+export const debounce = <Args extends unknown[], ReturnValue>(
+  func: (...args: Args) => ReturnValue,
   wait: number
-): ((...args: Parameters<T>) => void) => {
+): ((...args: Args) => void) => {
   let timeout: NodeJS.Timeout
 
-  return (...args: Parameters<T>) => {
+  return (...args: Args) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
   }

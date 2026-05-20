@@ -1,6 +1,6 @@
 {
   "owner": "Architecture",
-  "updated": "2026-05-19",
+  "updated": "2026-05-20",
   "rule": "Freeze direct console.*, alert(), and debugger usage in production paths. New or increased direct debug surfaces fail guard:debug-surface; approved reductions must update this baseline.",
   "scanRoots": [
     "app",
@@ -14,7 +14,7 @@
     "src/utils/loggers.ts"
   ],
   "totals": {
-    "console": 90,
+    "console": 88,
     "alert": 2,
     "debugger": 0
   },
@@ -58,22 +58,6 @@
       "debugger": 0,
       "consoleMethods": {
         "error": 2
-      }
-    },
-    "app/api/ai/chat/route.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
-    "app/api/ai/history/route.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
       }
     },
     "app/api/ai/normalize/route.ts": {
@@ -451,5 +435,5 @@
       }
     }
   },
-  "totalFiles": 53
+  "totalFiles": 51
 }

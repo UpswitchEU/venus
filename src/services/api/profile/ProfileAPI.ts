@@ -12,11 +12,19 @@ import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export interface ProfileData {
-  owner_dependency_assessment?: Record<string, any>
+  owner_dependency_assessment?: Record<string, unknown>
   company_name?: string
   industry?: string
   country?: string
-  [key: string]: any
+  [key: string]: unknown
+}
+
+function getHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object' || Array.isArray(error)) return undefined
+  const response = (error as { response?: unknown }).response
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return undefined
+  const status = (response as { status?: unknown }).status
+  return typeof status === 'number' ? status : undefined
 }
 
 export class ProfileAPI extends HttpClient {
@@ -33,7 +41,7 @@ export class ProfileAPI extends HttpClient {
           method: 'GET',
           url: '/api/v2/users/profile/me',
           headers: {},
-        } as any,
+        },
         options
       )
       return response.data
@@ -59,7 +67,7 @@ export class ProfileAPI extends HttpClient {
           url: '/api/v2/users/profile/me',
           data,
           headers: {},
-        } as any,
+        },
         options
       )
       return response.data
@@ -74,8 +82,7 @@ export class ProfileAPI extends HttpClient {
   private handleProfileError(error: unknown, operation: string): never {
     apiLogger.error(`Profile ${operation} failed`, { error })
 
-    const axiosError = error as any
-    const status = axiosError?.response?.status
+    const status = getHttpStatus(error)
 
     if (status === 401 || status === 403) {
       throw new AuthenticationError('Authentication required for profile operations')
@@ -86,8 +93,7 @@ export class ProfileAPI extends HttpClient {
       throw new APIError('Profile not found', status, undefined, true)
     }
 
-    const statusCode = axiosError?.response?.status
-    throw new APIError(`Failed to ${operation}`, statusCode, undefined, true, {
+    throw new APIError(`Failed to ${operation}`, status, undefined, true, {
       originalError: error,
     })
   }

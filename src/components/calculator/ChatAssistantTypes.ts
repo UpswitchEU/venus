@@ -111,6 +111,91 @@ export interface SellabilityRunRequest {
   computedScore?: { score: number; band: string; confidence?: string } | null
 }
 
+export interface OwnerProfileAnswerRequest {
+  id: string
+  field?: string
+  value?: number | string | boolean | null
+  label?: string
+  reason?: string
+  complete?: boolean
+  accountantCustomerId?: string
+}
+
+export interface IntegrationConnectRequest {
+  id: string
+  status: 'pending_approval'
+  provider?: string
+  authMode?: 'oauth' | 'api_key'
+  reason?: string
+  targetContext?: string | null
+  message?: string
+}
+
+export interface SecureCredentialRequest {
+  id: string
+  status: 'pending_approval'
+  provider?: string
+  reason?: string
+  fields?: Array<{
+    key: string
+    label: string
+    masked: boolean
+    required: boolean
+    helper?: string
+  }>
+  submitPath?: string
+  message?: string
+}
+
+export interface CsvUploadRequest {
+  id: string
+  status: 'pending_approval'
+  mode?: 'single_client_trial_balance' | 'bulk_clients'
+  label?: string
+  reason?: string
+  expectedColumns?: string[]
+  submitPath?: string
+  maxSizeBytes?: number
+  accept?: string
+  message?: string
+}
+
+export interface MultiSelectRequest {
+  id: string
+  status: 'pending_approval'
+  title?: string
+  options?: Array<{ value: string; label: string; helper?: string }>
+  minSelections?: number
+  maxSelections?: number
+  preselected?: string[]
+  submitPath?: string
+  reason?: string
+}
+
+export interface SingleSelectRequest {
+  id: string
+  status: 'pending_approval'
+  title?: string
+  options?: Array<{ value: string; label: string; helper?: string }>
+  preselected?: string | null
+  submitPath?: string
+  reason?: string
+}
+
+export interface ClientCreateRequest {
+  id: string
+  status: 'pending_approval' | 'blocked' | 'auto_approved'
+  businessName?: string
+  customerEmail?: string | null
+  companyNumber?: string | null
+  industry?: string | null
+  location?: string | null
+  notes?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
 /**
  * Read-only Belgian public-data bootstrap from Titan's
  * bootstrap_belgian_company tool. This gives the advisor/owner a fast KBO +
@@ -269,6 +354,47 @@ export interface ListingCreateRequest {
   decision?: 'approved' | 'rejected'
 }
 
+export interface ValuationSessionRequest {
+  id: string
+  status: 'pending_approval' | 'blocked' | 'auto_approved'
+  clientId?: string
+  businessName?: string | null
+  customerEmail?: string | null
+  hasBusinessCard?: boolean
+  latestValuationId?: string | null
+  hasSyncedFinancials?: boolean
+  stpStatus?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+export interface ImportReviewRequest {
+  id: string
+  status: 'pending_approval' | 'blocked' | 'auto_approved'
+  clientId?: string
+  businessName?: string | null
+  hasSyncedFinancials?: boolean
+  stpStatus?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  actionableFlagCount?: number
+  topFlags?: Array<{
+    year?: string
+    field?: string | null
+    code?: string | null
+    severity?: string | null
+    message?: string | null
+  }>
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
 export interface BuyerProfilePreview {
   id: string
   status: 'ok' | 'blocked'
@@ -294,6 +420,9 @@ export interface ChatMessage {
   content: string
   timestamp: Date
   isError?: boolean
+  /** Titan rejected the turn until the user grants AI-processing consent. */
+  requiresConsent?: boolean
+  consentPolicyVersion?: string
   attachments?: { name: string; type: string; url: string }[]
   // YC-Standard: Structured cards with impact framing
   fieldUpdates?: FieldUpdate[]
@@ -305,10 +434,22 @@ export interface ChatMessage {
   reportGenerationRequests?: ReportGenerationRequest[]
   // AI-proposed Sellability computes (from run_sellability tool) — propose-only, user clicks Compute
   sellabilityRunRequests?: SellabilityRunRequest[]
+  // Agentic owner-onboarding and advisor workflow cards.
+  ownerProfileAnswerRequests?: OwnerProfileAnswerRequest[]
+  integrationConnectRequests?: IntegrationConnectRequest[]
+  secureCredentialRequests?: SecureCredentialRequest[]
+  csvUploadRequests?: CsvUploadRequest[]
+  multiSelectRequests?: MultiSelectRequest[]
+  singleSelectRequests?: SingleSelectRequest[]
+  clientCreateRequests?: ClientCreateRequest[]
   // AI-generated Belgian public-data bootstrap cards (KBO + NBB/CBSO + benchmark preview)
   belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  // AI-proposed advisor valuation-session handoffs.
+  valuationSessionRequests?: ValuationSessionRequest[]
   // AI-generated advisor-client readiness cards (Hermes import state)
   clientDataReadinessPreviews?: ClientDataReadinessPreview[]
+  // AI-proposed import-review handoffs.
+  importReviewRequests?: ImportReviewRequest[]
   // AI-generated valuation-method readiness cards (read-only; pre-ValuationIQ run)
   methodReadinessPreviews?: MethodReadinessPreview[]
   // AI-generated listing previews (read-only anonymized marketplace draft)

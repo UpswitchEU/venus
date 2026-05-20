@@ -28,20 +28,22 @@ Venus must not own backend authorization, valuation formulas, provider ingestion
 
 No client component may make an authentication decision from a public env var. Cookies used for access control must be server-issued with `HttpOnly`, `Secure`, and `SameSite` settings. Public env vars are feature/config flags only.
 
-## High-Risk Files
+## High-Risk Modules
 
+- `app/api/ai/chat/route.ts`
+- `app/api/ai/history/route.ts`
 - `src/components/calculator/ChatAssistantDrawer.tsx`
 - `src/components/calculator/UnifiedNormalizationModal.tsx`
 - `src/components/calculator/ValuationEditModal.tsx`
 - `src/features/manual/components/ManualLayout.tsx`
-- `src/lib/auth.ts`
+- `src/lib/auth/**`
 
 ## Refactor Backlog
 
-- Continue splitting startup valuation state into domain contracts, persistence, payload building, and UI selectors.
+- Continue extracting `ManualLayout.tsx` until the manual flow shell is mostly orchestration.
 - Split normalization modal state and rendering.
 - Reduce report/session service `any` debt by replacing dynamic response objects with typed API contracts.
-- Keep the file-size baseline moving down; do not re-add `useStartupValuationStore.ts` to oversized debt.
+- Keep file-size, type-debt, and debug-surface baselines moving down; do not re-add `useStartupValuationStore.ts` to oversized debt.
 
 ## Adding A Feature Safely
 

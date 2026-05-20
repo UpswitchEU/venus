@@ -27,10 +27,22 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mocks = vi.hoisted(() => ({
+  getBffCookieHeaderForTitan: vi.fn(),
+}))
+
+vi.mock('@/utils/bffAuthProxy', () => ({
+  getBffCookieHeaderForTitan: mocks.getBffCookieHeaderForTitan,
+}))
+
 import { POST } from './route'
 
-function request(body: unknown, headers: Record<string, string> = {}): NextRequest {
-  return new NextRequest('https://valuation.upswitch.app/api/ai/chat', {
+function request(
+  body: unknown,
+  headers: Record<string, string> = {},
+  url = 'https://valuation.upswitch.app/api/ai/chat'
+): NextRequest {
+  return new NextRequest(url, {
     method: 'POST',
     body: JSON.stringify(body),
     headers: {
@@ -62,6 +74,13 @@ function titanStreamResponse(): Response {
 }
 
 beforeEach(() => {
+  mocks.getBffCookieHeaderForTitan.mockReset()
+  mocks.getBffCookieHeaderForTitan.mockImplementation(
+    async (requestLike: Pick<Request, 'headers'>) => ({
+      cookieHeader: requestLike.headers.get('cookie') || '',
+      cookieSource: requestLike.headers.get('cookie') ? 'header' : 'cookieStore',
+    })
+  )
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(titanStreamResponse()))
 })
 
@@ -142,6 +161,13 @@ describe('stream routing', () => {
     expect(url).toBe('https://api.upswitch.app/api/v2/ai/chat')
     expect((init.headers as Record<string, string>).Accept).toBe('application/json')
   })
+
+  it('uses the local Titan URL for localhost Venus requests when no explicit env is set', async () => {
+    await POST(request({ message: 'hi' }, {}, 'http://localhost:3001/api/ai/chat'))
+
+    const [url] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3002/api/v2/ai/stream')
+  })
 })
 
 // ---------------------------------------------------------------------
@@ -172,6 +198,31 @@ describe('header forwarding', () => {
     ]
     const headers = init.headers as Record<string, string>
     expect(headers.Authorization).toBe('Bearer middle-token')
+  })
+
+  it('uses merged cookie-store cookies when the raw request header is incomplete', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValueOnce({
+      cookieHeader: 'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh',
+      cookieSource: 'cookieStore',
+    })
+
+    await POST(
+      new NextRequest('https://valuation.upswitch.app/api/ai/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message: 'hi' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = init.headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer store-token')
+    expect(headers.Cookie).toBe(
+      'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh'
+    )
   })
 
   it('forwards canonical client-context headers (advisor-managed-client routing)', async () => {
@@ -396,6 +447,17 @@ describe('Titan payload', () => {
     const body = JSON.parse(init.body as string)
     expect(body.context.countryCode).toBe('fallback-NL')
   })
+
+  it('forwards locale into Titan context for localized fallback and prompting', async () => {
+    await POST(request({ message: 'hallo', locale: 'nl-BE' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body.context.locale).toBe('nl-BE')
+  })
 })
 
 // ---------------------------------------------------------------------
@@ -410,6 +472,8 @@ describe('error pass-through', () => {
         titanJsonResponse(402, {
           message: 'AI chat credit limit reached.',
           requires_upgrade: true,
+          ai_credits_remaining: 0,
+          ai_credits_limit: 20,
         })
       )
     )
@@ -422,6 +486,36 @@ describe('error pass-through', () => {
       success: false,
       fallback: true,
       error: 'AI chat credit limit reached.',
+      requires_upgrade: true,
+      ai_credits_remaining: 0,
+      ai_credits_limit: 20,
+    })
+  })
+
+  it('preserves Titan 412 consent metadata so the client can open the consent modal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        titanJsonResponse(412, {
+          code: 'AI_CONSENT_REQUIRED',
+          message: 'AI processing consent is required.',
+          currentPolicyVersion: 'ai-chat-v2',
+          hasHistoricConsent: false,
+        })
+      )
+    )
+
+    const res = await POST(request({ message: 'hi', stream: false }))
+    const body = await res.json()
+
+    expect(res.status).toBe(412)
+    expect(body).toMatchObject({
+      success: false,
+      fallback: true,
+      error: 'AI processing consent is required.',
+      code: 'AI_CONSENT_REQUIRED',
+      currentPolicyVersion: 'ai-chat-v2',
+      hasHistoricConsent: false,
     })
   })
 

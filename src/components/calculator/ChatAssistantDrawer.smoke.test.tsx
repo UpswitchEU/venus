@@ -15,8 +15,12 @@
  *   - Close button fires `onOpenChange(false)`
  */
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const aiConsentMocks = vi.hoisted(() => ({
+  grant: vi.fn(),
+}))
 
 // Mock heavy presentation deps so the drawer can mount fast in jsdom.
 vi.mock('next-intl', () => ({
@@ -70,6 +74,17 @@ vi.mock('@/lib/analytics', () => ({
   trackAIAssistantOpen: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAiConsent', () => ({
+  useAiConsent: () => ({
+    status: { active: false, currentPolicyVersion: 'ai-chat-v2' },
+    isLoading: false,
+    error: null,
+    refreshStatus: vi.fn(),
+    grant: aiConsentMocks.grant,
+    revoke: vi.fn(),
+  }),
+}))
+
 // Markdown rendering is heavy + not part of the smoke surface.
 vi.mock('react-markdown', () => ({
   default: ({ children }: { children?: React.ReactNode }) => <div data-testid="md">{children}</div>,
@@ -106,6 +121,8 @@ let onOpenChange: ReturnType<typeof vi.fn>
 beforeEach(() => {
   onSendMessage = vi.fn()
   onOpenChange = vi.fn()
+  aiConsentMocks.grant.mockReset()
+  aiConsentMocks.grant.mockResolvedValue(true)
   // jsdom doesn't implement scrollIntoView; the drawer uses it for
   // message-list auto-scroll on render.
   Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView']
@@ -238,6 +255,116 @@ describe('message rendering', () => {
     expect(screen.getByText('UNMAPPED_LEDGER_LINES')).toBeInTheDocument()
     expect(screen.getByText('Unmapped ledger lines affect EBITDA.')).toBeInTheDocument()
     expect(screen.getByText(/Open Hermes import review before valuation/)).toBeInTheDocument()
+  })
+
+  it('keeps assistant turns visible when they contain tool cards but no text', () => {
+    const assistant = makeAssistantMessage('')
+    assistant.clientDataReadinessPreviews = [
+      {
+        id: 'readiness-tool-only',
+        status: 'ready',
+        businessName: 'Tool Only NV',
+        hasSyncedFinancials: true,
+        recommendedNextAction: 'Continue with valuation.',
+      },
+    ]
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[assistant]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByText(/Tool Only NV/)).toBeInTheDocument()
+    expect(screen.queryByText('emptyBody')).not.toBeInTheDocument()
+  })
+
+  it('keeps assistant turns visible for agentic action cards with no text', () => {
+    const assistant = makeAssistantMessage('')
+    assistant.integrationConnectRequests = [
+      {
+        id: 'integration-tool-only',
+        status: 'pending_approval',
+        provider: 'silverfin',
+        authMode: 'oauth',
+        message: 'Connect Silverfin to continue.',
+      },
+    ]
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[assistant]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByText('proposalCards.agent.integrationTitleWithProvider')).toBeInTheDocument()
+    expect(screen.getByText('Connect Silverfin to continue.')).toBeInTheDocument()
+    expect(screen.queryByText('emptyBody')).not.toBeInTheDocument()
+  })
+
+  it('scrolls again when a streamed assistant message receives content', () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView as unknown as Element['scrollIntoView']
+
+    const { rerender } = render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[makeAssistantMessage('', 'streaming')]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    scrollIntoView.mockClear()
+    rerender(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[makeAssistantMessage('streamed answer', 'streaming')]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('opens the AI consent modal and retries the blocked turn after consent', async () => {
+    const assistant = makeAssistantMessage(
+      'AI processing consent is required.',
+      'consent-required-message'
+    )
+    assistant.isError = true
+    assistant.requiresConsent = true
+    assistant.consentPolicyVersion = 'ai-chat-v2'
+    const onRetry = vi.fn()
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[makeUserMessage('Run the valuation', 'user-before-consent'), assistant]}
+        onSendMessage={onSendMessage}
+        onRetry={onRetry}
+      />
+    )
+
+    fireEvent.click(screen.getByText('aiConsent.openCta'))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('aiConsent.title')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('aiConsent.agreeLabel'))
+
+    await waitFor(() => {
+      expect(aiConsentMocks.grant).toHaveBeenCalledWith({ locale: 'nl' })
+      expect(onRetry).toHaveBeenCalledWith('consent-required-message')
+    })
   })
 })
 

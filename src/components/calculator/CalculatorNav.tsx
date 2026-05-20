@@ -35,8 +35,6 @@ import {
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
-import { Dropdown } from './CalculatorNavDropdown'
-import { ToolbarOverflowMenu } from './CalculatorNavToolbarOverflowMenu'
 import type { CalculatorNavProps } from './CalculatorNav.types'
 import {
   confidenceDotClassName,
@@ -44,6 +42,8 @@ import {
   formatTimeAgo,
   valuationNavAmountClass,
 } from './CalculatorNav.utils'
+import { Dropdown } from './CalculatorNavDropdown'
+import { ToolbarOverflowMenu } from './CalculatorNavToolbarOverflowMenu'
 
 export type {
   CalculatorNavProps,

@@ -8,7 +8,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { AuroraButton, AuroraFormAlert } from '../../../design-system/components'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
@@ -67,12 +67,22 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
 
   // Use consistent null/undefined checks so zero-revenue/zero-EBITDA startups are
   // not listed as missing. These must match the isFormValid checks above.
-  const missingFields: string[] = []
-  if (formData.revenue == null) missingFields.push(t('forms.fields.revenue'))
-  if (formData.ebitda == null) missingFields.push(t('forms.fields.ebitda'))
-  if (!formData.business_type_id) missingFields.push(t('forms.fields.businessType'))
-  if (!formData.industry) missingFields.push(t('forms.fields.industry'))
-  if (!formData.country_code) missingFields.push(t('forms.fields.country'))
+  const missingFields = useMemo(() => {
+    const fields: string[] = []
+    if (formData.revenue == null) fields.push(t('forms.fields.revenue'))
+    if (formData.ebitda == null) fields.push(t('forms.fields.ebitda'))
+    if (!formData.business_type_id) fields.push(t('forms.fields.businessType'))
+    if (!formData.industry) fields.push(t('forms.fields.industry'))
+    if (!formData.country_code) fields.push(t('forms.fields.country'))
+    return fields
+  }, [
+    formData.business_type_id,
+    formData.country_code,
+    formData.ebitda,
+    formData.industry,
+    formData.revenue,
+    t,
+  ])
 
   // Determine button text based on context
   const getButtonText = () => {

@@ -8,6 +8,7 @@ import {
   FileText,
   Image as ImageIcon,
   RotateCcw,
+  ShieldCheck,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
@@ -112,6 +113,7 @@ export function MessageBubble({
   onApproveListingCreate,
   onRejectListingCreate,
   onCommandPillClick,
+  onOpenConsent,
   onRetry,
   onSendFollowUp,
 }: {
@@ -134,6 +136,7 @@ export function MessageBubble({
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
   onCommandPillClick?: (command: string) => void
+  onOpenConsent?: (messageId: string) => void
   onRetry?: (messageId: string) => void
   /**
    * Programmatic follow-up sender used by the registry-search picker —
@@ -364,8 +367,24 @@ export function MessageBubble({
           </div>
         )}
 
+        {message.requiresConsent && onOpenConsent && (
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => onOpenConsent(message.id)}
+            className={cn(
+              'mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5',
+              'bg-primary/10 text-xs font-medium text-primary',
+              'border border-primary/20 transition-all hover:bg-primary/15 active:scale-[0.98] touch-manipulation'
+            )}
+          >
+            <ShieldCheck className="w-3 h-3" />
+            {ca('aiConsent.openCta')}
+          </motion.button>
+        )}
+
         {/* Error state with retry */}
-        {message.isError && onRetry && (
+        {message.isError && !message.requiresConsent && onRetry && (
           <motion.button
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}

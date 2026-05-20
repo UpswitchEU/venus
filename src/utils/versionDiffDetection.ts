@@ -12,7 +12,10 @@ import type { FieldChange, VersionChanges } from '../types/ValuationVersion'
 import type { ValuationRequest } from '../types/valuation'
 
 /** Mirrors `buildValuationRequest`: top-level financials win when present and finite. */
-export type VersionDiffFormSlice = Partial<ValuationRequest> & { ebitda?: number }
+export type VersionDiffFormSlice = Partial<ValuationRequest> & {
+  ebitda?: number
+  yearlyFinancials?: unknown
+}
 
 export function resolveFormRevenue(data: VersionDiffFormSlice): number {
   if (data.revenue != null && Number.isFinite(Number(data.revenue))) {
@@ -34,6 +37,10 @@ export function resolveFormEbitda(data: VersionDiffFormSlice): number {
     return Number(cyd)
   }
   return 0
+}
+
+function resolveYearlyFinancials(data: VersionDiffFormSlice): unknown {
+  return data.yearlyFinancials ?? data.historical_years_data ?? []
 }
 
 /**
@@ -97,16 +104,19 @@ export function detectVersionChanges(
   }
 
   // Financial changes (most critical for M&A)
-  const oldRevenue = resolveFormRevenue(oldData as VersionDiffFormSlice)
-  const newRevenue = resolveFormRevenue(newData as VersionDiffFormSlice)
+  const oldSlice = oldData as VersionDiffFormSlice
+  const newSlice = newData as VersionDiffFormSlice
+
+  const oldRevenue = resolveFormRevenue(oldSlice)
+  const newRevenue = resolveFormRevenue(newSlice)
   if (oldRevenue !== newRevenue) {
     const percentChange =
       oldRevenue !== 0 ? Math.abs(((newRevenue - oldRevenue) / Math.abs(oldRevenue)) * 100) : 0
     changes.revenue = createChange('revenue', oldRevenue, newRevenue, percentChange > 10)
   }
 
-  const oldEbitda = resolveFormEbitda(oldData as VersionDiffFormSlice)
-  const newEbitda = resolveFormEbitda(newData as VersionDiffFormSlice)
+  const oldEbitda = resolveFormEbitda(oldSlice)
+  const newEbitda = resolveFormEbitda(newSlice)
   if (oldEbitda !== newEbitda) {
     const percentChange =
       oldEbitda !== 0 ? Math.abs(((newEbitda - oldEbitda) / Math.abs(oldEbitda)) * 100) : 0
@@ -203,8 +213,8 @@ export function detectVersionChanges(
   }
 
   // Historical years / yearly financials (revenue, ebitda per year)
-  const oldYearly = (oldData as any).yearlyFinancials ?? oldData.historical_years_data ?? []
-  const newYearly = (newData as any).yearlyFinancials ?? newData.historical_years_data ?? []
+  const oldYearly = resolveYearlyFinancials(oldSlice)
+  const newYearly = resolveYearlyFinancials(newSlice)
   if (JSON.stringify(oldYearly) !== JSON.stringify(newYearly)) {
     changes.totalChanges++
     changes.significantChanges.push('yearlyFinancials')

@@ -7,6 +7,8 @@
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { toNumber } from './decimal'
 
+type UnknownRecord = Record<string, unknown>
+
 export interface BusinessInfo {
   name: string
   industry: string
@@ -22,20 +24,14 @@ export interface BusinessInfo {
 /**
  * Helper function to safely get nested value from multiple sources
  */
-function getValueFromSources<T>(
-  sources: Array<Record<string, any>>,
-  paths: string[],
-  defaultValue: T
-): T {
+function getValueFromSources<T>(sources: UnknownRecord[], paths: string[], defaultValue: T): T {
   for (const source of sources) {
-    if (!source || typeof source !== 'object') continue
-
     for (const path of paths) {
       const keys = path.split('.')
-      let value: any = source
+      let value: unknown = source
 
       for (const key of keys) {
-        if (value && typeof value === 'object' && key in value) {
+        if (isUnknownRecord(value) && key in value) {
           value = value[key]
         } else {
           value = undefined
@@ -52,6 +48,14 @@ function getValueFromSources<T>(
   return defaultValue
 }
 
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function toUnknownRecord(value: unknown): UnknownRecord | null {
+  return isUnknownRecord(value) ? value : null
+}
+
 /**
  * Map ValuationSession to BusinessInfo
  *
@@ -63,14 +67,13 @@ function getValueFromSources<T>(
  */
 export function mapValuationSessionToBusinessInfo(session: ValuationSession): BusinessInfo {
   // Get all data sources (handle both object and nested structures)
-  // CRITICAL: Cast to any to allow access to all fields that may exist in session data
-  const sessionData = (session.sessionData || {}) as any
-  const partialData = (session.partialData || {}) as any
-  const valuationResult = (session as any).valuationResult as ValuationResponse | undefined
+  const sessionData = toUnknownRecord(session.sessionData) ?? {}
+  const partialData = toUnknownRecord(session.partialData) ?? {}
+  const valuationResult = toUnknownRecord(session.valuationResult)
 
   // Also check if data is nested in sessionData/partialData (backend may nest it)
-  const nestedSessionData = sessionData?.sessionData || sessionData
-  const nestedPartialData = partialData?.partialData || partialData
+  const nestedSessionData = toUnknownRecord(sessionData.sessionData) ?? sessionData
+  const nestedPartialData = toUnknownRecord(partialData.partialData) ?? partialData
 
   // Create array of all data sources to search (priority order matters)
   const allSources = [
@@ -79,8 +82,8 @@ export function mapValuationSessionToBusinessInfo(session: ValuationSession): Bu
     nestedPartialData,
     sessionData,
     partialData,
-    session as any,
-  ].filter(Boolean) as Array<Record<string, any>>
+    toUnknownRecord(session),
+  ].filter((source): source is UnknownRecord => source !== null)
 
   // Extract company name (priority: valuationResult > sessionData > partialData > top-level)
   const name = getValueFromSources(allSources, ['company_name'], 'Untitled Business')
@@ -220,7 +223,7 @@ export function mapValuationSessionToBusinessInfo(session: ValuationSession): Bu
  * Extract valuation amount from ValuationSession
  */
 export function extractValuationAmount(session: ValuationSession): number | null {
-  const valuationResult = (session as any).valuationResult as ValuationResponse | undefined
+  const valuationResult: ValuationResponse | undefined = session.valuationResult
 
   if (!valuationResult) {
     return null

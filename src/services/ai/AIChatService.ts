@@ -17,13 +17,27 @@ import { createContextLogger } from '../../utils/logger'
 import {
   type BelgianCompanyBootstrap,
   type BuyerProfilePreview,
+  type ClientCreateRequest,
   type ClientDataReadinessPreview,
+  type CsvUploadRequest,
   dispatchAIChatChunk,
+  type FieldUpdateParsed,
+  type ImportReviewRequest,
+  type IntegrationConnectRequest,
+  type ListingCreateRequest,
   type ListingPreview,
   type MethodReadinessPreview,
+  type MultiSelectRequest,
   makeChunkDispatchState,
+  type OwnerProfileAnswerRequest,
   parseAIChatToolResults,
   type RegistrySearchResults,
+  type ReportGenerationRequest,
+  type SecureCredentialRequest,
+  type SellabilityRunRequest,
+  type SingleSelectRequest,
+  type ValuationRunRequest,
+  type ValuationSessionRequest,
 } from './tool-results-parser'
 
 const logger = createContextLogger('AIChatService')
@@ -36,6 +50,20 @@ function getRequestHeaders(includeContentType = true): Record<string, string> {
     Object.assign(headers, contextHeaders)
   }
   return headers
+}
+
+function getEnvelopeString(envelope: Record<string, unknown>, key: string): string | null {
+  const value = envelope[key]
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+function getEnvelopeBoolean(envelope: Record<string, unknown>, key: string): boolean | undefined {
+  const value = envelope[key]
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function isConsentRequiredEnvelope(status: number, envelope: Record<string, unknown>): boolean {
+  return status === 412 && envelope.code === 'AI_CONSENT_REQUIRED'
 }
 
 // ─────────────────────────────────────────
@@ -51,11 +79,11 @@ export interface AIChatRequest {
   fieldContext?: {
     field: string
     label: string
-    value?: any
+    value?: unknown
     hint?: string
   }
-  normalizations?: any[]
-  formData?: any
+  normalizations?: unknown[]
+  formData?: unknown
   stream?: boolean
   /** Titan tool-scope claim. Venus defaults to owner-scope in the BFF. */
   audience?: 'advisor' | 'owner'
@@ -71,11 +99,16 @@ export interface AIChatResponse {
   conversationId?: string
   /** Set when the server returned 402 (quota exhausted). */
   requires_upgrade?: boolean
+  /** Set when Titan returned 412 because AI-processing consent is missing. */
+  requires_consent?: boolean
+  code?: string
+  currentPolicyVersion?: string
+  hasHistoricConsent?: boolean
   ai_credits_remaining?: number
   ai_credits_limit?: number
   fieldUpdates?: Array<{
     field: string
-    value: number
+    value: FieldUpdateParsed['value']
     label: string
     grootboekCode?: string
     source?: 'ai' | 'manual' | 'yuki' | 'exact' | 'kbo'
@@ -86,7 +119,7 @@ export interface AIChatResponse {
       multiple?: number
     }
   }>
-  normalisationSuggestions?: any[]
+  normalisationSuggestions?: unknown[]
   /**
    * Pending valuation-run proposals from the AI. Each entry surfaces an inline
    * "Run valuation now" action card; calculation only fires after the user
@@ -94,26 +127,7 @@ export interface AIChatResponse {
    * saga). Status `blocked` means the AI tried to propose but required inputs
    * are missing — render as a hint, not an action.
    */
-  valuationRunRequests?: Array<{
-    status: 'pending_approval' | 'blocked'
-    reportId?: string
-    methods?: string[] | null
-    estimatedCredits?: number
-    inputsSummary?: {
-      business_name: string | null
-      business_type: string | null
-      industry: string | null
-      revenue: string | null
-      ebitda: string | null
-      ebitda_normalized: string | null
-      pending_normalizations: number
-      applied_normalizations: number
-    }
-    note?: string | null
-    reason?: string
-    missing?: string[]
-    message?: string
-  }>
+  valuationRunRequests?: ValuationRunRequest[]
   /**
    * Pending PDF-report generation proposals from the AI. Each entry surfaces an
    * inline "Generate PDF" action card; generation only fires after the user
@@ -121,25 +135,7 @@ export interface AIChatResponse {
    * `blocked` with reason `no_valuation_yet` means the AI tried to propose
    * before run_valuation produced results — render as a hint to compute first.
    */
-  reportGenerationRequests?: Array<{
-    status: 'pending_approval' | 'blocked'
-    reportId?: string
-    estimatedCredits?: number
-    resultSummary?: {
-      business_name: string | null
-      business_type: string | null
-      valuation_method: string | null
-      currency: string
-      midpoint: number | null
-      min: number | null
-      max: number | null
-      confidence_score: number | null
-      calculated_at: string | null
-    }
-    note?: string | null
-    reason?: string
-    message?: string
-  }>
+  reportGenerationRequests?: ReportGenerationRequest[]
   /**
    * Pending Sellability-compute proposals from the AI. Each entry surfaces an
    * inline "Compute now" action card; the compute fires via the Venus proxy at
@@ -148,28 +144,29 @@ export interface AIChatResponse {
    * reason `profile_incomplete` means Q1/Q2/Q3 must be filled in the owner
    * profile first — render as a hint, not an action.
    */
-  sellabilityRunRequests?: Array<{
-    status: 'pending_approval' | 'blocked'
-    estimatedCredits?: number
-    answers?: {
-      q1_top3_concentration_pct: number | null
-      q2_contracted_share: string | null
-      q3_books_cleanliness: string | null
-    }
-    currentScore?: {
-      score: number
-      band: string
-      computed_at: string | Date
-    } | null
-    note?: string | null
-    reason?: string
-    missing?: string[]
-    message?: string
-  }>
+  sellabilityRunRequests?: SellabilityRunRequest[]
+  /** Owner-profile answer proposals from Titan's owner onboarding flow. */
+  ownerProfileAnswerRequests?: OwnerProfileAnswerRequest[]
+  /** Accounting integration connection proposals. */
+  integrationConnectRequests?: IntegrationConnectRequest[]
+  /** Secure credential form proposals. Credentials must never be sent through chat text. */
+  secureCredentialRequests?: SecureCredentialRequest[]
+  /** CSV upload proposals for trial-balance or bulk-client import. */
+  csvUploadRequests?: CsvUploadRequest[]
+  /** Generic multi-choice agent forms. */
+  multiSelectRequests?: MultiSelectRequest[]
+  /** Generic single-choice agent forms. */
+  singleSelectRequests?: SingleSelectRequest[]
+  /** Advisor client creation proposals. */
+  clientCreateRequests?: ClientCreateRequest[]
   /** Read-only Belgian KBO/NBB/CBSO public-data bootstrap cards. */
   belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  /** Advisor handoff proposals to open a client valuation session. */
+  valuationSessionRequests?: ValuationSessionRequest[]
   /** Read-only advisor-client readiness before entering Mercury/Venus valuation. */
   clientDataReadinessPreviews?: ClientDataReadinessPreview[]
+  /** Advisor handoff proposals to open Hermes import review. */
+  importReviewRequests?: ImportReviewRequest[]
   /** Read-only valuation-method readiness before a paid ValuationIQ run. */
   methodReadinessPreviews?: MethodReadinessPreview[]
   /** Read-only anonymized marketplace-listing drafts from get_listing_preview. */
@@ -179,24 +176,7 @@ export interface AIChatResponse {
    * create_listing tool. Approve navigates back to Mercury's publish wizard;
    * the tool itself never writes a listing row.
    */
-  listingCreateRequests?: Array<{
-    status: 'pending_approval' | 'auto_approved' | 'blocked'
-    reportId?: string
-    accountantCustomerId?: string | null
-    visibility?: 'public' | 'private'
-    valuationSummary?: {
-      business_name?: string | null
-      business_type?: string | null
-      industry?: string | null
-      currency?: string
-      midpoint?: string | null
-      min?: string | null
-      max?: string | null
-    }
-    note?: string | null
-    reason?: string
-    message?: string
-  }>
+  listingCreateRequests?: ListingCreateRequest[]
   buyerProfilePreviews?: BuyerProfilePreview[]
   /**
    * Read-only registry-search picker results from `search_kbo_registry`
@@ -218,6 +198,12 @@ export interface StreamCallbacks {
   onError?: (error: string) => void
   /** Called instead of onError when the server returns 402 (quota exhausted). */
   onQuotaExhausted?: (credits: { remaining: number; limit: number }) => void
+  /** Called instead of onError when Titan requires AI-processing consent. */
+  onConsentRequired?: (payload: {
+    message: string
+    currentPolicyVersion?: string
+    hasHistoricConsent?: boolean
+  }) => void
 }
 
 // ─────────────────────────────────────────
@@ -261,12 +247,13 @@ class AIChatServiceImpl {
           formData: request.formData,
           stream: request.stream === true ? true : false,
           audience: request.audience,
+          locale: request.locale,
           history: request.history,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>
 
         // 402: quota exhausted — never fall back to fake local content.
         // Return a structured response so callers can show the upgrade CTA.
@@ -282,7 +269,25 @@ class AIChatServiceImpl {
                 : 0,
             ai_credits_limit:
               typeof errorData.ai_credits_limit === 'number' ? errorData.ai_credits_limit : 0,
-            error: errorData.message || 'AI credit limit reached. Upgrade your plan to continue.',
+            error:
+              getEnvelopeString(errorData, 'message') ||
+              'AI credit limit reached. Upgrade your plan to continue.',
+          }
+        }
+
+        if (isConsentRequiredEnvelope(response.status, errorData)) {
+          const message =
+            getEnvelopeString(errorData, 'message') ||
+            'AI processing consent is required before this assistant can process your inputs.'
+          logger.info('[AIChatService] AI consent required (412), returning consent signal')
+          return {
+            success: false,
+            content: '',
+            requires_consent: true,
+            code: 'AI_CONSENT_REQUIRED',
+            currentPolicyVersion: getEnvelopeString(errorData, 'currentPolicyVersion') || undefined,
+            hasHistoricConsent: getEnvelopeBoolean(errorData, 'hasHistoricConsent'),
+            error: message,
           }
         }
 
@@ -291,7 +296,9 @@ class AIChatServiceImpl {
           return this.generateLocalResponse(request)
         }
 
-        throw new Error(errorData.error || `AI request failed: ${response.status}`)
+        throw new Error(
+          getEnvelopeString(errorData, 'error') || `AI request failed: ${response.status}`
+        )
       }
 
       const data = await response.json()
@@ -312,22 +319,49 @@ class AIChatServiceImpl {
           aiResponse.normalisationSuggestions = parsed.normalisationSuggestions
         }
         if (parsed.fieldUpdates.length > 0) {
-          aiResponse.fieldUpdates = parsed.fieldUpdates as any
+          aiResponse.fieldUpdates = parsed.fieldUpdates
         }
         if (parsed.valuationRunRequests.length > 0) {
-          aiResponse.valuationRunRequests = parsed.valuationRunRequests as any
+          aiResponse.valuationRunRequests = parsed.valuationRunRequests
         }
         if (parsed.reportGenerationRequests.length > 0) {
-          aiResponse.reportGenerationRequests = parsed.reportGenerationRequests as any
+          aiResponse.reportGenerationRequests = parsed.reportGenerationRequests
         }
         if (parsed.sellabilityRunRequests.length > 0) {
-          aiResponse.sellabilityRunRequests = parsed.sellabilityRunRequests as any
+          aiResponse.sellabilityRunRequests = parsed.sellabilityRunRequests
+        }
+        if (parsed.ownerProfileAnswerRequests.length > 0) {
+          aiResponse.ownerProfileAnswerRequests = parsed.ownerProfileAnswerRequests
+        }
+        if (parsed.integrationConnectRequests.length > 0) {
+          aiResponse.integrationConnectRequests = parsed.integrationConnectRequests
+        }
+        if (parsed.secureCredentialRequests.length > 0) {
+          aiResponse.secureCredentialRequests = parsed.secureCredentialRequests
+        }
+        if (parsed.csvUploadRequests.length > 0) {
+          aiResponse.csvUploadRequests = parsed.csvUploadRequests
+        }
+        if (parsed.multiSelectRequests.length > 0) {
+          aiResponse.multiSelectRequests = parsed.multiSelectRequests
+        }
+        if (parsed.singleSelectRequests.length > 0) {
+          aiResponse.singleSelectRequests = parsed.singleSelectRequests
+        }
+        if (parsed.clientCreateRequests.length > 0) {
+          aiResponse.clientCreateRequests = parsed.clientCreateRequests
         }
         if (parsed.belgianCompanyBootstraps.length > 0) {
           aiResponse.belgianCompanyBootstraps = parsed.belgianCompanyBootstraps
         }
+        if (parsed.valuationSessionRequests.length > 0) {
+          aiResponse.valuationSessionRequests = parsed.valuationSessionRequests
+        }
         if (parsed.clientDataReadinessPreviews.length > 0) {
           aiResponse.clientDataReadinessPreviews = parsed.clientDataReadinessPreviews
+        }
+        if (parsed.importReviewRequests.length > 0) {
+          aiResponse.importReviewRequests = parsed.importReviewRequests
         }
         if (parsed.methodReadinessPreviews.length > 0) {
           aiResponse.methodReadinessPreviews = parsed.methodReadinessPreviews
@@ -336,7 +370,7 @@ class AIChatServiceImpl {
           aiResponse.listingPreviews = parsed.listingPreviews
         }
         if (parsed.listingCreateRequests.length > 0) {
-          aiResponse.listingCreateRequests = parsed.listingCreateRequests as any
+          aiResponse.listingCreateRequests = parsed.listingCreateRequests
         }
         if (parsed.buyerProfilePreviews.length > 0) {
           aiResponse.buyerProfilePreviews = parsed.buyerProfilePreviews
@@ -384,16 +418,18 @@ class AIChatServiceImpl {
             formData: request.formData,
             stream: true,
             audience: request.audience,
+            locale: request.locale,
             history: request.history,
           }),
           signal: controller.signal,
         })
 
-        if (!response.ok || !response.body) {
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>
+
           // 402: quota exhausted — call onQuotaExhausted if wired, otherwise
           // fall through to onError so existing callers aren't broken.
           if (response.status === 402) {
-            const errorData = await response.json().catch(() => ({}))
             if (errorData.requires_upgrade && callbacks.onQuotaExhausted) {
               callbacks.onQuotaExhausted({
                 remaining:
@@ -406,11 +442,29 @@ class AIChatServiceImpl {
               return
             }
             callbacks.onError?.(
-              (errorData as any).message ||
+              getEnvelopeString(errorData, 'message') ||
                 'AI credit limit reached. Upgrade your plan to continue.'
             )
             return
           }
+
+          if (isConsentRequiredEnvelope(response.status, errorData)) {
+            callbacks.onConsentRequired?.({
+              message:
+                getEnvelopeString(errorData, 'message') ||
+                'AI processing consent is required before this assistant can process your inputs.',
+              currentPolicyVersion:
+                getEnvelopeString(errorData, 'currentPolicyVersion') || undefined,
+              hasHistoricConsent: getEnvelopeBoolean(errorData, 'hasHistoricConsent'),
+            })
+            return
+          }
+
+          callbacks.onError?.('AI service unavailable')
+          return
+        }
+
+        if (!response.body) {
           callbacks.onError?.('AI service unavailable')
           return
         }
@@ -500,7 +554,7 @@ class AIChatServiceImpl {
       companyName?: string
       industry?: string
       revenue?: number
-      value?: any
+      value?: unknown
       locale?: 'en' | 'nl'
     }
   ): Promise<AIChatResponse> {
@@ -509,7 +563,7 @@ class AIChatServiceImpl {
     try {
       const response = await fetch('/api/ai/suggestion', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getRequestHeaders(),
         credentials: 'include',
         body: JSON.stringify({ field, label, ...context }),
       })

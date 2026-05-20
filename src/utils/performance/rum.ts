@@ -19,6 +19,20 @@
 
 import { generalLogger } from '../logger'
 
+interface LargestContentfulPaintMetricEntry extends PerformanceEntry {
+  loadTime?: number
+  renderTime?: number
+}
+
+interface FirstInputMetricEntry extends PerformanceEntry {
+  processingStart: number
+}
+
+interface LayoutShiftMetricEntry extends PerformanceEntry {
+  hadRecentInput?: boolean
+  value?: number
+}
+
 export interface WebVitalsMetric {
   /**
    * Metric name
@@ -70,7 +84,7 @@ export interface CustomMetric {
   /**
    * Additional metadata
    */
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface RUMConfig {
@@ -111,6 +125,10 @@ export class RUMManager {
       ...config,
     }
 
+    if (typeof window === 'undefined') {
+      return
+    }
+
     // Check if we should sample this user
     const sampleRate = this.config.sampleRate ?? 1
     if (Math.random() > sampleRate) {
@@ -118,9 +136,7 @@ export class RUMManager {
       return
     }
 
-    if (typeof window !== 'undefined') {
-      this.init()
-    }
+    this.init()
   }
 
   /**
@@ -209,13 +225,17 @@ export class RUMManager {
     try {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries()
-        const lastEntry = entries[entries.length - 1] as any
+        const lastEntry = entries[entries.length - 1] as
+          | LargestContentfulPaintMetricEntry
+          | undefined
+        if (!lastEntry) return
+        const value = lastEntry.renderTime || lastEntry.loadTime || lastEntry.startTime
 
         const metric: WebVitalsMetric = {
           name: 'LCP',
-          value: lastEntry.renderTime || lastEntry.loadTime,
-          rating: this.getRating('LCP', lastEntry.renderTime || lastEntry.loadTime),
-          delta: lastEntry.renderTime || lastEntry.loadTime,
+          value,
+          rating: this.getRating('LCP', value),
+          delta: value,
           id: this.generateId(),
           navigationType: this.getNavigationType(),
         }
@@ -241,12 +261,13 @@ export class RUMManager {
 
     try {
       const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as any[]) {
+        for (const entry of list.getEntries() as FirstInputMetricEntry[]) {
+          const value = entry.processingStart - entry.startTime
           const metric: WebVitalsMetric = {
             name: 'FID',
-            value: entry.processingStart - entry.startTime,
-            rating: this.getRating('FID', entry.processingStart - entry.startTime),
-            delta: entry.processingStart - entry.startTime,
+            value,
+            rating: this.getRating('FID', value),
+            delta: value,
             id: this.generateId(),
             navigationType: this.getNavigationType(),
           }
@@ -287,9 +308,9 @@ export class RUMManager {
       let clsValue = 0
 
       const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as any[]) {
+        for (const entry of list.getEntries() as LayoutShiftMetricEntry[]) {
           if (!entry.hadRecentInput) {
-            clsValue += entry.value
+            clsValue += entry.value ?? 0
           }
         }
 
@@ -323,7 +344,7 @@ export class RUMManager {
 
     try {
       const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as any) {
+        for (const entry of list.getEntries() as PerformanceNavigationTiming[]) {
           if (entry.entryType === 'navigation') {
             const ttfb = entry.responseStart - entry.requestStart
 
@@ -416,7 +437,7 @@ export class RUMManager {
   /**
    * Track custom metric
    */
-  trackCustomMetric(name: string, value: number, metadata?: Record<string, any>): void {
+  trackCustomMetric(name: string, value: number, metadata?: Record<string, unknown>): void {
     const metric: CustomMetric = {
       name,
       value,
@@ -498,9 +519,13 @@ export class RUMManager {
       return 'navigate'
     }
 
-    const navEntry = window.performance?.getEntriesByType('navigation')[0] as any
+    const navEntry = window.performance?.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined
 
-    return navEntry?.type || 'navigate'
+    if (navEntry?.type === 'back_forward') return 'back-forward'
+    if (navEntry?.type === 'reload' || navEntry?.type === 'prerender') return navEntry.type
+    return 'navigate'
   }
 
   /**

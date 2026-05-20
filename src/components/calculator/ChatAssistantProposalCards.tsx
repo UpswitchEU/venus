@@ -1,6 +1,7 @@
 'use client'
 
 import { ChatAssistantAdvisoryPreviewCards } from './ChatAssistantAdvisoryPreviewCards'
+import { ChatAssistantAgentActionCards } from './ChatAssistantAgentActionCards'
 import { ChatAssistantMarketplaceProposalCards } from './ChatAssistantMarketplaceProposalCards'
 import { ChatAssistantRunProposalCards } from './ChatAssistantRunProposalCards'
 import type { ChatMessage } from './ChatAssistantTypes'
@@ -44,6 +45,8 @@ export function ChatAssistantProposalCards({
         onApproveReportGeneration={onApproveReportGeneration}
         onRejectReportGeneration={onRejectReportGeneration}
       />
+
+      <ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />
 
       <ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />
 

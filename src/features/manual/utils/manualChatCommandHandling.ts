@@ -43,9 +43,11 @@ export function buildManualChatRetryPlan(
   if (errorMessageIndex < 0) return null
 
   let retryPrompt: string | null = null
+  let retryPromptIndex = -1
   for (let index = errorMessageIndex - 1; index >= 0; index -= 1) {
     if (messages[index].role === 'user') {
       retryPrompt = messages[index].content
+      retryPromptIndex = index
       break
     }
   }
@@ -53,6 +55,8 @@ export function buildManualChatRetryPlan(
 
   return {
     retryPrompt,
-    messages: messages.filter((message) => message.id !== errorMessageId),
+    messages: messages.filter(
+      (message, index) => message.id !== errorMessageId && index !== retryPromptIndex
+    ),
   }
 }

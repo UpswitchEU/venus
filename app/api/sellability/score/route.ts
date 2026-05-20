@@ -12,39 +12,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
 import {
   getTitanAccessTokenFromCookieHeader,
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const TITAN_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
-
 const TIMEOUT_MS = 25_000
-
-function getClientContextHeadersForTitan(request: NextRequest): Record<string, string> {
-  const headers: Record<string, string> = {}
-  const clientUserId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID)
-  const accountantUserId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID)
-  const relationshipId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID)
-  if (clientUserId) headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientUserId
-  if (accountantUserId) headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
-  if (relationshipId) headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
-  return headers
-}
 
 export async function POST(request: NextRequest) {
   const controller = new AbortController()
@@ -53,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
     if (!hasAuth) {
       return NextResponse.json(
@@ -63,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
-    const titanEndpoint = `${TITAN_API_URL}/api/v2/sellability/score`
+    const titanEndpoint = `${getTitanApiUrl(request)}/api/v2/sellability/score`
 
     const titanResponse = await fetch(titanEndpoint, {
       method: 'POST',
@@ -72,7 +52,7 @@ export async function POST(request: NextRequest) {
         Accept: 'application/json',
         ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
-        ...getClientContextHeadersForTitan(request),
+        ...getTitanClientContextHeaders(request),
       },
       body: JSON.stringify(body),
       signal: controller.signal,

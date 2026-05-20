@@ -13,6 +13,13 @@
 
 import pino from 'pino'
 
+type LogMetadata = Record<string, unknown>
+type BrowserLogRecord = LogMetadata & {
+  context?: string
+  level?: number
+  msg?: string
+}
+
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined'
 
@@ -21,8 +28,12 @@ const isBrowser = typeof window !== 'undefined'
 // Override with NEXT_PUBLIC_LOG_LEVEL env var for temporary debugging.
 const defaultLevel =
   typeof process !== 'undefined' && process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
-const level =
-  (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_LOG_LEVEL as any)) || defaultLevel
+const level = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_LOG_LEVEL) || defaultLevel
+const usePrettyTransport =
+  !isBrowser &&
+  typeof process !== 'undefined' &&
+  process.env.NODE_ENV !== 'production' &&
+  process.env.PINO_PRETTY === 'true'
 
 const logger = pino({
   level,
@@ -30,50 +41,52 @@ const logger = pino({
   // This prevents "Object" spam in console
   browser: isBrowser
     ? {
-        write: (o: any) => {
+        write: (o: object) => {
+          const record = (asRecord(o) ?? {}) as BrowserLogRecord
           // Extract log level and message
+          const levelValue = typeof record.level === 'number' ? record.level : 30
           const level =
-            o.level === 10
+            levelValue === 10
               ? 'DEBUG'
-              : o.level === 20
+              : levelValue === 20
                 ? 'INFO'
-                : o.level === 30
+                : levelValue === 30
                   ? 'WARN'
-                  : o.level === 40
+                  : levelValue === 40
                     ? 'ERROR'
                     : 'INFO'
-          const msg = o.msg || ''
-          const context = o.context || ''
+          const msg = record.msg ?? ''
+          const context = record.context ?? ''
 
           // Build formatted message
           const prefix = context ? `[${level}] [${context}]` : `[${level}]`
           const logMessage = `${prefix} ${msg}`
 
           // Extract data (everything except standard pino fields)
-          const data: any = {}
-          Object.keys(o).forEach((key) => {
+          const data: LogMetadata = {}
+          Object.keys(record).forEach((key) => {
             if (!['level', 'time', 'msg', 'context', 'pid', 'hostname'].includes(key)) {
-              data[key] = o[key]
+              data[key] = record[key]
             }
           })
           const hasData = Object.keys(data).length > 0
 
           // Use appropriate console method based on level
-          if (o.level >= 50) {
+          if (levelValue >= 50) {
             // ERROR
             if (hasData) {
               console.error(logMessage, data)
             } else {
               console.error(logMessage)
             }
-          } else if (o.level >= 40) {
+          } else if (levelValue >= 40) {
             // WARN
             if (hasData) {
               console.warn(logMessage, data)
             } else {
               console.warn(logMessage)
             }
-          } else if (o.level >= 20) {
+          } else if (levelValue >= 20) {
             // INFO
             if (hasData) {
               console.log(logMessage, data)
@@ -91,18 +104,19 @@ const logger = pino({
         },
       }
     : undefined,
-  // Only use pino-pretty transport in Node.js (not browser - it doesn't work there)
-  transport:
-    !isBrowser && process.env.NODE_ENV !== 'production'
-      ? {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'HH:MM:ss',
-            ignore: 'pid,hostname',
-          },
-        }
-      : undefined,
+  // Pino transports spawn worker threads. Next's dev/server bundle can emit
+  // those worker chunks under .next and then fail to resolve them during SSR,
+  // so pretty logging is opt-in for standalone Node runs only.
+  transport: usePrettyTransport
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'HH:MM:ss',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
 })
 
 /**
@@ -149,25 +163,40 @@ class CorrelationContext {
 // Global correlation context
 export const correlationContext = new CorrelationContext()
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function metadataFromUnknown(value: unknown): LogMetadata {
+  if (!value) return {}
+  if (typeof value === 'object') return value as LogMetadata
+  return { value }
+}
+
+function getStringField(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
 /**
  * Extract correlation ID from API response headers or body
  */
-export function extractCorrelationId(response: any): string | null {
+export function extractCorrelationId(response: unknown): string | null {
+  const record = asRecord(response)
+  const headers = asRecord(record?.headers)
+  const data = asRecord(record?.data)
+
   // Try response headers first (from axios response)
-  if (response?.headers?.['x-correlation-id']) {
-    return response.headers['x-correlation-id']
-  }
-  if (response?.headers?.['X-Correlation-ID']) {
-    return response.headers['X-Correlation-ID']
-  }
+  const lowerHeader = getStringField(headers, 'x-correlation-id')
+  if (lowerHeader) return lowerHeader
+  const upperHeader = getStringField(headers, 'X-Correlation-ID')
+  if (upperHeader) return upperHeader
 
   // Try response body (valuation_id can be used as correlation key)
-  if (response?.data?.valuation_id) {
-    return response.data.valuation_id
-  }
-  if (response?.valuation_id) {
-    return response.valuation_id
-  }
+  const dataValuationId = getStringField(data, 'valuation_id')
+  if (dataValuationId) return dataValuationId
+  const rootValuationId = getStringField(record, 'valuation_id')
+  if (rootValuationId) return rootValuationId
 
   return null
 }
@@ -175,14 +204,16 @@ export function extractCorrelationId(response: any): string | null {
 /**
  * Set correlation context from API response
  */
-export function setCorrelationFromResponse(response: any): void {
+export function setCorrelationFromResponse(response: unknown): void {
   const correlationId = extractCorrelationId(response)
   if (correlationId) {
     correlationContext.setCorrelationId(correlationId)
   }
 
   // Also set valuation_id if available
-  const valuationId = response?.data?.valuation_id || response?.valuation_id
+  const record = asRecord(response)
+  const data = asRecord(record?.data)
+  const valuationId = getStringField(data, 'valuation_id') || getStringField(record, 'valuation_id')
   if (valuationId) {
     correlationContext.setValuationId(valuationId)
   }
@@ -195,35 +226,35 @@ export const createContextLogger = (context: string) => {
   const baseContext = { context }
 
   return {
-    debug: (message: string, data?: any) => {
+    debug: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.debug(logData, message)
     },
-    info: (message: string, data?: any) => {
+    info: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.info(logData, message)
     },
-    warn: (message: string, data?: any) => {
+    warn: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.warn(logData, message)
     },
-    error: (message: string, data?: any, error?: Error) => {
+    error: (message: string, data?: unknown, error?: Error) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
         ...(error
           ? {
               error: {
@@ -242,42 +273,39 @@ export const createContextLogger = (context: string) => {
 /**
  * Create a child logger with additional context (e.g., step number)
  */
-export const createChildLogger = (
-  parentContext: string,
-  additionalContext: Record<string, any>
-) => {
+export const createChildLogger = (parentContext: string, additionalContext: LogMetadata) => {
   const baseContext = { context: parentContext, ...additionalContext }
 
   return {
-    debug: (message: string, data?: any) => {
+    debug: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.debug(logData, message)
     },
-    info: (message: string, data?: any) => {
+    info: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.info(logData, message)
     },
-    warn: (message: string, data?: any) => {
+    warn: (message: string, data?: unknown) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logger.warn(logData, message)
     },
-    error: (message: string, data?: any, error?: Error) => {
+    error: (message: string, data?: unknown, error?: Error) => {
       const logData = {
         ...baseContext,
         ...correlationContext.getContext(),
-        ...(data || {}),
+        ...metadataFromUnknown(data),
         ...(error
           ? {
               error: {
@@ -298,26 +326,26 @@ export const createChildLogger = (
  */
 export const createPerformanceLogger = (operation: string, context?: string) => {
   const startTime = performance.now()
-  const logContext = context ? createContextLogger(context) : logger
+  const logContext = createContextLogger(context ?? 'performance')
 
   return {
-    end: (additionalData?: any) => {
+    end: (additionalData?: unknown) => {
       const duration = performance.now() - startTime
       const logData = {
         ...correlationContext.getContext(),
         operation,
         duration: Math.round(duration * 100) / 100, // Round to 2 decimals
-        ...(additionalData || {}),
+        ...metadataFromUnknown(additionalData),
       }
       logContext.debug(`Performance: ${operation}`, logData)
       return duration
     },
-    log: (message: string, data?: any) => {
+    log: (message: string, data?: unknown) => {
       const logData = {
         ...correlationContext.getContext(),
         operation,
         elapsed: Math.round((performance.now() - startTime) * 100) / 100,
-        ...(data || {}),
+        ...metadataFromUnknown(data),
       }
       logContext.debug(message, logData)
     },

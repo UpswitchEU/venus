@@ -52,7 +52,7 @@ export interface ValuationVersion {
   changeMetadata?: {
     normalized_years?: number[] // Years with EBITDA normalization
     adjustment_count?: number // Total adjustment count
-    [key: string]: any // Allow other metadata
+    [key: string]: unknown // Allow other metadata
   }
 
   // Normalization data snapshot
@@ -152,8 +152,8 @@ export interface VersionComparison {
   highlights: {
     field: string
     label: string // "Revenue"
-    oldValue: any
-    newValue: any
+    oldValue: unknown
+    newValue: unknown
     impact: string // "+€500K (+25%)"
   }[]
 }

@@ -24,11 +24,6 @@ import {
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
-import type { YearlyFinancialLike } from './yearlyFinancials'
-import {
-  buildYearlyFinancialsFromCurrentAndHistorical,
-  yearlyFinancialsContainsNonPlaceholderData,
-} from './yearlyFinancials'
 import {
   OPTIONAL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
@@ -36,6 +31,11 @@ import {
   SESSION_CARD_FALLBACK_STRING_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from './optionalSessionPrefillKeys'
+import type { YearlyFinancialLike } from './yearlyFinancials'
+import {
+  buildYearlyFinancialsFromCurrentAndHistorical,
+  yearlyFinancialsContainsNonPlaceholderData,
+} from './yearlyFinancials'
 
 export {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,

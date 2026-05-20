@@ -23,45 +23,62 @@
 import type {
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
+  ClientCreateRequest,
   ClientDataReadinessPreview,
+  CsvUploadRequest,
   FieldUpdateParsed,
-  ListingCreateRequest,
-  ListingCreateRequestPending,
+  ImportReviewRequest,
+  ImportReviewRequestPending,
+  IntegrationConnectRequest,
   ListingPreview,
   MethodReadinessPreview,
+  MultiSelectRequest,
+  OwnerProfileAnswerRequest,
   ParsedToolResults,
-  RegistrySearchHit,
-  RegistrySearchResults,
-  ReportGenerationRequest,
-  ReportGenerationRequestPending,
-  SellabilityRunRequest,
-  SellabilityRunRequestPending,
-  ValuationRunRequest,
-  ValuationRunRequestPending,
+  SecureCredentialRequest,
+  SingleSelectRequest,
+  ValuationSessionRequest,
 } from './tool-result-types'
+import {
+  parseListingCreateRequest,
+  parseRegistrySearchResults,
+  parseReportGenerationRequest,
+  parseSellabilityRunRequest,
+  parseValuationRunRequest,
+} from './tool-workflow-result-parsers'
 
 export type {
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
+  ClientCreateRequest,
   ClientDataReadinessPreview,
+  CsvUploadRequest,
   FieldUpdateParsed,
+  ImportReviewRequest,
+  ImportReviewRequestPending,
+  IntegrationConnectRequest,
   ListingCreateRequest,
   ListingCreateRequestBlocked,
   ListingCreateRequestPending,
   ListingPreview,
   MethodReadinessPreview,
+  MultiSelectRequest,
+  OwnerProfileAnswerRequest,
   ParsedToolResults,
   RegistrySearchHit,
   RegistrySearchResults,
   ReportGenerationRequest,
   ReportGenerationRequestBlocked,
   ReportGenerationRequestPending,
+  SecureCredentialRequest,
   SellabilityRunRequest,
   SellabilityRunRequestBlocked,
   SellabilityRunRequestPending,
+  SingleSelectRequest,
   ValuationRunRequest,
   ValuationRunRequestBlocked,
   ValuationRunRequestPending,
+  ValuationSessionRequest,
 } from './tool-result-types'
 
 function emptyResult(): ParsedToolResults {
@@ -71,8 +88,17 @@ function emptyResult(): ParsedToolResults {
     valuationRunRequests: [],
     reportGenerationRequests: [],
     sellabilityRunRequests: [],
+    ownerProfileAnswerRequests: [],
+    integrationConnectRequests: [],
+    secureCredentialRequests: [],
+    csvUploadRequests: [],
+    multiSelectRequests: [],
+    singleSelectRequests: [],
+    clientCreateRequests: [],
     belgianCompanyBootstraps: [],
+    valuationSessionRequests: [],
     clientDataReadinessPreviews: [],
+    importReviewRequests: [],
     methodReadinessPreviews: [],
     listingPreviews: [],
     listingCreateRequests: [],
@@ -148,12 +174,48 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         out.sellabilityRunRequests.push(...parseSellabilityRunRequest(data))
         break
 
+      case 'owner_profile_answer_request':
+        out.ownerProfileAnswerRequests.push(...parseOwnerProfileAnswerRequest(data))
+        break
+
+      case 'integration_connect_request':
+        out.integrationConnectRequests.push(...parseIntegrationConnectRequest(data))
+        break
+
+      case 'secure_credential_request':
+        out.secureCredentialRequests.push(...parseSecureCredentialRequest(data))
+        break
+
+      case 'csv_upload_request':
+        out.csvUploadRequests.push(...parseCsvUploadRequest(data))
+        break
+
+      case 'multi_select_request':
+        out.multiSelectRequests.push(...parseMultiSelectRequest(data))
+        break
+
+      case 'single_select_request':
+        out.singleSelectRequests.push(...parseSingleSelectRequest(data))
+        break
+
+      case 'client_create_request':
+        out.clientCreateRequests.push(...parseClientCreateRequest(data))
+        break
+
       case 'belgian_company_bootstrap':
         out.belgianCompanyBootstraps.push(...parseBelgianCompanyBootstrap(data))
         break
 
+      case 'valuation_session_request':
+        out.valuationSessionRequests.push(...parseValuationSessionRequest(data))
+        break
+
       case 'client_data_readiness':
         out.clientDataReadinessPreviews.push(...parseClientDataReadiness(data))
+        break
+
+      case 'import_review_request':
+        out.importReviewRequests.push(...parseImportReviewRequest(data))
         break
 
       case 'method_readiness':
@@ -183,6 +245,314 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
   }
 
   return out
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function optionalStringList(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : undefined
+}
+
+function ownerProfileAnswerValue(value: unknown): OwnerProfileAnswerRequest['value'] | undefined {
+  if (
+    typeof value === 'number' ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) {
+    return value
+  }
+  return undefined
+}
+
+function parseOwnerProfileAnswerRequest(data: unknown): OwnerProfileAnswerRequest[] {
+  const d = recordValue(data)
+  const update = recordValue(d?.update)
+  if (!update) return []
+
+  return [
+    {
+      field: optionalString(update.field),
+      value: ownerProfileAnswerValue(update.value),
+      label: optionalString(update.label),
+      reason: optionalString(update.reason),
+      complete: update.complete === true,
+      ...(typeof update.accountantCustomerId === 'string' && update.accountantCustomerId.length > 0
+        ? { accountantCustomerId: update.accountantCustomerId }
+        : {}),
+    },
+  ]
+}
+
+function parseIntegrationConnectRequest(data: unknown): IntegrationConnectRequest[] {
+  const d = recordValue(data)
+  const req = recordValue(d?.request)
+  if (d?.status !== 'pending_approval' || !req) return []
+
+  const authMode = req.auth_mode
+  return [
+    {
+      status: 'pending_approval',
+      provider: optionalString(req.provider),
+      authMode: authMode === 'oauth' || authMode === 'api_key' ? authMode : undefined,
+      reason: optionalString(req.reason),
+      targetContext: typeof req.target_context === 'string' ? req.target_context : null,
+      message: optionalString(d.message),
+    },
+  ]
+}
+
+function parseSecureCredentialRequest(data: unknown): SecureCredentialRequest[] {
+  const d = recordValue(data)
+  const req = recordValue(d?.request)
+  if (d?.status !== 'pending_approval' || !req) return []
+
+  const fields = Array.isArray(req.fields)
+    ? req.fields
+        .filter(
+          (field): field is Record<string, unknown> => typeof field === 'object' && field !== null
+        )
+        .map((field) => ({
+          key: typeof field.key === 'string' ? field.key : '',
+          label: typeof field.label === 'string' ? field.label : '',
+          masked: field.masked !== false,
+          required: field.required !== false,
+          helper: optionalString(field.helper),
+        }))
+        .filter((field) => field.key.length > 0 && field.label.length > 0)
+    : []
+
+  return [
+    {
+      status: 'pending_approval',
+      provider: optionalString(req.provider),
+      reason: optionalString(req.reason),
+      fields,
+      submitPath: optionalString(req.submit_path),
+      message: optionalString(d.message),
+    },
+  ]
+}
+
+function parseCsvUploadRequest(data: unknown): CsvUploadRequest[] {
+  const d = recordValue(data)
+  const req = recordValue(d?.request)
+  if (d?.status !== 'pending_approval' || !req) return []
+
+  const mode = req.mode
+  return [
+    {
+      status: 'pending_approval',
+      mode: mode === 'single_client_trial_balance' || mode === 'bulk_clients' ? mode : undefined,
+      label: optionalString(req.label),
+      reason: optionalString(req.reason),
+      expectedColumns: optionalStringList(req.expected_columns) ?? [],
+      submitPath: optionalString(req.submit_path),
+      maxSizeBytes: typeof req.max_size_bytes === 'number' ? req.max_size_bytes : undefined,
+      accept: optionalString(req.accept),
+      message: optionalString(d.message),
+    },
+  ]
+}
+
+function parseSelectOptions(
+  value: unknown
+): Array<{ value: string; label: string; helper?: string }> {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (option): option is Record<string, unknown> => typeof option === 'object' && option !== null
+    )
+    .map((option) => ({
+      value: typeof option.value === 'string' ? option.value : '',
+      label: typeof option.label === 'string' ? option.label : '',
+      helper: optionalString(option.helper),
+    }))
+    .filter((option) => option.value.length > 0 && option.label.length > 0)
+}
+
+function parseMultiSelectRequest(data: unknown): MultiSelectRequest[] {
+  const d = recordValue(data)
+  const req = recordValue(d?.request)
+  if (d?.status !== 'pending_approval' || !req) return []
+  const options = parseSelectOptions(req.options)
+  if (options.length < 2) return []
+
+  return [
+    {
+      status: 'pending_approval',
+      title: optionalString(req.title),
+      options,
+      minSelections: typeof req.min_selections === 'number' ? req.min_selections : 0,
+      maxSelections: typeof req.max_selections === 'number' ? req.max_selections : options.length,
+      preselected: optionalStringList(req.preselected) ?? [],
+      submitPath: optionalString(req.submit_path),
+      reason: optionalString(req.reason),
+    },
+  ]
+}
+
+function parseSingleSelectRequest(data: unknown): SingleSelectRequest[] {
+  const d = recordValue(data)
+  const req = recordValue(d?.request)
+  if (d?.status !== 'pending_approval' || !req) return []
+  const options = parseSelectOptions(req.options)
+  if (options.length < 2) return []
+
+  return [
+    {
+      status: 'pending_approval',
+      title: optionalString(req.title),
+      options,
+      preselected: typeof req.preselected === 'string' ? req.preselected : null,
+      submitPath: optionalString(req.submit_path),
+      reason: optionalString(req.reason),
+    },
+  ]
+}
+
+function parseClientCreateRequest(data: unknown): ClientCreateRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const status = d.status
+  const req = recordValue(d.request)
+  if ((status === 'pending_approval' || status === 'auto_approved') && req) {
+    return [
+      {
+        status,
+        businessName: optionalString(req.business_name),
+        customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
+        companyNumber: typeof req.company_number === 'string' ? req.company_number : null,
+        industry: typeof req.industry === 'string' ? req.industry : null,
+        location: typeof req.location === 'string' ? req.location : null,
+        notes: typeof req.notes === 'string' ? req.notes : null,
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+function parseValuationSessionRequest(data: unknown): ValuationSessionRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const status = d.status
+  const req = recordValue(d.request)
+  if ((status === 'pending_approval' || status === 'auto_approved') && req) {
+    return [
+      {
+        status,
+        clientId: optionalString(req.client_id),
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
+        hasBusinessCard:
+          typeof req.has_business_card === 'boolean' ? req.has_business_card : undefined,
+        latestValuationId:
+          typeof req.latest_valuation_id === 'string' ? req.latest_valuation_id : null,
+        hasSyncedFinancials:
+          typeof req.has_synced_financials === 'boolean' ? req.has_synced_financials : undefined,
+        stpStatus: typeof req.stp_status === 'string' ? req.stp_status : null,
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+function parseImportReviewAccountingSources(
+  value: unknown
+): NonNullable<ImportReviewRequestPending['accountingSources']> {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (source): source is Record<string, unknown> => typeof source === 'object' && source !== null
+    )
+    .map((source) => ({
+      provider: typeof source.provider === 'string' ? source.provider : '',
+      clientKey: typeof source.client_key === 'string' ? source.client_key : null,
+      isPrimaryForValuation:
+        typeof source.is_primary_for_valuation === 'boolean'
+          ? source.is_primary_for_valuation
+          : undefined,
+      lastSyncAt: typeof source.last_sync_at === 'string' ? source.last_sync_at : null,
+    }))
+    .filter((source) => source.provider.length > 0)
+}
+
+function parseImportReviewTopFlags(
+  value: unknown
+): NonNullable<ImportReviewRequestPending['topFlags']> {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((flag): flag is Record<string, unknown> => typeof flag === 'object' && flag !== null)
+    .map((flag) => ({
+      year: typeof flag.year === 'string' ? flag.year : undefined,
+      field: typeof flag.field === 'string' ? flag.field : null,
+      code: typeof flag.code === 'string' ? flag.code : null,
+      severity: typeof flag.severity === 'string' ? flag.severity : null,
+      message: typeof flag.message === 'string' ? flag.message : null,
+    }))
+}
+
+function parseImportReviewRequest(data: unknown): ImportReviewRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const status = d.status
+  const req = recordValue(d.request)
+  if ((status === 'pending_approval' || status === 'auto_approved') && req) {
+    return [
+      {
+        status,
+        clientId: optionalString(req.client_id),
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        hasSyncedFinancials:
+          typeof req.has_synced_financials === 'boolean' ? req.has_synced_financials : undefined,
+        stpStatus: typeof req.stp_status === 'string' ? req.stp_status : null,
+        accountingSources: parseImportReviewAccountingSources(req.accounting_sources),
+        actionableFlagCount:
+          typeof req.actionable_flag_count === 'number' ? req.actionable_flag_count : undefined,
+        topFlags: parseImportReviewTopFlags(req.top_flags),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        clientId: optionalString(d.client_id),
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
 }
 
 function parseClientDataReadiness(data: unknown): ClientDataReadinessPreview[] {
@@ -504,68 +874,6 @@ function parseBuyerProfilePreview(data: unknown): BuyerProfilePreview[] {
   ]
 }
 
-function parseValuationRunRequest(data: unknown): ValuationRunRequest[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-  const status = d.status
-  if (status === 'pending_approval' && d.request && typeof d.request === 'object') {
-    const req = d.request as Record<string, unknown>
-    return [
-      {
-        status: 'pending_approval',
-        reportId: typeof req.report_id === 'string' ? req.report_id : undefined,
-        methods: Array.isArray(req.methods) ? (req.methods as string[]) : null,
-        estimatedCredits:
-          typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
-        inputsSummary: req.inputs_summary as ValuationRunRequestPending['inputsSummary'],
-        note: (req.note as string | null | undefined) ?? null,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  if (status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: typeof d.reason === 'string' ? d.reason : undefined,
-        missing: Array.isArray(d.missing) ? (d.missing as string[]) : undefined,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  return []
-}
-
-function parseReportGenerationRequest(data: unknown): ReportGenerationRequest[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-  const status = d.status
-  if (status === 'pending_approval' && d.request && typeof d.request === 'object') {
-    const req = d.request as Record<string, unknown>
-    return [
-      {
-        status: 'pending_approval',
-        reportId: typeof req.report_id === 'string' ? req.report_id : undefined,
-        estimatedCredits:
-          typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
-        resultSummary: req.result_summary as ReportGenerationRequestPending['resultSummary'],
-        note: (req.note as string | null | undefined) ?? null,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  if (status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: typeof d.reason === 'string' ? d.reason : undefined,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  return []
-}
-
 /**
  * State the `dispatchAIChatChunk` dispatcher reads + writes across calls
  * within a single stream consumption. The caller owns the state object
@@ -667,134 +975,4 @@ export function dispatchAIChatChunk(
   }
 
   return state
-}
-
-function parseSellabilityRunRequest(data: unknown): SellabilityRunRequest[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-  const status = d.status
-  if (status === 'pending_approval' && d.request && typeof d.request === 'object') {
-    const req = d.request as Record<string, unknown>
-    return [
-      {
-        status: 'pending_approval',
-        estimatedCredits:
-          typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
-        answers: req.answers as SellabilityRunRequestPending['answers'],
-        currentScore: (req.current_score as SellabilityRunRequestPending['currentScore']) ?? null,
-        note: (req.note as string | null | undefined) ?? null,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  if (status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: typeof d.reason === 'string' ? d.reason : undefined,
-        missing: Array.isArray(d.missing) ? (d.missing as string[]) : undefined,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  return []
-}
-
-function parseListingCreateRequest(data: unknown): ListingCreateRequest[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-  const status = d.status
-  if (
-    (status === 'pending_approval' || status === 'auto_approved') &&
-    d.request &&
-    typeof d.request === 'object'
-  ) {
-    const req = d.request as Record<string, unknown>
-    const visibility = req.visibility
-    return [
-      {
-        status,
-        reportId: typeof req.report_id === 'string' ? req.report_id : undefined,
-        accountantCustomerId:
-          typeof req.accountant_customer_id === 'string' ? req.accountant_customer_id : null,
-        visibility: visibility === 'public' || visibility === 'private' ? visibility : undefined,
-        valuationSummary: req.valuation_summary as ListingCreateRequestPending['valuationSummary'],
-        note: (req.note as string | null | undefined) ?? null,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  if (status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: typeof d.reason === 'string' ? d.reason : undefined,
-        message: typeof d.message === 'string' ? d.message : undefined,
-      },
-    ]
-  }
-  return []
-}
-
-/**
- * Mirror of Mercury's `registry_search_results` parser branch. Both KBO
- * (BE) and KVK (NL) tool results collapse to one envelope so the consumer
- * can dispatch on shape, not registry — the `registry` field carries the
- * label. Defensive: drops malformed hits, returns `[]` on bad input.
- */
-function parseRegistrySearchResults(data: unknown): RegistrySearchResults[] {
-  if (!data || typeof data !== 'object') return []
-  const d = data as Record<string, unknown>
-  const registryRaw = typeof d.registry_name === 'string' ? d.registry_name : ''
-  const registry: 'KBO' | 'KVK' = registryRaw === 'KVK' ? 'KVK' : 'KBO'
-
-  const hitsArr = Array.isArray(d.results) ? d.results : []
-  const hits: RegistrySearchHit[] = hitsArr
-    .filter((h): h is Record<string, unknown> => typeof h === 'object' && h !== null)
-    .map((h) => {
-      const num =
-        typeof h.kvk_number === 'string'
-          ? h.kvk_number
-          : typeof h.kbo_number === 'string'
-            ? h.kbo_number
-            : ''
-      return {
-        companyNumber: num,
-        companyName: typeof h.company_name === 'string' ? h.company_name : '',
-        legalForm: typeof h.legal_form === 'string' ? h.legal_form : null,
-        city: typeof h.city === 'string' ? h.city : null,
-        postalCode: typeof h.postal_code === 'string' ? h.postal_code : null,
-        address: typeof h.address === 'string' ? h.address : null,
-        countryCode:
-          typeof h.country_code === 'string' ? h.country_code : registry === 'KVK' ? 'NL' : 'BE',
-        naceCode: typeof h.nace_code === 'string' ? h.nace_code : null,
-        naceDescription: typeof h.nace_description === 'string' ? h.nace_description : null,
-        businessTypeId: typeof h.business_type_id === 'string' ? h.business_type_id : null,
-        businessTypeTitle: typeof h.business_type_title === 'string' ? h.business_type_title : null,
-        foundationDate: typeof h.foundation_date === 'string' ? h.foundation_date : null,
-        isActive: typeof h.is_active === 'boolean' ? h.is_active : null,
-      }
-    })
-    .filter((h) => h.companyNumber.length > 0 && h.companyName.length > 0)
-
-  const totalFound = typeof d.total_found === 'number' ? d.total_found : hits.length
-  const coverageWarningRaw = typeof d.coverage_warning === 'string' ? d.coverage_warning : null
-  const coverageWarning: 'kvk_not_in_dataset' | 'upstream_degraded' | undefined =
-    coverageWarningRaw === 'kvk_not_in_dataset' || coverageWarningRaw === 'upstream_degraded'
-      ? coverageWarningRaw
-      : undefined
-  const status: 'ok' | 'failed' =
-    typeof d.status === 'string' && d.status === 'failed' ? 'failed' : 'ok'
-
-  return [
-    {
-      registry,
-      query: hits[0]?.companyName ?? '',
-      totalFound,
-      hits,
-      ...(coverageWarning ? { coverageWarning } : {}),
-      ...(typeof d.note === 'string' ? { note: d.note } : {}),
-      status,
-    },
-  ]
 }

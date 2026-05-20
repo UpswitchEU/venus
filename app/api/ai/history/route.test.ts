@@ -27,6 +27,13 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockFetchWithTimeout = vi.fn()
+const mocks = vi.hoisted(() => ({
+  getBffCookieHeaderForTitan: vi.fn(),
+}))
+
+vi.mock('@/utils/bffAuthProxy', () => ({
+  getBffCookieHeaderForTitan: mocks.getBffCookieHeaderForTitan,
+}))
 
 vi.mock('@/utils/fetchWithTimeout', () => ({
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
@@ -34,11 +41,15 @@ vi.mock('@/utils/fetchWithTimeout', () => ({
 
 import { GET } from './route'
 
-function request(reportId: string | null, headers: Record<string, string> = {}): NextRequest {
+function request(
+  reportId: string | null,
+  headers: Record<string, string> = {},
+  origin = 'https://valuation.upswitch.app'
+): NextRequest {
   const url =
     reportId === null
-      ? 'https://valuation.upswitch.app/api/ai/history'
-      : `https://valuation.upswitch.app/api/ai/history?reportId=${encodeURIComponent(reportId)}`
+      ? `${origin}/api/ai/history`
+      : `${origin}/api/ai/history?reportId=${encodeURIComponent(reportId)}`
   return new NextRequest(url, {
     method: 'GET',
     headers: {
@@ -57,6 +68,13 @@ function titanJsonResponse(status: number, body: unknown): Response {
 
 beforeEach(() => {
   mockFetchWithTimeout.mockReset()
+  mocks.getBffCookieHeaderForTitan.mockReset()
+  mocks.getBffCookieHeaderForTitan.mockImplementation(
+    async (requestLike: Pick<Request, 'headers'>) => ({
+      cookieHeader: requestLike.headers.get('cookie') || '',
+      cookieSource: requestLike.headers.get('cookie') ? 'header' : 'cookieStore',
+    })
+  )
 })
 
 afterEach(() => {
@@ -109,6 +127,40 @@ describe('Titan call', () => {
     const headers = (init as RequestInit).headers as Record<string, string>
     expect(headers.Authorization).toBe('Bearer jwt-token-here')
     expect(headers.Cookie).toBe('upswitch_access_token=jwt-token-here')
+  })
+
+  it('uses merged cookie-store cookies when the raw request header is incomplete', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValueOnce({
+      cookieHeader: 'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh',
+      cookieSource: 'cookieStore',
+    })
+    mockFetchWithTimeout.mockResolvedValue(
+      titanJsonResponse(200, { conversationId: null, messages: [] })
+    )
+
+    await GET(
+      new NextRequest('https://valuation.upswitch.app/api/ai/history?reportId=venus_calc_store', {
+        method: 'GET',
+      })
+    )
+
+    const [, init] = mockFetchWithTimeout.mock.calls[0]
+    const headers = (init as RequestInit).headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer store-token')
+    expect(headers.Cookie).toBe(
+      'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh'
+    )
+  })
+
+  it('uses local Titan for localhost Venus requests when no explicit env is set', async () => {
+    mockFetchWithTimeout.mockResolvedValue(
+      titanJsonResponse(200, { conversationId: null, messages: [] })
+    )
+
+    await GET(request('venus_calc_local', {}, 'http://localhost:3001'))
+
+    const [url] = mockFetchWithTimeout.mock.calls[0]
+    expect(url).toBe('http://localhost:3002/api/v2/ai/conversations/venus_calc_local/history')
   })
 
   it('forwards canonical client-context headers when present', async () => {

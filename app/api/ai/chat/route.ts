@@ -14,37 +14,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
 import {
   getTitanAccessTokenFromCookieHeader,
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { apiLogger } from '@/utils/logger'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
-
-function getClientContextHeadersForTitan(request: NextRequest): Record<string, string> {
-  const headers: Record<string, string> = {}
-  const clientUserId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID)
-  const accountantUserId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID)
-  const relationshipId =
-    request.headers.get(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID) ||
-    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID)
-  if (clientUserId) headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientUserId
-  if (accountantUserId) headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
-  if (relationshipId) headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
-  return headers
-}
-
-const TITAN_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
 
 const TIMEOUT_MS = 60_000
 
@@ -62,6 +43,29 @@ function resolveAudience(raw: unknown): 'advisor' | 'owner' {
   return raw === 'advisor' || raw === 'owner' ? raw : 'owner'
 }
 
+function getStringField(obj: Record<string, unknown>, key: string): string | null {
+  const raw = obj[key]
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+}
+
+function buildTitanErrorEnvelope(errorData: unknown): Record<string, unknown> {
+  const errorObject =
+    errorData && typeof errorData === 'object' && !Array.isArray(errorData)
+      ? (errorData as Record<string, unknown>)
+      : {}
+  const errorMessage =
+    getStringField(errorObject, 'message') ||
+    getStringField(errorObject, 'error') ||
+    'AI service unavailable'
+
+  return {
+    ...errorObject,
+    success: false,
+    error: errorMessage,
+    fallback: true,
+  }
+}
+
 export async function POST(request: NextRequest) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
@@ -83,9 +87,10 @@ export async function POST(request: NextRequest) {
 
     const useStream = body.stream !== false
 
+    const titanApiUrl = getTitanApiUrl(request)
     const titanEndpoint = useStream
-      ? `${TITAN_API_URL}/api/v2/ai/stream`
-      : `${TITAN_API_URL}/api/v2/ai/chat`
+      ? `${titanApiUrl}/api/v2/ai/stream`
+      : `${titanApiUrl}/api/v2/ai/chat`
 
     const historyRaw = Array.isArray(body.history) ? body.history : []
     const messages = [
@@ -105,6 +110,10 @@ export async function POST(request: NextRequest) {
       companyName: body.companyName,
       industry: body.formData?.industry,
       countryCode: body.formData?.country_code || body.formData?.country,
+      locale:
+        typeof body.locale === 'string' && body.locale.length > 0
+          ? body.locale.slice(0, 8)
+          : undefined,
       focusedField: body.fieldContext?.field,
       reportId: body.reportId || body.sessionId,
       hasRevenue: !!body.formData?.revenue,
@@ -128,7 +137,7 @@ export async function POST(request: NextRequest) {
       titanPayload.normalizations = body.normalizations
     }
 
-    const clientContextHeaders = getClientContextHeadersForTitan(request)
+    const clientContextHeaders = getTitanClientContextHeaders(request)
 
     const titanResponse = await fetch(titanEndpoint, {
       method: 'POST',
@@ -145,14 +154,7 @@ export async function POST(request: NextRequest) {
 
     if (!titanResponse.ok) {
       const errorData = await titanResponse.json().catch(() => ({}))
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorData.message || 'AI service unavailable',
-          fallback: true,
-        },
-        { status: titanResponse.status }
-      )
+      return NextResponse.json(buildTitanErrorEnvelope(errorData), { status: titanResponse.status })
     }
 
     if (useStream && titanResponse.body) {
@@ -174,7 +176,11 @@ export async function POST(request: NextRequest) {
         { status: 504 }
       )
     }
-    console.error('[AI Chat Route] Error:', error instanceof Error ? error.message : error)
+    apiLogger.error(
+      'AI chat proxy failed',
+      { route: '/api/ai/chat' },
+      error instanceof Error ? error : undefined
+    )
     return NextResponse.json(
       { success: false, error: 'Failed to connect to AI service', fallback: true },
       { status: 503 }

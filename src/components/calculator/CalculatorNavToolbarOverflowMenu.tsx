@@ -11,9 +11,9 @@ import {
 } from 'lucide-react'
 import type { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
-import { Dropdown } from './CalculatorNavDropdown'
 import type { DownloadHistoryItem, RightPanelView } from './CalculatorNav.types'
 import { formatTimeAgo } from './CalculatorNav.utils'
+import { Dropdown } from './CalculatorNavDropdown'
 
 interface ToolbarOverflowMenuProps {
   navLocale: string

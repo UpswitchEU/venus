@@ -5,6 +5,10 @@
  */
 
 export {
+  type UseManualAccountantContextResult,
+  useManualAccountantContext,
+} from './useManualAccountantContext'
+export {
   type UseManualAgentPromptHandoffParams,
   useManualAgentPromptHandoff,
 } from './useManualAgentPromptHandoff'
@@ -13,6 +17,12 @@ export {
   type UseManualAiProposalActionsResult,
   useManualAiProposalActions,
 } from './useManualAiProposalActions'
+export { useManualAssistantAcknowledgementState } from './useManualAssistantAcknowledgementState'
+export {
+  type UseManualAssistantControllerParams,
+  type UseManualAssistantControllerResult,
+  useManualAssistantController,
+} from './useManualAssistantController'
 export {
   type UseManualAssistantIssueActionsParams,
   type UseManualAssistantIssueActionsResult,
@@ -34,6 +44,15 @@ export {
   useManualCalculationExecution,
 } from './useManualCalculationExecution'
 export {
+  type UseManualChatControllerParams,
+  type UseManualChatControllerResult,
+  useManualChatController,
+} from './useManualChatController'
+export {
+  type UseManualChatControllerStateParams,
+  useManualChatControllerState,
+} from './useManualChatControllerState'
+export {
   type UseManualChatFieldUpdateActionsParams,
   type UseManualChatFieldUpdateActionsResult,
   useManualChatFieldUpdateActions,
@@ -49,6 +68,11 @@ export {
   useManualChatSessionActions,
 } from './useManualChatSessionActions'
 export {
+  type UseManualCollectedDataControllerParams,
+  type UseManualCollectedDataControllerResult,
+  useManualCollectedDataController,
+} from './useManualCollectedDataController'
+export {
   type ManualCollectedDataFormSurface,
   type UseManualCollectedDataSyncParams,
   useManualCollectedDataSync,
@@ -59,10 +83,23 @@ export {
   useManualFieldHelpActions,
 } from './useManualFieldHelpActions'
 export {
+  type UseManualFinancialContextParams,
+  type UseManualFinancialContextResult,
+  useManualFinancialContext,
+} from './useManualFinancialContext'
+export {
   type UseManualFormDataChangeSyncParams,
   type UseManualFormDataChangeSyncResult,
   useManualFormDataChangeSync,
 } from './useManualFormDataChangeSync'
+export {
+  useManualKeyboardShortcuts,
+  useManualPanelStorageReset,
+  useManualRestoredFinancialSnapshotBaseline,
+  useManualSessionPersistenceLifecycles,
+  useManualToastMessageLifecycle,
+  useManualVersionSyncTimeoutRef,
+} from './useManualLayoutLifecycles'
 export {
   type ManualLayoutResetRefs,
   type UseManualLayoutResetsParams,
@@ -73,16 +110,31 @@ export {
   type UseManualMercuryNavigationActionsResult,
   useManualMercuryNavigationActions,
 } from './useManualMercuryNavigationActions'
+export { useManualMethodAccessState } from './useManualMethodAccessState'
+export {
+  type UseManualMethodPersistenceControllerParams,
+  type UseManualMethodPersistenceControllerResult,
+  useManualMethodPersistenceController,
+} from './useManualMethodPersistenceController'
 export {
   type UseManualMethodSelectionActionsParams,
   type UseManualMethodSelectionActionsResult,
   useManualMethodSelectionActions,
 } from './useManualMethodSelectionActions'
+export { useManualModalState } from './useManualModalState'
+export {
+  type UseManualNavigationControllerParams,
+  useManualNavigationController,
+} from './useManualNavigationController'
 export {
   type UseManualNewValuationFlowParams,
   type UseManualNewValuationFlowResult,
   useManualNewValuationFlow,
 } from './useManualNewValuationFlow'
+export {
+  type UseManualNormalizationControllerResult,
+  useManualNormalizationController,
+} from './useManualNormalizationController'
 export {
   type UseManualNormalizationImportActionsParams,
   type UseManualNormalizationImportActionsResult,
@@ -104,6 +156,12 @@ export {
   type UseManualNormalizationReviewActionsResult,
   useManualNormalizationReviewActions,
 } from './useManualNormalizationReviewActions'
+export {
+  type ManualNormalizationActions,
+  type UseManualNormalizationStateParams,
+  type UseManualNormalizationStateResult,
+  useManualNormalizationState,
+} from './useManualNormalizationState'
 export type { UseManualPanelResizeReturn } from './useManualPanelResize'
 export { useManualPanelResize } from './useManualPanelResize'
 export {
@@ -128,6 +186,11 @@ export {
   useManualRecentValuations,
 } from './useManualRecentValuations'
 export {
+  type ManualReportIdentifiers,
+  type UseManualReportIdentifiersParams,
+  useManualReportIdentifiers,
+} from './useManualReportIdentifiers'
+export {
   type ManualReportMethodHydrationError,
   type UseManualReportMethodHydrationParams,
   type UseManualReportMethodHydrationResult,
@@ -138,6 +201,15 @@ export {
   type UseManualReportRefreshAfterEditResult,
   useManualReportRefreshAfterEdit,
 } from './useManualReportRefreshAfterEdit'
+export {
+  type UseManualReportUiStateParams,
+  useManualReportUiState,
+} from './useManualReportUiState'
+export {
+  type UseManualSubmitControllerParams,
+  type UseManualSubmitControllerResult,
+  useManualSubmitController,
+} from './useManualSubmitController'
 export {
   type HandleManualSubmitErrorParams,
   type UseManualSubmitErrorHandlerParams,
@@ -162,10 +234,16 @@ export {
 export type { UseManualToolbarReturn } from './useManualToolbar'
 export { useManualToolbar } from './useManualToolbar'
 export {
+  type UseManualVersionNavigationParams,
+  type UseManualVersionNavigationResult,
+  useManualVersionNavigation,
+} from './useManualVersionNavigation'
+export {
   type UseManualVersionRestoreActionParams,
   type UseManualVersionRestoreActionResult,
   useManualVersionRestoreAction,
 } from './useManualVersionRestoreAction'
+export { useManualWorkspaceStores } from './useManualWorkspaceStores'
 export {
   useIsMountedRef,
   useLatestRef,

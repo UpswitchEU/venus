@@ -6,8 +6,17 @@ type NormalisationSuggestionCard = NonNullable<ChatMessage['normalisationSuggest
 type ValuationRunCard = NonNullable<ChatMessage['valuationRunRequests']>[number]
 type ReportGenerationCard = NonNullable<ChatMessage['reportGenerationRequests']>[number]
 type SellabilityRunCard = NonNullable<ChatMessage['sellabilityRunRequests']>[number]
+type OwnerProfileAnswerCard = NonNullable<ChatMessage['ownerProfileAnswerRequests']>[number]
+type IntegrationConnectCard = NonNullable<ChatMessage['integrationConnectRequests']>[number]
+type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
+type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
+type MultiSelectCard = NonNullable<ChatMessage['multiSelectRequests']>[number]
+type SingleSelectCard = NonNullable<ChatMessage['singleSelectRequests']>[number]
+type ClientCreateCard = NonNullable<ChatMessage['clientCreateRequests']>[number]
 type BelgianCompanyBootstrapCard = NonNullable<ChatMessage['belgianCompanyBootstraps']>[number]
+type ValuationSessionCard = NonNullable<ChatMessage['valuationSessionRequests']>[number]
 type ClientDataReadinessCard = NonNullable<ChatMessage['clientDataReadinessPreviews']>[number]
+type ImportReviewCard = NonNullable<ChatMessage['importReviewRequests']>[number]
 type MethodReadinessCard = NonNullable<ChatMessage['methodReadinessPreviews']>[number]
 type ListingPreviewCard = NonNullable<ChatMessage['listingPreviews']>[number]
 type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[number]
@@ -26,8 +35,17 @@ export interface ManualChatToolCards {
   valuationRunRequests?: ValuationRunCard[]
   reportGenerationRequests?: ReportGenerationCard[]
   sellabilityRunRequests?: SellabilityRunCard[]
+  ownerProfileAnswerRequests?: OwnerProfileAnswerCard[]
+  integrationConnectRequests?: IntegrationConnectCard[]
+  secureCredentialRequests?: SecureCredentialCard[]
+  csvUploadRequests?: CsvUploadCard[]
+  multiSelectRequests?: MultiSelectCard[]
+  singleSelectRequests?: SingleSelectCard[]
+  clientCreateRequests?: ClientCreateCard[]
   belgianCompanyBootstraps?: BelgianCompanyBootstrapCard[]
+  valuationSessionRequests?: ValuationSessionCard[]
   clientDataReadinessPreviews?: ClientDataReadinessCard[]
+  importReviewRequests?: ImportReviewCard[]
   methodReadinessPreviews?: MethodReadinessCard[]
   listingPreviews?: ListingPreviewCard[]
   listingCreateRequests?: ListingCreateCard[]
@@ -41,8 +59,17 @@ interface ManualChatToolCardsInput {
   valuationRunRequests?: readonly unknown[]
   reportGenerationRequests?: readonly unknown[]
   sellabilityRunRequests?: readonly unknown[]
+  ownerProfileAnswerRequests?: readonly unknown[]
+  integrationConnectRequests?: readonly unknown[]
+  secureCredentialRequests?: readonly unknown[]
+  csvUploadRequests?: readonly unknown[]
+  multiSelectRequests?: readonly unknown[]
+  singleSelectRequests?: readonly unknown[]
+  clientCreateRequests?: readonly unknown[]
   belgianCompanyBootstraps?: readonly unknown[]
+  valuationSessionRequests?: readonly unknown[]
   clientDataReadinessPreviews?: readonly unknown[]
+  importReviewRequests?: readonly unknown[]
   methodReadinessPreviews?: readonly unknown[]
   listingPreviews?: readonly unknown[]
   listingCreateRequests?: readonly unknown[]
@@ -119,6 +146,83 @@ export function addIdsToManualChatToolCards(
   )
   pushIfAny(
     out,
+    'ownerProfileAnswerRequests',
+    (cards.ownerProfileAnswerRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as OwnerProfileAnswerCard
+    )
+  )
+  pushIfAny(
+    out,
+    'integrationConnectRequests',
+    (cards.integrationConnectRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as IntegrationConnectCard
+    )
+  )
+  pushIfAny(
+    out,
+    'secureCredentialRequests',
+    (cards.secureCredentialRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as SecureCredentialCard
+    )
+  )
+  pushIfAny(
+    out,
+    'csvUploadRequests',
+    (cards.csvUploadRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as CsvUploadCard
+    )
+  )
+  pushIfAny(
+    out,
+    'multiSelectRequests',
+    (cards.multiSelectRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as MultiSelectCard
+    )
+  )
+  pushIfAny(
+    out,
+    'singleSelectRequests',
+    (cards.singleSelectRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as SingleSelectCard
+    )
+  )
+  pushIfAny(
+    out,
+    'clientCreateRequests',
+    (cards.clientCreateRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ClientCreateCard
+    )
+  )
+  pushIfAny(
+    out,
     'belgianCompanyBootstraps',
     (cards.belgianCompanyBootstraps ?? []).map(
       (bootstrap) =>
@@ -130,6 +234,17 @@ export function addIdsToManualChatToolCards(
   )
   pushIfAny(
     out,
+    'valuationSessionRequests',
+    (cards.valuationSessionRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ValuationSessionCard
+    )
+  )
+  pushIfAny(
+    out,
     'clientDataReadinessPreviews',
     (cards.clientDataReadinessPreviews ?? []).map(
       (preview) =>
@@ -137,6 +252,17 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(preview) ?? {}),
           id: createId(),
         }) as ClientDataReadinessCard
+    )
+  )
+  pushIfAny(
+    out,
+    'importReviewRequests',
+    (cards.importReviewRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ImportReviewCard
     )
   )
   pushIfAny(
@@ -218,10 +344,28 @@ export function parseManualChatStreamToolResult(
         return { type: 'report_generation_request', data }
       case 'run_sellability':
         return { type: 'sellability_run_request', data }
+      case 'update_owner_profile_answer':
+        return { type: 'owner_profile_answer_request', data }
+      case 'propose_integration_connect':
+        return { type: 'integration_connect_request', data }
+      case 'propose_secure_credential':
+        return { type: 'secure_credential_request', data }
+      case 'propose_csv_upload':
+        return { type: 'csv_upload_request', data }
+      case 'propose_multi_select':
+        return { type: 'multi_select_request', data }
+      case 'propose_single_select':
+        return { type: 'single_select_request', data }
+      case 'create_client':
+        return { type: 'client_create_request', data }
       case 'bootstrap_belgian_company':
         return { type: 'belgian_company_bootstrap', data }
+      case 'start_client_valuation':
+        return { type: 'valuation_session_request', data }
       case 'get_client_data_readiness':
         return { type: 'client_data_readiness', data }
+      case 'open_import_review':
+        return { type: 'import_review_request', data }
       case 'get_method_readiness':
         return { type: 'method_readiness', data }
       case 'get_listing_preview':
@@ -252,8 +396,17 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.valuationRunRequests?.length ?? 0) > 0 ||
         (cards.reportGenerationRequests?.length ?? 0) > 0 ||
         (cards.sellabilityRunRequests?.length ?? 0) > 0 ||
+        (cards.ownerProfileAnswerRequests?.length ?? 0) > 0 ||
+        (cards.integrationConnectRequests?.length ?? 0) > 0 ||
+        (cards.secureCredentialRequests?.length ?? 0) > 0 ||
+        (cards.csvUploadRequests?.length ?? 0) > 0 ||
+        (cards.multiSelectRequests?.length ?? 0) > 0 ||
+        (cards.singleSelectRequests?.length ?? 0) > 0 ||
+        (cards.clientCreateRequests?.length ?? 0) > 0 ||
         (cards.belgianCompanyBootstraps?.length ?? 0) > 0 ||
+        (cards.valuationSessionRequests?.length ?? 0) > 0 ||
         (cards.clientDataReadinessPreviews?.length ?? 0) > 0 ||
+        (cards.importReviewRequests?.length ?? 0) > 0 ||
         (cards.methodReadinessPreviews?.length ?? 0) > 0 ||
         (cards.listingPreviews?.length ?? 0) > 0 ||
         (cards.listingCreateRequests?.length ?? 0) > 0 ||
@@ -295,16 +448,64 @@ export function appendManualChatToolCardsToMessage(
         ...cards.sellabilityRunRequests,
       ],
     }),
+    ...(cards.ownerProfileAnswerRequests && {
+      ownerProfileAnswerRequests: [
+        ...(message.ownerProfileAnswerRequests ?? []),
+        ...cards.ownerProfileAnswerRequests,
+      ],
+    }),
+    ...(cards.integrationConnectRequests && {
+      integrationConnectRequests: [
+        ...(message.integrationConnectRequests ?? []),
+        ...cards.integrationConnectRequests,
+      ],
+    }),
+    ...(cards.secureCredentialRequests && {
+      secureCredentialRequests: [
+        ...(message.secureCredentialRequests ?? []),
+        ...cards.secureCredentialRequests,
+      ],
+    }),
+    ...(cards.csvUploadRequests && {
+      csvUploadRequests: [...(message.csvUploadRequests ?? []), ...cards.csvUploadRequests],
+    }),
+    ...(cards.multiSelectRequests && {
+      multiSelectRequests: [...(message.multiSelectRequests ?? []), ...cards.multiSelectRequests],
+    }),
+    ...(cards.singleSelectRequests && {
+      singleSelectRequests: [
+        ...(message.singleSelectRequests ?? []),
+        ...cards.singleSelectRequests,
+      ],
+    }),
+    ...(cards.clientCreateRequests && {
+      clientCreateRequests: [
+        ...(message.clientCreateRequests ?? []),
+        ...cards.clientCreateRequests,
+      ],
+    }),
     ...(cards.belgianCompanyBootstraps && {
       belgianCompanyBootstraps: [
         ...(message.belgianCompanyBootstraps ?? []),
         ...cards.belgianCompanyBootstraps,
       ],
     }),
+    ...(cards.valuationSessionRequests && {
+      valuationSessionRequests: [
+        ...(message.valuationSessionRequests ?? []),
+        ...cards.valuationSessionRequests,
+      ],
+    }),
     ...(cards.clientDataReadinessPreviews && {
       clientDataReadinessPreviews: [
         ...(message.clientDataReadinessPreviews ?? []),
         ...cards.clientDataReadinessPreviews,
+      ],
+    }),
+    ...(cards.importReviewRequests && {
+      importReviewRequests: [
+        ...(message.importReviewRequests ?? []),
+        ...cards.importReviewRequests,
       ],
     }),
     ...(cards.methodReadinessPreviews && {

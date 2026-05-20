@@ -12,15 +12,13 @@ import {
   getTitanAccessTokenFromCookieHeader,
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
-
-const TITAN_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
 
 const TIMEOUT_MS = 15_000 // 15s
 
@@ -35,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
@@ -47,12 +45,14 @@ export async function POST(request: NextRequest) {
 
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
-    const titanResponse = await fetch(`${TITAN_API_URL}/api/v2/orchestration/gap-analysis`, {
+    const titanResponse = await fetch(`${getTitanApiUrl(request)}/api/v2/orchestration/gap-analysis`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
         ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
+        ...getTitanClientContextHeaders(request),
       },
       body: JSON.stringify({
         sessionId: body.sessionId,

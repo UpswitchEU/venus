@@ -184,7 +184,7 @@ export function isAPIErrorResponse(value: unknown): value is {
  */
 export function isSessionHistoryResponse(value: unknown): value is {
   exists: boolean
-  messages?: any[]
+  messages?: unknown[]
   fields_collected?: number
   completeness_percent?: number
 } {

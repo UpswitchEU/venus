@@ -162,15 +162,11 @@ export function TractionStep(_props: TractionStepProps) {
           and _engagement_bump for the matching engine bands. */}
       <div className="rounded-2xl border border-foreground/10 bg-background/60 p-6">
         <h3 className="mb-1 text-lg font-semibold text-foreground">{t('engagementTitle')}</h3>
-        <p className="mb-5 text-sm leading-relaxed text-foreground/60">
-          {t('engagementLead')}
-        </p>
+        <p className="mb-5 text-sm leading-relaxed text-foreground/60">{t('engagementLead')}</p>
         <CurrencyInput
           label={t('engagementLabel')}
           value={activeUsers ?? undefined}
-          onChange={(value) =>
-            setField('active_users', value != null ? Math.round(value) : null)
-          }
+          onChange={(value) => setField('active_users', value != null ? Math.round(value) : null)}
           placeholder="0"
           size="sm"
           truncateLabel={false}

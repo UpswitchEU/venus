@@ -67,30 +67,21 @@ describe('TractionStep — engagement signal contract', () => {
   })
 
   it('renders the "no credit" badge below 100 active users', () => {
-    useStartupValuationStore.setState(
-      { ...initialSnapshot, active_users: 25 },
-      true
-    )
+    useStartupValuationStore.setState({ ...initialSnapshot, active_users: 25 }, true)
     render(<TractionStep />)
 
     expect(screen.getByText('engagementBadgeNone')).toBeTruthy()
   })
 
   it('renders the "token engagement" badge at 100 – 999 active users', () => {
-    useStartupValuationStore.setState(
-      { ...initialSnapshot, active_users: 500 },
-      true
-    )
+    useStartupValuationStore.setState({ ...initialSnapshot, active_users: 500 }, true)
     render(<TractionStep />)
 
     expect(screen.getByText('engagementBadgeToken')).toBeTruthy()
   })
 
   it('renders the "real engagement" badge at 1 000+ active users', () => {
-    useStartupValuationStore.setState(
-      { ...initialSnapshot, active_users: 2_500 },
-      true
-    )
+    useStartupValuationStore.setState({ ...initialSnapshot, active_users: 2_500 }, true)
     render(<TractionStep />)
 
     expect(screen.getByText('engagementBadgeReal')).toBeTruthy()

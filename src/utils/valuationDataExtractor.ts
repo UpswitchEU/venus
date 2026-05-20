@@ -10,6 +10,10 @@
 import type { ModularSystem, ValuationResponse } from '../types/valuation'
 import { dataExtractionLogger } from './logger'
 
+type LegacyMultiplesValuation = NonNullable<ValuationResponse['multiples_valuation']> & {
+  comparables?: unknown
+}
+
 /**
  * Get methodology statement with fallback
  */
@@ -104,7 +108,8 @@ export function getDataSources(result: ValuationResponse) {
  */
 export function getComparableCompanies(result: ValuationResponse) {
   const fromTransparency = result.transparency?.comparable_companies || []
-  const fromLegacy = (result.multiples_valuation as any)?.comparables || []
+  const legacyMultiples = result.multiples_valuation as LegacyMultiplesValuation | undefined
+  const fromLegacy = Array.isArray(legacyMultiples?.comparables) ? legacyMultiples.comparables : []
   const companies = fromTransparency.length > 0 ? fromTransparency : fromLegacy
 
   dataExtractionLogger.debug('Getting comparable companies', {
@@ -170,7 +175,7 @@ export function getAdjustmentsApplied(result: ValuationResponse) {
   const adjustments = result.transparency?.adjustments_applied || []
   dataExtractionLogger.debug('Getting adjustments applied', {
     count: adjustments.length,
-    adjustmentTypes: adjustments.map((a: any) => a.type || a.step),
+    adjustmentTypes: adjustments.map((adjustment) => adjustment.type || adjustment.step),
   })
   return adjustments
 }

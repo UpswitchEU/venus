@@ -64,7 +64,7 @@ describe('manualChatCommandHandling', () => {
     ).toBe('Applied\n\n- **Eigenaarssalaris** → €60.000')
   })
 
-  it('builds a retry plan from the previous user message and removes the failed message', () => {
+  it('builds a retry plan and removes the failed turn so the prompt is not duplicated', () => {
     const messages = [
       message({ id: 'user-1', role: 'user', content: 'first prompt' }),
       message({ id: 'assistant-1', role: 'assistant', content: 'answer' }),
@@ -74,7 +74,7 @@ describe('manualChatCommandHandling', () => {
 
     expect(buildManualChatRetryPlan(messages, 'error-1')).toEqual({
       retryPrompt: 'retry this prompt',
-      messages: messages.slice(0, 3),
+      messages: messages.slice(0, 2),
     })
   })
 

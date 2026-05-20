@@ -3,9 +3,6 @@
   "updated": "2026-05-20",
   "maxLines": 1000,
   "rule": "Freeze current oversized production files. New files over maxLines or growth in existing oversized files fails guard:file-size; shrinkage must also be removed from this baseline.",
-  "files": {
-    "src/features/manual/components/ManualLayout.tsx": 2402,
-    "src/lib/auth.ts": 1570
-  },
-  "totalFiles": 2
+  "files": {},
+  "totalFiles": 0
 }

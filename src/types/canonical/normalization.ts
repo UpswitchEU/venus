@@ -5,4 +5,4 @@
  * Regenerate with: upswitch-platform sync:shared-contracts
  */
 
-export * from '@upswitch/types/normalization';
+export * from '@upswitch/types/normalization'

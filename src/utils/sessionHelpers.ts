@@ -26,6 +26,22 @@ import {
 
 const sessionHelpersLogger = createContextLogger('SessionHelpers')
 
+type UnknownRecord = Record<string, unknown>
+type PrefillPartialData = ValuationSession['partialData'] & {
+  _prefilledQuery?: string
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function getRecordString(record: UnknownRecord, key: string): string | undefined {
+  const value = record[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 /**
  * Creates a base ValuationSession object with default values
  *
@@ -59,7 +75,7 @@ export function createBaseSession(
     dataSource: currentView,
     createdAt: new Date(),
     updatedAt: new Date(),
-    partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
+    partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as PrefillPartialData) : {},
     sessionData: {},
   }
 }
@@ -75,10 +91,13 @@ export function createBaseSession(
  * @param prefilledQuery - Query to merge
  * @returns Updated partial data
  */
-export function mergePrefilledQuery(partialData: any, prefilledQuery?: string | null): any {
+export function mergePrefilledQuery(
+  partialData: ValuationSession['partialData'],
+  prefilledQuery?: string | null
+): PrefillPartialData {
   if (!prefilledQuery) return partialData
 
-  const updated = { ...partialData }
+  const updated: PrefillPartialData = { ...partialData }
   if (!updated._prefilledQuery) {
     updated._prefilledQuery = prefilledQuery
   }
@@ -113,35 +132,35 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
 
   // ✅ FIX: Preserve ALL existing sessionData fields
   // Only add/override the special fields (valuation_result, html_report)
-  // Cast to any to access session_data (backend may return snake_case)
-  const sessionAny = session as any
-  const existingSessionData = mergeSessionDataEnvelopesFromRoot(sessionAny as Record<string, any>)
+  const sessionRecord = session as unknown as UnknownRecord
+  const existingSessionData = mergeSessionDataEnvelopesFromRoot(sessionRecord)
 
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
   // _htmlReport is bootstrap-injected for instant restoration
   const htmlReport = getFirstRenderableReportHtml(
     session.htmlReport,
-    (existingSessionData as any).htmlReport,
-    (existingSessionData as any).html_report,
-    (existingSessionData as any)._htmlReport
+    getRecordString(existingSessionData, 'htmlReport'),
+    getRecordString(existingSessionData, 'html_report'),
+    getRecordString(existingSessionData, '_htmlReport')
   )
   const valuationCandidates = [
     session.valuationResult,
-    (existingSessionData as any).valuationResult,
-    (existingSessionData as any).valuation_result,
-  ].filter((candidate) => candidate && typeof candidate === 'object') as Array<Record<string, any>>
-  const candidateScore = (candidate: Record<string, any>) => {
+    existingSessionData.valuationResult,
+    existingSessionData.valuation_result,
+  ].filter((candidate): candidate is UnknownRecord => asRecord(candidate) !== null)
+  const candidateScore = (candidate: UnknownRecord) => {
     let score = 0
     const valuationResultsCandidate = hydrateClientValuationResultsMap(candidate)
+    const details = asRecord(candidate.details)
     if (valuationResultsCandidate) {
       score += 8
     }
     if (
       getFirstRenderableReportHtml(
-        candidate.html_report,
-        candidate.htmlReport,
-        candidate.details?.html_report
+        getRecordString(candidate, 'html_report'),
+        getRecordString(candidate, 'htmlReport'),
+        details ? getRecordString(details, 'html_report') : undefined
       )
     ) {
       score += 4
@@ -164,20 +183,18 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
         )
       : undefined
   const priceRange =
-    (session as any).priceRange ||
-    (existingSessionData as any).priceRange ||
-    (existingSessionData as any)._pricingRange
+    sessionRecord.priceRange || existingSessionData.priceRange || existingSessionData._pricingRange
 
   const mergedSessionData = {
     ...existingSessionData,
     ...(valuationResult && { valuation_result: valuationResult }),
     ...(htmlReport && { html_report: htmlReport }),
-    ...(priceRange && { _pricingRange: priceRange }),
+    ...(priceRange ? { _pricingRange: priceRange } : {}),
   }
 
   return {
     ...session,
-    sessionData: mergedSessionData,
+    sessionData: mergedSessionData as ValuationSession['sessionData'],
     htmlReport,
     valuationResult: valuationResult as ValuationResponse | undefined,
   }
@@ -206,9 +223,7 @@ export function resolveEnsureHtmlSessionKey(params: {
       ? ((mergedSession as { sessionKey?: string }).sessionKey as string)
       : undefined
 
-  const nestedStable = extractStableSessionKeyFromMergedSession(
-    mergedSession as unknown as Record<string, any>
-  )
+  const nestedStable = extractStableSessionKeyFromMergedSession(mergedSession)
 
   const candidates = [mergedReportId, snake, camelSk, nestedStable, urlReportId]
   for (const c of candidates) {
@@ -272,11 +287,12 @@ export function orderedValuationSessionLookupIds(params: {
  * @param session - Session from backend with string dates
  * @returns Session with Date objects
  */
-export function normalizeSessionDates(session: any): ValuationSession {
+export function normalizeSessionDates(session: ValuationSession): ValuationSession {
   // ✅ CRITICAL FIX: Ensure sessionData and partialData are preserved
   // Backend may return session_data which needs to be mapped to sessionData/partialData
   // ✅ FIX: Robust date parsing with fallback for invalid dates
-  const parseDate = (dateValue: any): Date => {
+  const sessionRecord = session as unknown as UnknownRecord
+  const parseDate = (dateValue: unknown): Date => {
     if (!dateValue) return new Date()
     const ms = dateLikeToUnixMs(dateValue)
     return ms !== null ? new Date(ms) : new Date()
@@ -284,17 +300,19 @@ export function normalizeSessionDates(session: any): ValuationSession {
 
   const normalized: ValuationSession = {
     ...session,
-    createdAt: parseDate(session.createdAt),
-    updatedAt: parseDate(session.updatedAt),
-    completedAt: session.completedAt ? parseDate(session.completedAt) : undefined,
-    sessionData: mergeSessionDataEnvelopesFromRoot(session),
+    createdAt: parseDate(sessionRecord.createdAt),
+    updatedAt: parseDate(sessionRecord.updatedAt),
+    completedAt: sessionRecord.completedAt ? parseDate(sessionRecord.completedAt) : undefined,
+    sessionData: mergeSessionDataEnvelopesFromRoot(
+      sessionRecord
+    ) as ValuationSession['sessionData'],
     partialData: (() => {
       const fromPartial = mergeSessionDataEnvelopesFromRoot({
-        sessionData: session.partialData,
-        session_data: session.partial_data,
+        sessionData: sessionRecord.partialData,
+        session_data: sessionRecord.partial_data,
       })
-      if (Object.keys(fromPartial).length > 0) return fromPartial
-      return mergeSessionDataEnvelopesFromRoot(session)
+      if (Object.keys(fromPartial).length > 0) return fromPartial as ValuationSession['partialData']
+      return mergeSessionDataEnvelopesFromRoot(sessionRecord) as ValuationSession['partialData']
     })(),
   }
 

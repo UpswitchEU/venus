@@ -8,6 +8,7 @@ on:
       - "scripts/**"
       - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
+      - "docs/architecture/debug-surface-baseline.json"
       - ".github/workflows/quality-guard.yml"
       - ".gitignore"
       - ".env.example"
@@ -26,6 +27,7 @@ on:
       - "scripts/**"
       - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
+      - "docs/architecture/debug-surface-baseline.json"
       - ".github/workflows/quality-guard.yml"
       - ".gitignore"
       - ".env.example"
@@ -59,6 +61,9 @@ jobs:
 
       - name: Guard auth surface
         run: pnpm run guard:auth-surface
+
+      - name: Guard debug surface
+        run: pnpm run guard:debug-surface
 
       - name: Guard type debt
         run: pnpm run guard:type-debt

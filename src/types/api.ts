@@ -165,7 +165,7 @@ export interface APIErrorResponse {
   success: false
   error: string
   code?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
   timestamp?: string
 }
 
@@ -177,7 +177,7 @@ export interface AxiosErrorData {
   error?: string
   code?: string
   message?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 /**
@@ -199,7 +199,7 @@ export interface MessageMetadata {
   source?: 'user_input' | 'suggestion' | 'fallback'
   processing_time?: number
   ai_confidence?: number
-  [key: string]: any // Allow additional metadata fields
+  [key: string]: unknown // Allow additional metadata fields
 }
 
 /**
@@ -223,7 +223,7 @@ export interface ConversationHistoryResponse {
   session_id: string
   messages?: ConversationMessage[]
   messages_count?: number
-  collected_data?: Record<string, any>
+  collected_data?: Record<string, unknown>
   completeness_level?: string
   completeness_percent?: number
   fields_collected?: number

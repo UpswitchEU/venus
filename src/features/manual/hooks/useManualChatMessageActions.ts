@@ -252,6 +252,20 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               })
             )
           },
+          onConsentRequired: (payload) => {
+            streamCleanupRef.current = null
+            setToolInProgress(null)
+            setIsChatGenerating(false)
+
+            setChatMessages((prev) =>
+              patchManualChatMessage(prev, streamingMsgId, {
+                content: payload.message || translate('consentRequired'),
+                isError: true,
+                requiresConsent: true,
+                consentPolicyVersion: payload.currentPolicyVersion,
+              })
+            )
+          },
           onError: (error) => {
             streamCleanupRef.current = null
             setToolInProgress(null)
@@ -266,6 +280,18 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                     patchManualChatMessage(prev, streamingMsgId, {
                       content: translate('quotaExhausted'),
                       isError: true,
+                    })
+                  )
+                  return
+                }
+
+                if (aiResponse.requires_consent) {
+                  setChatMessages((prev) =>
+                    patchManualChatMessage(prev, streamingMsgId, {
+                      content: aiResponse.error || translate('consentRequired'),
+                      isError: true,
+                      requiresConsent: true,
+                      consentPolicyVersion: aiResponse.currentPolicyVersion,
                     })
                   )
                   return

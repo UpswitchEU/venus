@@ -49,12 +49,12 @@ import {
   sourceLabels,
   typeOptions,
 } from './NormalisationReviewStep.constants'
-import { NormalisationReviewStepHeader } from './NormalisationReviewStepHeader'
 import type {
   NormalisationReviewStepProps,
   NormalizationType,
   SuggestedNormalisation,
 } from './NormalisationReviewStep.types'
+import { NormalisationReviewStepHeader } from './NormalisationReviewStepHeader'
 
 export type {
   NormalisationReviewStepProps,

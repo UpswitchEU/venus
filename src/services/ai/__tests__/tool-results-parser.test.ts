@@ -30,8 +30,17 @@ describe('parseAIChatToolResults — input tolerance', () => {
       valuationRunRequests: [],
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
+      ownerProfileAnswerRequests: [],
+      integrationConnectRequests: [],
+      secureCredentialRequests: [],
+      csvUploadRequests: [],
+      multiSelectRequests: [],
+      singleSelectRequests: [],
+      clientCreateRequests: [],
       belgianCompanyBootstraps: [],
+      valuationSessionRequests: [],
       clientDataReadinessPreviews: [],
+      importReviewRequests: [],
       methodReadinessPreviews: [],
       listingPreviews: [],
       listingCreateRequests: [],
@@ -52,8 +61,17 @@ describe('parseAIChatToolResults — input tolerance', () => {
       valuationRunRequests: [],
       reportGenerationRequests: [],
       sellabilityRunRequests: [],
+      ownerProfileAnswerRequests: [],
+      integrationConnectRequests: [],
+      secureCredentialRequests: [],
+      csvUploadRequests: [],
+      multiSelectRequests: [],
+      singleSelectRequests: [],
+      clientCreateRequests: [],
       belgianCompanyBootstraps: [],
+      valuationSessionRequests: [],
       clientDataReadinessPreviews: [],
+      importReviewRequests: [],
       methodReadinessPreviews: [],
       listingPreviews: [],
       listingCreateRequests: [],
@@ -82,33 +100,13 @@ describe('parseAIChatToolResults — input tolerance', () => {
     expect(result.normalisationSuggestions).toEqual([{ category: 'rent' }])
   })
 
-  it('documents which Titan renderable envelope types Venus intentionally ignores', () => {
+  it('keeps the Venus parsed envelope fixture aligned with Titan renderable outputs', () => {
     const partition = [
       ...aiToolResultContract.venusParsedEnvelopeTypes,
       ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-
-    const result = parseAIChatToolResults(
-      aiToolResultContract.venusIgnoredRenderableEnvelopeTypes.map((type) => ({
-        type,
-        data: { status: 'pending_approval', request: {} },
-      }))
-    )
-    expect(result).toEqual({
-      normalisationSuggestions: [],
-      fieldUpdates: [],
-      valuationRunRequests: [],
-      reportGenerationRequests: [],
-      sellabilityRunRequests: [],
-      belgianCompanyBootstraps: [],
-      clientDataReadinessPreviews: [],
-      methodReadinessPreviews: [],
-      listingPreviews: [],
-      listingCreateRequests: [],
-      buyerProfilePreviews: [],
-      registrySearchResults: [],
-    })
+    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
   })
 })
 
@@ -490,6 +488,250 @@ describe('sellability_run_request', () => {
         reason: 'profile_incomplete',
         missing: ['q1_top3_concentration_pct', 'q3_books_cleanliness'],
         message: 'Fill Q1 + Q3 first',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// agentic action envelopes
+// ---------------------------------------------------------------------
+
+describe('agentic action envelopes', () => {
+  it('parses owner-profile answer proposals', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'owner_profile_answer_request',
+        data: {
+          update: {
+            field: 'key_man_dependency',
+            value: 'low',
+            label: 'Key person dependency',
+            reason: 'Documented management team.',
+            complete: true,
+            accountantCustomerId: 'client-1',
+          },
+        },
+      },
+    ])
+
+    expect(result.ownerProfileAnswerRequests).toEqual([
+      {
+        field: 'key_man_dependency',
+        value: 'low',
+        label: 'Key person dependency',
+        reason: 'Documented management team.',
+        complete: true,
+        accountantCustomerId: 'client-1',
+      },
+    ])
+  })
+
+  it('parses integration, credential, upload, and choice proposals', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'integration_connect_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            provider: 'silverfin',
+            auth_mode: 'oauth',
+            reason: 'Pull trial balance data.',
+            target_context: 'client-1',
+          },
+          message: 'Connect Silverfin.',
+        },
+      },
+      {
+        type: 'secure_credential_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            provider: 'exact',
+            fields: [
+              { key: 'api_key', label: 'API key', masked: true, required: true },
+              { key: '', label: 'Malformed' },
+            ],
+            submit_path: '/api/integrations/accounting/exact/credentials',
+          },
+        },
+      },
+      {
+        type: 'csv_upload_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            mode: 'single_client_trial_balance',
+            label: 'Upload trial balance',
+            expected_columns: ['account', 'amount'],
+            max_size_bytes: 5242880,
+            accept: '.csv',
+          },
+        },
+      },
+      {
+        type: 'multi_select_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            title: 'Select methods',
+            options: [
+              { value: 'ebitda', label: 'EBITDA' },
+              { value: 'sde', label: 'SDE' },
+            ],
+            min_selections: 1,
+            max_selections: 2,
+            preselected: ['ebitda'],
+          },
+        },
+      },
+      {
+        type: 'single_select_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            title: 'Choose source',
+            options: [
+              { value: 'yuki', label: 'Yuki' },
+              { value: 'csv', label: 'CSV' },
+            ],
+            preselected: 'csv',
+          },
+        },
+      },
+    ])
+
+    expect(result.integrationConnectRequests).toEqual([
+      {
+        status: 'pending_approval',
+        provider: 'silverfin',
+        authMode: 'oauth',
+        reason: 'Pull trial balance data.',
+        targetContext: 'client-1',
+        message: 'Connect Silverfin.',
+      },
+    ])
+    expect(result.secureCredentialRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      provider: 'exact',
+      submitPath: '/api/integrations/accounting/exact/credentials',
+      fields: [{ key: 'api_key', label: 'API key', masked: true, required: true }],
+    })
+    expect(result.csvUploadRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      mode: 'single_client_trial_balance',
+      expectedColumns: ['account', 'amount'],
+      maxSizeBytes: 5242880,
+      accept: '.csv',
+    })
+    expect(result.multiSelectRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      title: 'Select methods',
+      minSelections: 1,
+      maxSelections: 2,
+      preselected: ['ebitda'],
+    })
+    expect(result.singleSelectRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      title: 'Choose source',
+      preselected: 'csv',
+    })
+  })
+
+  it('parses advisor workflow proposals and blocked states', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'client_create_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            business_name: 'Acme NV',
+            customer_email: 'owner@acme.test',
+            company_number: 'BE0123456789',
+            industry: 'Software',
+            location: 'Antwerp',
+            notes: 'Imported from KBO.',
+          },
+          message: 'Ready to add client.',
+        },
+      },
+      {
+        type: 'valuation_session_request',
+        data: {
+          status: 'auto_approved',
+          request: {
+            client_id: 'client-1',
+            business_name: 'Acme NV',
+            customer_email: 'owner@acme.test',
+            has_business_card: true,
+            latest_valuation_id: 'valuation-1',
+            has_synced_financials: true,
+            stp_status: 'ready',
+          },
+        },
+      },
+      {
+        type: 'import_review_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            client_id: 'client-1',
+            business_name: 'Acme NV',
+            accounting_sources: [{ provider: 'yuki', client_key: 'admin-1' }],
+            actionable_flag_count: 2,
+            top_flags: [{ year: '2025', code: 'UNMAPPED_LEDGER', severity: 'error' }],
+          },
+        },
+      },
+      {
+        type: 'client_create_request',
+        data: {
+          status: 'blocked',
+          reason: 'missing_business_name',
+          message: 'Tell me which business to add.',
+        },
+      },
+    ])
+
+    expect(result.clientCreateRequests).toEqual([
+      {
+        status: 'pending_approval',
+        businessName: 'Acme NV',
+        customerEmail: 'owner@acme.test',
+        companyNumber: 'BE0123456789',
+        industry: 'Software',
+        location: 'Antwerp',
+        notes: 'Imported from KBO.',
+        message: 'Ready to add client.',
+      },
+      {
+        status: 'blocked',
+        reason: 'missing_business_name',
+        message: 'Tell me which business to add.',
+      },
+    ])
+    expect(result.valuationSessionRequests).toEqual([
+      {
+        status: 'auto_approved',
+        clientId: 'client-1',
+        businessName: 'Acme NV',
+        customerEmail: 'owner@acme.test',
+        hasBusinessCard: true,
+        latestValuationId: 'valuation-1',
+        hasSyncedFinancials: true,
+        stpStatus: 'ready',
+      },
+    ])
+    expect(result.importReviewRequests).toMatchObject([
+      {
+        status: 'pending_approval',
+        clientId: 'client-1',
+        businessName: 'Acme NV',
+        accountingSources: [{ provider: 'yuki', clientKey: 'admin-1', lastSyncAt: null }],
+        actionableFlagCount: 2,
+        topFlags: [
+          { year: '2025', code: 'UNMAPPED_LEDGER', severity: 'error', field: null, message: null },
+        ],
       },
     ])
   })

@@ -81,6 +81,90 @@ export interface SellabilityRunRequestBlocked {
 
 export type SellabilityRunRequest = SellabilityRunRequestPending | SellabilityRunRequestBlocked
 
+export interface OwnerProfileAnswerRequest {
+  field?: string
+  value?: number | string | boolean | null
+  label?: string
+  reason?: string
+  complete?: boolean
+  accountantCustomerId?: string
+}
+
+export interface IntegrationConnectRequest {
+  status: 'pending_approval'
+  provider?: string
+  authMode?: 'oauth' | 'api_key'
+  reason?: string
+  targetContext?: string | null
+  message?: string
+}
+
+export interface SecureCredentialRequest {
+  status: 'pending_approval'
+  provider?: string
+  reason?: string
+  fields?: Array<{
+    key: string
+    label: string
+    masked: boolean
+    required: boolean
+    helper?: string
+  }>
+  submitPath?: string
+  message?: string
+}
+
+export interface CsvUploadRequest {
+  status: 'pending_approval'
+  mode?: 'single_client_trial_balance' | 'bulk_clients'
+  label?: string
+  reason?: string
+  expectedColumns?: string[]
+  submitPath?: string
+  maxSizeBytes?: number
+  accept?: string
+  message?: string
+}
+
+export interface MultiSelectRequest {
+  status: 'pending_approval'
+  title?: string
+  options?: Array<{ value: string; label: string; helper?: string }>
+  minSelections?: number
+  maxSelections?: number
+  preselected?: string[]
+  submitPath?: string
+  reason?: string
+}
+
+export interface SingleSelectRequest {
+  status: 'pending_approval'
+  title?: string
+  options?: Array<{ value: string; label: string; helper?: string }>
+  preselected?: string | null
+  submitPath?: string
+  reason?: string
+}
+
+export interface ClientCreateRequestPending {
+  status: 'pending_approval' | 'auto_approved'
+  businessName?: string
+  customerEmail?: string | null
+  companyNumber?: string | null
+  industry?: string | null
+  location?: string | null
+  notes?: string | null
+  message?: string
+}
+
+export interface ClientCreateRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  message?: string
+}
+
+export type ClientCreateRequest = ClientCreateRequestPending | ClientCreateRequestBlocked
+
 export interface ListingPreview {
   status: 'ok' | 'blocked'
   reportId?: string
@@ -135,6 +219,60 @@ export interface ListingCreateRequestBlocked {
 }
 
 export type ListingCreateRequest = ListingCreateRequestPending | ListingCreateRequestBlocked
+
+export interface ValuationSessionRequestPending {
+  status: 'pending_approval' | 'auto_approved'
+  clientId?: string
+  businessName?: string | null
+  customerEmail?: string | null
+  hasBusinessCard?: boolean
+  latestValuationId?: string | null
+  hasSyncedFinancials?: boolean
+  stpStatus?: string | null
+  message?: string
+}
+
+export interface ValuationSessionRequestBlocked {
+  status: 'blocked'
+  reason?: string
+  message?: string
+}
+
+export type ValuationSessionRequest =
+  | ValuationSessionRequestPending
+  | ValuationSessionRequestBlocked
+
+export interface ImportReviewRequestPending {
+  status: 'pending_approval' | 'auto_approved'
+  clientId?: string
+  businessName?: string | null
+  hasSyncedFinancials?: boolean
+  stpStatus?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  actionableFlagCount?: number
+  topFlags?: Array<{
+    year?: string
+    field?: string | null
+    code?: string | null
+    severity?: string | null
+    message?: string | null
+  }>
+  message?: string
+}
+
+export interface ImportReviewRequestBlocked {
+  status: 'blocked'
+  clientId?: string
+  reason?: string
+  message?: string
+}
+
+export type ImportReviewRequest = ImportReviewRequestPending | ImportReviewRequestBlocked
 
 export interface MethodReadinessPreview {
   status: 'ok' | 'blocked'
@@ -284,8 +422,17 @@ export interface ParsedToolResults {
   valuationRunRequests: ValuationRunRequest[]
   reportGenerationRequests: ReportGenerationRequest[]
   sellabilityRunRequests: SellabilityRunRequest[]
+  ownerProfileAnswerRequests: OwnerProfileAnswerRequest[]
+  integrationConnectRequests: IntegrationConnectRequest[]
+  secureCredentialRequests: SecureCredentialRequest[]
+  csvUploadRequests: CsvUploadRequest[]
+  multiSelectRequests: MultiSelectRequest[]
+  singleSelectRequests: SingleSelectRequest[]
+  clientCreateRequests: ClientCreateRequest[]
   belgianCompanyBootstraps: BelgianCompanyBootstrap[]
+  valuationSessionRequests: ValuationSessionRequest[]
   clientDataReadinessPreviews: ClientDataReadinessPreview[]
+  importReviewRequests: ImportReviewRequest[]
   methodReadinessPreviews: MethodReadinessPreview[]
   listingPreviews: ListingPreview[]
   listingCreateRequests: ListingCreateRequest[]

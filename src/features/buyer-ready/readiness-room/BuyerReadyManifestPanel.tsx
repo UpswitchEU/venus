@@ -21,9 +21,9 @@ import type { ReactNode } from 'react'
 import { Badge, Progress } from '@/design-system'
 import { cn } from '@/lib/utils'
 import type {
+  BuyerReadinessOverallStatus,
   BuyerReadinessPackage,
   BuyerReadyChecklistTrafficStatus,
-  BuyerReadinessOverallStatus,
 } from './types'
 
 export interface BuyerReadyManifestPanelProps {
@@ -49,7 +49,7 @@ export interface BuyerReadyManifestPanelProps {
 }
 
 function overallTone(
-  status: BuyerReadinessOverallStatus | null | undefined,
+  status: BuyerReadinessOverallStatus | null | undefined
 ): 'success' | 'warning' | 'destructive' | 'neutral' {
   if (!status) return 'neutral'
   if (status === 'ready') return 'success'
@@ -58,7 +58,7 @@ function overallTone(
 }
 
 function checklistTone(
-  status: BuyerReadyChecklistTrafficStatus | null | undefined,
+  status: BuyerReadyChecklistTrafficStatus | null | undefined
 ): 'success' | 'warning' | 'destructive' | 'neutral' {
   if (!status) return 'neutral'
   if (status === 'green') return 'success'
@@ -104,38 +104,31 @@ export function BuyerReadyManifestPanel({
           notReady: 'Wacht op generatie',
         }
 
-  const safeEntity =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      entityId,
-    )
-      ? entityId
-      : null
-  const targetHref =
-    href ?? (safeEntity ? `/buyer-ready/${safeEntity}` : null)
+  const safeEntity = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    entityId
+  )
+    ? entityId
+    : null
+  const targetHref = href ?? (safeEntity ? `/buyer-ready/${safeEntity}` : null)
 
   if (!readiness) {
     return (
-      <div
-        className={cn(
-          'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm',
-          className,
-        )}
-      >
-        <div className='flex items-start justify-between gap-3'>
+      <div className={cn('rounded-2xl border border-slate-200 bg-white p-4 shadow-sm', className)}>
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className='text-sm font-semibold text-slate-900'>{copy.title}</p>
-            <p className='text-xs text-slate-500'>{copy.subtitle}</p>
+            <p className="text-sm font-semibold text-slate-900">{copy.title}</p>
+            <p className="text-xs text-slate-500">{copy.subtitle}</p>
           </div>
-          <Badge variant='neutral'>{copy.notReady}</Badge>
+          <Badge variant="neutral">{copy.notReady}</Badge>
         </div>
-        <p className='mt-3 text-xs text-slate-500'>{copy.empty}</p>
+        <p className="mt-3 text-xs text-slate-500">{copy.empty}</p>
         {targetHref ? (
           <a
             href={targetHref}
-            className='mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800'
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800"
           >
             {copy.openRoom}
-            <ArrowUpRight className='h-3 w-3' />
+            <ArrowUpRight className="h-3 w-3" />
           </a>
         ) : null}
       </div>
@@ -149,74 +142,65 @@ export function BuyerReadyManifestPanel({
     <div
       className={cn(
         'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3',
-        className,
+        className
       )}
     >
-      <div className='flex items-start justify-between gap-3'>
-        <div className='min-w-0'>
-          <div className='flex items-center gap-1.5'>
-            <FileCheck2 className='h-3.5 w-3.5 text-emerald-700' />
-            <p className='text-sm font-semibold text-slate-900'>{copy.title}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <FileCheck2 className="h-3.5 w-3.5 text-emerald-700" />
+            <p className="text-sm font-semibold text-slate-900">{copy.title}</p>
           </div>
-          <p className='text-xs text-slate-500'>{copy.subtitle}</p>
+          <p className="text-xs text-slate-500">{copy.subtitle}</p>
         </div>
-        <Badge variant={overallTone(readiness.status)}>
-          {humanise(readiness.status)}
-        </Badge>
+        <Badge variant={overallTone(readiness.status)}>{humanise(readiness.status)}</Badge>
       </div>
 
       {header}
 
       <div>
-        <div className='flex items-baseline justify-between text-xs text-slate-500 mb-1'>
+        <div className="flex items-baseline justify-between text-xs text-slate-500 mb-1">
           <span>
-            {readiness.summary.complete} / {readiness.summary.requiredTotal}{' '}
-            {copy.ready}
+            {readiness.summary.complete} / {readiness.summary.requiredTotal} {copy.ready}
           </span>
           <span>{Math.round(completion)}%</span>
         </div>
         <Progress value={completion} max={100} />
       </div>
 
-      <div className='grid grid-cols-3 gap-2 text-xs'>
-        <div className='rounded-lg bg-emerald-50 px-2 py-1.5 text-emerald-800'>
-          <p className='text-[10px] uppercase tracking-wide text-emerald-700/70'>
-            {copy.ready}
-          </p>
-          <p className='text-sm font-semibold'>{readiness.summary.complete}</p>
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="rounded-lg bg-emerald-50 px-2 py-1.5 text-emerald-800">
+          <p className="text-[10px] uppercase tracking-wide text-emerald-700/70">{copy.ready}</p>
+          <p className="text-sm font-semibold">{readiness.summary.complete}</p>
         </div>
-        <div className='rounded-lg bg-amber-50 px-2 py-1.5 text-amber-800'>
-          <p className='text-[10px] uppercase tracking-wide text-amber-700/70'>
+        <div className="rounded-lg bg-amber-50 px-2 py-1.5 text-amber-800">
+          <p className="text-[10px] uppercase tracking-wide text-amber-700/70">
             {copy.needsAttention}
           </p>
-          <p className='text-sm font-semibold'>
-            {readiness.summary.needsAttention}
-          </p>
+          <p className="text-sm font-semibold">{readiness.summary.needsAttention}</p>
         </div>
-        <div className='rounded-lg bg-rose-50 px-2 py-1.5 text-rose-800'>
-          <p className='text-[10px] uppercase tracking-wide text-rose-700/70'>
-            {copy.missing}
-          </p>
-          <p className='text-sm font-semibold'>{readiness.summary.missing}</p>
+        <div className="rounded-lg bg-rose-50 px-2 py-1.5 text-rose-800">
+          <p className="text-[10px] uppercase tracking-wide text-rose-700/70">{copy.missing}</p>
+          <p className="text-sm font-semibold">{readiness.summary.missing}</p>
         </div>
       </div>
 
       {checklist ? (
-        <div className='rounded-lg border border-slate-200 px-3 py-2'>
-          <div className='flex items-center justify-between text-xs'>
-            <span className='text-slate-500'>{copy.checklist}</span>
+        <div className="rounded-lg border border-slate-200 px-3 py-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">{copy.checklist}</span>
             <Badge variant={checklistTone(checklist.overall_status)}>
               {humanise(checklist.overall_status)}
             </Badge>
           </div>
-          <div className='mt-1 flex gap-3 text-[11px] text-slate-600'>
-            <span className='text-emerald-700'>
+          <div className="mt-1 flex gap-3 text-[11px] text-slate-600">
+            <span className="text-emerald-700">
               {checklist.green_count} {copy.ready}
             </span>
-            <span className='text-amber-700'>
+            <span className="text-amber-700">
               {checklist.yellow_count} {copy.needsAttention}
             </span>
-            <span className='text-rose-700'>
+            <span className="text-rose-700">
               {checklist.red_count} {copy.missing}
             </span>
           </div>
@@ -226,10 +210,10 @@ export function BuyerReadyManifestPanel({
       {targetHref ? (
         <a
           href={targetHref}
-          className='inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800'
+          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800"
         >
           {copy.openRoom}
-          <ArrowUpRight className='h-3 w-3' />
+          <ArrowUpRight className="h-3 w-3" />
         </a>
       ) : null}
     </div>

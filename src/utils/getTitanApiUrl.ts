@@ -8,8 +8,9 @@
  * Priority:
  *   1. NEXT_PUBLIC_BACKEND_URL (explicit)
  *   2. NEXT_PUBLIC_API_BASE_URL (explicit)
- *   3. Hostname from request.headers.get('host'): preview/staging → api-staging
- *   4. Production fallback
+ *   3. Hostname from request.headers.get('host'): localhost → local Titan
+ *   4. Hostname from request.headers.get('host'): preview/staging → api-staging
+ *   5. Production fallback
  */
 
 import type { NextRequest } from 'next/server'
@@ -18,6 +19,7 @@ import { tryNormalizeApiBaseUrl } from '@/utils/normalizeExplicitUrl'
 
 const API_STAGING = 'https://api-staging.upswitch.app'
 const API_PRODUCTION = 'https://api.upswitch.app'
+const API_LOCAL = 'http://localhost:3002'
 
 /** Request-like with headers (Request | NextRequest) */
 type RequestWithHeaders = { headers: Headers }
@@ -35,7 +37,13 @@ export function getTitanApiUrl(request?: RequestWithHeaders | NextRequest): stri
     if (n) return n
   }
 
-  const host = request?.headers.get('host')?.split(':')[0] ?? ''
+  const nextUrlHostname =
+    request && 'nextUrl' in request && request.nextUrl ? request.nextUrl.hostname.split(':')[0] : ''
+  const host = request?.headers.get('host')?.split(':')[0] || nextUrlHostname
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return API_LOCAL
+  }
+
   if (host.includes('preview.') || host.includes('staging.')) {
     return API_STAGING
   }

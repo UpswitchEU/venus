@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, ChevronRight, Edit3, HelpCircle, Plus, Search } from 'lucide-react'
-import type { RefObject } from 'react'
 import type { useTranslations } from 'next-intl'
+import type { RefObject } from 'react'
 import type { LedgerAccount } from '@/constants/grootboek'
 import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
@@ -11,14 +11,8 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import {
-  formatCurrencyTaxLatency,
-  type TaxLatencyType,
-} from '../../store/useTaxLatencyStore'
-import {
-  getLedgerDisplayLabel,
-  sanitizeNumericInput,
-} from './TaxLatencySection.utils'
+import { formatCurrencyTaxLatency, type TaxLatencyType } from '../../store/useTaxLatencyStore'
+import { getLedgerDisplayLabel, sanitizeNumericInput } from './TaxLatencySection.utils'
 
 interface TaxLatencyEditorFormProps {
   amountInputRef: RefObject<HTMLInputElement>

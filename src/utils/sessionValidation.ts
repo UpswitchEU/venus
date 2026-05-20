@@ -15,6 +15,12 @@ import { getRenderableReportHtml } from './safetyNetReportHtml'
 
 const validationLogger = createContextLogger('SessionValidation')
 
+type SessionRecord = Record<string, unknown>
+
+function isSessionRecord(value: unknown): value is SessionRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /**
  * Validate session data structure and required fields
  *
@@ -34,9 +40,9 @@ const validationLogger = createContextLogger('SessionValidation')
  * // Safe to use session
  * ```
  */
-export function validateSessionData(session: any): asserts session is ValuationSession {
+export function validateSessionData(session: unknown): asserts session is ValuationSession {
   // Critical IDs
-  if (!session) {
+  if (!isSessionRecord(session)) {
     throw new ValidationError('Session is null or undefined')
   }
 
@@ -63,7 +69,7 @@ export function validateSessionData(session: any): asserts session is ValuationS
       reportId: session.reportId,
     })
     // ✅ FIX: Initialize partialData from session_data if available
-    session.partialData = session.sessionData ? { ...session.sessionData } : {}
+    session.partialData = isSessionRecord(session.sessionData) ? { ...session.sessionData } : {}
   }
 
   if (!session.sessionData) {
@@ -119,8 +125,8 @@ export function validateSessionData(session: any): asserts session is ValuationS
  * @param version - Version to validate
  * @throws ValidationError if version data is invalid
  */
-export function validateVersionData(version: any): void {
-  if (!version) {
+export function validateVersionData(version: unknown): void {
+  if (!isSessionRecord(version)) {
     throw new ValidationError('Version is null or undefined')
   }
 
@@ -168,7 +174,11 @@ export function isSessionRestorable(session: ValuationSession): boolean {
  * @param session - Session to sanitize
  * @returns Sanitized session
  */
-export function sanitizeSessionData(session: any): ValuationSession {
+export function sanitizeSessionData(session: unknown): ValuationSession {
+  if (!isSessionRecord(session)) {
+    throw new ValidationError('Session is null or undefined')
+  }
+
   const createdMs = session.createdAt ? dateLikeToUnixMs(session.createdAt) : null
   const updatedMs = session.updatedAt ? dateLikeToUnixMs(session.updatedAt) : null
   const completedMs = session.completedAt ? dateLikeToUnixMs(session.completedAt) : null
@@ -176,16 +186,19 @@ export function sanitizeSessionData(session: any): ValuationSession {
   const sanitized = {
     reportId: String(session.reportId || ''),
     currentView: session.currentView === 'conversational' ? 'conversational' : 'manual',
-    partialData: session.partialData || {},
-    sessionData: session.sessionData || {},
-    dataSource: session.dataSource || 'manual_entry',
+    partialData: isSessionRecord(session.partialData) ? session.partialData : {},
+    sessionData: isSessionRecord(session.sessionData) ? session.sessionData : {},
+    dataSource: typeof session.dataSource === 'string' ? session.dataSource : 'manual_entry',
     createdAt: createdMs !== null ? new Date(createdMs) : new Date(),
     updatedAt: updatedMs !== null ? new Date(updatedMs) : new Date(),
     completedAt: completedMs !== null ? new Date(completedMs) : undefined,
     // ✅ BANK-GRADE FIX: Preserve top-level valuation fields for restoration detection
     // These fields are used by cache completeness checks and restoration logic
-    valuationResult: session.valuationResult || undefined,
-    htmlReport: getRenderableReportHtml(session.htmlReport) || undefined,
+    valuationResult: isSessionRecord(session.valuationResult) ? session.valuationResult : undefined,
+    htmlReport:
+      typeof session.htmlReport === 'string'
+        ? getRenderableReportHtml(session.htmlReport) || undefined
+        : undefined,
   }
 
   // Validate sanitized data

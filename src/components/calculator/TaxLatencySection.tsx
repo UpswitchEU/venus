@@ -47,11 +47,11 @@ import {
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
 import {
   fuzzyMatch,
+  type GroupedTaxLatencyCandidate,
   generateTaxLatencyId,
   getLedgerDisplayLabel,
   groupTaxLatencyCandidates,
   parseNumericInput,
-  type GroupedTaxLatencyCandidate,
 } from './TaxLatencySection.utils'
 
 // ─────────────────────────────────────────

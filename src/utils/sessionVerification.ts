@@ -28,6 +28,16 @@ const VERIFICATION_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
  */
 const verificationInProgress = new Set<string>()
 
+function getHttpStatus(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null) return undefined
+  const errorRecord = error as Record<string, unknown>
+  if (typeof errorRecord.status === 'number') return errorRecord.status
+  const response = errorRecord.response
+  if (typeof response !== 'object' || response === null) return undefined
+  const responseRecord = response as Record<string, unknown>
+  return typeof responseRecord.status === 'number' ? responseRecord.status : undefined
+}
+
 /**
  * Determine if cache should be verified
  *
@@ -135,7 +145,7 @@ export function verifySessionInBackground(reportId: string, cachedSession: Valua
         }
       } catch (error) {
         // Check if it's a 404 - explicit signal that session doesn't exist
-        const is404 = (error as any)?.response?.status === 404
+        const is404 = getHttpStatus(error) === 404
 
         if (is404) {
           // Explicit 404 - cache is definitely stale

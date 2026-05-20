@@ -12,7 +12,12 @@
  * @module services/api/HttpClient
  */
 
-import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
 import {
   buildAxiosEffectiveRequestUrl,
@@ -22,20 +27,71 @@ import {
 import { env } from '../../utils/env'
 import {
   classifyError,
-  defaultShouldRetry,
+  type ErrorCategory,
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
+type UnknownRecord = Record<string, unknown>
+
+type HttpClientRequestConfig = AxiosRequestConfig & {
+  _correlationId?: string
+  _customConfig?: APIRequestConfig
+  _idempotencyKey?: string
+  _requestStartTime?: string
+}
+
+type EnrichedHttpError = Error & {
+  correlationId?: string | null
+  errorCategory?: ErrorCategory
+  idempotencyKey?: string
+  userFriendlyMessage?: string
+}
+
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function asHttpClientConfig(
+  config?: AxiosRequestConfig | null
+): HttpClientRequestConfig | undefined {
+  return config as HttpClientRequestConfig | undefined
+}
+
+function getAxiosStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined
+}
+
+function getAxiosResponseData(error: unknown): unknown {
+  return axios.isAxiosError(error) ? error.response?.data : undefined
+}
+
+function getAxiosErrorConfig(error: unknown): HttpClientRequestConfig | undefined {
+  return axios.isAxiosError(error) ? asHttpClientConfig(error.config) : undefined
+}
+
+function getRecordValue(value: unknown, key: string): unknown {
+  return isUnknownRecord(value) ? value[key] : undefined
+}
+
+function getStringRecordValue(value: unknown, key: string): string | undefined {
+  const field = getRecordValue(value, key)
+  return typeof field === 'string' ? field : undefined
+}
+
+function getObjectKeys(value: unknown): string[] {
+  return isUnknownRecord(value) ? Object.keys(value) : []
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
-  const cfg = (
-    error as {
-      config?: { method?: string; url?: string; baseURL?: string }
-    }
-  )?.config
-  const status = (error as { response?: { status?: number } })?.response?.status
+  const cfg = getAxiosErrorConfig(error)
+  const status = getAxiosStatus(error)
   const method = String(cfg?.method ?? 'get').toUpperCase()
   if (method !== 'GET' || status !== 404) return false
   const effectiveUrl = buildAxiosEffectiveRequestUrl(cfg)
@@ -81,7 +137,7 @@ export interface APIRequestConfig {
     initialDelay?: number
     maxDelay?: number
     backoffMultiplier?: number
-    shouldRetry?: (error: any) => boolean
+    shouldRetry?: (error: unknown) => boolean
   }
 }
 
@@ -153,18 +209,22 @@ export class HttpClient {
         config.headers['X-Request-ID'] = `req_${Date.now()}`
         config.headers['X-Client-Version'] = CLIENT_VERSION
 
-        // Store correlation ID for logging
-        ;(config as any)._correlationId = correlationId
+        const metadataConfig = asHttpClientConfig(config)
+        if (metadataConfig) {
+          metadataConfig._correlationId = correlationId
+        }
 
         // BANK-GRADE: Add idempotency key for mutating requests
         const method = config.method?.toUpperCase()
         const isMutatingRequest = method === 'POST' || method === 'PUT' || method === 'PATCH'
-        const customConfig = (config as any)._customConfig as APIRequestConfig | undefined
+        const customConfig = metadataConfig?._customConfig
 
         if (isMutatingRequest && !customConfig?.skipIdempotency) {
           const idempotencyKey = customConfig?.idempotencyKey || generateIdempotencyKey()
           config.headers['X-Idempotency-Key'] = idempotencyKey
-          ;(config as any)._idempotencyKey = idempotencyKey
+          if (metadataConfig) {
+            metadataConfig._idempotencyKey = idempotencyKey
+          }
         }
 
         // Get owner headers (backend will determine ownership)
@@ -188,59 +248,67 @@ export class HttpClient {
       (response: AxiosResponse) => {
         // Extract correlation ID from response headers (server may echo it back)
         const serverCorrelationId = extractCorrelationId(response)
-        const clientCorrelationId = (response.config as any)?._correlationId
+        const responseConfig = asHttpClientConfig(response.config)
+        const clientCorrelationId = responseConfig?._correlationId
         const correlationId = serverCorrelationId || clientCorrelationId
 
         if (correlationId) {
           setCorrelationFromResponse(response)
+          const requestStartTime = Number(responseConfig?._requestStartTime ?? 0)
           apiLogger.debug('[HttpClient] Request completed', {
             correlationId,
             url: response.config.url,
             method: response.config.method?.toUpperCase(),
             status: response.status,
-            durationMs: Date.now() - parseInt((response.config as any)?._requestStartTime || '0'),
+            durationMs: requestStartTime > 0 ? Date.now() - requestStartTime : undefined,
           })
         }
         return response
       },
-      (error) => {
+      (error: unknown) => {
         // Handle response errors with correlation ID and error classification
-        const serverCorrelationId = error.response ? extractCorrelationId(error.response) : null
-        const clientCorrelationId = (error.config as any)?._correlationId
+        const serverCorrelationId =
+          axios.isAxiosError(error) && error.response ? extractCorrelationId(error.response) : null
+        const errorConfig = getAxiosErrorConfig(error)
+        const clientCorrelationId = errorConfig?._correlationId
         const correlationId = serverCorrelationId || clientCorrelationId
-        const idempotencyKey = (error.config as any)?._idempotencyKey
+        const idempotencyKey = errorConfig?._idempotencyKey
         const errorCategory = classifyError(error)
         const userFriendlyMessage = getUserFriendlyErrorMessage(error, errorCategory)
+        const responseData = getAxiosResponseData(error)
+        const serverError =
+          getRecordValue(responseData, 'error') ?? getRecordValue(responseData, 'message')
 
         if (isExpectedReportBySessionNotReadyLog(error)) {
           apiLogger.debug('[HttpClient] Expected report-by-session not ready (404)', {
             correlationId: correlationId || 'unknown',
             idempotencyKey: idempotencyKey || 'none',
-            url: error.config?.url,
-            method: error.config?.method?.toUpperCase(),
-            status: error.response?.status,
+            url: errorConfig?.url,
+            method: errorConfig?.method?.toUpperCase(),
+            status: getAxiosStatus(error),
           })
         } else {
           // BANK-GRADE: Always log with correlation ID for traceability
           apiLogger.error('[HttpClient] Request failed', {
             correlationId: correlationId || 'unknown',
             idempotencyKey: idempotencyKey || 'none',
-            url: error.config?.url,
-            method: error.config?.method?.toUpperCase(),
-            status: error.response?.status,
-            error: error.message,
+            url: errorConfig?.url,
+            method: errorConfig?.method?.toUpperCase(),
+            status: getAxiosStatus(error),
+            error: getErrorMessage(error),
             errorCategory,
             userFriendlyMessage,
-            serverError: error.response?.data?.error || error.response?.data?.message,
+            serverError,
           })
         }
 
         // Enhance error with correlation ID for upstream handling
         if (error instanceof Error) {
-          ;(error as any).correlationId = correlationId
-          ;(error as any).idempotencyKey = idempotencyKey
-          ;(error as any).userFriendlyMessage = userFriendlyMessage
-          ;(error as any).errorCategory = errorCategory
+          const enrichedError = error as EnrichedHttpError
+          enrichedError.correlationId = correlationId
+          enrichedError.idempotencyKey = idempotencyKey
+          enrichedError.userFriendlyMessage = userFriendlyMessage
+          enrichedError.errorCategory = errorCategory
         }
 
         return Promise.reject(error)
@@ -292,7 +360,7 @@ export class HttpClient {
    * To disable retry, pass `retry: { maxRetries: 0 }` in options.
    */
   protected async executeRequest<T>(
-    config: InternalAxiosRequestConfig,
+    config: AxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
     const retryConfig = options?.retry
@@ -322,7 +390,7 @@ export class HttpClient {
    * Execute request with retry logic
    */
   private async executeRequestWithRetry<T>(
-    config: InternalAxiosRequestConfig,
+    config: AxiosRequestConfig,
     options: APIRequestConfig
   ): Promise<T> {
     const retry = options.retry
@@ -340,7 +408,7 @@ export class HttpClient {
       options = { ...options, idempotencyKey: generateIdempotencyKey() }
     }
 
-    let lastError: any
+    let lastError: unknown
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -403,8 +471,8 @@ export class HttpClient {
    * - Authentication errors (401, 403)
    * - Validation errors (400)
    */
-  private shouldRetryError(error: any): boolean {
-    const status = error.response?.status
+  private shouldRetryError(error: unknown): boolean {
+    const status = getAxiosStatus(error)
 
     // Retry 429 before classifyError: message text containing "429" maps to ratelimit and would otherwise skip retry
     if (status === 429) {
@@ -428,12 +496,12 @@ export class HttpClient {
       return false
     }
 
-    if (!error.response) {
+    if (!axios.isAxiosError(error) || !error.response) {
       return true
     }
 
     // Retry on 5xx server errors
-    if (status >= 500 && status < 600) {
+    if (typeof status === 'number' && status >= 500 && status < 600) {
       return true
     }
 
@@ -448,15 +516,18 @@ export class HttpClient {
    * Execute single request (no retry)
    */
   private async executeSingleRequest<T>(
-    config: InternalAxiosRequestConfig,
+    config: AxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
     const timeout = options?.timeout || 30000 // Default 30 seconds for faster failure detection
     const correlationId = generateCorrelationId()
 
     // BANK-GRADE: Attach custom config for interceptor access
-    ;(config as any)._customConfig = options
-    ;(config as any)._requestStartTime = Date.now().toString()
+    const metadataConfig = asHttpClientConfig(config)
+    if (metadataConfig) {
+      metadataConfig._customConfig = options
+      metadataConfig._requestStartTime = Date.now().toString()
+    }
 
     // Check for duplicate request
     if (this.activeRequests.has(correlationId)) {
@@ -499,7 +570,9 @@ export class HttpClient {
 
       // Extract data from nested response structure
       // Backend returns { success: true, data: result }, so extract nested data first
-      const responseData = response.data?.data || response.data
+      const rawData = response.data
+      const nestedData = getRecordValue(rawData, 'data')
+      const responseData = nestedData || rawData
 
       // ✅ FIX: Log response structure for valuation and session endpoints to diagnose missing html_report
       // Only flag POST /calculate endpoints as CRITICAL - GET session endpoints may not have HTML if called before PUT /result
@@ -511,9 +584,8 @@ export class HttpClient {
 
       // Diagnostic logging for all valuation/session endpoints (for debugging)
       if (isCalculateEndpoint || isSessionEndpoint) {
-        const rawData = response.data
-        const nestedData = (rawData as any)?.data
         const extractedData = responseData
+        const htmlReport = getStringRecordValue(extractedData, 'html_report')
 
         apiLogger.info('DIAGNOSTIC: Valuation response received', {
           url: config.url,
@@ -521,18 +593,18 @@ export class HttpClient {
           endpointType: isCalculateEndpoint ? 'calculate' : 'session',
           hasRawData: !!rawData,
           rawDataType: typeof rawData,
-          rawDataKeys: rawData ? Object.keys(rawData) : [],
+          rawDataKeys: getObjectKeys(rawData),
           hasNestedData: !!nestedData,
-          nestedDataKeys: nestedData ? Object.keys(nestedData) : [],
+          nestedDataKeys: getObjectKeys(nestedData),
           hasExtractedData: !!extractedData,
           extractedDataType: typeof extractedData,
-          extractedDataKeys: extractedData ? Object.keys(extractedData) : [],
-          hasHtmlReport: !!(extractedData as any)?.html_report,
-          htmlReportLength: (extractedData as any)?.html_report?.length || 0,
-          htmlReportType: typeof (extractedData as any)?.html_report,
-          hasPdfUrl: !!(extractedData as any)?.pdf_url,
-          htmlReportPreview: (extractedData as any)?.html_report?.substring(0, 200) || 'N/A',
-          extractionMethod: rawData?.data ? 'nested' : 'direct',
+          extractedDataKeys: getObjectKeys(extractedData),
+          hasHtmlReport: !!htmlReport,
+          htmlReportLength: htmlReport?.length || 0,
+          htmlReportType: typeof getRecordValue(extractedData, 'html_report'),
+          hasPdfUrl: !!getRecordValue(extractedData, 'pdf_url'),
+          htmlReportPreview: htmlReport?.substring(0, 200) || 'N/A',
+          extractionMethod: nestedData ? 'nested' : 'direct',
         })
       }
 
@@ -542,12 +614,14 @@ export class HttpClient {
         const extractedData = responseData
 
         // CRITICAL: Warn if html_report is missing from calculation response
-        const renderableHtmlReport = getRenderableReportHtml((extractedData as any)?.html_report)
+        const renderableHtmlReport = getRenderableReportHtml(
+          getStringRecordValue(extractedData, 'html_report')
+        )
         if (!renderableHtmlReport) {
           apiLogger.error('CRITICAL: html_report missing or empty in valuation response', {
             url: config.url,
             hasExtractedData: !!extractedData,
-            extractedDataKeys: extractedData ? Object.keys(extractedData) : [],
+            extractedDataKeys: getObjectKeys(extractedData),
             rawResponseSample: JSON.stringify(response.data).substring(0, 1000),
             note: 'POST /calculate endpoints should always return HTML reports',
           })
