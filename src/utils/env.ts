@@ -11,24 +11,22 @@
  * Get environment variable value
  * Works in both client and server contexts
  *
- * Priority order: NEXT_PUBLIC_* > unprefixed > VITE_* (backward compat) > default
+ * Browser priority: NEXT_PUBLIC_* > default
+ * Server priority: NEXT_PUBLIC_* > unprefixed > VITE_* (backward compat) > default
  *
  * @param key - The environment variable key (without NEXT_PUBLIC_ or VITE_ prefix)
  * @param defaultValue - Optional default value if env var not found
  * @returns The environment variable value or undefined
  */
 export function getEnv(key: string, defaultValue?: string): string | undefined {
+  const nextPublicValue = process.env[`NEXT_PUBLIC_${key}`]
+
   if (typeof window !== 'undefined') {
-    // Client-side: NEXT_PUBLIC_ is the ONLY way in Next.js
-    return (
-      process.env[`NEXT_PUBLIC_${key}`] ||
-      process.env[key] ||
-      process.env[`VITE_${key}`] || // Fallback for migration period
-      defaultValue
-    )
+    // Client-side: NEXT_PUBLIC_* is the only supported public env channel in Next.js.
+    return nextPublicValue || defaultValue
   }
-  // Server-side: can use any env var
-  return process.env[key] || process.env[`VITE_${key}`] || defaultValue
+  // Server-side: allow migration fallbacks, but prefer the explicit public key.
+  return nextPublicValue || process.env[key] || process.env[`VITE_${key}`] || defaultValue
 }
 
 /**
