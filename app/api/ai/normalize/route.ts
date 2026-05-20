@@ -8,6 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,7 +36,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const cookieHeader = request.headers.get('cookie') || ''
-    const hasAuth = cookieHeader.includes('upswitch_access_token=')
+    const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
       return NextResponse.json(
@@ -41,8 +45,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
-    const accessToken = accessTokenMatch?.[1]?.trim()
+    const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
     const titanResponse = await fetch(`${TITAN_API_URL}/api/v2/orchestration/gap-analysis`, {
       method: 'POST',

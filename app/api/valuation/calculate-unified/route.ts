@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getTitanAccessTokenFromCookieHeader } from '@/utils/auth/cookieHeader'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,9 +37,9 @@ export async function POST(request: NextRequest) {
     if (cookie) {
       headers.Cookie = cookie
       if (!request.headers.get('authorization')) {
-        const tokenMatch = cookie.match(/upswitch_access_token=([^;]+)/)
-        if (tokenMatch) {
-          headers.Authorization = `Bearer ${tokenMatch[1]}`
+        const accessToken = getTitanAccessTokenFromCookieHeader(cookie)
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`
         }
       }
     }

@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { hasTitanAccessCookie, hasTitanRefreshCookie } from '@/utils/auth/cookieHeader'
 import {
   AUTH_FETCH_TIMEOUT_AUTH_ME_MS,
   AuthUpstreamTimeoutError,
@@ -34,8 +35,8 @@ export async function GET(request: NextRequest) {
   try {
     const { cookieHeader, cookieSource } = await getBffCookieHeaderForTitan(request)
 
-    const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
-    const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
+    const hasAccessToken = hasTitanAccessCookie(cookieHeader)
+    const hasRefreshToken = hasTitanRefreshCookie(cookieHeader)
 
     const health = {
       hasAccessToken,

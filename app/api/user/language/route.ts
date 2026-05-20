@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies
@@ -36,7 +37,7 @@ export async function PUT(request: NextRequest) {
     const cookieHeader = requestCookieHeader || cookieStoreHeader
 
     // Check for auth token in cookie header string
-    const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
+    const hasAccessToken = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAccessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

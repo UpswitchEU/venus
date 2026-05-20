@@ -23,7 +23,10 @@ import type { User } from '../contexts/AuthContextTypes'
 import { useClientContext } from '../stores/clientContext'
 import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { extractAuthMeUserPayload } from '../utils/auth/parse-auth-me-response'
-import { fetchWithTimeoutClient } from '../utils/auth-fetch-timeout'
+import {
+  CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
+  fetchWithTimeoutClient,
+} from '../utils/auth-fetch-timeout'
 import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
@@ -93,7 +96,7 @@ async function broadcastLoginIfNewSession(
  * Prevents parallel API calls to the same endpoint
  * Critical for preventing race conditions in accountant → client context flow
  */
-const requestCache = new Map<string, Promise<any>>()
+const requestCache = new Map<string, Promise<unknown>>()
 
 function getCachedRequest<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const cached = requestCache.get(key)
@@ -481,11 +484,12 @@ export const useAuthStore = create<AuthState>()(
                       if (wasRefreshedRecently()) {
                         return true
                       }
-                      const refreshResponse = await fetch('/api/auth/refresh', {
+                      const refreshResponse = await fetchWithTimeoutClient('/api/auth/refresh', {
                         method: 'POST',
                         credentials: 'include',
                         headers: { Accept: 'application/json' },
                         signal: getLogoutAbortSignal(),
+                        timeoutMs: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
                       })
 
                       if (!refreshResponse.ok) {

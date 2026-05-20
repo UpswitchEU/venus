@@ -20,6 +20,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 export const runtime = 'nodejs'
@@ -52,7 +56,7 @@ async function proxyToTitan(
 ): Promise<NextResponse> {
   try {
     const cookieHeader = request.headers.get('cookie') || ''
-    const hasAuth = cookieHeader.includes('upswitch_access_token=')
+    const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
       return NextResponse.json(
@@ -62,8 +66,7 @@ async function proxyToTitan(
     }
 
     // Extract access token from cookie for Authorization header
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
-    const accessToken = accessTokenMatch?.[1]?.trim()
+    const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
     const url = buildTitanUrl(params.path, request.nextUrl.searchParams)
 

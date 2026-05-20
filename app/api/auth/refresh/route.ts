@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { hasTitanRefreshCookie } from '@/utils/auth/cookieHeader'
 import {
   AUTH_FETCH_TIMEOUT_MS,
   AuthUpstreamTimeoutError,
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     const titanApiUrl = getTitanApiUrl(request)
     const { cookieHeader, refreshTokenFromStore } = await getBffCookieHeaderForTitan(request)
 
-    const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
+    const hasRefreshToken = hasTitanRefreshCookie(cookieHeader)
 
     if (!hasRefreshToken && !refreshTokenFromStore) {
       return NextResponse.json(

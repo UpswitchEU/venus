@@ -13,6 +13,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
+import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const cookieHeader = request.headers.get('cookie') || ''
-    const hasAuth = cookieHeader.includes('upswitch_access_token=')
+    const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
       return NextResponse.json(
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const cookieHeader = request.headers.get('cookie') || ''
-    const hasAuth = cookieHeader.includes('upswitch_access_token=')
+    const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
       return NextResponse.json(

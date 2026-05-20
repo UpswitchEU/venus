@@ -9,7 +9,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { businessTypesApiService } from '../services/businessTypesApi'
+import {
+  businessTypesApiService,
+  type BusinessTypeQuestionsOptions,
+} from '../services/businessTypesApi'
 import { generalLogger } from '../utils/logger'
 
 // ============================================================================
@@ -46,11 +49,7 @@ export interface QuestionsMetadata {
   estimated_time: string
 }
 
-export interface UseBusinessTypeQuestionsOptions {
-  flow_type?: 'manual' | 'ai_guided'
-  phase?: string
-  existing_data?: Record<string, any>
-}
+export type UseBusinessTypeQuestionsOptions = BusinessTypeQuestionsOptions
 
 export interface UseBusinessTypeQuestionsState {
   questions: BusinessTypeQuestion[]
@@ -104,19 +103,19 @@ export function useBusinessTypeQuestions(
               question_text: q.text,
               question_type: 'text',
               priority: 0,
-              phase: 'initial',
+              phase: result.phase,
               required: q.required,
               impacts_valuation: false,
               status: 'active',
             })) || [],
-          total_required: result.total_required || 0,
-          estimated_time: result.estimated_time?.toString() || '0',
+          total_required: result.total_required,
+          estimated_time: result.estimated_time.toString(),
         }
         setMetadata(metadata)
         generalLogger.info('[useBusinessTypeQuestions] Questions loaded', {
           businessTypeId,
-          totalQuestions: result.questions?.length || 0,
-          requiredQuestions: result.total_required || 0,
+          totalQuestions: result.questions.length,
+          requiredQuestions: result.total_required,
           estimatedTime: result.estimated_time,
         })
       } else {

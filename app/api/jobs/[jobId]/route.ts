@@ -4,6 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
+import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
@@ -22,9 +23,8 @@ export async function GET(
     }
 
     const cookieHeader = request.headers.get('cookie') || ''
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
 
-    if (!accessTokenMatch) {
+    if (!hasTitanAccessCookie(cookieHeader)) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }

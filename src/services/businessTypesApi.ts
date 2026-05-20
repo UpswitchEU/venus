@@ -57,8 +57,213 @@ export interface BusinessTypeOption {
   category: string
 }
 
+export interface BusinessTypeQuestionsOptions {
+  flow_type?: 'manual' | 'ai_guided'
+  phase?: string
+  existing_data?: Record<string, unknown>
+}
+
+export interface BusinessTypeQuestionTemplate {
+  id: string
+  text: string
+  required: boolean
+}
+
+export interface BusinessTypeQuestionsResponse {
+  business_type_id: string
+  flow_type?: 'manual' | 'ai_guided'
+  phase: string
+  questions: BusinessTypeQuestionTemplate[]
+  total_required: number
+  estimated_time: number
+  source?: string
+}
+
+export type BusinessTypeValidationSeverity = 'error' | 'warning' | 'info'
+
+export interface BusinessTypeValidationIssue {
+  field: string
+  message: string
+  type?: string
+  rule?: string
+  severity?: BusinessTypeValidationSeverity
+}
+
+export interface BusinessTypeValidationError {
+  field: string
+  rule: string
+  message: string
+  severity: 'error'
+}
+
+export interface BusinessTypeValidationWarning {
+  field: string
+  rule: string
+  message: string
+  severity: 'warning'
+}
+
+export interface BusinessTypeValidationSuggestion {
+  field: string
+  message: string
+  severity: 'info'
+  rule?: string
+}
+
+export interface BusinessTypeValidationResult {
+  business_type_id: string
+  valid: boolean
+  errors: BusinessTypeValidationError[]
+  warnings: BusinessTypeValidationWarning[]
+  suggestions: BusinessTypeValidationSuggestion[]
+  checked_fields?: number
+  source?: string
+}
+
 /** Titan caps `limit` at 200 per request — one call loads the full ~168-type catalog. */
 const BUSINESS_TYPES_PAGE_LIMIT = 200
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.length > 0 ? value : fallback
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeQuestionTemplate(value: unknown, index: number): BusinessTypeQuestionTemplate {
+  if (!isRecord(value)) {
+    const id = `question-${index + 1}`
+    return { id, text: id, required: false }
+  }
+
+  const id = asString(value.id, `question-${index + 1}`)
+  return {
+    id,
+    text: asString(value.text, id),
+    required: value.required === true,
+  }
+}
+
+function normalizeQuestionsResponse(
+  value: unknown,
+  businessTypeId: string,
+  options?: BusinessTypeQuestionsOptions
+): BusinessTypeQuestionsResponse {
+  const payload = isRecord(value) ? value : {}
+  const questions = Array.isArray(payload.questions)
+    ? payload.questions.map(normalizeQuestionTemplate)
+    : []
+  const totalRequired = questions.filter((question) => question.required).length
+  const flowType =
+    payload.flow_type === 'manual' || payload.flow_type === 'ai_guided'
+      ? payload.flow_type
+      : options?.flow_type
+
+  return {
+    business_type_id: asString(payload.business_type_id, businessTypeId),
+    flow_type: flowType,
+    phase: asString(payload.phase, options?.phase ?? 'initial'),
+    questions,
+    total_required: asNumber(payload.total_required, totalRequired),
+    estimated_time: asNumber(payload.estimated_time, questions.length),
+    source: asOptionalString(payload.source),
+  }
+}
+
+function normalizeValidationIssue(value: unknown, fallbackField: string): BusinessTypeValidationIssue {
+  if (typeof value === 'string') {
+    return {
+      field: fallbackField,
+      message: value,
+    }
+  }
+
+  if (!isRecord(value)) {
+    return {
+      field: fallbackField,
+      message: 'Validation issue',
+    }
+  }
+
+  return {
+    field: asString(value.field, fallbackField),
+    message: asString(value.message, 'Validation issue'),
+    type: asOptionalString(value.type),
+    rule: asOptionalString(value.rule),
+    severity:
+      value.severity === 'error' || value.severity === 'warning' || value.severity === 'info'
+        ? value.severity
+        : undefined,
+  }
+}
+
+function issueRule(issue: BusinessTypeValidationIssue, fallback: string): string {
+  return issue.rule ?? issue.type ?? fallback
+}
+
+function normalizeValidationResult(
+  value: unknown,
+  businessTypeId: string
+): BusinessTypeValidationResult {
+  const payload = isRecord(value) ? value : {}
+  const errors = Array.isArray(payload.errors)
+    ? payload.errors.map((error) => {
+        const issue = normalizeValidationIssue(error, 'general')
+        return {
+          field: issue.field,
+          rule: issueRule(issue, 'validation'),
+          message: issue.message,
+          severity: 'error' as const,
+        }
+      })
+    : []
+
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.map((warning) => {
+        const issue = normalizeValidationIssue(warning, 'general')
+        return {
+          field: issue.field,
+          rule: issueRule(issue, 'warning'),
+          message: issue.message,
+          severity: 'warning' as const,
+        }
+      })
+    : []
+
+  const suggestions = Array.isArray(payload.suggestions)
+    ? payload.suggestions.map((suggestion) => {
+        const issue = normalizeValidationIssue(suggestion, 'general')
+        return {
+          field: issue.field,
+          rule: issue.rule ?? issue.type,
+          message: issue.message,
+          severity: 'info' as const,
+        }
+      })
+    : []
+
+  return {
+    business_type_id: asString(payload.business_type_id, businessTypeId),
+    valid: typeof payload.valid === 'boolean' ? payload.valid : errors.length === 0,
+    errors,
+    warnings,
+    suggestions,
+    checked_fields:
+      typeof payload.checked_fields === 'number' && Number.isFinite(payload.checked_fields)
+        ? payload.checked_fields
+        : undefined,
+    source: asOptionalString(payload.source),
+  }
+}
 
 /** Pure mapping for dropdowns; avoids a second `getBusinessTypes()` round-trip when types are already loaded. */
 export function businessTypesToOptions(businessTypes: BusinessType[]): BusinessTypeOption[] {
@@ -405,16 +610,8 @@ class BusinessTypesApiService {
    */
   async getBusinessTypeQuestions(
     businessTypeId: string,
-    options?: {
-      flow_type?: 'manual' | 'ai_guided'
-      phase?: string
-      existing_data?: Record<string, unknown>
-    }
-  ): Promise<{
-    questions?: Array<{ id: string; text: string; required: boolean }>
-    total_required?: number
-    estimated_time?: number
-  } | null> {
+    options?: BusinessTypeQuestionsOptions
+  ): Promise<BusinessTypeQuestionsResponse | null> {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching questions for: ${businessTypeId}`, options)
 
@@ -435,18 +632,22 @@ class BusinessTypesApiService {
         params.existing_data = JSON.stringify(options.existing_data)
       }
 
-      const response = await this.api.get(`/types/${businessTypeId}/questions`, { params })
+      const response = await this.api.get<ApiResponse<unknown>>(`/types/${businessTypeId}/questions`, {
+        params,
+      })
 
       if (response.data.success && response.data.data) {
+        const normalized = normalizeQuestionsResponse(response.data.data, businessTypeId, options)
+
         if (process.env.NODE_ENV === 'development') {
           generalLogger.debug(`[BusinessTypesApi] Questions loaded`, {
             businessTypeId,
-            totalQuestions: response.data.data.questions?.length || 0,
-            requiredQuestions: response.data.data.total_required || 0,
-            estimatedTime: response.data.data.estimated_time,
+            totalQuestions: normalized.questions.length,
+            requiredQuestions: normalized.total_required,
+            estimatedTime: normalized.estimated_time,
           })
         }
-        return response.data.data
+        return normalized
       }
 
       return null
@@ -459,7 +660,10 @@ class BusinessTypesApiService {
   /**
    * Validate user data against business-type-specific rules
    */
-  async validateBusinessTypeData(businessTypeId: string, data: Record<string, any>): Promise<any> {
+  async validateBusinessTypeData(
+    businessTypeId: string,
+    data: Record<string, unknown>
+  ): Promise<BusinessTypeValidationResult | null> {
     try {
       const locale = this.getLocaleFromPathname()
       generalLogger.debug(`[BusinessTypesApi] Validating data for: ${businessTypeId}`, {
@@ -467,20 +671,22 @@ class BusinessTypesApiService {
         locale,
       })
 
-      const response = await this.api.post(`/types/${businessTypeId}/validate`, {
+      const response = await this.api.post<ApiResponse<unknown>>(`/types/${businessTypeId}/validate`, {
         data,
         locale,
       })
 
       if (response.data.success && response.data.data) {
+        const normalized = normalizeValidationResult(response.data.data, businessTypeId)
+
         generalLogger.debug(`[BusinessTypesApi] Validation complete`, {
           businessTypeId,
-          valid: response.data.data.valid,
-          errorsCount: response.data.data.errors?.length || 0,
-          warningsCount: response.data.data.warnings?.length || 0,
-          suggestionsCount: response.data.data.suggestions?.length || 0,
+          valid: normalized.valid,
+          errorsCount: normalized.errors.length,
+          warningsCount: normalized.warnings.length,
+          suggestionsCount: normalized.suggestions.length,
         })
-        return response.data.data
+        return normalized
       }
 
       return null

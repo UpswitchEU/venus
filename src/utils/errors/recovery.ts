@@ -7,6 +7,7 @@
 import { markRefreshCompleted, wasRefreshedRecently } from '../auth/cross-tab-refresh'
 import { getLogoutAbortSignal } from '../auth/logout-abort'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../auth/refreshMutex'
+import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS, fetchWithTimeoutClient } from '../auth-fetch-timeout'
 import { apiLogger } from '../logger'
 import { AppError } from './types'
 
@@ -229,10 +230,11 @@ export class ErrorRecoveryManager {
           }
           const promise = (async () => {
             try {
-              const response = await fetch('/api/auth/refresh', {
+              const response = await fetchWithTimeoutClient('/api/auth/refresh', {
                 method: 'POST',
                 credentials: 'include',
                 signal: getLogoutAbortSignal(),
+                timeoutMs: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
               })
               if (response.ok) {
                 markRefreshCompleted()

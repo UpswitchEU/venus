@@ -7,6 +7,7 @@ import type {
   BuyerReadyWcTaxDto,
   ReadinessCaseDto,
 } from '@/features/buyer-ready/readiness-room/types'
+import { getTitanAccessTokenFromCookieHeader, hasTitanAuthCookie } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
@@ -29,20 +30,8 @@ interface TitanJsonResult<T> {
   label: string
 }
 
-function accessTokenFromCookie(cookieHeader: string): string | null {
-  const match = cookieHeader.match(/(?:^|;\s*)upswitch_access_token=([^;]+)/)
-  return match?.[1]?.trim() || null
-}
-
-function hasAuthCookie(cookieHeader: string): boolean {
-  return (
-    cookieHeader.includes('upswitch_access_token=') ||
-    cookieHeader.includes('upswitch_refresh_token=')
-  )
-}
-
 function jsonHeaders(cookieHeader: string): HeadersInit {
-  const accessToken = accessTokenFromCookie(cookieHeader)
+  const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
   return {
     'Content-Type': 'application/json',
     Cookie: cookieHeader,
@@ -98,7 +87,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
-  if (!hasAuthCookie(cookieHeader)) {
+  if (!hasTitanAuthCookie(cookieHeader)) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
   }
 

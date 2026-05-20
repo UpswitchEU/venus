@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { getTitanAccessTokenFromCookieHeader, hasTitanAuthCookie } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
@@ -13,18 +14,6 @@ type RouteContext = {
   params: Promise<{ entityId: string }>
 }
 
-function accessTokenFromCookie(cookieHeader: string): string | null {
-  const match = cookieHeader.match(/(?:^|;\s*)upswitch_access_token=([^;]+)/)
-  return match?.[1]?.trim() || null
-}
-
-function hasAuthCookie(cookieHeader: string): boolean {
-  return (
-    cookieHeader.includes('upswitch_access_token=') ||
-    cookieHeader.includes('upswitch_refresh_token=')
-  )
-}
-
 export async function GET(request: NextRequest, context: RouteContext) {
   const { entityId } = await context.params
 
@@ -37,12 +26,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
-  if (!hasAuthCookie(cookieHeader)) {
+  if (!hasTitanAuthCookie(cookieHeader)) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 })
   }
 
   try {
-    const accessToken = accessTokenFromCookie(cookieHeader)
+    const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
     const titanApiUrl = getTitanApiUrl(request)
     const response = await fetchWithTimeout(
       `${titanApiUrl}/api/v1/buyer-ready/im/${encodeURIComponent(entityId)}/docx`,

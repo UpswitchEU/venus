@@ -143,6 +143,21 @@ describe('GET /api/auth/me', () => {
     expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
   })
 
+  it('does not treat similarly named cookies as Titan auth cookies', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'not_upswitch_access_token=spoofed; foo_upswitch_refresh_token=spoofed',
+      cookieSource: 'header',
+    })
+
+    const res = await GET(
+      makeRequest('not_upswitch_access_token=spoofed; foo_upswitch_refresh_token=spoofed')
+    )
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ isAuthenticated: false })
+    expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
+  })
+
   it('forwards Titan clear-cookie headers on 401', async () => {
     const cookieHeader = 'upswitch_refresh_token=dead'
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({

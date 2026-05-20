@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { hasTitanAccessCookie, hasTitanRefreshCookie } from '@/utils/auth/cookieHeader'
 import {
   AUTH_FETCH_TIMEOUT_AUTH_ME_MS,
   AuthUpstreamTimeoutError,
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
 
     const cookieHeader = initialCookieHeader
 
-    const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
-    const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
+    const hasAccessToken = hasTitanAccessCookie(cookieHeader)
+    const hasRefreshToken = hasTitanRefreshCookie(cookieHeader)
 
     generalLogger.debug('[Venus /api/auth/me] Cookie state', {
       hasAccessToken,

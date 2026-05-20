@@ -21,7 +21,10 @@ import {
 } from '@/utils/auth/mercury-auth-bootstrap'
 import { extractAuthMeUserPayload } from '@/utils/auth/parse-auth-me-response'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
-import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
+import {
+  CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
+  fetchWithTimeoutClient,
+} from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   BootstrapContext,
@@ -477,11 +480,12 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
     }
     const promise = (async () => {
       try {
-        const response = await fetch('/api/auth/refresh', {
+        const response = await fetchWithTimeoutClient('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
           headers: { Accept: 'application/json' },
           signal: getLogoutAbortSignal(),
+          timeoutMs: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
         })
         if (response.ok) {
           markRefreshCompleted()

@@ -15,6 +15,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const cookieHeader = request.headers.get('cookie') || ''
-    const hasAuth = cookieHeader.includes('upswitch_access_token=')
+    const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
       return NextResponse.json(
@@ -75,8 +79,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
-    const accessToken = accessTokenMatch?.[1]?.trim()
+    const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
     const useStream = body.stream !== false
 
