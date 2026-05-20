@@ -209,6 +209,33 @@ export class BusinessTypesCacheService {
   }
 
   /**
+   * Synchronous lookup for UI display helpers that need cached metadata during render.
+   * Keeps cache envelope/version/TTL parsing owned by the cache service.
+   */
+  public getBusinessTypeById(businessTypeId: string): BusinessType | null {
+    try {
+      const cached = localStorage.getItem(CACHE_CONFIG.KEYS.BUSINESS_TYPES)
+      if (!cached) return null
+
+      const cacheEntry: CacheEntry<BusinessTypesCacheData> = JSON.parse(cached)
+      if (this.isExpired(cacheEntry) || cacheEntry.version !== CACHE_CONFIG.VERSION) {
+        return null
+      }
+
+      return (
+        cacheEntry.data.businessTypes.find((businessType) => businessType.id === businessTypeId) ??
+        null
+      )
+    } catch (error) {
+      generalLogger.error('[BusinessTypesCache] Failed to read business type by id', {
+        error,
+        businessTypeId,
+      })
+      return null
+    }
+  }
+
+  /**
    * Check if cache exists and is valid
    */
   public hasValidCache(): boolean {

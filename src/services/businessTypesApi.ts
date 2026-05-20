@@ -19,6 +19,7 @@ import {
   BUSINESS_TYPES_FALLBACK,
   BusinessTypeOption as ConfigBusinessTypeOption,
 } from '../config/businessTypes'
+import { formatBusinessTypeCategory } from '../utils/businessTypeCategory'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import { businessTypesCache } from './cache/businessTypesCache'
@@ -120,6 +121,66 @@ export interface BusinessTypeValidationResult {
   source?: string
 }
 
+export interface BusinessTypeFullMetric extends Record<string, unknown> {
+  label?: string
+  name?: string
+}
+
+export interface BusinessTypeFullQuestion extends Record<string, unknown> {
+  required?: boolean
+}
+
+export interface BusinessTypeFullMetadata extends Record<string, unknown> {
+  id: string
+  title: string
+  short_title?: string
+  description: string
+  icon: string
+  category_id: string
+  sector: string
+  industry: string
+  sub_industry?: string
+  primary_model: string
+  secondary_models?: string[]
+  revenue_streams?: unknown[]
+  color_hex?: string
+  dcf_preference: number
+  multiples_preference: number
+  preferred_multiples?: string[]
+  owner_dependency_impact: number
+  typical_revenue_min?: number
+  typical_revenue_max?: number
+  typical_revenue_median?: number
+  typical_ebitda_margin_min?: number
+  typical_ebitda_margin_max?: number
+  typical_ebitda_margin_median?: number
+  typical_employee_min?: number
+  typical_employee_max?: number
+  typical_employee_median?: number
+  key_metrics?: BusinessTypeFullMetric[]
+  risk_factors?: unknown[]
+  market_maturity?: string
+  market_trend?: string
+  seasonality_impact?: string
+  economic_sensitivity?: string
+  relevant_countries?: string[]
+  urban_rural_split?: string
+  questions: BusinessTypeFullQuestion[]
+  validations: unknown[]
+  benchmarks: unknown[]
+  metadata: unknown[]
+  status: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessTypeBenchmarksResponse extends Record<string, unknown> {
+  benchmarks?: Record<string, unknown>
+  data_source?: string
+  year?: string | number
+}
+
 /** Titan caps `limit` at 200 per request — one call loads the full ~168-type catalog. */
 const BUSINESS_TYPES_PAGE_LIMIT = 200
 
@@ -137,6 +198,81 @@ function asOptionalString(value: unknown): string | undefined {
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function asRange(value: unknown): { min: number; max: number } | undefined {
+  if (!isRecord(value)) return undefined
+  const min = asNumber(value.min, Number.NaN)
+  const max = asNumber(value.max, Number.NaN)
+  return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : undefined
+}
+
+function normalizeBusinessType(value: unknown): BusinessType | null {
+  if (!isRecord(value)) return null
+
+  const id = asOptionalString(value.id)
+  if (!id) return null
+
+  const categoryId = asString(value.category_id, asString(value.categoryId, 'other'))
+  const now = new Date().toISOString()
+
+  return {
+    id,
+    title: asString(value.title, id),
+    description: asString(value.description),
+    short_description: asOptionalString(value.short_description ?? value.shortDescription),
+    icon: asString(value.icon, asString(value.emoji, '🏢')),
+    category: formatBusinessTypeCategory(value.category, categoryId),
+    category_id: categoryId,
+    industryMapping: asString(value.industryMapping, asString(value.industry_mapping, id)),
+    industry: asOptionalString(value.industry),
+    keywords: asStringArray(value.keywords),
+    popular: value.popular === true,
+    dcfPreference: asOptionalNumber(value.dcfPreference ?? value.dcf_preference),
+    multiplesPreference: asOptionalNumber(value.multiplesPreference ?? value.multiples_preference),
+    ownerDependencyImpact: asOptionalNumber(
+      value.ownerDependencyImpact ?? value.owner_dependency_impact
+    ),
+    keyMetrics: asStringArray(value.keyMetrics ?? value.key_metrics),
+    typicalEmployeeRange: asRange(value.typicalEmployeeRange ?? value.typical_employee_range),
+    typicalRevenueRange: asRange(value.typicalRevenueRange ?? value.typical_revenue_range),
+    status: asString(value.status, 'active'),
+    createdAt: asString(value.createdAt, asString(value.created_at, now)),
+    updatedAt: asString(value.updatedAt, asString(value.updated_at, now)),
+  }
+}
+
+function normalizeBusinessTypes(value: unknown): BusinessType[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    const businessType = normalizeBusinessType(item)
+    return businessType ? [businessType] : []
+  })
+}
+
+function extractErrorStatus(error: unknown): unknown {
+  if (!isRecord(error)) return undefined
+  const response = isRecord(error.response) ? error.response : undefined
+  return response?.status ?? error.status ?? error.code
+}
+
+function getSearchCandidates(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value
+  if (!isRecord(value)) return []
+  if (Array.isArray(value.business_types)) return value.business_types
+  if (Array.isArray(value.results)) return value.results
+  if (Array.isArray(value.data)) return value.data
+  return []
 }
 
 function normalizeQuestionTemplate(value: unknown, index: number): BusinessTypeQuestionTemplate {
@@ -179,7 +315,10 @@ function normalizeQuestionsResponse(
   }
 }
 
-function normalizeValidationIssue(value: unknown, fallbackField: string): BusinessTypeValidationIssue {
+function normalizeValidationIssue(
+  value: unknown,
+  fallbackField: string
+): BusinessTypeValidationIssue {
   if (typeof value === 'string') {
     return {
       field: fallbackField,
@@ -408,7 +547,7 @@ class BusinessTypesApiService {
       }
 
       const first = typesResponse.data.data
-      const firstTypes = first.business_types ?? []
+      const firstTypes = normalizeBusinessTypes(first.business_types)
       const allBusinessTypes: BusinessType[] = [...firstTypes]
       let hasMore = Boolean(first.has_more)
       let offset = BUSINESS_TYPES_PAGE_LIMIT
@@ -425,7 +564,7 @@ class BusinessTypesApiService {
           signal,
         })
         if (!next.data.success || !next.data.data) break
-        const pageTypes = next.data.data.business_types ?? []
+        const pageTypes = normalizeBusinessTypes(next.data.data.business_types)
         allBusinessTypes.push(...pageTypes)
         hasMore = Boolean(next.data.data.has_more)
         offset += BUSINESS_TYPES_PAGE_LIMIT
@@ -471,35 +610,39 @@ class BusinessTypesApiService {
       const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(
         naceCode.trim()
       )}/business-type?${params.toString()}`
-      const response = await axios.get<{ business_type: any; confidence: number }>(url, {
+      const response = await axios.get<{ business_type?: unknown; confidence?: number }>(url, {
         timeout: 5000,
         headers: { Accept: 'application/json' },
       })
 
-      const bt = response.data?.business_type
-      if (!bt?.id) return null
+      const bt = isRecord(response.data?.business_type) ? response.data.business_type : null
+      const businessTypeId = asOptionalString(bt?.id)
+      if (!bt || !businessTypeId) return null
+
+      const category = isRecord(bt.category) ? bt.category : {}
+      const categoryId = asString(bt.category_id, 'other')
 
       return {
-        id: bt.id,
-        title: bt.title || bt.id,
-        description: bt.description || '',
-        short_description: bt.description || '',
-        icon: bt.emoji || '📦',
-        category: bt.category?.name ?? bt.category?.title ?? bt.category_id ?? 'other',
-        category_id: bt.category_id ?? 'other',
-        industryMapping: bt.industry_mapping ?? bt.id,
-        industry: bt.industry ?? bt.category_id,
+        id: businessTypeId,
+        title: asString(bt.title, businessTypeId),
+        description: asString(bt.description),
+        short_description: asString(bt.description),
+        icon: asString(bt.emoji, '📦'),
+        category: asString(category.name, asString(category.title, categoryId)),
+        category_id: categoryId,
+        industryMapping: asString(bt.industry_mapping, businessTypeId),
+        industry: asString(bt.industry, categoryId),
         keywords: [],
         popular: false,
-        status: bt.status ?? 'active',
-        createdAt: bt.created_at ?? new Date().toISOString(),
-        updatedAt: bt.updated_at ?? new Date().toISOString(),
+        status: asString(bt.status, 'active'),
+        createdAt: asString(bt.created_at, new Date().toISOString()),
+        updatedAt: asString(bt.updated_at, new Date().toISOString()),
       }
     } catch (err: unknown) {
       // Only treat 404 as an expected "no mapping" response.
       // Any other status code (5xx, network timeout, parse error) is a real failure
       // that should be surfaced so monitoring can detect API degradation.
-      const status = (err as any)?.response?.status ?? (err as any)?.status ?? (err as any)?.code
+      const status = extractErrorStatus(err)
 
       const isNotFound =
         status === 404 || (err instanceof Error && err.message.toLowerCase().includes('not found'))
@@ -570,7 +713,7 @@ class BusinessTypesApiService {
    * Get full business type with all metadata
    * Includes: questions, validations, benchmarks, metadata
    */
-  async getBusinessTypeFull(businessTypeId: string): Promise<any> {
+  async getBusinessTypeFull(businessTypeId: string): Promise<BusinessTypeFullMetadata | null> {
     try {
       const locale = this.getLocaleFromPathname()
       if (process.env.NODE_ENV === 'development') {
@@ -579,9 +722,12 @@ class BusinessTypesApiService {
         })
       }
 
-      const response = await this.api.get(`/types/${businessTypeId}/full`, {
-        params: { locale },
-      })
+      const response = await this.api.get<ApiResponse<BusinessTypeFullMetadata>>(
+        `/types/${businessTypeId}/full`,
+        {
+          params: { locale },
+        }
+      )
 
       if (response.data.success && response.data.data) {
         if (process.env.NODE_ENV === 'development') {
@@ -632,9 +778,12 @@ class BusinessTypesApiService {
         params.existing_data = JSON.stringify(options.existing_data)
       }
 
-      const response = await this.api.get<ApiResponse<unknown>>(`/types/${businessTypeId}/questions`, {
-        params,
-      })
+      const response = await this.api.get<ApiResponse<unknown>>(
+        `/types/${businessTypeId}/questions`,
+        {
+          params,
+        }
+      )
 
       if (response.data.success && response.data.data) {
         const normalized = normalizeQuestionsResponse(response.data.data, businessTypeId, options)
@@ -671,10 +820,13 @@ class BusinessTypesApiService {
         locale,
       })
 
-      const response = await this.api.post<ApiResponse<unknown>>(`/types/${businessTypeId}/validate`, {
-        data,
-        locale,
-      })
+      const response = await this.api.post<ApiResponse<unknown>>(
+        `/types/${businessTypeId}/validate`,
+        {
+          data,
+          locale,
+        }
+      )
 
       if (response.data.success && response.data.data) {
         const normalized = normalizeValidationResult(response.data.data, businessTypeId)
@@ -706,12 +858,12 @@ class BusinessTypesApiService {
       metrics?: string[]
       user_data?: Record<string, number>
     }
-  ): Promise<any> {
+  ): Promise<BusinessTypeBenchmarksResponse | null> {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching benchmarks for: ${businessTypeId}`, options)
 
       const locale = this.getLocaleFromPathname()
-      const params: any = {
+      const params: Record<string, string> = {
         locale,
       }
 
@@ -727,7 +879,10 @@ class BusinessTypesApiService {
         params.user_data = JSON.stringify(options.user_data)
       }
 
-      const response = await this.api.get(`/types/${businessTypeId}/benchmarks`, { params })
+      const response = await this.api.get<ApiResponse<BusinessTypeBenchmarksResponse>>(
+        `/types/${businessTypeId}/benchmarks`,
+        { params }
+      )
 
       if (response.data.success && response.data.data) {
         generalLogger.debug(`[BusinessTypesApi] Benchmarks loaded`, {
@@ -759,21 +914,22 @@ class BusinessTypesApiService {
     if (!query || query.trim().length === 0) return []
     try {
       const locale = this.getLocaleFromPathname()
-      const response = await this.api.get('/types/search', {
+      const response = await this.api.get<ApiResponse<unknown>>('/types/search', {
         params: { q: query, limit, locale },
       })
 
-      const raw = response?.data
-      // Flexible parsing: handle various possible shapes
-      const candidates = raw?.data?.business_types || raw?.data?.results || raw?.data || []
-
-      return (candidates as any[])
-        .map((item, idx) => ({
-          text: item?.title || item?.name || item?.label || query,
-          confidence: typeof item?.confidence === 'number' ? item.confidence : 0.7,
-          reason: item?.category || item?.industry || item?.description || 'Similar business type',
-          _index: idx,
-        }))
+      return getSearchCandidates(response.data?.data)
+        .map((candidate) => {
+          const item = isRecord(candidate) ? candidate : {}
+          return {
+            text: asString(item.title, asString(item.name, asString(item.label, query))),
+            confidence: asNumber(item.confidence, 0.7),
+            reason: asString(
+              item.category,
+              asString(item.industry, asString(item.description, 'Similar business type'))
+            ),
+          }
+        })
         .filter((s) => !!s.text)
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to search business types', { error })

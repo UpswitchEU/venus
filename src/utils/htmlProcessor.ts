@@ -15,14 +15,14 @@ import { generalLogger } from './logger'
  * HOW:
  * - Extracts CSS before sanitization (fallback mechanism)
  * - Uses DOMPurify with strict configuration for XSS prevention
- * - Re-injects CSS if DOMPurify strips style tags (known issue)
- * - Preserves CSS @import statements and all CSS content
+ * - Re-injects local template CSS if DOMPurify strips style tags (known issue)
+ * - Blocks CSS constructs that can execute script or fetch remote resources
  *
  * WHEN: Use for all server-generated HTML content (html_report)
  *
- * SECURITY NOTE: CSS is server-generated from templates (not user input),
- *                so re-injection is safe. DOMPurify still sanitizes CSS
- *                content automatically for dangerous patterns.
+ * SECURITY NOTE: CSS is server-generated from templates, but valuation inputs
+ *                can still flow into reports. Re-injected CSS is therefore
+ *                blocklisted before it is put back into the DOM.
  *
  * Reference: Based on Ilara Mercury's processedHtml approach
  *            DOMPurify documentation: https://github.com/cure53/DOMPurify
@@ -37,8 +37,7 @@ export class HTMLProcessor {
    * HOW: Uses regex to match and extract style tag content
    * WHEN: Called before sanitization as fallback mechanism
    *
-   * BANK-GRADE: Handles @import statements and all CSS content
-   * SECURITY: CSS is server-generated (not user input), safe to preserve
+   * SECURITY: Extracted CSS must pass sanitizeExtractedCSS before any re-injection.
    *
    * @param htmlContent - HTML string potentially containing <style> tags
    * @returns Object with extracted CSS and HTML without style tags
@@ -59,6 +58,53 @@ export class HTMLProcessor {
   }
 
   /**
+   * Keep report template CSS local and inert before re-injecting it.
+   *
+   * DOMPurify sanitizes HTML, not arbitrary CSS that we put back after the
+   * sanitizer has run. Reports do not need remote CSS imports, CSS url()
+   * fetches, legacy expression(), or markup inside style tags, so fail closed
+   * for those constructs.
+   */
+  private static sanitizeExtractedCSS(cssContent: string): string {
+    if (!cssContent) return ''
+
+    const trimmed = Array.from(cssContent)
+      .filter((character) => {
+        const code = character.charCodeAt(0)
+        return code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)
+      })
+      .join('')
+      .trim()
+
+    if (!trimmed) return ''
+
+    const normalizedForPolicy = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').toLowerCase()
+    const unsafeCssPatterns = [
+      /<[^>]+>/,
+      /<\/?\s*style\b/,
+      /<\/?\s*script\b/,
+      /@import\b/,
+      /url\s*\(/,
+      /expression\s*\(/,
+      /javascript\s*:/,
+      /vbscript\s*:/,
+      /data\s*:/,
+      /-moz-binding\s*:/,
+    ]
+
+    if (unsafeCssPatterns.some((pattern) => pattern.test(normalizedForPolicy))) {
+      if (process.env.NODE_ENV === 'development') {
+        generalLogger.warn('[HTMLProcessor] Unsafe report CSS stripped before re-injection', {
+          cssLength: cssContent.length,
+        })
+      }
+      return ''
+    }
+
+    return trimmed
+  }
+
+  /**
    * Sanitize HTML content to prevent XSS attacks
    *
    * WHAT: Sanitizes HTML using DOMPurify with strict configuration,
@@ -72,15 +118,14 @@ export class HTMLProcessor {
    * HOW:
    * 1. Extract CSS before sanitization (fallback for DOMPurify limitation)
    * 2. Sanitize HTML with DOMPurify (strict XSS prevention)
-   * 3. Re-inject CSS if DOMPurify stripped style tags
+   * 3. Re-inject vetted CSS if DOMPurify stripped style tags
    * 4. Return sanitized HTML with preserved CSS
    *
    * WHEN: Called for all server-generated HTML before rendering
    *
    * SECURITY:
    * - DOMPurify configuration: Strict whitelist of allowed tags/attributes
-   * - CSS re-injection: Safe because CSS is server-generated (not user input)
-   * - DOMPurify automatically sanitizes CSS content for dangerous patterns
+   * - CSS re-injection: Local template CSS only; remote/script-capable CSS is stripped
    *
    * REFERENCE:
    * - DOMPurify GitHub Issue #804: Style tag removal when first element
@@ -113,7 +158,7 @@ export class HTMLProcessor {
 
     try {
       const extractionResult = this.extractCSS(htmlContent)
-      extractedCSS = extractionResult.css
+      extractedCSS = this.sanitizeExtractedCSS(extractionResult.css)
       htmlWithoutStyle = extractionResult.html
       hadStyleTag = extractedCSS.length > 0
     } catch (error) {
@@ -311,7 +356,7 @@ export class HTMLProcessor {
 
       if (!hasStyleTagAfter) {
         // Re-inject CSS as a style tag at the beginning
-        // This ensures CSS is always applied even if DOMPurify removed it
+        // This ensures approved local template CSS is applied even if DOMPurify removed it
         const result = `<style>${extractedCSS}</style>${sanitized}`
 
         // BANK-GRADE: Log CSS re-injection for security audit trail
@@ -322,7 +367,7 @@ export class HTMLProcessor {
             htmlLength: sanitized.length,
             finalLength: result.length,
             reason: 'DOMPurify stripped style tag (known issue #804)',
-            securityNote: 'CSS is server-generated, safe to re-inject',
+            securityNote: 'CSS passed report CSS policy before re-injection',
           })
         }
 

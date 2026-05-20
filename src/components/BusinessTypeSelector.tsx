@@ -9,7 +9,7 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypes } from '../hooks/useBusinessTypes'
@@ -30,13 +30,13 @@ interface BusinessTypeSelectorProps {
 // COMPONENT
 // ============================================================================
 
-export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
+export function BusinessTypeSelector({
   value,
   onChange,
   onMetadataLoaded,
   showPreview = true,
   className = '',
-}) => {
+}: BusinessTypeSelectorProps) {
   const t = useTranslations('common')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
@@ -47,10 +47,20 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
   const { businessType: selectedMetadata, loading: loadingMetadata } =
     useBusinessTypeFull(selectedId)
 
+  const keyMetricLabels = Array.from(
+    new Set(
+      selectedMetadata?.key_metrics
+        ?.map((metric) => metric.label ?? metric.name)
+        .filter((label): label is string => Boolean(label)) ?? []
+    )
+  ).slice(0, 4)
+  const requiredQuestionsCount =
+    selectedMetadata?.questions.filter((question) => question.required).length ?? 0
+
   // Notify parent when metadata is loaded
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedMetadata && onMetadataLoaded) {
-      onMetadataLoaded(selectedMetadata as BusinessTypeFull)
+      onMetadataLoaded(selectedMetadata)
     }
   }, [selectedMetadata, onMetadataLoaded])
 
@@ -172,22 +182,20 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
               )}
 
               {/* Key Metrics */}
-              {selectedMetadata.key_metrics && selectedMetadata.key_metrics.length > 0 && (
+              {keyMetricLabels.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2">
                     Key Metrics We'll Ask About:
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedMetadata.key_metrics
-                      .slice(0, 4)
-                      .map((metric: { label?: string; name?: string }, index: number) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                        >
-                          {metric.label || metric.name}
-                        </span>
-                      ))}
+                    {keyMetricLabels.map((label) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                      >
+                        {label}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
@@ -209,9 +217,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
                     />
                   </svg>
                   {selectedMetadata.questions.length} targeted questions
-                  {selectedMetadata.questions.filter((q: { required?: boolean }) => q.required)
-                    .length > 0 &&
-                    ` (${selectedMetadata.questions.filter((q: { required?: boolean }) => q.required).length} required)`}
+                  {requiredQuestionsCount > 0 && ` (${requiredQuestionsCount} required)`}
                 </div>
               )}
 

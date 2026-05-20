@@ -253,12 +253,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const hasValuationPrice = React.useMemo(() => {
     if (!valuationResult) return false
 
-    const result = valuationResult as any
     return !!(
-      result.equity_value_mid ||
-      result.recommended_asking_price ||
-      result.equity_value_low ||
-      result.equity_value_high
+      valuationResult.equity_value_mid ||
+      valuationResult.recommended_asking_price ||
+      valuationResult.equity_value_low ||
+      valuationResult.equity_value_high
     )
   }, [valuationResult])
 
@@ -586,7 +585,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   )
                 )}
                 <div className="flex items-center gap-3">
-                  <UserDropdown user={user} onLogout={handleLogout} />
+                  <UserDropdown user={user ?? null} onLogout={handleLogout} />
                 </div>
               </div>
             </div>

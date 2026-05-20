@@ -18,6 +18,7 @@ Venus must not own backend authorization, valuation formulas, provider ingestion
 
 - `pnpm exec tsc --noEmit --pretty false`
 - `pnpm run guard:repo-hygiene`
+- `pnpm run guard:auth-surface`
 - `pnpm run guard:type-debt`
 - `pnpm run guard:file-size`
 - `pnpm run guard:debug-surface`

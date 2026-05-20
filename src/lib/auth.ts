@@ -38,13 +38,9 @@ import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
 // Backend API URL - environment-aware (shared utility)
 const API_URL = getApiUrl()
 
-/**
- * Simple Auth Cache - Prevents redundant API calls
- * Follows Mercury's pattern with 5-minute TTL
- */
+// Cache auth checks briefly to prevent redundant /me calls.
 interface CachedAuth {
   user: User | null
-  timestamp: number
   expiresAt: number
 }
 
@@ -64,7 +60,6 @@ function setAuthCache(user: User | null): void {
   const now = Date.now()
   authCache = {
     user,
-    timestamp: now,
     expiresAt: now + AUTH_CACHE_TTL,
   }
 }

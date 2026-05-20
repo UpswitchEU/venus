@@ -6,12 +6,12 @@ import { useSessionStore } from '../../store/useSessionStore'
 import { isBuyerReadinessPackage } from '../../types/buyerReadiness'
 import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
-import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
 import { deriveOwnerProfilingState } from '../../utils/ownerProfiling/coverChip'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { ErrorState } from '../ErrorState'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
+import { SafeReportHtml } from '../valuation/report/SafeReportHtml'
 import { BuyerReadinessPanel } from './BuyerReadinessPanel'
 import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
 import { OwnerProfilingPeerPanel } from './OwnerProfilingPeerPanel'
@@ -320,10 +320,6 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     )
   }
 
-  // BANK-GRADE: Sanitize HTML before rendering to prevent XSS attacks
-  // HTML is server-generated from templates (not user input), but we sanitize for defense-in-depth
-  const sanitizedHtml = HTMLProcessor.sanitize(htmlReport)
-
   return (
     <div
       className="valuation-report-container h-full overflow-y-auto bg-background"
@@ -358,9 +354,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
           ) : null}
         </div>
       )}
-      <div className="valuation-report">
-        <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
-      </div>
+      <SafeReportHtml html={htmlReport} />
     </div>
   )
 }

@@ -5,9 +5,12 @@
  * Submissions are logged and can be reviewed by admin team.
  */
 
-import axios, { AxiosInstance } from 'axios'
+import axios, { type AxiosInstance } from 'axios'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+
+const STORAGE_KEY = 'business_type_suggestions'
+const MAX_LOCAL_SUGGESTIONS = 50
 
 export interface BusinessTypeSuggestion {
   suggestion: string
@@ -17,6 +20,74 @@ export interface BusinessTypeSuggestion {
     similar_to?: string
     description?: string
     search_query?: string
+  }
+}
+
+export interface StoredBusinessTypeSuggestion extends BusinessTypeSuggestion {
+  timestamp: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function normalizeContext(value: unknown): BusinessTypeSuggestion['context'] {
+  if (!isRecord(value)) return undefined
+
+  const context: NonNullable<BusinessTypeSuggestion['context']> = {}
+  const industry = optionalString(value.industry)
+  const similarTo = optionalString(value.similar_to)
+  const description = optionalString(value.description)
+  const searchQuery = optionalString(value.search_query)
+
+  if (industry) context.industry = industry
+  if (similarTo) context.similar_to = similarTo
+  if (description) context.description = description
+  if (searchQuery) context.search_query = searchQuery
+
+  return Object.keys(context).length > 0 ? context : undefined
+}
+
+function normalizeSuggestion(value: unknown): BusinessTypeSuggestion | null {
+  if (!isRecord(value)) return null
+
+  const suggestion = optionalString(value.suggestion)
+  if (!suggestion) return null
+
+  const normalized: BusinessTypeSuggestion = {
+    suggestion,
+  }
+  const userId = optionalString(value.user_id)
+  const context = normalizeContext(value.context)
+
+  if (userId) normalized.user_id = userId
+  if (context) normalized.context = context
+
+  return normalized
+}
+
+function normalizeStoredSuggestion(value: unknown): StoredBusinessTypeSuggestion | null {
+  if (!isRecord(value)) return null
+
+  const suggestion = normalizeSuggestion(value)
+  const timestamp = optionalString(value.timestamp)
+  if (!suggestion || !timestamp) return null
+
+  return {
+    ...suggestion,
+    timestamp,
+  }
+}
+
+function suggestionLogSummary(suggestion: BusinessTypeSuggestion) {
+  return {
+    suggestionLength: suggestion.suggestion.length,
+    hasUserId: Boolean(suggestion.user_id),
+    contextKeys: Object.keys(suggestion.context ?? {}),
   }
 }
 
@@ -45,24 +116,35 @@ class BusinessTypeSuggestionService {
    * Submit a suggestion for a new business type
    */
   async submitSuggestion(suggestion: BusinessTypeSuggestion): Promise<void> {
+    const normalized = normalizeSuggestion(suggestion)
+    if (!normalized) {
+      generalLogger.warn('[BusinessTypeSuggestion] Ignoring empty suggestion')
+      return
+    }
+
     try {
-      generalLogger.debug('[BusinessTypeSuggestion] Submitting', { suggestion })
+      generalLogger.debug('[BusinessTypeSuggestion] Submitting', {
+        suggestion: suggestionLogSummary(normalized),
+      })
 
       // Try to submit to backend
-      await this.api.post('/suggest', suggestion)
+      await this.api.post('/suggest', normalized)
 
       generalLogger.info('[BusinessTypeSuggestion] Successfully submitted')
     } catch (error) {
-      generalLogger.error('[BusinessTypeSuggestion] Failed to submit', { error, suggestion })
+      generalLogger.error('[BusinessTypeSuggestion] Failed to submit', {
+        error,
+        suggestion: suggestionLogSummary(normalized),
+      })
 
       // Fail silently - don't block user
       // Log to console for debugging
       generalLogger.debug('[BusinessTypeSuggestion] Fallback: Logging suggestion locally', {
-        suggestion,
+        suggestion: suggestionLogSummary(normalized),
       })
 
       // Store in localStorage as fallback
-      this.logSuggestionLocally(suggestion)
+      this.logSuggestionLocally(normalized)
     }
   }
 
@@ -70,35 +152,45 @@ class BusinessTypeSuggestionService {
    * Log suggestion to localStorage as fallback
    */
   private logSuggestionLocally(suggestion: BusinessTypeSuggestion): void {
+    if (typeof localStorage === 'undefined') return
+
     try {
-      const key = 'business_type_suggestions'
-      const existing = localStorage.getItem(key)
-      const suggestions = existing ? JSON.parse(existing) : []
+      const suggestions = this.getLocalSuggestions()
 
-      suggestions.push({
-        ...suggestion,
-        timestamp: new Date().toISOString(),
-      })
+      const nextSuggestions = [
+        ...suggestions,
+        {
+          ...suggestion,
+          timestamp: new Date().toISOString(),
+        },
+      ].slice(-MAX_LOCAL_SUGGESTIONS)
 
-      // Keep last 50 suggestions
-      if (suggestions.length > 50) {
-        suggestions.shift()
-      }
-
-      localStorage.setItem(key, JSON.stringify(suggestions))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSuggestions))
     } catch (error) {
-      generalLogger.error('[BusinessTypeSuggestion] Failed to log locally', { error, suggestion })
+      generalLogger.error('[BusinessTypeSuggestion] Failed to log locally', {
+        error,
+        suggestion: suggestionLogSummary(suggestion),
+      })
     }
   }
 
   /**
    * Get locally logged suggestions (for debugging/admin)
    */
-  getLocalSuggestions(): Array<BusinessTypeSuggestion & { timestamp: string }> {
+  getLocalSuggestions(): StoredBusinessTypeSuggestion[] {
+    if (typeof localStorage === 'undefined') return []
+
     try {
-      const key = 'business_type_suggestions'
-      const existing = localStorage.getItem(key)
-      return existing ? JSON.parse(existing) : []
+      const existing = localStorage.getItem(STORAGE_KEY)
+      if (!existing) return []
+
+      const parsed: unknown = JSON.parse(existing)
+      if (!Array.isArray(parsed)) return []
+
+      return parsed.flatMap((item) => {
+        const normalized = normalizeStoredSuggestion(item)
+        return normalized ? [normalized] : []
+      })
     } catch (error) {
       generalLogger.error('[BusinessTypeSuggestion] Failed to retrieve local suggestions', {
         error,

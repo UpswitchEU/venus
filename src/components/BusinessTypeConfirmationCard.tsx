@@ -8,11 +8,15 @@
 import { motion } from 'framer-motion'
 import { Building2, CheckCircle2, Tag } from 'lucide-react'
 import React from 'react'
+import {
+  type BusinessTypeCategoryLike,
+  formatBusinessTypeCategory,
+} from '../utils/businessTypeCategory'
 
 export interface BusinessTypeConfirmationCardProps {
   businessType: string
   industry?: string
-  category?: string
+  category?: BusinessTypeCategoryLike
   icon?: string
   confidence?: number
   timestamp?: Date
@@ -26,6 +30,8 @@ export const BusinessTypeConfirmationCard: React.FC<BusinessTypeConfirmationCard
   confidence: _confidence,
   timestamp,
 }) => {
+  const categoryLabel = formatBusinessTypeCategory(category)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -73,13 +79,10 @@ export const BusinessTypeConfirmationCard: React.FC<BusinessTypeConfirmationCard
                         </div>
                       )}
 
-                      {category && (
+                      {categoryLabel && (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted border border-foreground/20 text-xs font-medium text-muted-foreground">
                           <Tag className="w-3 h-3 text-muted-foreground" />
-                          {/* ✅ FIX: Handle category as either string or object */}
-                          {typeof category === 'string'
-                            ? category
-                            : (category as any)?.name || (category as any)?.title || ''}
+                          {categoryLabel}
                         </div>
                       )}
                     </div>

@@ -38,7 +38,7 @@ import {
   isImportedLedgerNormalizationItem,
   type NormalizationItem,
   type NormalizationSource,
-} from './UnifiedNormalizationModal'
+} from './UnifiedNormalizationTypes'
 
 // ─────────────────────────────────────────
 // TYPES

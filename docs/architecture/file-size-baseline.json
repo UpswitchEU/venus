@@ -4,13 +4,8 @@
   "maxLines": 1000,
   "rule": "Freeze current oversized production files. New files over maxLines or growth in existing oversized files fails guard:file-size; shrinkage must also be removed from this baseline.",
   "files": {
-    "src/components/calculator/ChatAssistantDrawer.tsx": 3010,
-    "src/components/calculator/UnifiedNormalizationModal.tsx": 2957,
-    "src/components/calculator/ValuationEditModal.tsx": 2163,
-    "src/design-system/components/EntitySearch.tsx": 1679,
     "src/features/manual/components/ManualLayout.tsx": 2402,
-    "src/lib/auth.ts": 1571,
-    "src/types/valuation.ts": 1902
+    "src/lib/auth.ts": 1570
   },
-  "totalFiles": 7
+  "totalFiles": 2
 }

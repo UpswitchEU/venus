@@ -9,6 +9,7 @@
 
 import { useCallback } from 'react'
 import type { BusinessTypeOption } from '../config/businessTypes'
+import { formatBusinessTypeCategory } from '../utils/businessTypeCategory'
 import { generalLogger } from '../utils/logger'
 
 /**
@@ -35,17 +36,8 @@ export const useBusinessTypeMatching = () => {
       }
 
       // 2. Match on category (category may be string or object from API)
-      const safeCatLower = (bt: { category?: unknown }) => {
-        const raw =
-          typeof bt.category === 'string'
-            ? bt.category
-            : ((bt.category as Record<string, unknown>)?.name ??
-              (bt.category as Record<string, unknown>)?.title ??
-              '')
-        return String(raw).toLowerCase()
-      }
       const categoryMatch = businessTypes.find((bt) => {
-        const catLower = safeCatLower(bt)
+        const catLower = formatBusinessTypeCategory(bt.category).toLowerCase()
         return catLower && (catLower.includes(queryLower) || queryLower.includes(catLower))
       })
       if (categoryMatch) {

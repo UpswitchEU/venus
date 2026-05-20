@@ -6,7 +6,37 @@
  */
 
 import { BUSINESS_TYPES_FALLBACK } from '../config/businessTypes'
+import type { BusinessType } from '../services/businessTypesApi'
 import { businessTypesCache } from '../services/cache/businessTypesCache'
+
+interface BusinessTypeInfo {
+  icon: string
+  title: string
+  description?: string
+}
+
+function findFallbackType(businessTypeId: string) {
+  return BUSINESS_TYPES_FALLBACK.find((bt) => bt.value === businessTypeId)
+}
+
+function extractEmoji(label: string): string | undefined {
+  return label.match(/^(\p{Emoji}+)/u)?.[1]
+}
+
+function stripLeadingEmoji(label: string): string {
+  return label.replace(/^(\p{Emoji}+)\s*/u, '').trim() || label
+}
+
+function titleFromId(businessTypeId: string): string {
+  return businessTypeId
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+function getCachedBusinessType(businessTypeId: string): BusinessType | null {
+  return businessTypesCache.getBusinessTypeById(businessTypeId)
+}
 
 /**
  * Get business type icon from business type ID
@@ -18,42 +48,18 @@ export function getBusinessTypeIcon(businessTypeId: string | undefined): string 
   }
 
   // Try to find in fallback first (synchronous)
-  const fallbackType = BUSINESS_TYPES_FALLBACK.find((bt) => bt.value === businessTypeId)
+  const fallbackType = findFallbackType(businessTypeId)
   if (fallbackType) {
     // Extract emoji from label if icon not directly available
-    const emojiMatch = fallbackType.label.match(/^(\p{Emoji}+)/u)
-    if (emojiMatch) {
-      return emojiMatch[1]
+    const emoji = extractEmoji(fallbackType.label)
+    if (emoji) {
+      return emoji
     }
   }
 
-  // Try to get from cache (synchronous check)
-  try {
-    // Access cache synchronously - this will return null if cache not loaded yet
-    const cacheData = businessTypesCache.hasValidCache()
-      ? (() => {
-          try {
-            const cached = localStorage.getItem('upswitch_valuation_tester_business_types_cache')
-            if (cached) {
-              const entry = JSON.parse(cached)
-              if (!entry.data) return null
-              const businessType = entry.data.businessTypes?.find(
-                (bt: any) => bt.id === businessTypeId
-              )
-              return businessType
-            }
-          } catch {
-            return null
-          }
-          return null
-        })()
-      : null
-
-    if (cacheData?.icon) {
-      return cacheData.icon
-    }
-  } catch {
-    // Cache not available, continue
+  const cacheData = getCachedBusinessType(businessTypeId)
+  if (cacheData?.icon) {
+    return cacheData.icon
   }
 
   return '🏢' // Default fallback
@@ -69,45 +75,19 @@ export function getBusinessTypeTitle(businessTypeId: string | undefined): string
   }
 
   // Try to find in fallback first (synchronous)
-  const fallbackType = BUSINESS_TYPES_FALLBACK.find((bt) => bt.value === businessTypeId)
+  const fallbackType = findFallbackType(businessTypeId)
   if (fallbackType) {
     // Remove emoji from label for title
-    return fallbackType.label.replace(/^(\p{Emoji}+)\s*/u, '').trim() || fallbackType.label
+    return stripLeadingEmoji(fallbackType.label)
   }
 
-  // Try to get from cache (synchronous check)
-  try {
-    const cacheData = businessTypesCache.hasValidCache()
-      ? (() => {
-          try {
-            const cached = localStorage.getItem('upswitch_valuation_tester_business_types_cache')
-            if (cached) {
-              const entry = JSON.parse(cached)
-              if (!entry.data) return null
-              const businessType = entry.data.businessTypes?.find(
-                (bt: any) => bt.id === businessTypeId
-              )
-              return businessType
-            }
-          } catch {
-            return null
-          }
-          return null
-        })()
-      : null
-
-    if (cacheData?.title) {
-      return cacheData.title
-    }
-  } catch {
-    // Cache not available, continue
+  const cacheData = getCachedBusinessType(businessTypeId)
+  if (cacheData?.title) {
+    return cacheData.title
   }
 
   // Fallback: format the ID nicely
-  return businessTypeId
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  return titleFromId(businessTypeId)
 }
 
 /**
@@ -118,32 +98,9 @@ export function getBusinessTypeDescription(businessTypeId: string | undefined): 
     return undefined
   }
 
-  // Try to get from cache (synchronous check)
-  try {
-    const cacheData = businessTypesCache.hasValidCache()
-      ? (() => {
-          try {
-            const cached = localStorage.getItem('upswitch_valuation_tester_business_types_cache')
-            if (cached) {
-              const entry = JSON.parse(cached)
-              if (!entry.data) return null
-              const businessType = entry.data.businessTypes?.find(
-                (bt: any) => bt.id === businessTypeId
-              )
-              return businessType
-            }
-          } catch {
-            return null
-          }
-          return null
-        })()
-      : null
-
-    if (cacheData?.description) {
-      return cacheData.description
-    }
-  } catch {
-    // Cache not available, continue
+  const cacheData = getCachedBusinessType(businessTypeId)
+  if (cacheData?.description) {
+    return cacheData.description
   }
 
   return undefined
@@ -152,7 +109,7 @@ export function getBusinessTypeDescription(businessTypeId: string | undefined): 
 /**
  * Get full business type info from business type ID
  */
-export function getBusinessTypeInfo(businessTypeId: string | undefined) {
+export function getBusinessTypeInfo(businessTypeId: string | undefined): BusinessTypeInfo {
   if (!businessTypeId) {
     return {
       icon: '🏢',
@@ -162,54 +119,28 @@ export function getBusinessTypeInfo(businessTypeId: string | undefined) {
   }
 
   // Try to find in fallback first
-  const fallbackType = BUSINESS_TYPES_FALLBACK.find((bt) => bt.value === businessTypeId)
+  const fallbackType = findFallbackType(businessTypeId)
 
   let icon = '🏢'
-  let title = businessTypeId
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  let title = titleFromId(businessTypeId)
 
   if (fallbackType) {
     // Extract emoji from label
-    const emojiMatch = fallbackType.label.match(/^(\p{Emoji}+)/u)
-    if (emojiMatch) {
-      icon = emojiMatch[1]
+    const emoji = extractEmoji(fallbackType.label)
+    if (emoji) {
+      icon = emoji
     }
     // Remove emoji from label for title
-    title = fallbackType.label.replace(/^(\p{Emoji}+)\s*/u, '').trim() || fallbackType.label
+    title = stripLeadingEmoji(fallbackType.label)
   }
 
-  // Try to get from cache (synchronous check)
-  try {
-    const cacheData = businessTypesCache.hasValidCache()
-      ? (() => {
-          try {
-            const cached = localStorage.getItem('upswitch_valuation_tester_business_types_cache')
-            if (cached) {
-              const entry = JSON.parse(cached)
-              if (!entry.data) return null
-              const businessType = entry.data.businessTypes?.find(
-                (bt: any) => bt.id === businessTypeId
-              )
-              return businessType
-            }
-          } catch {
-            return null
-          }
-          return null
-        })()
-      : null
-
-    if (cacheData) {
-      return {
-        icon: cacheData.icon || icon,
-        title: cacheData.title || title,
-        description: cacheData.description,
-      }
+  const cacheData = getCachedBusinessType(businessTypeId)
+  if (cacheData) {
+    return {
+      icon: cacheData.icon || icon,
+      title: cacheData.title || title,
+      description: cacheData.description,
     }
-  } catch {
-    // Cache not available, use fallback
   }
 
   return {

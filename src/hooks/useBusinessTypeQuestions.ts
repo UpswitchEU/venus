@@ -10,14 +10,24 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  businessTypesApiService,
   type BusinessTypeQuestionsOptions,
+  businessTypesApiService,
 } from '../services/businessTypesApi'
 import { generalLogger } from '../utils/logger'
 
 // ============================================================================
 // TYPES
 // ============================================================================
+
+export type BusinessTypeQuestionOption =
+  | string
+  | number
+  | boolean
+  | {
+      label?: string
+      value?: string | number | boolean
+      [key: string]: unknown
+    }
 
 export interface BusinessTypeQuestion {
   id: string
@@ -29,14 +39,14 @@ export interface BusinessTypeQuestion {
   placeholder?: string
   question_type: string
   input_type?: string
-  options?: any[]
+  options?: BusinessTypeQuestionOption[]
   priority: number
   phase: string
   required: boolean
-  conditional_logic?: any
-  validation_rules?: any
+  conditional_logic?: Record<string, unknown>
+  validation_rules?: Record<string, unknown>
   impacts_valuation: boolean
-  valuation_impact?: any
+  valuation_impact?: Record<string, unknown>
   tags?: string[]
   data_type?: string
   unit?: string

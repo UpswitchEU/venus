@@ -16,9 +16,9 @@ import { Download, Loader2, Printer, Share2, X, ZoomIn, ZoomOut } from 'lucide-r
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
+import { SafeReportHtml } from '@/components/valuation/report/SafeReportHtml'
 import { AuroraButton } from '@/design-system'
 import { Modal, ModalContent } from '@/design-system/components/Modal'
-import { HTMLProcessor } from '@/utils/htmlProcessor'
 import type { ValuationReportData } from './types'
 
 // ─────────────────────────────────────────
@@ -197,17 +197,7 @@ export function FullscreenReportModal({
               </p>
             </div>
           )}
-          {report?.htmlReport ? (
-            <div className="valuation-report">
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: HTMLProcessor.sanitize(report.htmlReport),
-                }}
-              />
-            </div>
-          ) : (
-            <ReportSkeleton />
-          )}
+          {report?.htmlReport ? <SafeReportHtml html={report.htmlReport} /> : <ReportSkeleton />}
         </div>
       </ModalContent>
     </Modal>

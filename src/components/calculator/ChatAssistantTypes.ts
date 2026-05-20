@@ -1,0 +1,404 @@
+export interface FieldUpdate {
+  field: string
+  value: number
+  label: string
+  // YC-Standard: Impact framing + provenance
+  impact?: {
+    ebitdaDelta: number // e.g., +60000
+    valuationDelta: number // e.g., +312000 (at 5.2x)
+    multiple?: number // e.g., 5.2
+  }
+  source?: 'yuki' | 'exact' | 'manual' | 'ai' | 'kbo'
+  grootboekCode?: string
+  confidence?: 'high' | 'medium' | 'low'
+}
+
+export interface NormalisationSuggestion {
+  id: string
+  code: string
+  description: string
+  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
+  amount: number
+  reason: string
+  sourceRef?: string
+  status: 'pending' | 'accepted' | 'rejected'
+  // Impact calculation
+  ebitdaImpact?: number
+  valuationImpact?: number
+  multiple?: number
+}
+
+/**
+ * Pending valuation-run proposal from the AI's run_valuation tool.
+ * Decision = local UI state after the user clicks; back-end side effects
+ * (the actual /api/v2/valuations/calculate run) are dispatched by the parent's
+ * `onApproveValuationRun` callback.
+ */
+export interface ValuationRunRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  methods?: string[] | null
+  estimatedCredits?: number
+  inputsSummary?: {
+    business_name: string | null
+    business_type: string | null
+    industry: string | null
+    revenue: string | null
+    ebitda: string | null
+    ebitda_normalized: string | null
+    pending_normalizations: number
+    applied_normalizations: number
+  }
+  note?: string | null
+  reason?: string
+  missing?: string[]
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+/**
+ * Pending PDF-generation proposal from the AI's generate_report tool.
+ * Approve fires the existing `generatePdf` flow on the parent — no extra credit.
+ */
+export interface ReportGenerationRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  estimatedCredits?: number
+  resultSummary?: {
+    business_name: string | null
+    business_type: string | null
+    valuation_method: string | null
+    currency: string
+    midpoint: number | null
+    min: number | null
+    max: number | null
+    confidence_score: number | null
+    calculated_at: string | null
+  }
+  note?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+/**
+ * Pending Sellability-compute proposal from the AI's run_sellability tool.
+ * Approve POSTs to Venus's /api/sellability/score proxy (Titan-backed). Free —
+ * no credit consumed. Q1/Q2/Q3 answers come from the persisted owner profile.
+ */
+export interface SellabilityRunRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  estimatedCredits?: number
+  answers?: {
+    q1_top3_concentration_pct: number | null
+    q2_contracted_share: string | null
+    q3_books_cleanliness: string | null
+  }
+  currentScore?: {
+    score: number
+    band: string
+    computed_at: string | Date
+  } | null
+  note?: string | null
+  reason?: string
+  missing?: string[]
+  message?: string
+  decision?: 'approved' | 'rejected'
+  /** Set after successful compute so the card can show the new score inline. */
+  computedScore?: { score: number; band: string; confidence?: string } | null
+}
+
+/**
+ * Read-only Belgian public-data bootstrap from Titan's
+ * bootstrap_belgian_company tool. This gives the advisor/owner a fast KBO +
+ * NBB/CBSO context card before they connect integrations or upload CSV data.
+ */
+export interface BelgianCompanyBootstrap {
+  id: string
+  status: 'ok' | 'partial' | 'blocked' | 'failed'
+  reason?: string
+  message?: string
+  identity?: {
+    legalName?: string | null
+    legalForm?: string | null
+    kboNumber?: string | null
+    address?: string | null
+    city?: string | null
+    postalCode?: string | null
+    naceCode?: string | null
+    naceDescription?: string | null
+    foundationDate?: string | null
+    isActive?: boolean | null
+  } | null
+  benchmark?: {
+    status?: string | null
+    businessTypeTitle?: string | null
+    evEbitdaMedian?: number | null
+    confidence?: string | null
+  } | null
+  filingSummary?: {
+    status?: string | null
+    source?: string | null
+    filingYear?: number | null
+    yearsAvailable?: number | null
+    revenue?: number | null
+    ebitda?: number | null
+    dataHealthMessage?: string | null
+  } | null
+  valuationPreview?: {
+    status?: string | null
+    method?: string | null
+    ebitdaUsed?: number | null
+    ebitdaYear?: number | null
+    evMid?: number | null
+    equityMid?: number | null
+  } | null
+}
+
+/**
+ * Read-only anonymized listing preview from Titan's get_listing_preview tool.
+ * Shows the marketplace-facing draft before buyer profiling and publish.
+ */
+export interface ListingPreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  missingFields?: string[]
+  nextActionHint?: string | null
+  preview?: {
+    title?: string | null
+    businessType?: string | null
+    sector?: string | null
+    industry?: string | null
+    region?: string | null
+    province?: string | null
+    yearCommenced?: number | null
+    employeeRange?: string | null
+    revenueRange?: string | null
+    equityStake?: string | null
+    ownershipStructure?: string | null
+    ownerManagersCount?: number | null
+    status?: string | null
+    featured?: boolean | null
+    ndaRequired?: boolean | null
+    viewCount?: number | null
+    hasVerifiedValuation?: boolean | null
+  } | null
+}
+
+export interface MethodReadinessPreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  businessName?: string | null
+  readinessSource?: string | null
+  readyMethods: string[]
+  blockedMethods: string[]
+  reason?: string
+  message?: string
+}
+
+export interface ClientDataReadinessPreview {
+  id: string
+  status: string
+  clientId?: string
+  businessName?: string | null
+  hasBusinessCard?: boolean
+  hasSyncedFinancials?: boolean
+  hasFinancialData?: boolean
+  financialSyncedAt?: string | null
+  stpStatus?: string | null
+  computedStpStatus?: string | null
+  latestValuationId?: string | null
+  accountingSources?: Array<{
+    provider: string
+    clientKey?: string | null
+    isPrimaryForValuation?: boolean
+    lastSyncAt?: string | null
+  }>
+  importQualitySummary?: {
+    years: string[]
+    minConfidence?: number | null
+    errorCount?: number
+    warningCount?: number
+    infoCount?: number
+    actionableFlagCount?: number
+    topFlags?: Array<{
+      year?: string
+      field?: string | null
+      code?: string | null
+      severity?: string | null
+      message?: string | null
+    }>
+  } | null
+  recommendedNextAction?: string
+  recommendedNextTool?: string | null
+  recommendedNextRoute?: string | null
+  message?: string
+}
+
+/**
+ * Pending marketplace-listing proposal from Titan's advisor-scoped
+ * create_listing tool. Approve returns the advisor to Mercury's canonical
+ * publish wizard; this card never writes a listing directly.
+ */
+export interface ListingCreateRequest {
+  id: string
+  status: 'pending_approval' | 'auto_approved' | 'blocked'
+  reportId?: string
+  accountantCustomerId?: string | null
+  visibility?: 'public' | 'private'
+  valuationSummary?: {
+    business_name?: string | null
+    business_type?: string | null
+    industry?: string | null
+    currency?: string
+    midpoint?: string | null
+    min?: string | null
+    max?: string | null
+  }
+  note?: string | null
+  reason?: string
+  message?: string
+  decision?: 'approved' | 'rejected'
+}
+
+export interface BuyerProfilePreview {
+  id: string
+  status: 'ok' | 'blocked'
+  reportId?: string
+  sourceBusinessName?: string | null
+  reason?: string
+  message?: string
+  listingReadiness?: {
+    status?: string | null
+    missingFields: string[]
+  } | null
+  buyerSegments?: Array<{
+    id?: string
+    label: string
+    fitScore?: number | null
+    recommendedAngle?: string | null
+  }>
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: Date
+  isError?: boolean
+  attachments?: { name: string; type: string; url: string }[]
+  // YC-Standard: Structured cards with impact framing
+  fieldUpdates?: FieldUpdate[]
+  // AI-generated normalization suggestions with accept/reject
+  normalisationSuggestions?: NormalisationSuggestion[]
+  // AI-proposed valuation runs (from run_valuation tool) — propose-only, user clicks Run
+  valuationRunRequests?: ValuationRunRequest[]
+  // AI-proposed PDF generations (from generate_report tool) — propose-only, user clicks Generate
+  reportGenerationRequests?: ReportGenerationRequest[]
+  // AI-proposed Sellability computes (from run_sellability tool) — propose-only, user clicks Compute
+  sellabilityRunRequests?: SellabilityRunRequest[]
+  // AI-generated Belgian public-data bootstrap cards (KBO + NBB/CBSO + benchmark preview)
+  belgianCompanyBootstraps?: BelgianCompanyBootstrap[]
+  // AI-generated advisor-client readiness cards (Hermes import state)
+  clientDataReadinessPreviews?: ClientDataReadinessPreview[]
+  // AI-generated valuation-method readiness cards (read-only; pre-ValuationIQ run)
+  methodReadinessPreviews?: MethodReadinessPreview[]
+  // AI-generated listing previews (read-only anonymized marketplace draft)
+  listingPreviews?: ListingPreview[]
+  // AI-proposed marketplace listings (from create_listing tool) — propose-only, user opens wizard
+  listingCreateRequests?: ListingCreateRequest[]
+  // AI-generated buyer profile previews (read-only; not real matched buyers)
+  buyerProfilePreviews?: BuyerProfilePreview[]
+  /**
+   * Read-only registry-search picker rendered when the agent calls
+   * search_kbo_registry (BE) or search_kvk_registry (NL). Click a row
+   * to fire a follow-up "Use {name} ({registry} {number})" message and
+   * let the agent chain. Mirrors the Mercury RegistrySearchResultsCard.
+   */
+  registrySearchResults?: Array<{
+    id: string
+    registry: 'KBO' | 'KVK'
+    query: string
+    totalFound: number
+    hits: Array<{
+      companyNumber: string
+      companyName: string
+      legalForm?: string | null
+      city?: string | null
+      postalCode?: string | null
+      address?: string | null
+      countryCode?: string | null
+      naceCode?: string | null
+      naceDescription?: string | null
+      businessTypeId?: string | null
+      businessTypeTitle?: string | null
+      foundationDate?: string | null
+      isActive?: boolean | null
+    }>
+    coverageWarning?: 'kvk_not_in_dataset' | 'upstream_degraded'
+    note?: string
+    status?: 'ok' | 'failed'
+  }>
+  // Task-driven: open tasks the user can complete
+  tasks?: {
+    id: string
+    type: 'confirm' | 'choose' | 'enter' | 'upload' | 'approve'
+    label: string
+    context?: string
+    completed?: boolean
+  }[]
+}
+
+export interface FieldContext {
+  field: string
+  label: string
+  value?: unknown
+  hint?: string
+}
+
+export interface SuggestionContext {
+  fieldContext?: FieldContext
+  hasReport?: boolean
+  hasEbitda?: boolean
+  hasFinancials?: boolean
+  pendingNormalizationsCount?: number
+}
+
+/**
+ * High-severity data-quality warning surfaced from the engine.
+ *
+ * Shape mirrors `response.data_quality_warnings[i]` produced by ValuationIQ
+ * (Pass-3 aggregation). The drawer renders these as actionable cards so
+ * advisors resolve issues IN the assistant — not on the final report. The
+ * goal is a clean, defensible PDF; the assistant catches the problems first.
+ */
+export interface QualityWarning {
+  type: string
+  severity: 'high' | 'medium' | 'low' | string
+  message?: string
+  recommendation?: string
+  step_number?: number
+  /** Locale-prepared CTA label (e.g. "Fix sector"). */
+  cta_label?: string
+  /** Optional command the CTA sends to the assistant verbatim. */
+  cta_prompt?: string
+}
+
+export interface StartupAssistantIssue {
+  id: string
+  severity: 'block' | 'warn' | 'info'
+  title: string
+  body: string
+  action: string
+  ctaLabel: string
+  ctaPrompt: string
+  jumpLabel?: string
+}

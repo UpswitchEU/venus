@@ -9,45 +9,35 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { businessTypesApiService } from '../services/businessTypesApi'
+import {
+  type BusinessTypeValidationError,
+  type BusinessTypeValidationResult,
+  type BusinessTypeValidationSuggestion,
+  type BusinessTypeValidationWarning,
+  businessTypesApiService,
+} from '../services/businessTypesApi'
 import { logger as generalLogger } from '../utils/loggers'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface ValidationError {
-  field: string
-  rule: string
-  message: string
-  severity: 'error'
-}
+export type ValidationError = BusinessTypeValidationError
 
-export interface ValidationWarning {
-  field: string
-  rule: string
-  message: string
-  severity: 'warning'
-}
+export type ValidationWarning = BusinessTypeValidationWarning
 
-export interface ValidationSuggestion {
-  field: string
-  message: string
-  severity: 'info'
-}
+export type ValidationSuggestion = BusinessTypeValidationSuggestion
 
-export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
-  warnings: ValidationWarning[]
-  suggestions: ValidationSuggestion[]
-}
+export type ValidationResult = Pick<
+  BusinessTypeValidationResult,
+  'valid' | 'errors' | 'warnings' | 'suggestions'
+>
 
 export interface UseRealTimeValidationState {
   validation: ValidationResult | null
   validating: boolean
   error: string | null
-  validate: (data: Record<string, any>) => Promise<void>
+  validate: (data: Record<string, unknown>) => Promise<void>
   clearValidation: () => void
 }
 
@@ -66,7 +56,7 @@ export function useRealTimeValidation(
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const validate = useCallback(
-    async (data: Record<string, any>) => {
+    async (data: Record<string, unknown>) => {
       if (!businessTypeId) {
         return
       }

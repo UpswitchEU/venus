@@ -6,10 +6,15 @@ on:
       - "app/**"
       - "src/**"
       - "scripts/**"
+      - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
       - ".github/workflows/quality-guard.yml"
       - ".gitignore"
+      - ".env.example"
+      - ".env.staging.example"
       - "biome.json"
+      - "env.example"
+      - "env.unlimited.example"
       - "next.config.js"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -19,10 +24,15 @@ on:
       - "app/**"
       - "src/**"
       - "scripts/**"
+      - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
       - ".github/workflows/quality-guard.yml"
       - ".gitignore"
+      - ".env.example"
+      - ".env.staging.example"
       - "biome.json"
+      - "env.example"
+      - "env.unlimited.example"
       - "next.config.js"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -47,17 +57,26 @@ jobs:
       - name: Guard repo hygiene
         run: pnpm run guard:repo-hygiene
 
+      - name: Guard auth surface
+        run: pnpm run guard:auth-surface
+
       - name: Guard type debt
         run: pnpm run guard:type-debt
 
+      - name: Guard file size
+        run: pnpm run guard:file-size
+
       - name: Production dependency audit
-        run: pnpm audit --prod
+        run: pnpm run audit
 
       - name: Type check
         run: pnpm run type-check
 
       - name: Lint
         run: pnpm run lint
+
+      - name: Unit tests
+        run: pnpm run test:run
 
       - name: Build
         run: pnpm run build

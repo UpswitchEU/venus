@@ -39,6 +39,9 @@
       ],
       "@/types/*": [
         "./src/types/*"
+      ],
+      "@upswitch/types/*": [
+        "../../packages/types/src/*"
       ]
     },
     "forceConsistentCasingInFileNames": true

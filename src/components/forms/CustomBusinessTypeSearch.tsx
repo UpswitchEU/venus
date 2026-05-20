@@ -1,6 +1,7 @@
 import { ChevronDown, Lightbulb, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { BusinessType } from '../../services/businessTypesApi'
+import { businessTypeCategoryKey } from '../../utils/businessTypeCategory'
 
 interface CustomBusinessTypeSearchProps {
   value?: string // business_type_id
@@ -116,16 +117,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
     const groups: { [key: string]: BusinessType[] } = {}
 
     filteredTypes.forEach((type) => {
-      // ✅ FIX: Handle category as either string or object (API may return category object)
-      let categoryKey: string
-      if (typeof type.category === 'string') {
-        categoryKey = type.category || 'Other'
-      } else if (type.category && typeof type.category === 'object') {
-        // Extract name from category object
-        categoryKey = (type.category as any).name || (type.category as any).title || 'Other'
-      } else {
-        categoryKey = 'Other'
-      }
+      const categoryKey = businessTypeCategoryKey(type.category)
 
       if (!groups[categoryKey]) {
         groups[categoryKey] = []
@@ -440,12 +432,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
                         />
                       </svg>
                       <span className="font-medium text-foreground">
-                        {/* Handle category as either string or object */}
-                        {typeof selectedType.category === 'string'
-                          ? selectedType.category
-                          : (selectedType.category as any)?.name ||
-                            (selectedType.category as any)?.title ||
-                            ''}
+                        {businessTypeCategoryKey(selectedType.category, '')}
                       </span>
                     </span>
                   )}

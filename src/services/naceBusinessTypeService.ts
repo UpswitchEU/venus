@@ -6,6 +6,7 @@
  * Mirrors Mercury's businessTypeService.getBusinessTypeForNaceCode().
  */
 
+import { Building2 } from 'lucide-react'
 import type { BusinessType } from '@/design-system/components/EntitySearch'
 
 /** NACE-BEL pattern: digits-only or dotted forms (e.g. 56101, 56.101, 62.01). */
@@ -34,8 +35,6 @@ export function isLegalFormBusinessTypeValue(value: unknown): boolean {
     .replace(/[\s.\-_'()/]/g, '')
   return LEGAL_FORM_BUSINESS_TYPE_VALUES.has(compact)
 }
-
-import { Building2 } from 'lucide-react'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const TIMEOUT = 6000 // Match Mercury businessTypeService for consistency
@@ -92,17 +91,38 @@ interface TitanBusinessTypeResponse {
   code?: string
 }
 
-function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
-  if (!bt?.id || !bt?.title) {
-    return {
-      id: bt?.id || 'unknown',
-      code: '',
-      name: bt?.title || 'Unknown',
-      category: 'other',
-      icon: Building2,
-    }
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function parseTitanBusinessType(value: unknown): TitanBusinessTypeResponse | null {
+  if (!isRecord(value)) return null
+
+  const id = asOptionalString(value.id)
+  const title = asOptionalString(value.title)
+  if (!id || !title) return null
+
+  return {
+    id,
+    title,
+    description: asOptionalString(value.description),
+    category_id: asOptionalString(value.category_id),
+    emoji: asOptionalString(value.emoji),
+    icon: asOptionalString(value.icon),
+    code: asOptionalString(value.code),
+  }
+}
+
+function parseBusinessTypePayload(value: unknown): TitanBusinessTypeResponse | null {
+  if (!isRecord(value)) return null
+  return parseTitanBusinessType(value.business_type)
+}
+
+function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
   const category = bt.category_id ? categoryMap[bt.category_id] || bt.category_id : 'other'
 
   return {
@@ -165,9 +185,12 @@ class NaceBusinessTypeService {
         throw new Error('BUSINESS_TYPE_FETCH_FAILED')
       }
 
-      const data = await response.json()
-      const bt = data?.business_type
-      if (!bt) return null
+      const data: unknown = await response.json()
+      const bt = parseBusinessTypePayload(data)
+      if (!bt) {
+        this.cache.set(cacheKey, { data: null, timestamp: Date.now() })
+        return null
+      }
 
       const mapped = mapToBusinessType(bt)
       this.cache.set(cacheKey, { data: mapped, timestamp: Date.now() })

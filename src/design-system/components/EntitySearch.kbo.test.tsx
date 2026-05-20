@@ -70,4 +70,34 @@ describe('Venus KBOSearchInput', () => {
     expect(searchFn.mock.calls[0]?.[0]).toBe('mix-media')
     expect(searchFn.mock.calls[0]?.[1]).toBeInstanceOf(AbortSignal)
   })
+
+  it('retries the same trimmed registry query after a search error', async () => {
+    vi.useFakeTimers()
+    const searchFn = vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce([])
+
+    render(<TestHarness searchFn={searchFn} />)
+
+    const input = screen.getByLabelText('Bedrijfsnaam of KBO-nummer')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '  retry bv  ' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('tryAgain')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('tryAgain'))
+
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(searchFn).toHaveBeenCalledTimes(2)
+    expect(searchFn.mock.calls[1]?.[0]).toBe('retry bv')
+  })
 })

@@ -1,6 +1,6 @@
 /**
  * Shared favicon rasterization from logos/upswitch-app-icon.svg
- * Resolves sharp + to-ico from the target app's node_modules (robust in monorepos).
+ * Resolves sharp + png-to-ico from the target app's node_modules (robust in monorepos).
  * Colocated under this app so standalone deploys (single-app repo) resolve imports correctly.
  */
 
@@ -67,13 +67,13 @@ export async function generateFaviconsForApp(appRoot) {
 
 	const require = createRequire(pkg);
 	let sharp;
-	let toIco;
+	let pngToIco;
 	try {
 		sharp = require('sharp');
-		toIco = require('to-ico');
+		pngToIco = require('png-to-ico').default;
 	} catch (e) {
 		throw new Error(
-			`[generate-favicons] sharp and to-ico must be devDependencies of ${root} (${e.message})`
+			`[generate-favicons] sharp and png-to-ico must be devDependencies of ${root} (${e.message})`
 		);
 	}
 
@@ -105,7 +105,7 @@ export async function generateFaviconsForApp(appRoot) {
 	const pngBuffers = await Promise.all(
 		icoSizes.map((s) => sharp(svgBuffer).resize(s, s).png().toBuffer())
 	);
-	const icoBuffer = await toIco(pngBuffers);
+	const icoBuffer = await pngToIco(pngBuffers);
 	const icoPath = join(publicDir, FAVICON_ICO_FILENAME);
 	writeFileSync(icoPath, icoBuffer);
 	const st = statSync(icoPath);
