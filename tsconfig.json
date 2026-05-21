@@ -24,8 +24,7 @@
       "@/components/*": ["./src/components/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/utils/*": ["./src/utils/*"],
-      "@/types/*": ["./src/types/*"],
-      "@upswitch/types/*": ["../../packages/types/src/*"]
+      "@/types/*": ["./src/types/*"]
     },
     "forceConsistentCasingInFileNames": true
   },
