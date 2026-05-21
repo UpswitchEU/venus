@@ -43,24 +43,18 @@ import {
 import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
+import {
+  type BootstrapPrefillPatch,
+  getRecordNumber,
+  getRecordString,
+  type ManualBusinessCard,
+  readNormalizationItems,
+  readTaxLatencyItems,
+  resolveCountryCode,
+  toTaxLatencyFormInput,
+} from './bootstrapPrefillGuards'
 
 const logger = createContextLogger('BootstrapPrefill')
-
-function normalizeCountryCode(countryCode?: string | null): string | undefined {
-  if (!countryCode) return undefined
-  const normalized = countryCode.trim().toUpperCase()
-  if (normalized === 'UK') return 'GB'
-  return normalized.length > 0 ? normalized : undefined
-}
-
-function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
-  for (const candidate of candidates) {
-    const normalized = normalizeCountryCode(candidate)
-    if (normalized) return normalized
-  }
-
-  return undefined
-}
 
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
 let globalPrefillApplied = false
@@ -426,8 +420,8 @@ export function resetBootstrapPrefillState(): void {
  */
 function applyPrefillToForm(
   prefillData: PrefillData,
-  updateFormData: (data: Partial<any>) => void,
-  prefillFromBusinessCard: (card: any) => void
+  updateFormData: (data: Partial<ValuationFormData>) => void,
+  prefillFromBusinessCard: (card: ManualBusinessCard) => void
 ): void {
   const { companyInfo, financials, businessType, kboData, officialFinancials } = prefillData
 
@@ -447,7 +441,7 @@ function applyPrefillToForm(
   })
 
   // Collect ALL data to apply in a single update for consistency
-  const allData: Record<string, any> = {}
+  const allData: BootstrapPrefillPatch = {}
 
   // 1. Apply company info (priority: companyInfo > kboData)
   if (companyInfo) {
@@ -735,7 +729,7 @@ function applyPrefillToForm(
         category: businessType.category,
         // Preference fields are not available in bootstrap data — they remain undefined here
         // and will be populated if the user later makes a manual selection.
-      } as any,
+      },
       businessType.industry || businessType.category || 'services'
     )
     Object.assign(allData, btFormData)
@@ -784,19 +778,18 @@ function applyPrefillToForm(
     Object.assign(allData, optional)
 
     const legalForm =
-      (mergedSession.legal_form as string | undefined) ??
-      (mergedSession.legalForm as string | undefined)
-    if (!allData.legal_form && typeof legalForm === 'string' && legalForm.trim()) {
+      getRecordString(mergedSession, 'legal_form') ?? getRecordString(mergedSession, 'legalForm')
+    if (!allData.legal_form && legalForm) {
       allData.legal_form = legalForm
     }
 
     const businessTypeId =
-      (mergedSession.business_type_id as string | undefined) ??
-      (mergedSession.businessTypeId as string | undefined) ??
-      (mergedSession.business_type as string | undefined)
+      getRecordString(mergedSession, 'business_type_id') ??
+      getRecordString(mergedSession, 'businessTypeId') ??
+      getRecordString(mergedSession, 'business_type')
     if (
       !allData.business_type_id &&
-      typeof businessTypeId === 'string' &&
+      businessTypeId &&
       businessTypeId.trim() &&
       !isLegalFormBusinessTypeValue(businessTypeId)
     ) {
@@ -804,8 +797,8 @@ function applyPrefillToForm(
     }
 
     const foundingYear =
-      (mergedSession.founding_year as number | undefined) ??
-      (mergedSession.founded_year as number | undefined)
+      getRecordNumber(mergedSession, 'founding_year') ??
+      getRecordNumber(mergedSession, 'founded_year')
     if (
       !allData.founding_year &&
       foundingYear != null &&
@@ -816,21 +809,19 @@ function applyPrefillToForm(
     }
 
     const mergedTaxLatencies =
-      (Array.isArray(mergedSession.tax_latencies) ? mergedSession.tax_latencies : undefined) ??
-      (Array.isArray(mergedSession.taxLatencies) ? mergedSession.taxLatencies : undefined) ??
-      (Array.isArray(mergedSession._taxLatencies) ? mergedSession._taxLatencies : undefined)
-    if (Array.isArray(mergedTaxLatencies) && mergedTaxLatencies.length > 0) {
+      readTaxLatencyItems(mergedSession.tax_latencies) ??
+      readTaxLatencyItems(mergedSession.taxLatencies) ??
+      readTaxLatencyItems(mergedSession._taxLatencies)
+    if (mergedTaxLatencies && mergedTaxLatencies.length > 0) {
       if (!Array.isArray(allData.tax_latencies) || allData.tax_latencies.length === 0) {
-        allData.tax_latencies = mergedTaxLatencies
+        allData.tax_latencies = mergedTaxLatencies.map(toTaxLatencyFormInput)
       }
-      useTaxLatencyStore.getState().setItems(mergedTaxLatencies as any)
+      useTaxLatencyStore.getState().setItems(mergedTaxLatencies)
     }
 
-    const mergedNormalizations = Array.isArray(mergedSession._normalizations)
-      ? mergedSession._normalizations
-      : undefined
-    if (Array.isArray(mergedNormalizations) && mergedNormalizations.length > 0) {
-      useNormalizationStore.getState().setItems(mergedNormalizations as any)
+    const mergedNormalizations = readNormalizationItems(mergedSession._normalizations)
+    if (mergedNormalizations && mergedNormalizations.length > 0) {
+      useNormalizationStore.getState().setItems(mergedNormalizations)
     }
   }
 
@@ -892,11 +883,11 @@ function buildBusinessCard(
   financials?: PartialFinancials,
   businessType?: BusinessTypeInfo,
   fallbackCountryCode?: string
-): any {
+): ManualBusinessCard {
   const resolvedCountryCode = resolveCountryCode(companyInfo.countryCode, fallbackCountryCode)
 
   return {
-    company_name: companyInfo.companyName,
+    company_name: companyInfo.companyName ?? '',
     industry: businessType?.industry || 'services',
     business_model: businessType?.id || 'other',
     founding_year: companyInfo.foundingYear || getCurrentFilingYear() - 5,

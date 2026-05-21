@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileText,
   Image as ImageIcon,
+  LogIn,
   RotateCcw,
   ShieldCheck,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/design-system/utils'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
 import type { ChatMessage, FieldContext } from './ChatAssistantTypes'
 
@@ -122,7 +124,7 @@ export function MessageBubble({
   onApplyUpdate?: (field: string, value: unknown) => void
   onAcceptNormalisation?: (id: string) => void
   onRejectNormalisation?: (id: string) => void
-  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onApproveValuationRun?: (proposalId: string, reportId?: string, methods?: string[] | null) => void
   onRejectValuationRun?: (proposalId: string) => void
   onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
   onRejectReportGeneration?: (proposalId: string) => void
@@ -149,6 +151,15 @@ export function MessageBubble({
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const loginLocale = locale === 'nl' || locale === 'en' ? locale : 'en'
+  const loginHref = (() => {
+    const mercuryUrl = getMercuryUrl().replace(/\/$/, '')
+    const returnUrl =
+      typeof window !== 'undefined' && window.location?.href
+        ? window.location.href
+        : `${mercuryUrl}/${loginLocale}`
+    return `${mercuryUrl}/${loginLocale}/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`
+  })()
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
@@ -383,8 +394,25 @@ export function MessageBubble({
           </motion.button>
         )}
 
+        {message.requiresAuth && (
+          <motion.a
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            href={loginHref}
+            className={cn(
+              'mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5',
+              'text-xs font-medium text-primary',
+              'bg-primary/10 border border-primary/20',
+              'transition-all hover:bg-primary/15 active:scale-[0.98] touch-manipulation'
+            )}
+          >
+            <LogIn className="w-3 h-3" />
+            {ca('signInAgain')}
+          </motion.a>
+        )}
+
         {/* Error state with retry */}
-        {message.isError && !message.requiresConsent && onRetry && (
+        {message.isError && !message.requiresConsent && !message.requiresAuth && onRetry && (
           <motion.button
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}

@@ -46,6 +46,8 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingCreateRequests: [],
       buyerProfilePreviews: [],
       registrySearchResults: [],
+      businessTypeSearchResults: [],
+      buyerReadyCards: [],
     }
     expect(parseAIChatToolResults(undefined)).toEqual(empty)
     expect(parseAIChatToolResults(null)).toEqual(empty)
@@ -77,6 +79,8 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingCreateRequests: [],
       buyerProfilePreviews: [],
       registrySearchResults: [],
+      businessTypeSearchResults: [],
+      buyerReadyCards: [],
     })
   })
 
@@ -107,6 +111,113 @@ describe('parseAIChatToolResults — input tolerance', () => {
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
     expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
+  })
+
+  it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'buyer_ready_package_status',
+        data: {
+          status: 'available',
+          card: {
+            entity_id: 'entity-1',
+            package_status: 'draft',
+            release_status: 'nda_required',
+            included_artifact_count: 7,
+            required_artifact_count: 10,
+            missing_required_artifact_types: ['legal_readiness'],
+            open_input_count: 2,
+            checklist: {
+              overall_status: 'needs_attention',
+              green_count: 8,
+              yellow_count: 3,
+              red_count: 1,
+            },
+          },
+        },
+      },
+      {
+        type: 'buyer_ready_package_generation_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            report_id: 'report-1',
+            reason: 'Generate the first IM',
+            region_label: 'Flanders',
+            country_code: 'BE',
+            submit_path: '/api/valuations/reports/report-1/buyer-ready-package',
+            result_summary: {
+              business_name: 'Acme BV',
+              business_type: 'Software',
+              valuation_method: 'dcf',
+              currency: 'EUR',
+              midpoint: 1200000,
+            },
+          },
+        },
+      },
+      {
+        type: 'im_regenerate_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            section_key: 'financial_overview',
+            current_confidence: 'low',
+            reason: 'Numbers changed after import review',
+            submit_path: '/api/buyer-ready/im/regen',
+          },
+        },
+      },
+      {
+        type: 'package_publish_request',
+        data: {
+          status: 'blocked',
+          reason: 'missing_required_artifacts',
+          request: {
+            missing_artifact_types: ['dd_checklist'],
+            not_ready_artifacts: [
+              {
+                artifact_type: 'legal_readiness',
+                status: 'review',
+                reason: 'Counsel review required',
+              },
+            ],
+            legal_release_status: 'lawyer_review_required',
+          },
+        },
+      },
+    ])
+
+    expect(result.buyerReadyCards).toEqual([
+      expect.objectContaining({
+        kind: 'buyer_package_status',
+        entityId: 'entity-1',
+        includedArtifactCount: 7,
+        missingRequiredArtifactTypes: ['legal_readiness'],
+        checklist: expect.objectContaining({ redCount: 1 }),
+      }),
+      expect.objectContaining({
+        kind: 'buyer_package_generation',
+        status: 'pending_approval',
+        reportId: 'report-1',
+        regionLabel: 'Flanders',
+        resultSummary: expect.objectContaining({
+          businessName: 'Acme BV',
+          midpoint: 1200000,
+        }),
+      }),
+      expect.objectContaining({
+        kind: 'im_regenerate',
+        sectionKey: 'financial_overview',
+        currentConfidence: 'low',
+      }),
+      expect.objectContaining({
+        kind: 'package_publish',
+        status: 'blocked',
+        missingArtifactTypes: ['dd_checklist'],
+        legalReleaseStatus: 'lawyer_review_required',
+      }),
+    ])
   })
 })
 
@@ -1265,6 +1376,63 @@ describe('buyer_profile_preview', () => {
         status: 'blocked',
         reason: 'valuation_incomplete',
         message: 'Run the valuation first.',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
+// business_type_search_results
+// ---------------------------------------------------------------------
+
+describe('business_type_search_results', () => {
+  it('parses business-type discovery cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'business_type_search_results',
+        data: {
+          status: 'ok',
+          query: 'software',
+          total_found: 1,
+          results: [
+            {
+              id: 'saas-company',
+              title: 'SaaS company',
+              description: 'Recurring software revenue.',
+              category: 'technology',
+              industry: 'Software',
+              sector: 'Technology',
+              primary_model: 'arr_multiple',
+              preferred_multiples: ['ARR', 'EV/Revenue'],
+              valuation_benchmarks: {
+                status: 'resolver_required',
+                message: 'Use get_sector_benchmark before citing multiples.',
+              },
+            },
+          ],
+        },
+      },
+    ])
+
+    expect(result.businessTypeSearchResults).toEqual([
+      {
+        status: 'ok',
+        query: 'software',
+        totalFound: 1,
+        results: [
+          {
+            id: 'saas-company',
+            title: 'SaaS company',
+            description: 'Recurring software revenue.',
+            category: 'technology',
+            industry: 'Software',
+            sector: 'Technology',
+            primaryModel: 'arr_multiple',
+            preferredMultiples: ['ARR', 'EV/Revenue'],
+            benchmarkStatus: 'resolver_required',
+            benchmarkMessage: 'Use get_sector_benchmark before citing multiples.',
+          },
+        ],
       },
     ])
   })

@@ -1,9 +1,12 @@
 import type { BusinessType } from '../../../services/businessTypesApi'
+import type { ValuationFormData } from '../../../types/valuation'
+
+type BusinessTypeFormSource = Pick<BusinessType, 'id'> & Partial<BusinessType>
 
 export function buildBusinessTypeFormData(
-  businessType: BusinessType,
+  businessType: BusinessTypeFormSource,
   fallbackIndustry = 'services'
-): Record<string, unknown> {
+): Partial<ValuationFormData> {
   const industry = businessType.industry || businessType.industryMapping || fallbackIndustry
 
   return {

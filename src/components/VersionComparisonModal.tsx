@@ -12,6 +12,7 @@
 import { ArrowRight, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { formatCurrency } from '../config/countries'
 import type { VersionComparison } from '../types/ValuationVersion'
+import { getFinalValuation } from '../utils/valuationResultAccess'
 
 export interface VersionComparisonModalProps {
   comparison: VersionComparison
@@ -75,12 +76,7 @@ export function VersionComparisonModal({
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground mb-1">Previous Valuation</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(
-                      (typeof versionA.valuationResult === 'object' && versionA.valuationResult
-                        ? (versionA.valuationResult as any).valuation_summary?.final_valuation
-                        : null) || 0,
-                      countryCode
-                    )}
+                    {formatCurrency(getFinalValuation(versionA.valuationResult) ?? 0, countryCode)}
                   </p>
                 </div>
 
@@ -91,12 +87,7 @@ export function VersionComparisonModal({
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground mb-1">New Valuation</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(
-                      (typeof versionB.valuationResult === 'object' && versionB.valuationResult
-                        ? (versionB.valuationResult as any).valuation_summary?.final_valuation
-                        : null) || 0,
-                      countryCode
-                    )}
+                    {formatCurrency(getFinalValuation(versionB.valuationResult) ?? 0, countryCode)}
                   </p>
                 </div>
 

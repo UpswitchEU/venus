@@ -25,7 +25,7 @@ export class ErrorHandler {
   /**
    * Handle any error and return user-friendly information
    */
-  static handle(error: Error | AppError, context?: Record<string, any>): ErrorHandlingResult {
+  static handle(error: Error | AppError, context?: Record<string, unknown>): ErrorHandlingResult {
     if (error instanceof AppError) {
       apiLogger.error(error.message, {
         code: error.code,
@@ -298,7 +298,7 @@ export class ErrorHandler {
    */
   private static getTechnicalDetails(
     error: AppError,
-    additionalContext?: Record<string, any>
+    additionalContext?: Record<string, unknown>
   ): string {
     const details = []
 
@@ -325,7 +325,7 @@ export class ErrorHandler {
   static handleApiError(
     error: Error | AppError,
     endpoint: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ErrorHandlingResult {
     const fullContext = {
       endpoint,
@@ -338,7 +338,7 @@ export class ErrorHandler {
   /**
    * Handle network errors specifically
    */
-  static handleNetworkError(error: Error, context?: Record<string, any>): ErrorHandlingResult {
+  static handleNetworkError(error: Error, context?: Record<string, unknown>): ErrorHandlingResult {
     const networkError = new NetworkError(error.message || 'Network connection failed', context)
 
     return this.handle(networkError, context)
@@ -349,7 +349,7 @@ export class ErrorHandler {
    */
   static handleValidationError(
     message: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ErrorHandlingResult {
     const validationError = new ValidationError(message, context)
     return this.handle(validationError, context)
@@ -358,7 +358,7 @@ export class ErrorHandler {
   /**
    * Handle authentication errors specifically
    */
-  static handleAuthError(message: string, context?: Record<string, any>): ErrorHandlingResult {
+  static handleAuthError(message: string, context?: Record<string, unknown>): ErrorHandlingResult {
     const authError = new AuthenticationError(message, context)
     return this.handle(authError, context)
   }
@@ -369,7 +369,7 @@ export class ErrorHandler {
   static handleRegistryError(
     message: string,
     statusCode: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ErrorHandlingResult {
     const registryError = new RegistryError(message, statusCode, context)
     return this.handle(registryError, context)

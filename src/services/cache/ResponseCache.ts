@@ -26,7 +26,7 @@ interface CacheEntry<T> {
  * Response cache with TTL and LRU eviction
  */
 export class ResponseCache {
-  private cache = new Map<string, CacheEntry<any>>()
+  private cache = new Map<string, CacheEntry<unknown>>()
   private readonly maxSize: number
   private hitCount = 0
   private missCount = 0

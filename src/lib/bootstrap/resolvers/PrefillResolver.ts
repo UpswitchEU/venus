@@ -145,6 +145,16 @@ function resolveCountryCode(...candidates: Array<string | null | undefined>): st
   return undefined
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 /**
  * Parsed identifiers extracted from a `prefilledQuery` URL parameter.
  *
@@ -241,14 +251,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     const sources: PrefillSource[] = []
 
     try {
-      const sessionBusinessInfo = (sessionData as any)?._businessInfo as
-        | Record<string, unknown>
-        | undefined
+      const sessionDataRecord = asRecord(sessionData)
+      const sessionBusinessInfo = asRecord(sessionDataRecord?._businessInfo)
       const resolvedCountryCode =
         resolveCountryCode(
-          (sessionData as any)?.country_code as string | undefined,
-          sessionBusinessInfo?.country_code as string | undefined,
-          sessionBusinessInfo?.country as string | undefined
+          readString(sessionDataRecord?.country_code),
+          readString(sessionBusinessInfo?.country_code),
+          readString(sessionBusinessInfo?.country)
         ) || 'BE'
 
       // Parallel fetch from all sources
@@ -313,9 +322,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           // Prefer the company's own country code; fall back to the session-
           // resolved country so NL companies get SBI alias resolution
           // (country_code=NL triggers the SBI_2008 alias lookup in Titan).
+          // `country` is a legacy session/profile field that is not part of
+          // the normalized CompanyInfo contract, so read it defensively.
           resolveCountryCode(
-            companyInfo?.countryCode as string | undefined,
-            (companyInfo as any)?.country as string | undefined
+            companyInfo?.countryCode,
+            readString(asRecord(companyInfo)?.country)
           ) || resolvedCountryCode
         )
         if (naceBusinessType) {

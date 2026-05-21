@@ -9,12 +9,12 @@
 
 import { generalLogger } from './logger'
 
-export interface SortDataResult<T = any> {
+export interface SortDataResult<T = unknown> {
   data: T[]
   duration_ms: number
 }
 
-export interface FilterDataResult<T = any> {
+export interface FilterDataResult<T = unknown> {
   data: T[]
   originalCount: number
   filteredCount: number
@@ -52,13 +52,13 @@ export type FilterLogicalNot = {
 export type FilterSpec = FilterLeaf | FilterLogicalAnd | FilterLogicalOr | FilterLogicalNot
 
 export interface AggregateDataResult {
-  data: any[]
+  data: unknown[]
   groupCount: number
   duration_ms: number
 }
 
 export interface ChartDataResult {
-  data: any[]
+  data: unknown[]
   chartType: string
   duration_ms: number
 }
@@ -93,7 +93,7 @@ class DataTransformWorkerClient {
   private pendingRequests = new Map<
     number,
     {
-      resolve: (result: any) => void
+      resolve: (result: unknown) => void
       reject: (error: Error) => void
     }
   >()
@@ -149,7 +149,7 @@ class DataTransformWorkerClient {
   /**
    * Send message to worker and wait for response
    */
-  private async sendMessage<T>(type: string, params: any): Promise<T> {
+  private async sendMessage<T>(type: string, params: Record<string, unknown>): Promise<T> {
     await this.init()
 
     if (!this.worker) {
@@ -159,7 +159,10 @@ class DataTransformWorkerClient {
     return new Promise((resolve, reject) => {
       const id = this.messageId++
 
-      this.pendingRequests.set(id, { resolve, reject })
+      this.pendingRequests.set(id, {
+        resolve: (result: unknown) => resolve(result as T),
+        reject,
+      })
 
       this.worker?.postMessage({ id, type, ...params })
 
@@ -176,7 +179,7 @@ class DataTransformWorkerClient {
   /**
    * Sort large dataset in background
    */
-  async sortData<T = any>(
+  async sortData<T = unknown>(
     data: T[],
     key?: string,
     direction: 'asc' | 'desc' = 'asc'
@@ -203,7 +206,7 @@ class DataTransformWorkerClient {
   /**
    * Filter large dataset in background using a structured filter (not a JS expression string).
    */
-  async filterData<T = any>(data: T[], filter: FilterSpec): Promise<FilterDataResult<T>> {
+  async filterData<T = unknown>(data: T[], filter: FilterSpec): Promise<FilterDataResult<T>> {
     generalLogger.debug('[DataTransformWorker] Filtering data', {
       count: data.length,
       filter,
@@ -227,7 +230,7 @@ class DataTransformWorkerClient {
    * Aggregate/group data in background
    */
   async aggregateData(
-    data: any[],
+    data: unknown[],
     groupBy: string,
     aggregations: Array<{
       field: string
@@ -259,7 +262,7 @@ class DataTransformWorkerClient {
    * Transform data for chart libraries in background
    */
   async transformForChart(
-    data: any[],
+    data: unknown[],
     chartType: 'line' | 'area' | 'bar' | 'column' | 'pie' | 'donut' | 'scatter',
     xField: string,
     yField: string,
@@ -291,7 +294,7 @@ class DataTransformWorkerClient {
   /**
    * Calculate statistical metrics in background
    */
-  async calculateStats(data: any[], field?: string): Promise<StatsResult> {
+  async calculateStats(data: unknown[], field?: string): Promise<StatsResult> {
     generalLogger.debug('[DataTransformWorker] Calculating statistics', {
       count: data.length,
       field,

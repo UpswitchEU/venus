@@ -130,7 +130,12 @@ function convertNativeError(error: Error, context?: Record<string, unknown>): Ap
   }
 
   // CRITICAL FIX: Check for HTTP status codes on error object (for fetch API errors)
-  const errorWithStatus = error as any
+  const errorWithStatus = error as Error & {
+    status?: number
+    statusCode?: number
+    body?: unknown
+    response?: { status?: number; data?: unknown }
+  }
   const status =
     errorWithStatus?.status || errorWithStatus?.statusCode || errorWithStatus?.response?.status
   if (status) {
@@ -216,7 +221,8 @@ export function getErrorStatus(error: unknown): number | undefined {
   }
 
   if (error instanceof ApplicationError && 'statusCode' in error) {
-    return (error as any).statusCode
+    const statusCode = (error as ApplicationError & { statusCode?: unknown }).statusCode
+    return typeof statusCode === 'number' ? statusCode : undefined
   }
 
   return undefined

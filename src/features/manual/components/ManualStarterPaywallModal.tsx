@@ -115,7 +115,7 @@ function getManualStarterPaywallBody({
   }
 
   if (reason === 'methods') {
-    return 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 9 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.'
+    return 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all valuation methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.'
   }
   if (reason === 'normalization') {
     return 'The full normalization hub (incl. tax latencies) is on Starter together with branded PDFs, full manual control, and the ability to overwrite valuations with full audit trail.'
@@ -126,7 +126,7 @@ function getManualStarterPaywallBody({
   if (reason === 'synthesis') {
     return 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.'
   }
-  return 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 9 methods.'
+  return 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all valuation methods.'
 }
 
 export function ManualStarterPaywallModal({

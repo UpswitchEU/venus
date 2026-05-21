@@ -11,7 +11,7 @@ interface PendingRequest<T> {
 }
 
 export class RequestDeduplicator {
-  private pendingRequests: Map<string, PendingRequest<any>> = new Map()
+  private pendingRequests: Map<string, PendingRequest<unknown>> = new Map()
   private cleanupInterval: NodeJS.Timeout | null = null
 
   constructor() {
@@ -41,7 +41,7 @@ export class RequestDeduplicator {
       const age = Date.now() - pending.timestamp
       if (age < maxAge) {
         // Return existing promise
-        return pending.promise
+        return pending.promise as Promise<T>
       } else {
         // Request is stale, remove it
         this.pendingRequests.delete(key)

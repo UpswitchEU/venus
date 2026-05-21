@@ -20,7 +20,7 @@ import type { SessionBootstrapState } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
-import type { ValuationSession } from '../types/valuation'
+import type { ValuationFormData, ValuationSession } from '../types/valuation'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
@@ -42,6 +42,29 @@ const logger = createContextLogger('BootstrapSync')
 
 type PrefillDataParam = SessionBootstrapState['prefillData']
 type BootstrapMinimalSession = Partial<ValuationSession> & { pdfUrl?: string }
+type BootstrapSessionData = NonNullable<ValuationSession['sessionData']> & Record<string, unknown>
+type BootstrapPricingRange = NonNullable<SessionBootstrapState['valuationPackage']>['pricingRange']
+
+function asFormPatch(value: Record<string, unknown>): Partial<ValuationFormData> {
+  return value as unknown as Partial<ValuationFormData>
+}
+
+function asSessionData(value: Record<string, unknown>): BootstrapSessionData {
+  return value as unknown as BootstrapSessionData
+}
+
+function pricingRangeToValuationResult(
+  pricingRange: BootstrapPricingRange
+): ValuationSession['valuationResult'] {
+  if (!pricingRange) return undefined
+
+  return {
+    equity_value_low: pricingRange.min,
+    equity_value_mid: pricingRange.mid,
+    equity_value_high: pricingRange.max,
+    currency: pricingRange.currency,
+  } as unknown as ValuationSession['valuationResult']
+}
 
 function isEmptyLike(value: unknown): boolean {
   if (value === undefined || value === null) return true
@@ -597,12 +620,7 @@ function syncSession(state: SessionBootstrapState): void {
           topLevelPatch.buyerReadiness = pkg.buyerReadiness
         }
         if (hasPackage && pkg?.pricingRange && !currentSession.valuationResult) {
-          topLevelPatch.valuationResult = {
-            equity_value_low: pkg.pricingRange.min,
-            equity_value_mid: pkg.pricingRange.mid,
-            equity_value_high: pkg.pricingRange.max,
-            currency: pkg.pricingRange.currency,
-          } as any
+          topLevelPatch.valuationResult = pricingRangeToValuationResult(pkg.pricingRange)
         }
 
         if (Object.keys(sessionGapPatch).length > 0 || Object.keys(topLevelPatch).length > 0) {
@@ -613,7 +631,7 @@ function syncSession(state: SessionBootstrapState): void {
               ...currentSessionData,
               ...sessionGapPatch,
               _bootstrapPrefill: hasPrefill || !!currentSessionDataRecord._bootstrapPrefill,
-            } as any,
+            } as BootstrapSessionData,
           })
 
           logger.info('Updated existing session with bootstrap/package gap-fill data', {
@@ -645,7 +663,7 @@ function syncSession(state: SessionBootstrapState): void {
           formDataUpdate.business_context = mergedFormBc
         }
         if (Object.keys(formDataUpdate).length > 0) {
-          useManualFormStore.getState().updateFormData(formDataUpdate as any)
+          useManualFormStore.getState().updateFormData(asFormPatch(formDataUpdate))
           logger.info('Hydrated form store with bootstrap/package gap-fill', {
             reportId: report.reportId.substring(0, 30),
             formFieldsCount: Object.keys(formDataUpdate).length,
@@ -663,11 +681,11 @@ function syncSession(state: SessionBootstrapState): void {
         const now = new Date()
         const meaningfulPrefill = hasMeaningfulPrefill(prefillData)
 
-        const sessionData: Record<string, any> = {
+        const sessionData: BootstrapSessionData = asSessionData({
           _bootstrapCreated: true,
           _bootstrapPrefill: meaningfulPrefill,
           ...buildPrefillSessionFields(prefillData),
-        }
+        })
 
         const minimalSession: BootstrapMinimalSession = {
           reportId: report.reportId,
@@ -676,7 +694,7 @@ function syncSession(state: SessionBootstrapState): void {
           createdAt: now,
           updatedAt: now,
           partialData: {},
-          sessionData: sessionData as any, // Cast to any since these are internal flags not part of ValuationRequest
+          sessionData,
         }
 
         sessionStore.hydrateSession(minimalSession)
@@ -685,13 +703,13 @@ function syncSession(state: SessionBootstrapState): void {
           const formDataUpdate = buildPrefillFormFields(prefillData)
           Object.assign(
             formDataUpdate,
-            mergeOptionalSessionPrefillFields(sessionData as Record<string, unknown>, {
+            mergeOptionalSessionPrefillFields(sessionData, {
               ...useManualFormStore.getState().formData,
               ...formDataUpdate,
             })
           )
           if (Object.keys(formDataUpdate).length > 0) {
-            useManualFormStore.getState().updateFormData(formDataUpdate as any)
+            useManualFormStore.getState().updateFormData(asFormPatch(formDataUpdate))
             logger.info('Hydrated form store from bootstrap prefill (new report)', {
               reportId: report.reportId.substring(0, 30),
               formFieldsCount: Object.keys(formDataUpdate).length,
@@ -736,7 +754,7 @@ function syncSession(state: SessionBootstrapState): void {
             }
             if (Object.keys(sanitized).length > 0) {
               const formStore = useManualFormStore.getState()
-              formStore.updateFormData(sanitized as any)
+              formStore.updateFormData(asFormPatch(sanitized))
               logger.info('Hydrated form from previous valuation (new schatting prefill)', {
                 reportId: report.reportId.substring(0, 30),
                 formFieldsCount: Object.keys(sanitized).length,
@@ -781,9 +799,9 @@ function syncSession(state: SessionBootstrapState): void {
             pkg.buyerReadiness)
       )
       const now = new Date()
-      const sessionData: Record<string, any> = {
+      const sessionData: BootstrapSessionData = asSessionData({
         _bootstrapPrefill: hasPrefill,
-      }
+      })
       if (hasPackage && pkg) {
         if (packageRenderableHtml) sessionData._htmlReport = packageRenderableHtml
         if (pkg.pricingRange) sessionData._pricingRange = pkg.pricingRange
@@ -808,7 +826,7 @@ function syncSession(state: SessionBootstrapState): void {
           createdAt: now,
           updatedAt: now,
           partialData: {},
-          sessionData: sessionData as any,
+          sessionData,
         }
         // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.).
         // Only promote HTML that survived the renderability guard; pricing/PDF
@@ -820,12 +838,7 @@ function syncSession(state: SessionBootstrapState): void {
           if (pkg.pdf?.url) minimalSession.pdfUrl = pkg.pdf.url
           if (pkg.buyerReadiness) minimalSession.buyerReadiness = pkg.buyerReadiness
           if (pkg.pricingRange) {
-            minimalSession.valuationResult = {
-              equity_value_low: pkg.pricingRange.min,
-              equity_value_mid: pkg.pricingRange.mid,
-              equity_value_high: pkg.pricingRange.max,
-              currency: pkg.pricingRange.currency,
-            } as unknown as ValuationSession['valuationResult']
+            minimalSession.valuationResult = pricingRangeToValuationResult(pkg.pricingRange)
           }
         }
         sessionStore.hydrateSession(minimalSession)
@@ -834,13 +847,13 @@ function syncSession(state: SessionBootstrapState): void {
           const formDataUpdate = buildPrefillFormFields(prefillData)
           Object.assign(
             formDataUpdate,
-            mergeOptionalSessionPrefillFields(sessionData as Record<string, unknown>, {
+            mergeOptionalSessionPrefillFields(sessionData, {
               ...useManualFormStore.getState().formData,
               ...formDataUpdate,
             })
           )
           if (Object.keys(formDataUpdate).length > 0) {
-            useManualFormStore.getState().updateFormData(formDataUpdate as any)
+            useManualFormStore.getState().updateFormData(asFormPatch(formDataUpdate))
             logger.info('Hydrated form store from bootstrap prefill (existing report)', {
               reportId: report.reportId.substring(0, 30),
               formFieldsCount: Object.keys(formDataUpdate).length,

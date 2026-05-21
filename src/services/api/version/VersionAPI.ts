@@ -11,11 +11,13 @@ import type {
   CreateVersionRequest,
   UpdateVersionRequest,
   ValuationVersion,
+  VersionChanges,
   VersionComparison,
   VersionFilterOptions,
   VersionListResponse,
   VersionStatistics,
 } from '../../../types/ValuationVersion'
+import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { createContextLogger } from '../../../utils/logger'
 import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
@@ -25,7 +27,102 @@ export interface APIRequestConfig {
   timeout?: number
 }
 
+type UnknownRecord = Record<string, unknown>
+
+interface VersionConversationContext {
+  conversation: unknown
+  triggerMessage: unknown
+  triggerType: string
+  context: unknown
+}
+
 const versionLogger = createContextLogger('VersionAPI')
+const EMPTY_CHANGES_SUMMARY: VersionChanges = { totalChanges: 0, significantChanges: [] }
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function nestedRecord(value: UnknownRecord | null | undefined, key: string): UnknownRecord | null {
+  return value ? asRecord(value[key]) : null
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : fallback
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+function asDate(value: unknown): Date {
+  const date = new Date(asString(value, new Date().toISOString()))
+  return Number.isNaN(date.getTime()) ? new Date() : date
+}
+
+function asValuationDeltaDirection(value: unknown): 'increase' | 'decrease' | 'unchanged' {
+  return value === 'increase' || value === 'decrease' || value === 'unchanged' ? value : 'unchanged'
+}
+
+function asVersionChanges(value: unknown): VersionChanges {
+  const changes = asRecord(value)
+  return changes ? (changes as unknown as VersionChanges) : { ...EMPTY_CHANGES_SUMMARY }
+}
+
+function asValuationRequest(value: unknown): ValuationRequest {
+  return (asRecord(value) ?? {}) as unknown as ValuationRequest
+}
+
+function asValuationResponse(value: unknown): ValuationResponse | null {
+  const response = asRecord(value)
+  return response ? (response as unknown as ValuationResponse) : null
+}
+
+function asHighlights(value: unknown): VersionComparison['highlights'] {
+  return Array.isArray(value) ? (value as VersionComparison['highlights']) : []
+}
+
+function asMostChangedFields(value: unknown): VersionStatistics['mostChangedFields'] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((item) => {
+    const field = asRecord(item)
+    if (!field) return []
+
+    return [
+      {
+        field: asString(field.field),
+        changeCount: asNumber(field.change_count ?? field.changeCount),
+      },
+    ]
+  })
+}
 
 /**
  * Version API
@@ -77,7 +174,7 @@ export class VersionAPI {
     config: {
       method: string
       url: string
-      data?: any
+      data?: unknown
       headers?: Record<string, string>
     },
     options?: APIRequestConfig
@@ -143,7 +240,7 @@ export class VersionAPI {
       const response = await this.executeRequest<{
         success: boolean
         data: {
-          versions: any[]
+          versions: unknown[]
           total: number
           active_version: number
           has_more: boolean
@@ -163,7 +260,7 @@ export class VersionAPI {
       }
 
       // Transform backend response to frontend types
-      const versions: ValuationVersion[] = response.data.versions.map((v: any) =>
+      const versions: ValuationVersion[] = response.data.versions.map((v) =>
         this.transformVersionFromBackend(v)
       )
 
@@ -217,7 +314,7 @@ export class VersionAPI {
 
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'GET',
@@ -279,7 +376,7 @@ export class VersionAPI {
 
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'POST',
@@ -399,7 +496,7 @@ export class VersionAPI {
 
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'POST',
@@ -442,7 +539,7 @@ export class VersionAPI {
 
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'GET',
@@ -456,19 +553,26 @@ export class VersionAPI {
         throw new Error('No data in response')
       }
 
+      const data = asRecord(response.data)
+      if (!data) {
+        throw new Error('Invalid comparison response')
+      }
+
+      const valuationDelta = asRecord(data.valuation_delta)
+
       // Transform backend response
       const comparison: VersionComparison = {
-        versionA: this.transformVersionFromBackend(response.data.version_a),
-        versionB: this.transformVersionFromBackend(response.data.version_b),
-        changes: response.data.changes || {},
-        valuationDelta: response.data.valuation_delta
+        versionA: this.transformVersionFromBackend(data.version_a),
+        versionB: this.transformVersionFromBackend(data.version_b),
+        changes: asVersionChanges(data.changes),
+        valuationDelta: valuationDelta
           ? {
-              absoluteChange: response.data.valuation_delta.absolute_change,
-              percentChange: response.data.valuation_delta.percent_change,
-              direction: response.data.valuation_delta.direction,
+              absoluteChange: asNumber(valuationDelta.absolute_change),
+              percentChange: asNumber(valuationDelta.percent_change),
+              direction: asValuationDeltaDirection(valuationDelta.direction),
             }
           : null,
-        highlights: response.data.highlights || [],
+        highlights: asHighlights(data.highlights),
       }
 
       versionLogger.info('Versions compared', { reportId, versionA, versionB })
@@ -495,7 +599,7 @@ export class VersionAPI {
     try {
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'GET',
@@ -509,18 +613,26 @@ export class VersionAPI {
         throw new Error('No data in response')
       }
 
+      const data = asRecord(response.data)
+      if (!data) {
+        throw new Error('Invalid statistics response')
+      }
+
+      const firstVersion = asRecord(data.first_version)
+      const latestVersion = asRecord(data.latest_version)
+
       return {
-        totalVersions: response.data.total_versions,
-        averageTimeBetweenVersions_hours: response.data.avg_time_between_versions_hours,
-        mostChangedFields: response.data.most_changed_fields || [],
-        averageValuationChange_percent: response.data.avg_valuation_change_percent,
+        totalVersions: asNumber(data.total_versions),
+        averageTimeBetweenVersions_hours: asNumber(data.avg_time_between_versions_hours),
+        mostChangedFields: asMostChangedFields(data.most_changed_fields),
+        averageValuationChange_percent: asNumber(data.avg_valuation_change_percent),
         firstVersion: {
-          number: response.data.first_version.number,
-          createdAt: new Date(response.data.first_version.created_at),
+          number: asNumber(firstVersion?.number),
+          createdAt: asDate(firstVersion?.created_at),
         },
         latestVersion: {
-          number: response.data.latest_version.number,
-          createdAt: new Date(response.data.latest_version.created_at),
+          number: asNumber(latestVersion?.number),
+          createdAt: asDate(latestVersion?.created_at),
         },
       }
     } catch (error) {
@@ -537,52 +649,55 @@ export class VersionAPI {
    *
    * Normalizes field names and date objects.
    */
-  private transformVersionFromBackend(backendVersion: any): ValuationVersion {
+  private transformVersionFromBackend(backendVersion: unknown): ValuationVersion {
+    const backend = asRecord(backendVersion) ?? {}
     // Extract version_data which contains formData and valuationResult
-    const versionData = backendVersion.version_data || {}
+    const versionData = nestedRecord(backend, 'version_data') ?? {}
+    const outputs = nestedRecord(versionData, 'outputs')
+    const outputDetails = nestedRecord(outputs, 'details')
+    const versionNumber = asNumber(backend.version_number, 1)
+    const formData =
+      backend.formData ?? versionData.formData ?? versionData.inputs ?? backend.form_data ?? {}
+    const valuationResult =
+      backend.valuationResult ?? versionData.valuationResult ?? outputs ?? backend.valuation_result
+    const normalizationData =
+      asRecord(backend.normalization_data) ?? asRecord(versionData.normalization_data)
+    const taxLatencyData = Array.isArray(backend.tax_latency_data)
+      ? backend.tax_latency_data
+      : Array.isArray(versionData.tax_latency_data)
+        ? versionData.tax_latency_data
+        : undefined
 
     return {
-      id: backendVersion.id,
-      reportId: backendVersion.report_id || backendVersion.reportId,
-      versionNumber: backendVersion.version_number,
-      versionLabel: backendVersion.version_label || `Version ${backendVersion.version_number}`,
-      createdAt: new Date(backendVersion.created_at),
-      createdBy: backendVersion.created_by || null,
+      id: asString(backend.id, `version-${versionNumber}`),
+      reportId: asString(backend.report_id, asString(backend.reportId)),
+      versionNumber,
+      versionLabel: asString(backend.version_label, `Version ${versionNumber}`),
+      createdAt: asDate(backend.created_at),
+      createdBy: asNullableString(backend.created_by) ?? asNullableString(backend.createdBy),
       // Extract formData from multiple possible locations
-      formData:
-        backendVersion.formData ||
-        versionData.formData ||
-        versionData.inputs ||
-        backendVersion.form_data ||
-        {},
+      formData: asValuationRequest(formData),
       // Extract valuationResult from multiple possible locations
-      valuationResult:
-        backendVersion.valuationResult ||
-        versionData.valuationResult ||
-        versionData.outputs ||
-        backendVersion.valuation_result ||
-        null,
+      valuationResult: asValuationResponse(valuationResult),
       // Extract HTML reports from multiple possible locations
       htmlReport:
         getFirstRenderableReportHtml(
-          backendVersion.htmlReport,
-          versionData.htmlReport,
-          versionData.outputs?.html_report,
-          versionData.outputs?.details?.html_report,
-          backendVersion.html_report
+          asNullableString(backend.htmlReport),
+          asNullableString(versionData.htmlReport),
+          asNullableString(outputs?.html_report),
+          asNullableString(outputDetails?.html_report),
+          asNullableString(backend.html_report)
         ) || null,
-      changesSummary: backendVersion.changesSummary ||
-        backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
-      isActive: backendVersion.isActive || backendVersion.is_active || false,
-      isPinned: backendVersion.isPinned || backendVersion.is_pinned || false,
+      changesSummary: asVersionChanges(backend.changesSummary ?? backend.changes_summary),
+      isActive: asBoolean(backend.isActive, asBoolean(backend.is_active)),
+      isPinned: asBoolean(backend.isPinned, asBoolean(backend.is_pinned)),
       calculationDuration_ms:
-        backendVersion.calculationDuration_ms || backendVersion.calculation_duration_ms,
-      tags: backendVersion.tags || [],
-      notes: backendVersion.notes,
-      normalization_data:
-        backendVersion.normalization_data || versionData.normalization_data || undefined,
-      tax_latency_data:
-        backendVersion.tax_latency_data || versionData.tax_latency_data || undefined,
+        asOptionalNumber(backend.calculationDuration_ms) ??
+        asOptionalNumber(backend.calculation_duration_ms),
+      tags: asStringArray(backend.tags),
+      notes: asOptionalString(backend.notes),
+      normalization_data: normalizationData as ValuationVersion['normalization_data'] | undefined,
+      tax_latency_data: taxLatencyData as ValuationVersion['tax_latency_data'] | undefined,
     }
   }
 
@@ -627,18 +742,13 @@ export class VersionAPI {
   async getConversationContext(
     versionId: string,
     options?: APIRequestConfig
-  ): Promise<{
-    conversation: any
-    triggerMessage: any
-    triggerType: string
-    context: any
-  } | null> {
+  ): Promise<VersionConversationContext | null> {
     try {
       versionLogger.info('Fetching conversation context', { versionId })
 
       const response = await this.executeRequest<{
         success: boolean
-        data: any
+        data: unknown
       }>(
         {
           method: 'GET',
@@ -652,13 +762,18 @@ export class VersionAPI {
         return null
       }
 
+      const data = asRecord(response.data)
+      if (!data) {
+        return null
+      }
+
       versionLogger.info('Conversation context fetched', { versionId })
 
       return {
-        conversation: response.data.conversation,
-        triggerMessage: response.data.trigger_message,
-        triggerType: response.data.trigger_type,
-        context: response.data.context,
+        conversation: data.conversation,
+        triggerMessage: data.trigger_message,
+        triggerType: asString(data.trigger_type),
+        context: data.context,
       }
     } catch (error) {
       versionLogger.error('Failed to fetch conversation context', {
@@ -675,11 +790,14 @@ export class VersionAPI {
    * @param versionId - Version identifier
    * @returns Array of conversations
    */
-  async getConversationsByVersion(versionId: string, options?: APIRequestConfig): Promise<any[]> {
+  async getConversationsByVersion(
+    versionId: string,
+    options?: APIRequestConfig
+  ): Promise<unknown[]> {
     try {
       const response = await this.executeRequest<{
         success: boolean
-        data: any[]
+        data: unknown
       }>(
         {
           method: 'GET',
@@ -689,7 +807,7 @@ export class VersionAPI {
         options
       )
 
-      return response.data || []
+      return Array.isArray(response.data) ? response.data : []
     } catch (error) {
       versionLogger.error('Failed to fetch conversations', {
         versionId,

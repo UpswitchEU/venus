@@ -8,6 +8,11 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
+import {
+  getReportIdRequiringAuth,
+  hasReportAccessCookie,
+  redirectToMercuryLogin,
+} from '@/middleware/reportAccess'
 import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
 import { defaultLocale, locales } from './i18n'
 
@@ -50,6 +55,22 @@ const intlMiddleware = createMiddleware({
   localePrefix: 'always', // Always use /en/ or /nl/ prefix
   localeDetection: true, // Auto-detect from Accept-Language header or cookie
 })
+
+const VENUS_FRAME_ANCESTORS = "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
+
+function withEmbeddingHeaders(response: Response): void {
+  response.headers.delete('X-Frame-Options')
+
+  const existingCSP = response.headers.get('Content-Security-Policy')
+  if (existingCSP?.includes('frame-ancestors')) {
+    return
+  }
+
+  response.headers.set(
+    'Content-Security-Policy',
+    existingCSP ? `${existingCSP}; ${VENUS_FRAME_ANCESTORS}` : VENUS_FRAME_ANCESTORS
+  )
+}
 
 /**
  * Cookie options for NEXT_LOCALE - use cross-subdomain domain in production
@@ -168,30 +189,18 @@ export async function middleware(request: NextRequest) {
     // who can still renew transparently via the BFF refresh hop. Only
     // kick the user back to Mercury login when both cookies are gone.
     // Skip /reports/new (redirect route, no auth needed).
-    const reportIdMatch = pathWithoutLocale.match(/^\/reports\/([^/]+)$/)
-    if (reportIdMatch && reportIdMatch[1] !== 'new') {
-      const accessToken = request.cookies.get('upswitch_access_token')?.value
-      const refreshToken = request.cookies.get('upswitch_refresh_token')?.value
-      if (!accessToken && !refreshToken) {
+    const protectedReportId = getReportIdRequiringAuth(pathWithoutLocale)
+    if (protectedReportId) {
+      if (!hasReportAccessCookie(request)) {
         const mercuryBase = deriveMercuryUrl(request)
-        const returnUrl = request.nextUrl.toString()
-        const loginUrl = new URL(`/${pathLocale}/auth/login`, mercuryBase)
-        loginUrl.searchParams.set('returnUrl', returnUrl)
-        return NextResponse.redirect(loginUrl)
+        return redirectToMercuryLogin(request, pathLocale, mercuryBase)
       }
     }
 
     const response = intlMiddleware(request)
     if (response instanceof Response) {
       response.cookies.set('NEXT_LOCALE', pathLocale, getLocaleCookieOptions(request))
-      response.headers.delete('X-Frame-Options')
-      const existingCSP = response.headers.get('Content-Security-Policy')
-      if (!existingCSP || !existingCSP.includes('frame-ancestors')) {
-        response.headers.set(
-          'Content-Security-Policy',
-          "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
-        )
-      }
+      withEmbeddingHeaders(response)
     }
     return response
   }
@@ -227,22 +236,7 @@ export async function middleware(request: NextRequest) {
   // CRITICAL: Remove X-Frame-Options header if present (Vercel might set it by default)
   // We rely on CSP frame-ancestors instead for cross-subdomain embedding from upswitch.app
   if (response instanceof Response) {
-    // Remove X-Frame-Options to allow cross-subdomain embedding
-    response.headers.delete('X-Frame-Options')
-
-    // Ensure CSP frame-ancestors is set for cross-subdomain embedding
-    // This allows embedding from upswitch.app (parent domain) and all subdomains
-    // Merge with existing CSP if present
-    const existingCSP = response.headers.get('Content-Security-Policy')
-    if (existingCSP && existingCSP.includes('frame-ancestors')) {
-      // Already has frame-ancestors, keep it but ensure X-Frame-Options is removed
-    } else {
-      // Set CSP frame-ancestors
-      response.headers.set(
-        'Content-Security-Policy',
-        "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
-      )
-    }
+    withEmbeddingHeaders(response)
   }
 
   return response

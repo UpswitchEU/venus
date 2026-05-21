@@ -6,7 +6,7 @@ import type { ChatMessage } from './ChatAssistantTypes'
 
 interface ChatAssistantRunProposalCardsProps {
   message: ChatMessage
-  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onApproveValuationRun?: (proposalId: string, reportId?: string, methods?: string[] | null) => void
   onRejectValuationRun?: (proposalId: string) => void
   onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
   onRejectReportGeneration?: (proposalId: string) => void
@@ -95,7 +95,7 @@ export function ChatAssistantRunProposalCards({
                   <div className="mt-1.5 flex items-center gap-3 text-xs">
                     <button
                       type="button"
-                      onClick={() => onApproveValuationRun?.(req.id, req.reportId)}
+                      onClick={() => onApproveValuationRun?.(req.id, req.reportId, req.methods)}
                       className="text-primary/85 hover:text-primary transition-colors font-medium"
                     >
                       {ca('proposalCards.valuation.actionLabel')}

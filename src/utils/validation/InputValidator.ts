@@ -17,6 +17,10 @@ export interface InputValidation {
   confidence: number
 }
 
+interface ValidationMessageContext {
+  content?: string
+}
+
 /**
  * Input validation constants
  */
@@ -47,7 +51,7 @@ export class InputValidator {
    */
   async validateInput(
     input: string,
-    messages: any[] = [],
+    messages: ValidationMessageContext[] = [],
     sessionId?: string
   ): Promise<InputValidation> {
     const validation: InputValidation = {
@@ -123,7 +127,11 @@ export class InputValidator {
   /**
    * Validate business logic based on conversation context
    */
-  private validateBusinessLogic(input: string, messages: any[], validation: InputValidation): void {
+  private validateBusinessLogic(
+    input: string,
+    messages: ValidationMessageContext[],
+    validation: InputValidation
+  ): void {
     // Check if we're expecting a numeric input based on previous message
     const isNumericField =
       messages.length > 0 &&

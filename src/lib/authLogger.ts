@@ -8,16 +8,46 @@
  * - No verbose logging in production
  */
 
+type AuthLogContext = Record<string, unknown>
+
+type AuthAnalytics = {
+  track: (event: string, properties: AuthLogContext) => void
+}
+
+type AuthSentry = {
+  captureException: (
+    error: Error,
+    options: { tags: Record<string, string>; extra?: AuthLogContext }
+  ) => void
+}
+
+type AuthMonitor = {
+  recordSuccess: (event: { userId: string; method: 'cookie' | 'token'; timestamp: number }) => void
+  recordFailure: (event: { error: string; context?: AuthLogContext; timestamp: number }) => void
+}
+
+type AuthLoggerWindow = Window & {
+  Sentry?: AuthSentry
+  analytics?: AuthAnalytics
+  __AUTH_MONITOR__?: AuthMonitor
+  __AUTH_METRICS__?: AuthMetrics
+}
+
+function getAuthLoggerWindow(): AuthLoggerWindow | null {
+  return typeof window === 'undefined' ? null : (window as AuthLoggerWindow)
+}
+
 /**
  * Log authentication error
  * Sends to console and error tracking service
  */
-export function logAuthError(message: string, context?: Record<string, any>): void {
+export function logAuthError(message: string, context?: AuthLogContext): void {
   console.error(`[Auth] ${message}`, context || {})
 
   // Send to Sentry if available
-  if (typeof window !== 'undefined' && (window as any).Sentry) {
-    ;(window as any).Sentry.captureException(new Error(message), {
+  const authWindow = getAuthLoggerWindow()
+  if (authWindow?.Sentry) {
+    authWindow.Sentry.captureException(new Error(message), {
       tags: { module: 'auth' },
       extra: context,
     })
@@ -34,8 +64,9 @@ export function trackAuthSuccess(userId: string, method: 'cookie' | 'token'): vo
   }
 
   // Track in analytics
-  if (typeof window !== 'undefined' && (window as any).analytics) {
-    ;(window as any).analytics.track('Authentication Success', {
+  const authWindow = getAuthLoggerWindow()
+  if (authWindow?.analytics) {
+    authWindow.analytics.track('Authentication Success', {
       userId,
       method,
       timestamp: new Date().toISOString(),
@@ -43,8 +74,8 @@ export function trackAuthSuccess(userId: string, method: 'cookie' | 'token'): vo
   }
 
   // Track in custom monitoring if available
-  if (typeof window !== 'undefined' && (window as any).__AUTH_MONITOR__) {
-    ;(window as any).__AUTH_MONITOR__.recordSuccess({
+  if (authWindow?.__AUTH_MONITOR__) {
+    authWindow.__AUTH_MONITOR__.recordSuccess({
       userId,
       method,
       timestamp: Date.now(),
@@ -55,13 +86,14 @@ export function trackAuthSuccess(userId: string, method: 'cookie' | 'token'): vo
 /**
  * Track authentication failure for monitoring
  */
-export function trackAuthFailure(error: string, context?: Record<string, any>): void {
+export function trackAuthFailure(error: string, context?: AuthLogContext): void {
   // Always log errors
   logAuthError(error, context)
 
   // Track in analytics
-  if (typeof window !== 'undefined' && (window as any).analytics) {
-    ;(window as any).analytics.track('Authentication Failure', {
+  const authWindow = getAuthLoggerWindow()
+  if (authWindow?.analytics) {
+    authWindow.analytics.track('Authentication Failure', {
       error,
       ...context,
       timestamp: new Date().toISOString(),
@@ -69,8 +101,8 @@ export function trackAuthFailure(error: string, context?: Record<string, any>): 
   }
 
   // Track in custom monitoring if available
-  if (typeof window !== 'undefined' && (window as any).__AUTH_MONITOR__) {
-    ;(window as any).__AUTH_MONITOR__.recordFailure({
+  if (authWindow?.__AUTH_MONITOR__) {
+    authWindow.__AUTH_MONITOR__.recordFailure({
       error,
       context,
       timestamp: Date.now(),
@@ -129,5 +161,5 @@ export const authMetrics = new AuthMetrics()
 
 // Expose metrics globally for debugging (development only)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  ;(window as any).__AUTH_METRICS__ = authMetrics
+  ;(window as AuthLoggerWindow).__AUTH_METRICS__ = authMetrics
 }

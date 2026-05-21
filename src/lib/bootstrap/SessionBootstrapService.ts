@@ -878,9 +878,12 @@ export class SessionBootstrapService {
 
         // For retryable errors, we could implement automatic retry here
         // For now, just throw with additional context
-        const error = new Error(errorMessage)
-        ;(error as any).code = errorCode
-        ;(error as any).retryable = isRetryableError
+        const error = new Error(errorMessage) as Error & {
+          code?: string
+          retryable?: boolean
+        }
+        error.code = errorCode
+        error.retryable = isRetryableError
         throw error
       }
 

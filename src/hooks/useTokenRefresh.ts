@@ -40,6 +40,14 @@ function jitteredInterval(): number {
   return CHECK_INTERVAL + Math.floor(Math.random() * CHECK_INTERVAL_JITTER_MS)
 }
 
+function getAxiosStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
+}
+
 interface RefreshOptions {
   onRefreshSuccess?: () => void
   onRefreshFailure?: (error: Error) => void
@@ -112,10 +120,11 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           } else {
             throw new Error('Token refresh failed: Invalid response')
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           generalLogger.error('Token refresh failed', { error })
 
-          if (error.response?.status === 401 || error.response?.status === 403) {
+          const status = getAxiosStatus(error)
+          if (status === 401 || status === 403) {
             const { isInitializing, loading } = useAuthStore.getState()
             if (isInitializing || loading) {
               generalLogger.debug(
@@ -154,7 +163,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           }
 
           generalLogger.error('Token refresh failed after 3 attempts')
-          onRefreshFailure?.(error)
+          onRefreshFailure?.(toError(error))
           return false
         } finally {
           isRefreshingRef.current = false
@@ -187,8 +196,8 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       // Broadcast session refresh to other tabs only after a successful rotation
       const syncManager = getSessionSyncManager()
       syncManager.broadcastSessionRefresh(window.location.hostname)
-    } catch (error: any) {
-      if (error.response?.status === 401) {
+    } catch (error: unknown) {
+      if (getAxiosStatus(error) === 401) {
         // User is not authenticated, stop checking
         generalLogger.debug('User not authenticated, stopping token refresh checks')
         onTokenExpired?.()
@@ -201,7 +210,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       } else {
         // Network error, will retry on next interval
         generalLogger.warn('Auth check failed (network error), will retry', {
-          error: error.message,
+          error: toError(error).message,
         })
       }
     }

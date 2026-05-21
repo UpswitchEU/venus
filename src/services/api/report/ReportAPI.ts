@@ -14,6 +14,20 @@ import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
+type AxiosLikeError = {
+  code?: string
+  name?: string
+  response?: {
+    data?: unknown
+    status?: number
+    statusText?: string
+  }
+}
+
+function asAxiosLikeError(error: unknown): AxiosLikeError {
+  return error && typeof error === 'object' ? (error as AxiosLikeError) : {}
+}
+
 async function parsePlanGateErrorMessage(axiosError: {
   response?: { data?: unknown }
 }): Promise<string> {
@@ -69,7 +83,7 @@ export class ReportAPI extends HttpClient {
             method: 'GET',
             url,
             headers: {},
-          } as any,
+          },
           requestOptions
         )
       } catch (error) {
@@ -134,7 +148,7 @@ export class ReportAPI extends HttpClient {
             ...(safeAlternate ? { alternateReportId: safeAlternate } : {}),
           },
           headers: {},
-        } as any,
+        },
         { timeout: 60_000 }
       )
     } catch (error) {
@@ -158,7 +172,7 @@ export class ReportAPI extends HttpClient {
           url: `/api/v2/valuations/reports/${reportId}`,
           data,
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
@@ -177,7 +191,7 @@ export class ReportAPI extends HttpClient {
           method: 'DELETE',
           url: `/api/v2/valuations/reports/${reportId}`,
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
@@ -230,7 +244,7 @@ export class ReportAPI extends HttpClient {
       })
 
       // Call Node.js backend endpoint which proxies to Python engine
-      const response = await this.client.request({
+      const response = await this.client.request<Blob>({
         method: 'POST',
         url: `/api/v2/valuations/pdf/accountant-view`,
         data: { reportId },
@@ -261,7 +275,7 @@ export class ReportAPI extends HttpClient {
 
       return response.data
     } catch (error) {
-      const axiosError = error as any
+      const axiosError = asAxiosLikeError(error)
       // Comprehensive error logging
       const errorContext = {
         correlationId,
@@ -327,7 +341,7 @@ export class ReportAPI extends HttpClient {
   private handleReportError(error: unknown, operation: string): never {
     apiLogger.error(`Report ${operation} failed`, { error })
 
-    const axiosError = error as any
+    const axiosError = asAxiosLikeError(error)
     const status = axiosError?.response?.status
 
     if (status === 404) {

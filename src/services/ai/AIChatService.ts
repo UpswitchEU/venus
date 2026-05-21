@@ -16,7 +16,9 @@ import { useClientContext } from '../../stores/clientContext'
 import { createContextLogger } from '../../utils/logger'
 import {
   type BelgianCompanyBootstrap,
+  type BusinessTypeSearchResults,
   type BuyerProfilePreview,
+  type BuyerReadyToolCard,
   type ClientCreateRequest,
   type ClientDataReadinessPreview,
   type CsvUploadRequest,
@@ -66,6 +68,29 @@ function isConsentRequiredEnvelope(status: number, envelope: Record<string, unkn
   return status === 412 && envelope.code === 'AI_CONSENT_REQUIRED'
 }
 
+function readNextSseFrame(buffer: string): { frame: string; rest: string } | null {
+  const match = /\r?\n\r?\n/.exec(buffer)
+  if (!match || match.index === undefined) return null
+  return {
+    frame: buffer.slice(0, match.index),
+    rest: buffer.slice(match.index + match[0].length),
+  }
+}
+
+function extractSseData(frame: string): string | null {
+  const dataLines: string[] = []
+
+  for (const line of frame.split(/\r?\n/)) {
+    if (line.startsWith(':') || !line.startsWith('data:')) continue
+    const value = line.slice(5)
+    dataLines.push(value.startsWith(' ') ? value.slice(1) : value)
+  }
+
+  if (dataLines.length === 0) return null
+  const data = dataLines.join('\n').trim()
+  return data.length > 0 ? data : null
+}
+
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
@@ -101,6 +126,8 @@ export interface AIChatResponse {
   requires_upgrade?: boolean
   /** Set when Titan returned 412 because AI-processing consent is missing. */
   requires_consent?: boolean
+  /** Set when the BFF cannot authenticate the browser session. */
+  requires_auth?: boolean
   code?: string
   currentPolicyVersion?: string
   hasHistoricConsent?: boolean
@@ -123,7 +150,7 @@ export interface AIChatResponse {
   /**
    * Pending valuation-run proposals from the AI. Each entry surfaces an inline
    * "Run valuation now" action card; calculation only fires after the user
-   * approves (consumes 1 credit via the existing /api/v2/valuations/calculate
+   * approves (consumes 5 credits via the existing /api/v2/valuations/calculate
    * saga). Status `blocked` means the AI tried to propose but required inputs
    * are missing — render as a hint, not an action.
    */
@@ -178,6 +205,10 @@ export interface AIChatResponse {
    */
   listingCreateRequests?: ListingCreateRequest[]
   buyerProfilePreviews?: BuyerProfilePreview[]
+  /** Buyer-ready/IM/legal/data-room workflow cards parsed from Titan tool envelopes. */
+  buyerReadyCards?: BuyerReadyToolCard[]
+  /** Read-only business-type discovery shortlist from search_business_types. */
+  businessTypeSearchResults?: BusinessTypeSearchResults[]
   /**
    * Read-only registry-search picker results from `search_kbo_registry`
    * (BE) or `search_kvk_registry` (NL). The drawer renders these as a
@@ -204,6 +235,8 @@ export interface StreamCallbacks {
     currentPolicyVersion?: string
     hasHistoricConsent?: boolean
   }) => void
+  /** Called instead of onError when the BFF returns 401. */
+  onAuthRequired?: (payload: { message: string }) => void
 }
 
 // ─────────────────────────────────────────
@@ -287,6 +320,21 @@ class AIChatServiceImpl {
             code: 'AI_CONSENT_REQUIRED',
             currentPolicyVersion: getEnvelopeString(errorData, 'currentPolicyVersion') || undefined,
             hasHistoricConsent: getEnvelopeBoolean(errorData, 'hasHistoricConsent'),
+            error: message,
+          }
+        }
+
+        if (response.status === 401) {
+          const message =
+            getEnvelopeString(errorData, 'message') ||
+            getEnvelopeString(errorData, 'error') ||
+            'Authentication is required before this assistant can process your inputs.'
+          logger.info('[AIChatService] AI auth required (401), returning auth signal')
+          return {
+            success: false,
+            content: '',
+            requires_auth: true,
+            code: 'AUTH_REQUIRED',
             error: message,
           }
         }
@@ -375,6 +423,12 @@ class AIChatServiceImpl {
         if (parsed.buyerProfilePreviews.length > 0) {
           aiResponse.buyerProfilePreviews = parsed.buyerProfilePreviews
         }
+        if (parsed.buyerReadyCards.length > 0) {
+          aiResponse.buyerReadyCards = parsed.buyerReadyCards
+        }
+        if (parsed.businessTypeSearchResults.length > 0) {
+          aiResponse.businessTypeSearchResults = parsed.businessTypeSearchResults
+        }
         if (parsed.registrySearchResults.length > 0) {
           aiResponse.registrySearchResults = parsed.registrySearchResults
         }
@@ -460,6 +514,19 @@ class AIChatServiceImpl {
             return
           }
 
+          if (response.status === 401) {
+            const message =
+              getEnvelopeString(errorData, 'message') ||
+              getEnvelopeString(errorData, 'error') ||
+              'Authentication is required before this assistant can process your inputs.'
+            if (callbacks.onAuthRequired) {
+              callbacks.onAuthRequired({ message })
+            } else {
+              callbacks.onError?.(message)
+            }
+            return
+          }
+
           callbacks.onError?.('AI service unavailable')
           return
         }
@@ -476,6 +543,17 @@ class AIChatServiceImpl {
         // so the 5-type chunk routing + conversationId capture + done-flag
         // accounting are pinned by tests rather than inline-untested code.
         const state = makeChunkDispatchState()
+        const dispatchSseFrame = (frame: string) => {
+          const dataStr = extractSseData(frame)
+          if (!dataStr || dataStr === '[DONE]') return
+
+          try {
+            const chunk = JSON.parse(dataStr)
+            dispatchAIChatChunk(chunk, state, callbacks)
+          } catch {
+            // Skip malformed JSON chunks
+          }
+        }
 
         while (true) {
           const { done, value } = await reader.read()
@@ -483,21 +561,17 @@ class AIChatServiceImpl {
 
           buffer += decoder.decode(value, { stream: true })
 
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            const dataStr = line.slice(5).trim()
-            if (!dataStr || dataStr === '[DONE]') continue
-
-            try {
-              const chunk = JSON.parse(dataStr)
-              dispatchAIChatChunk(chunk, state, callbacks)
-            } catch {
-              // Skip malformed JSON chunks
-            }
+          let nextFrame = readNextSseFrame(buffer)
+          while (nextFrame) {
+            dispatchSseFrame(nextFrame.frame)
+            buffer = nextFrame.rest
+            nextFrame = readNextSseFrame(buffer)
           }
+        }
+
+        buffer += decoder.decode()
+        if (buffer.trim().length > 0) {
+          dispatchSseFrame(buffer)
         }
 
         if (!state.doneReceived) callbacks.onDone?.(state.resolvedConversationId || undefined)

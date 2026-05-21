@@ -14,6 +14,20 @@ import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date
 import { formatCurrency } from '../../../config/countries'
 import type { ValuationSession } from '../../../types/valuation'
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function readValuationAmount(value: unknown): number {
+  const valuationResult = asRecord(value)
+  const valuationSummary = asRecord(valuationResult?.valuation_summary)
+  const rawValue = valuationSummary?.final_valuation ?? valuationResult?.value
+  const amount = Number(rawValue)
+  return Number.isFinite(amount) ? amount : 0
+}
+
 export interface ReportCardProps {
   report: ValuationSession
   onClick: () => void
@@ -47,7 +61,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
 
   // Get valuation result if available (completed reports)
   // Type assertion since sessionData can contain valuation_result from backend
-  const valuationResult = (report.sessionData as any)?.valuation_result || null
+  const valuationResult = asRecord(report.sessionData)?.valuation_result ?? null
 
   // Format date
   const formatDate = (date: Date) => {
@@ -208,12 +222,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
           <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
             <p className="text-xs text-muted-foreground mb-1">{t('estimatedValue')}</p>
             <p className="text-xl font-bold text-success">
-              {formatCurrency(
-                (valuationResult as any).valuation_summary?.final_valuation ||
-                  (valuationResult as any).value ||
-                  0,
-                countryCode
-              )}
+              {formatCurrency(readValuationAmount(valuationResult), countryCode)}
             </p>
           </div>
         )}

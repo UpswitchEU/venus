@@ -293,6 +293,64 @@ describe('manualChatToolCards', () => {
       businessName: 'Acme',
       recommendedNextTool: 'open_import_review',
     })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'get_buyer_ready_package',
+        {
+          status: 'available',
+          card: {
+            entity_id: 'entity-1',
+            package_status: 'draft',
+            release_status: 'nda_required',
+            included_artifact_count: 7,
+            required_artifact_count: 10,
+            missing_required_artifact_types: ['legal_readiness'],
+            open_input_count: 2,
+            checklist: {
+              overall_status: 'needs_attention',
+              green_count: 8,
+              yellow_count: 3,
+              red_count: 1,
+            },
+          },
+        },
+        createId
+      )?.buyerReadyCards?.[0]
+    ).toMatchObject({
+      id: 'id-11',
+      kind: 'buyer_package_status',
+      entityId: 'entity-1',
+      includedArtifactCount: 7,
+      missingRequiredArtifactTypes: ['legal_readiness'],
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'generate_buyer_ready_package',
+        {
+          status: 'pending_approval',
+          request: {
+            report_id: 'report-1',
+            reason: 'Generate the first IM',
+            region_label: 'Flanders',
+            country_code: 'BE',
+            result_summary: {
+              business_name: 'Acme BV',
+              currency: 'EUR',
+              midpoint: 1200000,
+            },
+          },
+        },
+        createId
+      )?.buyerReadyCards?.[0]
+    ).toMatchObject({
+      id: 'id-12',
+      kind: 'buyer_package_generation',
+      reportId: 'report-1',
+      regionLabel: 'Flanders',
+      resultSummary: { businessName: 'Acme BV', midpoint: 1200000 },
+    })
   })
 
   it('returns null for non-renderable stream tool results', () => {
@@ -427,6 +485,26 @@ describe('manualChatToolCards', () => {
         createId
       )?.importReviewRequests?.[0]
     ).toMatchObject({ id: 'id-9', clientId: 'client-1', actionableFlagCount: 2 })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'regenerate_im_section',
+        {
+          status: 'pending_approval',
+          request: {
+            section_key: 'financial_overview',
+            current_confidence: 'low',
+            reason: 'Numbers changed',
+          },
+        },
+        createId
+      )?.buyerReadyCards?.[0]
+    ).toMatchObject({
+      id: 'id-10',
+      kind: 'im_regenerate',
+      sectionKey: 'financial_overview',
+      currentConfidence: 'low',
+    })
   })
 
   it('adds ids to non-streaming response cards', () => {
@@ -472,6 +550,16 @@ describe('manualChatToolCards', () => {
       ],
       listingPreviews: [{ id: 'listing-preview-card', status: 'ok' }],
       buyerProfilePreviews: [{ id: 'buyer-card', status: 'ok' }],
+      buyerReadyCards: [
+        {
+          id: 'buyer-ready-card',
+          kind: 'im_regenerate',
+          status: 'pending_approval',
+          sectionKey: 'financial_overview',
+          currentConfidence: 'low',
+          reason: 'Refresh prose',
+        },
+      ],
     })
 
     expect(next[0]).toBe(messages[0])
@@ -510,6 +598,16 @@ describe('manualChatToolCards', () => {
     ])
     expect(next[1].listingPreviews).toEqual([{ id: 'listing-preview-card', status: 'ok' }])
     expect(next[1].buyerProfilePreviews).toEqual([{ id: 'buyer-card', status: 'ok' }])
+    expect(next[1].buyerReadyCards).toEqual([
+      {
+        id: 'buyer-ready-card',
+        kind: 'im_regenerate',
+        status: 'pending_approval',
+        sectionKey: 'financial_overview',
+        currentConfidence: 'low',
+        reason: 'Refresh prose',
+      },
+    ])
   })
 
   it('marks proposal decisions in a selected card bucket', () => {

@@ -43,14 +43,14 @@ export function useDebounce<T>(value: T, delay: number): T {
  * const throttledScroll = useThrottle(handleScroll, 100);
  * ```
  */
-export function useThrottle<T extends (...args: any[]) => any>(
-  callback: T,
+export function useThrottle<TArgs extends unknown[], TResult>(
+  callback: (...args: TArgs) => TResult,
   delay: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
   const lastRun = useRef(Date.now())
 
   return useCallback(
-    (...args: Parameters<T>) => {
+    (...args: TArgs) => {
       const now = Date.now()
       if (now - lastRun.current >= delay) {
         callback(...args)
@@ -73,16 +73,16 @@ export function useThrottle<T extends (...args: any[]) => any>(
  * });
  * ```
  */
-export function useStableCallback<T extends (...args: any[]) => any>(
-  callback: T
-): (...args: Parameters<T>) => ReturnType<T> {
+export function useStableCallback<TArgs extends unknown[], TResult>(
+  callback: (...args: TArgs) => TResult
+): (...args: TArgs) => TResult {
   const callbackRef = useRef(callback)
 
   useEffect(() => {
     callbackRef.current = callback
   })
 
-  return useCallback((...args: Parameters<T>) => {
+  return useCallback((...args: TArgs) => {
     return callbackRef.current(...args)
   }, [])
 }
@@ -154,7 +154,7 @@ export function useRenderPerformance(componentName: string) {
 /**
  * Helper to create shallow comparison function for memoization
  */
-export function shallowEqual<T extends Record<string, any>>(objA: T, objB: T): boolean {
+export function shallowEqual<T extends Record<string, unknown>>(objA: T, objB: T): boolean {
   if (Object.is(objA, objB)) {
     return true
   }
@@ -182,7 +182,7 @@ export function shallowEqual<T extends Record<string, any>>(objA: T, objB: T): b
 /**
  * Helper to create deep comparison function for memoization
  */
-export function deepEqual(objA: any, objB: any): boolean {
+export function deepEqual(objA: unknown, objB: unknown): boolean {
   if (Object.is(objA, objB)) {
     return true
   }
@@ -191,15 +191,17 @@ export function deepEqual(objA: any, objB: any): boolean {
     return false
   }
 
-  const keysA = Object.keys(objA)
-  const keysB = Object.keys(objB)
+  const recordA = objA as Record<string, unknown>
+  const recordB = objB as Record<string, unknown>
+  const keysA = Object.keys(recordA)
+  const keysB = Object.keys(recordB)
 
   if (keysA.length !== keysB.length) {
     return false
   }
 
   for (const key of keysA) {
-    if (!(key in objB) || !deepEqual(objA[key], objB[key])) {
+    if (!(key in recordB) || !deepEqual(recordA[key], recordB[key])) {
       return false
     }
   }

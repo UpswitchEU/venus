@@ -2,9 +2,11 @@ import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback 
 import { toast } from 'sonner'
 import { trackReturnToMercury } from '@/lib/analytics'
 import type { ChatMessage, ValuationFormData } from '../../../components/calculator'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { generalLogger } from '../../../utils/logger'
+import { canonicalAgentMethodSelection } from '../utils/manualAiValuationMethods'
 import {
   applyManualChatSellabilityComputedScore,
   markManualChatProposalDecision,
@@ -38,7 +40,11 @@ export interface UseManualAiProposalActionsParams {
 }
 
 export interface UseManualAiProposalActionsResult {
-  handleApproveValuationRun: (proposalId: string, reportId?: string) => void
+  handleApproveValuationRun: (
+    proposalId: string,
+    reportId?: string,
+    methods?: string[] | null
+  ) => void
   handleRejectValuationRun: (proposalId: string) => void
   handleApproveReportGeneration: (proposalId: string, reportId?: string) => void
   handleRejectReportGeneration: (proposalId: string) => void
@@ -70,10 +76,14 @@ export function useManualAiProposalActions({
   setChatMessages,
 }: UseManualAiProposalActionsParams): UseManualAiProposalActionsResult {
   const handleApproveValuationRun = useCallback(
-    (proposalId: string, _reportId?: string) => {
+    (proposalId: string, _reportId?: string, methods?: string[] | null) => {
       setChatMessages((prev) =>
         markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
       )
+      const canonicalMethods = canonicalAgentMethodSelection(methods)
+      if (canonicalMethods.length > 0) {
+        useManualResultsStore.getState().setPreSelectedMethods(canonicalMethods)
+      }
       const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
       postValuationListingHandoffPendingRef.current = true
       void handleManualSubmit(submitData)

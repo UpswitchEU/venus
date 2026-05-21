@@ -22,6 +22,18 @@ import type {
   NormalizationStatus,
 } from '../components/calculator/UnifiedNormalizationModal'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
+import type {
+  ConfidenceScoreValue,
+  CreateNormalizationRequest,
+  CustomAdjustment,
+  NormalizationAdjustment,
+  NormalizationCategory,
+} from '../types/ebitdaNormalization'
+import {
+  readBrowserRecoveryValue,
+  removeBrowserRecoveryValue,
+  writeBrowserRecoveryValue,
+} from '../utils/browserRecoveryStorage'
 import { generalLogger } from '../utils/logger'
 import { appliesToYear } from '../utils/normalizationMath'
 import { isValidSessionId } from '../utils/sessionIdValidation'
@@ -58,6 +70,54 @@ const FRONTEND_TO_BACKEND_CATEGORY: Record<string, string> = {
 }
 
 const VALID_BACKEND_CATEGORIES = new Set(Object.keys(BACKEND_TO_FRONTEND_CATEGORY))
+
+type SessionWithNormalizations = {
+  _normalizations?: unknown
+}
+
+type PersistedNormalizationAdjustment = NormalizationAdjustment & {
+  apply_all_years?: boolean
+  apply_years?: number[]
+  frontend_id?: string
+  normalization_type?: NormalizationItem['type']
+  normalization_value?: number
+}
+
+type RestoredNormalizationAdjustment = NormalizationAdjustment & {
+  apply_all_years?: boolean
+  apply_years?: number[]
+  frontend_id?: string
+  normalization_type?: NormalizationItem['type']
+  normalization_value?: number
+}
+
+type RestoredCustomAdjustment = CustomAdjustment & {
+  apply_all_years?: boolean
+  apply_years?: number[]
+  frontend_id?: string
+  normalization_type?: NormalizationItem['type']
+  normalization_value?: number
+  note?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isNormalizationItem(value: unknown): value is NormalizationItem {
+  return isRecord(value) && typeof value.id === 'string'
+}
+
+function toBackendNormalizationCategory(
+  category: string,
+  backendCategory?: string
+): NormalizationCategory {
+  return mapFrontendCategoryToBackend(category, backendCategory) as NormalizationCategory
+}
+
+function toConfidenceScore(value: unknown): ConfidenceScoreValue | undefined {
+  return value === 'high' || value === 'medium' || value === 'low' ? value : undefined
+}
 
 export function mapBackendCategoryToFrontend(category: string): NormalizationItem['category'] {
   return BACKEND_TO_FRONTEND_CATEGORY[category] || 'other'
@@ -110,7 +170,7 @@ interface NormalizationStore {
   ) => Promise<void>
   retryPersist: () => Promise<void>
   loadFromTitan: (sessionId: string) => Promise<void>
-  loadFromSession: (sessionData: any) => void
+  loadFromSession: (sessionData: unknown) => void
 
   // Selectors (call as functions)
   getAccepted: () => NormalizationItem[]
@@ -275,7 +335,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
         if (!reportId) return
         const { items } = get()
         const { sessionService } = await import('../services')
-        await sessionService.saveSession(reportId, { _normalizations: items } as any)
+        await sessionService.saveSession(reportId, { _normalizations: items })
         generalLogger.debug('[NormalizationStore] Persisted to session', {
           reportId: reportId.substring(0, 12),
           count: items.length,
@@ -297,7 +357,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
             })
             const rawEbitda = Number(reportedEbitda)
             const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
-            const adjustments = yearItems.map((n) => {
+            const adjustments: PersistedNormalizationAdjustment[] = yearItems.map((n) => {
               const rawAdj = Number(n.adjustment)
               let amount = Number.isFinite(rawAdj) ? rawAdj : 0
               const safeVal = Number.isFinite(n.value) ? n.value : 0
@@ -306,10 +366,10 @@ export const useNormalizationStore = create<NormalizationStore>()(
               else if (n.type === 'absolute') amount = safeVal - yearEbitda
               if (!Number.isFinite(amount)) amount = 0
               return {
-                category: mapFrontendCategoryToBackend(n.category, n.backendCategory),
+                category: toBackendNormalizationCategory(n.category, n.backendCategory),
                 amount,
                 note: n.reason,
-                confidence: n.confidence,
+                confidence: toConfidenceScore(n.confidence),
                 ledger_code: n.ledgerCode || undefined,
                 ledger_name: n.ledgerName || undefined,
                 normalization_type: n.type,
@@ -319,12 +379,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 apply_all_years: n.applyAllYears,
               }
             })
-            await normalizationService.saveNormalization({
+            const request: CreateNormalizationRequest = {
               session_id: reportId,
               year,
               reported_ebitda: reportedEbitda ?? 0,
               adjustments,
-            } as any)
+            }
+            await normalizationService.saveNormalization(request)
           }
           const isRetryable = (err: unknown): boolean => {
             if (err instanceof NormalizationAPIError) {
@@ -437,7 +498,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
           const items: NormalizationItem[] = []
           for (const resp of responses) {
             for (let idx = 0; idx < (resp.adjustments || []).length; idx++) {
-              const adj = resp.adjustments[idx] as any
+              const adj = resp.adjustments[idx] as RestoredNormalizationAdjustment
               const restoredType = adj.normalization_type || (adj.amount >= 0 ? 'add' : 'subtract')
               const restoredValue = adj.normalization_value ?? Math.abs(adj.amount)
 
@@ -462,14 +523,14 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 applyAllYears: adj.apply_all_years ?? false,
                 applyYears: adj.apply_years,
                 year: resp.year,
-                confidence: adj.confidence as any,
+                confidence: toConfidenceScore(adj.confidence),
               }
 
               if (adj.frontend_id) seenFrontendIds.set(adj.frontend_id, item)
               items.push(item)
             }
             for (let idx = 0; idx < (resp.custom_adjustments || []).length; idx++) {
-              const custom = resp.custom_adjustments[idx] as any
+              const custom = resp.custom_adjustments[idx] as RestoredCustomAdjustment
 
               if (custom.frontend_id && seenFrontendIds.has(custom.frontend_id)) {
                 continue
@@ -511,12 +572,14 @@ export const useNormalizationStore = create<NormalizationStore>()(
       },
 
       loadFromSession: (sessionData) => {
-        if (!sessionData?._normalizations) return
-        const stored = sessionData._normalizations
+        if (!isRecord(sessionData)) return
+        const stored = (sessionData as SessionWithNormalizations)._normalizations
         if (Array.isArray(stored) && stored.length > 0) {
-          set({ items: stored })
+          const items = stored.filter(isNormalizationItem)
+          if (items.length === 0) return
+          set({ items })
           generalLogger.debug('[NormalizationStore] Loaded from session data', {
-            count: stored.length,
+            count: items.length,
           })
         }
       },
@@ -571,19 +634,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
 const LS_PENDING_PREFIX = '_norm_pending_'
 
 function saveToLocalStorage(reportId: string, items: NormalizationItem[]) {
-  try {
-    localStorage.setItem(`${LS_PENDING_PREFIX}${reportId}`, JSON.stringify(items))
-  } catch {
-    // localStorage may be full or disabled
-  }
+  writeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`, items)
 }
 
 function clearLocalStorage(reportId: string) {
-  try {
-    localStorage.removeItem(`${LS_PENDING_PREFIX}${reportId}`)
-  } catch {
-    // ignore
-  }
+  removeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`)
 }
 
 /**
@@ -593,18 +648,19 @@ function clearLocalStorage(reportId: string) {
  */
 export function recoverPendingNormalizations(reportId: string): NormalizationItem[] | null {
   if (!reportId || typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(`${LS_PENDING_PREFIX}${reportId}`)
-    if (!raw) return null
-    const items = JSON.parse(raw)
-    if (Array.isArray(items) && items.length > 0) {
-      clearLocalStorage(reportId)
-      return items
-    }
+  const items = readBrowserRecoveryValue<unknown[]>(
+    `${LS_PENDING_PREFIX}${reportId}`,
+    (value): value is unknown[] => Array.isArray(value)
+  )
+  if (!items) return null
+
+  const normalized = items.filter(isNormalizationItem)
+  if (normalized.length > 0) {
     clearLocalStorage(reportId)
-  } catch {
-    // ignore parse errors
+    return normalized
   }
+
+  clearLocalStorage(reportId)
   return null
 }
 

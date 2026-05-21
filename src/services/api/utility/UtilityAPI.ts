@@ -15,6 +15,30 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 // AUTH-FIRST: GuestMigrationResponse type deprecated
 
+type AxiosLikeError = {
+  name?: string
+  response?: {
+    data?: unknown
+    status?: number
+  }
+}
+
+function asAxiosLikeError(error: unknown): AxiosLikeError {
+  return error && typeof error === 'object' ? (error as AxiosLikeError) : {}
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function unwrapResponseData(value: unknown): Record<string, unknown> | null {
+  const record = asRecord(value)
+  const nested = asRecord(record?.data)
+  return nested ?? record
+}
+
 export class UtilityAPI extends HttpClient {
   /**
    * Health check endpoint
@@ -26,12 +50,12 @@ export class UtilityAPI extends HttpClient {
           method: 'GET',
           url: '/api/health',
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
       apiLogger.error('Health check failed', { error })
-      const axiosError = error as any
+      const axiosError = asAxiosLikeError(error)
       const statusCode = axiosError?.response?.status
       throw new APIError('Health check failed', statusCode, undefined, true, {
         originalError: error,
@@ -49,7 +73,7 @@ export class UtilityAPI extends HttpClient {
     try {
       // Call the valuation engine directly for conversation status
       // CRITICAL FIX: Use correct endpoint path - intelligent-conversation, not conversation
-      const response = await this.client.request({
+      const response = await this.client.request<unknown>({
         method: 'GET',
         url: `/api/v1/intelligent-conversation/status/${sessionId}`,
         signal: options?.signal,
@@ -57,7 +81,7 @@ export class UtilityAPI extends HttpClient {
       })
 
       // CRITICAL FIX: Handle both response formats (status object or direct data)
-      const data = response.data?.data || response.data
+      const data = unwrapResponseData(response.data)
 
       // CRITICAL FIX: Check if status indicates exists: false (from graceful error handling)
       if (data?.exists === false) {
@@ -65,12 +89,19 @@ export class UtilityAPI extends HttpClient {
         return { exists: false, status: 'error' }
       }
 
-      if (data && typeof data === 'object') {
+      if (data) {
+        const messages = Array.isArray(data.messages) ? data.messages : undefined
+        const metadata = asRecord(data.metadata)
+        const status =
+          data.status === 'active' || data.status === 'completed' || data.status === 'error'
+            ? data.status
+            : 'active'
         return {
           exists: true,
-          status: (data.status as 'active' | 'completed' | 'error') || 'active',
-          message_count: data.messages?.length,
-          last_activity: data.metadata?.last_activity as string | undefined,
+          status,
+          message_count: messages?.length,
+          last_activity:
+            typeof metadata?.last_activity === 'string' ? metadata.last_activity : undefined,
           session_id: sessionId,
         }
       }
@@ -83,7 +114,7 @@ export class UtilityAPI extends HttpClient {
 
       return { exists: false, status: 'error' }
     } catch (error) {
-      const axiosError = error as any
+      const axiosError = asAxiosLikeError(error)
       // CRITICAL FIX: Handle abort signal cancellation gracefully
       if (axiosError?.name === 'AbortError') {
         apiLogger.debug('Conversation status check was cancelled', { sessionId })
@@ -102,7 +133,7 @@ export class UtilityAPI extends HttpClient {
         apiLogger.warn('Conversation status check failed with 500 error', { sessionId })
 
         // Check if response body contains a status object with exists: false
-        if (axiosError?.response?.data?.exists === false) {
+        if (asRecord(axiosError?.response?.data)?.exists === false) {
           apiLogger.debug('Conversation status check returned exists: false in 500 response', {
             sessionId,
           })
@@ -127,14 +158,14 @@ export class UtilityAPI extends HttpClient {
     signal?: AbortSignal
   ): Promise<{ messages: Message[]; exists: boolean }> {
     try {
-      const response = await this.client.request({
+      const response = await this.client.request<unknown>({
         method: 'GET',
         url: `/api/conversation/history/${conversationId}`,
         signal,
         timeout: 30000, // 30 second timeout for history
       })
 
-      const data = response.data?.data || response.data
+      const data = unwrapResponseData(response.data)
       if (data && Array.isArray(data.messages)) {
         return {
           messages: data.messages as Message[],
@@ -144,7 +175,7 @@ export class UtilityAPI extends HttpClient {
 
       return { messages: [], exists: false }
     } catch (error) {
-      const axiosError = error as any
+      const axiosError = asAxiosLikeError(error)
       if (axiosError?.name === 'AbortError') {
         apiLogger.debug('Conversation history request was cancelled', { conversationId })
         throw error

@@ -7,6 +7,7 @@
  */
 
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import { appendBrowserRecoveryListItem } from '../../utils/browserRecoveryStorage'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
@@ -16,6 +17,57 @@ import { backendAPI } from '../backendApi'
 // AUTH-FIRST: guestSessionService removed - authentication is required
 
 const reportLogger = createContextLogger('ReportService')
+const PENDING_SYNC_STORAGE_KEY = 'venus_pending_syncs'
+type UnknownRecord = Record<string, unknown>
+type OptimisticValuationSession = ValuationSession & { _optimistic?: boolean }
+type PendingSyncRetry = {
+  reportId: string
+  session: ValuationSession
+  retryCount: number
+  lastAttempt: number
+}
+type PaywallError = Error & {
+  isPaywallError: true
+  current?: unknown
+  limit?: unknown
+  reason?: unknown
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function asDate(value: unknown): Date | undefined {
+  const raw = typeof value === 'string' || typeof value === 'number' ? value : undefined
+  if (raw === undefined) return undefined
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function asSessionData(value: unknown): Partial<ValuationRequest> {
+  return (asRecord(value) ?? {}) as unknown as Partial<ValuationRequest>
+}
+
+function isPaywallError(error: unknown): error is PaywallError {
+  return error instanceof Error && (error as Partial<PaywallError>).isPaywallError === true
+}
+
+function isPendingSyncRetry(value: unknown): value is PendingSyncRetry {
+  const record = asRecord(value)
+  if (!record) return false
+  return (
+    typeof record.reportId === 'string' &&
+    asRecord(record.session) !== null &&
+    typeof record.retryCount === 'number' &&
+    typeof record.lastAttempt === 'number'
+  )
+}
 
 export interface ListReportsOptions {
   userId?: string
@@ -90,23 +142,25 @@ class ReportServiceImpl implements ReportService {
         throw new Error(`Failed to fetch reports: ${response.statusText}`)
       }
 
-      const json = await response.json()
+      const json = asRecord(await response.json())
 
       // Backend returns: { success: true, data: [...] }
-      const reports = json.data || json.sessions || []
+      const reportsPayload = json?.data ?? json?.sessions
+      const reports = Array.isArray(reportsPayload) ? reportsPayload : []
 
       // Transform backend reports to ValuationSession format
-      const sessions: ValuationSession[] = reports.map((report: any) => {
+      const sessions: ValuationSession[] = reports.map((reportValue) => {
+        const report = asRecord(reportValue) ?? {}
         // Get valuation data if available
         // Backend returns: session_data, partial_data (both are JSONB objects)
-        const partialData = report.partial_data || {}
-        const sessionData = report.session_data || report.valuation_data || {}
+        const partialData = asSessionData(report.partial_data)
+        const sessionData = asSessionData(report.session_data ?? report.valuation_data)
 
         // Ensure company_name is in sessionData if provided at top level
         // Backend extracts company_name from session_data for convenience
         const enrichedSessionData = {
           ...sessionData,
-          ...(report.company_name && !sessionData.company_name
+          ...(typeof report.company_name === 'string' && !sessionData.company_name
             ? { company_name: report.company_name }
             : {}),
         }
@@ -143,19 +197,27 @@ class ReportServiceImpl implements ReportService {
         }
 
         return {
-          reportId: report.id || report.report_id,
-          currentView: mapFlowTypeToCurrentView(report.flow_type, report.current_view),
-          dataSource: mapFlowTypeToDataSource(report.flow_type, report.data_source),
-          name: report.name || undefined, // Custom valuation name
-          createdAt: report.created_at ? new Date(report.created_at) : new Date(),
-          updatedAt: report.updated_at ? new Date(report.updated_at) : new Date(),
-          completedAt: report.completed_at ? new Date(report.completed_at) : undefined,
+          reportId: asString(report.id) ?? asString(report.report_id) ?? generateReportId(),
+          currentView: mapFlowTypeToCurrentView(
+            asString(report.flow_type),
+            asString(report.current_view)
+          ),
+          dataSource: mapFlowTypeToDataSource(
+            asString(report.flow_type),
+            asString(report.data_source)
+          ),
+          name: asString(report.name), // Custom valuation name
+          createdAt: asDate(report.created_at) ?? new Date(),
+          updatedAt: asDate(report.updated_at) ?? new Date(),
+          completedAt: asDate(report.completed_at),
           partialData,
           sessionData: enrichedSessionData,
           // CRITICAL: Include valuation result fields from backend
-          valuationResult: report.valuation_result || null,
-          htmlReport: getRenderableReportHtml(report.html_report) || null,
-          calculatedAt: report.calculated_at ? new Date(report.calculated_at) : undefined,
+          valuationResult:
+            (asRecord(report.valuation_result) as unknown as ValuationSession['valuationResult']) ||
+            undefined,
+          htmlReport: getRenderableReportHtml(asString(report.html_report)) || undefined,
+          calculatedAt: asDate(report.calculated_at),
         } as ValuationSession
       })
 
@@ -205,7 +267,7 @@ class ReportServiceImpl implements ReportService {
       reportLogger.info('Report fetched successfully', {
         reportId,
         hasPartialData: !!session.partialData,
-        hasResult: !!(session.sessionData as any)?.valuation_result,
+        hasResult: !!asRecord(session.sessionData)?.valuation_result,
       })
 
       return session
@@ -244,11 +306,13 @@ class ReportServiceImpl implements ReportService {
         return
       }
 
-      const result = await response.json()
+      const result = asRecord(await response.json()) ?? {}
 
-      if (!result.allowed) {
+      if (result.allowed !== true) {
         // User has hit their valuation limit
-        const error: any = new Error(result.message || 'Valuation limit reached')
+        const error = new Error(
+          asString(result.message) ?? 'Valuation limit reached'
+        ) as PaywallError
         error.isPaywallError = true
         error.current = result.current
         error.limit = result.limit
@@ -262,7 +326,7 @@ class ReportServiceImpl implements ReportService {
       })
     } catch (error) {
       // If it's a paywall error, re-throw it
-      if ((error as any).isPaywallError) {
+      if (isPaywallError(error)) {
         throw error
       }
 
@@ -327,7 +391,7 @@ class ReportServiceImpl implements ReportService {
       await this.checkValuationLimit()
 
       // 2. Create optimistic session object (return immediately)
-      const optimisticSession: ValuationSession = {
+      const optimisticSession: OptimisticValuationSession = {
         reportId,
         currentView: 'manual',
         dataSource: 'manual',
@@ -335,10 +399,10 @@ class ReportServiceImpl implements ReportService {
         updatedAt: new Date(),
         partialData: initialData || {},
         sessionData: initialData || {},
-      } as ValuationSession & { _optimistic?: boolean }
+      }
 
       // Mark as optimistic for UI to show sync status
-      ;(optimisticSession as any)._optimistic = true
+      optimisticSession._optimistic = true
 
       // 3. Sync to backend in background (don't await)
       this.syncReportToBackend(optimisticSession)
@@ -396,10 +460,10 @@ class ReportServiceImpl implements ReportService {
       return optimisticSession
     } catch (error) {
       // If it's a paywall error, re-throw with additional context
-      if ((error as any).isPaywallError) {
+      if (isPaywallError(error)) {
         reportLogger.info('Valuation blocked by plan enforcement', {
-          current: (error as any).current,
-          limit: (error as any).limit,
+          current: error.current,
+          limit: error.limit,
         })
         throw error
       }
@@ -429,20 +493,20 @@ class ReportServiceImpl implements ReportService {
    * Queue sync retry for failed syncs
    */
   private queueSyncRetry(reportId: string, session: ValuationSession): void {
-    // Store in localStorage for retry on next page load
-    if (typeof window !== 'undefined') {
-      try {
-        const pendingSyncs = JSON.parse(localStorage.getItem('venus_pending_syncs') || '[]')
-        pendingSyncs.push({
-          reportId,
-          session,
-          retryCount: 0,
-          lastAttempt: Date.now(),
-        })
-        localStorage.setItem('venus_pending_syncs', JSON.stringify(pendingSyncs))
-      } catch (error) {
-        reportLogger.warn('Failed to queue sync retry', { reportId, error })
-      }
+    const queued = appendBrowserRecoveryListItem<PendingSyncRetry>(
+      PENDING_SYNC_STORAGE_KEY,
+      {
+        reportId,
+        session,
+        retryCount: 0,
+        lastAttempt: Date.now(),
+      },
+      isPendingSyncRetry,
+      { maxEntries: 10 }
+    )
+
+    if (!queued) {
+      reportLogger.warn('Failed to queue sync retry', { reportId })
     }
   }
 

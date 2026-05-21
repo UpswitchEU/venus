@@ -13,6 +13,11 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import {
+  readBrowserRecoveryValue,
+  removeBrowserRecoveryValue,
+  writeBrowserRecoveryValue,
+} from '../utils/browserRecoveryStorage'
 import { generalLogger } from '../utils/logger'
 
 // ─────────────────────────────────────────
@@ -174,7 +179,7 @@ interface TaxLatencyStore {
   clear: (options?: TaxLatencyMutationOptions) => void
 
   persistToSession: (reportId: string) => Promise<void>
-  loadFromSession: (sessionData: any) => void
+  loadFromSession: (sessionData: Record<string, unknown> | null | undefined) => void
 
   getNetImpact: () => number
 }
@@ -204,36 +209,28 @@ let lastItemsJson = ''
 const LS_PENDING_PREFIX = '_taxlat_pending_'
 
 function saveToLocalStorage(reportId: string, items: TaxLatencyItem[]) {
-  try {
-    localStorage.setItem(`${LS_PENDING_PREFIX}${reportId}`, JSON.stringify(items))
-  } catch {
-    // localStorage may be full or disabled
-  }
+  writeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`, items)
 }
 
 function clearLocalStorage(reportId: string) {
-  try {
-    localStorage.removeItem(`${LS_PENDING_PREFIX}${reportId}`)
-  } catch {
-    // ignore
-  }
+  removeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`)
 }
 
 export function recoverPendingTaxLatencies(reportId: string): TaxLatencyItem[] | null {
   if (!reportId || typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(`${LS_PENDING_PREFIX}${reportId}`)
-    if (!raw) return null
-    const items = JSON.parse(raw)
-    const normalized = normalizeTaxLatencyItems(items)
-    if (normalized.length > 0) {
-      clearLocalStorage(reportId)
-      return normalized
-    }
+  const items = readBrowserRecoveryValue<unknown[]>(
+    `${LS_PENDING_PREFIX}${reportId}`,
+    (value): value is unknown[] => Array.isArray(value)
+  )
+  if (!items) return null
+
+  const normalized = normalizeTaxLatencyItems(items)
+  if (normalized.length > 0) {
     clearLocalStorage(reportId)
-  } catch {
-    // ignore parse errors
+    return normalized
   }
+
+  clearLocalStorage(reportId)
   return null
 }
 
@@ -398,7 +395,7 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
         if (!reportId) return
         const { items } = get()
         const { sessionService } = await import('../services')
-        await sessionService.saveSession(reportId, { _taxLatencies: items } as any)
+        await sessionService.saveSession(reportId, { _taxLatencies: items })
         generalLogger.debug('[TaxLatencyStore] Persisted to session', {
           reportId: reportId.substring(0, 12),
           count: items.length,

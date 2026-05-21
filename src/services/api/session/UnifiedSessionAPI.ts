@@ -18,7 +18,7 @@ export interface Session {
   status: 'active' | 'completed' | 'expired' | 'abandoned'
   view_type?: 'simple' | 'advanced'
   current_step?: number
-  data: Record<string, any>
+  data: Record<string, unknown>
   created_at: string
   updated_at?: string
   expires_at: string
@@ -27,14 +27,14 @@ export interface Session {
 
 export interface CreateSessionRequest {
   type?: 'valuation' | 'onboarding' | 'assessment'
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   view_type?: 'simple' | 'advanced' | 'manual' | 'conversational'
   current_step?: number
   session_key?: string // For idempotency
 }
 
 export interface UpdateSessionRequest {
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   view_type?: 'simple' | 'advanced'
   current_step?: number
   status?: 'active' | 'completed' | 'expired' | 'abandoned'

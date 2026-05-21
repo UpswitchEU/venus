@@ -362,7 +362,7 @@ export function broadcastReportUpdated(reportData: {
   latestVersion?: {
     versionNumber: number
     createdAt: Date
-    changes?: any
+    changes?: unknown
   }
 }): void {
   if (typeof window === 'undefined') return
@@ -452,7 +452,7 @@ export function listenForReportEvents(callbacks: {
     latestVersion?: {
       versionNumber: number
       createdAt: Date
-      changes?: any
+      changes?: unknown
     }
   }) => void
   onReportDeleted?: (data: { reportId: string; clientId?: string }) => void

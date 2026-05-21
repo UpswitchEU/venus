@@ -12,6 +12,8 @@ import type { ValuationRequest, ValuationSession } from '../../../types/valuatio
 import { generalLogger } from '../../../utils/logger'
 import { ISessionService } from './interfaces'
 
+type LegacySessionSeed = Record<string, unknown>
+
 /**
  * Session Service Implementation
  *
@@ -25,7 +27,7 @@ export class SessionService implements ISessionService {
   async createSession(
     reportId: string,
     flow: 'manual' | 'conversational',
-    initialData?: any
+    initialData?: LegacySessionSeed
   ): Promise<ValuationSession> {
     try {
       generalLogger.info('Creating new valuation session', { reportId, flow })
@@ -38,8 +40,8 @@ export class SessionService implements ISessionService {
         // If session doesn't exist, save initial data to create it
         await sharedSessionService.saveSession(reportId, {
           currentView: flow,
-          sessionData: initialData || {},
-        } as any)
+          ...(initialData || {}),
+        })
 
         // Load the newly created session
         const newSession = await sharedSessionService.loadSession(reportId)

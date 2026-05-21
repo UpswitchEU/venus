@@ -26,10 +26,8 @@ import {
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { recoverPendingTaxLatencies, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import {
-  type FormSnapshotForRevenueNav,
-  parseCurrentYearRevenueForMethodNav,
-} from '../../utils/currentYearRevenueForMethodNav'
+import type { ValuationFormData, ValuationResponse } from '../../types/valuation'
+import { parseCurrentYearRevenueForMethodNav } from '../../utils/currentYearRevenueForMethodNav'
 import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
@@ -53,48 +51,17 @@ import {
   validateNormalizedData,
 } from './SessionNormalizer'
 import { hydrateSessionFromPackage, type SessionHydrationPackage } from './SessionPackageHydrator'
-
-/**
- * Bank-grade retry utility with exponential backoff
- * Used for resilient asset fetching during restoration
- *
- * @param fn - Async function to retry
- * @param options - Retry configuration
- * @returns Result of the function or throws after max attempts
- */
-async function _withRetry<T>(
-  fn: () => Promise<T>,
-  options: { maxAttempts?: number; baseDelay?: number; name?: string } = {}
-): Promise<T> {
-  const { maxAttempts = 3, baseDelay = 500, name = 'operation' } = options
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-
-      if (attempt === maxAttempts) {
-        generalLogger.error(`[SessionRestoration] ${name} failed after ${maxAttempts} attempts`, {
-          error: errorMessage,
-          attempts: maxAttempts,
-        })
-        throw error
-      }
-
-      const delay = baseDelay * Math.pow(2, attempt - 1)
-      generalLogger.warn(`[SessionRestoration] ${name} failed, retrying in ${delay}ms`, {
-        attempt,
-        maxAttempts,
-        error: errorMessage,
-      })
-
-      await new Promise((resolve) => setTimeout(resolve, delay))
-    }
-  }
-
-  throw new Error(`${name} failed after ${maxAttempts} attempts`)
-}
+import {
+  asFormPatch,
+  asFormSnapshotForRevenueNav,
+  asImportedLedgerAnalysis,
+  asImportQuality,
+  asNormalizationItems,
+  asRecord,
+  asString,
+  asTaxLatencyItems,
+  asValuationResultWithAssets,
+} from './SessionRestorationCoercion'
 
 /**
  * Restoration manifest - tracks what assets should be restored
@@ -296,7 +263,7 @@ class SessionRestorationServiceImpl {
    * @param backendSession - Raw session data from backend
    * @returns Restoration result with details of what was restored
    */
-  async restore(reportId: string, backendSession: any): Promise<RestorationResult> {
+  async restore(reportId: string, backendSession: unknown): Promise<RestorationResult> {
     const startTime = performance.now()
 
     // Idempotent check: Skip if already restored
@@ -348,7 +315,7 @@ class SessionRestorationServiceImpl {
    */
   private async executeRestoration(
     reportId: string,
-    backendSession: any,
+    backendSession: unknown,
     startTime: number
   ): Promise<RestorationResult> {
     try {
@@ -459,7 +426,7 @@ class SessionRestorationServiceImpl {
         const { updateFormData } = useManualFormStore.getState()
 
         if (data.formData && Object.keys(data.formData).length > 0) {
-          updateFormData(data.formData as any)
+          updateFormData(asFormPatch(data.formData))
           restoredFormFields = Object.keys(data.formData).length
 
           generalLogger.info('[SessionRestoration] Form data hydrated', {
@@ -479,7 +446,7 @@ class SessionRestorationServiceImpl {
           useManualFormStore.getState().formData
         )
         if (Object.keys(gapPatch).length > 0) {
-          updateFormData(gapPatch as any)
+          updateFormData(asFormPatch(gapPatch))
           restoredFormFields += Object.keys(gapPatch).length
           generalLogger.debug('[SessionRestoration] Optional envelope gap-fill after restore', {
             reportId: data.reportId?.substring(0, 24),
@@ -511,7 +478,7 @@ class SessionRestorationServiceImpl {
         } else {
           const revFromForm =
             data.formData && typeof data.formData === 'object'
-              ? parseCurrentYearRevenueForMethodNav(data.formData as FormSnapshotForRevenueNav)
+              ? parseCurrentYearRevenueForMethodNav(asFormSnapshotForRevenueNav(data.formData))
               : undefined
           const parsed = sanitizePreSelectedValuationMethod(
             data.preSelectedValuationMethod,
@@ -556,16 +523,15 @@ class SessionRestorationServiceImpl {
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only
     const hasOutputAssets = !!getFirstRenderableReportHtml(
       data.htmlReport,
-      (data.valuationResult as { html_report?: string } | null | undefined)?.html_report,
-      (data.valuationResult as { details?: { html_report?: string } } | null | undefined)?.details
-        ?.html_report
+      asValuationResultWithAssets(data.valuationResult)?.html_report,
+      asValuationResultWithAssets(data.valuationResult)?.details?.html_report
     )
     const hasResult = !!data.valuationResult
 
     if (hasResult || hasOutputAssets) {
       try {
-        const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
-        const vr = data.valuationResult as Record<string, any> | null | undefined
+        const existingResult = asValuationResultWithAssets(useManualResultsStore.getState().result)
+        const vr = asValuationResultWithAssets(data.valuationResult)
         const mergeHydrateOpts = {
           selectedValuationMethodOverride:
             resolveSelectedValuationMethodForExtraction(vr) ??
@@ -578,14 +544,13 @@ class SessionRestorationServiceImpl {
           hydrateClientValuationResultsMap(existingResult, mergeHydrateOpts)
         const renderableMergeHtml = getFirstRenderableReportHtml(
           data.htmlReport,
-          (data.valuationResult as { html_report?: string } | undefined)?.html_report,
-          (data.valuationResult as { details?: { html_report?: string } } | undefined)?.details
-            ?.html_report
+          vr?.html_report,
+          vr?.details?.html_report
         )
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
-          valuation_id: (data.valuationResult as any)?.valuation_id || data.reportId,
+          valuation_id: asString(vr?.valuation_id) || data.reportId,
           html_report: renderableMergeHtml,
           valuation_results: normalizedValuationResults ?? undefined,
           ...(data.pricingRange && {
@@ -606,7 +571,7 @@ class SessionRestorationServiceImpl {
           )
         } else {
           const manualStore = useManualResultsStore.getState()
-          manualStore.setResult(fullResult as any)
+          manualStore.setResult(fullResult as unknown as ValuationResponse)
           // Explicitly set HTML assets so components reading htmlReport directly get them
           const renderableHtmlReport = getFirstRenderableReportHtml(
             fullResult.html_report,
@@ -659,8 +624,8 @@ class SessionRestorationServiceImpl {
         })
       } else {
         // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
-        const rawMeta = (data.formData as any)?._normalizations
-        if (rawMeta && Array.isArray(rawMeta) && rawMeta.length > 0) {
+        const rawMeta = asNormalizationItems(asRecord(data.formData)?._normalizations)
+        if (rawMeta.length > 0) {
           normStore.setItems(rawMeta)
           restoredEbitdaNormalizations = true
           generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
@@ -696,12 +661,13 @@ class SessionRestorationServiceImpl {
           count: recoveredTL.length,
         })
       } else {
-        const fd = (data.formData as any) ?? {}
+        const fd = asRecord(data.formData) ?? {}
         const rawTL = fd._taxLatencies ?? fd.tax_latencies ?? fd.taxLatencies
-        if (rawTL !== undefined && Array.isArray(rawTL)) {
-          taxLatStore.setItems(rawTL)
+        const taxLatencies = asTaxLatencyItems(rawTL)
+        if (taxLatencies.length > 0) {
+          taxLatStore.setItems(taxLatencies)
           generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
-            count: rawTL.length,
+            count: taxLatencies.length,
           })
         }
       }
@@ -713,16 +679,18 @@ class SessionRestorationServiceImpl {
 
     // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
     try {
-      const fd = (data.formData as any) ?? {}
+      const fd = asRecord(data.formData) ?? {}
       const rawIQ = fd._import_quality ?? fd.import_quality ?? fd.importQuality
-      if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
-        const provenanceProvider = (fd.business_context ?? fd.businessContext)
-          ?._imported_ledger_provenance?.provider
-        useImportQualityStore.getState().setImportQuality(rawIQ, {
+      const importQuality = asImportQuality(rawIQ)
+      if (importQuality) {
+        const businessContext = asRecord(fd.business_context ?? fd.businessContext)
+        const importedLedgerProvenance = asRecord(businessContext?._imported_ledger_provenance)
+        const provenanceProvider = importedLedgerProvenance?.provider
+        useImportQualityStore.getState().setImportQuality(importQuality, {
           provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
         })
         generalLogger.info('[SessionRestoration] Import quality hydrated', {
-          years: Object.keys(rawIQ).length,
+          years: Object.keys(importQuality).length,
         })
       }
     } catch (error) {
@@ -735,10 +703,12 @@ class SessionRestorationServiceImpl {
     try {
       const normStore = useNormalizationStore.getState()
       useTaxLatencyStore.getState().setCandidates([])
-      const bc = (data.formData as any)?.business_context
-      const analysis =
-        bc?._imported_ledger_analysis ?? (data.formData as any)?._imported_ledger_analysis
-      if (analysis && typeof analysis === 'object') {
+      const formData = asRecord(data.formData)
+      const businessContext = asRecord(formData?.business_context)
+      const analysis = asImportedLedgerAnalysis(
+        businessContext?._imported_ledger_analysis ?? formData?._imported_ledger_analysis
+      )
+      if (analysis) {
         if (normStore.items.length === 0) {
           const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
           if (items.length > 0) {
@@ -750,9 +720,7 @@ class SessionRestorationServiceImpl {
             )
           }
         }
-        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
-          analysis as any
-        )
+        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(analysis)
         useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
       }
     } catch (error) {
@@ -816,7 +784,7 @@ class SessionRestorationServiceImpl {
       const expectedCompanyName =
         (typeof data.formData.company_name === 'string' && data.formData.company_name.trim()) ||
         (typeof mergedEnvelope.company_name === 'string' ? mergedEnvelope.company_name.trim() : '')
-      const actualCompanyName = (formStore.formData as any).company_name
+      const actualCompanyName = formStore.formData.company_name
       if (expectedCompanyName && (!actualCompanyName || actualCompanyName.trim() === '')) {
         warnings.push('Form data company_name not restored to store')
         allVerified = false
@@ -826,7 +794,7 @@ class SessionRestorationServiceImpl {
         (typeof mergedEnvelope.kbo_number === 'string' && mergedEnvelope.kbo_number.trim()) ||
         (typeof mergedEnvelope.kboNumber === 'string' && mergedEnvelope.kboNumber.trim()) ||
         ''
-      const actualKbo = (formStore.formData as any).kbo_number
+      const actualKbo = formStore.formData.kbo_number
       if (expectedKbo && (!actualKbo || String(actualKbo).trim() === '')) {
         warnings.push('Form data kbo_number not restored to store')
         allVerified = false
@@ -875,13 +843,11 @@ class SessionRestorationServiceImpl {
       } else {
         const resultsStore = useManualResultsStore.getState()
 
-        const resultAny = resultsStore.result as any
+        const result = asRecord(resultsStore.result)
         const hasPricingRangeInStore = !!(
-          resultAny?.pricing_range ||
-          resultAny?.priceRange ||
-          (resultAny?.equity_value_low &&
-            resultAny?.equity_value_mid &&
-            resultAny?.equity_value_high)
+          result?.pricing_range ||
+          result?.priceRange ||
+          (result?.equity_value_low && result?.equity_value_mid && result?.equity_value_high)
         )
 
         if (!hasPricingRangeInStore) {

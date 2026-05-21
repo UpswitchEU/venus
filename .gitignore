@@ -15,6 +15,7 @@ package-lock.json
 
 # next.js — never commit (webpack pack files exceed GitHub’s 100MB limit)
 .next/
+.next-dev/
 out/
 
 # production
@@ -67,3 +68,23 @@ vite.config.ts.timestamp-*
 # backup files
 *''
 **/*''
+
+# Secret spill prevention
+.env.backup
+.env.*.backup
+*.env.backup
+*.env.local.backup
+cookies.txt
+*.cookie
+*.cookies
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kubeconfig
+*_service_account.json
+*service-account*.json
+secrets/
+credentials/

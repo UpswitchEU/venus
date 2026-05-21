@@ -66,6 +66,92 @@ function generateMessageId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
+export interface ConversationHistoryRow {
+  id?: string
+  role: string
+  content?: string | null
+  tool_name?: string | null
+  tool_result?: unknown
+  created_at: string
+}
+
+function parseJsonObject(value: unknown): unknown {
+  if (typeof value !== 'string') return null
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+function extractPersistedToolResultData(row: ConversationHistoryRow): unknown {
+  if (row.tool_result && typeof row.tool_result === 'object') {
+    const persisted = row.tool_result as Record<string, unknown>
+    return Object.hasOwn(persisted, 'data') ? persisted.data : row.tool_result
+  }
+
+  if (row.tool_result != null) return row.tool_result
+
+  return parseJsonObject(row.content)
+}
+
+function attachPersistedToolResultToLatestAssistant(
+  messages: Message[],
+  row: ConversationHistoryRow
+) {
+  const toolName = typeof row.tool_name === 'string' ? row.tool_name.trim() : ''
+  if (!toolName) return
+
+  const latestAssistant = messages
+    .slice()
+    .reverse()
+    .find((message) => message.role === 'assistant' || message.type === 'ai')
+  if (!latestAssistant) return
+
+  const metadata = latestAssistant.metadata ?? {}
+  const previousResults = Array.isArray(metadata.persistedToolResults)
+    ? metadata.persistedToolResults
+    : []
+
+  latestAssistant.metadata = {
+    ...metadata,
+    persistedToolResults: [
+      ...previousResults,
+      {
+        ...(row.id ? { id: row.id } : {}),
+        toolName,
+        result: extractPersistedToolResultData(row),
+      },
+    ],
+  }
+}
+
+export function mapServerHistoryToMessages(
+  rows: readonly ConversationHistoryRow[],
+  createId: () => string = generateMessageId
+): Message[] {
+  const convertedMessages: Message[] = []
+
+  for (const row of rows) {
+    if (row.role === 'tool_result') {
+      attachPersistedToolResultToLatestAssistant(convertedMessages, row)
+      continue
+    }
+
+    if (row.role !== 'user' && row.role !== 'assistant') continue
+
+    convertedMessages.push({
+      id: row.id || createId(),
+      type: row.role === 'user' ? 'user' : 'ai',
+      role: row.role,
+      content: row.content ?? '',
+      timestamp: new Date(row.created_at),
+    })
+  }
+
+  return convertedMessages
+}
+
 /**
  * Pure-function pruner exported for unit testing. The store calls this
  * when the message buffer crosses PRUNE_THRESHOLD; once pruned we drop
@@ -297,15 +383,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         if (get().lastLoadedReportId !== reportId) return
 
         if (conversationId) {
-          const convertedMessages: Message[] = messages
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
-            .map((m) => ({
-              id: m.id || generateMessageId(),
-              type: m.role === 'user' ? ('user' as const) : ('ai' as const),
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-              timestamp: new Date(m.created_at),
-            }))
+          const convertedMessages = mapServerHistoryToMessages(messages)
 
           set({
             conversationId,

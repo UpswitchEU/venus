@@ -36,7 +36,15 @@ import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
 import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import type { ValuationVersion, VersionChanges } from '../../types/ValuationVersion'
 import { formatVersionAuthor } from '../../utils/formatters'
+import {
+  getEquityValueHigh,
+  getEquityValueLow,
+  getFinalValuation,
+  getNormalizedEbitda,
+  getValuationMultiple,
+} from '../../utils/valuationResultAccess'
 import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
 
 // Re-export types
@@ -56,11 +64,11 @@ export interface HistoryPanelProps {
   /** Session key or report ID for version fetching. Use when report is null (new session). */
   reportId?: string
   // Receives the full ValuationVersion from the store (not the stripped HistoryVersion)
-  onVersionRestore?: (version: any) => void
+  onVersionRestore?: (version: ValuationVersion | HistoryVersion) => void
 }
 
 // ── Helper: derive version type from store data ──
-function deriveVersionType(v: any): HistoryVersion['type'] {
+function deriveVersionType(v: ValuationVersion): HistoryVersion['type'] {
   const label = (v.versionLabel || '').toLowerCase()
   if (label.includes('normalis')) return 'normalization'
   if (label.includes('methodo') || label.includes('multiple')) return 'methodology'
@@ -70,15 +78,20 @@ function deriveVersionType(v: any): HistoryVersion['type'] {
   return 'revision'
 }
 
+function isFieldChange(value: unknown): value is { from: unknown; to: unknown } {
+  return !!value && typeof value === 'object' && 'from' in value && 'to' in value
+}
+
 // ── Helper: derive changes from store version ──
-function deriveChanges(v: any, changedLabel: string): HistoryVersion['changes'] {
+function deriveChanges(v: ValuationVersion, changedLabel: string): HistoryVersion['changes'] {
   if (v.changesSummary) {
-    const cs = v.changesSummary
+    const cs: VersionChanges = v.changesSummary
     const changes: HistoryVersion['changes'] = []
-    if (cs.fieldsChanged) {
-      for (const field of cs.fieldsChanged.slice(0, 5)) {
-        changes.push({ field, newValue: changedLabel })
-      }
+    for (const [field, change] of Object.entries(cs)) {
+      if (field === 'totalChanges' || field === 'significantChanges') continue
+      if (!isFieldChange(change)) continue
+      changes.push({ field, newValue: changedLabel })
+      if (changes.length >= 5) break
     }
     return changes
   }
@@ -377,8 +390,8 @@ export function HistoryPanel({
     return storeVersions
       .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
       .map((v) => {
-        const vr = (v as any).valuationResult
-        const createdBy = (v as any).createdBy as string | null | undefined
+        const vr = v.valuationResult
+        const createdBy = v.createdBy
         const authorDisplay = formatVersionAuthor(createdBy, user, {
           user: hp('user'),
           guest: hp('guest'),
@@ -394,31 +407,11 @@ export function HistoryPanel({
           type: deriveVersionType(v),
           summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
           changes: deriveChanges(v, hp('changed')),
-          valuation:
-            vr?.valuation_midpoint ||
-            vr?.equity_value_mid ||
-            vr?.details?.valuation_midpoint ||
-            vr?.details?.equity_value_mid,
-          valuationLow:
-            vr?.valuation_min ||
-            vr?.equity_value_low ||
-            vr?.details?.valuation_min ||
-            vr?.details?.equity_value_low,
-          valuationHigh:
-            vr?.valuation_max ||
-            vr?.equity_value_high ||
-            vr?.details?.valuation_max ||
-            vr?.details?.equity_value_high,
-          ebitda:
-            vr?.normalized_ebitda ||
-            vr?.ebitda ||
-            vr?.details?.normalized_ebitda ||
-            vr?.details?.ebitda,
-          multiple:
-            vr?.ebitda_multiple ||
-            vr?.revenue_multiple ||
-            vr?.details?.ebitda_multiple ||
-            vr?.details?.revenue_multiple,
+          valuation: getFinalValuation(vr) ?? undefined,
+          valuationLow: getEquityValueLow(vr) ?? undefined,
+          valuationHigh: getEquityValueHigh(vr) ?? undefined,
+          ebitda: getNormalizedEbitda(vr) ?? undefined,
+          multiple: getValuationMultiple(vr) ?? undefined,
           isCurrent:
             activeVersionNumber != null ? v.versionNumber === activeVersionNumber : v.isActive,
         }
@@ -434,7 +427,7 @@ export function HistoryPanel({
     if (current && expandedVersions.size === 0) {
       setExpandedVersions(new Set([current.id]))
     }
-  }, [historyVersions, expandedVersions.size]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [historyVersions, expandedVersions.size])
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false)

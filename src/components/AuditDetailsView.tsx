@@ -13,7 +13,7 @@ import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide
 import { useTranslations } from 'next-intl'
 import { formatDateLikeToLocaleString } from '@/utils/date-like'
 import { useAuth } from '../hooks/useAuth'
-import type { ValuationVersion } from '../types/ValuationVersion'
+import type { FieldChange, ValuationVersion, VersionChanges } from '../types/ValuationVersion'
 import {
   formatCurrency,
   formatShareholdingPercentage,
@@ -52,7 +52,6 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
     )
   }
 
-  const countryCode = version.formData.country_code || 'BE'
   const hasChanges = version.changesSummary && version.changesSummary.totalChanges > 0
 
   return (
@@ -159,9 +158,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
         {hasChanges && (
           <div className="bg-card border border-foreground/10 rounded-lg p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">{t('fieldChanges')}</h3>
-            <div className="space-y-3">
-              {renderFieldChanges(version.changesSummary, countryCode, t)}
-            </div>
+            <div className="space-y-3">{renderFieldChanges(version.changesSummary, t)}</div>
           </div>
         )}
 
@@ -224,17 +221,18 @@ function formatFieldLabel(field: string, t: (key: string) => string): string {
 /**
  * Format numeric value for display
  */
-function formatValue(value: any, field: string, countryCode: string): string {
+function formatValue(value: unknown, field: string): string {
   if (value === null || value === undefined) return 'N/A'
 
   // Numeric fields (currency)
   if (['revenue', 'ebitda', 'netIncome', 'totalAssets', 'totalDebt', 'cash'].includes(field)) {
-    return formatCurrency(value)
+    return typeof value === 'number' || typeof value === 'string' ? formatCurrency(value) : 'N/A'
   }
 
   // Percentage fields
   if (field === 'recurringRevenuePercentage') {
-    return `${(value * 100).toFixed(1)}%`
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) ? `${(numericValue * 100).toFixed(1)}%` : String(value)
   }
 
   // Year field
@@ -244,12 +242,15 @@ function formatValue(value: any, field: string, countryCode: string): string {
 
   // Count fields
   if (['numberOfEmployees', 'numberOfOwners'].includes(field)) {
-    return value.toLocaleString()
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) ? numericValue.toLocaleString() : String(value)
   }
 
   // Percentage fields (0-100)
   if (field === 'sharesForSale') {
-    return formatShareholdingPercentage(value)
+    return typeof value === 'number' || typeof value === 'string'
+      ? formatShareholdingPercentage(value)
+      : 'N/A'
   }
 
   // Default string representation
@@ -260,16 +261,18 @@ function formatValue(value: any, field: string, countryCode: string): string {
  * Render all field changes
  * CRITICAL: Dynamically render ALL fields that changed, not just a hardcoded list
  */
-function renderFieldChanges(changes: any, countryCode: string, t: (key: string) => string) {
+function isFieldChange(value: unknown): value is FieldChange<unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  return 'from' in record && 'to' in record
+}
+
+function renderFieldChanges(changes: VersionChanges, t: (key: string) => string) {
   // Get all fields that have changes (excluding summary fields)
-  const summaryFields = ['totalChanges', 'significantChanges']
-  const changedFields = Object.keys(changes).filter(
-    (key) =>
-      !summaryFields.includes(key) &&
-      changes[key] &&
-      typeof changes[key] === 'object' &&
-      'from' in changes[key]
-  )
+  const summaryFields = new Set(['totalChanges', 'significantChanges'])
+  const changedFields = Object.entries(changes)
+    .filter(([key, change]) => !summaryFields.has(key) && isFieldChange(change))
+    .map(([field, change]) => ({ field, change }))
 
   if (changedFields.length === 0) {
     return (
@@ -301,20 +304,18 @@ function renderFieldChanges(changes: any, countryCode: string, t: (key: string) 
   }
 
   const sortedFields = changedFields.sort((a, b) => {
-    const orderA = fieldOrder[a] || 100
-    const orderB = fieldOrder[b] || 100
+    const orderA = fieldOrder[a.field] || 100
+    const orderB = fieldOrder[b.field] || 100
     return orderA - orderB
   })
 
-  return sortedFields.map((field) => {
-    const change = changes[field]
+  return sortedFields.map(({ field, change }) => {
     const isSignificant = changes.significantChanges?.includes(field) || false
     return (
       <FieldChangeRow
         key={field}
         field={field}
         change={change}
-        countryCode={countryCode}
         isSignificant={isSignificant}
         t={t}
       />
@@ -327,17 +328,12 @@ function renderFieldChanges(changes: any, countryCode: string, t: (key: string) 
  */
 interface FieldChangeRowProps {
   field: string
-  change: {
-    from: any
-    to: any
-    percentChange?: number
-  }
-  countryCode: string
+  change: FieldChange<unknown>
   isSignificant: boolean
   t: (key: string) => string
 }
 
-function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldChangeRowProps) {
+function FieldChangeRow({ field, change, isSignificant, t }: FieldChangeRowProps) {
   const percentChange = change.percentChange
   const hasPercentChange = percentChange !== undefined && percentChange !== null
   const isIncrease = hasPercentChange && percentChange > 0
@@ -360,13 +356,9 @@ function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldC
             )}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">
-              {formatValue(change.from, field, countryCode)}
-            </span>
+            <span className="text-muted-foreground">{formatValue(change.from, field)}</span>
             <span className="text-muted-foreground">→</span>
-            <span className="text-foreground font-medium">
-              {formatValue(change.to, field, countryCode)}
-            </span>
+            <span className="text-foreground font-medium">{formatValue(change.to, field)}</span>
           </div>
         </div>
         {hasPercentChange && (

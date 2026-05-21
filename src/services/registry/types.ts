@@ -84,7 +84,7 @@ export interface CompanySearchResponse {
 }
 
 export interface CachedData {
-  data: any
+  data: unknown
   timestamp: number
 }
 

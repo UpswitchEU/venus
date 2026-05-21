@@ -22,6 +22,10 @@ type ListingPreviewCard = NonNullable<ChatMessage['listingPreviews']>[number]
 type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[number]
 type BuyerProfilePreviewCard = NonNullable<ChatMessage['buyerProfilePreviews']>[number]
 type RegistrySearchResultsCard = NonNullable<ChatMessage['registrySearchResults']>[number]
+type BusinessTypeSearchResultsCard = NonNullable<
+  ChatMessage['businessTypeSearchResults']
+>[number]
+type BuyerReadyCard = NonNullable<ChatMessage['buyerReadyCards']>[number]
 type ProposalCardKey =
   | 'valuationRunRequests'
   | 'reportGenerationRequests'
@@ -51,6 +55,8 @@ export interface ManualChatToolCards {
   listingCreateRequests?: ListingCreateCard[]
   buyerProfilePreviews?: BuyerProfilePreviewCard[]
   registrySearchResults?: RegistrySearchResultsCard[]
+  businessTypeSearchResults?: BusinessTypeSearchResultsCard[]
+  buyerReadyCards?: BuyerReadyCard[]
 }
 
 interface ManualChatToolCardsInput {
@@ -75,6 +81,8 @@ interface ManualChatToolCardsInput {
   listingCreateRequests?: readonly unknown[]
   buyerProfilePreviews?: readonly unknown[]
   registrySearchResults?: readonly unknown[]
+  businessTypeSearchResults?: readonly unknown[]
+  buyerReadyCards?: readonly unknown[]
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -320,6 +328,28 @@ export function addIdsToManualChatToolCards(
         }) as RegistrySearchResultsCard
     )
   )
+  pushIfAny(
+    out,
+    'businessTypeSearchResults',
+    (cards.businessTypeSearchResults ?? []).map(
+      (entry) =>
+        ({
+          ...(asRecord(entry) ?? {}),
+          id: createId(),
+        }) as BusinessTypeSearchResultsCard
+    )
+  )
+  pushIfAny(
+    out,
+    'buyerReadyCards',
+    (cards.buyerReadyCards ?? []).map(
+      (card) =>
+        ({
+          ...(asRecord(card) ?? {}),
+          id: createId(),
+        }) as BuyerReadyCard
+    )
+  )
 
   return out
 }
@@ -374,9 +404,33 @@ export function parseManualChatStreamToolResult(
         return { type: 'listing_create_request', data }
       case 'get_buyer_profile_preview':
         return { type: 'buyer_profile_preview', data }
+      case 'search_business_types':
+        return { type: 'business_type_search_results', data }
       case 'search_kbo_registry':
       case 'search_kvk_registry':
         return { type: 'registry_search_results', data }
+      case 'get_buyer_ready_package':
+        return { type: 'buyer_ready_package_status', data }
+      case 'generate_buyer_ready_package':
+        return { type: 'buyer_ready_package_generation_request', data }
+      case 'get_dd_checklist':
+        return { type: 'dd_checklist', data }
+      case 'get_data_room_manifest':
+        return { type: 'data_room_manifest', data }
+      case 'get_legal_readiness':
+        return { type: 'legal_readiness', data }
+      case 'propose_data_room_upload':
+        return { type: 'data_room_upload_request', data }
+      case 'propose_mark_dd_item':
+        return { type: 'dd_override_request', data }
+      case 'regenerate_im_section':
+        return { type: 'im_regenerate_request', data }
+      case 'propose_buyer_invitation':
+        return { type: 'buyer_invitation_request', data }
+      case 'propose_package_publish':
+        return { type: 'package_publish_request', data }
+      case 'request_lawyer_handoff':
+        return { type: 'lawyer_handoff_request', data }
       default:
         return null
     }
@@ -411,7 +465,9 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.listingPreviews?.length ?? 0) > 0 ||
         (cards.listingCreateRequests?.length ?? 0) > 0 ||
         (cards.buyerProfilePreviews?.length ?? 0) > 0 ||
-        (cards.registrySearchResults?.length ?? 0) > 0)
+        (cards.registrySearchResults?.length ?? 0) > 0 ||
+        (cards.businessTypeSearchResults?.length ?? 0) > 0 ||
+        (cards.buyerReadyCards?.length ?? 0) > 0)
   )
 }
 
@@ -534,6 +590,15 @@ export function appendManualChatToolCardsToMessage(
         ...(message.registrySearchResults ?? []),
         ...cards.registrySearchResults,
       ],
+    }),
+    ...(cards.businessTypeSearchResults && {
+      businessTypeSearchResults: [
+        ...(message.businessTypeSearchResults ?? []),
+        ...cards.businessTypeSearchResults,
+      ],
+    }),
+    ...(cards.buyerReadyCards && {
+      buyerReadyCards: [...(message.buyerReadyCards ?? []), ...cards.buyerReadyCards],
     }),
   }
 }

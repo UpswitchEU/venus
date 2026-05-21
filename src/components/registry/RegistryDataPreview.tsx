@@ -13,6 +13,7 @@ import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { useManualFormStore } from '../../store/manual'
 import type { CompanyFinancialData, FinancialFilingYear } from '../../types/registry'
+import type { YearDataInput } from '../../types/valuation'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 
 /** Controlled `input type="number"` value — finite numbers including 0; empty otherwise. */
@@ -31,6 +32,23 @@ const createDefaultFilingYear = (): FinancialFilingYear => ({
   ebitda: 0,
   filing_date: new Date().toISOString(),
 })
+
+type InferredCompanyFinancialData = CompanyFinancialData & {
+  _inferred_business_model?: string
+  _inferred_industry?: string
+}
+
+function filingYearToYearDataInput(year: FinancialFilingYear): YearDataInput {
+  return {
+    year: year.year,
+    revenue: year.revenue ?? 0,
+    ebitda: year.ebitda !== undefined && year.ebitda !== null ? year.ebitda : 0,
+    ...(year.net_income !== undefined && { net_income: year.net_income }),
+    ...(year.total_assets !== undefined && { total_assets: year.total_assets }),
+    ...(year.total_debt !== undefined && { total_debt: year.total_debt }),
+    ...(year.cash !== undefined && { cash: year.cash }),
+  }
+}
 
 interface RegistryDataPreviewProps {
   companyData: CompanyFinancialData
@@ -95,17 +113,9 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
         ...(editedData.total_assets !== undefined && { total_assets: editedData.total_assets }),
         ...(editedData.total_debt !== undefined && { total_debt: editedData.total_debt }),
         ...(editedData.cash !== undefined && { cash: editedData.cash }),
-      } as any,
+      },
       // Add historical data if available (excluding the current year)
-      historical_years_data: safeFilingHistory.slice(1).map((year) => ({
-        year: year.year,
-        revenue: year.revenue ?? 0,
-        ebitda: year.ebitda !== undefined && year.ebitda !== null ? year.ebitda : 0, // Preserve negative values
-        ...(year.net_income !== undefined && { net_income: year.net_income }),
-        ...(year.total_assets !== undefined && { total_assets: year.total_assets }),
-        ...(year.total_debt !== undefined && { total_debt: year.total_debt }),
-        ...(year.cash !== undefined && { cash: year.cash }),
-      })),
+      historical_years_data: safeFilingHistory.slice(1).map(filingYearToYearDataInput),
     })
     setIsEditing(false)
   }
@@ -121,13 +131,14 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
 
     // Get industry from inferred data or fallback
+    const inferredCompanyData = companyData as InferredCompanyFinancialData
     const industry =
-      (companyData as any)._inferred_industry ||
+      inferredCompanyData._inferred_industry ||
       companyData.industry_description?.toLowerCase().replace(/\s+/g, '_') ||
       'services'
 
     // Get business model from inferred data or fallback
-    const businessModel = (companyData as any)._inferred_business_model || 'other'
+    const businessModel = inferredCompanyData._inferred_business_model || 'other'
 
     // Get founding year from company data or estimate
     const foundingYear = companyData.founding_year || currentYear - 5

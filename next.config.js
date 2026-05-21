@@ -1,15 +1,26 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
 const withNextIntl = createNextIntlPlugin('./i18n.ts')
+const cspScriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(process.env.NODE_ENV !== 'production' ? ["'unsafe-eval'"] : []),
+  'https://vercel.live',
+].join(' ')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep local `next dev` output separate from production `next build`.
+  // Running both at once otherwise corrupts `.next` with missing server chunks.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   // ✅ WORLD CLASS: Disable source maps in production for optimal bundle size
   // Source maps are only needed for debugging - disable in production for better performance
   productionBrowserSourceMaps: process.env.NODE_ENV === 'development',
 
   // Disable React error overlay in production
   reactStrictMode: true,
+  allowedDevOrigins: ['localhost', '127.0.0.1', 'http://localhost:3001', 'http://127.0.0.1:3001'],
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
@@ -57,7 +68,7 @@ const nextConfig = {
 
   // Enable experimental features for better performance
   experimental: {
-    optimizeCss: true,
+    optimizeCss: process.env.NODE_ENV === 'production',
     scrollRestoration: true,
   },
 
@@ -106,17 +117,12 @@ const nextConfig = {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
-          // SECURITY: Enable XSS protection (allow iframe embedding from upswitch.app)
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
           // SECURITY: Content Security Policy
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+              `script-src ${cspScriptSrc}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",

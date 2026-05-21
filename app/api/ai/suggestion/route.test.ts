@@ -117,7 +117,9 @@ describe('POST /api/ai/suggestion', () => {
   it('uses the shared local Titan URL resolver', async () => {
     mocks.getTitanApiUrl.mockReturnValueOnce('http://localhost:3002')
 
-    await POST(request({ field: 'rent', label: 'Rent' }, {}, 'http://localhost:3001/api/ai/suggestion'))
+    await POST(
+      request({ field: 'rent', label: 'Rent' }, {}, 'http://localhost:3001/api/ai/suggestion')
+    )
 
     const [url] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string]
     expect(url).toBe('http://localhost:3002/api/v2/ai/generate-question')
@@ -138,4 +140,4 @@ describe('POST /api/ai/suggestion', () => {
       error: 'Suggestion service unavailable',
     })
   })
-}
+})

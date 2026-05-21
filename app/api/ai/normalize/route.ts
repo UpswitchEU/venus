@@ -45,24 +45,27 @@ export async function POST(request: NextRequest) {
 
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
-    const titanResponse = await fetch(`${getTitanApiUrl(request)}/api/v2/orchestration/gap-analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-        ...(cookieHeader && { Cookie: cookieHeader }),
-        ...getTitanClientContextHeaders(request),
-      },
-      body: JSON.stringify({
-        sessionId: body.sessionId,
-        financialData: body.financialData,
-        source: body.source,
-        companyName: body.companyName,
-        industry: body.industry,
-      }),
-      signal: controller.signal,
-    })
+    const titanResponse = await fetch(
+      `${getTitanApiUrl(request)}/api/v2/orchestration/gap-analysis`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+          ...(cookieHeader && { Cookie: cookieHeader }),
+          ...getTitanClientContextHeaders(request),
+        },
+        body: JSON.stringify({
+          sessionId: body.sessionId,
+          financialData: body.financialData,
+          source: body.source,
+          companyName: body.companyName,
+          industry: body.industry,
+        }),
+        signal: controller.signal,
+      }
+    )
 
     if (!titanResponse.ok) {
       // Return empty suggestions on failure (non-blocking)

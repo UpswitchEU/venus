@@ -45,6 +45,27 @@ export interface MapValuationResultToReportOpts {
   tReport: ReportTranslator
 }
 
+type ReportResultRecord = Record<string, unknown> & {
+  current_year_data?: { ebitda?: unknown; revenue?: unknown }
+  multiples_valuation?: {
+    p25_ebitda_multiple?: unknown
+    p75_ebitda_multiple?: unknown
+  }
+  details?: {
+    overall_confidence?: unknown
+    recommended_asking_price?: unknown
+    html_report?: unknown
+    dcf_valuation?: { historical_fcf_readiness?: unknown }
+    business_type?: unknown
+  }
+  dcf_valuation?: { historical_fcf_readiness?: unknown }
+  report_context?: { selected_valuation_method?: unknown }
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 /**
  * Pure mapping function. Returns the `ValuationReportData` to feed into
  * `setReport`. Caller is responsible for any subsequent side effects.
@@ -53,7 +74,7 @@ export function mapValuationResultToReport(
   opts: MapValuationResultToReportOpts
 ): ValuationReportData {
   const { result, selectedMethod, reportId, canDownloadPdf, tReport } = opts
-  const r = result as unknown as Record<string, any>
+  const r = result as unknown as ReportResultRecord
 
   const presentation = deriveManualReportPresentation(result, selectedMethod)
   const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
@@ -61,8 +82,8 @@ export function mapValuationResultToReport(
   const normalizedEbitda =
     latestNormRaw != null && Number.isFinite(Number(latestNormRaw)) ? Number(latestNormRaw) : ebitda
   const revenue = coalesceFiniteNumber(r.current_year_data?.revenue)
-  const p25 = r.multiples_valuation?.p25_ebitda_multiple
-  const p75 = r.multiples_valuation?.p75_ebitda_multiple
+  const p25 = coalesceFiniteNumber(r.multiples_valuation?.p25_ebitda_multiple)
+  const p75 = coalesceFiniteNumber(r.multiples_valuation?.p75_ebitda_multiple)
   const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
   const confidence =
     typeof rawConfidence === 'string'
@@ -72,7 +93,10 @@ export function mapValuationResultToReport(
   const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
   const askingPrice =
     askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
-  const htmlReport = getFirstRenderableReportHtml(r.html_report, r.details?.html_report)
+  const htmlReport = getFirstRenderableReportHtml(
+    readOptionalString(r.html_report),
+    readOptionalString(r.details?.html_report)
+  )
   const shouldExposeDcfReadiness =
     isDcfOrHybridMethodSignal(selectedMethod) ||
     isDcfOrHybridMethodSignal(r.selected_valuation_method) ||
@@ -85,8 +109,11 @@ export function mapValuationResultToReport(
     : null
 
   return {
-    id: reportId || r.valuation_id || r.id || 'draft',
-    companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
+    id: reportId || readOptionalString(r.valuation_id) || readOptionalString(r.id) || 'draft',
+    companyName:
+      readOptionalString(r.company_name) ||
+      readOptionalString(r.business_name) ||
+      tReport('defaultCompanyName'),
     valuation: presentation.valuation,
     valuationLow:
       presentation.valuationLow != null && Number.isFinite(presentation.valuationLow)
@@ -105,7 +132,8 @@ export function mapValuationResultToReport(
     generatedAt: new Date(),
     confidenceLevel: confidence || 'medium',
     htmlReport: htmlReport || undefined,
-    dcfHistoricalFcfReadiness,
+    dcfHistoricalFcfReadiness:
+      dcfHistoricalFcfReadiness as ValuationReportData['dcfHistoricalFcfReadiness'],
     recommendedAskingPrice: askingPrice,
     metrics: [
       {
@@ -121,7 +149,10 @@ export function mapValuationResultToReport(
       },
       {
         label: tReport('metrics.sector'),
-        value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
+        value:
+          readOptionalString(r.business_type) ||
+          readOptionalString(r.details?.business_type) ||
+          tReport('defaultSector'),
       },
     ],
     reportUpdatedAt: r.updated_at ? new Date(String(r.updated_at)) : undefined,

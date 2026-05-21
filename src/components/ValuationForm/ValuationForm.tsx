@@ -27,6 +27,7 @@ import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationS
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import type { ValuationFormData } from '../../types/valuation'
 import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import {
@@ -50,12 +51,28 @@ import {
   mirrorHistoricalToFormData,
   pickForecastRowsToPreserve,
 } from './utils/filingYearSync'
+import {
+  getNumberRecordValue,
+  getPrefilledQuery,
+  getStringRecordValue,
+  getYearlyFinancials,
+} from './utils/recordAccess'
 
 export interface ValuationFormProps {
   /** Initial version to load (for M&A workflow - edit previous versions) */
   initialVersion?: number
   /** Whether form is in regeneration mode (shows "Regenerate" instead of "Calculate") */
   isRegenerationMode?: boolean
+}
+
+function getHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const errorRecord = error as Record<string, unknown>
+  if (typeof errorRecord.status === 'number') return errorRecord.status
+  const response = errorRecord.response
+  if (!response || typeof response !== 'object') return undefined
+  const responseStatus = (response as Record<string, unknown>).status
+  return typeof responseStatus === 'number' ? responseStatus : undefined
 }
 
 /**
@@ -99,7 +116,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           })
           // Convert version formData to form store format
           // This will pre-fill the form with the version's data
-          updateFormData(version.formData as any)
+          updateFormData(version.formData as Partial<ValuationFormData>)
         }
       } catch (error) {
         // BANK-GRADE: Specific error handling - version load failure
@@ -552,14 +569,11 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     prefillFromBusinessCard(businessCard)
 
     // Match business_type_id if available
-    if ((businessCard as any).business_type_id) {
-      const matchingType = businessTypes.find(
-        (bt) => bt.id === (businessCard as any).business_type_id
-      )
+    const businessCardBusinessTypeId = getStringRecordValue(businessCard, 'business_type_id')
+    if (businessCardBusinessTypeId) {
+      const matchingType = businessTypes.find((bt) => bt.id === businessCardBusinessTypeId)
       if (matchingType) {
-        updateFormData(
-          buildBusinessTypeFormData(matchingType, businessCard.industry || 'services') as any
-        )
+        updateFormData(buildBusinessTypeFormData(matchingType, businessCard.industry || 'services'))
       }
     } else if (businessCard.industry) {
       const matchingType = businessTypes.find(
@@ -567,7 +581,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
       )
       if (matchingType) {
-        updateFormData(buildBusinessTypeFormData(matchingType) as any)
+        updateFormData(buildBusinessTypeFormData(matchingType))
       }
     }
 
@@ -618,7 +632,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             business_type_id: matchedType.id,
             title: matchedType.title,
           })
-          updateFormData(buildBusinessTypeFormData(matchedType) as any)
+          updateFormData(buildBusinessTypeFormData(matchedType))
         } else {
           // Sparse fallback: bt lacks preference fields, but still better than nothing.
           generalLogger.warn(
@@ -628,12 +642,12 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
               business_type_id: bt.id,
             }
           )
-          updateFormData(buildBusinessTypeFormData(bt) as any)
+          updateFormData(buildBusinessTypeFormData(bt))
         }
       } catch (err: unknown) {
         // Only silently ignore 404 / "not found" — those mean no mapping exists for this NACE code.
         // Log all other errors so they surface during development and monitoring.
-        const status = (err as any)?.response?.status ?? (err as any)?.status
+        const status = getHttpStatus(err)
         const message = err instanceof Error ? err.message : String(err)
         const isNotFound =
           status === 404 ||
@@ -669,7 +683,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   useEffect(() => {
     // ROOT CAUSE FIX: Read session state via getState() inside effect, not as subscription
     const currentSession = useSessionStore.getState().session
-    const prefilledQuery = (currentSession?.partialData as any)?._prefilledQuery
+    const prefilledQuery = getPrefilledQuery(currentSession?.partialData)
 
     // Only process if:
     // 1. prefilledQuery exists
@@ -699,7 +713,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             id: matchedType.id,
           })
 
-          updateFormData(buildBusinessTypeFormData(matchedType) as any)
+          updateFormData(buildBusinessTypeFormData(matchedType))
 
           setHasProcessedPrefilledQuery(true)
 
@@ -781,13 +795,15 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // This compares the current form data with the version's form data
   const hasFormChanges = useMemo(() => {
     if (!currentVersion?.formData) return false
-    const versionFormData = currentVersion.formData as any
+    const versionFormData = currentVersion.formData
 
     // Compare key fields that affect valuation
     const changedFields = []
     if (formData.company_name !== versionFormData.company_name) changedFields.push('company_name')
     if (formData.revenue !== versionFormData.revenue) changedFields.push('revenue')
-    if (formData.ebitda !== versionFormData.ebitda) changedFields.push('ebitda')
+    if (formData.ebitda !== getNumberRecordValue(versionFormData, 'ebitda')) {
+      changedFields.push('ebitda')
+    }
     if (formData.industry !== versionFormData.industry) changedFields.push('industry')
     if (formData.founding_year !== versionFormData.founding_year)
       changedFields.push('founding_year')
@@ -796,9 +812,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
 
     // Include yearly financials (revenue, ebitda per year) - critical for EBITDA change detection
-    const formYearly = (formData as any).yearlyFinancials ?? formData.historical_years_data ?? []
-    const versionYearly =
-      versionFormData.yearlyFinancials ?? versionFormData.historical_years_data ?? []
+    const formYearly = getYearlyFinancials(formData)
+    const versionYearly = getYearlyFinancials(versionFormData)
     if (JSON.stringify(formYearly) !== JSON.stringify(versionYearly)) {
       changedFields.push('yearlyFinancials')
     }
@@ -819,7 +834,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // ROOT CAUSE FIX: Read session state via getState(), not as subscription
   const prefilledQueryValue = useMemo(() => {
     const currentSession = useSessionStore.getState().session
-    return (currentSession?.partialData as any)?._prefilledQuery || null
+    return getPrefilledQuery(currentSession?.partialData)
   }, []) // Only recompute when reportId changes
   const prefilledQuery = useMemo(() => {
     return prefilledQueryValue || null

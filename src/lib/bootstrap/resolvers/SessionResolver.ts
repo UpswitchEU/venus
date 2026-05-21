@@ -41,6 +41,63 @@ interface SessionData {
   report_id?: string
 }
 
+interface ReportRecord extends Record<string, unknown> {
+  id: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+}
+
+type ReportLookupResult = {
+  success: boolean
+  data?: ReportRecord
+  error?: string
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function unwrapDataRecord(value: unknown): Record<string, unknown> | null {
+  const record = asRecord(value)
+  return asRecord(record?.data) ?? record
+}
+
+function asReportRecord(value: unknown): ReportRecord | undefined {
+  const record = unwrapDataRecord(value)
+  const id = readString(record?.id)
+  const createdAt = readString(record?.created_at)
+  const updatedAt = readString(record?.updated_at)
+
+  if (!record || !id || !createdAt || !updatedAt) {
+    return undefined
+  }
+
+  const report: ReportRecord = {
+    ...record,
+    id,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  }
+
+  const completedAt = readString(record.completed_at)
+  if (completedAt) {
+    report.completed_at = completedAt
+  }
+
+  return report
+}
+
+function readErrorMessage(value: unknown): string | undefined {
+  return readString(asRecord(value)?.message)
+}
+
 export class SessionResolver implements BootstrapResolver<ReportState> {
   private readonly logger = console
 
@@ -114,7 +171,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
                   status: 'completed',
                   createdAt: new Date(report.created_at),
                   updatedAt: new Date(report.updated_at),
-                  completedAt: new Date(report.completed_at),
+                  completedAt: report.completed_at ? new Date(report.completed_at) : undefined,
                   currentStep: 5, // Completed reports are at step 5
                 },
                 source: 'titan_auto_created',
@@ -381,7 +438,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
   private async createReportFromSession(
     session: SessionData,
     identity?: IdentityState
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+  ): Promise<ReportLookupResult> {
     try {
       const headers: Record<string, string> = {
         Accept: 'application/json',
@@ -397,12 +454,9 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       }
 
       // Extract relationship ID from session data if available
-      const sessionData = session.session_data as any
-      let relationshipId: string | undefined
-
-      if (sessionData?._client_context?.relationship_id) {
-        relationshipId = sessionData._client_context.relationship_id
-      }
+      const sessionData = asRecord(session.session_data)
+      const clientContext = asRecord(sessionData?._client_context)
+      const relationshipId = readString(clientContext?.relationship_id)
 
       const requestBody = {
         session_key: session.session_key,
@@ -429,15 +483,20 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData: unknown = await response.json().catch(() => ({}))
         return {
           success: false,
-          error: errorData.message || `Failed to create report (${response.status})`,
+          error: readErrorMessage(errorData) || `Failed to create report (${response.status})`,
         }
       }
 
-      const data = await response.json()
-      return { success: true, data: data.data || data }
+      const data: unknown = await response.json()
+      const report = asReportRecord(data)
+      if (!report) {
+        return { success: false, error: 'Unexpected report response from create-report endpoint' }
+      }
+
+      return { success: true, data: report }
     } catch (error) {
       return {
         success: false,
@@ -454,7 +513,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
   private async fetchExistingReport(
     sessionKey: string,
     identity?: IdentityState
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+  ): Promise<ReportLookupResult> {
     const headers: Record<string, string> = {
       Accept: 'application/json',
     }
@@ -488,8 +547,13 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       )
 
       if (response.ok) {
-        const data = await response.json()
-        return { success: true, data: data.data || data }
+        const data: unknown = await response.json()
+        const report = asReportRecord(data)
+        if (!report) {
+          return { success: false, error: 'Unexpected report response from by-session endpoint' }
+        }
+
+        return { success: true, data: report }
       }
 
       return {

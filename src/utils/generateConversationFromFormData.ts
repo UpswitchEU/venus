@@ -29,7 +29,7 @@ export function generateConversationFromFormData(
     question: string,
     answer: string,
     field: string,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
     delay: number = 1000
   ) => {
     // AI Question
@@ -209,8 +209,8 @@ export function isGeneratedConversation(messages: Message[]): boolean {
 /**
  * Get the collected data from generated conversation
  */
-export function extractDataFromGeneratedConversation(messages: Message[]): Record<string, any> {
-  const data: Record<string, any> = {}
+export function extractDataFromGeneratedConversation(messages: Message[]): Record<string, unknown> {
+  const data: Record<string, unknown> = {}
 
   for (const message of messages) {
     if (message.type === 'user' && message.metadata?.field && message.metadata?.value) {

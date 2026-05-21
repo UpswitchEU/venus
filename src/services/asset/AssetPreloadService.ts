@@ -17,6 +17,7 @@
  */
 
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import type { ValuationResponse } from '../../types/valuation'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { generalLogger } from '../../utils/logger'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
@@ -24,6 +25,16 @@ import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 
 const API_BASE_URL = getApiUrl()
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function asOptionalString(value: unknown): string | null | undefined {
+  return typeof value === 'string' || value == null ? value : undefined
+}
 
 /**
  * Check if assets are already loaded in the store
@@ -41,7 +52,7 @@ function areAssetsAlreadyLoaded(flowType: 'manual' | 'conversational'): boolean 
 
   const store = useManualResultsStore.getState()
 
-  const result = store.result as any
+  const result = store.result
   if (!result) return false
 
   // Check if HTML report is already present
@@ -201,22 +212,23 @@ class AssetPreloadServiceImpl {
         throw new Error(`Failed to fetch session assets: ${response.status}`)
       }
 
-      const data = await response.json()
-      const session = data.data || data
+      const data = (await response.json()) as unknown
+      const dataRecord = asRecord(data)
+      const session = asRecord(dataRecord?.data) ?? dataRecord ?? {}
 
       // Extract assets from session data
-      const sessionData = session.session_data || {}
+      const sessionData = asRecord(session.session_data) ?? {}
       const htmlReport =
         getFirstRenderableReportHtml(
-          sessionData.htmlReport,
-          sessionData.html_report,
-          sessionData._htmlReport,
-          session.htmlReport
+          asOptionalString(sessionData.htmlReport),
+          asOptionalString(sessionData.html_report),
+          asOptionalString(sessionData._htmlReport),
+          asOptionalString(session.htmlReport)
         ) || null
       const valuationResult =
-        sessionData.valuationResult ||
-        sessionData.valuation_result ||
-        session.valuationResult ||
+        asRecord(sessionData.valuationResult) ||
+        asRecord(sessionData.valuation_result) ||
+        asRecord(session.valuationResult) ||
         null
 
       // Update progress
@@ -228,14 +240,14 @@ class AssetPreloadServiceImpl {
 
       // Update the appropriate store with loaded assets
       if (valuationResult || htmlReport) {
-        const vr = (valuationResult || {}) as Record<string, any>
+        const vr = valuationResult || {}
         const { html_report: _vrTopHtml, details: vrd, ...vrRest } = vr
         const safeTop = getFirstRenderableReportHtml(
           htmlReport,
-          _vrTopHtml,
+          asOptionalString(_vrTopHtml),
           vrd && typeof vrd === 'object' ? (vrd as { html_report?: string }).html_report : null
         )
-        const result: Record<string, any> = {
+        const result: Record<string, unknown> = {
           ...vrRest,
           html_report: safeTop,
         }
@@ -264,7 +276,7 @@ class AssetPreloadServiceImpl {
           )
         } else {
           const { setResult } = useManualResultsStore.getState()
-          setResult(result as any)
+          setResult(result as unknown as ValuationResponse)
         }
 
         generalLogger.info('[AssetPreload] Assets loaded and stores updated', {

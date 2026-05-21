@@ -14,11 +14,14 @@ import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
+import type { SaveSessionUpdates } from '../../../services/session/SessionSaveService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
+import type { ValuationVersion, VersionChanges } from '../../../types/ValuationVersion'
+import type { ValuationRequest } from '../../../types/valuation'
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import {
@@ -41,6 +44,18 @@ interface UseValuationFormSubmissionReturn {
   handleSubmit: (e?: React.FormEvent) => Promise<void>
   isSubmitting: boolean
   validationError: string | null
+}
+
+type ManualCalculationRequest = ValuationRequest & {
+  dataSource: 'manual'
+  reportId?: string
+  sessionKey?: string
+}
+
+function getStringProperty(value: unknown, key: string): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const recordValue = (value as Record<string, unknown>)[key]
+  return typeof recordValue === 'string' ? recordValue : undefined
 }
 
 /**
@@ -67,7 +82,7 @@ export const useValuationFormSubmission = (
     const s = state.session
     if (!s) return undefined
     if (s.reportId && s.reportId.length >= 8) return s.reportId
-    const sk = (s as any)?.key ?? (s as any)?.session_key
+    const sk = getStringProperty(s, 'key') ?? getStringProperty(s, 'session_key')
     return sk && typeof sk === 'string' && sk.length >= 8 ? sk : s.reportId
   })
   const sessionName = useSessionStore((state) => state.session?.name) // Get name from session
@@ -206,7 +221,7 @@ export const useValuationFormSubmission = (
               formData.filing_year_confirmed
             )
             // Convert formData to session format
-            const sessionUpdate: Partial<any> = {
+            const sessionUpdate: SaveSessionUpdates = {
               company_name: formData.company_name,
               country_code: formData.country_code,
               industry: formData.industry,
@@ -267,11 +282,11 @@ export const useValuationFormSubmission = (
         }
 
         // Build ValuationRequest using unified function
-        const request = buildValuationRequest(formData)
-
-        // Explicitly set dataSource for manual flow
-        // This ensures backend knows this is a manual (FREE) calculation
-        ;(request as any).dataSource = 'manual'
+        const request: ManualCalculationRequest = {
+          ...buildValuationRequest(formData),
+          // Explicitly set dataSource for manual flow so Titan knows this is a manual calculation.
+          dataSource: 'manual',
+        }
 
         const calculationRequestIdentifiers = {
           reportId: reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
@@ -280,10 +295,10 @@ export const useValuationFormSubmission = (
 
         // Preserve the report/session identifier contract used by the manual flow.
         if (calculationRequestIdentifiers.reportId) {
-          ;(request as any).reportId = calculationRequestIdentifiers.reportId
+          request.reportId = calculationRequestIdentifiers.reportId
         }
         if (calculationRequestIdentifiers.sessionKey) {
-          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
+          request.sessionKey = calculationRequestIdentifiers.sessionKey
         }
 
         const methodSnap = useManualResultsStore.getState()
@@ -297,8 +312,8 @@ export const useValuationFormSubmission = (
         })
 
         // M&A Workflow: Check if this is a regeneration
-        let previousVersion: any = null
-        let changes: any = null
+        let previousVersion: ValuationVersion | null = null
+        let changes: VersionChanges | null = null
 
         if (reportId) {
           previousVersion = getLatestVersion(reportId)
@@ -317,7 +332,7 @@ export const useValuationFormSubmission = (
 
         // Persist all normalizations to Titan BEFORE calculation (UX-critical)
         if (reportId) {
-          const persistOk = await persistNormalizationsBeforeCalculate(reportId, request as any)
+          const persistOk = await persistNormalizationsBeforeCalculate(reportId, request)
           if (!persistOk) {
             setCalculating(false)
             generalLogger.warn('[ValuationForm] Pre-calculate normalization persist failed')

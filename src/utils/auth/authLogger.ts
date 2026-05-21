@@ -24,7 +24,7 @@ export interface AuthLogContext {
   circuitBreakerState?: string
   cookieHealth?: string
   browser?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface AuthLogEntry {
@@ -72,7 +72,10 @@ class AuthLogger {
         timestamp: new Date().toISOString(),
       },
       timestamp: new Date().toISOString(),
-      correlationId: context.correlationId || this.generateCorrelationId(),
+      correlationId:
+        typeof context.correlationId === 'string'
+          ? context.correlationId
+          : this.generateCorrelationId(),
     }
   }
 

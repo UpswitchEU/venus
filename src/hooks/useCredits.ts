@@ -24,7 +24,8 @@ interface UserPlan {
   created_at: string
   allowed_methods?: string[] | null
   yearly_discount_percent?: number
-  plan_features?: PlanFeatureFlags
+  plan_features?: Partial<PlanFeatureFlags>
+  bonus_valuations?: number
 }
 
 const PAID_PLAN_TYPES = new Set(['premium', 'starter', 'pro', 'expert', 'enterprise'])
@@ -213,8 +214,8 @@ export const useCredits = (): CreditContextValue => {
           allowed_methods: planData.allowed_methods,
           plan_features: planData.plan_features,
           yearly_discount_percent: planData.yearly_discount_percent,
-          bonus_valuations: (planData as any).bonus_valuations ?? 0,
-        } as any)
+          bonus_valuations: planData.bonus_valuations ?? 0,
+        })
         generalLogger.debug('User plan loaded', {
           planType: planData.plan_type,
           creditsRemaining: planData.credits_remaining,
@@ -340,8 +341,8 @@ export const useCredits = (): CreditContextValue => {
 
   const bonusValuations = useMemo(() => {
     if (UNLIMITED_CREDITS_MODE) return 0
-    return (plan as any)?.bonus_valuations ?? 0
-  }, [(plan as any)?.bonus_valuations])
+    return plan?.bonus_valuations ?? 0
+  }, [plan?.bonus_valuations])
 
   return {
     plan,

@@ -11,10 +11,13 @@ export const maxDuration = 30
 
 const REPORT_DELETE_TIMEOUT_MS = 10_000
 
-export async function DELETE(request: NextRequest, { params }: { params: { reportId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ reportId: string }> }
+) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
-    const { reportId } = params
+    const { reportId } = await params
 
     if (!reportId) {
       return NextResponse.json(

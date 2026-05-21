@@ -101,7 +101,7 @@ export function extractBenchmarkMultipleRatios(result: ValuationResponse): {
   evRevenue: number | null
 } {
   const valuationResults =
-    hydrateClientValuationResultsMap(result as Record<string, any>) ??
+    hydrateClientValuationResultsMap(result as unknown as Record<string, unknown>) ??
     (result.valuation_results as Record<string, MultipleRowEv> | null | undefined) ??
     null
 

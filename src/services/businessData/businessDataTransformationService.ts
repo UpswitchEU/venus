@@ -21,6 +21,10 @@ import {
 import { serviceLogger } from '../../utils/logger'
 import type { BusinessProfileData } from './businessDataTypes'
 
+type ConversationPrefilledData = Partial<ValuationRequest> & {
+  years_in_operation?: number
+}
+
 export class BusinessDataTransformationService {
   /**
    * Transform business profile data to valuation request format
@@ -109,7 +113,7 @@ export class BusinessDataTransformationService {
     }
 
     // Add pre-filled data for fields we already know
-    const preFilledData: Record<string, any> = {}
+    const preFilledData: ConversationPrefilledData = {}
 
     if (businessData.company_name) {
       preFilledData.company_name = businessData.company_name

@@ -81,7 +81,7 @@ export function RecentReportsSection({
   }
 
   // Filter reports with valuation results (stage 3 only)
-  const reportsWithValuations = reports.filter((report) => (report as any).valuationResult)
+  const reportsWithValuations = reports.filter((report) => !!report.valuationResult)
 
   // Loading skeleton - only show when loading AND no reports exist (Optimistic UI pattern)
   if (loading && reports.length === 0) {
@@ -168,7 +168,7 @@ export function RecentReportsSection({
               console.debug('[RecentReportsSection] Mapping report to card:', {
                 reportId: report.reportId,
                 businessInfo,
-                hasValuation: !!(report as any).valuationResult,
+                hasValuation: !!report.valuationResult,
                 valuationAmount,
                 hasProfileData: !!profileData,
               })
@@ -179,15 +179,14 @@ export function RecentReportsSection({
                 key={report.reportId}
                 businessInfo={businessInfo}
                 reportId={report.reportId}
-                hasValuationReports={!!(report as any).valuationResult}
+                hasValuationReports={!!report.valuationResult}
                 latestValuationReport={
                   valuationAmount
                     ? {
                         businessValue: valuationAmount,
                         method: 'DCF + Multiples',
-                        confidence:
-                          ((report as any).valuationResult as any)?.overall_confidence || 'high',
-                        date: (report as any).calculatedAt || report.updatedAt,
+                        confidence: report.valuationResult?.overall_confidence || 'high',
+                        date: report.calculatedAt || report.updatedAt,
                       }
                     : null
                 }

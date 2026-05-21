@@ -43,6 +43,24 @@ export interface YearDataInput {
   year: number
   revenue: number
   ebitda: number
+  ebitda_normalized?: boolean
+  ebitda_normalization_metadata?: {
+    reported_ebitda?: number
+    normalized_ebitda?: number
+    total_adjustments?: number
+    adjustment_count?: number
+    confidence_score?: string
+    has_custom_adjustments?: boolean
+    adjustments?: Array<{
+      category: string
+      amount: number
+      label?: string
+      note?: string
+      source: string
+      confidence: string
+      ledger_code?: string
+    }>
+  }
 
   // Optional detailed financials
   cogs?: number
@@ -199,6 +217,7 @@ export interface ValuationRequest {
   // Additional business context
   business_type?: string
   revenue?: number
+  ebitda?: number
   employee_count?: number
   business_description?: string
   business_highlights?: string

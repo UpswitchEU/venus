@@ -17,15 +17,17 @@ import { generalLogger } from '../../utils/logger'
 
 interface CoalescedRequest<T> {
   resolve: (value: T) => void
-  reject: (error: any) => void
+  reject: (error: unknown) => void
   timestamp: number
 }
+
+type QueuedCoalescedRequest = CoalescedRequest<unknown>
 
 /**
  * Request coalescer with configurable delay
  */
 export class RequestCoalescer {
-  private pendingRequests = new Map<string, CoalescedRequest<any>[]>()
+  private pendingRequests = new Map<string, QueuedCoalescedRequest[]>()
   private timeouts = new Map<string, NodeJS.Timeout>()
   private coalescedCounts = new Map<string, number>()
 
@@ -42,8 +44,8 @@ export class RequestCoalescer {
   async coalesce<T>(key: string, fn: () => Promise<T>, delay: number = 100): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       // Add this request to the pending queue
-      const request: CoalescedRequest<T> = {
-        resolve,
+      const request: QueuedCoalescedRequest = {
+        resolve: (value) => resolve(value as T),
         reject,
         timestamp: Date.now(),
       }

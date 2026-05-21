@@ -39,6 +39,7 @@ export { parseFinancialValues, parseNormalizationCommands } from './ChatAssistan
 export type {
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
+  BuyerReadyToolCard,
   ChatMessage,
   ClientCreateRequest,
   ClientDataReadinessPreview,
@@ -108,7 +109,7 @@ interface ChatAssistantDrawerProps {
   onAcceptNormalisation?: (id: string) => void
   onRejectNormalisation?: (id: string) => void
   // Run-valuation proposal handlers (propose-only AI tool — see run_valuation.tool.ts)
-  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onApproveValuationRun?: (proposalId: string, reportId?: string, methods?: string[] | null) => void
   onRejectValuationRun?: (proposalId: string) => void
   // Report-generation proposal handlers (propose-only AI tool — see generate_report.tool.ts)
   onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
@@ -162,6 +163,8 @@ function hasAssistantRenderableContent(message: ChatMessage): boolean {
     'listingPreviews',
     'listingCreateRequests',
     'buyerProfilePreviews',
+    'buyerReadyCards',
+    'businessTypeSearchResults',
     'registrySearchResults',
     'tasks',
   ]
@@ -289,8 +292,9 @@ export function ChatAssistantDrawer({
           message.methodReadinessPreviews?.length ?? 0
         }:${message.listingPreviews?.length ?? 0}:${
           message.listingCreateRequests?.length ?? 0
-        }:${message.buyerProfilePreviews?.length ?? 0}:${
-          message.registrySearchResults?.length ?? 0
+        }:${message.buyerProfilePreviews?.length ?? 0}:${message.buyerReadyCards?.length ?? 0}:${
+          message.businessTypeSearchResults?.length ?? 0
+        }:${message.registrySearchResults?.length ?? 0
         }:${message.tasks?.length ?? 0}`
     )
     .join('|')

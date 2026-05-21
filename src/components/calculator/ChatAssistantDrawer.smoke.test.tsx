@@ -52,7 +52,8 @@ vi.mock('framer-motion', () => {
                 ].includes(k)
             )
           )
-          const Tag = (key as string) === 'svg' ? 'svg' : 'div'
+          const tagName = key as string
+          const Tag = tagName === 'svg' ? 'svg' : tagName === 'a' ? 'a' : 'div'
           return <Tag {...cleaned}>{children}</Tag>
         },
     }
@@ -72,6 +73,10 @@ vi.mock('@/hooks/useScrollLock', () => ({
 vi.mock('@/lib/analytics', () => ({
   trackAIAssistantMessage: vi.fn(),
   trackAIAssistantOpen: vi.fn(),
+}))
+
+vi.mock('@/utils/getMercuryUrl', () => ({
+  getMercuryUrl: () => 'https://mercury.test',
 }))
 
 vi.mock('@/hooks/useAiConsent', () => ({
@@ -365,6 +370,34 @@ describe('message rendering', () => {
       expect(aiConsentMocks.grant).toHaveBeenCalledWith({ locale: 'nl' })
       expect(onRetry).toHaveBeenCalledWith('consent-required-message')
     })
+  })
+
+  it('renders auth-required assistant errors as a sign-in recovery action', () => {
+    const assistant = makeAssistantMessage(
+      'Your session could not be verified.',
+      'auth-required-message'
+    )
+    assistant.isError = true
+    assistant.requiresAuth = true
+    const onRetry = vi.fn()
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[assistant]}
+        onSendMessage={onSendMessage}
+        onRetry={onRetry}
+      />
+    )
+
+    const link = screen.getByRole('link', { name: /signInAgain/i })
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining('https://mercury.test/nl/auth/login')
+    )
+    expect(link).toHaveAttribute('href', expect.stringContaining('returnUrl='))
+    expect(screen.queryByText('retry')).not.toBeInTheDocument()
   })
 })
 

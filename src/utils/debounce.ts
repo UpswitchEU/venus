@@ -8,11 +8,16 @@
  * @param delay - Delay in milliseconds before execution
  * @returns Debounced version of the function
  */
-export function debounce<T extends (...args: any[]) => Promise<any>>(fn: T, delay: number): T {
-  let timeoutId: NodeJS.Timeout | null = null
-  let lastPromise: Promise<any> | null = null
+type AsyncFunction<Args extends unknown[], Result> = (...args: Args) => Promise<Result>
 
-  return ((...args: any[]) => {
+export function debounce<Args extends unknown[], Result>(
+  fn: AsyncFunction<Args, Result>,
+  delay: number
+): AsyncFunction<Args, Result> {
+  let timeoutId: NodeJS.Timeout | null = null
+  let lastPromise: Promise<Result> | null = null
+
+  return (...args: Args) => {
     // Clear any pending timeout
     if (timeoutId) {
       clearTimeout(timeoutId)
@@ -35,11 +40,11 @@ export function debounce<T extends (...args: any[]) => Promise<any>>(fn: T, dela
           .catch(reject)
       }, delay)
     })
-  }) as T
+  }
 }
 
-export interface DebouncedWithFlush<T extends (...args: any[]) => Promise<any>> {
-  (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>>
+export interface DebouncedWithFlush<Args extends unknown[], Result> {
+  (...args: Args): Promise<Result>
   flush: () => Promise<void>
 }
 
@@ -47,19 +52,19 @@ export interface DebouncedWithFlush<T extends (...args: any[]) => Promise<any>> 
  * Debounce with flush support for page unload scenarios.
  * Use flush() to execute any pending call immediately (e.g. on beforeunload).
  */
-export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function debounceWithFlush<Args extends unknown[], Result>(
+  fn: AsyncFunction<Args, Result>,
   delay: number
-): DebouncedWithFlush<T> {
+): DebouncedWithFlush<Args, Result> {
   let timeoutId: NodeJS.Timeout | null = null
-  let lastArgs: Parameters<T> | null = null
-  let inFlight: Promise<any> | null = null
+  let lastArgs: Args | null = null
+  let inFlight: Promise<Result> | null = null
   let pendingResolvers: {
-    resolve: (v: any) => void
-    reject: (e: any) => void
+    resolve: (value: Result) => void
+    reject: (error: unknown) => void
   }[] = []
 
-  const drainQueue = async (args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
+  const drainQueue = async (args: Args): Promise<Result> => {
     inFlight = fn(...args)
     try {
       const result = await inFlight
@@ -76,17 +81,17 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
     }
   }
 
-  const settleAll = (resultPromise: Promise<any>) => {
+  const settleAll = (resultPromise: Promise<Result>) => {
     const captured = pendingResolvers.splice(0)
     for (const { resolve, reject } of captured) {
       resultPromise.then(resolve, reject)
     }
   }
 
-  const debounced = ((...args: Parameters<T>) => {
+  const debounced = ((...args: Args) => {
     lastArgs = args
     if (timeoutId) clearTimeout(timeoutId)
-    return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
+    return new Promise<Result>((resolve, reject) => {
       pendingResolvers.push({ resolve, reject })
       timeoutId = setTimeout(() => {
         timeoutId = null
@@ -101,7 +106,7 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
         settleAll(p)
       }, delay)
     })
-  }) as DebouncedWithFlush<T>
+  }) as DebouncedWithFlush<Args, Result>
 
   debounced.flush = async () => {
     if (timeoutId) {

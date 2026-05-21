@@ -61,7 +61,7 @@ class HTMLParserWorkerClient {
   private pendingRequests = new Map<
     number,
     {
-      resolve: (result: any) => void
+      resolve: (result: unknown) => void
       reject: (error: Error) => void
     }
   >()
@@ -127,7 +127,10 @@ class HTMLParserWorkerClient {
     return new Promise((resolve, reject) => {
       const id = this.messageId++
 
-      this.pendingRequests.set(id, { resolve, reject })
+      this.pendingRequests.set(id, {
+        resolve: (result) => resolve(result as T),
+        reject,
+      })
 
       this.worker?.postMessage({ id, type, html })
 

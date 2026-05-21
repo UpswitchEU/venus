@@ -56,7 +56,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
 
   const defaultAdvisorCopy = isNl
     ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 9 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
-    : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 9 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`
+    : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all valuation methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`
 
   const defaultBusinessOwnerCopy = isNl
     ? `U heeft uw gratis waarderingen voor dit jaar gebruikt. Open uw dashboard om uw rapport te beheren of nodig uw boekhouder of M&A-adviseur uit — zij ontgrendelen onbeperkte waarderingen en een merkversie zonder watermerk via hun abonnement. Voor u blijft het gratis.`

@@ -13,6 +13,25 @@ type ManualPresentation = {
   multipleRange?: { low: number; high: number }
 }
 
+type ManualReportRecord = Record<string, unknown>
+
+function asRecord(value: unknown): ManualReportRecord {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as ManualReportRecord)
+    : {}
+}
+
+function asRecordOrNull(value: unknown): ManualReportRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as ManualReportRecord)
+    : null
+}
+
+function readString(record: ManualReportRecord, key: string): string | undefined {
+  const value = record[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 function isUsableRow(method: unknown): boolean {
   if (!method || typeof method !== 'object' || Array.isArray(method)) return false
   const m = method as Record<string, unknown>
@@ -44,49 +63,57 @@ export function deriveManualReportPresentation(
   result: ValuationResponse | null | undefined,
   selectedMethod?: string | null
 ): ManualPresentation {
-  const r = result as any
-  if (!r) return { valuation: 0 }
+  if (!result) return { valuation: 0 }
+  const r = asRecord(result)
 
-  const valuationResult = r.valuation_result ?? {}
+  const valuationResult = asRecord(r.valuation_result)
+  const details = asRecord(r.details)
   const reportContext =
-    r.report_context ?? valuationResult?.report_context ?? r.details?.report_context ?? {}
-  const hydrated =
-    hydrateClientValuationResultsMap(r as Record<string, any> | null | undefined) ?? {}
+    asRecordOrNull(r.report_context) ??
+    asRecordOrNull(valuationResult.report_context) ??
+    asRecordOrNull(details.report_context) ??
+    {}
+  const hydrated = hydrateClientValuationResultsMap(r) ?? {}
   const hydratedMap = hydrated as Record<string, ValuationMethodResult>
   const methodKey =
     resolvePreferredMethodKey(
       hydratedMap,
-      selectedMethod ?? r.selected_valuation_method ?? r.selectedMethod ?? 'upswitch_adaptive'
+      selectedMethod ??
+        readString(r, 'selected_valuation_method') ??
+        readString(r, 'selectedMethod') ??
+        'upswitch_adaptive'
     ) ?? 'upswitch_adaptive'
   const methodData = getValuationMethodResultForKey(hydratedMap, methodKey)
-  const methodDetails =
-    methodData?.details && typeof methodData.details === 'object' ? methodData.details : {}
+  const methodDetails = asRecord(methodData?.details)
+  const multiplesValuation = asRecord(r.multiples_valuation)
 
   const valuation =
     Number(
-      methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid
+      methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid
     ) || 0
   const valuationLowRaw =
     methodDetails.equity_range_low ??
     r.equity_value_low ??
     r.valuation_min ??
-    r.details?.equity_value_low
+    details.equity_value_low
   const valuationHighRaw =
     methodDetails.equity_range_high ??
     r.equity_value_high ??
     r.valuation_max ??
-    r.details?.equity_value_high
+    details.equity_value_high
   const multipleRaw =
     methodData?.multiple_used ??
-    valuationResult?.multiple ??
-    reportContext?.applied_multiple ??
-    r.multiples_valuation?.ebitda_multiple
+    valuationResult.multiple ??
+    asRecord(reportContext).applied_multiple ??
+    multiplesValuation.ebitda_multiple
   const multipleLowRaw =
-    methodDetails.p25_multiple ?? valuationResult?.multipleRange?.low ?? reportContext?.multiple_low
+    methodDetails.p25_multiple ??
+    asRecord(valuationResult.multipleRange).low ??
+    asRecord(reportContext).multiple_low
   const multipleHighRaw =
     methodDetails.p75_multiple ??
-    valuationResult?.multipleRange?.high ??
-    reportContext?.multiple_high
+    asRecord(valuationResult.multipleRange).high ??
+    asRecord(reportContext).multiple_high
 
   return {
     valuation,
@@ -123,12 +150,13 @@ export function deriveNavPricesForVersionNav(
   result: ValuationResponse | null | undefined,
   selectedMethod?: string | null
 ): NavVersionPrices {
-  const r = result as any
+  const r = asRecord(result)
+  const details = asRecord(r.details)
   const presentation = deriveManualReportPresentation(result, selectedMethod)
   const valuationLow = presentation.valuationLow
   const valuationHigh = presentation.valuationHigh
   const valuation = presentation.valuation
-  const askingRaw = r?.recommended_asking_price ?? r?.details?.recommended_asking_price
+  const askingRaw = r.recommended_asking_price ?? details.recommended_asking_price
   const askingFinite =
     askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
   const askPrice = askingFinite ?? valuation

@@ -168,23 +168,30 @@ export enum RegistryErrorType {
 /**
  * Categorize an error for better user messaging
  */
-export const categorizeError = (error: any): RegistryErrorType => {
+export const categorizeError = (error: unknown): RegistryErrorType => {
   if (!error) return RegistryErrorType.UNKNOWN_ERROR
+  const errorRecord = error as {
+    response?: { status?: number }
+    code?: string
+    message?: string
+  }
+  const status = errorRecord.response?.status
 
   // Check HTTP status codes
-  if (error.response?.status === 404) return RegistryErrorType.NOT_FOUND
-  if (error.response?.status === 429) return RegistryErrorType.RATE_LIMITED
-  if (error.response?.status >= 500) return RegistryErrorType.SERVER_ERROR
-  if (error.response?.status === 400) return RegistryErrorType.INVALID_INPUT
+  if (status === 404) return RegistryErrorType.NOT_FOUND
+  if (status === 429) return RegistryErrorType.RATE_LIMITED
+  if (typeof status === 'number' && status >= 500) return RegistryErrorType.SERVER_ERROR
+  if (status === 400) return RegistryErrorType.INVALID_INPUT
 
   // Check error codes
-  if (error.code === 'ECONNABORTED') return RegistryErrorType.TIMEOUT
-  if (error.code === 'ERR_NETWORK') return RegistryErrorType.NETWORK_ERROR
+  if (errorRecord.code === 'ECONNABORTED') return RegistryErrorType.TIMEOUT
+  if (errorRecord.code === 'ERR_NETWORK') return RegistryErrorType.NETWORK_ERROR
 
   // Check error messages
-  if (error.message?.includes('Unsupported country')) return RegistryErrorType.UNSUPPORTED_COUNTRY
-  if (error.message?.includes('timeout')) return RegistryErrorType.TIMEOUT
-  if (error.message?.includes('network')) return RegistryErrorType.NETWORK_ERROR
+  if (errorRecord.message?.includes('Unsupported country'))
+    return RegistryErrorType.UNSUPPORTED_COUNTRY
+  if (errorRecord.message?.includes('timeout')) return RegistryErrorType.TIMEOUT
+  if (errorRecord.message?.includes('network')) return RegistryErrorType.NETWORK_ERROR
 
   return RegistryErrorType.UNKNOWN_ERROR
 }

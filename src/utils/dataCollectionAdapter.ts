@@ -13,17 +13,17 @@
 import type { DataCollectionMethod, DataResponse, FieldValue } from '../types/data-collection'
 
 /**
- * Convert StreamingChat collected data (Record<string, any>) to DataResponse[] format
+ * Convert StreamingChat collected data to DataResponse[] format
  *
  * This adapter bridges the gap between StreamingChat's internal data format
  * and the unified DataResponse format used by the form store.
  *
- * @param collectedData - StreamingChat's collected data as Record<string, any>
+ * @param collectedData - StreamingChat's collected data
  * @param method - Collection method (default: 'conversational')
  * @returns Array of DataResponse objects ready for form store
  */
 export function convertCollectedDataToDataResponses(
-  collectedData: Record<string, any>,
+  collectedData: Record<string, unknown>,
   method: DataCollectionMethod = 'conversational'
 ): DataResponse[] {
   const responses: DataResponse[] = []
@@ -35,22 +35,27 @@ export function convertCollectedDataToDataResponses(
     }
 
     // Extract metadata from value if it's an object with metadata
-    let actualValue: FieldValue = value
+    let actualValue: FieldValue = value as FieldValue
     let confidence = 0.9 // Default confidence for conversational data
     let source = 'ai_extraction'
     let metadata: Record<string, unknown> | undefined
 
     // Handle value objects that might contain metadata
     if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
+      const valueRecord = value as Record<string, unknown>
       // Check if it's a structured data object
-      if ('value' in value) {
-        actualValue = value.value as FieldValue
-        confidence = value.confidence ?? confidence
-        source = value.source ?? source
-        metadata = value.metadata as Record<string, unknown> | undefined
+      if ('value' in valueRecord) {
+        actualValue = valueRecord.value as FieldValue
+        confidence =
+          typeof valueRecord.confidence === 'number' ? valueRecord.confidence : confidence
+        source = typeof valueRecord.source === 'string' ? valueRecord.source : source
+        metadata =
+          valueRecord.metadata && typeof valueRecord.metadata === 'object'
+            ? (valueRecord.metadata as Record<string, unknown>)
+            : undefined
       } else {
         // If it's a plain object, use it as-is but mark as object type
-        actualValue = value
+        actualValue = value as unknown as FieldValue
         source = 'structured_data'
       }
     } else {

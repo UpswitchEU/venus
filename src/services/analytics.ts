@@ -8,14 +8,14 @@ interface AnalyticsEvent {
   event: string
   timestamp: string
   userId?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 class AnalyticsService {
   private events: AnalyticsEvent[] = []
 
   // Track an event
-  track(event: string, metadata?: Record<string, any>) {
+  track(event: string, metadata?: Record<string, unknown>) {
     const analyticsEvent: AnalyticsEvent = {
       event,
       timestamp: new Date().toISOString(),

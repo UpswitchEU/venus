@@ -6,7 +6,11 @@
  */
 
 import type { Message } from '../../../types/message'
-import { ValuationRequest, ValuationResponse, ValuationSession } from '../../../types/valuation'
+import type {
+  ValuationRequest,
+  ValuationResponse,
+  ValuationSession,
+} from '../../../types/valuation'
 
 // Core domain types
 export interface BusinessProfile {
@@ -18,7 +22,7 @@ export interface BusinessProfile {
   employees?: number
   founding_year?: number
   country_code?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface ConversationStartRequest {
@@ -28,7 +32,7 @@ export interface ConversationStartRequest {
   business_model?: string
   time_commitment?: 'quick' | 'detailed'
   focus_area?: 'all' | 'financials' | 'operations' | 'market'
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface ConversationStartResponse {
@@ -74,7 +78,7 @@ export interface ISessionService {
   createSession(
     reportId: string,
     flow: 'manual' | 'conversational',
-    initialData?: any
+    initialData?: unknown
   ): Promise<ValuationSession>
 
   /**
@@ -107,7 +111,7 @@ export interface IConversationService {
   /**
    * Send message in conversation
    */
-  sendMessage(conversationId: string, message: string, context?: any): Promise<Message>
+  sendMessage(conversationId: string, message: string, context?: unknown): Promise<Message>
 
   /**
    * Get conversation history
@@ -144,7 +148,7 @@ export interface IBusinessProfileService {
   /**
    * Transform profile for conversation start
    */
-  transformForConversation(profile: BusinessProfile, options?: any): ConversationStartRequest
+  transformForConversation(profile: BusinessProfile, options?: unknown): ConversationStartRequest
 
   /**
    * Get profile completeness analysis
@@ -208,15 +212,15 @@ export interface IReportService {
   /**
    * Download report as PDF
    */
-  downloadPDF(valuationData: any, options: any): Promise<void>
+  downloadPDF(valuationData: unknown, options: unknown): Promise<void>
 
   /**
    * Save report to backend
    */
-  saveReport(reportId: string, reportData: any): Promise<void>
+  saveReport(reportId: string, reportData: unknown): Promise<void>
 
   /**
    * Load saved report
    */
-  loadReport(reportId: string): Promise<any>
+  loadReport(reportId: string): Promise<unknown>
 }

@@ -71,7 +71,7 @@ export const useValuationToolbarName = (
 
       const response = await backendAPI.updateValuationSession(actualReportId, {
         name,
-      } as any)
+      })
 
       if (response?.session?.name) {
         useSessionStore.getState().hydrateSession({ name: response.session.name })

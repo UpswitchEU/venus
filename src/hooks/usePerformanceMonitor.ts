@@ -28,6 +28,16 @@ interface UsePerformanceMonitorOptions {
   enableMemoryTracking?: boolean
 }
 
+interface BrowserMemoryInfo {
+  usedJSHeapSize: number
+  totalJSHeapSize: number
+  jsHeapSizeLimit: number
+}
+
+type PerformanceWithMemory = Performance & {
+  memory?: BrowserMemoryInfo
+}
+
 /**
  * Performance Monitor Hook
  *
@@ -126,10 +136,13 @@ export function usePerformanceMonitor(options: UsePerformanceMonitorOptions) {
 
   // Memory tracking (if enabled)
   useEffect(() => {
-    if (!enableMemoryTracking || !(performance as any).memory) return
+    const performanceWithMemory = performance as PerformanceWithMemory
+    if (!enableMemoryTracking || !performanceWithMemory.memory) return
 
     const trackMemory = () => {
-      const memoryInfo = (performance as any).memory
+      const memoryInfo = performanceWithMemory.memory
+      if (!memoryInfo) return
+
       metricsRef.current.memoryUsage = memoryInfo.usedJSHeapSize
 
       if (enableLogging && memoryInfo.usedJSHeapSize > 50 * 1024 * 1024) {
@@ -184,8 +197,8 @@ export function monitorBundleLoad(bundleName: string, startTime: number = perfor
  *
  * Wraps React.lazy components with automatic performance tracking.
  */
-export function createMonitoredLazy<T extends React.ComponentType<any>>(
-  importFunc: () => Promise<{ default: T }>,
+export function createMonitoredLazy<TProps extends object>(
+  importFunc: () => Promise<{ default: React.ComponentType<TProps> }>,
   componentName: string
 ) {
   return React.lazy(() => {

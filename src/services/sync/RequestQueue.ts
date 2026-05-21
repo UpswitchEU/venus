@@ -63,7 +63,7 @@ export interface QueuedRequest {
   metadata?: {
     reportId?: string
     operation?: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 

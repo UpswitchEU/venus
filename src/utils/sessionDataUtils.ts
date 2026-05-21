@@ -33,17 +33,18 @@
  * }
  * ```
  */
-export function hasMeaningfulSessionData(sessionData: any, session?: any): boolean {
+export function hasMeaningfulSessionData(sessionData: unknown, session?: unknown): boolean {
+  const sessionRecord =
+    session && typeof session === 'object' ? (session as Record<string, unknown>) : null
+
   // Check sessionData itself (form fields)
   if (sessionData && typeof sessionData === 'object') {
     const keys = Object.keys(sessionData)
     // Empty object means NEW report (unless session has top-level fields)
     if (keys.length === 0) {
       // Check top-level session fields before returning false
-      if (session) {
-        if (session.valuationResult || session.htmlReport) {
-          return true
-        }
+      if (sessionRecord?.valuationResult || sessionRecord?.htmlReport) {
+        return true
       }
       return false
     }
@@ -143,10 +144,8 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
 
   // Check top-level session fields (valuationResult, htmlReport)
   // Backend stores these separately from sessionData
-  if (session) {
-    if (session.valuationResult || session.htmlReport) {
-      return true
-    }
+  if (sessionRecord?.valuationResult || sessionRecord?.htmlReport) {
+    return true
   }
 
   return false

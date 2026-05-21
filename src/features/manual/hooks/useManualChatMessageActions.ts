@@ -17,6 +17,7 @@ import {
   formatManualParsedCommandResponse,
   type ManualPendingFieldUpdate,
 } from '../utils/manualChatCommandHandling'
+import { resolveReturnedConversationIdUpdate } from '../utils/manualChatConversationId'
 import {
   buildManualAssistantChatMessage,
   buildManualUserChatMessage,
@@ -27,6 +28,11 @@ import {
   getManualChatVersionCount,
   type ManualChatFinancialContext,
 } from '../utils/manualChatRequestContext'
+import {
+  buildManualChatTerminalErrorPatch,
+  buildManualChatTerminalErrorPatchFromAIResponse,
+  type ManualChatTerminalErrorState,
+} from '../utils/manualChatTerminalErrors'
 import {
   addIdsToManualChatToolCards,
   appendManualChatToolCardsToMessages,
@@ -190,6 +196,18 @@ export function useManualChatMessageActions<TCollectedData extends object>({
 
         const streamingMsgId = crypto.randomUUID()
         let streamedContent = ''
+        const clearActiveStream = () => {
+          streamCleanupRef.current = null
+          setToolInProgress(null)
+        }
+        const patchAssistantMessage = (patch: Partial<ChatMessage>) => {
+          setChatMessages((prev) => patchManualChatMessage(prev, streamingMsgId, patch))
+        }
+        const finishWithTerminalError = (state: ManualChatTerminalErrorState) => {
+          clearActiveStream()
+          setIsChatGenerating(false)
+          patchAssistantMessage(buildManualChatTerminalErrorPatch(state, translate))
+        }
 
         setChatMessages((prev) => [
           ...prev,
@@ -204,9 +222,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
         streamCleanupRef.current = aiChatService.streamMessage(aiRequest, {
           onText: (text) => {
             streamedContent += text
-            setChatMessages((prev) =>
-              patchManualChatMessage(prev, streamingMsgId, { content: streamedContent })
-            )
+            patchAssistantMessage({ content: streamedContent })
           },
           onToolStart: (toolName) => {
             setToolInProgress(toolName)
@@ -232,84 +248,61 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
           },
           onDone: (responseConversationId) => {
-            streamCleanupRef.current = null
-            setToolInProgress(null)
+            clearActiveStream()
             setIsChatGenerating(false)
 
-            if (responseConversationId && !conversationId) {
-              setConversationId(responseConversationId)
+            const nextConversationId = resolveReturnedConversationIdUpdate(
+              conversationId,
+              responseConversationId
+            )
+            if (nextConversationId) {
+              setConversationId(nextConversationId)
             }
           },
           onQuotaExhausted: () => {
-            streamCleanupRef.current = null
-            setToolInProgress(null)
-            setIsChatGenerating(false)
-
-            setChatMessages((prev) =>
-              patchManualChatMessage(prev, streamingMsgId, {
-                content: translate('quotaExhausted'),
-                isError: true,
-              })
-            )
+            finishWithTerminalError({ kind: 'quota' })
           },
           onConsentRequired: (payload) => {
-            streamCleanupRef.current = null
-            setToolInProgress(null)
-            setIsChatGenerating(false)
-
-            setChatMessages((prev) =>
-              patchManualChatMessage(prev, streamingMsgId, {
-                content: payload.message || translate('consentRequired'),
-                isError: true,
-                requiresConsent: true,
-                consentPolicyVersion: payload.currentPolicyVersion,
-              })
-            )
+            finishWithTerminalError({
+              kind: 'consent',
+              message: payload.message,
+              currentPolicyVersion: payload.currentPolicyVersion,
+            })
+          },
+          onAuthRequired: (payload) => {
+            finishWithTerminalError({ kind: 'auth', message: payload.message })
           },
           onError: (error) => {
-            streamCleanupRef.current = null
-            setToolInProgress(null)
-            setIsChatGenerating(false)
+            clearActiveStream()
 
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
             aiChatService
               .sendMessage({ ...aiRequest, stream: false })
               .then((aiResponse) => {
-                if (aiResponse.requires_upgrade) {
-                  setChatMessages((prev) =>
-                    patchManualChatMessage(prev, streamingMsgId, {
-                      content: translate('quotaExhausted'),
-                      isError: true,
-                    })
-                  )
+                const terminalErrorPatch = buildManualChatTerminalErrorPatchFromAIResponse(
+                  aiResponse,
+                  translate
+                )
+                if (terminalErrorPatch) {
+                  patchAssistantMessage(terminalErrorPatch)
                   return
                 }
 
-                if (aiResponse.requires_consent) {
-                  setChatMessages((prev) =>
-                    patchManualChatMessage(prev, streamingMsgId, {
-                      content: aiResponse.error || translate('consentRequired'),
-                      isError: true,
-                      requiresConsent: true,
-                      consentPolicyVersion: aiResponse.currentPolicyVersion,
-                    })
-                  )
-                  return
-                }
-
-                if (aiResponse.conversationId && !conversationId) {
-                  setConversationId(aiResponse.conversationId)
+                const nextConversationId = resolveReturnedConversationIdUpdate(
+                  conversationId,
+                  aiResponse.conversationId
+                )
+                if (nextConversationId) {
+                  setConversationId(nextConversationId)
                 }
 
                 const responseCards = addIdsToManualChatToolCards(aiResponse, () =>
                   crypto.randomUUID()
                 )
-                setChatMessages((prev) =>
-                  patchManualChatMessage(prev, streamingMsgId, {
-                    content: aiResponse.content,
-                    ...responseCards,
-                  })
-                )
+                patchAssistantMessage({
+                  content: aiResponse.content,
+                  ...responseCards,
+                })
 
                 if (aiResponse.fallback) {
                   toast.info(translate('aiUnavailable'), {
@@ -324,12 +317,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                 handleNormalisationSuggestions(responseCards.normalisationSuggestions)
               })
               .catch(() => {
-                setChatMessages((prev) =>
-                  patchManualChatMessage(prev, streamingMsgId, {
-                    content: translate('chatError'),
-                    isError: true,
-                  })
+                patchAssistantMessage(
+                  buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
                 )
+              })
+              .finally(() => {
                 setIsChatGenerating(false)
               })
           },

@@ -30,6 +30,11 @@ const RESTORATION_STEPS = [
   'Restoring normalization data',
 ] as const
 
+function getRestorationStepIndex(step: string | undefined): number {
+  if (!step) return -1
+  return RESTORATION_STEPS.findIndex((knownStep) => knownStep === step)
+}
+
 /**
  * Hook for tracking restoration progress
  */
@@ -52,7 +57,7 @@ export function useRestorationProgress({
   const updateProgress = useCallback(
     (stage: RestorationProgress['stage'], step?: string, error?: string) => {
       setProgress((prev) => {
-        const stepIndex = step ? RESTORATION_STEPS.indexOf(step as any) : -1
+        const stepIndex = getRestorationStepIndex(step)
         const completedSteps =
           stepIndex >= 0 ? RESTORATION_STEPS.slice(0, stepIndex + 1) : prev.completedSteps
 

@@ -16,9 +16,14 @@ export interface ValuationData {
   valuationDate?: Date
   method?: string
   confidenceScore?: number
-  inputs?: Record<string, any>
-  assumptions?: Record<string, any>
+  inputs?: Record<string, unknown>
+  assumptions?: Record<string, unknown>
   htmlContent?: string
+}
+
+type PdfDownloadRequest = ValuationRequest & {
+  reportId?: string
+  valuation_id?: string
 }
 
 export class DownloadService {
@@ -358,7 +363,7 @@ export class DownloadService {
    * which generates a professional PDF with all whitepaper sections
    */
   static async downloadAccountantViewPDF(
-    request: ValuationRequest,
+    request: PdfDownloadRequest,
     options?: {
       filename?: string
       onProgress?: (progress: number) => void
@@ -406,7 +411,7 @@ export class DownloadService {
       // We need to extract reportId from request or use a different approach
       // For now, we'll need to get the reportId from the valuation response
       // This is a temporary fix - the proper solution would be to pass reportId
-      const reportId = (request as any).reportId || (request as any).valuation_id || ''
+      const reportId = request.reportId || request.valuation_id || ''
       if (!reportId) {
         throw new Error('Report ID is required for PDF download')
       }

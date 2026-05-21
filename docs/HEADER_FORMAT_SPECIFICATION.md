@@ -31,7 +31,7 @@ return {
 
 **Header Name**: `Cookie`  
 **Format**: `upswitch_access_token=<JWT>`  
-**Example**: `Cookie: upswitch_access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`  
+**Example**: `Cookie: upswitch_access_token=<access-token>`
 **Source**: HTTP-only cookie set by Titan API  
 **When Sent**: Automatically by browser for all requests
 

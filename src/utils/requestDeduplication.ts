@@ -34,7 +34,7 @@ import { storeLogger } from '../utils/logger'
  * ```
  */
 export class RequestDeduplicator {
-  private pending = new Map<string, Promise<any>>()
+  private pending = new Map<string, Promise<unknown>>()
   private stats = {
     total: 0,
     deduplicated: 0,

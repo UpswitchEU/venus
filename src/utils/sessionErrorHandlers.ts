@@ -121,7 +121,10 @@ export async function handle409Conflict(
         })
       }
     } catch (loadError) {
-      const axiosError = loadError as any
+      const axiosError =
+        loadError && typeof loadError === 'object'
+          ? (loadError as { response?: { status?: number } })
+          : null
       // If it's a 404, we'll retry (might be replication lag)
       // If it's another error, log and retry anyway
       if (attempt < maxRetries - 1) {

@@ -1,3 +1,4 @@
+import { useClientContext } from '../../../stores/clientContext'
 import { extractErrorMessage, parseSellabilityScoreResponse } from './tool-card-response-parsers'
 
 export type ManualSellabilityScoreResult =
@@ -13,7 +14,7 @@ export type ManualSellabilityFetch = (
   input: string,
   init: {
     method: 'POST'
-    headers: { 'Content-Type': 'application/json' }
+    headers: Record<string, string>
     credentials: 'include'
     body: string
   }
@@ -28,7 +29,10 @@ export async function runManualSellabilityScore(
 ): Promise<ManualSellabilityScoreResult> {
   const resp = await fetchImpl('/api/sellability/score', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...useClientContext.getState().getContextHeaders(),
+    },
     credentials: 'include',
     body: JSON.stringify({}),
   })

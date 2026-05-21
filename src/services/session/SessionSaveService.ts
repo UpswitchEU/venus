@@ -10,8 +10,13 @@ import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
 
+type SessionExtensionUpdates = {
+  [key: `_${string}`]: unknown
+}
+
 export type SaveSessionUpdates = Partial<ValuationRequest> &
-  Partial<Pick<ValuationSession, 'currentView' | 'name'>>
+  Partial<Pick<ValuationSession, 'currentView' | 'name'>> &
+  SessionExtensionUpdates
 
 type LoadSessionForSave = (reportId: string) => Promise<ValuationSession | null>
 

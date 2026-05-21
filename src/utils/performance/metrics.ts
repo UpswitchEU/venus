@@ -15,6 +15,8 @@
 
 import { generalLogger } from '../logger'
 
+type PerformanceMetadata = Record<string, unknown>
+
 export interface PerformanceMetric {
   /**
    * Metric name
@@ -44,7 +46,7 @@ export interface PerformanceMetric {
   /**
    * Additional metadata
    */
-  metadata?: Record<string, any>
+  metadata?: PerformanceMetadata
 }
 
 export interface PerformanceThresholds {
@@ -110,7 +112,7 @@ export class PerformanceMonitor {
     name: string,
     fn: () => Promise<T>,
     category: PerformanceMetric['category'] = 'api',
-    metadata?: Record<string, any>
+    metadata?: PerformanceMetadata
   ): Promise<T> {
     const startTime = performance.now()
 
@@ -163,7 +165,7 @@ export class PerformanceMonitor {
     name: string,
     fn: () => T,
     category: PerformanceMetric['category'] = 'render',
-    metadata?: Record<string, any>
+    metadata?: PerformanceMetadata
   ): T {
     const startTime = performance.now()
 
@@ -206,7 +208,7 @@ export class PerformanceMonitor {
    * Track UI feedback time
    * Ensures < 16ms for 60fps
    */
-  trackUIFeedback(action: string, feedbackDelay: number, metadata?: Record<string, any>): void {
+  trackUIFeedback(action: string, feedbackDelay: number, metadata?: PerformanceMetadata): void {
     this.addMetric({
       name: `ui_feedback_${action}`,
       duration: feedbackDelay,
@@ -397,17 +399,15 @@ export class PerformanceMonitor {
   getSummary(): {
     totalMetrics: number
     categories: Record<
-      string,
-      {
-        count: number
-        avgDuration: number
-        slowCount: number
-        slowPercentage: number
-      }
+      PerformanceMetric['category'],
+      ReturnType<PerformanceMonitor['getCategoryStats']>
     >
     thresholds: PerformanceThresholds
   } {
-    const categories: Record<string, any> = {}
+    const categories = {} as Record<
+      PerformanceMetric['category'],
+      ReturnType<PerformanceMonitor['getCategoryStats']>
+    >
 
     const allCategories: PerformanceMetric['category'][] = [
       'ui',

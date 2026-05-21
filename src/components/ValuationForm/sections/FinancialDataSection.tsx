@@ -109,7 +109,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const reportedEbitdaByYear = useMemo(() => {
     const byYear: Record<number, number> = {
       [lastFullYear]: coalesceFiniteNumber(
-        (formData.current_year_data as any)?.ebitda_normalization_metadata?.reported_ebitda ??
+        formData.current_year_data?.ebitda_normalization_metadata?.reported_ebitda ??
           formData.ebitda ??
           0
       ),
@@ -117,7 +117,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     formData.historical_years_data?.forEach((year) => {
       if (year?.year != null && year?.ebitda != null) {
         byYear[Number(year.year)] = coalesceFiniteNumber(
-          (year as any)?.ebitda_normalization_metadata?.reported_ebitda ?? year.ebitda ?? 0
+          year.ebitda_normalization_metadata?.reported_ebitda ?? year.ebitda ?? 0
         )
       }
     })

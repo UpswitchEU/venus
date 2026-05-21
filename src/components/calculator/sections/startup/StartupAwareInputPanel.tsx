@@ -58,6 +58,8 @@ export type StartupAwareInputPanelProps = ComponentProps<typeof ManualInputPanel
   startupLauncherScopeId?: string
 }
 
+type StartupSubmitPayload = Parameters<ComponentProps<typeof ManualInputPanel>['onSubmit']>[0]
+
 const STAGE_QUERY_KEY = 'startup_stage'
 const VALID_STAGES: ReadonlySet<StartupStage> = new Set<StartupStage>([
   'pre_seed',
@@ -129,7 +131,7 @@ export interface AdvisorHandoff {
  * `businessType`) are present only to satisfy the UI's
  * `setCollectedData` call and are bypassed in the validators.
  */
-export function buildStartupSubmitPayload(): Record<string, unknown> {
+export function buildStartupSubmitPayload(): StartupSubmitPayload {
   const formState = useManualFormStore.getState().formData as ValuationFormData
   const studio = useStartupValuationStore.getState()
   const sector: StartupSector = studio.sector
@@ -142,6 +144,7 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
   return {
     companyName: formState.company_name?.trim() || 'Unknown Startup',
     businessType: formState.business_type ?? 'startup',
+    businessStructure: formState.business_type ?? 'startup',
     industry: formState.industry ?? 'technology',
     business_model: formState.business_model ?? sector,
     businessModel: formState.business_model ?? sector,
@@ -150,7 +153,7 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
     yearlyFinancials: [],
     ownerManagers: 1,
     fteEmployees: 0,
-  }
+  } as unknown as StartupSubmitPayload
 }
 
 /**
@@ -176,7 +179,7 @@ export function StartupSubmitFooter({
   onSubmit,
   isCalculating,
 }: {
-  onSubmit?: (data: any) => void | Promise<void>
+  onSubmit?: ComponentProps<typeof ManualInputPanel>['onSubmit']
   isCalculating: boolean
 }) {
   const params = useParams<{ locale?: string; id?: string }>()

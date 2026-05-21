@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Message } from '../../types/message'
-import { pruneMessages } from '../useConversationStore'
+import { mapServerHistoryToMessages, pruneMessages } from '../useConversationStore'
 
 function msg(id: string, content = `m-${id}`): Message {
   return {
@@ -161,5 +161,85 @@ describe('pruneMessages', () => {
     pruneMessages(input)
     expect(input).toEqual(inputSnapshot)
     expect(input).toHaveLength(200)
+  })
+})
+
+describe('mapServerHistoryToMessages', () => {
+  it('keeps tool_result rows as persisted metadata on the preceding assistant message', () => {
+    const result = mapServerHistoryToMessages([
+      {
+        id: 'u-1',
+        role: 'user',
+        content: 'Add Acme as a client',
+        created_at: '2026-05-21T09:00:00.000Z',
+      },
+      {
+        id: 'a-1',
+        role: 'assistant',
+        content: 'I prepared the client creation card.',
+        created_at: '2026-05-21T09:00:01.000Z',
+      },
+      {
+        id: 'tr-1',
+        role: 'tool_result',
+        content: '{}',
+        tool_name: 'create_client',
+        tool_result: {
+          type: 'client_create_request',
+          data: {
+            status: 'pending_approval',
+            request: { business_name: 'Acme NV' },
+          },
+        },
+        created_at: '2026-05-21T09:00:02.000Z',
+      },
+    ])
+
+    expect(result).toHaveLength(2)
+    expect(result[1]).toMatchObject({
+      id: 'a-1',
+      role: 'assistant',
+      metadata: {
+        persistedToolResults: [
+          {
+            id: 'tr-1',
+            toolName: 'create_client',
+            result: {
+              status: 'pending_approval',
+              request: { business_name: 'Acme NV' },
+            },
+          },
+        ],
+      },
+    })
+  })
+
+  it('falls back to JSON content for older tool_result rows without structured metadata', () => {
+    const result = mapServerHistoryToMessages([
+      {
+        id: 'a-1',
+        role: 'assistant',
+        content: 'Valuation is ready.',
+        created_at: '2026-05-21T09:00:01.000Z',
+      },
+      {
+        id: 'tr-1',
+        role: 'tool_result',
+        content: JSON.stringify({
+          status: 'pending_approval',
+          request: { report_id: 'report-1', methods: ['dcf'] },
+        }),
+        tool_name: 'run_valuation',
+        created_at: '2026-05-21T09:00:02.000Z',
+      },
+    ])
+
+    expect(result[0].metadata?.persistedToolResults?.[0]).toMatchObject({
+      toolName: 'run_valuation',
+      result: {
+        status: 'pending_approval',
+        request: { report_id: 'report-1', methods: ['dcf'] },
+      },
+    })
   })
 })

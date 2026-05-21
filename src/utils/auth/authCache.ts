@@ -6,7 +6,7 @@
  */
 
 export interface CachedAuthResult {
-  user: any
+  user: unknown
   timestamp: number
   expiresAt: number
 }
@@ -63,7 +63,7 @@ export class AuthCache {
   /**
    * Set cached auth result
    */
-  set(user: any, userId?: string): void {
+  set(user: unknown, userId?: string): void {
     const key = this.getCacheKey(userId)
     const now = Date.now()
 

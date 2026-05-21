@@ -9,9 +9,17 @@ export interface BusinessCard {
   company_name: string
   industry: string
   business_model: string
+  business_type_id?: string
   founding_year: number
-  employee_count: number
+  employee_count?: number
   country_code: string
+  kbo_number?: string
+  vat_number?: string
+  city?: string
+  postal_code?: string
+  legal_form?: string
+  nace_code?: string
+  nace_description?: string
   website?: string
   description?: string
 }
@@ -34,6 +42,7 @@ export interface User {
   // Business card fields
   company_name?: string
   business_type?: string
+  business_type_id?: string
   industry?: string
   founded_year?: number
   years_in_operation?: number
@@ -73,22 +82,7 @@ export interface AuthContextType {
   isLoading: boolean
   error: string | null
   refreshAuth: () => Promise<void>
-  businessCard: {
-    company_name: string
-    industry: string
-    business_model: string
-    founding_year: number
-    country_code: string
-    employee_count?: number
-    // Phase 1.1: Enhanced KBO registry fields
-    kbo_number?: string
-    vat_number?: string
-    city?: string
-    postal_code?: string
-    legal_form?: string
-    nace_code?: string
-    nace_description?: string
-  } | null
+  businessCard: BusinessCard | null
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)

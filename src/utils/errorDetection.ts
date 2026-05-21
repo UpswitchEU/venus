@@ -10,6 +10,26 @@
 import { AuthenticationError } from '../types/errors'
 
 const MAX_ERROR_CHAIN_DEPTH = 5
+type ErrorLikeRecord = Record<string, unknown>
+
+function asRecord(value: unknown): ErrorLikeRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as ErrorLikeRecord)
+    : null
+}
+
+function getStatusCode(error: unknown): number | undefined {
+  const record = asRecord(error)
+  const response = asRecord(record?.response)
+  const status = response?.status ?? record?.status ?? record?.statusCode
+  return typeof status === 'number' ? status : undefined
+}
+
+function getStringField(value: unknown, field: string): string | undefined {
+  const record = asRecord(value)
+  const fieldValue = record?.[field]
+  return typeof fieldValue === 'string' ? fieldValue : undefined
+}
 
 /**
  * Collects this error and nested `context.originalError` values (e.g. ApplicationError wrapping axios).
@@ -58,12 +78,7 @@ export function collectErrorChain(error: unknown): unknown[] {
  * ```
  */
 export function is409Conflict(error: unknown): boolean {
-  const axiosError = error as any
-  return (
-    axiosError?.response?.status === 409 ||
-    axiosError?.status === 409 ||
-    axiosError?.statusCode === 409
-  )
+  return getStatusCode(error) === 409
 }
 
 /**
@@ -73,12 +88,7 @@ export function is409Conflict(error: unknown): boolean {
  * @returns true if error is a 404 Not Found
  */
 export function is404NotFound(error: unknown): boolean {
-  const axiosError = error as any
-  return (
-    axiosError?.response?.status === 404 ||
-    axiosError?.status === 404 ||
-    axiosError?.statusCode === 404
-  )
+  return getStatusCode(error) === 404
 }
 
 /**
@@ -88,12 +98,7 @@ export function is404NotFound(error: unknown): boolean {
  * @returns true if error is a 401 Unauthorized
  */
 export function is401Unauthorized(error: unknown): boolean {
-  const axiosError = error as any
-  return (
-    axiosError?.response?.status === 401 ||
-    axiosError?.status === 401 ||
-    axiosError?.statusCode === 401
-  )
+  return getStatusCode(error) === 401
 }
 
 /**
@@ -103,12 +108,7 @@ export function is401Unauthorized(error: unknown): boolean {
  * @returns true if error is a 403 Forbidden
  */
 export function is403Forbidden(error: unknown): boolean {
-  const axiosError = error as any
-  return (
-    axiosError?.response?.status === 403 ||
-    axiosError?.status === 403 ||
-    axiosError?.statusCode === 403
-  )
+  return getStatusCode(error) === 403
 }
 
 /**
@@ -135,12 +135,7 @@ export function isAuthError(error: unknown): boolean {
  * @returns true if error is a 429 Rate Limit
  */
 export function is429RateLimit(error: unknown): boolean {
-  const axiosError = error as any
-  return (
-    axiosError?.response?.status === 429 ||
-    axiosError?.status === 429 ||
-    axiosError?.statusCode === 429
-  )
+  return getStatusCode(error) === 429
 }
 
 /**
@@ -167,8 +162,7 @@ export function is429RateLimit(error: unknown): boolean {
 export function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
-  const anyError = error as any
-  return anyError?.message || anyError?.error || 'Unknown error'
+  return getStringField(error, 'message') || getStringField(error, 'error') || 'Unknown error'
 }
 
 /**
@@ -178,6 +172,5 @@ export function extractErrorMessage(error: unknown): string {
  * @returns HTTP status code or undefined
  */
 export function extractStatusCode(error: unknown): number | undefined {
-  const axiosError = error as any
-  return axiosError?.response?.status || axiosError?.status || axiosError?.statusCode
+  return getStatusCode(error)
 }

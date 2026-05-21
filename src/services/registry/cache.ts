@@ -23,7 +23,7 @@ export class RegistryCache {
   /**
    * Get data from cache
    */
-  get(key: string): any | null {
+  get<T = unknown>(key: string): T | null {
     const entry = this.cache.get(key)
     if (!entry) return null
 
@@ -38,13 +38,13 @@ export class RegistryCache {
     // Update access order for LRU
     this.updateAccessOrder(key)
     serviceLogger.debug('Cache hit', { key })
-    return entry.data
+    return entry.data as T
   }
 
   /**
    * Set data in cache
    */
-  set(key: string, data: any): void {
+  set(key: string, data: unknown): void {
     // Implement LRU eviction if cache is full
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       this.evictLRU()

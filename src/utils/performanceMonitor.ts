@@ -10,7 +10,7 @@ interface PerformanceMetric {
   duration: number
   timestamp: number
   success: boolean
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 class PerformanceMonitor {
@@ -23,7 +23,7 @@ class PerformanceMonitor {
   async trackOperation<T>(
     operation: string,
     fn: () => Promise<T>,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<T> {
     const startTime = performance.now()
 
@@ -126,8 +126,8 @@ class PerformanceMonitor {
   async measure<T>(
     operation: string,
     fn: () => Promise<T>,
-    thresholdOrMetadata?: number | Record<string, any>,
-    metadata?: Record<string, any>
+    thresholdOrMetadata?: number | Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ): Promise<T> {
     // Handle both API signatures
     const actualMetadata = typeof thresholdOrMetadata === 'object' ? thresholdOrMetadata : metadata

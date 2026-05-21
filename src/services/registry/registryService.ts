@@ -69,7 +69,7 @@ export class RegistryService {
     const cacheKey = `search:${country}:${normalizedQuery}:${limit}`
 
     // Check cache first
-    const cached = this.cache.get(cacheKey)
+    const cached = this.cache.get<CompanySearchResponse>(cacheKey)
     if (cached) {
       serviceLogger.debug('Using cached search results', { query, country })
       return cached
@@ -309,7 +309,7 @@ export class RegistryService {
     const cacheKey = `financials:${country}:${companyId}`
 
     // Check cache first
-    const cached = this.cache.get(cacheKey)
+    const cached = this.cache.get<CompanyFinancialData>(cacheKey)
     if (cached) {
       serviceLogger.debug('Using cached financial data', { companyId, country })
       return cached

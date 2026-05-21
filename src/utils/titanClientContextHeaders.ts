@@ -14,9 +14,7 @@ function getTrimmedHeader(request: RequestWithHeaders, name: string): string | n
  * aliases, but always emits canonical names to Titan. Keeping this in one
  * place prevents AI-side routes from drifting apart.
  */
-export function getTitanClientContextHeaders(
-  request: RequestWithHeaders
-): Record<string, string> {
+export function getTitanClientContextHeaders(request: RequestWithHeaders): Record<string, string> {
   const headers: Record<string, string> = {}
   const clientUserId =
     getTrimmedHeader(request, CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID) ||

@@ -66,7 +66,7 @@ export class ReportService {
   async saveReportAssets(
     reportId: string,
     assets: {
-      sessionData?: any // ✅ NEW: Input data (form fields or collected data)
+      sessionData?: Record<string, unknown> // ✅ NEW: Input data (form fields or collected data)
       valuationResult?: ValuationResponse
       htmlReport?: string
       name?: string // Custom valuation name (e.g., "Amadeus report")
@@ -103,7 +103,7 @@ export class ReportService {
   private async _saveReportAssetsInternal(
     reportId: string,
     assets: {
-      sessionData?: any
+      sessionData?: Record<string, unknown>
       valuationResult?: ValuationResponse
       htmlReport?: string
       name?: string // Custom valuation name (e.g., "Amadeus report")
@@ -127,7 +127,7 @@ export class ReportService {
 
       // ✅ CRITICAL FIX: Ensure _client_context is included in sessionData for accountant-client workflows
       // This ensures backend can properly link the valuation to accountant_customers
-      let sessionDataWithContext = assets.sessionData || {}
+      let sessionDataWithContext: Record<string, unknown> = assets.sessionData || {}
       try {
         const { useClientContext } = await import('../../stores/clientContext')
         const clientContext = useClientContext.getState()

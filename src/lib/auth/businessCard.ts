@@ -74,6 +74,7 @@ export function buildBusinessCard(user: User | null) {
     company_name: user.company_name || 'Your Company',
     industry: getIndustry(user),
     business_model: user.business_type || 'other',
+    business_type_id: user.business_type_id,
     founding_year: user.founded_year || new Date().getFullYear() - (user.years_in_operation || 5),
     country_code: resolveBusinessCardCountry(user),
     employee_count: parseEmployeeCount(user.employee_count_range),

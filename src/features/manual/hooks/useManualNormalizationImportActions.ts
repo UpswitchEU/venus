@@ -5,6 +5,7 @@ import type {
   NormalizationItem,
   SuggestedNormalisation,
 } from '../../../components/calculator'
+import { useClientContext } from '../../../stores/clientContext'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import {
@@ -74,7 +75,10 @@ export function useManualNormalizationImportActions<
       try {
         const response = await fetch('/api/ai/normalize', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...useClientContext.getState().getContextHeaders(),
+          },
           credentials: 'include',
           body: JSON.stringify({
             sessionId: reportId,

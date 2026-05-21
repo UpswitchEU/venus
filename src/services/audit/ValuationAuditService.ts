@@ -24,13 +24,37 @@ export interface FieldChangeAudit {
   reportId: string
   field: string
   fieldLabel: string
-  oldValue: any
-  newValue: any
+  oldValue: unknown
+  newValue: unknown
   changeType: 'addition' | 'modification' | 'deletion'
   percentChange?: number
   timestamp: Date
   userId?: string
   correlationId?: string
+}
+
+type FieldChangeMetadata = {
+  field: string
+  fieldLabel?: string
+  oldValue?: unknown
+  newValue?: unknown
+  changeType?: FieldChangeAudit['changeType']
+  percentChange?: number
+}
+
+type FieldChangeAuditEntry = SessionAuditEntry & {
+  operation: 'EDIT'
+  metadata: FieldChangeMetadata
+}
+
+function isFieldChangeAuditEntry(entry: SessionAuditEntry): entry is FieldChangeAuditEntry {
+  return entry.operation === 'EDIT' && typeof entry.metadata.field === 'string'
+}
+
+function csvCell(value: unknown): string {
+  if (value == null) return ''
+  const raw = typeof value === 'string' ? value : JSON.stringify(value)
+  return `"${raw.replace(/"/g, '""')}"`
 }
 
 /**
@@ -112,8 +136,8 @@ export class ValuationAuditService {
     reportId: string,
     field: string,
     fieldLabel: string,
-    oldValue: any,
-    newValue: any,
+    oldValue: unknown,
+    newValue: unknown,
     userId?: string
   ): SessionAuditEntry {
     // Calculate percent change for numeric fields
@@ -259,7 +283,7 @@ export class ValuationAuditService {
    */
   getFieldChanges(reportId: string): Array<SessionAuditEntry & { metadata: { field: string } }> {
     const allEntries = globalAuditTrail.getByReportId(reportId)
-    return allEntries.filter((entry) => entry.operation === 'EDIT') as any
+    return allEntries.filter(isFieldChangeAuditEntry)
   }
 
   /**
@@ -356,20 +380,19 @@ export class ValuationAuditService {
       'userId',
     ]
 
-    const rows = entries
-      .filter((e) => e.operation === 'EDIT')
-      .map((entry) => [
+    const rows = entries.filter(isFieldChangeAuditEntry).map((entry) => {
+      const { metadata } = entry
+      return [
         entry.timestamp.toISOString(),
         entry.operation,
-        (entry.metadata as any).field || '',
-        (entry.metadata as any).oldValue || '',
-        (entry.metadata as any).newValue || '',
-        (entry.metadata as any).changeType || '',
-        typeof (entry.metadata as any).percentChange === 'number'
-          ? (entry.metadata as any).percentChange.toFixed(2)
-          : '',
+        metadata.field,
+        metadata.oldValue,
+        metadata.newValue,
+        metadata.changeType,
+        typeof metadata.percentChange === 'number' ? metadata.percentChange.toFixed(2) : '',
         entry.userId || 'guest',
-      ])
+      ].map(csvCell)
+    })
 
     return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n')
   }

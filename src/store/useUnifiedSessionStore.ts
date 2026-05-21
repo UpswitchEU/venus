@@ -27,7 +27,7 @@ interface SessionStore {
   loadSession: (sessionKey: string) => Promise<void>
   createSession: (
     type?: 'valuation' | 'onboarding' | 'assessment',
-    data?: Record<string, any>
+    data?: Record<string, unknown>
   ) => Promise<Session>
   updateSession: (updates: Partial<Session>) => Promise<void>
   clearSession: () => void
@@ -36,6 +36,18 @@ interface SessionStore {
   setSession: (session: Session | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+}
+
+function getHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const response = (error as Record<string, unknown>).response
+  if (!response || typeof response !== 'object') return undefined
+  const status = (response as Record<string, unknown>).status
+  return typeof status === 'number' ? status : undefined
+}
+
+function getErrorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined
 }
 
 /**
@@ -72,9 +84,9 @@ export const useUnifiedSessionStore = create<SessionStore>()(
             },
             '[UnifiedSessionStore] Session loaded successfully'
           )
-        } catch (error: any) {
+        } catch (error) {
           const errorMessage =
-            error?.response?.status === 404 ? 'Session not found' : 'Failed to load session'
+            getHttpStatus(error) === 404 ? 'Session not found' : 'Failed to load session'
 
           set({ error: errorMessage, isLoading: false })
 
@@ -110,7 +122,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
           )
 
           return session
-        } catch (error: any) {
+        } catch (error) {
           const errorMessage = 'Failed to create session'
           set({ error: errorMessage, isLoading: false })
 
@@ -164,14 +176,14 @@ export const useUnifiedSessionStore = create<SessionStore>()(
             },
             '[UnifiedSessionStore] Session updated successfully'
           )
-        } catch (error: any) {
+        } catch (error) {
           // Rollback on error
           set({ session: currentSession, error: 'Failed to save session' })
 
           logger.error(
             {
               session_key: currentSession.session_key.substring(0, 30) + '...',
-              error: error?.message,
+              error: getErrorMessage(error),
             },
             '[UnifiedSessionStore] Failed to update session, rolled back'
           )

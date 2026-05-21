@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { convertToApplicationError } from '../utils/errors/errorConverter'
-import { isNetworkError, isNotFoundError } from '../utils/errors/errorGuards'
 import { generalLogger } from '../utils/logger'
 
 // Note: Owner Dependency UI has been removed. This hook is kept for backward compatibility
 // and future backend integration, but the assessment is now handled conversationally.
-type OwnerDependencyFactors = Record<string, any>
+type OwnerDependencyFactors = Record<string, unknown>
 
 interface ProfileData {
   owner_dependency_assessment?: OwnerDependencyFactors
@@ -35,7 +34,7 @@ export const useProfileData = (): UseProfileDataReturn => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -59,11 +58,11 @@ export const useProfileData = (): UseProfileDataReturn => {
         const appError = convertToApplicationError(error)
 
         // If profile doesn't exist (404), that's OK - user hasn't created profile yet
-        if (isNotFoundError(appError)) {
+        if (appError.code === 'NOT_FOUND') {
           generalLogger.debug(
             '[useProfileData] Profile not found - user may not have created profile yet',
             {
-              code: (appError as any).code,
+              code: appError.code,
             }
           )
           setProfileData(null)
@@ -75,31 +74,31 @@ export const useProfileData = (): UseProfileDataReturn => {
       const appError = convertToApplicationError(error)
 
       // Log with specific error type
-      if (isNetworkError(appError)) {
+      if (appError.code === 'NETWORK_ERROR') {
         generalLogger.error('[useProfileData] Error fetching profile - network error', {
-          error: (appError as any).message,
-          code: (appError as any).code,
-          context: (appError as any).context,
+          error: appError.message,
+          code: appError.code,
+          context: appError.context,
         })
-      } else if (isNotFoundError(appError)) {
+      } else if (appError.code === 'NOT_FOUND') {
         generalLogger.debug('[useProfileData] Profile not found', {
-          error: (appError as any).message,
-          code: (appError as any).code,
+          error: appError.message,
+          code: appError.code,
         })
       } else {
         generalLogger.error('[useProfileData] Error fetching profile', {
-          error: (appError as any).message,
-          code: (appError as any).code,
-          context: (appError as any).context,
+          error: appError.message,
+          code: appError.code,
+          context: appError.context,
         })
       }
 
-      setError(appError as Error)
+      setError(appError)
       setProfileData(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchProfile()

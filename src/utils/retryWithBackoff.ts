@@ -23,7 +23,7 @@ export interface RetryOptions {
   /** Multiplier for each retry (default: 2x) */
   backoffMultiplier?: number
   /** Only retry specific error types (default: all retryable errors) */
-  retryableErrors?: Array<new (...args: any[]) => Error>
+  retryableErrors?: Array<new (...args: never[]) => Error>
   /** Callback on each retry attempt */
   onRetry?: (attempt: number, error: Error, delay: number) => void
   /** Callback on final failure */

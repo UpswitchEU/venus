@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
+import type { SessionDataRecord } from '../services/session/SessionEngine'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 
@@ -74,7 +75,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
   const _saveSession = useSessionStore((state) => state.saveSession)
 
   // Ref to store pending changes
-  const pendingChangesRef = useRef<Partial<any>>({})
+  const pendingChangesRef = useRef<Partial<SessionDataRecord>>({})
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   // Mount tracking lives in the shared `useIsMountedRef` utility — every
   // `await`-then-`setState` path below reads `isMountedRef.current` before
@@ -101,7 +102,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
    * 5. Revert on error
    */
   const updateField = useCallback(
-    (fieldName: string, value: any) => {
+    (fieldName: string, value: unknown) => {
       if (!reportId) {
         generalLogger.warn('[OptimisticAutosave] No reportId, skipping autosave')
         return
@@ -196,7 +197,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
    * Update multiple fields at once
    */
   const updateFields = useCallback(
-    (fields: Record<string, any>) => {
+    (fields: Partial<SessionDataRecord>) => {
       if (!reportId) {
         generalLogger.warn('[OptimisticAutosave] No reportId, skipping autosave')
         return

@@ -180,6 +180,12 @@ export async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegis
  * Request background sync
  * Queues failed requests to retry when online
  */
+type ServiceWorkerRegistrationWithSync = ServiceWorkerRegistration & {
+  sync?: {
+    register: (tag: string) => Promise<void>
+  }
+}
+
 export async function requestBackgroundSync(tag: string = 'sync-valuation-data'): Promise<void> {
   if (!isServiceWorkerSupported()) {
     generalLogger.warn('[ServiceWorker] Background sync not supported')
@@ -188,9 +194,10 @@ export async function requestBackgroundSync(tag: string = 'sync-valuation-data')
 
   try {
     const registration = await navigator.serviceWorker.ready
+    const registrationWithSync = registration as ServiceWorkerRegistrationWithSync
 
-    if ('sync' in registration) {
-      await (registration as any).sync.register(tag)
+    if (registrationWithSync.sync) {
+      await registrationWithSync.sync.register(tag)
       generalLogger.info('[ServiceWorker] Background sync requested', { tag })
     } else {
       generalLogger.warn('[ServiceWorker] Background Sync API not supported')

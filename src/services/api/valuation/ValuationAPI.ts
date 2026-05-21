@@ -15,7 +15,7 @@ import {
   RateLimitError,
   ValidationError,
 } from '../../../types/errors'
-import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
+import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
@@ -33,6 +33,52 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
  * - Venus never times out before backend completes
  */
 const VALUATION_TIMEOUT_MS = 120000 // 120 seconds for complex calculations
+type UnknownRecord = Record<string, unknown>
+type ValuationDataSource = 'manual' | 'ai-guided' | 'instant'
+type ValuationCalculateRequest = ValuationRequest & { dataSource: ValuationDataSource }
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function toCalculateRequest(
+  data: ValuationRequest,
+  dataSource: ValuationDataSource
+): ValuationCalculateRequest {
+  return {
+    ...data,
+    dataSource,
+  }
+}
+
+function normalizeValuationDataSource(data: ValuationRequest): ValuationDataSource {
+  const requested = (data as ValuationRequest & { dataSource?: unknown }).dataSource
+  if (requested === 'conversational' || requested === 'ai-guided') {
+    return 'ai-guided'
+  }
+  if (requested === 'instant') {
+    return 'instant'
+  }
+  return 'manual'
+}
+
+function getErrorResponse(error: unknown): { status?: number; data?: unknown; code?: string } {
+  const errorRecord = asRecord(error)
+  const response = asRecord(errorRecord?.response)
+  const status = typeof response?.status === 'number' ? response.status : undefined
+
+  return {
+    status,
+    data: response?.data,
+    code: asString(errorRecord?.code) ?? undefined,
+  }
+}
 
 function extractValidationIssues(errors: unknown): Array<{ field?: string; message: string }> {
   if (!Array.isArray(errors)) {
@@ -73,15 +119,11 @@ function extractValidationIssues(errors: unknown): Array<{ field?: string; messa
     .filter((issue): issue is { field?: string; message: string } => issue !== null)
 }
 
-function extractValidationMessage(responseData: any, fallback: string): string {
-  const explicitMessage =
-    typeof responseData?.message === 'string'
-      ? responseData.message
-      : typeof responseData?.error === 'string'
-        ? responseData.error
-        : null
+function extractValidationMessage(responseData: unknown, fallback: string): string {
+  const response = asRecord(responseData)
+  const explicitMessage = asString(response?.message) ?? asString(response?.error) ?? null
 
-  const issues = extractValidationIssues(responseData?.errors)
+  const issues = extractValidationIssues(response?.errors)
   const issueSummary =
     issues.length > 0
       ? issues
@@ -106,12 +148,9 @@ export class ValuationAPI extends HttpClient {
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
-          data: {
-            ...data,
-            dataSource: 'manual',
-          },
+          data: toCalculateRequest(data, 'manual'),
           headers: {},
-        } as any,
+        },
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
@@ -144,12 +183,9 @@ export class ValuationAPI extends HttpClient {
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
-          data: {
-            ...data,
-            dataSource: 'ai-guided',
-          },
+          data: toCalculateRequest(data, 'ai-guided'),
           headers: {},
-        } as any,
+        },
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
@@ -180,12 +216,9 @@ export class ValuationAPI extends HttpClient {
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
-          data: {
-            ...data,
-            dataSource: 'instant',
-          },
+          data: toCalculateRequest(data, 'instant'),
           headers: {},
-        } as any,
+        },
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
@@ -213,14 +246,8 @@ export class ValuationAPI extends HttpClient {
     try {
       // Map frontend 'conversational' to backend 'ai-guided'
       // Note: dataSource is not part of ValuationRequest type, so we add it to the request data
-      const dataSource =
-        (data as any).dataSource === 'conversational'
-          ? 'ai-guided'
-          : (data as any).dataSource || 'manual'
-      const backendData = {
-        ...data,
-        dataSource,
-      } as any
+      const dataSource = normalizeValuationDataSource(data)
+      const backendData = toCalculateRequest(data, dataSource)
 
       // Use unified endpoint - backend determines credit cost based on dataSource
       return await this.executeRequest<ValuationResponse>(
@@ -229,7 +256,7 @@ export class ValuationAPI extends HttpClient {
           url: '/api/v2/valuations/calculate',
           data: backendData,
           headers: {},
-        } as any,
+        },
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
@@ -263,13 +290,12 @@ export class ValuationAPI extends HttpClient {
           url: '/api/v2/valuations/preview-html',
           data,
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
       apiLogger.error('Failed to generate preview HTML', { error })
-      const axiosError = error as any
-      const statusCode = axiosError?.response?.status
+      const { status: statusCode } = getErrorResponse(error)
       throw new APIError('Failed to generate valuation preview', statusCode, undefined, true, {
         originalError: error,
       })
@@ -314,7 +340,7 @@ export class ValuationAPI extends HttpClient {
             ...(options?.clear_preparer_override ? { clear_preparer_override: true } : {}),
           },
           headers: {},
-        } as any,
+        },
         { timeout: 30_000 }
       )
     } catch (error) {
@@ -333,9 +359,8 @@ export class ValuationAPI extends HttpClient {
   private handleValuationError(error: unknown, operation: string): never {
     apiLogger.error(`Valuation ${operation} failed`, { error })
 
-    const axiosError = error as any
-    const status = axiosError?.response?.status
-    const responseData = axiosError?.response?.data
+    const { status, data: responseData, code } = getErrorResponse(error)
+    const response = asRecord(responseData)
 
     if (status === 429) {
       throw new RateLimitError('Too many valuation requests. Please wait before trying again.')
@@ -351,30 +376,25 @@ export class ValuationAPI extends HttpClient {
 
     if (status === 400 || status === 422) {
       const message = extractValidationMessage(responseData, 'Invalid valuation data provided.')
-      const field =
-        typeof responseData?.field === 'string'
-          ? responseData.field
-          : extractValidationIssues(responseData?.errors)[0]?.field
+      const field = asString(response?.field) ?? extractValidationIssues(response?.errors)[0]?.field
 
-      const nestedMsg = responseData?.message
-      const codeFromBody =
-        typeof nestedMsg === 'object' && nestedMsg !== null && 'code' in nestedMsg
-          ? (nestedMsg as { code?: string }).code
-          : responseData?.code
+      const nestedMsg = response?.message
+      const nestedMsgRecord = asRecord(nestedMsg)
+      const codeFromBody = asString(nestedMsgRecord?.code) ?? asString(response?.code)
 
       throw new ValidationError(message, field, undefined, {
         status,
         code: codeFromBody,
-        hint: responseData?.hint,
-        errors: responseData?.errors,
+        hint: response?.hint,
+        errors: response?.errors,
       })
     }
 
     if (
-      axiosError?.code === 'ECONNABORTED' ||
-      axiosError?.code === 'ENOTFOUND' ||
-      axiosError?.code === 'ECONNREFUSED' ||
-      axiosError?.code === 'ECONNRESET' ||
+      code === 'ECONNABORTED' ||
+      code === 'ENOTFOUND' ||
+      code === 'ECONNREFUSED' ||
+      code === 'ECONNRESET' ||
       status === 503
     ) {
       throw new NetworkError('Service temporarily unavailable. Please try again in a moment.')

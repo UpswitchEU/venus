@@ -8,6 +8,7 @@
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect } from 'react'
 import {
+  type AnalyticsEventParameters,
   analyticsConfig,
   trackError,
   trackEvent,
@@ -15,6 +16,38 @@ import {
   trackValuationJourney,
   ValuationEvents,
 } from '../config/analytics'
+
+type AnalyticsPayload = AnalyticsEventParameters
+
+type FirstInputPerformanceEntry = PerformanceEntry & {
+  processingStart?: number
+}
+
+type LayoutShiftPerformanceEntry = PerformanceEntry & {
+  hadRecentInput?: boolean
+  value?: number
+}
+
+function asPayload(value: unknown): AnalyticsPayload {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as AnalyticsPayload)
+    : {}
+}
+
+function getString(payload: AnalyticsPayload, key: string): string | undefined {
+  const value = payload[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getNumber(payload: AnalyticsPayload, key: string): number | undefined {
+  const value = payload[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function getValuationMethod(payload: AnalyticsPayload): 'manual' | 'registry' | 'document' {
+  const method = getString(payload, 'method')
+  return method === 'manual' || method === 'registry' || method === 'document' ? method : 'manual'
+}
 
 export const useAnalytics = () => {
   const location = usePathname()
@@ -29,41 +62,46 @@ export const useAnalytics = () => {
   }, [location])
 
   // Track valuation journey
-  const trackValuation = useCallback((action: string, data?: any) => {
+  const trackValuation = useCallback((action: string, data?: AnalyticsPayload) => {
+    const payload = asPayload(data)
     switch (action) {
       case 'started':
-        trackValuationJourney.started(data.method || 'manual')
+        trackValuationJourney.started(getValuationMethod(payload))
         break
       case 'completed':
         trackValuationJourney.completed(
-          data.valuationAmount || 0,
-          data.confidence || 0,
-          data.method || 'unknown'
+          getNumber(payload, 'valuationAmount') ?? 0,
+          getNumber(payload, 'confidence') ?? 0,
+          getString(payload, 'method') ?? 'unknown'
         )
         break
       case 'exported':
-        trackValuationJourney.exported(data.format || 'json')
+        trackValuationJourney.exported(getString(payload, 'format') === 'pdf' ? 'pdf' : 'json')
         break
       case 'abandoned':
-        trackValuationJourney.abandoned(data.step || 'unknown', data.reason)
+        trackValuationJourney.abandoned(
+          getString(payload, 'step') ?? 'unknown',
+          getString(payload, 'reason')
+        )
         break
       default:
-        trackEvent(action, data)
+        trackEvent(action, payload)
     }
   }, [])
 
   // Track performance metrics
   const trackPerformanceMetric = useCallback(
-    (metric: string, value: number, context?: any) => {
+    (metric: string, value: number, context?: AnalyticsPayload) => {
+      const payload = asPayload(context)
       switch (metric) {
         case 'calculation_time':
-          trackPerformance.calculationTime(value, context?.method || 'unknown')
+          trackPerformance.calculationTime(value, getString(payload, 'method') ?? 'unknown')
           break
         case 'page_load_time':
-          trackPerformance.pageLoadTime(value, context?.page || location)
+          trackPerformance.pageLoadTime(value, getString(payload, 'page') ?? location)
           break
         default:
-          trackEvent(metric, { value, ...context })
+          trackEvent(metric, { value, ...payload })
       }
     },
     [location]
@@ -75,7 +113,7 @@ export const useAnalytics = () => {
   }, [])
 
   // Track form interactions
-  const trackFormInteraction = useCallback((action: string, field?: string, value?: any) => {
+  const trackFormInteraction = useCallback((action: string, field?: string, value?: unknown) => {
     trackEvent('form_interaction', {
       action,
       field,
@@ -99,10 +137,10 @@ export const useAnalytics = () => {
   )
 
   // Track user engagement
-  const trackEngagement = useCallback((action: string, data?: any) => {
+  const trackEngagement = useCallback((action: string, data?: AnalyticsPayload) => {
     trackEvent('user_engagement', {
       action,
-      ...data,
+      ...asPayload(data),
       timestamp: new Date().toISOString(),
     })
   }, [])
@@ -209,8 +247,13 @@ export const usePerformanceAnalytics = () => {
       // Track First Input Delay (FID)
       new PerformanceObserver((list) => {
         const entries = list.getEntries()
-        entries.forEach((entry: any) => {
-          analytics.trackPerformanceMetric('fid', entry.processingStart - entry.startTime)
+        entries.forEach((entry) => {
+          const firstInputEntry = entry as FirstInputPerformanceEntry
+          analytics.trackPerformanceMetric(
+            'fid',
+            (firstInputEntry.processingStart ?? firstInputEntry.startTime) -
+              firstInputEntry.startTime
+          )
         })
       }).observe({ entryTypes: ['first-input'] })
 
@@ -218,9 +261,10 @@ export const usePerformanceAnalytics = () => {
       let clsValue = 0
       new PerformanceObserver((list) => {
         const entries = list.getEntries()
-        entries.forEach((entry: any) => {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value
+        entries.forEach((entry) => {
+          const layoutShiftEntry = entry as LayoutShiftPerformanceEntry
+          if (!layoutShiftEntry.hadRecentInput) {
+            clsValue += layoutShiftEntry.value ?? 0
           }
         })
         analytics.trackPerformanceMetric('cls', clsValue)

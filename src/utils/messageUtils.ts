@@ -14,13 +14,13 @@ export interface Message {
   timestamp: Date
   isStreaming?: boolean
   isComplete?: boolean
-  metadata?: any
+  metadata?: unknown
 }
 
 /**
  * Type guard to ensure message is valid
  */
-export const isValidMessage = (msg: any): msg is Message => {
+export const isValidMessage = (msg: unknown): msg is Message => {
   return (
     msg !== null &&
     msg !== undefined &&
@@ -37,7 +37,7 @@ export const isValidMessage = (msg: any): msg is Message => {
 export const createMessage = (
   type: 'user' | 'ai' | 'system',
   content: string,
-  metadata?: any
+  metadata?: unknown
 ): Message => ({
   id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   type,
@@ -54,7 +54,7 @@ export const createMessage = (
 export const createStreamingMessage = (
   type: 'user' | 'ai' | 'system',
   content: string = '',
-  metadata?: any
+  metadata?: unknown
 ): Message => ({
   id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   type,
@@ -85,7 +85,7 @@ export const updateMessageContent = (message: Message, content: string): Message
 /**
  * Filter valid messages from an array
  */
-export const filterValidMessages = (messages: any[]): Message[] => {
+export const filterValidMessages = (messages: unknown[]): Message[] => {
   return messages.filter(isValidMessage)
 }
 
@@ -93,13 +93,13 @@ export const filterValidMessages = (messages: any[]): Message[] => {
  * Ensure messages array contains only valid messages
  * Logs warnings for invalid messages found
  */
-export const ensureValidMessages = (messages: any[]): Message[] => {
-  const validMessages = messages.filter((msg, index) => {
+export const ensureValidMessages = (messages: unknown[]): Message[] => {
+  const validMessages: Message[] = []
+  messages.forEach((msg, index) => {
     if (isValidMessage(msg)) {
-      return true
+      validMessages.push(msg)
     } else {
       generalLogger.warn(`Invalid message at index ${index}`, { message: msg })
-      return false
     }
   })
 

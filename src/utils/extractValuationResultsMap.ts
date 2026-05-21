@@ -11,6 +11,10 @@
  */
 import type { ValuationMethodResult } from '@/types/valuation'
 
+type UnknownRecord = Record<string, unknown>
+type MethodResultRow = ValuationMethodResult & UnknownRecord
+type MethodResultMap = Record<string, MethodResultRow>
+
 export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
 }
@@ -114,6 +118,18 @@ export function isRevenueMethodologyKey(methodKey: string): boolean {
   return REVENUE_METHOD_KEYS.has(methodKey)
 }
 
+function isRecord(value: unknown): value is UnknownRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return isRecord(value) ? value : null
+}
+
+function nestedRecord(value: UnknownRecord | null | undefined, key: string): UnknownRecord | null {
+  return value ? asRecord(value[key]) : null
+}
+
 export function normalizeSelectedMethodKey(methodKey: unknown): string {
   if (methodKey == null) return ''
   const raw = String(methodKey).trim().toLowerCase().replace(/-/g, '_')
@@ -136,7 +152,7 @@ function isHybridMethodKey(methodKey: unknown): boolean {
   return normalized === 'hybrid' || normalized === 'hybrid_dcf' || normalized === 'hybrid_valuation'
 }
 
-function withMethodAliases(map: Record<string, any> | null): Record<string, any> | null {
+function withMethodAliases(map: MethodResultMap | null): MethodResultMap | null {
   if (!map || typeof map !== 'object' || Array.isArray(map)) {
     return map
   }
@@ -155,45 +171,49 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function getCanonicalReportContext(
-  valuationResult: Record<string, any>
-): Record<string, any> | null {
-  const vr = valuationResult.valuation_result
-  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+function getCanonicalReportContext(valuationResult: UnknownRecord): UnknownRecord | null {
+  const nested = nestedRecord(valuationResult, 'valuation_result')
+  const details = nestedRecord(valuationResult, 'details')
+  const nestedDetails = nestedRecord(nested, 'details')
   const candidates = [
     valuationResult.report_context,
-    valuationResult.details?.report_context,
+    details?.report_context,
     nested?.report_context,
-    nested?.details?.report_context,
+    nestedDetails?.report_context,
   ]
 
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
-      return candidate as Record<string, any>
+    const record = asRecord(candidate)
+    if (record) {
+      return record
     }
   }
   return null
 }
 
-function getCanonicalDcfValuation(
-  valuationResult: Record<string, any>
-): Record<string, any> | null {
-  const vr = valuationResult.valuation_result
-  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+function getCanonicalDcfValuation(valuationResult: UnknownRecord): UnknownRecord | null {
+  const nested = nestedRecord(valuationResult, 'valuation_result')
+  const details = nestedRecord(valuationResult, 'details')
+  const nestedDetails = nestedRecord(nested, 'details')
+  const reportContext = nestedRecord(valuationResult, 'report_context')
+  const detailsReportContext = nestedRecord(details, 'report_context')
+  const nestedReportContext = nestedRecord(nested, 'report_context')
+  const nestedDetailsReportContext = nestedRecord(nestedDetails, 'report_context')
   const candidates = [
     valuationResult.dcf_valuation,
-    valuationResult.details?.dcf_valuation,
+    details?.dcf_valuation,
     nested?.dcf_valuation,
-    nested?.details?.dcf_valuation,
-    valuationResult.report_context?.dcf_valuation,
-    valuationResult.details?.report_context?.dcf_valuation,
-    nested?.report_context?.dcf_valuation,
-    nested?.details?.report_context?.dcf_valuation,
+    nestedDetails?.dcf_valuation,
+    reportContext?.dcf_valuation,
+    detailsReportContext?.dcf_valuation,
+    nestedReportContext?.dcf_valuation,
+    nestedDetailsReportContext?.dcf_valuation,
   ]
 
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
-      return candidate as Record<string, any>
+    const record = asRecord(candidate)
+    if (record) {
+      return record
     }
   }
 
@@ -201,24 +221,23 @@ function getCanonicalDcfValuation(
 }
 
 function normalizeAdaptiveMethod(
-  map: Record<string, any>,
-  valuationResult: Record<string, any>
-): Record<string, any> {
+  map: MethodResultMap,
+  valuationResult: UnknownRecord
+): MethodResultMap {
   const adaptive = map.upswitch_adaptive
   if (!adaptive || typeof adaptive !== 'object') return map
 
   const reportContext = getCanonicalReportContext(valuationResult)
+  const nested = nestedRecord(valuationResult, 'valuation_result')
   const canonicalMultiple =
     toFiniteNumber(reportContext?.applied_multiple) ??
-    toFiniteNumber(valuationResult.valuation_result?.multiple) ??
+    toFiniteNumber(nested?.multiple) ??
     toFiniteNumber(valuationResult.multiple) ??
     null
   const multipleLow = toFiniteNumber(reportContext?.multiple_low)
   const multipleHigh = toFiniteNumber(reportContext?.multiple_high)
-  const details =
-    adaptive.details && typeof adaptive.details === 'object' && !Array.isArray(adaptive.details)
-      ? { ...adaptive.details }
-      : {}
+  const adaptiveDetails = asRecord(adaptive.details)
+  const details = adaptiveDetails ? { ...adaptiveDetails } : {}
 
   if (multipleLow != null && details.p25_multiple == null) {
     details.p25_multiple = multipleLow
@@ -237,32 +256,22 @@ function normalizeAdaptiveMethod(
   }
 }
 
-function enrichDcfMethod(
-  map: Record<string, any>,
-  valuationResult: Record<string, any>
-): Record<string, any> {
+function enrichDcfMethod(map: MethodResultMap, valuationResult: UnknownRecord): MethodResultMap {
   const dcf = map.dcf
   if (!dcf || typeof dcf !== 'object' || Array.isArray(dcf)) return map
 
   const dcfValuation = getCanonicalDcfValuation(valuationResult)
   if (!dcfValuation) return map
 
-  const details =
-    dcf.details && typeof dcf.details === 'object' && !Array.isArray(dcf.details)
-      ? { ...dcf.details }
-      : {}
+  const dcfDetails = asRecord(dcf.details)
+  const details = dcfDetails ? { ...dcfDetails } : {}
 
   const enterpriseValue = toFiniteNumber(dcfValuation.enterprise_value)
   const wacc = toFiniteNumber(dcfValuation.wacc)
   const terminalValue = toFiniteNumber(dcfValuation.terminal_value)
   const terminalValuePct = toFiniteNumber(dcfValuation.terminal_value_pct_of_total)
   const explicitForecastPct = toFiniteNumber(dcfValuation.explicit_forecast_pct_of_total)
-  const readiness =
-    dcfValuation.historical_fcf_readiness &&
-    typeof dcfValuation.historical_fcf_readiness === 'object' &&
-    !Array.isArray(dcfValuation.historical_fcf_readiness)
-      ? dcfValuation.historical_fcf_readiness
-      : null
+  const readiness = asRecord(dcfValuation.historical_fcf_readiness)
 
   if (details.enterprise_value == null && enterpriseValue != null) {
     details.enterprise_value = enterpriseValue
@@ -318,18 +327,20 @@ function enrichDcfMethod(
 }
 
 function resolveSelectedMethodForSynthesis(
-  valuationResult: Record<string, any>,
+  valuationResult: UnknownRecord,
   context?: ExtractValuationResultsContext | null
 ): string {
   const fromContext = normalizeSelectedMethodKey(context?.selectedValuationMethod)
   if (fromContext) return fromContext
 
   const rc = getCanonicalReportContext(valuationResult)
+  const details = nestedRecord(valuationResult, 'details')
+  const nested = nestedRecord(valuationResult, 'valuation_result')
   const candidates = [
     rc?.selected_valuation_method,
     valuationResult?.selected_valuation_method,
-    valuationResult?.details?.selected_valuation_method,
-    valuationResult?.valuation_result?.selected_valuation_method,
+    details?.selected_valuation_method,
+    nested?.selected_valuation_method,
   ]
   for (const c of candidates) {
     const normalized = normalizeSelectedMethodKey(c)
@@ -339,18 +350,20 @@ function resolveSelectedMethodForSynthesis(
 }
 
 function resolveExplicitSelectedMethod(
-  valuationResult: Record<string, any>,
+  valuationResult: UnknownRecord,
   context?: ExtractValuationResultsContext | null
 ): string {
   const fromContext = normalizeSelectedMethodKey(context?.selectedValuationMethod)
   if (fromContext) return fromContext
 
   const rc = getCanonicalReportContext(valuationResult)
+  const details = nestedRecord(valuationResult, 'details')
+  const nested = nestedRecord(valuationResult, 'valuation_result')
   const candidates = [
     rc?.selected_valuation_method,
     valuationResult?.selected_valuation_method,
-    valuationResult?.details?.selected_valuation_method,
-    valuationResult?.valuation_result?.selected_valuation_method,
+    details?.selected_valuation_method,
+    nested?.selected_valuation_method,
   ]
   for (const c of candidates) {
     const normalized = normalizeSelectedMethodKey(c)
@@ -359,34 +372,42 @@ function resolveExplicitSelectedMethod(
   return ''
 }
 
-function hasWeightedSynthesisPayload(valuationResult: Record<string, any>): boolean {
+function hasWeightedSynthesisPayload(valuationResult: UnknownRecord): boolean {
+  const details = nestedRecord(valuationResult, 'details')
+  const reportContext = nestedRecord(valuationResult, 'report_context')
+  const detailsReportContext = nestedRecord(details, 'report_context')
+  const nested = nestedRecord(valuationResult, 'valuation_result')
+  const nestedDetails = nestedRecord(nested, 'details')
+  const nestedReportContext = nestedRecord(nested, 'report_context')
+  const nestedDetailsReportContext = nestedRecord(nestedDetails, 'report_context')
   const candidates = [
     valuationResult,
     valuationResult.weighted_valuation,
-    valuationResult.details,
-    valuationResult.report_context,
-    valuationResult.details?.report_context,
-    valuationResult.valuation_result,
-    valuationResult.valuation_result?.details,
-    valuationResult.valuation_result?.report_context,
-    valuationResult.valuation_result?.details?.report_context,
+    details,
+    reportContext,
+    detailsReportContext,
+    nested,
+    nestedDetails,
+    nestedReportContext,
+    nestedDetailsReportContext,
   ]
 
   return candidates.some((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+    const record = asRecord(candidate)
+    if (!record) return false
     return (
-      candidate.has_weighted_synthesis === true ||
-      candidate.synthesis_blended_value != null ||
-      candidate.blended_equity_value != null
+      record.has_weighted_synthesis === true ||
+      record.synthesis_blended_value != null ||
+      record.blended_equity_value != null
     )
   })
 }
 
 function pruneStaleDcfMethod(
-  map: Record<string, any>,
-  valuationResult: Record<string, any>,
+  map: MethodResultMap,
+  valuationResult: UnknownRecord,
   context?: ExtractValuationResultsContext | null
-): Record<string, any> | null {
+): MethodResultMap | null {
   if (!map.dcf) return map
 
   const selectedMethod = resolveExplicitSelectedMethod(valuationResult, context)
@@ -418,51 +439,52 @@ function getFallbackMethodLabel(methodKey: string): string {
 }
 
 function extractRevenueForMethodEligibility(
-  valuationResult: Record<string, any>,
-  reportContext: Record<string, any>,
-  nested: Record<string, any> | null
+  valuationResult: UnknownRecord,
+  reportContext: UnknownRecord,
+  nested: UnknownRecord | null
 ): number | null {
+  const currentYearData = nestedRecord(valuationResult, 'current_year_data')
+  const details = nestedRecord(valuationResult, 'details')
+  const nestedCurrentYearData = nestedRecord(nested, 'current_year_data')
   return (
     toFiniteNumber(reportContext.revenue) ??
     toFiniteNumber(reportContext.turnover) ??
-    toFiniteNumber(valuationResult.current_year_data?.revenue) ??
+    toFiniteNumber(currentYearData?.revenue) ??
     toFiniteNumber(valuationResult.revenue) ??
     toFiniteNumber(valuationResult.turnover) ??
-    toFiniteNumber(valuationResult.details?.revenue) ??
-    toFiniteNumber(nested?.current_year_data?.revenue) ??
+    toFiniteNumber(details?.revenue) ??
+    toFiniteNumber(nestedCurrentYearData?.revenue) ??
     toFiniteNumber(nested?.revenue) ??
     null
   )
 }
 
 function collectExplicitAssetBasedDetails(
-  valuationResult: Record<string, any>,
-  reportContext: Record<string, any>,
-  nested: Record<string, any> | null
+  valuationResult: UnknownRecord,
+  reportContext: UnknownRecord,
+  nested: UnknownRecord | null
 ): Record<string, unknown> | null {
+  const details = nestedRecord(valuationResult, 'details')
+  const nestedDetails = nestedRecord(nested, 'details')
   const candidates = [
     reportContext,
     valuationResult,
-    valuationResult.details,
+    details,
     nested,
-    nested?.details,
+    nestedDetails,
     valuationResult.asset_based_details,
-    valuationResult.details?.asset_based_details,
+    details?.asset_based_details,
     nested?.asset_based_details,
-    nested?.details?.asset_based_details,
+    nestedDetails?.asset_based_details,
   ]
 
   for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    const candidateRecord = asRecord(candidate)
+    if (!candidateRecord) {
       continue
     }
 
-    const detailsCandidate =
-      candidate.asset_based_details &&
-      typeof candidate.asset_based_details === 'object' &&
-      !Array.isArray(candidate.asset_based_details)
-        ? candidate.asset_based_details
-        : candidate
+    const detailsCandidate = asRecord(candidateRecord.asset_based_details) ?? candidateRecord
 
     const hasEvidence =
       detailsCandidate.asset_based_evidence === true ||
@@ -522,32 +544,31 @@ function collectExplicitAssetBasedDetails(
 }
 
 function synthesizeMinimalValuationResultsMap(
-  valuationResult: Record<string, any>,
+  valuationResult: UnknownRecord,
   context?: ExtractValuationResultsContext | null
-): Record<string, any> | null {
+): MethodResultMap | null {
   const rc = getCanonicalReportContext(valuationResult)
-  const reportContext = rc && typeof rc === 'object' ? (rc as Record<string, any>) : {}
-  const vr = valuationResult.valuation_result
-  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+  const reportContext = rc ?? {}
+  const nested = nestedRecord(valuationResult, 'valuation_result')
 
   const equityMid =
     toFiniteNumber(reportContext.equity_value) ??
     toFiniteNumber(reportContext.equity_value_mid) ??
-    toFiniteNumber((valuationResult as any).equity_value_mid) ??
-    toFiniteNumber((valuationResult as any).valuation_midpoint) ??
+    toFiniteNumber(valuationResult.equity_value_mid) ??
+    toFiniteNumber(valuationResult.valuation_midpoint) ??
     toFiniteNumber(nested?.equity_value_mid) ??
     null
 
   const enterpriseMid =
     toFiniteNumber(reportContext.valuation) ??
     toFiniteNumber(reportContext.enterprise_value_mid) ??
-    toFiniteNumber((valuationResult as any).enterprise_value_mid) ??
+    toFiniteNumber(valuationResult.enterprise_value_mid) ??
     toFiniteNumber(nested?.enterprise_value_mid) ??
     null
 
   const multiple =
     toFiniteNumber(reportContext.applied_multiple) ??
-    toFiniteNumber((valuationResult as any).multiple) ??
+    toFiniteNumber(valuationResult.multiple) ??
     toFiniteNumber(valuationResult?.ebitda_multiple) ??
     toFiniteNumber(nested?.multiple) ??
     null
@@ -561,11 +582,11 @@ function synthesizeMinimalValuationResultsMap(
 
   const equityLow =
     toFiniteNumber(reportContext.equity_value_low) ??
-    toFiniteNumber((valuationResult as any).equity_value_low) ??
+    toFiniteNumber(valuationResult.equity_value_low) ??
     null
   const equityHigh =
     toFiniteNumber(reportContext.equity_value_high) ??
-    toFiniteNumber((valuationResult as any).equity_value_high) ??
+    toFiniteNumber(valuationResult.equity_value_high) ??
     null
   const multipleLow = toFiniteNumber(reportContext.multiple_low)
   const multipleHigh = toFiniteNumber(reportContext.multiple_high)
@@ -627,7 +648,7 @@ function synthesizeMinimalValuationResultsMap(
     }
   }
 
-  const methodEntry = {
+  const methodEntry: MethodResultRow = {
     available: true,
     value,
     multiple_used: multiple,
@@ -648,23 +669,28 @@ function synthesizeMinimalValuationResultsMap(
  * pass it so legacy synthesis picks the correct method key (parity with Titan).
  */
 export function extractValuationResultsMap(
-  valuationResult: Record<string, any> | null | undefined,
+  valuationResult: UnknownRecord | null | undefined,
   context?: ExtractValuationResultsContext | null
-): Record<string, any> | null {
+): MethodResultMap | null {
   if (!valuationResult || typeof valuationResult !== 'object') return null
 
-  const vr = valuationResult.valuation_result
-  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+  const nested = nestedRecord(valuationResult, 'valuation_result')
+  const details = nestedRecord(valuationResult, 'details')
+  const nestedDetails = nestedRecord(nested, 'details')
+  const reportContext = nestedRecord(valuationResult, 'report_context')
+  const detailsReportContext = nestedRecord(details, 'report_context')
+  const nestedReportContext = nestedRecord(nested, 'report_context')
+  const nestedDetailsReportContext = nestedRecord(nestedDetails, 'report_context')
 
   const candidates = [
     valuationResult.valuation_results,
-    valuationResult.details?.valuation_results,
+    details?.valuation_results,
     nested?.valuation_results,
-    nested?.details?.valuation_results,
-    valuationResult.report_context?.valuation_results,
-    valuationResult.details?.report_context?.valuation_results,
-    nested?.report_context?.valuation_results,
-    nested?.details?.report_context?.valuation_results,
+    nestedDetails?.valuation_results,
+    reportContext?.valuation_results,
+    detailsReportContext?.valuation_results,
+    nestedReportContext?.valuation_results,
+    nestedDetailsReportContext?.valuation_results,
   ]
 
   for (const candidate of candidates) {
@@ -675,7 +701,7 @@ export function extractValuationResultsMap(
       Object.keys(candidate).length > 0
     ) {
       const pruned = pruneStaleDcfMethod(
-        normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
+        normalizeAdaptiveMethod(candidate as MethodResultMap, valuationResult),
         valuationResult,
         context
       )
@@ -701,18 +727,20 @@ export function hydrateClientValuationResultsMap(
   if (!valuationResult || typeof valuationResult !== 'object' || Array.isArray(valuationResult)) {
     return null
   }
-  const vr = valuationResult as Record<string, any>
+  const vr = valuationResult as UnknownRecord
+  const selectedMethod =
+    typeof vr.selected_valuation_method === 'string' ? vr.selected_valuation_method : null
   const selectedValuationMethod =
     options?.selectedValuationMethodOverride ??
     resolveSelectedValuationMethodForExtraction(valuationResult) ??
-    vr.selected_valuation_method
+    selectedMethod
   const map = extractValuationResultsMap(vr, {
     selectedValuationMethod: selectedValuationMethod,
   })
   return (map as Record<string, ValuationMethodResult> | null) ?? null
 }
 
-function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
+function hasNonEmptyValuationResults(value: UnknownRecord): boolean {
   const vr = value.valuation_results
   return !!(vr && typeof vr === 'object' && !Array.isArray(vr) && Object.keys(vr).length > 0)
 }
@@ -723,8 +751,8 @@ function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
  * `details` / `report_context`. Parity with Titan `normalizeValuationResultWithMethodMap`.
  */
 export function normalizeValuationResultWithMethodMap(
-  value: Record<string, any> | null
-): Record<string, any> | null {
+  value: UnknownRecord | null
+): UnknownRecord | null {
   if (!value || typeof value !== 'object') return null
 
   const map = extractValuationResultsMap(value, null)

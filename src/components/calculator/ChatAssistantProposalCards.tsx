@@ -2,13 +2,14 @@
 
 import { ChatAssistantAdvisoryPreviewCards } from './ChatAssistantAdvisoryPreviewCards'
 import { ChatAssistantAgentActionCards } from './ChatAssistantAgentActionCards'
+import { ChatAssistantBuyerReadyCards } from './ChatAssistantBuyerReadyCards'
 import { ChatAssistantMarketplaceProposalCards } from './ChatAssistantMarketplaceProposalCards'
 import { ChatAssistantRunProposalCards } from './ChatAssistantRunProposalCards'
 import type { ChatMessage } from './ChatAssistantTypes'
 
 interface ChatAssistantProposalCardsProps {
   message: ChatMessage
-  onApproveValuationRun?: (proposalId: string, reportId?: string) => void
+  onApproveValuationRun?: (proposalId: string, reportId?: string, methods?: string[] | null) => void
   onRejectValuationRun?: (proposalId: string) => void
   onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
   onRejectReportGeneration?: (proposalId: string) => void
@@ -49,6 +50,8 @@ export function ChatAssistantProposalCards({
       <ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />
 
       <ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />
+
+      <ChatAssistantBuyerReadyCards message={message} onSendFollowUp={onSendFollowUp} />
 
       <ChatAssistantMarketplaceProposalCards
         message={message}

@@ -16,12 +16,22 @@ export interface AnalyticsConfig {
   version: string
 }
 
+export type AnalyticsEventParameters = Record<string, unknown>
+
+function getAnalyticsEnvironment(value: unknown): AnalyticsConfig['environment'] | undefined {
+  return value === 'development' || value === 'staging' || value === 'production'
+    ? value
+    : undefined
+}
+
 export const analyticsConfig: AnalyticsConfig = {
   googleAnalyticsId: process.env.NEXT_PUBLIC_ANALYTICS_ID,
   hotjarId: process.env.NEXT_PUBLIC_HOTJAR_ID,
   mixpanelToken: process.env.NEXT_PUBLIC_MIXPANEL_TOKEN,
   environment:
-    (process.env.NEXT_PUBLIC_ENVIRONMENT as any) || (process.env.NODE_ENV as any) || 'development',
+    getAnalyticsEnvironment(process.env.NEXT_PUBLIC_ENVIRONMENT) ??
+    getAnalyticsEnvironment(process.env.NODE_ENV) ??
+    'development',
   appName: 'Upswitch Valuation Tester',
   version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
 }
@@ -29,7 +39,7 @@ export const analyticsConfig: AnalyticsConfig = {
 /**
  * Track valuation-specific events
  */
-export const trackEvent = (eventName: string, parameters?: Record<string, any>) => {
+export const trackEvent = (eventName: string, parameters?: AnalyticsEventParameters) => {
   if (typeof window === 'undefined') return
 
   // Google Analytics 4
@@ -156,7 +166,7 @@ export const trackError = (error: Error, context: string) => {
 declare global {
   interface Window {
     mixpanel?: {
-      track: (event: string, properties?: Record<string, any>) => void
+      track: (event: string, properties?: AnalyticsEventParameters) => void
       identify: (id: string) => void
     }
   }

@@ -1,3 +1,5 @@
+import type { BuyerReadyToolCard as ParsedBuyerReadyToolCard } from '@/services/ai/tool-result-types'
+
 export interface FieldUpdate {
   field: string
   value: number
@@ -414,6 +416,29 @@ export interface BuyerProfilePreview {
   }>
 }
 
+export type BuyerReadyToolCard = ParsedBuyerReadyToolCard & { id: string }
+
+export interface BusinessTypeSearchResults {
+  id: string
+  status: 'ok' | 'empty' | 'failed'
+  query: string
+  totalFound: number
+  results: Array<{
+    id: string
+    title: string
+    description?: string | null
+    category?: string | null
+    industry?: string | null
+    sector?: string | null
+    primaryModel?: string | null
+    preferredMultiples?: string[]
+    benchmarkStatus?: string | null
+    benchmarkMessage?: string | null
+  }>
+  note?: string
+  error?: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -422,6 +447,8 @@ export interface ChatMessage {
   isError?: boolean
   /** Titan rejected the turn until the user grants AI-processing consent. */
   requiresConsent?: boolean
+  /** The BFF could not authenticate the browser session. */
+  requiresAuth?: boolean
   consentPolicyVersion?: string
   attachments?: { name: string; type: string; url: string }[]
   // YC-Standard: Structured cards with impact framing
@@ -458,6 +485,15 @@ export interface ChatMessage {
   listingCreateRequests?: ListingCreateRequest[]
   // AI-generated buyer profile previews (read-only; not real matched buyers)
   buyerProfilePreviews?: BuyerProfilePreview[]
+  // AI-generated buyer-ready, IM, legal, data-room and publish workflow cards.
+  buyerReadyCards?: BuyerReadyToolCard[]
+  /**
+   * Read-only business-type shortlist rendered when the agent calls
+   * search_business_types. Click a row to fire a follow-up
+   * "Use business type {title} ({id})" message so the agent can continue
+   * with benchmarks, method readiness, or profile completion.
+   */
+  businessTypeSearchResults?: BusinessTypeSearchResults[]
   /**
    * Read-only registry-search picker rendered when the agent calls
    * search_kbo_registry (BE) or search_kvk_registry (NL). Click a row

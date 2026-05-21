@@ -306,7 +306,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
             const session = useSessionStore.getState().session
             if (session) {
               useSessionStore.getState().updateSession({
-                valuationResult: result as any,
+                valuationResult: result,
                 htmlReport: renderableHtmlReport,
               })
               storeLogger.debug('[Manual] Session cache updated optimistically', {

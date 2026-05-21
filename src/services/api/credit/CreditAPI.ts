@@ -13,6 +13,16 @@ import { APIError, AuthenticationError, CreditError } from '../../../types/error
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
+type AxiosLikeError = {
+  response?: {
+    status?: number
+  }
+}
+
+function asAxiosLikeError(error: unknown): AxiosLikeError {
+  return error && typeof error === 'object' ? (error as AxiosLikeError) : {}
+}
+
 export class CreditAPI extends HttpClient {
   /**
    * Get current credit status
@@ -26,7 +36,7 @@ export class CreditAPI extends HttpClient {
           method: 'GET',
           url: '/api/v2/credits/status',
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
@@ -70,7 +80,7 @@ export class CreditAPI extends HttpClient {
           method: 'GET',
           url: '/api/v2/credits/plan',
           headers: {},
-        } as any,
+        },
         options
       )
       const p = (raw as { data?: Record<string, unknown> })?.data ?? raw
@@ -151,7 +161,7 @@ export class CreditAPI extends HttpClient {
           url: '/api/v2/valuations/save',
           data,
           headers: {},
-        } as any,
+        },
         options
       )
     } catch (error) {
@@ -165,7 +175,7 @@ export class CreditAPI extends HttpClient {
   private handleCreditError(error: unknown, operation: string): never {
     apiLogger.error(`Credit ${operation} failed`, { error })
 
-    const axiosError = error as any
+    const axiosError = asAxiosLikeError(error)
     const status = axiosError?.response?.status
 
     if (status === 401 || status === 403) {

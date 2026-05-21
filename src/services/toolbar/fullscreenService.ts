@@ -9,6 +9,21 @@
 
 import { generalLogger } from '../../utils/logger'
 
+type LegacyFullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null
+  mozFullScreenElement?: Element | null
+  msFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void> | void
+  mozCancelFullScreen?: () => Promise<void> | void
+  msExitFullscreen?: () => Promise<void> | void
+}
+
+type LegacyFullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void
+  mozRequestFullScreen?: () => Promise<void> | void
+  msRequestFullscreen?: () => Promise<void> | void
+}
+
 /**
  * Service for managing fullscreen modal state
  * Note: Actual modal rendering is handled by FullScreenModal component
@@ -22,12 +37,13 @@ export class FullscreenService {
    */
   static isFullscreen(): boolean {
     if (typeof document === 'undefined') return false
+    const fullscreenDocument = document as LegacyFullscreenDocument
 
     return !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
+      fullscreenDocument.fullscreenElement ||
+      fullscreenDocument.webkitFullscreenElement ||
+      fullscreenDocument.mozFullScreenElement ||
+      fullscreenDocument.msFullscreenElement
     )
   }
 
@@ -40,14 +56,15 @@ export class FullscreenService {
    */
   static async requestFullscreen(element: HTMLElement): Promise<void> {
     try {
+      const fullscreenElement = element as LegacyFullscreenElement
       if (element.requestFullscreen) {
         await element.requestFullscreen()
-      } else if ((element as any).webkitRequestFullscreen) {
-        await (element as any).webkitRequestFullscreen()
-      } else if ((element as any).mozRequestFullScreen) {
-        await (element as any).mozRequestFullScreen()
-      } else if ((element as any).msRequestFullscreen) {
-        await (element as any).msRequestFullscreen()
+      } else if (fullscreenElement.webkitRequestFullscreen) {
+        await fullscreenElement.webkitRequestFullscreen()
+      } else if (fullscreenElement.mozRequestFullScreen) {
+        await fullscreenElement.mozRequestFullScreen()
+      } else if (fullscreenElement.msRequestFullscreen) {
+        await fullscreenElement.msRequestFullscreen()
       } else {
         generalLogger.warn('Fullscreen API not supported')
       }
@@ -64,14 +81,15 @@ export class FullscreenService {
    */
   static async exitFullscreen(): Promise<void> {
     try {
+      const fullscreenDocument = document as LegacyFullscreenDocument
       if (document.exitFullscreen) {
         await document.exitFullscreen()
-      } else if ((document as any).webkitExitFullscreen) {
-        await (document as any).webkitExitFullscreen()
-      } else if ((document as any).mozCancelFullScreen) {
-        await (document as any).mozCancelFullScreen()
-      } else if ((document as any).msExitFullscreen) {
-        await (document as any).msExitFullscreen()
+      } else if (fullscreenDocument.webkitExitFullscreen) {
+        await fullscreenDocument.webkitExitFullscreen()
+      } else if (fullscreenDocument.mozCancelFullScreen) {
+        await fullscreenDocument.mozCancelFullScreen()
+      } else if (fullscreenDocument.msExitFullscreen) {
+        await fullscreenDocument.msExitFullscreen()
       }
     } catch (error) {
       generalLogger.error('Failed to exit fullscreen', { error })

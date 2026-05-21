@@ -11,8 +11,9 @@ import type { NormalizationItem } from '../components/calculator/UnifiedNormaliz
 import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/useNormalizationStore'
 import type { DataResponse } from '../types/data-collection'
+import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaNormalization'
 import { ValidationError } from '../types/errors'
-import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
@@ -46,6 +47,8 @@ interface NormYearEntry {
     ledger_code?: string
   }>
 }
+
+type FormDataRecord = ValuationFormData & Record<string, unknown>
 
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
@@ -159,6 +162,27 @@ function pickOptionalYearDataFields(source: unknown): Record<string, number> {
   }
 
   return result
+}
+
+function mapLegacyNormalizationAdjustment(
+  adjustment: NormalizationAdjustment
+): NormYearEntry['items'][number] {
+  return {
+    category: adjustment.category ?? 'other_adjustments',
+    amount: toFiniteNumber(adjustment.amount) ?? 0,
+    source: 'manual',
+    confidence: adjustment.confidence ?? 'medium',
+    ...(adjustment.ledger_code && { ledger_code: adjustment.ledger_code }),
+  }
+}
+
+function mapLegacyCustomAdjustment(adjustment: CustomAdjustment): NormYearEntry['items'][number] {
+  return {
+    category: 'other_adjustments',
+    amount: toFiniteNumber(adjustment.amount) ?? 0,
+    source: 'manual',
+    confidence: 'medium',
+  }
 }
 
 /**
@@ -429,19 +453,8 @@ export function buildValuationRequest(
       confidence: legacy.confidence_score || 'medium',
       hasCustomAdjustments: (legacy.custom_adjustments?.length ?? 0) > 0,
       items: [
-        ...(legacy.adjustments ?? []).map((a: any) => ({
-          category: a.category ?? 'other_adjustments',
-          amount: toFiniteNumber(a.amount) ?? 0,
-          source: 'manual',
-          confidence: a.confidence ?? 'medium',
-          ...(a.ledger_code && { ledger_code: a.ledger_code }),
-        })),
-        ...(legacy.custom_adjustments ?? []).map((a: any) => ({
-          category: 'other_adjustments',
-          amount: toFiniteNumber(a.amount) ?? 0,
-          source: 'manual',
-          confidence: 'medium',
-        })),
+        ...(legacy.adjustments ?? []).map(mapLegacyNormalizationAdjustment),
+        ...(legacy.custom_adjustments ?? []).map(mapLegacyCustomAdjustment),
       ],
     }
   }
@@ -468,7 +481,7 @@ export function buildValuationRequest(
   const currentYearNormalization = normByYear[currentFiscalYear]
 
   // Build current_year_data with normalization support
-  const currentYearData: any = {
+  const currentYearData: YearDataInput = {
     year: currentFiscalYear,
     revenue: revenue,
     ebitda: currentYearNormalization ? ebitda + currentYearNormalization.totalAdjustment : ebitda,
@@ -679,11 +692,8 @@ export function buildValuationRequest(
     latestRevenue > 0
   ) {
     recurringRevenueInput = formData.rev_recurring_amount / latestRevenue
-  } else if (
-    (formData as any).rev_recurring_pct != null &&
-    Number.isFinite((formData as any).rev_recurring_pct)
-  ) {
-    recurringRevenueInput = (formData as any).rev_recurring_pct / 100
+  } else if (formData.rev_recurring_pct != null && Number.isFinite(formData.rev_recurring_pct)) {
+    recurringRevenueInput = formData.rev_recurring_pct / 100
   } else {
     recurringRevenueInput = 0
   }
@@ -696,7 +706,7 @@ export function buildValuationRequest(
     formData.business_type === 'sole-trader' ? undefined : formData.number_of_owners || 1
 
   // Build business context from internal metadata + adaptive input fields
-  const fd = formData as any
+  const fd = formData as FormDataRecord
   const { businessContext, userConfiguredDcf } = buildValuationBusinessContext({
     formData,
     latestRevenue,
@@ -786,9 +796,9 @@ export function buildValuationRequest(
     founding_year: foundingYear,
     ...(formData.nace_code && { nace_code: formData.nace_code }),
     ...(formData.nace_description && { nace_description: formData.nace_description }),
-    ...((formData as any).activity_code && { activity_code: (formData as any).activity_code }),
-    ...((formData as any).canonical_nace_code && {
-      canonical_nace_code: (formData as any).canonical_nace_code,
+    ...(formData.activity_code && { activity_code: formData.activity_code }),
+    ...(formData.canonical_nace_code && {
+      canonical_nace_code: formData.canonical_nace_code,
     }),
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
@@ -808,9 +818,10 @@ export function buildValuationRequest(
     business_context: businessContext,
     real_estate_treatment: realEstateTreatment,
     exclude_real_estate: realEstateTreatment === 'carve_out',
-    ...(realEstateTreatment === 'included' && {
-      real_estate_market_value: realEstateMarketValue,
-    }),
+    ...(realEstateTreatment === 'included' &&
+      realEstateMarketValue != null && {
+        real_estate_market_value: realEstateMarketValue,
+      }),
     ...((realEstateTreatment === 'carve_out' || realEstateTreatment === 'included') &&
       realEstateBookValue != null && {
         real_estate_book_value: realEstateBookValue,
@@ -844,17 +855,17 @@ export function buildValuationRequest(
     ...((fd as { owner_role?: 'working' | 'passive' }).owner_role && {
       owner_role: (fd as { owner_role?: 'working' | 'passive' }).owner_role,
     }),
-    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
-      (formData as any).official_financials && {
-        official_financials: (formData as any).official_financials,
+    ...(hasUsableOfficialFinancialsContent(formData.official_financials) &&
+      formData.official_financials && {
+        official_financials: formData.official_financials,
       }),
-    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
-      (formData as any).official_variance_analysis && {
-        official_variance_analysis: (formData as any).official_variance_analysis,
+    ...(hasUsableOfficialFinancialsContent(formData.official_financials) &&
+      formData.official_variance_analysis && {
+        official_variance_analysis: formData.official_variance_analysis,
       }),
-    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
-      (formData as any).official_verification_badge && {
-        official_verification_badge: (formData as any).official_verification_badge,
+    ...(hasUsableOfficialFinancialsContent(formData.official_financials) &&
+      formData.official_verification_badge && {
+        official_verification_badge: formData.official_verification_badge,
       }),
     ...(locale && { locale }),
   }

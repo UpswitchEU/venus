@@ -20,15 +20,31 @@ import logger from '../utils/logger'
 export interface SessionError {
   code: 'SESSION_NOT_FOUND' | 'SESSION_EXPIRED' | 'ACCESS_DENIED' | 'NETWORK_ERROR' | 'UNKNOWN'
   message: string
-  originalError: any
+  originalError: unknown
+}
+
+type SessionTransportError = {
+  message?: string
+  response?: {
+    data?: {
+      message?: string
+    }
+    status?: number
+  }
+}
+
+function asSessionTransportError(error: unknown): SessionTransportError {
+  return error && typeof error === 'object' ? (error as SessionTransportError) : {}
 }
 
 /**
  * Classify session error
  */
-export function classifySessionError(error: any): SessionError {
-  const status = error?.response?.status
-  const message = error?.response?.data?.message || error?.message || 'Unknown error'
+export function classifySessionError(error: unknown): SessionError {
+  const transportError = asSessionTransportError(error)
+  const status = transportError.response?.status
+  const message =
+    transportError.response?.data?.message || transportError.message || 'Unknown error'
 
   if (status === 404) {
     return {
@@ -75,9 +91,9 @@ export function classifySessionError(error: any): SessionError {
  * Returns new session key if recovery successful, null otherwise
  */
 export async function handleSessionError(
-  error: any,
+  error: unknown,
   sessionKey: string,
-  preserveData?: Record<string, any>
+  preserveData?: Record<string, unknown>
 ): Promise<string | null> {
   const sessionError = classifySessionError(error)
 
@@ -132,7 +148,7 @@ export async function handleSessionError(
  */
 async function recoverFromNotFound(
   oldSessionKey: string,
-  preserveData?: Record<string, any>
+  preserveData?: Record<string, unknown>
 ): Promise<string | null> {
   logger.info(
     {

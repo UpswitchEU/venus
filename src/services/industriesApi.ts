@@ -58,22 +58,34 @@ const FALLBACK_INDUSTRIES = [
  * Normalize API response to expected format
  * Handles both array response (Python backend) and object response (structured)
  */
-function normalizeIndustriesResponse(data: any): IndustryListResponse {
+function normalizeIndustriesResponse(data: unknown): IndustryListResponse {
   // If already in correct format, return as-is
-  if (data && typeof data === 'object' && Array.isArray(data.industries)) {
-    return {
-      industries: data.industries,
-      count: data.count || data.industries.length,
-      last_updated: data.last_updated || new Date().toISOString(),
-      description: data.description || 'Valid industry classifications',
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>
+    if (!Array.isArray(record.industries)) {
+      // Fall through to the array/fallback handling below.
+    } else {
+      return {
+        industries: record.industries.filter(
+          (industry): industry is string => typeof industry === 'string'
+        ),
+        count: typeof record.count === 'number' ? record.count : record.industries.length,
+        last_updated:
+          typeof record.last_updated === 'string' ? record.last_updated : new Date().toISOString(),
+        description:
+          typeof record.description === 'string'
+            ? record.description
+            : 'Valid industry classifications',
+      }
     }
   }
 
   // If it's an array (Python backend format), wrap it
   if (Array.isArray(data)) {
+    const industries = data.filter((industry): industry is string => typeof industry === 'string')
     return {
-      industries: data,
-      count: data.length,
+      industries,
+      count: industries.length,
       last_updated: new Date().toISOString(),
       description: 'Valid industry classifications from database',
     }

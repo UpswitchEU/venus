@@ -32,9 +32,51 @@ import {
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
 import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
+type SessionPrefillMergedData = Record<string, unknown> & {
+  company_name?: string
+  companyName?: string
+  business_type_id?: string
+  business_type?: string
+  industry?: string
+  country_code?: string
+  country?: string
+  city?: string
+  postal_code?: string
+  number_of_employees?: number
+  employee_count?: number
+  founding_year?: number
+  founded_year?: number
+  business_description?: string
+  subIndustry?: string
+  business_model?: string
+  historical_years_data?: ValuationFormData['historical_years_data']
+  current_year_data?: ValuationFormData['current_year_data']
+  forecast_years_data?: ValuationFormData['forecast_years_data']
+  filing_year_confirmed?: ValuationFormData['filing_year_confirmed']
+  comparables?: ValuationFormData['comparables']
+  recurring_revenue_percentage?: number
+  kbo_number?: string
+  vat_number?: string
+  legal_form?: string
+  nace_code?: string
+  nace_description?: string
+  business_context?: ValuationFormData['business_context']
+  metadata?: Record<string, unknown>
+  owner_salary_addback?: number
+  nav_hidden_reserves?: number
+  saas_arr?: number
+  preparer_ev_ebitda_median?: number
+  tax_latencies?: unknown[]
+  taxLatencies?: unknown[]
+  _taxLatencies?: unknown[]
+  _normalizations?: unknown[]
+}
+
 /** Fallback prefill from `session.sessionData` when bootstrap did not paint first. */
 export function useSessionDataPrefill() {
-  const sessionData = useSessionStore((state) => state.session?.sessionData) as any
+  const sessionData = useSessionStore((state) => state.session?.sessionData) as
+    | SessionPrefillMergedData
+    | undefined
   const reportId = useSessionStore((state) => state.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const { updateFormData, formData } = useManualFormStore()
@@ -155,7 +197,9 @@ export function useSessionDataPrefill() {
       return
     }
 
-    const mergedData = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, any>
+    const mergedData = mergeSessionSurfaceForOptionalPrefill(
+      sessionData
+    ) as SessionPrefillMergedData
     const rawBi = sessionData._businessInfo
     const businessInfo =
       rawBi && typeof rawBi === 'object' && !Array.isArray(rawBi)

@@ -19,6 +19,11 @@ export interface BaseMessageMetadata {
   ai_response?: string
   button_text?: string
   clarification_message?: string
+  persistedToolResults?: Array<{
+    id?: string
+    toolName: string
+    result: unknown
+  }>
   // Allow additional unknown properties for flexibility
   [key: string]: unknown
 }

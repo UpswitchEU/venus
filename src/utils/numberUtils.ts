@@ -32,7 +32,7 @@
  * safeNumber("") // → undefined
  * safeNumber(undefined) // → undefined
  */
-export const safeNumber = (value: any): number | undefined => {
+export const safeNumber = (value: unknown): number | undefined => {
   // Handle undefined and null
   if (value === undefined || value === null) {
     return undefined
@@ -91,7 +91,7 @@ export const validatePreference = (value: number | undefined): number | undefine
  * safePreference("1.5") // → undefined (out of range)
  * safePreference("invalid") // → undefined (invalid)
  */
-export const safePreference = (value: any): number | undefined => {
+export const safePreference = (value: unknown): number | undefined => {
   const num = safeNumber(value)
   return validatePreference(num)
 }

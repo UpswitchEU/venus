@@ -1,10 +1,12 @@
 import type {
   BusinessModel, // ADD: BusinessModel import
   ConversationContext,
+  ConversationStartRequest,
   ConversationStartResponse,
   ConversationStepRequest,
   ConversationStepResponse,
   OwnerProfileRequest,
+  OwnerProfileResponse,
 } from '../types/valuation'
 import {
   inferBusinessModelFromIndustry,
@@ -21,29 +23,25 @@ export interface TriageSession {
   step: number
   field_name?: string
   input_type?: string
-  validation_rules?: Record<string, any>
+  validation_rules?: Record<string, unknown>
   help_text?: string
-  context: Record<string, any>
+  context: Record<string, unknown>
   owner_profile_needed: boolean
-  valuation_result?: any
+  valuation_result?: unknown
 }
 
-export interface StartTriageRequest {
-  user_id?: string
+export interface StartTriageRequest extends ConversationStartRequest {
   company_id?: string
   business_type?: string
-  industry?: string
-  country_code?: string
-  business_context?: Record<string, any>
-  pre_filled_data?: Record<string, any>
-  user_preferences?: Record<string, any>
 }
+
+type TriageStepAnswer = ConversationStepRequest['answer']
 
 export interface TriageStepRequest {
   session_id: string
   field: string
-  value: any
-  context_data?: Record<string, any>
+  value: TriageStepAnswer
+  context_data?: Record<string, unknown>
 }
 
 export const intelligentTriageService = {
@@ -88,8 +86,8 @@ export const intelligentTriageService = {
   async processStep(
     sessionId: string,
     field: string,
-    value: any,
-    contextData?: Record<string, any>
+    value: TriageStepAnswer,
+    contextData?: Record<string, unknown>
   ): Promise<TriageSession> {
     try {
       // Extract business_model if mentioned
@@ -162,7 +160,7 @@ export const intelligentTriageService = {
   /**
    * Extract business model from conversation value
    */
-  extractBusinessModelFromValue(value: any, field: string): BusinessModel | string | null {
+  extractBusinessModelFromValue(value: unknown, field: string): BusinessModel | string | null {
     if (field === 'business_model') {
       return mapToBusinessModel(String(value))
     }
@@ -177,7 +175,7 @@ export const intelligentTriageService = {
   /**
    * Extract founding year from conversation value
    */
-  extractFoundingYearFromValue(value: any, field: string): number | null {
+  extractFoundingYearFromValue(value: unknown, field: string): number | null {
     if (field === 'founding_year') {
       const year = parseInt(String(value))
       return isValidYear(year) ? year : null
@@ -241,7 +239,7 @@ export const intelligentTriageService = {
       succession_details?: string
     },
     countryCode: string = 'BE'
-  ): Promise<any> {
+  ): Promise<OwnerProfileResponse> {
     try {
       // Convert to OwnerProfile format
       const ownerProfile = {

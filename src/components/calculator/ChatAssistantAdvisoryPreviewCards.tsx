@@ -500,6 +500,94 @@ export function ChatAssistantAdvisoryPreviewCards({
         </div>
       )}
 
+      {/* Business-type picker — sector/NACE/catalogue shortlist. Click a row to
+            send a follow-up so the agent can use the selected type for
+            benchmarks, method readiness, profile completion, or valuation. */}
+      {message.businessTypeSearchResults && message.businessTypeSearchResults.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+          {message.businessTypeSearchResults.map((picker) => {
+            const hasResults = picker.results.length > 0
+            const isFailed = picker.status === 'failed'
+            const countLabel = !hasResults
+              ? picker.query.length > 0
+                ? `No business types found for "${picker.query}"`
+                : 'No business types found'
+              : picker.totalFound === 1
+                ? `Found ${picker.totalFound} business type for "${picker.query}"`
+                : `Found ${picker.totalFound} business types for "${picker.query}"`
+            return (
+              <motion.div
+                key={picker.id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="text-sm leading-relaxed"
+              >
+                <p className="text-foreground font-medium">Business type catalogue</p>
+                <p className="text-foreground/55 text-xs mt-0.5">{countLabel}</p>
+                {isFailed && (
+                  <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
+                    {picker.error ?? 'The business-type catalogue is temporarily unavailable.'}
+                  </p>
+                )}
+                {!isFailed && picker.note && (
+                  <p className="text-foreground/55 text-xs italic mt-1">{picker.note}</p>
+                )}
+                {hasResults && (
+                  <div className="mt-2 space-y-1">
+                    {picker.results.slice(0, 10).map((result) => {
+                      const taxonomy = [result.sector, result.industry, result.category]
+                        .filter(Boolean)
+                        .join(' · ')
+                      const methods = (result.preferredMultiples ?? []).slice(0, 3).join(', ')
+                      const benchmarkHint =
+                        result.benchmarkStatus === 'resolver_required'
+                          ? 'Multiples require benchmark resolver'
+                          : result.benchmarkMessage
+                      return (
+                        <button
+                          key={result.id}
+                          type="button"
+                          onClick={() => {
+                            if (typeof onSendFollowUp !== 'function') return
+                            onSendFollowUp(`Use business type ${result.title} (${result.id})`)
+                          }}
+                          disabled={typeof onSendFollowUp !== 'function'}
+                          className="w-full text-left rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035]"
+                          aria-label={`Use business type ${result.title}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-foreground/85 truncate">
+                              {result.title}
+                            </span>
+                            <span className="shrink-0 font-mono text-foreground/55">
+                              {result.id}
+                            </span>
+                          </div>
+                          {taxonomy && (
+                            <p className="mt-0.5 text-foreground/55 truncate">{taxonomy}</p>
+                          )}
+                          {result.description && (
+                            <p className="mt-1 text-foreground/60 line-clamp-2">
+                              {result.description}
+                            </p>
+                          )}
+                          {(methods || benchmarkHint) && (
+                            <p className="mt-1 text-foreground/45 truncate">
+                              {[methods, benchmarkHint].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Registry-search picker — KBO/KVK hit list. Click a row to fire a
             follow-up "Use {name} ({registry} {number})" message so the agent
             can chain to bootstrap_belgian_company or create_client without

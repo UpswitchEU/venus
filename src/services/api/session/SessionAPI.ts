@@ -53,7 +53,7 @@ type SessionEnvelope<T> = {
   error?: string
 }
 
-type CreateValuationSessionInput = Partial<CreateValuationSessionRequest> &
+export type CreateValuationSessionInput = Partial<CreateValuationSessionRequest> &
   Omit<Partial<ValuationSession>, 'partialData' | 'sessionData'> & {
     current_step?: number
     partialData?: SessionRecord

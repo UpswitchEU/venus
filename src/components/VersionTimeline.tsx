@@ -29,6 +29,15 @@ import { useCallback, useState } from 'react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { dateLikeToUnixMs } from '../utils/date-like'
+import {
+  getAdjustmentsTotal,
+  getBaseValuation,
+  getEquityValueHigh,
+  getEquityValueLow,
+  getEquityValueMid,
+  getFinalValuation,
+  getRecommendedAskingPrice,
+} from '../utils/valuationResultAccess'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
 
 /** Number of versions to show initially and per "Load More" click */
@@ -239,16 +248,10 @@ function VersionTimelineItem({
   }
 
   // Get valuation amounts
-  const currentValuation =
-    (version.valuationResult as any)?.valuation_summary?.final_valuation ||
-    (version.valuationResult as any)?.value ||
-    (version.valuationResult as any)?.equity_value_mid ||
-    0
-  const previousValuation =
-    (previousVersion?.valuationResult as any)?.valuation_summary?.final_valuation ||
-    (previousVersion?.valuationResult as any)?.value ||
-    (previousVersion?.valuationResult as any)?.equity_value_mid ||
-    null
+  const currentValuation = getFinalValuation(version.valuationResult) ?? 0
+  const previousValuation = previousVersion
+    ? getFinalValuation(previousVersion.valuationResult)
+    : null
 
   // Calculate price difference
   let priceChange = 0
@@ -299,10 +302,10 @@ function VersionTimelineItem({
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(version.createdAt)}</span>
                 </div>
-                {formatAuthor && (version as any).createdBy != null && (
+                {formatAuthor && version.createdBy != null && (
                   <div className="flex items-center gap-1.5">
                     <User className="w-4 h-4" />
-                    <span>{formatAuthor((version as any).createdBy)}</span>
+                    <span>{formatAuthor(version.createdBy)}</span>
                   </div>
                 )}
               </div>
@@ -312,24 +315,11 @@ function VersionTimelineItem({
           {/* Valuation Card - Full Width Navy Theme */}
           {version.valuationResult &&
             (() => {
-              const valuationResult = version.valuationResult as any
-              const equityValueLow =
-                valuationResult.equity_value_low ||
-                valuationResult.valuation_summary?.equity_value_low ||
-                0
+              const equityValueLow = getEquityValueLow(version.valuationResult) ?? 0
               const equityValueMid =
-                valuationResult.equity_value_mid ||
-                valuationResult.valuation_summary?.final_valuation ||
-                currentValuation ||
-                0
-              const equityValueHigh =
-                valuationResult.equity_value_high ||
-                valuationResult.valuation_summary?.equity_value_high ||
-                0
-              const recommendedAskingPrice =
-                valuationResult.recommended_asking_price ||
-                valuationResult.valuation_summary?.recommended_asking_price ||
-                0
+                getEquityValueMid(version.valuationResult) ?? currentValuation ?? 0
+              const equityValueHigh = getEquityValueHigh(version.valuationResult) ?? 0
+              const recommendedAskingPrice = getRecommendedAskingPrice(version.valuationResult) ?? 0
 
               // Calculate premium percentage if we have both mid and asking price
               const premiumPercent =
@@ -541,46 +531,45 @@ function VersionTimelineItem({
             <div className="mt-4">
               <h4 className="text-sm font-semibold text-foreground mb-3">Valuation Details</h4>
               <div className="grid grid-cols-2 gap-3">
-                {version.valuationResult?.valuation_summary &&
-                  typeof version.valuationResult?.valuation_summary === 'object' && (
+                {(() => {
+                  const baseValuation = getBaseValuation(version.valuationResult)
+                  const adjustmentsTotal = getAdjustmentsTotal(version.valuationResult)
+                  const baseValuationDisplay =
+                    baseValuation === null
+                      ? null
+                      : formatCurrency(Number(baseValuation), countryCode)
+                  const adjustmentsTotalDisplay =
+                    adjustmentsTotal === null
+                      ? null
+                      : formatCurrency(Number(adjustmentsTotal), countryCode)
+                  const adjustmentsTotalIsPositive =
+                    adjustmentsTotal === null ? false : Number(adjustmentsTotal) >= 0
+                  return (
                     <>
-                      {(version.valuationResult?.valuation_summary as any)?.base_valuation && (
+                      {baseValuationDisplay && (
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-xs text-muted-foreground mb-1">Base Valuation</p>
                           <p className="text-sm font-semibold text-foreground">
-                            {formatCurrency(
-                              (version.valuationResult?.valuation_summary as any)?.base_valuation,
-                              countryCode
-                            )}
+                            {baseValuationDisplay}
                           </p>
                         </div>
                       )}
-                      {(version.valuationResult?.valuation_summary as any)?.adjustments_total !==
-                        undefined && (
+                      {adjustmentsTotalDisplay && (
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-xs text-muted-foreground mb-1">Total Adjustments</p>
                           <p
                             className={`text-sm font-semibold ${
-                              (version.valuationResult?.valuation_summary as any)
-                                ?.adjustments_total >= 0
-                                ? 'text-success'
-                                : 'text-destructive'
+                              adjustmentsTotalIsPositive ? 'text-success' : 'text-destructive'
                             }`}
                           >
-                            {(version.valuationResult?.valuation_summary as any)
-                              ?.adjustments_total >= 0
-                              ? '+'
-                              : ''}
-                            {formatCurrency(
-                              (version.valuationResult?.valuation_summary as any)
-                                ?.adjustments_total,
-                              countryCode
-                            )}
+                            {adjustmentsTotalIsPositive ? '+' : ''}
+                            {adjustmentsTotalDisplay}
                           </p>
                         </div>
                       )}
                     </>
-                  )}
+                  )
+                })()}
               </div>
             </div>
           )}

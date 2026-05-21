@@ -3,7 +3,7 @@
  * Provides exponential backoff retry mechanism for failed operations
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 interface RetryOptions {
   maxRetries?: number
@@ -20,6 +20,13 @@ interface RetryState {
   lastError: Error | null
 }
 
+type TransportError = Error & {
+  code?: string
+  response?: {
+    status?: number
+  }
+}
+
 const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'onRetry' | 'shouldRetry'>> = {
   maxRetries: 3,
   initialDelay: 1000, // 1 second
@@ -30,11 +37,11 @@ const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'onRetry' | 'shouldRetry'>> =
 /**
  * Hook for retrying operations with exponential backoff
  */
-export function useRetry<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function useRetry<TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>,
   options: RetryOptions = {}
-): [(...args: Parameters<T>) => Promise<ReturnType<T>>, RetryState] {
-  const opts = { ...DEFAULT_OPTIONS, ...options }
+): [(...args: TArgs) => Promise<TResult>, RetryState] {
+  const opts = useMemo(() => ({ ...DEFAULT_OPTIONS, ...options }), [options])
   const [state, setState] = useState<RetryState>({
     attempt: 0,
     isRetrying: false,
@@ -51,7 +58,7 @@ export function useRetry<T extends (...args: any[]) => Promise<any>>(
   )
 
   const retry = useCallback(
-    async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+    async (...args: TArgs): Promise<TResult> => {
       let lastError: Error | null = null
 
       for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
@@ -141,16 +148,17 @@ export function shouldRetryNetworkError(error: Error): boolean {
   }
 
   // Retry on 5xx server errors (if error has status property)
-  const anyError = error as any
-  if (anyError.response?.status >= 500 && anyError.response?.status < 600) {
+  const transportError = error as TransportError
+  const status = transportError.response?.status
+  if (status !== undefined && status >= 500 && status < 600) {
     return true
   }
 
   // Retry on ECONNRESET and other connection errors
   if (
-    anyError.code === 'ECONNRESET' ||
-    anyError.code === 'ENOTFOUND' ||
-    anyError.code === 'ECONNREFUSED'
+    transportError.code === 'ECONNRESET' ||
+    transportError.code === 'ENOTFOUND' ||
+    transportError.code === 'ECONNREFUSED'
   ) {
     return true
   }
@@ -162,11 +170,11 @@ export function shouldRetryNetworkError(error: Error): boolean {
 /**
  * Create a retry-enabled API call wrapper
  */
-export function withRetry<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function withRetry<TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>,
   options: RetryOptions = {}
-): T {
-  return ((...args: Parameters<T>) => {
+): (...args: TArgs) => Promise<TResult> {
+  return (...args: TArgs) => {
     let lastError: Error | undefined
 
     const retryOptions = {
@@ -204,5 +212,5 @@ export function withRetry<T extends (...args: any[]) => Promise<any>>(
 
       throw lastError ?? new Error('Retry failed without an error')
     })()
-  }) as unknown as T
+  }
 }

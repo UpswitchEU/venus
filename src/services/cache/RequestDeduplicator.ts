@@ -20,7 +20,7 @@ import { generalLogger } from '../../utils/logger'
  * Caches in-flight requests by key to prevent duplicates
  */
 export class RequestDeduplicator {
-  private pendingRequests = new Map<string, Promise<any>>()
+  private pendingRequests = new Map<string, Promise<unknown>>()
   private requestCounts = new Map<string, number>() // Track how many times a request was deduped
 
   /**

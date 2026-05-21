@@ -51,7 +51,7 @@ describe('DELETE /api/reports/[reportId]', () => {
     mocks.fetchWithTimeout.mockResolvedValue(titanJsonResponse(200, { success: true }))
 
     const res = await DELETE(request({ 'x-guest-session-id': 'guest-1' }), {
-      params: { reportId: 'report id/with spaces' },
+      params: Promise.resolve({ reportId: 'report id/with spaces' }),
     })
 
     expect(res.status).toBe(200)
@@ -72,7 +72,7 @@ describe('DELETE /api/reports/[reportId]', () => {
   })
 
   it('returns a private 400 when report id is missing', async () => {
-    const res = await DELETE(request(), { params: { reportId: '' } })
+    const res = await DELETE(request(), { params: Promise.resolve({ reportId: '' }) })
 
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({

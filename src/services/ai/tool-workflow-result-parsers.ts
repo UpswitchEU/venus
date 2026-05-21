@@ -1,4 +1,6 @@
 import type {
+  BusinessTypeSearchResult,
+  BusinessTypeSearchResults,
   ListingCreateRequest,
   ListingCreateRequestPending,
   RegistrySearchHit,
@@ -10,6 +12,10 @@ import type {
   ValuationRunRequest,
   ValuationRunRequestPending,
 } from './tool-result-types'
+
+function parseStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+}
 
 export function parseValuationRunRequest(data: unknown): ValuationRunRequest[] {
   if (!data || typeof data !== 'object') return []
@@ -199,6 +205,56 @@ export function parseRegistrySearchResults(data: unknown): RegistrySearchResults
       ...(coverageWarning ? { coverageWarning } : {}),
       ...(typeof d.note === 'string' ? { note: d.note } : {}),
       status,
+    },
+  ]
+}
+
+function parseBusinessTypeSearchResult(value: unknown): BusinessTypeSearchResult | null {
+  if (!value || typeof value !== 'object') return null
+  const item = value as Record<string, unknown>
+  const id = typeof item.id === 'string' ? item.id : ''
+  const title = typeof item.title === 'string' ? item.title : ''
+  if (!id || !title) return null
+  const benchmarks =
+    item.valuation_benchmarks && typeof item.valuation_benchmarks === 'object'
+      ? (item.valuation_benchmarks as Record<string, unknown>)
+      : null
+  return {
+    id,
+    title,
+    description: typeof item.description === 'string' ? item.description : null,
+    category: typeof item.category === 'string' ? item.category : null,
+    industry: typeof item.industry === 'string' ? item.industry : null,
+    sector: typeof item.sector === 'string' ? item.sector : null,
+    primaryModel: typeof item.primary_model === 'string' ? item.primary_model : null,
+    preferredMultiples: parseStringArray(item.preferred_multiples),
+    benchmarkStatus: typeof benchmarks?.status === 'string' ? benchmarks.status : null,
+    benchmarkMessage: typeof benchmarks?.message === 'string' ? benchmarks.message : null,
+  }
+}
+
+export function parseBusinessTypeSearchResults(data: unknown): BusinessTypeSearchResults[] {
+  if (!data || typeof data !== 'object') return []
+  const d = data as Record<string, unknown>
+  const rawResults = Array.isArray(d.results) ? d.results : d.business_type ? [d.business_type] : []
+  const results = rawResults
+    .map(parseBusinessTypeSearchResult)
+    .filter((result): result is BusinessTypeSearchResult => Boolean(result))
+  const status: 'ok' | 'empty' | 'failed' =
+    d.status === 'failed' || typeof d.error === 'string'
+      ? 'failed'
+      : results.length > 0
+        ? 'ok'
+        : 'empty'
+
+  return [
+    {
+      status,
+      query: typeof d.query === 'string' ? d.query : results[0]?.title ?? '',
+      totalFound: typeof d.total_found === 'number' ? d.total_found : results.length,
+      results,
+      ...(typeof d.note === 'string' ? { note: d.note } : {}),
+      ...(typeof d.error === 'string' ? { error: d.error } : {}),
     },
   ]
 }

@@ -21,7 +21,7 @@ interface DataCollectionProps {
     totalFields: number
   }) => void
   onComplete?: (responses: DataResponse[]) => void
-  initialData?: Partial<Record<string, any>>
+  initialData?: Partial<Record<string, FieldValue>>
   disabled?: boolean
   className?: string
 }

@@ -38,7 +38,7 @@ import { CreditAPI } from './api/credit'
 import { APIRequestConfig } from './api/HttpClient'
 import { ProfileAPI } from './api/profile/ProfileAPI'
 import { ReportAPI } from './api/report'
-import { SessionAPI } from './api/session'
+import { type CreateValuationSessionInput, SessionAPI } from './api/session'
 import { UtilityAPI } from './api/utility'
 import { ValuationAPI } from './api/valuation'
 
@@ -213,7 +213,7 @@ class BackendAPI {
   ): Promise<CreateValuationSessionResponse> {
     // Pass session directly to SessionAPI - it handles both types
     // SessionAPI will extract required fields and map 'conversational' → 'ai-guided'
-    return this.sessionAPI.createValuationSession(session as any)
+    return this.sessionAPI.createValuationSession(session as CreateValuationSessionInput)
   }
 
   async updateValuationSession(

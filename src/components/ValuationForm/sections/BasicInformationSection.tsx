@@ -37,6 +37,25 @@ interface BasicInformationSectionProps {
   prefilledQuery?: string | null // Optional prefilled query from URL
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function getStringValue(value: unknown, key: string): string | undefined {
+  const recordValue = asRecord(value)[key]
+  return typeof recordValue === 'string' && recordValue.trim() ? recordValue : undefined
+}
+
+function getFirstStringValue(value: unknown, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const recordValue = getStringValue(value, key)
+    if (recordValue) return recordValue
+  }
+  return undefined
+}
+
 /**
  * BasicInformationSection Component
  *
@@ -64,7 +83,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   const effectiveCountryCode =
     selectedCompany?.country_code ||
     formData.country_code ||
-    ((formData.business_context as any)?.country_code as string | undefined) ||
+    getStringValue(formData.business_context, 'country_code') ||
     'BE'
 
   // Construct initial selected company from stored KBO data if available
@@ -74,34 +93,30 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     if (!formData.company_name) return null
 
     // Check for KBO data in business_context first (preferred source - from previous verification)
-    const businessContext = formData.business_context as any
+    const businessContext = formData.business_context
     let kboRegistration =
-      businessContext?.kbo_registration || businessContext?.kbo_registration_number
-    let legalForm = businessContext?.legal_form
-    let companyId = businessContext?.company_id
-    let companyAddress = businessContext?.company_address || ''
-    let companyStatus = businessContext?.company_status || 'Active'
+      getFirstStringValue(businessContext, ['kbo_registration', 'kbo_registration_number']) ??
+      formData.kbo_number
+    let legalForm = getStringValue(businessContext, 'legal_form') ?? formData.legal_form
+    const companyId = getStringValue(businessContext, 'company_id')
+    let companyAddress = getStringValue(businessContext, 'company_address') ?? ''
+    const companyStatus = getStringValue(businessContext, 'company_status') ?? 'Active'
 
     // ✅ FIX: Also check top-level formData fields (from Mercury business card prefill)
     // When data comes from Mercury, KBO fields are at top level, not in business_context
     if (!kboRegistration) {
-      // Check top-level kbo_number (from business card API)
-      kboRegistration = (formData as any).kbo_number || (formData as any).kbo_registration
+      kboRegistration = getStringValue(formData, 'kbo_registration')
     }
     if (!legalForm) {
-      legalForm = (formData as any).legal_form
+      legalForm = formData.legal_form
     }
     if (!companyAddress) {
       // Try to construct address from location/city/postal_code
-      const location = (formData as any).location || (formData as any).city
-      const postalCode = (formData as any).postal_code
+      const location = getStringValue(formData, 'location') || formData.city
+      const postalCode = formData.postal_code
       if (location || postalCode) {
         companyAddress = [postalCode, location].filter(Boolean).join(' ') || ''
       }
-    }
-    // Default status to Active if not set
-    if (!companyStatus) {
-      companyStatus = 'Active'
     }
 
     // If we have KBO registration data (from either source), construct a CompanySearchResult
@@ -221,8 +236,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
       // Get current form data snapshot to avoid stale closures
       const currentFormData = formData
-      const currentBusinessContext = (currentFormData.business_context as any) || {}
-      const updatedBusinessContext = {
+      const currentBusinessContext = asRecord(currentFormData.business_context)
+      const updatedBusinessContext: ValuationFormData['business_context'] = {
         ...currentBusinessContext,
         kbo_registration: selectedCompany.registration_number,
         kbo_registration_number: selectedCompany.registration_number,
@@ -298,7 +313,6 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     }
 
     saveCompanyData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompany, formData, updateFormData])
 
   return (
@@ -347,7 +361,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 )
               }
 
-              updateFormData(buildBusinessTypeFormData(businessType) as any)
+              updateFormData(buildBusinessTypeFormData(businessType))
             }}
             onSuggest={async (suggestion) => {
               try {

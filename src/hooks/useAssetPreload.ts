@@ -20,6 +20,11 @@ import { useEffect, useRef } from 'react'
 import { AssetPreloadService } from '../services/asset/AssetPreloadService'
 import { generalLogger } from '../utils/logger'
 
+type WindowWithIdleCallbacks = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
 /**
  * Hook to preload assets in the background after component mounts
  *
@@ -87,9 +92,11 @@ export function useAssetPreload(
 
     // Use requestIdleCallback if available, otherwise setTimeout
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      idleId = (window as any).requestIdleCallback(schedulePreload, {
-        timeout: 2000, // Max wait 2 seconds
-      })
+      const idleWindow = window as WindowWithIdleCallbacks
+      idleId =
+        idleWindow.requestIdleCallback?.(schedulePreload, {
+          timeout: 2000, // Max wait 2 seconds
+        }) ?? null
     } else {
       timerId = setTimeout(schedulePreload, 100)
     }
@@ -100,7 +107,7 @@ export function useAssetPreload(
     return () => {
       isCancelled = true
       if (idleId !== null) {
-        ;(window as any).cancelIdleCallback(idleId)
+        ;(window as WindowWithIdleCallbacks).cancelIdleCallback?.(idleId)
       }
       if (timerId !== null) {
         clearTimeout(timerId)

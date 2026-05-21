@@ -17,7 +17,9 @@ import type {
   ValuationVersion,
   VersionChanges,
   VersionComparison,
+  VersionListResponse,
 } from '../types/ValuationVersion'
+import type { ValuationRequest } from '../types/valuation'
 import { dateLikeToUnixMs } from '../utils/date-like'
 import {
   getCurrentFilingYear,
@@ -34,6 +36,19 @@ import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
+type UnknownRecord = Record<string, unknown>
+type PersistedVersionMetadata = ValuationVersion & { _hasHtmlReport?: boolean }
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function getFinalValuation(result: unknown): number {
+  const valuationSummary = asRecord(asRecord(result)?.valuation_summary)
+  return coalesceFiniteNumber(valuationSummary?.final_valuation)
+}
 
 /**
  * Storage adapter that catches QuotaExceededError and gracefully degrades.
@@ -133,7 +148,10 @@ function generateVersionId(): string {
 /**
  * Detect changes between two data objects
  */
-function detectChanges(oldData: any, newData: any): VersionChanges {
+function detectChanges(
+  oldData: Partial<ValuationRequest>,
+  newData: Partial<ValuationRequest>
+): VersionChanges {
   const changes: VersionChanges = {
     totalChanges: 0,
     significantChanges: [],
@@ -186,8 +204,8 @@ function detectChanges(oldData: any, newData: any): VersionChanges {
 
   if (oldData.founding_year !== newData.founding_year) {
     changes.foundingYear = {
-      from: oldData.founding_year,
-      to: newData.founding_year,
+      from: oldData.founding_year ?? 0,
+      to: newData.founding_year ?? 0,
       timestamp,
     }
     changes.totalChanges++
@@ -235,7 +253,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           },
         }))
 
-        const applyBackendResponse = (response: any) => {
+        const applyBackendResponse = (response: VersionListResponse) => {
           const existingLocalVersions = get().versions[reportId] || []
           const versionMap = new Map<number, ValuationVersion>()
           existingLocalVersions.forEach((version) => {
@@ -318,7 +336,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           }))
         }
 
-        const fetchWithRetry = async (): Promise<any> => {
+        const fetchWithRetry = async (): Promise<VersionListResponse> => {
           try {
             return await versionAPI.listVersions(reportId)
           } catch (_firstError) {
@@ -381,8 +399,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             )
             const historicalYears =
               normalizedHistoricalYearData
-                ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-                .map((y: any) => y.year) ?? []
+                ?.filter(
+                  (y) => y.ebitda != null && Number(y.year) >= 2000 && Number(y.year) <= 2100
+                )
+                .map((y) => Number(y.year)) ?? []
             const currentYearData = enrichedRequest.formData?.current_year_data as
               | {
                   year?: number
@@ -404,7 +424,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   0
               ),
             }
-            normalizedHistoricalYearData?.forEach((y: any) => {
+            normalizedHistoricalYearData?.forEach((y) => {
               const yearMeta = y?.ebitda_normalization_metadata
               if (y?.ebitda != null && y?.year != null) {
                 yearEbitdaMap[Number(y.year)] = coalesceFiniteNumber(
@@ -788,12 +808,8 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           vB.valuationResult &&
           typeof vB.valuationResult === 'object'
             ? (() => {
-                const vAVal = coalesceFiniteNumber(
-                  (vA.valuationResult as any).valuation_summary?.final_valuation
-                )
-                const vBVal = coalesceFiniteNumber(
-                  (vB.valuationResult as any).valuation_summary?.final_valuation
-                )
+                const vAVal = getFinalValuation(vA.valuationResult)
+                const vBVal = getFinalValuation(vB.valuationResult)
                 const absoluteChange = vBVal - vAVal
                 const denom = Math.abs(vAVal) > 1e-9 ? Math.abs(vAVal) : null
                 return {
@@ -893,33 +909,35 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         for (const reportId of reportIds) {
           const versions = state.versions[reportId] || []
           const trimmed = versions.slice(-MAX_VERSIONS_PER_REPORT).map((version) => {
-            const fd = version.formData as any
+            const fd = version.formData
+            const lightweightFormData = {
+              country_code: fd?.country_code || '',
+              company_name: fd?.company_name,
+              current_year_data: fd?.current_year_data
+                ? buildCurrentYearData({
+                    year: normalizeCurrentYearForFiling(
+                      fd.current_year_data.year,
+                      fd?.filing_year_confirmed
+                    ),
+                    revenue: fd.current_year_data.revenue,
+                    ebitda: fd.current_year_data.ebitda,
+                    currentYearData: fd.current_year_data,
+                  })
+                : undefined,
+              number_of_employees: fd?.number_of_employees,
+              number_of_owners: fd?.number_of_owners,
+              industry: fd?.industry,
+              business_type: fd?.business_type,
+            } as unknown as ValuationVersion['formData']
+            const versionMetadata = version as PersistedVersionMetadata
             return {
               ...version,
-              formData: {
-                country_code: fd?.country_code || '',
-                company_name: fd?.company_name,
-                current_year_data: fd?.current_year_data
-                  ? buildCurrentYearData({
-                      year: normalizeCurrentYearForFiling(
-                        fd.current_year_data.year,
-                        fd?.filing_year_confirmed
-                      ),
-                      revenue: fd.current_year_data.revenue,
-                      ebitda: fd.current_year_data.ebitda,
-                      currentYearData: fd.current_year_data,
-                    })
-                  : undefined,
-                number_of_employees: fd?.number_of_employees,
-                number_of_owners: fd?.number_of_owners,
-                industry: fd?.industry,
-                business_type: fd?.business_type,
-              } as any,
+              formData: lightweightFormData,
               valuationResult: null,
               htmlReport: null,
               normalization_data: undefined,
               tax_latency_data: undefined,
-              _hasHtmlReport: !!(version as any)._hasHtmlReport || !!version.htmlReport,
+              _hasHtmlReport: !!versionMetadata._hasHtmlReport || !!version.htmlReport,
             }
           })
           lightweight[reportId] = trimmed

@@ -10,6 +10,7 @@
  *     Venus call originates with the new headers already)
  *
  * Pins:
+ *   - Invalid JSON / blank message → 400 before auth or Titan
  *   - Missing `upswitch_access_token` cookie → 401 + fallback:true
  *   - body.stream omitted / true → /api/v2/ai/stream
  *   - body.stream === false → /api/v2/ai/chat
@@ -20,6 +21,7 @@
  *   - Context derives hasRevenue / hasEbitda / hasOwnerSalary / needsNormalization
  *   - Titan non-OK → fallback envelope with err.message
  *   - Streaming response → text/event-stream pass-through
+ *   - Streaming response disables intermediary body transforms
  *   - Non-streaming → JSON pass-through
  *   - AbortError → 504, network error → 503
  */
@@ -86,6 +88,51 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+// ---------------------------------------------------------------------
+// Body validation
+// ---------------------------------------------------------------------
+
+describe('body validation', () => {
+  it('returns 400 with "Invalid JSON body" when body is not parseable JSON', async () => {
+    const req = new NextRequest('https://valuation.upswitch.app/api/ai/chat', {
+      method: 'POST',
+      body: 'not-json-at-all',
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: 'upswitch_access_token=jwt-token-here',
+      },
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+      fallback: true,
+    })
+    expect(mocks.getBffCookieHeaderForTitan).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when message is missing, blank, or not a string', async () => {
+    for (const body of [{}, { message: '' }, { message: '   \n\t  ' }, { message: 123 }]) {
+      const res = await POST(request(body))
+      const json = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(json).toEqual({
+        success: false,
+        error: 'message is required',
+        fallback: true,
+      })
+    }
+    expect(mocks.getBffCookieHeaderForTitan).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------
@@ -309,6 +356,30 @@ describe('Titan payload', () => {
     expect(body.messages).toEqual([
       { role: 'user', content: 'first' },
       { role: 'assistant', content: 'second' },
+      { role: 'user', content: 'follow-up' },
+    ])
+  })
+
+  it('drops malformed history entries and trims the current message', async () => {
+    await POST(
+      request({
+        message: '   follow-up   ',
+        history: [
+          { role: 'system', content: 'ignore me' },
+          { role: 'user', content: '   ' },
+          { role: 'assistant', content: ' keep me ' },
+          null,
+        ],
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body.messages).toEqual([
+      { role: 'assistant', content: 'keep me' },
       { role: 'user', content: 'follow-up' },
     ])
   })
@@ -557,7 +628,7 @@ describe('response shape', () => {
     const res = await POST(request({ message: 'hi' }))
 
     expect(res.headers.get('Content-Type')).toBe('text/event-stream')
-    expect(res.headers.get('Cache-Control')).toBe('no-cache')
+    expect(res.headers.get('Cache-Control')).toBe('no-cache, no-transform')
     expect(res.headers.get('Connection')).toBe('keep-alive')
   })
 

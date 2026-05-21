@@ -5,6 +5,7 @@ import {
   buildManualChatRetryPlan,
   type ManualPendingFieldUpdate,
 } from '../utils/manualChatCommandHandling'
+import { mapStoredMessagesToManualChatMessages } from '../utils/manualChatHistory'
 
 type ManualChatMessageSender = (content: string) => void | Promise<void>
 
@@ -68,18 +69,7 @@ export function useManualChatSessionActions({
     loadHistory(manualChatReportId)
       .then(() => {
         const storeMessages = useConversationStore.getState().messages
-        setChatMessages(
-          storeMessages.map((message) => ({
-            id: message.id,
-            role: (message.role || (message.type === 'ai' ? 'assistant' : message.type)) as
-              | 'user'
-              | 'assistant'
-              | 'system',
-            content: message.content,
-            timestamp:
-              message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp),
-          }))
-        )
+        setChatMessages(mapStoredMessagesToManualChatMessages(storeMessages))
       })
       .finally(() => setIsLoadingHistory(false))
   }, [

@@ -21,6 +21,22 @@ export interface ErrorInfo {
   originalError?: Error
 }
 
+type TransportError = Error & {
+  config?: {
+    data?: unknown
+    method?: string
+    url?: string
+  }
+  response?: {
+    data?: unknown
+    status?: number
+  }
+}
+
+function asTransportError(error: unknown): TransportError | null {
+  return error instanceof Error ? (error as TransportError) : null
+}
+
 /**
  * Classify error type
  */
@@ -65,13 +81,14 @@ export function classifyError(error: unknown): ErrorType {
   }
 
   // Validation errors (check for status code)
-  const anyError = error as any
-  if (anyError.response?.status >= 400 && anyError.response?.status < 500) {
+  const transportError = asTransportError(error)
+  const status = transportError?.response?.status
+  if (status !== undefined && status >= 400 && status < 500) {
     return ErrorType.VALIDATION
   }
 
   // Server errors
-  if (anyError.response?.status >= 500) {
+  if (status !== undefined && status >= 500) {
     return ErrorType.SERVER
   }
 
@@ -83,7 +100,7 @@ export function classifyError(error: unknown): ErrorType {
  */
 export function getUserFriendlyMessage(error: unknown): string {
   const type = classifyError(error)
-  const anyError = error as any
+  const transportError = asTransportError(error)
 
   switch (type) {
     case ErrorType.NETWORK:
@@ -93,7 +110,12 @@ export function getUserFriendlyMessage(error: unknown): string {
       return 'Request timed out. The calculation is taking longer than expected. Please try again.'
 
     case ErrorType.VALIDATION: {
-      const validationMessage = anyError.response?.data?.error || anyError.response?.data?.message
+      const responseData = transportError?.response?.data
+      const validationMessage =
+        responseData && typeof responseData === 'object'
+          ? ((responseData as { error?: string; message?: string }).error ??
+            (responseData as { error?: string; message?: string }).message)
+          : undefined
       if (validationMessage) {
         return `Validation error: ${validationMessage}`
       }
@@ -125,7 +147,7 @@ export function isRetryable(error: unknown): boolean {
  */
 export function extractErrorInfo(error: unknown): ErrorInfo {
   const type = classifyError(error)
-  const anyError = error as any
+  const transportError = asTransportError(error)
   const originalError = error instanceof Error ? error : new Error(String(error))
 
   return {
@@ -133,7 +155,7 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     message: originalError.message,
     userMessage: getUserFriendlyMessage(error),
     retryable: isRetryable(error),
-    statusCode: anyError.response?.status,
+    statusCode: transportError?.response?.status,
     originalError: originalError,
   }
 }
@@ -141,9 +163,9 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 /**
  * Format error for logging
  */
-export function formatErrorForLogging(error: unknown): Record<string, any> {
+export function formatErrorForLogging(error: unknown): Record<string, unknown> {
   const info = extractErrorInfo(error)
-  const anyError = error as any
+  const transportError = asTransportError(error)
 
   return {
     type: info.type,
@@ -152,11 +174,11 @@ export function formatErrorForLogging(error: unknown): Record<string, any> {
     retryable: info.retryable,
     statusCode: info.statusCode,
     stack: info.originalError?.stack,
-    response: anyError.response?.data,
+    response: transportError?.response?.data,
     request: {
-      url: anyError.config?.url,
-      method: anyError.config?.method,
-      data: anyError.config?.data,
+      url: transportError?.config?.url,
+      method: transportError?.config?.method,
+      data: transportError?.config?.data,
     },
   }
 }
