@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Check, FileText, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
@@ -22,8 +22,15 @@ interface BuyerReadyCardFrameProps {
   icon?: ReactNode
   actionPrompt?: string
   actionLabel?: string
+  onAction?: () => Promise<void> | void
   onSendFollowUp?: (content: string) => void
   children?: ReactNode
+}
+
+const AGENT_TOOL_ACTION_NAME_HEADER = 'X-Upswitch-Agent-Tool-Name'
+
+function buildAgentToolActionHeaders(toolName: string): Record<string, string> {
+  return { [AGENT_TOOL_ACTION_NAME_HEADER]: toolName }
 }
 
 function compactParts(parts: Array<string | null | undefined>) {
@@ -54,6 +61,34 @@ function formatMoney(value: number | null | undefined, currency: string) {
   }).format(value)
 }
 
+function safeBffPath(value?: string) {
+  return typeof value === 'string' && value.startsWith('/api/') ? value : null
+}
+
+function extractGeneratedEntityId(json: unknown): string | null {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return null
+  const root = json as Record<string, unknown>
+  const data = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>) : null
+  const entityId = data?.entityId ?? data?.entity_id ?? root.entityId ?? root.entity_id
+  return typeof entityId === 'string' && entityId.trim() ? entityId.trim() : null
+}
+
+function extractErrorMessage(json: unknown, status: number): string {
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    const record = json as Record<string, unknown>
+    for (const key of ['error', 'message', 'detail']) {
+      const value = record[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+  return `HTTP ${status}`
+}
+
+function buyerReadyRoomUrl(locale: string, entityId: string) {
+  const safeLocale = /^[a-z]{2}$/.test(locale) ? locale : 'en'
+  return `/${safeLocale}/business/buyer-ready/${encodeURIComponent(entityId)}`
+}
+
 function BuyerReadyCardFrame({
   id,
   title,
@@ -63,12 +98,36 @@ function BuyerReadyCardFrame({
   icon,
   actionPrompt,
   actionLabel,
+  onAction,
   onSendFollowUp,
   children,
 }: BuyerReadyCardFrameProps) {
   const ca = useTranslations('chatAssistant')
-  const [decision, setDecision] = useState<'idle' | 'sent' | 'dismissed'>('idle')
-  const canAct = decision === 'idle' && typeof onSendFollowUp === 'function' && actionPrompt
+  const [decision, setDecision] = useState<'idle' | 'sent' | 'dismissed' | 'submitting'>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const canAct =
+    decision === 'idle' &&
+    (typeof onAction === 'function' || (typeof onSendFollowUp === 'function' && actionPrompt))
+
+  const handleAction = async () => {
+    if (!canAct) return
+    setError(null)
+    if (onAction) {
+      setDecision('submitting')
+      try {
+        await onAction()
+        setDecision('sent')
+      } catch (err) {
+        setDecision('idle')
+        setError(err instanceof Error ? err.message : ca('proposalCards.buyerReady.failed'))
+      }
+      return
+    }
+    if (actionPrompt) {
+      onSendFollowUp?.(actionPrompt)
+      setDecision('sent')
+    }
+  }
 
   return (
     <motion.div
@@ -98,23 +157,28 @@ function BuyerReadyCardFrame({
             <p className="mt-1 text-xs text-foreground/50 leading-snug">{meta.join(' · ')}</p>
           )}
           {children}
+          {decision === 'submitting' && (
+            <p className="mt-1.5 text-xs text-primary/80">
+              {ca('proposalCards.buyerReady.generating')}
+            </p>
+          )}
           {decision === 'sent' && (
-            <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.sent')}</p>
+            <p className="mt-1.5 text-xs text-success/90">
+              {ca('proposalCards.buyerReady.generated')}
+            </p>
           )}
           {decision === 'dismissed' && (
             <p className="mt-1.5 text-xs text-foreground/45">
               {ca('proposalCards.common.statusCancelled')}
             </p>
           )}
+          {error && <p className="mt-1.5 text-xs text-destructive/90">{error}</p>}
           {decision === 'idle' && (actionLabel || canAct) && (
             <div className="mt-2 flex items-center gap-3 text-xs">
               {canAct && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onSendFollowUp?.(actionPrompt)
-                    setDecision('sent')
-                  }}
+                  onClick={() => void handleAction()}
                   className="text-primary/85 hover:text-primary transition-colors font-medium"
                 >
                   {actionLabel ?? ca('proposalCards.buyerReady.action')}
@@ -168,8 +232,42 @@ function BuyerReadyCard({
   onSendFollowUp?: (content: string) => void
 }) {
   const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
   const trafficLight = (green: number, yellow: number, red: number) =>
     ca('proposalCards.buyerReady.trafficLight', { green, yellow, red })
+
+  const generateBuyerReadyPackage = async (
+    request: Extract<BuyerReadyToolCard, { kind: 'buyer_package_generation' }>
+  ) => {
+    const path =
+      safeBffPath(request.submitPath) ??
+      (request.reportId
+        ? `/api/valuations/reports/${encodeURIComponent(request.reportId)}/buyer-ready-package`
+        : null)
+    if (!path) throw new Error(ca('proposalCards.buyerReady.endpointMissing'))
+
+    const body: Record<string, unknown> = {}
+    if (request.regionLabel) body.regionLabel = request.regionLabel
+    if (request.countryCode) body.countryCode = request.countryCode
+    if (request.readinessCaseId) body.readinessCaseId = request.readinessCaseId
+
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...buildAgentToolActionHeaders('generate_buyer_ready_package'),
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+    const json: unknown = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+
+    const entityId = extractGeneratedEntityId(json)
+    if (entityId && typeof window !== 'undefined') {
+      window.open(buyerReadyRoomUrl(locale, entityId), '_blank', 'noopener,noreferrer')
+    }
+  }
 
   switch (card.kind) {
     case 'buyer_package_generation':
@@ -199,6 +297,9 @@ function BuyerReadyCard({
               : undefined
           }
           actionLabel={ca('proposalCards.buyerReady.generateAction')}
+          onAction={
+            card.status === 'pending_approval' ? () => generateBuyerReadyPackage(card) : undefined
+          }
           onSendFollowUp={onSendFollowUp}
         />
       )

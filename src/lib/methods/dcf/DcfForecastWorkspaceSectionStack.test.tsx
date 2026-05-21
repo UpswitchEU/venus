@@ -24,7 +24,9 @@ type MockDcfForecastWorkspaceProps = {
   canAddYear: boolean
   nextForecastYear: number
   dcfInputMode: DcfInputMode
+  dcfTaxShieldProjections?: number[]
   onDcfInputModeChange: (mode: DcfInputMode) => void
+  onDcfTaxShieldProjectionChange?: (index: number, value: number | undefined) => void
   onChange: (year: string, field: ManualYearlyFinancialField, value: number | undefined) => void
   onAddYear: () => void
   onRequestRemoveForecastYears?: () => void
@@ -82,6 +84,7 @@ describe('DcfForecastWorkspaceSectionStack', () => {
       dcf_da_pct: 3,
       dcf_nwc_pct: 1,
       dcf_tax_rate_pct: 25,
+      dcf_tax_shield_projections: [1500],
     })
 
     render(
@@ -118,8 +121,15 @@ describe('DcfForecastWorkspaceSectionStack', () => {
       canAddYear: true,
       nextForecastYear: 2026,
       dcfInputMode: 'fcff_only',
+      dcfTaxShieldProjections: [1500],
       onDcfInputModeChange,
     })
+
+    props?.onDcfTaxShieldProjectionChange?.(0, 1125)
+    const taxShieldUpdate = setFormData.mock.calls[0][0] as (
+      previous: ManualValuationFormData
+    ) => ManualValuationFormData
+    expect(taxShieldUpdate(currentFormData).dcf_tax_shield_projections).toEqual([1125])
 
     props?.onChange('2025', 'free_cash_flow', 120_000)
     expect(updateYearlyFinancials).toHaveBeenCalledWith('2025', true, 'free_cash_flow', 120_000)
@@ -128,7 +138,7 @@ describe('DcfForecastWorkspaceSectionStack', () => {
     expect(setShowForecastRemovalConfirm).toHaveBeenCalledWith(true)
 
     props?.onAddYear()
-    const update = setFormData.mock.calls[0][0] as (
+    const update = setFormData.mock.calls[1][0] as (
       previous: ManualValuationFormData
     ) => ManualValuationFormData
     expect(update(currentFormData).yearlyFinancials).toEqual([

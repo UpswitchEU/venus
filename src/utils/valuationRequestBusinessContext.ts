@@ -40,6 +40,20 @@ export function buildValuationBusinessContext({
   if (fd.dcf_cost_of_debt_pct != null) adaptiveFields.dcf_cost_of_debt_pct = fd.dcf_cost_of_debt_pct
   if (fd.dcf_debt_equity_pct != null) adaptiveFields.dcf_debt_equity_pct = fd.dcf_debt_equity_pct
   if (fd.dcf_tax_shield_pct != null) adaptiveFields.dcf_tax_shield_pct = fd.dcf_tax_shield_pct
+  if (
+    fd.dcf_discounting_convention === 'mid_year' ||
+    fd.dcf_discounting_convention === 'year_end'
+  ) {
+    adaptiveFields.dcf_discounting_convention = fd.dcf_discounting_convention
+  }
+  const dcfTaxShieldProjections = Array.isArray(fd.dcf_tax_shield_projections)
+    ? fd.dcf_tax_shield_projections
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+    : []
+  if (dcfTaxShieldProjections.length > 0) {
+    adaptiveFields.dcf_tax_shield_projections = dcfTaxShieldProjections
+  }
 
   const userConfiguredDcf =
     fd.dcf_wacc_pct != null ||
@@ -47,6 +61,8 @@ export function buildValuationBusinessContext({
     fd.dcf_exit_multiple != null ||
     fd.dcf_revenue_growth_pct != null ||
     fd.dcf_ebitda_margin_pct != null ||
+    fd.dcf_discounting_convention != null ||
+    dcfTaxShieldProjections.length > 0 ||
     (Array.isArray(formData.forecast_years_data) && formData.forecast_years_data.length > 0) ||
     (Array.isArray(rawForecastData) && rawForecastData.length > 0)
 

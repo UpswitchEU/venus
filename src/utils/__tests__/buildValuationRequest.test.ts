@@ -155,6 +155,51 @@ describe('buildValuationRequest', () => {
     expect(result.user_configured_dcf).toBe(true)
   })
 
+  it('serializes Henk-style FCFF-only DCF inputs with year-end discounting', () => {
+    const filingYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        company_name: 'Henk DCF Template BV',
+        country_code: 'NL',
+        current_year_data: {
+          year: filingYear,
+          revenue: 1_000,
+          ebitda: 300,
+          cash: 200,
+          total_debt: 100,
+          total_equity: 700,
+        },
+        historical_years_data: [{ year: filingYear - 1, revenue: 900, ebitda: 270 }],
+        forecast_years_data: [
+          { year: filingYear + 1, revenue: 0, ebitda: 0, free_cash_flow: 202.5 },
+          { year: filingYear + 2, revenue: 0, ebitda: 0, free_cash_flow: 227.5 },
+          { year: filingYear + 3, revenue: 0, ebitda: 0, free_cash_flow: 247.5 },
+          { year: filingYear + 4, revenue: 0, ebitda: 0, free_cash_flow: 236.25 },
+          { year: filingYear + 5, revenue: 0, ebitda: 0, free_cash_flow: 245.2125 },
+        ],
+        dcf_input_mode: 'fcff_only',
+        dcf_wacc_pct: 17.5,
+        dcf_terminal_growth_pct: 1,
+        dcf_discounting_convention: 'year_end',
+        dcf_tax_shield_projections: [1.5, 1.125, 0.75, 0.375, 0],
+      }),
+      []
+    )
+
+    expect(result.dcf_input_mode).toBe('fcff_only')
+    expect(result.forecast_years_data?.map((year) => year.free_cash_flow)).toEqual([
+      202.5, 227.5, 247.5, 236.25, 245.2125,
+    ])
+    expect(result.forecast_years_data?.every((year) => year.is_forecast)).toBe(true)
+    expect(result.business_context).toMatchObject({
+      dcf_wacc_pct: 17.5,
+      dcf_terminal_growth_pct: 1,
+      dcf_discounting_convention: 'year_end',
+      dcf_tax_shield_projections: [1.5, 1.125, 0.75, 0.375, 0],
+    })
+    expect(result.user_configured_dcf).toBe(true)
+  })
+
   it('uses the default filing year for current_year_data when no explicit year is provided', () => {
     const result = buildValuationRequest(makeFormData(), [])
 

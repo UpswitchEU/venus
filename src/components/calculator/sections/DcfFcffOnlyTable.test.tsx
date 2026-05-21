@@ -46,4 +46,24 @@ describe('DcfFcffOnlyTable', () => {
 
     expect(onChange).toHaveBeenCalledWith('2025', 0)
   })
+
+  it('emits APV tax shield changes by forecast-year index', () => {
+    const onChange = vi.fn()
+    const onTaxShieldChange = vi.fn()
+
+    render(
+      <DcfFcffOnlyTable
+        forecastRows={[{ year: '2025', revenue: 0, ebitda: 0, free_cash_flow: 125_000 }]}
+        taxShieldProjections={[1_500]}
+        onChange={onChange}
+        onTaxShieldChange={onTaxShieldChange}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('dcfFcffOnlyTable.taxShieldInputAria:year=2025'), {
+      target: { value: '1125' },
+    })
+
+    expect(onTaxShieldChange).toHaveBeenCalledWith(0, 1125)
+  })
 })

@@ -76,9 +76,21 @@ const translations: Record<string, Record<string, string>> = {
     appliedMultiple: 'Toegepaste multiple',
     enterpriseValue: 'Ondernemingswaarde',
     equityValue: 'Aandelenwaarde',
+    apvBridge: 'APV-brug',
+    operatingDcfEnterpriseValue: 'Operationele DCF-OW',
+    operatingDcfEquityValue: 'Operationele DCF-aandelenwaarde',
+    apvTaxShield: 'CW belastingschild schuld',
+    apvEnterpriseValue: 'Ondernemingswaarde (APV)',
+    apvEquityValue: 'Aandelenwaarde (APV)',
+    apvDiscountRate: 'APV-discontovoet',
+    yearEndDiscounting:
+      'Belastingschilden worden met eindejaars-timing verdisconteerd om aan te sluiten op het klanttemplate.',
+    midYearDiscounting: 'Belastingschilden worden met de mid-year-conventie verdisconteerd.',
     exitMultiple: 'Exit multiple',
     formulaHeading: 'Formule',
     formulaMultiple: 'Formule multiple',
+    formulaDcf: 'Formule DCF',
+    formulaDcfApv: 'Formule DCF APV',
     multiplePipeline: 'Multiple-pijplijn',
     comparablesCount: 'Vergelijkbare bedrijven',
     comparablesQuality: 'Kwaliteit vergelijkbaren',
@@ -406,6 +418,48 @@ describe('ValuationEditModal', () => {
     // Exit multiple headline uses fixed two-decimal formatting on the metric card.
     // formatMultiple emits the Unicode multiplication sign (×, U+00D7).
     expect(screen.getByText('6.00×')).toBeInTheDocument()
+  })
+
+  it('renders the APV tax-shield bridge for customer-template DCF results', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        selectedMethod="dcf"
+        valuationResults={{
+          dcf: {
+            available: true,
+            value: 1_496.04473548765,
+            label: 'Discounted Cash Flow (DCF)',
+            wacc: 0.175,
+            details: {
+              enterprise_value: 1_396.04473548765,
+              equity_value: 1_496.04473548765,
+              dcf_enterprise_value_before_apv: 1_393.29423191989,
+              dcf_equity_value_before_apv: 1_493.29423191989,
+              apv_tax_shield_value: 2.75050356775371,
+              apv_enterprise_value: 1_396.04473548765,
+              apv_equity_value: 1_496.04473548765,
+              apv_discount_rate: 0.175,
+              apv_discounting_convention: 'year_end',
+            },
+          },
+        }}
+        result={{} as import('@/types/valuation').ValuationResponse}
+      />
+    )
+
+    expect(screen.getByText('APV-brug')).toBeInTheDocument()
+    expect(screen.getByText('Operationele DCF-OW')).toBeInTheDocument()
+    expect(screen.getByText('CW belastingschild schuld')).toBeInTheDocument()
+    expect(screen.getByText('Ondernemingswaarde (APV)')).toBeInTheDocument()
+    expect(screen.getByText('Aandelenwaarde (APV)')).toBeInTheDocument()
+    expect(screen.getByText('APV-discontovoet')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Belastingschilden worden met eindejaars-timing verdisconteerd om aan te sluiten op het klanttemplate.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Formule DCF APV')).toBeInTheDocument()
   })
 
   it('hides Zero Draft export when downloads are plan-locked', () => {

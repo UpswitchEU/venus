@@ -303,6 +303,8 @@ function buildFieldMappings(): [string, ...string[]][] {
     ['dcf_cost_of_debt_pct', 'dcfCostOfDebtPct'],
     ['dcf_debt_equity_pct', 'dcfDebtEquityPct'],
     ['dcf_tax_shield_pct', 'dcfTaxShieldPct'],
+    ['dcf_discounting_convention', 'dcfDiscountingConvention'],
+    ['dcf_tax_shield_projections', 'dcfTaxShieldProjections'],
     ['dcf_terminal_value_method', 'dcfTerminalValueMethod'],
     ['subIndustry'],
     ['net_income', 'netIncome'],

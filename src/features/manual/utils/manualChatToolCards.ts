@@ -22,9 +22,7 @@ type ListingPreviewCard = NonNullable<ChatMessage['listingPreviews']>[number]
 type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[number]
 type BuyerProfilePreviewCard = NonNullable<ChatMessage['buyerProfilePreviews']>[number]
 type RegistrySearchResultsCard = NonNullable<ChatMessage['registrySearchResults']>[number]
-type BusinessTypeSearchResultsCard = NonNullable<
-  ChatMessage['businessTypeSearchResults']
->[number]
+type BusinessTypeSearchResultsCard = NonNullable<ChatMessage['businessTypeSearchResults']>[number]
 type BuyerReadyCard = NonNullable<ChatMessage['buyerReadyCards']>[number]
 type ProposalCardKey =
   | 'valuationRunRequests'

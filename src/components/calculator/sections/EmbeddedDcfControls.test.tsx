@@ -73,6 +73,7 @@ describe('EmbeddedDcfControls', () => {
       dcf_da_pct: 3,
       dcf_nwc_pct: 1,
       dcf_tax_rate_pct: 25,
+      dcf_discounting_convention: 'year_end',
     })
 
     render(
@@ -113,6 +114,7 @@ describe('EmbeddedDcfControls', () => {
       formData: currentFormData,
       terminalValueMethod: 'perpetual_growth',
       onTerminalValueMethodChange: handleTerminalValueMethodChange,
+      onDiscountingConventionChange: expect.any(Function),
       showDcfInputModeToggle: true,
       dcfModeSegmentOptions: inputModeOptions,
       onDcfInputModeChange: handleDcfInputModeChange,
@@ -126,6 +128,7 @@ describe('EmbeddedDcfControls', () => {
       formData: currentFormData,
       terminalValueMethod: 'perpetual_growth',
       onTerminalValueMethodChange: handleTerminalValueMethodChange,
+      onDiscountingConventionChange: expect.any(Function),
       disabled: true,
       integrationCapexPct: 5.2,
       integrationDaPct: 2.4,
@@ -148,5 +151,14 @@ describe('EmbeddedDcfControls', () => {
       previous: ManualValuationFormData
     ) => ManualValuationFormData
     expect(update(currentFormData)).toMatchObject({ dcf_wacc_pct: 9 })
+
+    mocks.stackProps[1].onDiscountingConventionChange?.('mid_year')
+    expect(setFormData).toHaveBeenCalledTimes(2)
+    const conventionUpdate = setFormData.mock.calls[1][0] as (
+      previous: ManualValuationFormData
+    ) => ManualValuationFormData
+    expect(conventionUpdate(currentFormData)).toMatchObject({
+      dcf_discounting_convention: 'mid_year',
+    })
   })
 })

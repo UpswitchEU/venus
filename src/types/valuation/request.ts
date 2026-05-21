@@ -264,6 +264,10 @@ export interface ValuationRequest {
   projection_years?: number // 5-15 years
   /** Manual DCF: `ebitda` (default) or `fcff_only` (explicit yearly FCFF). */
   dcf_input_mode?: 'ebitda' | 'fcff_only'
+  /** DCF cash-flow timing convention. Defaults to `mid_year`; accountant templates may use `year_end`. */
+  dcf_discounting_convention?: 'mid_year' | 'year_end'
+  /** Explicit nominal APV debt tax-shield cash flows by forecast year. */
+  dcf_tax_shield_projections?: number[]
 
   /** Pre-selected valuation method key (single-method mode). */
   selected_method?: string
@@ -513,6 +517,9 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   dcf_cost_of_debt_pct?: number
   dcf_debt_equity_pct?: number
   dcf_tax_shield_pct?: number
+  dcf_discounting_convention?: 'mid_year' | 'year_end'
+  /** Explicit nominal APV debt tax-shield cash flows by forecast year. */
+  dcf_tax_shield_projections?: number[]
   /** DCF terminal value: growth vs multiple (manual calculator). */
   dcf_terminal_value_method?: 'perpetual_growth' | 'exit_multiple'
   // Adjusted NAV

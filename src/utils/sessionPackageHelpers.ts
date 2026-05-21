@@ -19,6 +19,9 @@ const SESSION_SNAPSHOT_KEYS_FROM_VALUATION_REQUEST = [
   'owner_salary_addback',
   /** Present when FCFF-only DCF mode was used — must match calculate payload. */
   'dcf_input_mode',
+  /** DCF convention/APV schedule are report-critical when benchmarking accountant templates. */
+  'dcf_discounting_convention',
+  'dcf_tax_shield_projections',
   /** Titan uses this for methodology hints; request is source of truth after calculate. */
   'user_configured_dcf',
   /** Multiples / adaptive comparables as sent to the API. */

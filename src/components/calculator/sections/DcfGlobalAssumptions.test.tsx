@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DcfGlobalAssumptions } from './DcfGlobalAssumptions'
 
@@ -18,7 +18,23 @@ vi.mock('./ValuationSectionHeader', () => ({
   ValuationSectionHeader: ({ title }: { title: React.ReactNode }) => <h3>{title}</h3>,
 }))
 vi.mock('@/design-system/components/SegmentedControl', () => ({
-  SegmentedControl: () => <div data-testid="segmented" />,
+  SegmentedControl: ({
+    options,
+    onChange,
+    'aria-label': ariaLabel,
+  }: {
+    options: Array<{ value: string; label: string }>
+    onChange: (value: string) => void
+    'aria-label'?: string
+  }) => (
+    <div data-testid="segmented" aria-label={ariaLabel}>
+      {options.map((option) => (
+        <button key={option.value} type="button" onClick={() => onChange(option.value)}>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  ),
 }))
 vi.mock('@/design-system/components/Switch', () => ({
   Switch: ({ label }: { label: string }) => <span>{label}</span>,
@@ -153,5 +169,26 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
     )
 
     expect(onFieldChange).not.toHaveBeenCalled()
+  })
+
+  it('emits year-end discounting convention changes for customer-template benchmarking', () => {
+    const onDiscountingConventionChange = vi.fn()
+
+    render(
+      <DcfGlobalAssumptions
+        {...baseProps}
+        variant="discountTerminalOnly"
+        dcfInputMode="fcff_only"
+        dcfWaccPct={17.5}
+        dcfTerminalGrowthPct={1}
+        dcfDiscountingConvention="mid_year"
+        onFieldChange={vi.fn()}
+        onDiscountingConventionChange={onDiscountingConventionChange}
+      />
+    )
+
+    fireEvent.click(screen.getByText('dcfDiscountingConvention.year_end'))
+
+    expect(onDiscountingConventionChange).toHaveBeenCalledWith('year_end')
   })
 })

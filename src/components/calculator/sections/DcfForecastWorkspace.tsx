@@ -45,7 +45,9 @@ interface DcfForecastWorkspaceProps {
   canAddYear: boolean
   nextForecastYear: number
   dcfInputMode: DcfInputMode
+  dcfTaxShieldProjections?: number[]
   onDcfInputModeChange: (mode: DcfInputMode) => void
+  onDcfTaxShieldProjectionChange?: (index: number, value: number | undefined) => void
   onChange: (
     year: string,
     field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change' | 'free_cash_flow',
@@ -76,7 +78,9 @@ export function DcfForecastWorkspace({
   canAddYear,
   nextForecastYear,
   dcfInputMode,
+  dcfTaxShieldProjections,
   onDcfInputModeChange,
+  onDcfTaxShieldProjectionChange,
   onChange,
   onAddYear,
   onRequestRemoveForecastYears,
@@ -259,7 +263,9 @@ export function DcfForecastWorkspace({
               forecastRows={sortedRows}
               disabled={disabled}
               fieldValidation={fieldValidation}
+              taxShieldProjections={dcfTaxShieldProjections}
               onChange={(year, value) => onChange(year, 'free_cash_flow', value)}
+              onTaxShieldChange={onDcfTaxShieldProjectionChange}
             />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               {t('dcfForecastWorkspace.fcffOnlyAfterTableHint')}

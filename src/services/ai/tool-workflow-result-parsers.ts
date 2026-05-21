@@ -14,7 +14,9 @@ import type {
 } from './tool-result-types'
 
 function parseStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : []
 }
 
 export function parseValuationRunRequest(data: unknown): ValuationRunRequest[] {
@@ -250,7 +252,7 @@ export function parseBusinessTypeSearchResults(data: unknown): BusinessTypeSearc
   return [
     {
       status,
-      query: typeof d.query === 'string' ? d.query : results[0]?.title ?? '',
+      query: typeof d.query === 'string' ? d.query : (results[0]?.title ?? ''),
       totalFound: typeof d.total_found === 'number' ? d.total_found : results.length,
       results,
       ...(typeof d.note === 'string' ? { note: d.note } : {}),

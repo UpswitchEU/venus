@@ -84,6 +84,9 @@ export function EmbeddedDcfControls({
   const handleDcfFieldChange = (field: string, value: number | undefined) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
+  const handleDcfDiscountingConventionChange = (convention: 'mid_year' | 'year_end') => {
+    setFormData((prev) => ({ ...prev, dcf_discounting_convention: convention }))
+  }
 
   return (
     <>
@@ -97,6 +100,7 @@ export function EmbeddedDcfControls({
             formData={formData}
             terminalValueMethod={terminalValueMethod}
             onTerminalValueMethodChange={handleTerminalValueMethodChange}
+            onDiscountingConventionChange={handleDcfDiscountingConventionChange}
             onFieldChange={handleDcfFieldChange}
             showDcfInputModeToggle
             dcfModeSegmentOptions={dcfModeSegmentOptions}
@@ -138,6 +142,7 @@ export function EmbeddedDcfControls({
             formData={formData}
             terminalValueMethod={terminalValueMethod}
             onTerminalValueMethodChange={handleTerminalValueMethodChange}
+            onDiscountingConventionChange={handleDcfDiscountingConventionChange}
             onFieldChange={handleDcfFieldChange}
             disabled={isCalculating}
             smartDefaults={dcfSmartDefaultsFromHistory}

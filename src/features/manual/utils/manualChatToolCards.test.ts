@@ -505,6 +505,24 @@ describe('manualChatToolCards', () => {
       sectionKey: 'financial_overview',
       currentConfidence: 'low',
     })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'search_business_types',
+        {
+          status: 'ok',
+          query: 'software',
+          total_found: 1,
+          results: [{ id: 'saas-company', title: 'SaaS company', industry: 'Software' }],
+        },
+        createId
+      )?.businessTypeSearchResults?.[0]
+    ).toMatchObject({
+      id: 'id-11',
+      status: 'ok',
+      query: 'software',
+      results: [{ id: 'saas-company', title: 'SaaS company', industry: 'Software' }],
+    })
   })
 
   it('adds ids to non-streaming response cards', () => {
@@ -550,6 +568,15 @@ describe('manualChatToolCards', () => {
       ],
       listingPreviews: [{ id: 'listing-preview-card', status: 'ok' }],
       buyerProfilePreviews: [{ id: 'buyer-card', status: 'ok' }],
+      businessTypeSearchResults: [
+        {
+          id: 'business-type-card',
+          status: 'ok',
+          query: 'software',
+          totalFound: 1,
+          results: [{ id: 'saas-company', title: 'SaaS company' }],
+        },
+      ],
       buyerReadyCards: [
         {
           id: 'buyer-ready-card',
@@ -598,6 +625,15 @@ describe('manualChatToolCards', () => {
     ])
     expect(next[1].listingPreviews).toEqual([{ id: 'listing-preview-card', status: 'ok' }])
     expect(next[1].buyerProfilePreviews).toEqual([{ id: 'buyer-card', status: 'ok' }])
+    expect(next[1].businessTypeSearchResults).toEqual([
+      {
+        id: 'business-type-card',
+        status: 'ok',
+        query: 'software',
+        totalFound: 1,
+        results: [{ id: 'saas-company', title: 'SaaS company' }],
+      },
+    ])
     expect(next[1].buyerReadyCards).toEqual([
       {
         id: 'buyer-ready-card',

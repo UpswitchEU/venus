@@ -265,12 +265,16 @@ describe('mergeOptionalSessionPrefillFields', () => {
       {
         dcf_wacc_pct: 9.5,
         dcf_terminal_growth_pct: 2.5,
+        dcf_discounting_convention: 'year_end',
+        dcf_tax_shield_projections: [1.5, 1.125],
         nav_hidden_reserves: 10000,
         shares_for_sale: 100,
       },
       baseForm
     )
     expect(patch.dcf_wacc_pct).toBe(9.5)
+    expect(patch.dcf_discounting_convention).toBe('year_end')
+    expect(patch.dcf_tax_shield_projections).toEqual([1.5, 1.125])
     expect(patch.nav_hidden_reserves).toBe(10000)
     expect(patch.shares_for_sale).toBe(100)
   })

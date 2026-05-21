@@ -105,6 +105,8 @@ const PACKAGE_CAMEL_TO_SNAKE: Record<string, string> = {
   netIncome: 'net_income',
   historicalYearsData: 'historical_years_data',
   forecastYearsData: 'forecast_years_data',
+  dcfDiscountingConvention: 'dcf_discounting_convention',
+  dcfTaxShieldProjections: 'dcf_tax_shield_projections',
   currentYearData: 'current_year_data',
   naceCode: 'nace_code',
   naceDescription: 'nace_description',

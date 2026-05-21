@@ -12,21 +12,31 @@ interface DcfFcffOnlyTableProps {
     warnings: Record<string, string>
     errors: Record<string, string>
   }
+  taxShieldProjections?: number[]
   onChange: (year: string, value: number | undefined) => void
+  onTaxShieldChange?: (index: number, value: number | undefined) => void
 }
 
 export function DcfFcffOnlyTable({
   forecastRows,
   disabled,
   fieldValidation,
+  taxShieldProjections,
   onChange,
+  onTaxShieldChange,
 }: DcfFcffOnlyTableProps) {
   const t = useTranslations('manualInput')
   const sorted = [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year))
+  const showTaxShieldColumn = Boolean(onTaxShieldChange)
 
   return (
     <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]">
-      <table className="w-full min-w-[280px] border-collapse text-sm tabular-nums">
+      <table
+        className={cn(
+          'w-full border-collapse text-sm tabular-nums',
+          showTaxShieldColumn ? 'min-w-[480px]' : 'min-w-[280px]'
+        )}
+      >
         <thead>
           <tr className="border-b border-foreground/[0.08]">
             <th
@@ -41,12 +51,25 @@ export function DcfFcffOnlyTable({
             >
               {t('dcfFcffOnlyTable.freeCashFlow')}
             </th>
+            {showTaxShieldColumn && (
+              <th
+                scope="col"
+                className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-foreground/55"
+              >
+                {t('dcfFcffOnlyTable.apvTaxShield')}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row) => {
+          {sorted.map((row, index) => {
             const v = row.free_cash_flow
             const numericValue = typeof v === 'number' && Number.isFinite(v) ? v : undefined
+            const taxShieldRaw = taxShieldProjections?.[index]
+            const taxShieldValue =
+              typeof taxShieldRaw === 'number' && Number.isFinite(taxShieldRaw)
+                ? taxShieldRaw
+                : undefined
             const errMsg = fieldValidation?.errors[`fcff-${row.year}`]
             const warnMsg = fieldValidation?.warnings[`fcff-${row.year}`]
             const state: 'default' | 'warning' | 'error' = errMsg
@@ -87,6 +110,18 @@ export function DcfFcffOnlyTable({
                     )}
                   </div>
                 </td>
+                {showTaxShieldColumn && (
+                  <td className="px-3 py-2 text-right align-middle">
+                    <div className="ml-auto flex w-full max-w-[150px] justify-end">
+                      <InlineCurrencyInput
+                        value={taxShieldValue}
+                        disabled={disabled}
+                        ariaLabel={t('dcfFcffOnlyTable.taxShieldInputAria', { year: row.year })}
+                        onChange={(next) => onTaxShieldChange?.(index, next)}
+                      />
+                    </div>
+                  </td>
+                )}
               </tr>
             )
           })}

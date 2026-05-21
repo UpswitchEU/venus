@@ -273,6 +273,78 @@ describe('extractValuationResultsMap', () => {
     })
   })
 
+  it('promotes APV-adjusted DCF values and bridge fields from dcf_valuation', () => {
+    const payload = {
+      valuation_results: {
+        dcf: {
+          available: true,
+          value: 1_493.29423191989,
+          label: 'DCF',
+          details: {},
+        },
+      },
+      dcf_valuation: {
+        equity_value: 1_493.29423191989,
+        apv_equity_value: 1_496.04473548765,
+        enterprise_value: 1_396.04473548765,
+        dcf_enterprise_value_before_apv: 1_393.29423191989,
+        dcf_equity_value_before_apv: 1_493.29423191989,
+        apv_tax_shield_value: 2.75050356775371,
+        apv_tax_shield_pct_of_total: 0.197021163,
+        apv_enterprise_value: 1_396.04473548765,
+        apv_tax_shield_projections_5y: [1.5, 1.125, 0.75, 0.375, 0],
+        apv_tax_shield_pv_5y: [1.276595745, 0.814848348, 0.462325304, 0.196734172, 0],
+        apv_discount_rate: 0.175,
+        apv_discounting_convention: 'year_end',
+        apv_methodology: 'adjusted_present_value_tax_shield',
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toMatchObject({
+      dcf: {
+        value: 1_496.04473548765,
+        details: {
+          enterprise_value: 1_396.04473548765,
+          dcf_enterprise_value_before_apv: 1_393.29423191989,
+          dcf_equity_value_before_apv: 1_493.29423191989,
+          apv_tax_shield_value: 2.75050356775371,
+          apv_enterprise_value: 1_396.04473548765,
+          apv_equity_value: 1_496.04473548765,
+          apv_discounting_convention: 'year_end',
+          apv_tax_shield_projections_5y: [1.5, 1.125, 0.75, 0.375, 0],
+        },
+      },
+    })
+  })
+
+  it('synthesizes DCF from APV valuation payloads when persisted method rows are empty', () => {
+    const payload = {
+      valuation_results: {},
+      selected_valuation_method: 'dcf',
+      report_context: {
+        equity_value_mid: 1_493.29423191989,
+      },
+      dcf_valuation: {
+        equity_value: 1_493.29423191989,
+        apv_equity_value: 1_496.04473548765,
+        apv_tax_shield_value: 2.75050356775371,
+        dcf_enterprise_value_before_apv: 1_393.29423191989,
+        apv_enterprise_value: 1_396.04473548765,
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toMatchObject({
+      dcf: {
+        value: 1_496.04473548765,
+        details: {
+          apv_tax_shield_value: 2.75050356775371,
+          dcf_enterprise_value_before_apv: 1_393.29423191989,
+          apv_enterprise_value: 1_396.04473548765,
+        },
+      },
+    })
+  })
+
   it('drops stale dcf entries when the selected method is a non-DCF single method', () => {
     const payload = {
       selected_valuation_method: 'ebitda_multiple',

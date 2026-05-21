@@ -110,6 +110,8 @@ describe('mapClarityFormToVenusStore', () => {
       {
         companyName: 'Acme',
         dcf_wacc_pct: 12,
+        dcf_discounting_convention: 'year_end',
+        dcf_tax_shield_projections: [1.5, 1.125, 0.75],
         dcf_terminal_value_method: 'exit_multiple',
         nav_other_revaluations: 25_000,
         saas_customer_concentration_pct: 30,
@@ -120,6 +122,8 @@ describe('mapClarityFormToVenusStore', () => {
 
     expect(mapped).toMatchObject({
       dcf_wacc_pct: 12,
+      dcf_discounting_convention: 'year_end',
+      dcf_tax_shield_projections: [1.5, 1.125, 0.75],
       dcf_terminal_value_method: 'exit_multiple',
       nav_other_revaluations: 25_000,
       saas_customer_concentration_pct: 30,

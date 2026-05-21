@@ -65,7 +65,25 @@ export function DcfForecastWorkspaceSectionStack({
       canAddYear={canAppendForecastYear(formData.yearlyFinancials)}
       nextForecastYear={getNextForecastYear(formData.yearlyFinancials)}
       dcfInputMode={dcfInputMode}
+      dcfTaxShieldProjections={formData.dcf_tax_shield_projections}
       onDcfInputModeChange={onDcfInputModeChange}
+      onDcfTaxShieldProjectionChange={(index, value) => {
+        setFormData((prev) => {
+          const existing = Array.isArray(prev.dcf_tax_shield_projections)
+            ? prev.dcf_tax_shield_projections
+            : []
+          const next = Array.from({ length: forecastRows.length }, (_, i) => {
+            const current = Number(existing[i])
+            return Number.isFinite(current) ? current : 0
+          })
+          next[index] = value != null && Number.isFinite(value) ? value : 0
+
+          return {
+            ...prev,
+            dcf_tax_shield_projections: next.some((amount) => amount !== 0) ? next : undefined,
+          }
+        })
+      }}
       onChange={(year, field, value) => updateYearlyFinancials(year, true, field, value)}
       onAddYear={() => {
         setFormData((prev) => {

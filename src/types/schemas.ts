@@ -70,6 +70,8 @@ export const ValuationRequestSchema = z
     business_type_id: z.string().optional(),
     business_context: z.record(z.unknown()).optional(),
     comparables: z.array(z.unknown()).optional(),
+    dcf_discounting_convention: z.enum(['mid_year', 'year_end']).optional(),
+    dcf_tax_shield_projections: z.array(z.number()).optional(),
   })
   .strict()
 

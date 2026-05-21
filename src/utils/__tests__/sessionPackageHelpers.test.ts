@@ -103,6 +103,24 @@ describe('mergeSessionDataForReportAssets', () => {
     expect(out.user_weight_justification).toBe('Test note')
   })
 
+  it('overlays APV DCF convention and tax-shield schedule from the valuation request', () => {
+    const out = mergeSessionDataForReportAssets(
+      {
+        dcf_discounting_convention: 'mid_year',
+        dcf_tax_shield_projections: [999],
+      },
+      {
+        current_year_data: { year: 2024, revenue: 1, ebitda: 1 },
+        dcf_discounting_convention: 'year_end',
+        dcf_tax_shield_projections: [1.5, 1.125, 0.75, 0.375, 0],
+      },
+      []
+    )
+
+    expect(out.dcf_discounting_convention).toBe('year_end')
+    expect(out.dcf_tax_shield_projections).toEqual([1.5, 1.125, 0.75, 0.375, 0])
+  })
+
   it('preserves method-specific scalars from the session snapshot when overlaying the request', () => {
     const out = mergeSessionDataForReportAssets(
       {

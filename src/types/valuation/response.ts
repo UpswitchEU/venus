@@ -141,6 +141,18 @@ export interface ValuationResponse {
     wacc_buildup?: DcfWaccBuildup | null
     terminal_value_pct_of_total?: number | null
     explicit_forecast_pct_of_total?: number | null
+    /** Operating DCF value before APV debt tax shields are added. */
+    dcf_enterprise_value_before_apv?: number | null
+    dcf_equity_value_before_apv?: number | null
+    apv_methodology?: string | null
+    apv_discount_rate?: number | null
+    apv_discounting_convention?: 'mid_year' | 'year_end' | string | null
+    apv_tax_shield_value?: number | null
+    apv_tax_shield_pct_of_total?: number | null
+    apv_enterprise_value?: number | null
+    apv_equity_value?: number | null
+    apv_tax_shield_projections_5y?: number[] | null
+    apv_tax_shield_pv_5y?: number[] | null
     fcf_projections_5y: number[]
     pv_fcf_projections_5y: number[]
     sensitivity_wacc: Record<string, number>

@@ -16,6 +16,26 @@ Venus may use browser storage only for narrow recovery and UI-continuity cases. 
 - Stale, malformed, or type-invalid entries must be removed on read.
 - Retry queues must be bounded.
 - Auth secrets, access decisions, API tokens, cookies, report HTML, and long-lived client/company data are not allowed in browser storage.
+- Every direct browser-storage writer, recovery-buffer caller, and third-party local-storage surface must be listed in `scripts/guard-browser-persistence.mjs`.
+- Every approved surface must declare owner, review date, classification, retention class, allowed keys or key prefixes, and `sensitivePayload: "forbidden"`.
+- Long-lived `localStorage` surfaces must declare a TTL, a narrow non-sensitive exemption, or a migration target.
+- Session-only handoffs may carry workflow data only when they are one-shot, bounded, and strip identity/report HTML before restore.
+
+## Guard
+
+Run:
+
+```bash
+pnpm run guard:browser-persistence
+```
+
+The guard fails when:
+
+- A new file writes to `localStorage`, `sessionStorage`, a `Storage` object, Zustand `persist`, browser recovery helpers, or approved third-party local-storage persistence without policy review.
+- A storage key or prefix is not declared in the approved policy.
+- A policy review date expires.
+- A local/TTL retention surface lacks an explicit TTL, exemption, or migration target.
+- A literal storage key contains token, secret, password, credential, access, or refresh terminology.
 
 ## Encryption
 

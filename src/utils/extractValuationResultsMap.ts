@@ -171,6 +171,80 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function toFiniteNumberArray(value: unknown): number[] | null {
+  if (!Array.isArray(value)) return null
+  const normalized = value.map(toFiniteNumber)
+  return normalized.every((v): v is number => v != null) ? normalized : null
+}
+
+function enrichDcfDetailsFromValuation(
+  details: Record<string, unknown>,
+  dcfValuation: UnknownRecord
+): Record<string, unknown> {
+  const numericFields = [
+    'enterprise_value',
+    'wacc',
+    'terminal_value',
+    'terminal_value_pct_of_total',
+    'explicit_forecast_pct_of_total',
+    'dcf_enterprise_value_before_apv',
+    'dcf_equity_value_before_apv',
+    'apv_discount_rate',
+    'apv_tax_shield_value',
+    'apv_tax_shield_pct_of_total',
+    'apv_enterprise_value',
+    'apv_equity_value',
+  ]
+
+  for (const field of numericFields) {
+    const value = toFiniteNumber(dcfValuation[field])
+    if (details[field] == null && value != null) {
+      details[field] = value
+    }
+  }
+
+  const textFields = [
+    'discount_periods_note',
+    'academic_cost_of_equity_formula',
+    'apv_methodology',
+    'apv_discounting_convention',
+  ]
+  for (const field of textFields) {
+    const value = dcfValuation[field]
+    if (details[field] == null && typeof value === 'string' && value.trim() !== '') {
+      details[field] = value
+    }
+  }
+
+  const midYear = dcfValuation.mid_year_discounting
+  if (details.mid_year_discounting == null && typeof midYear === 'boolean') {
+    details.mid_year_discounting = midYear
+  }
+
+  if (
+    details.wacc_buildup == null &&
+    dcfValuation.wacc_buildup &&
+    typeof dcfValuation.wacc_buildup === 'object'
+  ) {
+    details.wacc_buildup = dcfValuation.wacc_buildup
+  }
+
+  const readiness = asRecord(dcfValuation.historical_fcf_readiness)
+  if (details.historical_fcf_readiness == null && readiness) {
+    details.historical_fcf_readiness = readiness
+  }
+
+  const projectionFields = ['apv_tax_shield_projections_5y', 'apv_tax_shield_pv_5y']
+  for (const field of projectionFields) {
+    const values = toFiniteNumberArray(dcfValuation[field])
+    if (details[field] == null && values) {
+      details[field] = values
+    }
+  }
+
+  return details
+}
+
 function getCanonicalReportContext(valuationResult: UnknownRecord): UnknownRecord | null {
   const nested = nestedRecord(valuationResult, 'valuation_result')
   const details = nestedRecord(valuationResult, 'details')
@@ -266,60 +340,17 @@ function enrichDcfMethod(map: MethodResultMap, valuationResult: UnknownRecord): 
   const dcfDetails = asRecord(dcf.details)
   const details = dcfDetails ? { ...dcfDetails } : {}
 
-  const enterpriseValue = toFiniteNumber(dcfValuation.enterprise_value)
   const wacc = toFiniteNumber(dcfValuation.wacc)
-  const terminalValue = toFiniteNumber(dcfValuation.terminal_value)
-  const terminalValuePct = toFiniteNumber(dcfValuation.terminal_value_pct_of_total)
-  const explicitForecastPct = toFiniteNumber(dcfValuation.explicit_forecast_pct_of_total)
-  const readiness = asRecord(dcfValuation.historical_fcf_readiness)
+  enrichDcfDetailsFromValuation(details, dcfValuation)
 
-  if (details.enterprise_value == null && enterpriseValue != null) {
-    details.enterprise_value = enterpriseValue
-  }
-  if (details.wacc == null && wacc != null) {
-    details.wacc = wacc
-  }
-  if (details.terminal_value == null && terminalValue != null) {
-    details.terminal_value = terminalValue
-  }
-  if (details.terminal_value_pct_of_total == null && terminalValuePct != null) {
-    details.terminal_value_pct_of_total = terminalValuePct
-  }
-  if (details.explicit_forecast_pct_of_total == null && explicitForecastPct != null) {
-    details.explicit_forecast_pct_of_total = explicitForecastPct
-  }
-  if (
-    details.wacc_buildup == null &&
-    dcfValuation.wacc_buildup &&
-    typeof dcfValuation.wacc_buildup === 'object'
-  ) {
-    details.wacc_buildup = dcfValuation.wacc_buildup
-  }
-  if (details.historical_fcf_readiness == null && readiness) {
-    details.historical_fcf_readiness = readiness
-  }
-
-  const midYear = dcfValuation.mid_year_discounting
-  if (details.mid_year_discounting == null && typeof midYear === 'boolean') {
-    details.mid_year_discounting = midYear
-  }
-  const periodsNote = dcfValuation.discount_periods_note
-  if (details.discount_periods_note == null && periodsNote != null && periodsNote !== '') {
-    details.discount_periods_note = periodsNote
-  }
-  const academicCoe = dcfValuation.academic_cost_of_equity_formula
-  if (
-    details.academic_cost_of_equity_formula == null &&
-    academicCoe != null &&
-    academicCoe !== ''
-  ) {
-    details.academic_cost_of_equity_formula = academicCoe
-  }
+  const apvEquityValue = toFiniteNumber(dcfValuation.apv_equity_value)
+  const equityValue = toFiniteNumber(dcfValuation.equity_value)
 
   return {
     ...map,
     dcf: {
       ...dcf,
+      ...((apvEquityValue ?? equityValue) != null ? { value: apvEquityValue ?? equityValue } : {}),
       ...(dcf.wacc == null && wacc != null ? { wacc } : {}),
       details,
     },
@@ -619,6 +650,9 @@ function synthesizeMinimalValuationResultsMap(
     if (dcfWacc != null) details.wacc = dcfWacc
     if (dcfTerminalValue != null) details.terminal_value = dcfTerminalValue
     if (readiness) details.historical_fcf_readiness = readiness
+    if (dcfValuation) {
+      enrichDcfDetailsFromValuation(details, dcfValuation)
+    }
     if (dcfValuation && typeof dcfValuation.mid_year_discounting === 'boolean') {
       details.mid_year_discounting = dcfValuation.mid_year_discounting
     }
@@ -633,7 +667,15 @@ function synthesizeMinimalValuationResultsMap(
     }
   }
 
-  const value = equityMid ?? enterpriseMid ?? 0
+  const dcfValuation = methodKey === 'dcf' ? getCanonicalDcfValuation(valuationResult) : null
+  const value =
+    methodKey === 'dcf'
+      ? (toFiniteNumber(dcfValuation?.apv_equity_value) ??
+        toFiniteNumber(dcfValuation?.equity_value) ??
+        equityMid ??
+        enterpriseMid ??
+        0)
+      : (equityMid ?? enterpriseMid ?? 0)
 
   if (isRevenueMethodologyKey(methodKey) && currentRevenue != null && currentRevenue <= 0) {
     return {

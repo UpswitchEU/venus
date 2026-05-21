@@ -188,6 +188,9 @@ export function AdaptiveSections({
               formData={formData}
               terminalValueMethod={terminalValueMethod}
               onTerminalValueMethodChange={onTerminalValueMethodChange}
+              onDiscountingConventionChange={(convention) => {
+                onAnyFieldChange?.('dcf_discounting_convention', convention)
+              }}
               onFieldChange={onFieldChange}
               onApplyDcfPercentAutofill={onApplyDcfPercentAutofill}
               canApplyDcfPercentAutofill={canApplyDcfPercentAutofill}

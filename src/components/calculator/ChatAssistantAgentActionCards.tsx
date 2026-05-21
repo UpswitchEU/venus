@@ -3,9 +3,10 @@
 import { motion } from 'framer-motion'
 import { Check, KeyRound, Link2, UploadCloud } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { ReactNode } from 'react'
-import { useMemo, useState } from 'react'
+import type { ChangeEvent, FormEvent, ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   ChatMessage,
   ClientCreateRequest,
@@ -33,12 +34,78 @@ interface InlineActionCardProps {
   icon?: ReactNode
   actionLabel?: string
   actionPrompt?: string
+  actionPendingLabel?: string
+  actionSuccessLabel?: string
+  onAction?: () => Promise<void> | void
   onSendFollowUp?: (content: string) => void
   children?: ReactNode
 }
 
+const AGENT_TOOL_ACTION_NAME_HEADER = 'X-Upswitch-Agent-Tool-Name'
+const AGENT_TOOL_ACTION_PROPOSAL_ID_HEADER = 'X-Upswitch-Agent-Proposal-Id'
+const DEFAULT_UPLOAD_ACCEPT =
+  '.csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const DEFAULT_UPLOAD_MAX_SIZE_BYTES = 20 * 1024 * 1024
+
 function compactParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+}
+
+function safeBffPath(path: string | undefined): string {
+  if (typeof path !== 'string' || !path.startsWith('/api/')) return ''
+  return path
+}
+
+function buildAgentToolActionHeaders(
+  toolName: string,
+  proposalId?: string
+): Record<string, string> {
+  return {
+    [AGENT_TOOL_ACTION_NAME_HEADER]: toolName,
+    ...(proposalId ? { [AGENT_TOOL_ACTION_PROPOSAL_ID_HEADER]: proposalId } : {}),
+  }
+}
+
+function extractErrorMessage(payload: unknown, status: number): string {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    for (const key of ['message', 'error']) {
+      if (typeof record[key] === 'string' && record[key].trim()) return record[key]
+    }
+  }
+  return `HTTP ${status}`
+}
+
+function openInNewTab(url: string) {
+  if (typeof window === 'undefined') return
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function mercuryPath(
+  locale: string,
+  path: string,
+  params?: Record<string, string | null | undefined>
+) {
+  const base = getMercuryUrl().replace(/\/$/, '')
+  const target = new URL(`${base}/${locale.replace(/^\/+|\/+$/g, '') || 'en'}${path}`)
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value?.trim()) target.searchParams.set(key, value.trim())
+  }
+  return target.toString()
+}
+
+function venusValuationSessionPath(locale: string, clientId: string) {
+  const target = new URL(
+    `/${locale.replace(/^\/+|\/+$/g, '') || 'en'}/calculator`,
+    typeof window === 'undefined' ? 'https://valuation.upswitch.app' : window.location.origin
+  )
+  target.searchParams.set('clientId', clientId)
+  target.searchParams.set('mode', 'accountant')
+  target.searchParams.set('source', 'mercury')
+  target.searchParams.set('flow', 'advisor')
+  target.searchParams.set('drawer', 'open')
+  target.searchParams.set('agent_next', 'run_valuation')
+  return `${target.pathname}${target.search}`
 }
 
 function stringifyActionValue(value: unknown) {
@@ -77,12 +144,37 @@ function InlineActionCard({
   icon,
   actionLabel,
   actionPrompt,
+  actionPendingLabel,
+  actionSuccessLabel,
+  onAction,
   onSendFollowUp,
   children,
 }: InlineActionCardProps) {
   const ca = useTranslations('chatAssistant')
-  const [decision, setDecision] = useState<'idle' | 'sent' | 'dismissed'>('idle')
-  const canAct = typeof onSendFollowUp === 'function' && actionPrompt
+  const [decision, setDecision] = useState<'idle' | 'sent' | 'dismissed' | 'submitting'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const canAct = Boolean(onAction) || (typeof onSendFollowUp === 'function' && actionPrompt)
+  const isSubmitting = decision === 'submitting'
+
+  const handleAction = useCallback(async () => {
+    if (!canAct || isSubmitting) return
+    setErrorMessage(null)
+    if (onAction) {
+      setDecision('submitting')
+      try {
+        await onAction()
+        setDecision('sent')
+      } catch (err) {
+        setDecision('idle')
+        setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+      }
+      return
+    }
+    if (actionPrompt) {
+      onSendFollowUp?.(actionPrompt)
+      setDecision('sent')
+    }
+  }, [actionPrompt, canAct, isSubmitting, onAction, onSendFollowUp])
 
   return (
     <motion.div
@@ -111,31 +203,35 @@ function InlineActionCard({
           )}
           {children}
           {decision === 'sent' && (
-            <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.sent')}</p>
+            <p className="mt-1.5 text-xs text-success/90">
+              {actionSuccessLabel ?? ca('proposalCards.agent.sent')}
+            </p>
           )}
           {decision === 'dismissed' && (
             <p className="mt-1.5 text-xs text-foreground/45">
               {ca('proposalCards.common.statusCancelled')}
             </p>
           )}
-          {decision === 'idle' && (actionLabel || canAct) && (
+          {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
+          {(decision === 'idle' || isSubmitting) && (actionLabel || canAct) && (
             <div className="mt-2 flex items-center gap-3 text-xs">
               {canAct && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onSendFollowUp?.(actionPrompt)
-                    setDecision('sent')
-                  }}
-                  className="text-primary/85 hover:text-primary transition-colors font-medium"
+                  onClick={() => void handleAction()}
+                  disabled={isSubmitting}
+                  className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {actionLabel ?? ca('proposalCards.agent.continue')}
+                  {isSubmitting
+                    ? (actionPendingLabel ?? ca('proposalCards.agent.submitting'))
+                    : (actionLabel ?? ca('proposalCards.agent.continue'))}
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setDecision('dismissed')}
-                className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                disabled={isSubmitting}
+                className="text-foreground/45 hover:text-foreground/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {ca('proposalCards.common.buttonCancel')}
               </button>
@@ -147,20 +243,13 @@ function InlineActionCard({
   )
 }
 
-function OwnerProfileCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: OwnerProfileAnswerRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function OwnerProfileCard({ request }: { request: OwnerProfileAnswerRequest }) {
   const ca = useTranslations('chatAssistant')
   const value = stringifyActionValue(request.value)
   const title = request.complete
     ? ca('proposalCards.agent.ownerProfileTitleComplete')
     : ca('proposalCards.agent.ownerProfileTitle')
   const label = request.label ?? request.field
-  const prompt = compactParts([label, value]).join(': ')
 
   return (
     <InlineActionCard
@@ -169,20 +258,31 @@ function OwnerProfileCard({
       detail={compactParts([label, value]).join(' · ') || request.reason}
       meta={compactParts([request.reason])}
       actionLabel={ca('proposalCards.agent.ownerProfileAction')}
-      actionPrompt={prompt ? `Save owner profile answer: ${prompt}` : undefined}
-      onSendFollowUp={onSendFollowUp}
+      actionSuccessLabel={ca('proposalCards.agent.saved')}
+      onAction={async () => {
+        if (!request.field) throw new Error(ca('proposalCards.agent.missingField'))
+        const body: Record<string, unknown> = { [request.field]: request.value }
+        if (request.accountantCustomerId) body.accountantCustomerId = request.accountantCustomerId
+        if (request.complete === true) body.complete = true
+        const response = await fetch('/api/profile/owner-assessment', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...buildAgentToolActionHeaders('update_owner_profile_answer', request.id),
+          },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        })
+        const json: unknown = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+      }}
     />
   )
 }
 
-function IntegrationCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: IntegrationConnectRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function IntegrationCard({ request }: { request: IntegrationConnectRequest }) {
   const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
   const provider = providerLabel(request.provider)
   const authMode =
     request.authMode === 'oauth'
@@ -203,22 +303,91 @@ function IntegrationCard({
       meta={compactParts([authMode, request.targetContext ?? undefined])}
       icon={<Link2 className="h-3.5 w-3.5" />}
       actionLabel={ca('proposalCards.agent.integrationAction')}
-      actionPrompt={provider ? `Connect ${provider}` : 'Connect accounting integration'}
-      onSendFollowUp={onSendFollowUp}
+      actionSuccessLabel={ca('proposalCards.agent.opened')}
+      onAction={async () => {
+        const rawProvider = request.provider?.trim()
+        if (request.authMode === 'oauth' && rawProvider) {
+          const response = await fetch(`/api/integrations/accounting/${rawProvider}/authorize`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: buildAgentToolActionHeaders('propose_integration_connect', request.id),
+          }).catch(() => null)
+          if (response?.ok) {
+            const json = (await response.json().catch(() => ({}))) as {
+              authorize_url?: string
+              authorizeUrl?: string
+            }
+            const authorizeUrl = json.authorize_url ?? json.authorizeUrl
+            if (authorizeUrl) {
+              openInNewTab(authorizeUrl)
+              return
+            }
+          }
+        }
+        openInNewTab(
+          mercuryPath(locale, '/advisor/settings', {
+            tab: 'integrations',
+            provider: request.provider,
+          })
+        )
+      }}
     />
   )
 }
 
-function SecureCredentialCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: SecureCredentialRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function SecureCredentialCard({ request }: { request: SecureCredentialRequest }) {
   const ca = useTranslations('chatAssistant')
   const provider = providerLabel(request.provider)
   const fields = request.fields ?? []
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [state, setState] = useState<'idle' | 'submitting' | 'submitted' | 'dismissed'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const isDone = state === 'submitted' || state === 'dismissed'
+  const isSubmitting = state === 'submitting'
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      if (state !== 'idle') return
+
+      for (const field of fields) {
+        if (field.required && !values[field.key]?.trim()) {
+          setErrorMessage(ca('proposalCards.agent.requiredField', { field: field.label }))
+          return
+        }
+      }
+
+      const path = safeBffPath(request.submitPath)
+      if (!path) {
+        setErrorMessage(ca('proposalCards.agent.endpointMissing'))
+        return
+      }
+
+      const body = { ...values }
+      setValues({})
+      setState('submitting')
+      setErrorMessage(null)
+      try {
+        const response = await fetch(path, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...buildAgentToolActionHeaders('propose_secure_credential', request.id),
+          },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        })
+        const json: unknown = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+        setState('submitted')
+      } catch (err) {
+        setState('idle')
+        setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+      }
+    },
+    [ca, fields, request.id, request.submitPath, state, values]
+  )
+
   return (
     <InlineActionCard
       id={request.id}
@@ -230,38 +399,85 @@ function SecureCredentialCard({
       detail={request.message ?? request.reason ?? ca('proposalCards.agent.credentialSafeHint')}
       meta={compactParts([request.submitPath])}
       icon={<KeyRound className="h-3.5 w-3.5" />}
-      actionLabel={ca('proposalCards.agent.credentialAction')}
-      actionPrompt={
-        provider ? `Open secure credential setup for ${provider}` : 'Open secure credential setup'
-      }
-      onSendFollowUp={onSendFollowUp}
     >
-      {fields.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {fields.slice(0, 5).map((field) => (
-            <span
-              key={field.key}
-              className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/60"
-            >
-              {field.label}
-              {field.required ? ' *' : ''}
-            </span>
+      {state === 'submitted' && (
+        <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.saved')}</p>
+      )}
+      {state === 'dismissed' && (
+        <p className="mt-1.5 text-xs text-foreground/45">
+          {ca('proposalCards.common.statusCancelled')}
+        </p>
+      )}
+      {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
+      {!isDone && (
+        <form
+          className="mt-2 space-y-2"
+          autoComplete="off"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
+          {fields.map((field) => (
+            <label key={field.key} className="block space-y-1">
+              <span className="text-[11px] font-medium text-foreground/70">
+                {field.label}
+                {field.required ? <span className="text-destructive/70"> *</span> : null}
+              </span>
+              <input
+                type={field.masked ? 'password' : 'text'}
+                autoComplete="off"
+                spellCheck={false}
+                data-1p-ignore="true"
+                data-lpignore="true"
+                value={values[field.key] ?? ''}
+                disabled={isSubmitting}
+                onChange={(event) =>
+                  setValues((prev) => ({ ...prev, [field.key]: event.target.value }))
+                }
+                className="w-full rounded-md border border-foreground/[0.12] bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+              />
+              {field.helper && (
+                <span className="block text-[10px] text-foreground/45">{field.helper}</span>
+              )}
+            </label>
           ))}
-        </div>
+          <div className="flex items-center gap-3 text-xs">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting
+                ? ca('proposalCards.agent.submitting')
+                : ca('proposalCards.agent.credentialAction')}
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => {
+                setValues({})
+                setErrorMessage(null)
+                setState('dismissed')
+              }}
+              className="text-foreground/45 hover:text-foreground/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {ca('proposalCards.common.buttonCancel')}
+            </button>
+          </div>
+        </form>
       )}
     </InlineActionCard>
   )
 }
 
-function CsvUploadCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: CsvUploadRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function CsvUploadCard({ request }: { request: CsvUploadRequest }) {
   const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [state, setState] = useState<'idle' | 'uploading' | 'uploaded' | 'dismissed'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const limit = formatBytes(request.maxSizeBytes)
+  const accept = request.accept ?? DEFAULT_UPLOAD_ACCEPT
+  const maxSize = request.maxSizeBytes ?? DEFAULT_UPLOAD_MAX_SIZE_BYTES
   const modeLabel =
     request.mode === 'single_client_trial_balance'
       ? ca('proposalCards.agent.csvMode.singleClientTrialBalance')
@@ -279,9 +495,6 @@ function CsvUploadCard({
         limit ? ca('proposalCards.agent.fileLimit', { limit }) : null,
       ])}
       icon={<UploadCloud className="h-3.5 w-3.5" />}
-      actionLabel={ca('proposalCards.agent.csvAction')}
-      actionPrompt="Upload financial data CSV"
-      onSendFollowUp={onSendFollowUp}
     >
       {(request.expectedColumns?.length ?? 0) > 0 && (
         <p className="mt-1.5 text-xs text-foreground/50 leading-snug">
@@ -290,26 +503,113 @@ function CsvUploadCard({
           })}
         </p>
       )}
+      {state === 'uploaded' && (
+        <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.uploaded')}</p>
+      )}
+      {state === 'dismissed' && (
+        <p className="mt-1.5 text-xs text-foreground/45">
+          {ca('proposalCards.common.statusCancelled')}
+        </p>
+      )}
+      {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
+      {state !== 'uploaded' && state !== 'dismissed' && (
+        <div className="mt-2 space-y-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            disabled={state === 'uploading'}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const picked = event.target.files?.[0]
+              if (!picked) return
+              if (picked.size > maxSize) {
+                setErrorMessage(ca('proposalCards.agent.fileTooLarge'))
+                event.target.value = ''
+                return
+              }
+              setFile(picked)
+              setErrorMessage(null)
+            }}
+            className="block w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-foreground/[0.06] file:px-2 file:py-1 file:text-foreground/75 hover:file:bg-foreground/[0.1]"
+          />
+          {file && (
+            <p className="text-xs text-foreground/50">
+              {file.name} · {formatBytes(file.size) ?? file.size.toLocaleString(locale)}
+            </p>
+          )}
+          <div className="flex items-center gap-3 text-xs">
+            <button
+              type="button"
+              disabled={state === 'uploading'}
+              onClick={async () => {
+                if (!file) {
+                  setErrorMessage(ca('proposalCards.agent.chooseFileFirst'))
+                  return
+                }
+                const path = safeBffPath(request.submitPath)
+                if (!path) {
+                  setErrorMessage(ca('proposalCards.agent.endpointMissing'))
+                  return
+                }
+                const form = new FormData()
+                form.append('file', file)
+                if (request.mode) form.append('mode', request.mode)
+                setState('uploading')
+                setErrorMessage(null)
+                try {
+                  const response = await fetch(path, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: buildAgentToolActionHeaders('propose_csv_upload', request.id),
+                    body: form,
+                  })
+                  const json: unknown = await response.json().catch(() => ({}))
+                  if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+                  setFile(null)
+                  if (inputRef.current) inputRef.current.value = ''
+                  setState('uploaded')
+                } catch (err) {
+                  setState('idle')
+                  setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+                }
+              }}
+              className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {state === 'uploading'
+                ? ca('proposalCards.agent.submitting')
+                : ca('proposalCards.agent.csvAction')}
+            </button>
+            <button
+              type="button"
+              disabled={state === 'uploading'}
+              onClick={() => {
+                setFile(null)
+                if (inputRef.current) inputRef.current.value = ''
+                setErrorMessage(null)
+                setState('dismissed')
+              }}
+              className="text-foreground/45 hover:text-foreground/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {ca('proposalCards.common.buttonCancel')}
+            </button>
+          </div>
+        </div>
+      )}
     </InlineActionCard>
   )
 }
 
-function MultiSelectCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: MultiSelectRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function MultiSelectCard({ request }: { request: MultiSelectRequest }) {
   const ca = useTranslations('chatAssistant')
   const [selected, setSelected] = useState<string[]>(request.preselected ?? [])
+  const [state, setState] = useState<'idle' | 'submitting' | 'submitted'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const options = request.options ?? []
   const min = request.minSelections ?? 0
   const max = request.maxSelections ?? options.length
-  const selectedLabels = options
-    .filter((option) => selected.includes(option.value))
-    .map((option) => option.label)
   const canSubmit = selected.length >= min && selected.length <= max && selected.length > 0
+  const isSubmitting = state === 'submitting'
+  const isSubmitted = state === 'submitted'
 
   return (
     <InlineActionCard
@@ -324,6 +624,7 @@ function MultiSelectCard({
             <button
               key={option.value}
               type="button"
+              disabled={isSubmitting || isSubmitted}
               onClick={() =>
                 setSelected((prev) =>
                   active
@@ -337,7 +638,8 @@ function MultiSelectCard({
                 'rounded-full border px-2 py-1 text-xs transition-colors',
                 active
                   ? 'border-primary/35 bg-primary/12 text-primary'
-                  : 'border-foreground/[0.08] bg-foreground/[0.03] text-foreground/65 hover:bg-foreground/[0.06]'
+                  : 'border-foreground/[0.08] bg-foreground/[0.03] text-foreground/65 hover:bg-foreground/[0.06]',
+                (isSubmitting || isSubmitted) && 'cursor-not-allowed opacity-60'
               )}
             >
               {active && <Check className="mr-1 inline h-3 w-3" />}
@@ -346,34 +648,64 @@ function MultiSelectCard({
           )
         })}
       </div>
-      <div className="mt-2 flex items-center gap-3 text-xs">
-        <button
-          type="button"
-          disabled={!canSubmit || typeof onSendFollowUp !== 'function'}
-          onClick={() => onSendFollowUp?.(`Choose: ${selectedLabels.join(', ')}`)}
-          className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {ca('proposalCards.agent.submitChoices')}
-        </button>
-        <span className="text-foreground/45">
-          {ca('proposalCards.agent.selectionCount', { count: selected.length })}
-        </span>
-      </div>
+      {isSubmitted && (
+        <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.saved')}</p>
+      )}
+      {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
+      {!isSubmitted && (
+        <div className="mt-2 flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            disabled={!canSubmit || isSubmitting}
+            onClick={async () => {
+              const path = safeBffPath(request.submitPath)
+              if (!path) {
+                setErrorMessage(ca('proposalCards.agent.endpointMissing'))
+                return
+              }
+              setState('submitting')
+              setErrorMessage(null)
+              try {
+                const response = await fetch(path, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_multi_select', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({ values: selected }),
+                })
+                const json: unknown = await response.json().catch(() => ({}))
+                if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+                setState('submitted')
+              } catch (err) {
+                setState('idle')
+                setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+              }
+            }}
+            className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isSubmitting
+              ? ca('proposalCards.agent.submitting')
+              : ca('proposalCards.agent.submitChoices')}
+          </button>
+          <span className="text-foreground/45">
+            {ca('proposalCards.agent.selectionCount', { count: selected.length })}
+          </span>
+        </div>
+      )}
     </InlineActionCard>
   )
 }
 
-function SingleSelectCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: SingleSelectRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function SingleSelectCard({ request }: { request: SingleSelectRequest }) {
   const ca = useTranslations('chatAssistant')
   const [selected, setSelected] = useState<string | null>(request.preselected ?? null)
+  const [state, setState] = useState<'idle' | 'submitting' | 'submitted'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const options = request.options ?? []
-  const selectedLabel = options.find((option) => option.value === selected)?.label ?? null
+  const isSubmitting = state === 'submitting'
+  const isSubmitted = state === 'submitted'
 
   return (
     <InlineActionCard
@@ -386,12 +718,17 @@ function SingleSelectCard({
           <button
             key={option.value}
             type="button"
-            onClick={() => setSelected(option.value)}
+            disabled={isSubmitting || isSubmitted}
+            onClick={() => {
+              setSelected(option.value)
+              setErrorMessage(null)
+            }}
             className={cn(
               'w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
               selected === option.value
                 ? 'border-primary/35 bg-primary/12 text-primary'
-                : 'border-foreground/[0.08] bg-foreground/[0.03] text-foreground/65 hover:bg-foreground/[0.06]'
+                : 'border-foreground/[0.08] bg-foreground/[0.03] text-foreground/65 hover:bg-foreground/[0.06]',
+              (isSubmitting || isSubmitted) && 'cursor-not-allowed opacity-60'
             )}
           >
             {option.label}
@@ -401,28 +738,57 @@ function SingleSelectCard({
           </button>
         ))}
       </div>
-      <div className="mt-2 flex items-center gap-3 text-xs">
-        <button
-          type="button"
-          disabled={!selectedLabel || typeof onSendFollowUp !== 'function'}
-          onClick={() => selectedLabel && onSendFollowUp?.(`Choose: ${selectedLabel}`)}
-          className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {ca('proposalCards.agent.submitChoice')}
-        </button>
-      </div>
+      {isSubmitted && (
+        <p className="mt-1.5 text-xs text-success/90">{ca('proposalCards.agent.saved')}</p>
+      )}
+      {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
+      {!isSubmitted && (
+        <div className="mt-2 flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            disabled={!selected || isSubmitting}
+            onClick={async () => {
+              if (!selected) return
+              const path = safeBffPath(request.submitPath)
+              if (!path) {
+                setErrorMessage(ca('proposalCards.agent.endpointMissing'))
+                return
+              }
+              setState('submitting')
+              setErrorMessage(null)
+              try {
+                const response = await fetch(path, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_single_select', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({ value: selected }),
+                })
+                const json: unknown = await response.json().catch(() => ({}))
+                if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+                setState('submitted')
+              } catch (err) {
+                setState('idle')
+                setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+              }
+            }}
+            className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isSubmitting
+              ? ca('proposalCards.agent.submitting')
+              : ca('proposalCards.agent.submitChoice')}
+          </button>
+        </div>
+      )}
     </InlineActionCard>
   )
 }
 
-function ClientCreateCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: ClientCreateRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function ClientCreateCard({ request }: { request: ClientCreateRequest }) {
   const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
   const isBlocked = request.status === 'blocked'
   return (
     <InlineActionCard
@@ -442,24 +808,31 @@ function ClientCreateCard({
       ])}
       tone={isBlocked ? 'blocked' : 'default'}
       actionLabel={ca('proposalCards.agent.clientCreateAction')}
-      actionPrompt={
-        !isBlocked && request.businessName ? `Create client ${request.businessName}` : undefined
+      actionSuccessLabel={ca('proposalCards.agent.opened')}
+      onAction={
+        isBlocked
+          ? undefined
+          : () => {
+              openInNewTab(
+                mercuryPath(locale, '/advisor/clients/create', {
+                  company: request.businessName,
+                  companyNumber: request.companyNumber,
+                  email: request.customerEmail,
+                  source: 'venus-ai',
+                })
+              )
+            }
       }
-      onSendFollowUp={onSendFollowUp}
     />
   )
 }
 
-function ValuationSessionCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: ValuationSessionRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function ValuationSessionCard({ request }: { request: ValuationSessionRequest }) {
   const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
   const isBlocked = request.status === 'blocked'
   const synced = request.hasSyncedFinancials ? ca('proposalCards.agent.syncedFinancials') : null
+  const clientId = request.clientId
   return (
     <InlineActionCard
       id={request.id}
@@ -477,23 +850,21 @@ function ValuationSessionCard({
       ])}
       tone={isBlocked ? 'blocked' : 'default'}
       actionLabel={ca('proposalCards.agent.valuationSessionAction')}
-      actionPrompt={
-        !isBlocked && request.clientId
-          ? `Open valuation calculator for client ${request.clientId}`
+      actionSuccessLabel={ca('proposalCards.agent.opened')}
+      onAction={
+        !isBlocked && clientId
+          ? () => {
+              if (typeof window !== 'undefined') {
+                window.location.href = venusValuationSessionPath(locale, clientId)
+              }
+            }
           : undefined
       }
-      onSendFollowUp={onSendFollowUp}
     />
   )
 }
 
-function ImportReviewCard({
-  request,
-  onSendFollowUp,
-}: {
-  request: ImportReviewRequest
-  onSendFollowUp?: (content: string) => void
-}) {
+function ImportReviewCard({ request }: { request: ImportReviewRequest }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
   const isBlocked = request.status === 'blocked'
@@ -524,12 +895,18 @@ function ImportReviewCard({
       ])}
       tone={isBlocked ? 'blocked' : 'default'}
       actionLabel={ca('proposalCards.agent.importReviewAction')}
-      actionPrompt={
+      actionSuccessLabel={ca('proposalCards.agent.opened')}
+      onAction={
         !isBlocked && request.clientId
-          ? `Open import review for client ${request.clientId}`
+          ? () =>
+              openInNewTab(
+                mercuryPath(locale, '/advisor/import-review', {
+                  clientId: request.clientId,
+                  source: 'venus-ai',
+                })
+              )
           : undefined
       }
-      onSendFollowUp={onSendFollowUp}
     >
       {topFlags.length > 0 && (
         <div className="mt-2 space-y-1">
@@ -561,10 +938,7 @@ function ImportReviewCard({
   )
 }
 
-export function ChatAssistantAgentActionCards({
-  message,
-  onSendFollowUp,
-}: ChatAssistantAgentActionCardsProps) {
+export function ChatAssistantAgentActionCards({ message }: ChatAssistantAgentActionCardsProps) {
   const hasCards = useMemo(
     () =>
       Boolean(
@@ -586,31 +960,31 @@ export function ChatAssistantAgentActionCards({
   return (
     <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-2">
       {message.ownerProfileAnswerRequests?.map((request) => (
-        <OwnerProfileCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <OwnerProfileCard key={request.id} request={request} />
       ))}
       {message.integrationConnectRequests?.map((request) => (
-        <IntegrationCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <IntegrationCard key={request.id} request={request} />
       ))}
       {message.secureCredentialRequests?.map((request) => (
-        <SecureCredentialCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <SecureCredentialCard key={request.id} request={request} />
       ))}
       {message.csvUploadRequests?.map((request) => (
-        <CsvUploadCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <CsvUploadCard key={request.id} request={request} />
       ))}
       {message.multiSelectRequests?.map((request) => (
-        <MultiSelectCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <MultiSelectCard key={request.id} request={request} />
       ))}
       {message.singleSelectRequests?.map((request) => (
-        <SingleSelectCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <SingleSelectCard key={request.id} request={request} />
       ))}
       {message.clientCreateRequests?.map((request) => (
-        <ClientCreateCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <ClientCreateCard key={request.id} request={request} />
       ))}
       {message.valuationSessionRequests?.map((request) => (
-        <ValuationSessionCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <ValuationSessionCard key={request.id} request={request} />
       ))}
       {message.importReviewRequests?.map((request) => (
-        <ImportReviewCard key={request.id} request={request} onSendFollowUp={onSendFollowUp} />
+        <ImportReviewCard key={request.id} request={request} />
       ))}
     </div>
   )

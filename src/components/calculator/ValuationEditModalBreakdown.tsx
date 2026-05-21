@@ -187,6 +187,17 @@ export function MethodBreakdownSection({
     : isHistoricalFcfReadiness(result?.dcf_valuation?.historical_fcf_readiness)
       ? result.dcf_valuation.historical_fcf_readiness
       : null
+  const operatingDcfEnterpriseValue = toNumberOrNull(details.dcf_enterprise_value_before_apv)
+  const operatingDcfEquityValue = toNumberOrNull(details.dcf_equity_value_before_apv)
+  const apvTaxShieldValue = toNumberOrNull(details.apv_tax_shield_value)
+  const apvEnterpriseValue = toNumberOrNull(details.apv_enterprise_value) ?? enterpriseValue
+  const apvEquityValue = toNumberOrNull(details.apv_equity_value) ?? equityValue
+  const apvDiscountRate = toNumberOrNull(details.apv_discount_rate)
+  const apvDiscountingConvention =
+    typeof details.apv_discounting_convention === 'string'
+      ? details.apv_discounting_convention
+      : null
+  const hasApvBridge = methodKey === 'dcf' && apvTaxShieldValue != null
   const sensitivityMatrix =
     details.sensitivity_matrix_2d &&
     typeof details.sensitivity_matrix_2d === 'object' &&
@@ -312,6 +323,62 @@ export function MethodBreakdownSection({
               />
             )}
           </div>
+          {hasApvBridge && (
+            <div className="rounded-lg border border-primary/15 bg-background/70 px-3 py-3 space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-primary/75">
+                <Calculator className="w-3.5 h-3.5" />
+                {tBreakdown('apvBridge')}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {operatingDcfEnterpriseValue != null && (
+                  <BreakdownMetricCard
+                    label={tBreakdown('operatingDcfEnterpriseValue')}
+                    value={formatCurrency(operatingDcfEnterpriseValue)}
+                    muted
+                  />
+                )}
+                <BreakdownMetricCard
+                  label={tBreakdown('apvTaxShield')}
+                  value={formatCurrency(apvTaxShieldValue)}
+                />
+                {apvEnterpriseValue != null && (
+                  <BreakdownMetricCard
+                    label={tBreakdown('apvEnterpriseValue')}
+                    value={formatCurrency(apvEnterpriseValue)}
+                    accent
+                  />
+                )}
+                {apvEquityValue != null && (
+                  <BreakdownMetricCard
+                    label={tBreakdown('apvEquityValue')}
+                    value={formatCurrency(apvEquityValue)}
+                    accent
+                  />
+                )}
+                {operatingDcfEquityValue != null && (
+                  <BreakdownMetricCard
+                    label={tBreakdown('operatingDcfEquityValue')}
+                    value={formatCurrency(operatingDcfEquityValue)}
+                    muted
+                  />
+                )}
+                {apvDiscountRate != null && (
+                  <BreakdownMetricCard
+                    label={tBreakdown('apvDiscountRate')}
+                    value={formatPercent(apvDiscountRate, 100) || '—'}
+                    muted
+                  />
+                )}
+              </div>
+              {apvDiscountingConvention && (
+                <p className="text-[11px] leading-snug text-foreground/55">
+                  {apvDiscountingConvention === 'year_end'
+                    ? tBreakdown('yearEndDiscounting')
+                    : tBreakdown('midYearDiscounting')}
+                </p>
+              )}
+            </div>
+          )}
           {dcfReadiness && (
             <div className="rounded-lg border border-primary/15 bg-background/70 px-3 py-3 space-y-2">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-primary/75">
@@ -586,7 +653,9 @@ export function MethodBreakdownSection({
         </div>
         <p className="text-[11px] leading-snug text-foreground/55">
           {methodKey === 'dcf'
-            ? tBreakdown('formulaDcf')
+            ? hasApvBridge
+              ? tBreakdown('formulaDcfApv')
+              : tBreakdown('formulaDcf')
             : methodKey === 'fiscal_4x'
               ? tBreakdown('formulaFiscal')
               : methodKey === 'adjusted_nav'

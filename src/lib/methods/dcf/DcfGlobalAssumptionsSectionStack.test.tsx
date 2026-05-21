@@ -24,8 +24,10 @@ type MockDcfGlobalAssumptionsProps = {
   dcfCostOfDebtPct?: number
   dcfDebtEquityPct?: number
   dcfTaxShieldPct?: number
+  dcfDiscountingConvention?: 'mid_year' | 'year_end'
   terminalValueMethod: TerminalValueMethod
   onTerminalValueMethodChange: (method: TerminalValueMethod) => void
+  onDiscountingConventionChange?: (convention: 'mid_year' | 'year_end') => void
   onFieldChange: (field: string, value: number | undefined) => void
   onApplyToForecastYears?: () => void
   canApplyToForecastYears?: boolean
@@ -87,6 +89,7 @@ describe('DcfGlobalAssumptionsSectionStack', () => {
   it('maps DCF form fields, terminal callbacks, and forecast count into the section', () => {
     const onFieldChange = vi.fn()
     const onTerminalValueMethodChange = vi.fn()
+    const onDiscountingConventionChange = vi.fn()
     const onApplyDcfPercentAutofill = vi.fn()
 
     render(
@@ -114,10 +117,12 @@ describe('DcfGlobalAssumptionsSectionStack', () => {
           dcf_cost_of_debt_pct: 4.2,
           dcf_debt_equity_pct: 35,
           dcf_tax_shield_pct: 25,
+          dcf_discounting_convention: 'year_end',
           dcf_input_mode: 'fcff_only',
         })}
         terminalValueMethod="perpetual_growth"
         onTerminalValueMethodChange={onTerminalValueMethodChange}
+        onDiscountingConventionChange={onDiscountingConventionChange}
         onFieldChange={onFieldChange}
         onApplyDcfPercentAutofill={onApplyDcfPercentAutofill}
         canApplyDcfPercentAutofill
@@ -143,8 +148,10 @@ describe('DcfGlobalAssumptionsSectionStack', () => {
       dcfCostOfDebtPct: 4.2,
       dcfDebtEquityPct: 35,
       dcfTaxShieldPct: 25,
+      dcfDiscountingConvention: 'year_end',
       terminalValueMethod: 'perpetual_growth',
       onTerminalValueMethodChange,
+      onDiscountingConventionChange,
       onFieldChange,
       onApplyToForecastYears: onApplyDcfPercentAutofill,
       canApplyToForecastYears: true,

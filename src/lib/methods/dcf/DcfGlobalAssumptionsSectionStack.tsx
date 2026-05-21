@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  type DcfDiscountingConvention,
   DcfGlobalAssumptions,
   type DcfGlobalAssumptionsVariant,
   type TerminalValueMethod,
@@ -20,6 +21,7 @@ export interface DcfGlobalAssumptionsSectionStackProps {
   formData: ManualValuationFormData
   terminalValueMethod: TerminalValueMethod
   onTerminalValueMethodChange: (method: TerminalValueMethod) => void
+  onDiscountingConventionChange?: (convention: DcfDiscountingConvention) => void
   onFieldChange: (field: string, value: number | undefined) => void
   onApplyDcfPercentAutofill?: () => void
   canApplyDcfPercentAutofill?: boolean
@@ -41,6 +43,7 @@ export function DcfGlobalAssumptionsSectionStack({
   formData,
   terminalValueMethod,
   onTerminalValueMethodChange,
+  onDiscountingConventionChange,
   onFieldChange,
   onApplyDcfPercentAutofill,
   canApplyDcfPercentAutofill,
@@ -75,8 +78,10 @@ export function DcfGlobalAssumptionsSectionStack({
       dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
       dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
       dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+      dcfDiscountingConvention={formData.dcf_discounting_convention ?? 'mid_year'}
       terminalValueMethod={terminalValueMethod}
       onTerminalValueMethodChange={onTerminalValueMethodChange}
+      onDiscountingConventionChange={onDiscountingConventionChange}
       onFieldChange={onFieldChange}
       onApplyToForecastYears={onApplyDcfPercentAutofill}
       canApplyToForecastYears={!!canApplyDcfPercentAutofill}

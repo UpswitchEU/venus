@@ -191,6 +191,12 @@ export function mapClarityFormToVenusStore(
     ...(data.dcf_cost_of_debt_pct != null && { dcf_cost_of_debt_pct: data.dcf_cost_of_debt_pct }),
     ...(data.dcf_debt_equity_pct != null && { dcf_debt_equity_pct: data.dcf_debt_equity_pct }),
     ...(data.dcf_tax_shield_pct != null && { dcf_tax_shield_pct: data.dcf_tax_shield_pct }),
+    ...(data.dcf_discounting_convention != null && {
+      dcf_discounting_convention: data.dcf_discounting_convention,
+    }),
+    ...(Array.isArray(data.dcf_tax_shield_projections) && {
+      dcf_tax_shield_projections: data.dcf_tax_shield_projections,
+    }),
     ...(data.dcf_terminal_value_method != null && {
       dcf_terminal_value_method: data.dcf_terminal_value_method,
     }),

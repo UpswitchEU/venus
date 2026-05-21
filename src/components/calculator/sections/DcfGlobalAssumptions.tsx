@@ -21,6 +21,7 @@ import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
+export type DcfDiscountingConvention = 'mid_year' | 'year_end'
 
 /** `full` = single block (AdaptiveSections). Embedded DCF uses `forecastDefaultsOnly` then `discountTerminalOnly` after the forecast table. */
 export type DcfGlobalAssumptionsVariant = 'full' | 'forecastDefaultsOnly' | 'discountTerminalOnly'
@@ -43,8 +44,10 @@ interface DcfGlobalAssumptionsProps {
   dcfCostOfDebtPct?: number
   dcfDebtEquityPct?: number
   dcfTaxShieldPct?: number
+  dcfDiscountingConvention?: DcfDiscountingConvention
   terminalValueMethod: TerminalValueMethod
   onTerminalValueMethodChange: (method: TerminalValueMethod) => void
+  onDiscountingConventionChange?: (convention: DcfDiscountingConvention) => void
   onFieldChange: (field: string, value: number | undefined) => void
   onApplyToForecastYears?: () => void
   canApplyToForecastYears?: boolean
@@ -91,6 +94,7 @@ interface DcfGlobalAssumptionsProps {
 }
 
 const TERMINAL_METHOD_VALUES: TerminalValueMethod[] = ['perpetual_growth', 'exit_multiple']
+const DCF_DISCOUNTING_CONVENTION_VALUES: DcfDiscountingConvention[] = ['mid_year', 'year_end']
 
 export function DcfGlobalAssumptions({
   step,
@@ -110,8 +114,10 @@ export function DcfGlobalAssumptions({
   dcfCostOfDebtPct,
   dcfDebtEquityPct,
   dcfTaxShieldPct,
+  dcfDiscountingConvention = 'mid_year',
   terminalValueMethod,
   onTerminalValueMethodChange,
+  onDiscountingConventionChange,
   onFieldChange,
   onApplyToForecastYears,
   canApplyToForecastYears = false,
@@ -258,6 +264,10 @@ export function DcfGlobalAssumptions({
     dcfInputMode === 'fcff_only'
       ? segmentOptions.filter((o) => o.value === 'perpetual_growth')
       : segmentOptions
+  const discountingConventionOptions = DCF_DISCOUNTING_CONVENTION_VALUES.map((value) => ({
+    value,
+    label: t(`dcfDiscountingConvention.${value}` as const),
+  }))
 
   const forecastDefaultsComplete = useMemo(() => {
     if (dcfInputMode === 'fcff_only') return true
@@ -559,6 +569,25 @@ export function DcfGlobalAssumptions({
             <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
               {t('globalAssumptionGroups.terminalValue')}
             </h4>
+            <div className="space-y-1.5 rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+                {t('dcfDiscountingConventionLabel')}
+              </span>
+              <SegmentedControl
+                options={discountingConventionOptions}
+                value={dcfDiscountingConvention}
+                onChange={(value) => onDiscountingConventionChange?.(value)}
+                size="sm"
+                fullWidth
+                disabled={disabled}
+                aria-label={t('dcfDiscountingConventionAriaLabel')}
+              />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {dcfDiscountingConvention === 'year_end'
+                  ? t('dcfDiscountingConvention.yearEndHint')
+                  : t('dcfDiscountingConvention.midYearHint')}
+              </p>
+            </div>
             {dcfInputMode === 'fcff_only' && (
               <p className="text-[11px] leading-relaxed text-muted-foreground">
                 {t('fcffOnlyTerminalNotice')}

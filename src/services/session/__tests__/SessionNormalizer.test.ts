@@ -398,6 +398,8 @@ describe('normalizeSessionData', () => {
         dcf_wacc_pct: 9.25,
         dcf_terminal_growth_pct: 2.5,
         dcf_revenue_growth_pct: 8,
+        dcf_discounting_convention: 'year_end',
+        dcf_tax_shield_projections: [1.5, 1.125, 0.75],
         dcf_terminal_value_method: 'perpetuity_growth',
       },
     })
@@ -405,6 +407,8 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.dcf_wacc_pct).toBe(9.25)
     expect(normalized.formData.dcf_terminal_growth_pct).toBe(2.5)
     expect(normalized.formData.dcf_revenue_growth_pct).toBe(8)
+    expect(normalized.formData.dcf_discounting_convention).toBe('year_end')
+    expect(normalized.formData.dcf_tax_shield_projections).toEqual([1.5, 1.125, 0.75])
     expect(normalized.formData.dcf_terminal_value_method).toBe('perpetuity_growth')
   })
 
