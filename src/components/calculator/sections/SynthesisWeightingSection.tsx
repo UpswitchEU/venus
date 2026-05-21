@@ -26,6 +26,32 @@ function formatCompactCurrency(amount: number): string {
   return `${sign}€${Math.round(abs)}`
 }
 
+function asDetailsRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function getDcfApvBridge(result: ValuationMethodResult | undefined | null) {
+  const details = asDetailsRecord(result?.details)
+  const taxShield = toFiniteNumber(details?.apv_tax_shield_value)
+  if (taxShield == null || taxShield === 0) return null
+  return {
+    taxShield,
+    valueBeforeBridge: toFiniteNumber(details?.dcf_equity_value_before_apv),
+    convention:
+      typeof details?.apv_discounting_convention === 'string'
+        ? details.apv_discounting_convention
+        : null,
+  }
+}
+
 export interface SynthesisWeightingSectionProps {
   methods: string[]
   weights: Record<string, number>
@@ -130,6 +156,7 @@ export function SynthesisWeightingSection({
       const w = displayWeights[m] ?? 0
       const raw = mr?.available && mr.value != null ? Number(mr.value) : NaN
       const equity = Number.isFinite(raw) ? raw : null
+      const apvBridge = m === 'dcf' ? getDcfApvBridge(mr) : null
       return {
         method: m,
         label: t(METHOD_LABEL_KEYS[m] ?? m),
@@ -138,6 +165,7 @@ export function SynthesisWeightingSection({
         contribution: equity != null && w > 0 ? Math.round(equity * (w / 100)) : null,
         available: mr?.available ?? false,
         unavailableReason: mr?.unavailable_reason ?? null,
+        apvBridge,
       }
     })
   }, [hasResults, valuationResults, methods, displayWeights, t])
@@ -270,7 +298,14 @@ export function SynthesisWeightingSection({
           return (
             <div key={method} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground/80 font-medium truncate mr-2">{label}</span>
+                <span className="text-foreground/80 font-medium truncate mr-2">
+                  {label}
+                  {contrib?.apvBridge && (
+                    <span className="ml-2 inline-flex align-middle rounded-full border border-primary/20 bg-primary/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary/70">
+                      {synth('apvBasis')}
+                    </span>
+                  )}
+                </span>
                 <div className="flex items-center gap-2">
                   {contrib && contrib.equity != null && (
                     <span className="text-[11px] tabular-nums text-foreground/40 font-mono">
@@ -389,6 +424,15 @@ export function SynthesisWeightingSection({
                   </span>
                 </div>
               )}
+
+              {contrib?.apvBridge && w > 0 && (
+                <div className="flex items-center justify-between gap-2 pr-0.5 text-[10px] text-foreground/45">
+                  <span className="truncate">{synth('apvBridge')}</span>
+                  <span className="shrink-0 tabular-nums font-mono text-foreground/55">
+                    +{formatCompactCurrency(contrib.apvBridge.taxShield)}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}
@@ -451,7 +495,19 @@ export function SynthesisWeightingSection({
               {contributions.map((c) => (
                 <tr key={c.method} className={cn(!c.available && c.weight > 0 && 'opacity-50')}>
                   <td className="px-3 py-2 text-foreground/70 font-medium truncate max-w-[8rem]">
-                    {c.label}
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="truncate">{c.label}</span>
+                      {c.apvBridge && (
+                        <span className="shrink-0 rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-primary/65">
+                          {synth('apvBasis')}
+                        </span>
+                      )}
+                    </div>
+                    {c.apvBridge && (
+                      <div className="mt-0.5 text-[9px] font-normal text-foreground/40">
+                        {synth('apvBridge')} +{formatCompactCurrency(c.apvBridge.taxShield)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums font-mono text-foreground/55 whitespace-nowrap">
                     {c.equity != null ? formatCompactCurrency(c.equity) : '—'}
