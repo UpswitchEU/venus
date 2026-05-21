@@ -16,6 +16,7 @@ Venus may use browser storage only for narrow recovery and UI-continuity cases. 
 - Stale, malformed, or type-invalid entries must be removed on read.
 - Retry queues must be bounded.
 - Auth secrets, access decisions, API tokens, cookies, report HTML, and long-lived client/company data are not allowed in browser storage.
+- Session resilience caches may store metadata only. They must not store `sessionData`, `partialData`, valuation results, buyer-readiness payloads, raw financial fields, company names, or rendered report assets.
 - Every direct browser-storage writer, recovery-buffer caller, and third-party local-storage surface must be listed in `scripts/guard-browser-persistence.mjs`.
 - Every approved surface must declare owner, review date, classification, retention class, allowed keys or key prefixes, and `sensitivePayload: "forbidden"`.
 - Long-lived `localStorage` surfaces must declare a TTL, a narrow non-sensitive exemption, or a migration target.

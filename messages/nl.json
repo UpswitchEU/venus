@@ -2046,6 +2046,9 @@
 				"methodCol": "Methode",
 				"valueCol": "Waarde",
 				"contributionCol": "Bijdrage",
+				"apvBasis": "APV",
+				"apvCustomerTemplateBasis": "Template-APV",
+				"apvBridge": "CW belastingschild",
 				"lockedTitle": "Waarderingssynthese",
 				"lockedDescription": "Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter"
 			}
@@ -2527,14 +2530,19 @@
 				"missingPrefix": "Controleer: {fields}",
 				"untitled": "Listing zonder titel",
 				"verified": "Geverifieerd",
-				"nda": "NDA"
+				"nda": "NDA",
+				"profileBuyersAction": "Kopers profileren",
+				"createDraftAction": "Listing opstellen",
+				"resolveGapsAction": "Aanvullen"
 			},
 			"buyerProfile": {
 				"titleReady": "Kopersprofiel klaar",
 				"titleBlocked": "Kopersprofiel nog niet klaar",
 				"segmentCount": "{count} kopersprofielen",
 				"missingPrefix": "Controleer: {fields}",
-				"ready": "listing-klaar"
+				"ready": "listing-klaar",
+				"createListingAction": "Listing opstellen",
+				"resolveGapsAction": "Aanvullen"
 			},
 			"buyerReady": {
 				"generateTitle": "Buyer-ready pakket genereren",

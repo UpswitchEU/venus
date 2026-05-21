@@ -234,6 +234,11 @@ function enrichDcfDetailsFromValuation(
     details.historical_fcf_readiness = readiness
   }
 
+  const apvBridgeProvenance = asRecord(dcfValuation.apv_bridge_provenance)
+  if (details.apv_bridge_provenance == null && apvBridgeProvenance) {
+    details.apv_bridge_provenance = apvBridgeProvenance
+  }
+
   const projectionFields = ['apv_tax_shield_projections_5y', 'apv_tax_shield_pv_5y']
   for (const field of projectionFields) {
     const values = toFiniteNumberArray(dcfValuation[field])

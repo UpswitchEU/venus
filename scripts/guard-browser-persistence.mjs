@@ -240,12 +240,23 @@ const approvedStorageWriters = {
     reason: 'Caches report existence booleans only.',
   }),
   'src/utils/sessionCacheManager.ts': reviewed({
-    classification: 'workflow-session-cache',
+    classification: 'workflow-session-metadata-cache',
     retention: 'ttl-24h',
     allowedKeyPrefixes: ['upswitch_session_cache_'],
     allowedExpressions: ['key'],
     maxRetentionHours: 24,
-    reason: 'Caches stripped session payload with expiry for recovery/resilience.',
+    requiredSourceIncludes: [
+      "const SESSION_CACHE_PAYLOAD_CLASSIFICATION = 'session-metadata-only'",
+      'partialData: {}',
+      'sessionData: {}',
+    ],
+    forbiddenSourceIncludes: [
+      'name: session.name',
+      'valuationResult: session.valuationResult',
+      'buyerReadiness: session.buyerReadiness',
+      'htmlReport: session.htmlReport',
+    ],
+    reason: 'Caches metadata only; raw workflow/session payload must be fetched from Titan.',
   }),
 }
 
@@ -608,6 +619,28 @@ function scanFile(file) {
           line: keyUse.line,
           rule: keyUse.rule,
           excerpt: `${keyUseDescription(keyUse)} is not declared in the approved policy.`,
+        })
+      }
+    }
+
+    for (const requiredSnippet of policy.requiredSourceIncludes ?? []) {
+      if (!source.includes(requiredSnippet)) {
+        findings.push({
+          file: rel,
+          line: 1,
+          rule: 'browser-persistence-required-source-contract-missing',
+          excerpt: `Approved persistence policy requires source to include: ${requiredSnippet}`,
+        })
+      }
+    }
+
+    for (const forbiddenSnippet of policy.forbiddenSourceIncludes ?? []) {
+      if (source.includes(forbiddenSnippet)) {
+        findings.push({
+          file: rel,
+          line: 1,
+          rule: 'browser-persistence-forbidden-source-contract-present',
+          excerpt: `Approved persistence policy forbids source containing: ${forbiddenSnippet}`,
         })
       }
     }

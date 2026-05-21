@@ -2046,6 +2046,9 @@
 				"methodCol": "Method",
 				"valueCol": "Value",
 				"contributionCol": "Contribution",
+				"apvBasis": "APV",
+				"apvCustomerTemplateBasis": "Template APV",
+				"apvBridge": "PV tax shield",
 				"lockedTitle": "Valuation Synthesis",
 				"lockedDescription": "Blend methods with weighted averages — available from Starter"
 			}
@@ -2527,14 +2530,19 @@
 				"missingPrefix": "Review: {fields}",
 				"untitled": "Untitled listing",
 				"verified": "Verified",
-				"nda": "NDA"
+				"nda": "NDA",
+				"profileBuyersAction": "Profile buyers",
+				"createDraftAction": "Draft listing",
+				"resolveGapsAction": "Fill gaps"
 			},
 			"buyerProfile": {
 				"titleReady": "Buyer profile ready",
 				"titleBlocked": "Buyer profile not ready",
 				"segmentCount": "{count} buyer profiles",
 				"missingPrefix": "Review: {fields}",
-				"ready": "listing-ready"
+				"ready": "listing-ready",
+				"createListingAction": "Draft listing",
+				"resolveGapsAction": "Fill gaps"
 			},
 			"buyerReady": {
 				"generateTitle": "Generate buyer-ready package",

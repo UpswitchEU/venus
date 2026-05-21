@@ -7,6 +7,7 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 /** Relative to `public/` — single source for verify + generator. */
 export const BRAND_MARK_SVG_REL = join('logos', 'upswitch-mark.svg');
@@ -69,8 +70,12 @@ export async function generateFaviconsForApp(appRoot) {
 	let sharp;
 	let pngToIco;
 	try {
-		sharp = require('sharp');
-		pngToIco = require('png-to-ico').default;
+		sharp = (
+			await import(pathToFileURL(require.resolve('sharp')).href)
+		).default;
+		pngToIco = (
+			await import(pathToFileURL(require.resolve('png-to-ico')).href)
+		).default;
 	} catch (e) {
 		throw new Error(
 			`[generate-favicons] sharp and png-to-ico must be devDependencies of ${root} (${e.message})`

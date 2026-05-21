@@ -42,9 +42,14 @@ function getDcfApvBridge(result: ValuationMethodResult | undefined | null) {
   const details = asDetailsRecord(result?.details)
   const taxShield = toFiniteNumber(details?.apv_tax_shield_value)
   if (taxShield == null || taxShield === 0) return null
+  const provenance = asDetailsRecord(details?.apv_bridge_provenance)
+  const isCustomerTemplate =
+    provenance?.customer_template_reconciliation === true ||
+    provenance?.benchmark_style === 'customer_template_apv'
   return {
     taxShield,
     valueBeforeBridge: toFiniteNumber(details?.dcf_equity_value_before_apv),
+    isCustomerTemplate,
     convention:
       typeof details?.apv_discounting_convention === 'string'
         ? details.apv_discounting_convention
@@ -302,7 +307,11 @@ export function SynthesisWeightingSection({
                   {label}
                   {contrib?.apvBridge && (
                     <span className="ml-2 inline-flex align-middle rounded-full border border-primary/20 bg-primary/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary/70">
-                      {synth('apvBasis')}
+                      {synth(
+                        contrib.apvBridge.isCustomerTemplate
+                          ? 'apvCustomerTemplateBasis'
+                          : 'apvBasis'
+                      )}
                     </span>
                   )}
                 </span>
@@ -499,7 +508,11 @@ export function SynthesisWeightingSection({
                       <span className="truncate">{c.label}</span>
                       {c.apvBridge && (
                         <span className="shrink-0 rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-primary/65">
-                          {synth('apvBasis')}
+                          {synth(
+                            c.apvBridge.isCustomerTemplate
+                              ? 'apvCustomerTemplateBasis'
+                              : 'apvBasis'
+                          )}
                         </span>
                       )}
                     </div>

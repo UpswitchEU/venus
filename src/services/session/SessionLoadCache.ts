@@ -50,6 +50,8 @@ export function loadCachedValuationSession(
   const sessionDataKeys = cachedSession.sessionData ? Object.keys(cachedSession.sessionData) : []
   const sessionData = cachedSession.sessionData || {}
   const hasFormFields = hasSessionData && sessionDataIndicatesUsableFormInputs(sessionData)
+  const isMetadataOnlyCache =
+    !hasFormFields && !cachedSession.valuationResult && !cachedSession.htmlReport
 
   logger.debug('Session loaded from cache (instant)', {
     reportId,
@@ -57,9 +59,12 @@ export function loadCachedValuationSession(
     cacheAge_minutes,
     hasSessionData,
     hasFormFields,
+    isMetadataOnlyCache,
     sessionDataKeysCount: sessionDataKeys.length,
     sessionDataKeys: sessionDataKeys.slice(0, 5),
-    note: 'Form fields (sessionData) included in cache for instant restoration',
+    note: isMetadataOnlyCache
+      ? 'Browser cache is metadata-only; authoritative payload will be revalidated from Titan.'
+      : 'Form fields (sessionData) included in cache for instant restoration',
   })
 
   validateSessionData(cachedSession)
@@ -88,9 +93,13 @@ export function loadCachedValuationSession(
     }
   }
 
-  if (cacheAge_minutes > 5) {
-    logger.debug('Cache stale, revalidating in background', { reportId, cacheAge_minutes })
-    revalidateAndLog(reportId, 'Background revalidation failed')
+  if (isMetadataOnlyCache || cacheAge_minutes > 5) {
+    logger.debug('Cache requires Titan revalidation', {
+      reportId,
+      cacheAge_minutes,
+      isMetadataOnlyCache,
+    })
+    revalidateAndLog(reportId, 'Background cache revalidation failed')
   }
 
   if (!cachedSession.htmlReport) {

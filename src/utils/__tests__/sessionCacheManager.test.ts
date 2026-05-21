@@ -62,6 +62,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const parsed = JSON.parse(cached)
       expect(parsed.version).toBeTruthy()
       expect(parsed.version).toBe(completeSession.updatedAt?.toString())
+      expect(parsed.payloadClassification).toBe('session-metadata-only')
     })
 
     it('should use Date.now() as version if updatedAt is missing', () => {
@@ -88,15 +89,16 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
   })
 
   describe('Cache Completeness Validation', () => {
-    it('should return complete session with HTML report', () => {
+    it('should return only metadata for a complete session cache hit', () => {
       cacheManager.set(mockReportId, completeSession)
 
       const result = cacheManager.get(mockReportId)
 
       expect(result).toBeTruthy()
-      // HTML is stripped from localStorage; valuation data is retained for completeness checks
       expect(result?.htmlReport).toBeUndefined()
-      expect(result?.valuationResult).toBeTruthy()
+      expect(result?.valuationResult).toBeUndefined()
+      expect(result?.sessionData).toEqual({})
+      expect(result?.partialData).toEqual({})
     })
 
     it('should return incomplete session if cache is fresh (<10 min)', () => {
@@ -143,9 +145,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       const result = cacheManager.get(mockReportId)
 
-      // Should return complete session even if stale
+      // Legacy complete caches are accepted once, but raw valuation payload is stripped on read.
       expect(result).toBeTruthy()
-      expect(result?.valuationResult).toBeTruthy()
+      expect(result?.valuationResult).toBeUndefined()
+      expect(result?.sessionData).toEqual({})
     })
   })
 
@@ -194,10 +197,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBeUndefined()
-      expect(result?.valuationResult).toBeTruthy()
+      expect(result?.valuationResult).toBeUndefined()
     })
 
-    it('should strip rendered HTML and PDF blobs from every cached session shape', () => {
+    it('should strip workflow, financial, valuation, and rendered-report payloads from cache', () => {
       const hugeHtml = '<html>'.padEnd(2_000, 'H')
       const hugePdfHtml = '<html>'.padEnd(2_000, 'P')
       const sessionWithRenderedBlobs = {
@@ -252,20 +255,19 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       expect(cached).toBeTruthy()
       expect(cached).not.toContain(hugeHtml)
       expect(cached).not.toContain(hugePdfHtml)
+      expect(cached).not.toContain('Blob Corp')
+      expect(cached).not.toContain('final_valuation_eur')
+      expect(cached).not.toContain('equity_value_mid')
+      expect(cached).not.toContain('revenue')
 
       const parsed = JSON.parse(cached as string)
+      expect(parsed.payloadClassification).toBe('session-metadata-only')
       expect(parsed.session.htmlReport).toBeUndefined()
       expect(parsed.session.pdfHtmlReport).toBeUndefined()
       expect(parsed.session.infoTabHtml).toBeUndefined()
-      expect(parsed.session.valuationResult.html_report).toBeUndefined()
-      expect(parsed.session.valuationResult.pdf_html_report).toBeUndefined()
-      expect(parsed.session.valuationResult.details.html_report).toBeUndefined()
-      expect(parsed.session.valuationResult.details.pdf_html_report).toBeUndefined()
-      expect(parsed.session.valuationResult.final_valuation_eur).toBe(123)
-      expect(parsed.session.sessionData.valuationResult.equity_value_mid).toBe(123)
-      expect(parsed.session.sessionData.valuationResult.details.confidence_score).toBe(55)
-      expect(parsed.session.sessionData.valuation_result.equity_value_mid).toBe(456)
-      expect(parsed.session.partialData.revenue).toBe(1000)
+      expect(parsed.session.valuationResult).toBeUndefined()
+      expect(parsed.session.sessionData).toEqual({})
+      expect(parsed.session.partialData).toEqual({})
     })
   })
 

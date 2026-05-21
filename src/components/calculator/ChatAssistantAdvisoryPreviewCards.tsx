@@ -3,11 +3,47 @@
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
-import type { BuyerProfilePreview, ChatMessage } from './ChatAssistantTypes'
+import type { BuyerProfilePreview, ChatMessage, ListingPreview } from './ChatAssistantTypes'
 
 interface ChatAssistantAdvisoryPreviewCardsProps {
   message: ChatMessage
   onSendFollowUp?: (content: string) => void
+}
+
+function listingSubject(preview: Pick<ListingPreview, 'reportId' | 'sourceBusinessName'>) {
+  if (preview.reportId) return `valuation report ${preview.reportId}`
+  if (preview.sourceBusinessName) return preview.sourceBusinessName
+  return 'this business'
+}
+
+function buyerProfileSubject(
+  preview: Pick<BuyerProfilePreview, 'reportId' | 'sourceBusinessName'>
+) {
+  if (preview.reportId) return `valuation report ${preview.reportId}`
+  if (preview.sourceBusinessName) return preview.sourceBusinessName
+  return 'this business'
+}
+
+function buildListingGapPrompt(preview: ListingPreview) {
+  const hint = preview.nextActionHint?.trim()
+  if (hint) return hint
+  const fields = preview.missingFields?.filter(Boolean) ?? []
+  if (fields.length > 0) {
+    return `Help me complete the missing listing fields for ${listingSubject(preview)}: ${fields.join(
+      ', '
+    )}.`
+  }
+  return `Help me get the listing ready for ${listingSubject(preview)}.`
+}
+
+function buildBuyerProfileGapPrompt(preview: BuyerProfilePreview) {
+  const fields = preview.listingReadiness?.missingFields?.filter(Boolean) ?? []
+  if (fields.length > 0) {
+    return `Help me complete the missing listing fields for ${buyerProfileSubject(
+      preview
+    )}: ${fields.join(', ')}.`
+  }
+  return `Help me get the buyer profile ready for ${buyerProfileSubject(preview)}.`
 }
 
 export function ChatAssistantAdvisoryPreviewCards({
@@ -370,6 +406,8 @@ export function ChatAssistantAdvisoryPreviewCards({
                 })
               )
             }
+            const canContinue = typeof onSendFollowUp === 'function'
+            const subject = listingSubject(listingPreview)
 
             return (
               <motion.div
@@ -420,6 +458,40 @@ export function ChatAssistantAdvisoryPreviewCards({
                     </div>
                   </div>
                 )}
+                {canContinue && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                    {isBlocked ? (
+                      <button
+                        type="button"
+                        onClick={() => onSendFollowUp(buildListingGapPrompt(listingPreview))}
+                        className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      >
+                        {ca('proposalCards.listingPreview.resolveGapsAction')}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onSendFollowUp(`Profile likely buyers for ${subject}.`)}
+                          className="text-primary/85 hover:text-primary transition-colors font-medium"
+                        >
+                          {ca('proposalCards.listingPreview.profileBuyersAction')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSendFollowUp(
+                              `Prepare a private marketplace listing draft for ${subject}.`
+                            )
+                          }
+                          className="text-foreground/55 hover:text-foreground/75 transition-colors"
+                        >
+                          {ca('proposalCards.listingPreview.createDraftAction')}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )
           })}
@@ -450,6 +522,9 @@ export function ChatAssistantAdvisoryPreviewCards({
                   : ca('proposalCards.buyerProfile.ready')
               )
             }
+            const canContinue = typeof onSendFollowUp === 'function'
+            const hasListingGaps = isBlocked || missing.length > 0
+            const subject = buyerProfileSubject(preview)
 
             return (
               <motion.div
@@ -492,6 +567,25 @@ export function ChatAssistantAdvisoryPreviewCards({
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+                {canContinue && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSendFollowUp(
+                          hasListingGaps
+                            ? buildBuyerProfileGapPrompt(preview)
+                            : `Prepare a private marketplace listing draft for ${subject}.`
+                        )
+                      }
+                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                    >
+                      {hasListingGaps
+                        ? ca('proposalCards.buyerProfile.resolveGapsAction')
+                        : ca('proposalCards.buyerProfile.createListingAction')}
+                    </button>
                   </div>
                 )}
               </motion.div>

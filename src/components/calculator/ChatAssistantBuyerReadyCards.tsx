@@ -68,7 +68,8 @@ function safeBffPath(value?: string) {
 function extractGeneratedEntityId(json: unknown): string | null {
   if (!json || typeof json !== 'object' || Array.isArray(json)) return null
   const root = json as Record<string, unknown>
-  const data = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>) : null
+  const data =
+    root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>) : null
   const entityId = data?.entityId ?? data?.entity_id ?? root.entityId ?? root.entity_id
   return typeof entityId === 'string' && entityId.trim() ? entityId.trim() : null
 }

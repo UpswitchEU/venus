@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getTitanAccessTokenFromCookieHeader, hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'

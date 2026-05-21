@@ -297,6 +297,12 @@ describe('extractValuationResultsMap', () => {
         apv_discount_rate: 0.175,
         apv_discounting_convention: 'year_end',
         apv_methodology: 'adjusted_present_value_tax_shield',
+        apv_bridge_provenance: {
+          basis: 'explicit_tax_shield_schedule',
+          benchmark_style: 'customer_template_apv',
+          customer_template_reconciliation: true,
+          discounting_convention: 'year_end',
+        },
       },
     }
 
@@ -312,6 +318,10 @@ describe('extractValuationResultsMap', () => {
           apv_equity_value: 1_496.04473548765,
           apv_discounting_convention: 'year_end',
           apv_tax_shield_projections_5y: [1.5, 1.125, 0.75, 0.375, 0],
+          apv_bridge_provenance: {
+            benchmark_style: 'customer_template_apv',
+            customer_template_reconciliation: true,
+          },
         },
       },
     })

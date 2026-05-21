@@ -16,22 +16,7 @@ const cacheLogger = createContextLogger('SessionCache')
 const CACHE_PREFIX = 'upswitch_session_cache_'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const MAX_CACHE_SIZE = 20 // Limit number of cached sessions (reduced to avoid quota pressure)
-const RENDERED_REPORT_BLOB_KEYS = [
-  'htmlReport',
-  'html_report',
-  '_htmlReport',
-  'reportHtml',
-  'report_html',
-  'pdfHtmlReport',
-  'pdf_html_report',
-  '_pdfHtmlReport',
-  'pdfReportHtml',
-  'pdf_report_html',
-  'accountantViewHtml',
-  'accountant_view_html',
-  'infoTabHtml',
-  'info_tab_html',
-] as const
+const SESSION_CACHE_PAYLOAD_CLASSIFICATION = 'session-metadata-only'
 
 function isQuotaExceededError(error: unknown): boolean {
   const candidate =
@@ -49,6 +34,7 @@ interface CachedSession {
   cachedAt: number
   expiresAt: number
   version: string // Cache version based on session.updatedAt for staleness detection
+  payloadClassification?: typeof SESSION_CACHE_PAYLOAD_CLASSIFICATION
 }
 
 /**
@@ -107,46 +93,24 @@ export class SessionCacheManager {
     return `${CACHE_PREFIX}${reportId}`
   }
 
-  private stripRenderedReportBlobs<T>(value: T): T {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return value
-
-    const next = { ...(value as Record<string, unknown>) }
-    for (const key of RENDERED_REPORT_BLOB_KEYS) {
-      delete next[key]
-    }
-
-    if (next.details && typeof next.details === 'object' && !Array.isArray(next.details)) {
-      next.details = this.stripRenderedReportBlobs(next.details)
-    }
-
-    return next as T
-  }
-
   private stripSessionForStorage(session: ValuationSession): ValuationSession {
-    const sessionRecord = this.stripRenderedReportBlobs(session) as ValuationSession & {
-      sessionData?: Record<string, unknown>
-      partialData?: Record<string, unknown>
+    const storageSafeSession: ValuationSession = {
+      reportId: session.reportId,
+      currentView: session.currentView,
+      dataSource: session.dataSource,
+      status: session.status,
+      reportReady: session.reportReady,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      completedAt: session.completedAt,
+      lastSyncedAt: session.lastSyncedAt,
+      calculatedAt: session.calculatedAt,
+      completeness: session.completeness,
+      partialData: {},
+      sessionData: {},
     }
 
-    if (sessionRecord.sessionData && typeof sessionRecord.sessionData === 'object') {
-      const sessionData = this.stripRenderedReportBlobs(sessionRecord.sessionData)
-      for (const key of ['valuationResult', 'valuation_result', '_valuationResult']) {
-        if (key in sessionData) {
-          sessionData[key] = this.stripRenderedReportBlobs(sessionData[key])
-        }
-      }
-      sessionRecord.sessionData = sessionData
-    }
-
-    if (sessionRecord.partialData && typeof sessionRecord.partialData === 'object') {
-      sessionRecord.partialData = this.stripRenderedReportBlobs(sessionRecord.partialData)
-    }
-
-    if (sessionRecord.valuationResult && typeof sessionRecord.valuationResult === 'object') {
-      sessionRecord.valuationResult = this.stripRenderedReportBlobs(sessionRecord.valuationResult)
-    }
-
-    return sessionRecord
+    return storageSafeSession
   }
 
   /**
@@ -160,15 +124,14 @@ export class SessionCacheManager {
       // Validate before caching
       validateSessionData(session)
 
-      // Exclude rendered HTML/PDF report assets from cache to prevent
-      // localStorage quota loops. They are fetched from Titan on demand.
-      const sessionWithoutHtml = this.stripSessionForStorage(session)
+      const sessionMetadataOnly = this.stripSessionForStorage(session)
 
       const cached: CachedSession = {
-        session: sessionWithoutHtml,
+        session: sessionMetadataOnly,
         cachedAt: Date.now(),
         expiresAt: Date.now() + CACHE_TTL_MS,
         version: session.updatedAt?.toString() || Date.now().toString(), // Track version for staleness detection
+        payloadClassification: SESSION_CACHE_PAYLOAD_CLASSIFICATION,
       }
 
       const key = this.getCacheKey(reportId)
@@ -196,25 +159,15 @@ export class SessionCacheManager {
               error: getErrorMessage(retryError),
             })
             try {
-              // Create minimal cache: metadata only, no sessionData (can exceed quota).
-              // Session will be loaded from backend on next visit.
-              const minimalSession: Partial<ValuationSession> = {
-                reportId: session.reportId,
-                currentView: session.currentView,
-                dataSource: session.dataSource,
-                name: session.name,
-                createdAt: session.createdAt,
-                updatedAt: session.updatedAt,
-                calculatedAt: session.calculatedAt,
-              }
               const minimalCached: CachedSession = {
-                session: minimalSession as ValuationSession,
+                session: sessionMetadataOnly,
                 cachedAt: Date.now(),
                 expiresAt: Date.now() + CACHE_TTL_MS,
                 version: session.updatedAt?.toString() || Date.now().toString(),
+                payloadClassification: SESSION_CACHE_PAYLOAD_CLASSIFICATION,
               }
               localStorage.setItem(key, JSON.stringify(minimalCached))
-              cacheLogger.info('Minimal cache saved successfully', { reportId })
+              cacheLogger.info('Metadata-only cache saved successfully', { reportId })
             } catch (minimalError) {
               // Even minimal cache failed - give up gracefully
               cacheLogger.error('Failed to cache session even with minimal data', {
@@ -230,12 +183,12 @@ export class SessionCacheManager {
         }
       }
 
-      cacheLogger.info('Session cached (HTML reports excluded)', {
+      cacheLogger.info('Session metadata cached (workflow payload excluded)', {
         reportId,
         expiresIn_hours: CACHE_TTL_MS / (60 * 60 * 1000),
         version: cached.version,
-        hasHtmlReportInBackend: !!session.htmlReport,
-        note: 'HTML reports excluded from cache, fetched from backend on demand',
+        payloadClassification: cached.payloadClassification,
+        note: 'Browser cache stores session metadata only; workflow payload is fetched from Titan.',
       })
 
       // Check cache size and clean if needed
@@ -273,50 +226,49 @@ export class SessionCacheManager {
         return null
       }
 
-      // Validate and sanitize
-      const sanitized = sanitizeSessionData(parsed.session)
+      const isMetadataOnlyCache =
+        parsed.payloadClassification === SESSION_CACHE_PAYLOAD_CLASSIFICATION
+      const rawSession =
+        parsed.session && typeof parsed.session === 'object'
+          ? (parsed.session as unknown as Record<string, unknown>)
+          : {}
+      const rawSessionData =
+        rawSession.sessionData && typeof rawSession.sessionData === 'object'
+          ? (rawSession.sessionData as Record<string, unknown>)
+          : {}
+      const rawHasValuationResult = !!(
+        rawSession.valuationResult ||
+        rawSessionData.valuation_result ||
+        rawSessionData.valuationResult ||
+        rawSessionData._valuationResult
+      )
 
-      // ✅ CACHE COMPLETENESS CHECK: Detect incomplete/stale caches
-      // Note: HTML reports are excluded from cache, so we check valuationResult instead
-      // If session has no valuation result but cache is old (>10 min), invalidate it
-      // This prevents stale "empty session" caches from before valuation completion
-      //
-      // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
-      // The sanitizeSessionData function only preserves sessionData, not top-level valuationResult
-      // So we need to check inside sessionData for the valuation result
+      const sanitized = sanitizeSessionData(this.stripSessionForStorage(parsed.session))
+
       const sessionData =
         sanitized.sessionData && typeof sanitized.sessionData === 'object'
           ? (sanitized.sessionData as Record<string, unknown>)
           : {}
-      const hasValuationResult = !!(
-        (
-          sanitized.valuationResult || // Top-level (might not exist after sanitize)
-          sessionData.valuation_result || // snake_case in sessionData
-          sessionData.valuationResult || // camelCase in sessionData
-          sessionData._valuationResult
-        ) // Titan-injected field
-      )
       const cacheAge_minutes = Math.floor((Date.now() - parsed.cachedAt) / (60 * 1000))
 
-      // Note: HTML reports are not cached (too large), so we don't check for them here
-      // They will be fetched from backend when needed
-      if (!hasValuationResult && cacheAge_minutes > 10) {
+      if (!isMetadataOnlyCache && !rawHasValuationResult && cacheAge_minutes > 10) {
         cacheLogger.info('Invalidating incomplete stale cache (no valuation result)', {
           reportId,
           cacheAge_minutes,
-          hasValuationResult,
+          hasValuationResult: rawHasValuationResult,
           sessionDataKeys: Object.keys(sessionData).slice(0, 10),
         })
         this.delete(reportId)
         return null
       }
 
-      cacheLogger.info('Session loaded from cache (HTML reports excluded, fetch from backend)', {
+      cacheLogger.info('Session metadata loaded from cache', {
         reportId,
         cachedAgo_minutes: cacheAge_minutes,
-        hasValuationResult,
+        hasValuationResult: false,
+        payloadClassification: SESSION_CACHE_PAYLOAD_CLASSIFICATION,
         version: parsed.version,
-        note: 'HTML reports not cached, will be fetched from backend when needed',
+        note: 'Workflow payload is not cached in browser storage and must be fetched from Titan.',
       })
 
       return sanitized
