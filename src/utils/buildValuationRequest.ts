@@ -215,6 +215,7 @@ export function buildValuationRequest(
 ): ValuationRequest {
   // Convert DataResponse[] to formData if needed
   let formData: ValuationFormData
+  const requestInputSource = Array.isArray(source) ? 'ai_assistant' : undefined
   if (Array.isArray(source)) {
     formData = convertDataResponsesToFormData(source) as ValuationFormData
   } else {
@@ -712,6 +713,7 @@ export function buildValuationRequest(
     latestRevenue,
     countryCode,
     rawForecastData,
+    inputSource: requestInputSource,
   })
 
   const realEstateTreatment =

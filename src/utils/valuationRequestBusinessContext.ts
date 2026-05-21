@@ -5,6 +5,7 @@ interface BuildValuationBusinessContextOptions {
   latestRevenue: number | undefined
   countryCode: string
   rawForecastData: NonNullable<ValuationFormData['historical_years_data']>
+  inputSource?: string
 }
 
 export function buildValuationBusinessContext({
@@ -12,6 +13,7 @@ export function buildValuationBusinessContext({
   latestRevenue,
   countryCode,
   rawForecastData,
+  inputSource,
 }: BuildValuationBusinessContextOptions): {
   businessContext: ValuationRequest['business_context']
   userConfiguredDcf: boolean
@@ -53,6 +55,22 @@ export function buildValuationBusinessContext({
     : []
   if (dcfTaxShieldProjections.length > 0) {
     adaptiveFields.dcf_tax_shield_projections = dcfTaxShieldProjections
+  }
+  const resolvedDcfInputSource = resolveDcfInputSource(fd, formData, inputSource)
+  if (fd.dcf_input_mode === 'fcff_only') {
+    adaptiveFields.dcf_input_mode = 'fcff_only'
+  }
+  if (dcfTaxShieldProjections.length > 0) {
+    adaptiveFields.apv_input_source = resolvedDcfInputSource
+    adaptiveFields.dcf_tax_shield_source = resolvedDcfInputSource
+    adaptiveFields.dcf_bridge_policy = 'apv_tax_shield_inside_dcf'
+    adaptiveFields.dcf_double_counting_guard = true
+    if (
+      fd.dcf_input_mode === 'fcff_only' &&
+      fd.dcf_discounting_convention === 'year_end'
+    ) {
+      adaptiveFields.dcf_benchmark_case = 'henk_customer_dcf_template'
+    }
   }
 
   const userConfiguredDcf =
@@ -230,4 +248,36 @@ function copyDefinedAdaptiveFields(
   for (const key of keys) {
     if (source[key] != null) target[key] = source[key]
   }
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function resolveDcfInputSource(
+  fd: Record<string, unknown>,
+  formData: ValuationFormData,
+  inputSource?: string
+): string {
+  const explicit =
+    asNonEmptyString(fd.apv_input_source) ||
+    asNonEmptyString(fd.dcf_tax_shield_source) ||
+    asNonEmptyString(fd.dcf_input_source) ||
+    asNonEmptyString(fd._financial_data_source) ||
+    asNonEmptyString(inputSource)
+  if (explicit) return explicit
+
+  const official =
+    formData.official_financials && typeof formData.official_financials === 'object'
+      ? (formData.official_financials as Record<string, unknown>)
+      : undefined
+  const officialSource =
+    asNonEmptyString(official?.provider) ||
+    asNonEmptyString(official?.source) ||
+    asNonEmptyString(official?.data_source)
+  if (officialSource) return `integration:${officialSource}`
+
+  return 'manual'
 }

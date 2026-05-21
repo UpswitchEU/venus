@@ -239,6 +239,11 @@ function enrichDcfDetailsFromValuation(
     details.apv_bridge_provenance = apvBridgeProvenance
   }
 
+  const apvBenchmarkReconciliation = asRecord(dcfValuation.apv_benchmark_reconciliation)
+  if (details.apv_benchmark_reconciliation == null && apvBenchmarkReconciliation) {
+    details.apv_benchmark_reconciliation = apvBenchmarkReconciliation
+  }
+
   const projectionFields = ['apv_tax_shield_projections_5y', 'apv_tax_shield_pv_5y']
   for (const field of projectionFields) {
     const values = toFiniteNumberArray(dcfValuation[field])

@@ -83,6 +83,7 @@ const translations: Record<string, Record<string, string>> = {
     apvEnterpriseValue: 'Ondernemingswaarde (APV)',
     apvEquityValue: 'Aandelenwaarde (APV)',
     apvDiscountRate: 'APV-discontovoet',
+    apvBenchmarkMatched: '{benchmark} matcht binnen tolerantie.',
     yearEndDiscounting:
       'Belastingschilden worden met eindejaars-timing verdisconteerd om aan te sluiten op het klanttemplate.',
     midYearDiscounting: 'Belastingschilden worden met de mid-year-conventie verdisconteerd.',
@@ -441,6 +442,10 @@ describe('ValuationEditModal', () => {
               apv_equity_value: 1_496.04473548765,
               apv_discount_rate: 0.175,
               apv_discounting_convention: 'year_end',
+              apv_benchmark_reconciliation: {
+                benchmark_name: 'Henk customer DCF template',
+                status: 'matched',
+              },
             },
           },
         }}
@@ -458,6 +463,9 @@ describe('ValuationEditModal', () => {
       screen.getByText(
         'Belastingschilden worden met eindejaars-timing verdisconteerd om aan te sluiten op het klanttemplate.'
       )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Henk customer DCF template matcht binnen tolerantie.')
     ).toBeInTheDocument()
     expect(screen.getByText('Formule DCF APV')).toBeInTheDocument()
   })

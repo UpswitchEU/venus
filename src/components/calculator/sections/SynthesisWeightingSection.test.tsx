@@ -37,6 +37,9 @@ describe('SynthesisWeightingSection', () => {
               apv_bridge_provenance: {
                 benchmark_style: 'customer_template_apv',
                 customer_template_reconciliation: true,
+                included_in_dcf_value: true,
+                separate_weighting_method: false,
+                double_counting_guard: 'APV is already included inside DCF.',
               },
             },
           },
@@ -52,6 +55,7 @@ describe('SynthesisWeightingSection', () => {
     expect(screen.getAllByText('apvCustomerTemplateBasis').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/apvBridge/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('+€3').length).toBeGreaterThan(0)
+    expect(screen.getAllByTitle('APV is already included inside DCF.').length).toBeGreaterThan(0)
   })
 
   it('keeps non-template APV rows on the generic APV basis label', () => {

@@ -2049,6 +2049,7 @@
 				"apvBasis": "APV",
 				"apvCustomerTemplateBasis": "Template APV",
 				"apvBridge": "PV tax shield",
+				"apvBadgeTooltip": "Included inside the DCF value; do not weight APV separately.",
 				"lockedTitle": "Valuation Synthesis",
 				"lockedDescription": "Blend methods with weighted averages — available from Starter"
 			}
@@ -2504,7 +2505,11 @@
 				"previewTitle": "Public preview",
 				"noFiling": "No filing data",
 				"noBenchmark": "No mapped benchmark",
-				"noPreview": "Not enough data"
+				"noPreview": "Not enough data",
+				"createClientAction": "Create client",
+				"connectAccountingAction": "Connect accounting",
+				"startValuationAction": "Start valuation",
+				"resolveGapsAction": "Resolve gaps"
 			},
 			"clientDataReadiness": {
 				"titleReady": "Client data ready",
@@ -2514,7 +2519,11 @@
 				"notSyncedLabel": "not synced",
 				"flagCount": "{count} review flag(s)",
 				"flagsLabel": "Review flag",
-				"nextActionLabel": "Next"
+				"nextActionLabel": "Next",
+				"openReviewAction": "Open review",
+				"startValuationAction": "Start valuation",
+				"connectAccountingAction": "Connect accounting",
+				"resolveDataAction": "Resolve data"
 			},
 			"methodReadiness": {
 				"titleReady": "Valuation methods ready",
@@ -2522,7 +2531,11 @@
 				"readyCount": "{count} method(s) ready",
 				"blockedCount": "{count} need more data",
 				"readyLabel": "Ready",
-				"blockedLabel": "Needs data"
+				"blockedLabel": "Needs data",
+				"runReadyAction": "Run ready methods",
+				"unlockMethodsAction": "Unlock methods",
+				"explainAction": "Explain",
+				"resolveAction": "Resolve in chat"
 			},
 			"listingPreview": {
 				"titleReady": "Listing preview ready",
@@ -2573,7 +2586,21 @@
 				"ndaRequired": "NDA required",
 				"section": "Section {section}",
 				"confidence": "confidence {confidence}",
-				"action": "Continue"
+				"action": "Continue",
+				"resolveGapsAction": "Resolve gaps",
+				"reviewDiligenceAction": "Review diligence",
+				"reviewDataRoomAction": "Review data room",
+				"checkLegalAction": "Check legal",
+				"resolveDdGapsAction": "Resolve DD gaps",
+				"uploadEvidenceAction": "Upload evidence",
+				"proposeOverrideAction": "Propose override",
+				"uploadDocumentAction": "Upload document",
+				"preparePublishAction": "Prepare publish",
+				"reviewPackageAction": "Review package",
+				"lawyerHandoffAction": "Lawyer handoff",
+				"publishAction": "Publish package",
+				"resolveGatesAction": "Resolve gates",
+				"inviteBuyerAction": "Invite buyer"
 			},
 			"sellability": {
 				"header": "Ready to compute sellability",
@@ -3547,6 +3574,7 @@
 		"apvDiscountRate": "APV discount rate",
 		"yearEndDiscounting": "Tax shields are discounted using year-end timing to match the customer DCF template.",
 		"midYearDiscounting": "Tax shields are discounted using the mid-year convention.",
+		"apvBenchmarkMatched": "{benchmark} matched within tolerance.",
 		"historicalFcfReadiness": "Historical FCF readiness",
 		"ownerSalaryEstimate": "Owner salary estimate",
 		"estimatedSde": "Adjusted SDE",

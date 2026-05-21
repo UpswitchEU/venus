@@ -67,7 +67,6 @@
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.13.18",
-    "@types/dompurify": "^3.0.5",
     "@upswitch/types": "file:../../packages/types",
     "axios": "^1.16.1",
     "class-variance-authority": "^0.7.1",
@@ -153,7 +152,7 @@
       "picomatch@<3": "2.3.2",
       "picomatch@>=4 <5": "4.0.4",
       "postcss": "8.5.14",
-      "protobufjs": "7.5.6",
+      "protobufjs": "7.6.0",
       "rollup": "^4.59.0",
       "vite": "^7.3.2"
     }

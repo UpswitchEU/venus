@@ -2049,6 +2049,7 @@
 				"apvBasis": "APV",
 				"apvCustomerTemplateBasis": "Template-APV",
 				"apvBridge": "CW belastingschild",
+				"apvBadgeTooltip": "Opgenomen in de DCF-waarde; weeg APV niet nog eens apart.",
 				"lockedTitle": "Waarderingssynthese",
 				"lockedDescription": "Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter"
 			}
@@ -2504,7 +2505,11 @@
 				"previewTitle": "Publieke preview",
 				"noFiling": "Geen jaarrekeningdata",
 				"noBenchmark": "Geen gekoppelde benchmark",
-				"noPreview": "Nog onvoldoende data"
+				"noPreview": "Nog onvoldoende data",
+				"createClientAction": "Client aanmaken",
+				"connectAccountingAction": "Boekhouding koppelen",
+				"startValuationAction": "Waardering starten",
+				"resolveGapsAction": "Gaten oplossen"
 			},
 			"clientDataReadiness": {
 				"titleReady": "Clientdata klaar",
@@ -2514,7 +2519,11 @@
 				"notSyncedLabel": "niet gesynchroniseerd",
 				"flagCount": "{count} reviewflag(s)",
 				"flagsLabel": "Reviewflag",
-				"nextActionLabel": "Volgende"
+				"nextActionLabel": "Volgende",
+				"openReviewAction": "Review openen",
+				"startValuationAction": "Waardering starten",
+				"connectAccountingAction": "Boekhouding koppelen",
+				"resolveDataAction": "Data oplossen"
 			},
 			"methodReadiness": {
 				"titleReady": "Waarderingsmethodes klaar",
@@ -2522,7 +2531,11 @@
 				"readyCount": "{count} methode(s) klaar",
 				"blockedCount": "{count} hebben meer data nodig",
 				"readyLabel": "Klaar",
-				"blockedLabel": "Heeft data nodig"
+				"blockedLabel": "Heeft data nodig",
+				"runReadyAction": "Klare methodes draaien",
+				"unlockMethodsAction": "Methodes vrijmaken",
+				"explainAction": "Uitleggen",
+				"resolveAction": "Oplossen in chat"
 			},
 			"listingPreview": {
 				"titleReady": "Listing-preview klaar",
@@ -2573,7 +2586,21 @@
 				"ndaRequired": "NDA vereist",
 				"section": "Sectie {section}",
 				"confidence": "betrouwbaarheid {confidence}",
-				"action": "Ga verder"
+				"action": "Ga verder",
+				"resolveGapsAction": "Gaten oplossen",
+				"reviewDiligenceAction": "Diligence bekijken",
+				"reviewDataRoomAction": "Dataroom bekijken",
+				"checkLegalAction": "Juridisch checken",
+				"resolveDdGapsAction": "DD-gaten oplossen",
+				"uploadEvidenceAction": "Bewijs uploaden",
+				"proposeOverrideAction": "Override voorstellen",
+				"uploadDocumentAction": "Document uploaden",
+				"preparePublishAction": "Publicatie voorbereiden",
+				"reviewPackageAction": "Pakket bekijken",
+				"lawyerHandoffAction": "Advocaat inschakelen",
+				"publishAction": "Pakket publiceren",
+				"resolveGatesAction": "Poorten oplossen",
+				"inviteBuyerAction": "Koper uitnodigen"
 			},
 			"sellability": {
 				"header": "Klaar om sellability te berekenen",
@@ -3547,6 +3574,7 @@
 		"apvDiscountRate": "APV-discontovoet",
 		"yearEndDiscounting": "Belastingschilden worden met eindejaars-timing verdisconteerd om aan te sluiten op het klanttemplate.",
 		"midYearDiscounting": "Belastingschilden worden met de mid-year-conventie verdisconteerd.",
+		"apvBenchmarkMatched": "{benchmark} matcht binnen tolerantie.",
 		"historicalFcfReadiness": "Historische FCF-gereedheid",
 		"ownerSalaryEstimate": "Inschatting eigenaarsloon",
 		"estimatedSde": "Aangepaste SDE",

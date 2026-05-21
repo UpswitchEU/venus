@@ -13,6 +13,9 @@ interface ChatAssistantBuyerReadyCardsProps {
   onSendFollowUp?: (content: string) => void
 }
 
+type ChatAssistantTranslator = ReturnType<typeof useTranslations>
+type FollowUpAction = { label: string; prompt: string; primary?: boolean }
+
 interface BuyerReadyCardFrameProps {
   id: string
   title: string
@@ -22,6 +25,7 @@ interface BuyerReadyCardFrameProps {
   icon?: ReactNode
   actionPrompt?: string
   actionLabel?: string
+  followUpActions?: FollowUpAction[]
   onAction?: () => Promise<void> | void
   onSendFollowUp?: (content: string) => void
   children?: ReactNode
@@ -99,6 +103,7 @@ function BuyerReadyCardFrame({
   icon,
   actionPrompt,
   actionLabel,
+  followUpActions = [],
   onAction,
   onSendFollowUp,
   children,
@@ -174,6 +179,27 @@ function BuyerReadyCardFrame({
             </p>
           )}
           {error && <p className="mt-1.5 text-xs text-destructive/90">{error}</p>}
+          {decision === 'idle' &&
+            typeof onSendFollowUp === 'function' &&
+            followUpActions.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                {followUpActions.map((action) => (
+                  <button
+                    key={`${id}-${action.label}-${action.prompt}`}
+                    type="button"
+                    onClick={() => onSendFollowUp(action.prompt)}
+                    className={cn(
+                      'transition-colors',
+                      action.primary
+                        ? 'font-medium text-primary/85 hover:text-primary'
+                        : 'text-foreground/55 hover:text-foreground/75'
+                    )}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
           {decision === 'idle' && (actionLabel || canAct) && (
             <div className="mt-2 flex items-center gap-3 text-xs">
               {canAct && (
@@ -198,6 +224,187 @@ function BuyerReadyCardFrame({
       </div>
     </motion.div>
   )
+}
+
+function packageSubject(entityId?: string | null) {
+  return entityId ? `buyer-ready package ${entityId}` : 'the current buyer-ready package'
+}
+
+function buildPackageGapPrompt(
+  card: Extract<BuyerReadyToolCard, { kind: 'buyer_package_status' }>
+) {
+  const details = compactParts([
+    card.missingRequiredArtifactTypes.length > 0
+      ? `missing artifacts: ${card.missingRequiredArtifactTypes.map(humanize).filter(Boolean).join(', ')}`
+      : null,
+    card.openInputCount > 0 ? `${card.openInputCount} open inputs` : null,
+    card.checklist.redCount > 0 || card.checklist.yellowCount > 0
+      ? `diligence: ${card.checklist.redCount} missing, ${card.checklist.yellowCount} review`
+      : null,
+  ])
+  const suffix = details.length > 0 ? ` (${details.join('; ')})` : ''
+  return `Help me resolve buyer-ready package gaps for ${packageSubject(card.entityId)}${suffix}.`
+}
+
+function buildBuyerReadyPackageActions(
+  card: Extract<BuyerReadyToolCard, { kind: 'buyer_package_status' }>,
+  ca: ChatAssistantTranslator
+) {
+  const subject = packageSubject(card.entityId)
+  const hasGaps =
+    card.missingRequiredArtifactTypes.length > 0 ||
+    card.openInputCount > 0 ||
+    card.checklist.redCount > 0 ||
+    card.checklist.yellowCount > 0
+  const actions: FollowUpAction[] = []
+  if (hasGaps) {
+    actions.push({
+      label: ca('proposalCards.buyerReady.resolveGapsAction'),
+      prompt: buildPackageGapPrompt(card),
+      primary: true,
+    })
+  }
+  actions.push(
+    {
+      label: ca('proposalCards.buyerReady.reviewDiligenceAction'),
+      prompt: `Review the diligence checklist for ${subject}.`,
+    },
+    {
+      label: ca('proposalCards.buyerReady.reviewDataRoomAction'),
+      prompt: `Review the data room manifest for ${subject}.`,
+    },
+    {
+      label: ca('proposalCards.buyerReady.checkLegalAction'),
+      prompt: `Check legal readiness for ${subject}.`,
+    }
+  )
+  return actions
+}
+
+function buildDdChecklistActions(
+  card: Extract<BuyerReadyToolCard, { kind: 'dd_checklist' }>,
+  ca: ChatAssistantTranslator
+) {
+  const subject = packageSubject(card.entityId)
+  const openItems = card.items.filter((item) => item.status === 'red' || item.status === 'yellow')
+  const firstOpenItem = openItems[0]
+  const openCategorySummary = openItems
+    .slice(0, 5)
+    .map((item) => humanize(item.category))
+    .filter(Boolean)
+    .join(', ')
+  const actions: FollowUpAction[] = []
+  if (openItems.length > 0) {
+    actions.push({
+      label: ca('proposalCards.buyerReady.resolveDdGapsAction'),
+      prompt: `Help me resolve the diligence checklist gaps for ${subject}: ${openCategorySummary}.`,
+      primary: true,
+    })
+  }
+  if (firstOpenItem) {
+    const category = humanize(firstOpenItem.category) ?? firstOpenItem.category
+    actions.push({
+      label: ca('proposalCards.buyerReady.uploadEvidenceAction'),
+      prompt: `Prepare a data-room upload for ${category} in ${subject}.`,
+    })
+    actions.push({
+      label: ca('proposalCards.buyerReady.proposeOverrideAction'),
+      prompt: `Propose a diligence status override for ${category} in ${subject}.`,
+    })
+  }
+  actions.push({
+    label:
+      openItems.length > 0
+        ? ca('proposalCards.buyerReady.reviewDataRoomAction')
+        : ca('proposalCards.buyerReady.checkLegalAction'),
+    prompt:
+      openItems.length > 0
+        ? `Review the data room manifest for ${subject}.`
+        : `Check legal readiness for ${subject}.`,
+  })
+  return actions
+}
+
+function buildDataRoomActions(
+  card: Extract<BuyerReadyToolCard, { kind: 'data_room_manifest' }>,
+  ca: ChatAssistantTranslator
+) {
+  const subject = packageSubject(card.entityId)
+  const hasDocs = card.docCount > 0 || card.docs.length > 0
+  const actions: FollowUpAction[] = [
+    {
+      label: ca('proposalCards.buyerReady.uploadDocumentAction'),
+      prompt: `Prepare a data-room upload for ${subject}.`,
+      primary: true,
+    },
+  ]
+  if (hasDocs) {
+    actions.push({
+      label: ca('proposalCards.buyerReady.checkLegalAction'),
+      prompt: `Check legal readiness for ${subject}.`,
+    })
+    actions.push({
+      label: ca('proposalCards.buyerReady.preparePublishAction'),
+      prompt: `Check release gates and prepare package publication for ${subject}.`,
+    })
+  } else {
+    actions.push({
+      label: ca('proposalCards.buyerReady.reviewPackageAction'),
+      prompt: `Review the buyer-ready package status for ${subject}.`,
+    })
+  }
+  return actions
+}
+
+function buildLegalReadinessActions(
+  card: Extract<BuyerReadyToolCard, { kind: 'legal_readiness' }>,
+  ca: ChatAssistantTranslator
+) {
+  const subject = packageSubject(card.entityId)
+  const gateIssues = card.items.filter(
+    (item) => item.status === 'blocked' || item.status === 'review'
+  )
+  const firstGateIssue = gateIssues[0]
+  const gateSummary = gateIssues
+    .slice(0, 5)
+    .map((item) => item.title)
+    .filter(Boolean)
+    .join(', ')
+  const needsCounsel = card.counselReviewRequired || card.blockedCount > 0
+  const actions: FollowUpAction[] = []
+  if (needsCounsel) {
+    actions.push({
+      label: ca('proposalCards.buyerReady.lawyerHandoffAction'),
+      prompt: `Request a lawyer handoff for ${subject}${
+        firstGateIssue
+          ? ` about ${humanize(firstGateIssue.category) ?? firstGateIssue.category}`
+          : ''
+      }.`,
+      primary: true,
+    })
+  } else {
+    actions.push({
+      label: ca('proposalCards.buyerReady.publishAction'),
+      prompt: `Check release gates and prepare package publication for ${subject}.`,
+      primary: true,
+    })
+  }
+  if (gateIssues.length > 0) {
+    actions.push({
+      label: ca('proposalCards.buyerReady.resolveGatesAction'),
+      prompt: `Help me resolve legal readiness gates for ${subject}: ${gateSummary}.`,
+    })
+  } else {
+    actions.push({
+      label: ca('proposalCards.buyerReady.inviteBuyerAction'),
+      prompt: `Prepare a buyer invitation for ${subject}.`,
+    })
+  }
+  actions.push({
+    label: ca('proposalCards.buyerReady.reviewPackageAction'),
+    prompt: `Review the buyer-ready package status for ${subject}.`,
+  })
+  return actions
 }
 
 function MiniRows({
@@ -329,6 +536,8 @@ function BuyerReadyCard({
           ])}
           tone={card.missingRequiredArtifactTypes.length === 0 ? 'success' : 'default'}
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          followUpActions={buildBuyerReadyPackageActions(card, ca)}
+          onSendFollowUp={onSendFollowUp}
         >
           {card.missingRequiredArtifactTypes.length > 0 && (
             <p className="mt-1.5 text-xs text-foreground/55 leading-snug">
@@ -347,6 +556,8 @@ function BuyerReadyCard({
           detail={humanize(card.overallStatus)}
           meta={[trafficLight(card.greenCount, card.yellowCount, card.redCount)]}
           icon={<Check className="h-3.5 w-3.5" />}
+          followUpActions={buildDdChecklistActions(card, ca)}
+          onSendFollowUp={onSendFollowUp}
         >
           <MiniRows
             rows={card.items.map((item) => ({
@@ -369,6 +580,8 @@ function BuyerReadyCard({
             ca('proposalCards.buyerReady.ndaSigned', { count: card.ndaSignedBuyerCount }),
           ]}
           icon={<FileText className="h-3.5 w-3.5" />}
+          followUpActions={buildDataRoomActions(card, ca)}
+          onSendFollowUp={onSendFollowUp}
         >
           <MiniRows
             rows={card.docs.map((doc) => ({
@@ -400,6 +613,8 @@ function BuyerReadyCard({
           ]}
           tone={card.blockedCount > 0 || card.counselReviewRequired ? 'blocked' : 'default'}
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          followUpActions={buildLegalReadinessActions(card, ca)}
+          onSendFollowUp={onSendFollowUp}
         >
           <MiniRows
             rows={card.items.map((item) => ({
@@ -478,7 +693,13 @@ function BuyerReadyCard({
         />
       )
 
-    case 'package_publish':
+    case 'package_publish': {
+      const publishBlockerDetails =
+        compactParts([
+          card.reason,
+          card.missingArtifactTypes.map(humanize).filter(Boolean).join(', '),
+        ]).join(' · ') || 'review the missing artifacts and legal release gates'
+
       return (
         <BuyerReadyCardFrame
           id={card.id}
@@ -502,6 +723,17 @@ function BuyerReadyCard({
           actionPrompt={
             card.status === 'pending_approval' ? 'Publish buyer-ready package' : undefined
           }
+          followUpActions={
+            card.status === 'blocked'
+              ? [
+                  {
+                    label: ca('proposalCards.buyerReady.resolveGapsAction'),
+                    prompt: `Help me resolve buyer-ready package publication blockers: ${publishBlockerDetails}.`,
+                    primary: true,
+                  },
+                ]
+              : []
+          }
           onSendFollowUp={onSendFollowUp}
         >
           {card.missingArtifactTypes.length > 0 && (
@@ -520,6 +752,7 @@ function BuyerReadyCard({
           />
         </BuyerReadyCardFrame>
       )
+    }
 
     case 'lawyer_handoff':
       return (

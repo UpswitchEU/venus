@@ -153,6 +153,8 @@ export interface ValuationResponse {
     apv_equity_value?: number | null
     apv_tax_shield_projections_5y?: number[] | null
     apv_tax_shield_pv_5y?: number[] | null
+    apv_bridge_provenance?: Record<string, unknown> | null
+    apv_benchmark_reconciliation?: Record<string, unknown> | null
     fcf_projections_5y: number[]
     pv_fcf_projections_5y: number[]
     sensitivity_wacc: Record<string, number>

@@ -3,8 +3,10 @@
  * Order is stable for UX (headline → multiples → DCF → balance sheet → fiscal → downside).
  * Must match backend `ValuationMethodResult` keys from the valuation response.
  *
- * There are 10 keys here but **9 distinct methodologies**: `omzet_multiple` and
- * `revenue_multiple` are the same turnover/revenue-multiple approach (NL vs EN alias).
+ * There are 10 primary keys here but **9 primary-list methodologies** because
+ * `omzet_multiple` and `revenue_multiple` are the same turnover/revenue-multiple
+ * approach (NL vs EN alias). The complete product surface has 10 distinct
+ * methods: the registry also includes the standalone `startup_valuation` path.
  * `liquidation_analysis` is the downside lens (orderly + forced) and shares the
  * balance-sheet input contract with `adjusted_nav`.
  */
@@ -22,7 +24,7 @@ export const PRIMARY_OMNI_METHOD_ORDER = [
 ] as const
 
 /** Use for pricing / marketing copy (distinct methodologies, not raw result keys). */
-export const DISTINCT_VALUATION_METHOD_COUNT = 9
+export const DISTINCT_VALUATION_METHOD_COUNT = 10
 
 export const PRIMARY_OMNI_METHOD_KEYS = new Set<string>(PRIMARY_OMNI_METHOD_ORDER)
 

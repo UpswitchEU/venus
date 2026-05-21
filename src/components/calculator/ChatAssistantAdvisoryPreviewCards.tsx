@@ -3,11 +3,29 @@
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
-import type { BuyerProfilePreview, ChatMessage, ListingPreview } from './ChatAssistantTypes'
+import type {
+  BelgianCompanyBootstrap,
+  BuyerProfilePreview,
+  ChatMessage,
+  ClientDataReadinessPreview,
+  ListingPreview,
+  MethodReadinessPreview,
+} from './ChatAssistantTypes'
 
 interface ChatAssistantAdvisoryPreviewCardsProps {
   message: ChatMessage
   onSendFollowUp?: (content: string) => void
+}
+
+type ChatAssistantTranslator = ReturnType<typeof useTranslations>
+type FollowUpAction = { label: string; prompt: string; primary?: boolean }
+
+function formatMethodName(method: string) {
+  return method
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 function listingSubject(preview: Pick<ListingPreview, 'reportId' | 'sourceBusinessName'>) {
@@ -44,6 +62,182 @@ function buildBuyerProfileGapPrompt(preview: BuyerProfilePreview) {
     )}: ${fields.join(', ')}.`
   }
   return `Help me get the buyer profile ready for ${buyerProfileSubject(preview)}.`
+}
+
+function bootstrapSubject(bootstrap: BelgianCompanyBootstrap) {
+  if (bootstrap.identity?.legalName) return bootstrap.identity.legalName
+  if (bootstrap.identity?.kboNumber) return `KBO ${bootstrap.identity.kboNumber}`
+  return 'this company'
+}
+
+function buildBelgianBootstrapActions(
+  bootstrap: BelgianCompanyBootstrap,
+  ca: ChatAssistantTranslator
+): FollowUpAction[] {
+  const subject = bootstrapSubject(bootstrap)
+  const isBlocked = bootstrap.status === 'blocked' || bootstrap.status === 'failed'
+  if (isBlocked) {
+    return [
+      {
+        label: ca('proposalCards.belgianBootstrap.resolveGapsAction'),
+        prompt: `Help me bootstrap ${subject} from KBO/NBB public data and resolve the data gaps.`,
+        primary: true,
+      },
+    ]
+  }
+  return [
+    {
+      label: ca('proposalCards.belgianBootstrap.createClientAction'),
+      prompt: `Create an advisor client for ${subject} from this KBO/NBB public-data bootstrap.`,
+      primary: true,
+    },
+    {
+      label: ca('proposalCards.belgianBootstrap.connectAccountingAction'),
+      prompt: `Connect accounting data for ${subject} and continue onboarding.`,
+    },
+    {
+      label: ca('proposalCards.belgianBootstrap.startValuationAction'),
+      prompt: `Start a valuation for ${subject} using the public data, then ask me for any missing inputs.`,
+    },
+  ]
+}
+
+function clientReadinessSubject(readiness: ClientDataReadinessPreview) {
+  if (readiness.businessName) return readiness.businessName
+  if (readiness.clientId) return `client ${readiness.clientId}`
+  return 'this client'
+}
+
+function buildClientDataReadinessActions(
+  readiness: ClientDataReadinessPreview,
+  ca: ChatAssistantTranslator
+): FollowUpAction[] {
+  const subject = clientReadinessSubject(readiness)
+  const needsReview =
+    readiness.status === 'needs_import_review' ||
+    readiness.recommendedNextTool === 'open_import_review'
+  const isReady = readiness.status === 'ready_for_valuation'
+  if (needsReview) {
+    return [
+      {
+        label: ca('proposalCards.clientDataReadiness.openReviewAction'),
+        prompt: `Open the import review for ${subject} and walk me through the accounting flags.`,
+        primary: true,
+      },
+      {
+        label: ca('proposalCards.clientDataReadiness.resolveDataAction'),
+        prompt: `Help me resolve client data readiness for ${subject}.`,
+      },
+    ]
+  }
+  if (isReady) {
+    return [
+      {
+        label: ca('proposalCards.clientDataReadiness.startValuationAction'),
+        prompt: `Start a valuation for ${subject} using the synced accounting data.`,
+        primary: true,
+      },
+      {
+        label: ca('proposalCards.clientDataReadiness.resolveDataAction'),
+        prompt: `Review client data readiness for ${subject} before valuation.`,
+      },
+    ]
+  }
+  return [
+    {
+      label: ca('proposalCards.clientDataReadiness.connectAccountingAction'),
+      prompt: `Help me connect or import accounting data for ${subject}.`,
+      primary: true,
+    },
+    {
+      label: ca('proposalCards.clientDataReadiness.resolveDataAction'),
+      prompt: `Help me resolve client data readiness for ${subject}.`,
+    },
+  ]
+}
+
+function methodReadinessSubject(preview: MethodReadinessPreview) {
+  if (preview.businessName) return preview.businessName
+  if (preview.reportId) return `valuation report ${preview.reportId}`
+  return 'this valuation'
+}
+
+function methodsForPrompt(methods: string[]) {
+  const names = methods.map(formatMethodName).filter(Boolean).slice(0, 6)
+  return names.length > 0 ? names.join(', ') : 'the available methods'
+}
+
+function buildMethodReadinessActions(
+  preview: MethodReadinessPreview,
+  ca: ChatAssistantTranslator
+): FollowUpAction[] {
+  const subject = methodReadinessSubject(preview)
+  if (preview.status === 'blocked') {
+    return [
+      {
+        label: ca('proposalCards.methodReadiness.resolveAction'),
+        prompt: `Help me resolve valuation-method readiness for ${subject}.`,
+        primary: true,
+      },
+      {
+        label: ca('proposalCards.methodReadiness.explainAction'),
+        prompt: `Explain the valuation-method readiness for ${subject} and recommend the next best method.`,
+      },
+    ]
+  }
+
+  const actions: FollowUpAction[] = []
+  if (preview.readyMethods.length > 0) {
+    actions.push({
+      label: ca('proposalCards.methodReadiness.runReadyAction'),
+      prompt: `Run the ready valuation methods for ${subject}: ${methodsForPrompt(
+        preview.readyMethods
+      )}.`,
+      primary: true,
+    })
+  }
+  if (preview.blockedMethods.length > 0) {
+    actions.push({
+      label: ca('proposalCards.methodReadiness.unlockMethodsAction'),
+      prompt: `Help me unlock these valuation methods for ${subject}: ${methodsForPrompt(
+        preview.blockedMethods
+      )}.`,
+    })
+  }
+  actions.push({
+    label: ca('proposalCards.methodReadiness.explainAction'),
+    prompt: `Explain the valuation-method readiness for ${subject} and recommend the next best method.`,
+  })
+  return actions
+}
+
+function FollowUpButtons({
+  actions,
+  onSendFollowUp,
+}: {
+  actions: FollowUpAction[]
+  onSendFollowUp?: (content: string) => void
+}) {
+  if (typeof onSendFollowUp !== 'function' || actions.length === 0) return null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+      {actions.map((action) => (
+        <button
+          key={`${action.label}-${action.prompt}`}
+          type="button"
+          onClick={() => onSendFollowUp(action.prompt)}
+          className={cn(
+            'transition-colors',
+            action.primary
+              ? 'font-medium text-primary/85 hover:text-primary'
+              : 'text-foreground/55 hover:text-foreground/75'
+          )}
+        >
+          {action.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export function ChatAssistantAdvisoryPreviewCards({
@@ -84,6 +278,7 @@ export function ChatAssistantAdvisoryPreviewCards({
             if (ebitda) summaryBits.push(`EBITDA ${ebitda}`)
             if (equity)
               summaryBits.push(`${ca('proposalCards.belgianBootstrap.equityPreview')} ${equity}`)
+            const followUpActions = buildBelgianBootstrapActions(bootstrap, ca)
 
             return (
               <motion.div
@@ -183,6 +378,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                     </div>
                   </div>
                 )}
+                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
               </motion.div>
             )
           })}
@@ -219,6 +415,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                 })
               )
             }
+            const followUpActions = buildClientDataReadinessActions(readiness, ca)
 
             return (
               <motion.div
@@ -280,6 +477,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                     ))}
                   </div>
                 )}
+                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
               </motion.div>
             )
           })}
@@ -291,12 +489,6 @@ export function ChatAssistantAdvisoryPreviewCards({
         <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
           {message.methodReadinessPreviews.map((preview) => {
             const isBlocked = preview.status === 'blocked'
-            const formatMethodName = (method: string) =>
-              method
-                .split('_')
-                .filter(Boolean)
-                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                .join(' ')
             const summaryBits: string[] = []
             if (preview.businessName) summaryBits.push(preview.businessName)
             if (!isBlocked) {
@@ -315,6 +507,7 @@ export function ChatAssistantAdvisoryPreviewCards({
             } else if (preview.message) {
               summaryBits.push(preview.message)
             }
+            const followUpActions = buildMethodReadinessActions(preview, ca)
 
             return (
               <motion.div
@@ -377,6 +570,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                     </div>
                   </div>
                 )}
+                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
               </motion.div>
             )
           })}

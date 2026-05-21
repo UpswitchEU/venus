@@ -50,6 +50,12 @@ function getDcfApvBridge(result: ValuationMethodResult | undefined | null) {
     taxShield,
     valueBeforeBridge: toFiniteNumber(details?.dcf_equity_value_before_apv),
     isCustomerTemplate,
+    includedInDcfValue: provenance?.included_in_dcf_value !== false,
+    separateWeightingMethod: provenance?.separate_weighting_method === true,
+    doubleCountingGuard:
+      typeof provenance?.double_counting_guard === 'string'
+        ? provenance.double_counting_guard
+        : null,
     convention:
       typeof details?.apv_discounting_convention === 'string'
         ? details.apv_discounting_convention
@@ -299,6 +305,7 @@ export function SynthesisWeightingSection({
           const label = t(METHOD_LABEL_KEYS[method] ?? method)
           const contrib = contributionByMethod?.[method]
           const isRemainderRow = remainderModel && remainderKey != null && method === remainderKey
+          const apvBadgeTitle = contrib?.apvBridge?.doubleCountingGuard ?? synth('apvBadgeTooltip')
 
           return (
             <div key={method} className="space-y-1.5">
@@ -306,7 +313,10 @@ export function SynthesisWeightingSection({
                 <span className="text-foreground/80 font-medium truncate mr-2">
                   {label}
                   {contrib?.apvBridge && (
-                    <span className="ml-2 inline-flex align-middle rounded-full border border-primary/20 bg-primary/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary/70">
+                    <span
+                      className="ml-2 inline-flex align-middle rounded-full border border-primary/20 bg-primary/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary/70"
+                      title={apvBadgeTitle}
+                    >
                       {synth(
                         contrib.apvBridge.isCustomerTemplate
                           ? 'apvCustomerTemplateBasis'
@@ -507,7 +517,10 @@ export function SynthesisWeightingSection({
                     <div className="flex items-center gap-1.5 truncate">
                       <span className="truncate">{c.label}</span>
                       {c.apvBridge && (
-                        <span className="shrink-0 rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-primary/65">
+                        <span
+                          className="shrink-0 rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-primary/65"
+                          title={c.apvBridge.doubleCountingGuard ?? synth('apvBadgeTooltip')}
+                        >
                           {synth(
                             c.apvBridge.isCustomerTemplate
                               ? 'apvCustomerTemplateBasis'

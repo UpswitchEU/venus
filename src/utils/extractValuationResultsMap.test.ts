@@ -302,6 +302,14 @@ describe('extractValuationResultsMap', () => {
           benchmark_style: 'customer_template_apv',
           customer_template_reconciliation: true,
           discounting_convention: 'year_end',
+          included_in_dcf_value: true,
+          separate_weighting_method: false,
+          double_counting_guard: 'APV already included in DCF.',
+        },
+        apv_benchmark_reconciliation: {
+          benchmark_reference: 'henk_customer_dcf_template',
+          status: 'matched',
+          rows: [],
         },
       },
     }
@@ -321,6 +329,12 @@ describe('extractValuationResultsMap', () => {
           apv_bridge_provenance: {
             benchmark_style: 'customer_template_apv',
             customer_template_reconciliation: true,
+            included_in_dcf_value: true,
+            separate_weighting_method: false,
+          },
+          apv_benchmark_reconciliation: {
+            benchmark_reference: 'henk_customer_dcf_template',
+            status: 'matched',
           },
         },
       },

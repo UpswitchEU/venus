@@ -33,6 +33,12 @@ function isHistoricalFcfReadiness(value: unknown): value is HistoricalFcfReadine
   )
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
 function normalizeComparablesQualityKey(raw: string): string {
   const key = raw.toLowerCase().trim()
   if (key === 'moderate') return 'medium'
@@ -197,6 +203,15 @@ export function MethodBreakdownSection({
     typeof details.apv_discounting_convention === 'string'
       ? details.apv_discounting_convention
       : null
+  const apvBenchmarkReconciliation = asRecord(details.apv_benchmark_reconciliation)
+  const apvBenchmarkStatus =
+    typeof apvBenchmarkReconciliation?.status === 'string'
+      ? apvBenchmarkReconciliation.status
+      : null
+  const apvBenchmarkName =
+    typeof apvBenchmarkReconciliation?.benchmark_name === 'string'
+      ? apvBenchmarkReconciliation.benchmark_name
+      : 'Henk customer DCF template'
   const hasApvBridge = methodKey === 'dcf' && apvTaxShieldValue != null
   const sensitivityMatrix =
     details.sensitivity_matrix_2d &&
@@ -375,6 +390,11 @@ export function MethodBreakdownSection({
                   {apvDiscountingConvention === 'year_end'
                     ? tBreakdown('yearEndDiscounting')
                     : tBreakdown('midYearDiscounting')}
+                </p>
+              )}
+              {apvBenchmarkStatus === 'matched' && (
+                <p className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-2 text-[11px] leading-snug text-emerald-800 dark:text-emerald-200/90">
+                  {tBreakdown('apvBenchmarkMatched', { benchmark: apvBenchmarkName })}
                 </p>
               )}
             </div>

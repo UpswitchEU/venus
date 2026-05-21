@@ -196,6 +196,12 @@ describe('buildValuationRequest', () => {
       dcf_terminal_growth_pct: 1,
       dcf_discounting_convention: 'year_end',
       dcf_tax_shield_projections: [1.5, 1.125, 0.75, 0.375, 0],
+      dcf_input_mode: 'fcff_only',
+      apv_input_source: 'manual',
+      dcf_tax_shield_source: 'manual',
+      dcf_bridge_policy: 'apv_tax_shield_inside_dcf',
+      dcf_double_counting_guard: true,
+      dcf_benchmark_case: 'henk_customer_dcf_template',
     })
     expect(result.user_configured_dcf).toBe(true)
   })
