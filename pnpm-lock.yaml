@@ -173,8 +173,8 @@ importers:
         specifier: ^18.2.0
         version: 18.3.7(@types/react@18.3.28)
       '@upswitch/platform-scripts':
-        specifier: file:./vendor/platform-scripts
-        version: file:vendor/platform-scripts
+        specifier: file:../../packages/platform-scripts
+        version: file:../../packages/platform-scripts
       '@vitejs/plugin-react':
         specifier: ^5.1.2
         version: 5.1.4(vite@7.3.3(@types/node@24.10.13)(jiti@1.21.7))
@@ -1722,8 +1722,8 @@ packages:
     resolution: {directory: ../../packages/ai-actions, type: directory}
     engines: {node: '>=20.0.0'}
 
-  '@upswitch/platform-scripts@file:vendor/platform-scripts':
-    resolution: {directory: vendor/platform-scripts, type: directory}
+  '@upswitch/platform-scripts@file:../../packages/platform-scripts':
+    resolution: {directory: ../../packages/platform-scripts, type: directory}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -4737,7 +4737,7 @@ snapshots:
 
   '@upswitch/ai-actions@file:../../packages/ai-actions': {}
 
-  '@upswitch/platform-scripts@file:vendor/platform-scripts': {}
+  '@upswitch/platform-scripts@file:../../packages/platform-scripts': {}
 
   '@upswitch/types@file:../../packages/types': {}
 

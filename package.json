@@ -113,7 +113,7 @@
     "@types/node": "^24.3.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@upswitch/platform-scripts": "file:./vendor/platform-scripts",
+    "@upswitch/platform-scripts": "file:../../packages/platform-scripts",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/ui": "^4.0.15",
     "autoprefixer": "^10.4.18",
