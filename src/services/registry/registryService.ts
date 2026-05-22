@@ -14,6 +14,7 @@ import {
 } from '../../utils/errors'
 import { serviceLogger } from '../../utils/logger'
 import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
+import { createRandomId } from '../../utils/secureRandom'
 import { RegistryCache } from './cache'
 import {
   type CompanyFinancialData,
@@ -119,7 +120,7 @@ export class RegistryService {
     limit: number,
     externalSignal?: AbortSignal
   ): Promise<CompanySearchResponse> {
-    const requestId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const requestId = createRandomId('search', 12)
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     let safetyNetTimedOut = false
@@ -354,7 +355,7 @@ export class RegistryService {
     companyId: string,
     country: string
   ): Promise<CompanyFinancialData> {
-    const requestId = `financials_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const requestId = createRandomId('financials', 12)
 
     const controller = new AbortController()
     let timeoutId: ReturnType<typeof setTimeout> | undefined

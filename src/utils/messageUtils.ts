@@ -6,6 +6,7 @@
  */
 
 import { generalLogger } from './logger'
+import { createRandomId } from './secureRandom'
 
 export interface Message {
   id: string
@@ -39,7 +40,7 @@ export const createMessage = (
   content: string,
   metadata?: unknown
 ): Message => ({
-  id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  id: createRandomId('msg', 12),
   type,
   content,
   timestamp: new Date(),
@@ -56,7 +57,7 @@ export const createStreamingMessage = (
   content: string = '',
   metadata?: unknown
 ): Message => ({
-  id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  id: createRandomId('msg', 12),
   type,
   content,
   timestamp: new Date(),

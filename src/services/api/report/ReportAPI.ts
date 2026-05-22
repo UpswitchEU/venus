@@ -12,6 +12,7 @@ import { APIError, AuthenticationError, NetworkError } from '../../../types/erro
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { apiLogger } from '../../../utils/logger'
+import { createRandomId } from '../../../utils/secureRandom'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 type AxiosLikeError = {
@@ -211,7 +212,7 @@ export class ReportAPI extends HttpClient {
    * Download accountant view PDF
    */
   async downloadAccountantViewPDF(reportId: string, options?: APIRequestConfig): Promise<Blob> {
-    const correlationId = Math.random().toString(36).substring(2, 15)
+    const correlationId = createRandomId('pdf', 12)
 
     // Check for duplicate request
     if (this.activeRequests.has(correlationId)) {

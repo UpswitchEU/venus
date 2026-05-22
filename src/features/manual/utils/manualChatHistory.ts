@@ -1,5 +1,6 @@
 import type { ChatMessage } from '@/components/calculator'
 import type { Message } from '@/types/message'
+import { createRandomId } from '@/utils/secureRandom'
 import {
   appendManualChatToolCardsToMessage,
   parseManualChatStreamToolResult,
@@ -11,11 +12,7 @@ interface PersistedToolResult {
 }
 
 function createManualChatCardId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-
-  return `card_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+  return createRandomId('card', 12)
 }
 
 function resolveManualChatRole(message: Message): ChatMessage['role'] {

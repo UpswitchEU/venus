@@ -1,7 +1,12 @@
+import {
+  DISTINCT_VALUATION_METHOD_COUNT as GENERATED_DISTINCT_VALUATION_METHOD_COUNT,
+  VALUATION_PRIMARY_OMNI_METHOD_ORDER,
+} from '@upswitch/types/valuation-methods'
+
 /**
  * Method keys shown in the primary list (before "Show all methods") in OmniCalc UI.
  * Order is stable for UX (headline → multiples → DCF → balance sheet → fiscal → downside).
- * Must match backend `ValuationMethodResult` keys from the valuation response.
+ * Generated from ValuationIQ's canonical method registry.
  *
  * There are 10 primary keys here but **9 primary-list methodologies** because
  * `omzet_multiple` and `revenue_multiple` are the same turnover/revenue-multiple
@@ -10,21 +15,10 @@
  * `liquidation_analysis` is the downside lens (orderly + forced) and shares the
  * balance-sheet input contract with `adjusted_nav`.
  */
-export const PRIMARY_OMNI_METHOD_ORDER = [
-  'upswitch_adaptive',
-  'arr_multiple',
-  'ebitda_multiple',
-  'omzet_multiple',
-  'revenue_multiple',
-  'sde_multiple',
-  'dcf',
-  'adjusted_nav',
-  'fiscal_4x',
-  'liquidation_analysis',
-] as const
+export const PRIMARY_OMNI_METHOD_ORDER = VALUATION_PRIMARY_OMNI_METHOD_ORDER
 
 /** Use for pricing / marketing copy (distinct methodologies, not raw result keys). */
-export const DISTINCT_VALUATION_METHOD_COUNT = 10
+export const DISTINCT_VALUATION_METHOD_COUNT = GENERATED_DISTINCT_VALUATION_METHOD_COUNT
 
 export const PRIMARY_OMNI_METHOD_KEYS = new Set<string>(PRIMARY_OMNI_METHOD_ORDER)
 

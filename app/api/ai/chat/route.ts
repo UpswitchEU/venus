@@ -22,7 +22,11 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { apiLogger } from '@/utils/logger'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
-import { buildTitanAiChatProxyPlan, buildTitanErrorEnvelope } from './chat-proxy'
+import {
+  buildTitanAiChatProxyPlan,
+  buildTitanErrorEnvelope,
+  buildTitanNetworkErrorEnvelope,
+} from './chat-proxy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -101,21 +105,21 @@ export async function POST(request: NextRequest) {
     const data = await titanResponse.json()
     return NextResponse.json(data)
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return NextResponse.json(
-        { success: false, error: 'AI request timed out', fallback: true },
-        { status: 504 }
-      )
+    const isTimeout = error instanceof Error && error.name === 'AbortError'
+    const titanApiUrl = getTitanApiUrl(request)
+    if (isTimeout) {
+      return NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
+        status: 504,
+      })
     }
     apiLogger.error(
       'AI chat proxy failed',
       { route: '/api/ai/chat' },
       error instanceof Error ? error : undefined
     )
-    return NextResponse.json(
-      { success: false, error: 'Failed to connect to AI service', fallback: true },
-      { status: 503 }
-    )
+    return NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
+      status: 503,
+    })
   } finally {
     clearTimeout(timeout)
   }

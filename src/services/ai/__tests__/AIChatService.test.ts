@@ -146,6 +146,39 @@ describe('AIChatService', () => {
     expect(response.fallback).toBeUndefined()
   })
 
+  it('returns an actionable backend-unreachable envelope without local fallback', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            success: false,
+            code: 'AI_BACKEND_UNREACHABLE',
+            error:
+              'AI backend is not reachable at http://localhost:3002. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.',
+            fallback: true,
+          },
+          503
+        )
+      )
+    )
+
+    const response = await aiChatService.sendMessage({
+      message: 'Run the valuation',
+      locale: 'en',
+      stream: false,
+    })
+
+    expect(response).toMatchObject({
+      success: false,
+      content: '',
+      code: 'AI_BACKEND_UNREACHABLE',
+      error:
+        'AI backend is not reachable at http://localhost:3002. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.',
+    })
+    expect(response.fallback).toBeUndefined()
+  })
+
   it('routes streaming Titan 412 to onConsentRequired instead of onError', async () => {
     vi.stubGlobal(
       'fetch',
@@ -222,6 +255,41 @@ describe('AIChatService', () => {
     })
 
     expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('routes streaming backend failures to the upstream error message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            success: false,
+            code: 'AI_BACKEND_UNREACHABLE',
+            error:
+              'AI backend is not reachable at http://localhost:3002. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.',
+            fallback: true,
+          },
+          503
+        )
+      )
+    )
+
+    await new Promise<void>((resolve) => {
+      aiChatService.streamMessage(
+        {
+          message: 'Explain EBITDA',
+          locale: 'en',
+        },
+        {
+          onError: (error) => {
+            expect(error).toBe(
+              'AI backend is not reachable at http://localhost:3002. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.'
+            )
+            resolve()
+          },
+        }
+      )
+    })
   })
 
   it('flushes a final SSE data line even when Titan omits the trailing newline', async () => {

@@ -370,17 +370,24 @@ export function SkeletonList({
   animation,
   ...props
 }: SkeletonListProps) {
+  const primaryWidths = ['82%', '70%', '88%', '76%']
+  const secondaryWidths = ['52%', '44%', '58%', '48%']
+
   return (
     <div className={cn('space-y-4', className)} {...props}>
       {Array.from({ length: items }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
           {showIcon && <SkeletonAvatar size="sm" animation={animation} />}
           <div className="flex-1 space-y-1.5">
-            <Skeleton variant="text" width={`${60 + Math.random() * 30}%`} animation={animation} />
+            <Skeleton
+              variant="text"
+              width={primaryWidths[i % primaryWidths.length]}
+              animation={animation}
+            />
             {showSecondary && (
               <Skeleton
                 variant="text"
-                width={`${40 + Math.random() * 20}%`}
+                width={secondaryWidths[i % secondaryWidths.length]}
                 height={12}
                 animation={animation}
               />

@@ -1,3 +1,5 @@
+import type { AiStreamChunk } from '@upswitch/ai-actions'
+
 /**
  * State the `dispatchAIChatChunk` dispatcher reads + writes across calls
  * within a single stream consumption. The caller owns the state object
@@ -36,7 +38,7 @@ export function dispatchAIChatChunk(
   callbacks: ChunkDispatchCallbacks
 ): ChunkDispatchState {
   if (!chunk || typeof chunk !== 'object') return state
-  const c = chunk as Record<string, unknown>
+  const c = chunk as AiStreamChunk & Record<string, unknown>
   const type = c.type
   if (typeof type !== 'string') return state
 

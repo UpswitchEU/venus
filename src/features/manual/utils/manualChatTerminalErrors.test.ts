@@ -85,4 +85,19 @@ describe('manualChatTerminalErrors', () => {
   it('returns null for successful AI envelopes', () => {
     expect(buildManualChatTerminalErrorPatchFromAIResponse({}, translate)).toBeNull()
   })
+
+  it('maps a failed AI envelope with a message to a visible generic error patch', () => {
+    expect(
+      buildManualChatTerminalErrorPatchFromAIResponse(
+        {
+          success: false,
+          error: 'AI backend is not reachable at http://localhost:3002.',
+        },
+        translate
+      )
+    ).toEqual({
+      content: 'AI backend is not reachable at http://localhost:3002.',
+      isError: true,
+    })
+  })
 })

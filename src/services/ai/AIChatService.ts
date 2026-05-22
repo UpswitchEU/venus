@@ -68,6 +68,10 @@ function isConsentRequiredEnvelope(status: number, envelope: Record<string, unkn
   return status === 412 && envelope.code === 'AI_CONSENT_REQUIRED'
 }
 
+function isBackendFailureEnvelope(envelope: Record<string, unknown>): boolean {
+  return envelope.code === 'AI_BACKEND_UNREACHABLE' || envelope.code === 'AI_BACKEND_TIMEOUT'
+}
+
 function readNextSseFrame(buffer: string): { frame: string; rest: string } | null {
   const match = /\r?\n\r?\n/.exec(buffer)
   if (!match || match.index === undefined) return null
@@ -339,6 +343,20 @@ class AIChatServiceImpl {
           }
         }
 
+        if (isBackendFailureEnvelope(errorData)) {
+          const message =
+            getEnvelopeString(errorData, 'error') ||
+            getEnvelopeString(errorData, 'message') ||
+            'AI service unavailable'
+          logger.info('[AIChatService] AI backend unavailable, returning actionable error')
+          return {
+            success: false,
+            content: '',
+            code: getEnvelopeString(errorData, 'code') || 'AI_BACKEND_UNREACHABLE',
+            error: message,
+          }
+        }
+
         if (errorData.fallback || response.status === 503) {
           logger.info('[AIChatService] AI unavailable, using local fallback')
           return this.generateLocalResponse(request)
@@ -527,7 +545,11 @@ class AIChatServiceImpl {
             return
           }
 
-          callbacks.onError?.('AI service unavailable')
+          callbacks.onError?.(
+            getEnvelopeString(errorData, 'error') ||
+              getEnvelopeString(errorData, 'message') ||
+              'AI service unavailable'
+          )
           return
         }
 

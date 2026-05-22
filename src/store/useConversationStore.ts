@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import { aiChatService } from '../services/ai/AIChatService'
 import type { Message } from '../types/message'
 import { storeLogger } from '../utils/logger'
+import { createRandomId } from '../utils/secureRandom'
 
 const MAX_MESSAGES = 100
 const PRUNE_THRESHOLD = 120
@@ -63,7 +64,7 @@ export interface ConversationStore {
 }
 
 function generateMessageId(): string {
-  return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  return createRandomId('msg', 10)
 }
 
 export interface ConversationHistoryRow {

@@ -1,4 +1,5 @@
 import { normalizePreMoneyTarget } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
+import { createRandomId } from '@/utils/secureRandom'
 import type { StartupValuationSet } from './startupValuationActionTypes'
 import type { StartupCapTableState } from './startupValuationDomain'
 import type { StartupValuationActions } from './startupValuationStoreTypes'
@@ -9,10 +10,7 @@ type StartupValuationCapTableActions = Pick<
 >
 
 function generateSafeNoteId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `safe_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
+  return createRandomId('safe', 16)
 }
 
 export function createStartupValuationCapTableActions(

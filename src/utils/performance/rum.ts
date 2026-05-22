@@ -18,6 +18,7 @@
  */
 
 import { generalLogger } from '../logger'
+import { createRandomId } from '../secureRandom'
 
 interface LargestContentfulPaintMetricEntry extends PerformanceEntry {
   loadTime?: number
@@ -508,7 +509,7 @@ export class RUMManager {
    * Generate unique metric ID
    */
   private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    return createRandomId('rum', 12)
   }
 
   /**

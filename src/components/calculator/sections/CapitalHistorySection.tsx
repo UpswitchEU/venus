@@ -40,6 +40,7 @@ import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import type { SafeNoteInput } from '@/types/valuation'
 import { consumeCapitalHistoryPrefill } from '@/utils/capitalHistoryPrefill'
+import { createRandomId } from '@/utils/secureRandom'
 
 interface CapitalHistorySectionProps {
   /** @deprecated Locale comes from next-intl route locale. Kept for
@@ -48,10 +49,7 @@ interface CapitalHistorySectionProps {
 }
 
 function generateSafeId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `safe_${Date.now()}_${Math.floor(Math.random() * 1e6)}`
+  return createRandomId('safe', 16)
 }
 
 export function CapitalHistorySection(_props: CapitalHistorySectionProps) {

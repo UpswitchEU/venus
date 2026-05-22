@@ -154,3 +154,39 @@ export function buildTitanErrorEnvelope(errorData: unknown): Record<string, unkn
     fallback: true,
   }
 }
+
+function isLocalTitanEndpoint(titanApiUrl: string): boolean {
+  return /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(titanApiUrl.trim())
+}
+
+export function buildTitanNetworkErrorEnvelope({
+  isTimeout,
+  titanApiUrl,
+}: {
+  isTimeout: boolean
+  titanApiUrl: string
+}): Record<string, unknown> {
+  if (isTimeout) {
+    return {
+      success: false,
+      code: 'AI_BACKEND_TIMEOUT',
+      error: 'AI request timed out',
+      fallback: true,
+    }
+  }
+
+  const local = isLocalTitanEndpoint(titanApiUrl)
+  return {
+    success: false,
+    code: 'AI_BACKEND_UNREACHABLE',
+    error: local
+      ? `AI backend is not reachable at ${titanApiUrl}. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.`
+      : 'Failed to connect to AI service',
+    fallback: true,
+    ...(local
+      ? {
+          recovery: 'Run `pnpm start:dev` in apps/titan-api, then retry the assistant.',
+        }
+      : {}),
+  }
+}

@@ -10,6 +10,7 @@
  * Also watches for cookie changes via visibility/focus events
  */
 
+import { createRandomId } from '../secureRandom'
 import { removeAuthRelatedSessionStorageKeys } from './clear-auth-session-storage'
 
 const LOGOUT_EVENT = 'upswitch-logout'
@@ -20,7 +21,7 @@ function getBroadcastInstanceId(): string {
   if (typeof window === 'undefined') return ''
   const w = window as Window & { __upswitchBroadcastInstanceId?: string }
   if (!w.__upswitchBroadcastInstanceId) {
-    w.__upswitchBroadcastInstanceId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+    w.__upswitchBroadcastInstanceId = createRandomId('broadcast', 12)
   }
   return w.__upswitchBroadcastInstanceId
 }

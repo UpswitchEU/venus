@@ -10,6 +10,7 @@ import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
 import { dateLikeToUnixMs } from './date-like'
 import { normalizeCurrentYearForFiling } from './fiscalYear'
+import { createRandomId } from './secureRandom'
 import { resolveFormEbitda, resolveFormRevenue } from './versionDiffDetection'
 
 /**
@@ -34,7 +35,7 @@ export function generateConversationFromFormData(
   ) => {
     // AI Question
     messages.push({
-      id: `msg-${reportId}-${field}-q-${Date.now()}-${Math.random()}`,
+      id: createRandomId(`msg-${reportId}-${field}-q`, 8),
       type: 'ai',
       role: 'assistant',
       content: question,
@@ -51,7 +52,7 @@ export function generateConversationFromFormData(
 
     // User Answer
     messages.push({
-      id: `msg-${reportId}-${field}-a-${Date.now()}-${Math.random()}`,
+      id: createRandomId(`msg-${reportId}-${field}-a`, 8),
       type: 'user',
       role: 'user',
       content: answer,
@@ -182,7 +183,7 @@ export function generateConversationFromFormData(
   // Add a final summary message
   if (messages.length > 0) {
     messages.push({
-      id: `msg-${reportId}-summary-${Date.now()}-${Math.random()}`,
+      id: createRandomId(`msg-${reportId}-summary`, 8),
       type: 'ai',
       role: 'assistant',
       content: `Great! I have all the information from your manual entry. You can now calculate the valuation or continue the conversation to provide additional details.`,

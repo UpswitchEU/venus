@@ -10,6 +10,7 @@
  */
 
 import { storeLogger } from './logger'
+import { createRandomId } from './secureRandom'
 
 export type SessionOperation =
   | 'CREATE'
@@ -137,7 +138,7 @@ export class SessionAuditTrail {
    * Generate unique audit entry ID
    */
   private generateAuditId(): string {
-    return `audit-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
+    return createRandomId('audit', 12)
   }
 
   /**

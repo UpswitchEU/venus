@@ -664,6 +664,7 @@ describe('network failures', () => {
     expect(res.status).toBe(504)
     expect(body).toMatchObject({
       success: false,
+      code: 'AI_BACKEND_TIMEOUT',
       error: 'AI request timed out',
       fallback: true,
     })
@@ -678,7 +679,27 @@ describe('network failures', () => {
     expect(res.status).toBe(503)
     expect(body).toMatchObject({
       success: false,
+      code: 'AI_BACKEND_UNREACHABLE',
       error: 'Failed to connect to AI service',
+      fallback: true,
+    })
+  })
+
+  it('returns an actionable local Titan recovery hint on localhost network failure', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')))
+
+    const res = await POST(
+      request({ message: 'hi', stream: false }, {}, 'http://localhost:3001/api/ai/chat')
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(body).toMatchObject({
+      success: false,
+      code: 'AI_BACKEND_UNREACHABLE',
+      error:
+        'AI backend is not reachable at http://localhost:3002. Start Titan locally and make sure apps/titan-api/.env contains the required auth variables from .env.example.',
+      recovery: 'Run `pnpm start:dev` in apps/titan-api, then retry the assistant.',
       fallback: true,
     })
   })

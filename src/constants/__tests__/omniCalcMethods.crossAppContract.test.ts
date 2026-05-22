@@ -1,10 +1,18 @@
+import {
+  DISTINCT_VALUATION_METHOD_COUNT as CONTRACT_DISTINCT_VALUATION_METHOD_COUNT,
+  VALUATION_PRIMARY_OMNI_METHOD_ORDER,
+} from '@upswitch/types/valuation-methods'
 import { describe, expect, it } from 'vitest'
 import {
   PRE_SELECTABLE_METHOD_SET,
   PRE_SELECTABLE_METHODS,
   STANDALONE_METHODS,
 } from '../methodFieldConfig'
-import { PRIMARY_OMNI_METHOD_KEYS, PRIMARY_OMNI_METHOD_ORDER } from '../omniCalcMethods'
+import {
+  DISTINCT_VALUATION_METHOD_COUNT,
+  PRIMARY_OMNI_METHOD_KEYS,
+  PRIMARY_OMNI_METHOD_ORDER,
+} from '../omniCalcMethods'
 
 /**
  * Cross-app contract-lock for the Mercury → Venus seller-PLG handoff.
@@ -30,6 +38,11 @@ import { PRIMARY_OMNI_METHOD_KEYS, PRIMARY_OMNI_METHOD_ORDER } from '../omniCalc
  *   - `buildVenusManualNewPathWithQuery` default method
  */
 describe('omniCalcMethods cross-app contract', () => {
+  it('uses the generated ValuationIQ method contract for primary order and method count', () => {
+    expect(PRIMARY_OMNI_METHOD_ORDER).toEqual(VALUATION_PRIMARY_OMNI_METHOD_ORDER)
+    expect(DISTINCT_VALUATION_METHOD_COUNT).toBe(CONTRACT_DISTINCT_VALUATION_METHOD_COUNT)
+  })
+
   it('PRIMARY_OMNI_METHOD_ORDER includes upswitch_adaptive (Mercury seller-PLG default)', () => {
     expect(PRIMARY_OMNI_METHOD_ORDER).toContain('upswitch_adaptive')
   })

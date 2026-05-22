@@ -26,6 +26,7 @@ import {
 } from '../types/ebitdaNormalization'
 import { dateLikeToUnixMs } from '../utils/date-like'
 import { generalLogger } from '../utils/logger'
+import { createRandomId } from '../utils/secureRandom'
 import { isValidSessionId } from '../utils/sessionIdValidation'
 
 function safeNum(n: number | undefined | null): number {
@@ -218,7 +219,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
         const safeAmt = safeNum(amount)
         const newCustom: CustomAdjustment = {
-          id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: createRandomId('custom', 12),
           description,
           amount: safeAmt,
           note,

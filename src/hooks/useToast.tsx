@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useState } from 'react'
 import { Toast, ToastType } from '../components/ui/Toast'
+import { createRandomId } from '../utils/secureRandom'
 
 interface ToastItem {
   id: string
@@ -33,7 +34,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
   const showToast = useCallback((message: string, type: ToastType = 'info', duration = 5000) => {
-    const id = Math.random().toString(36).substr(2, 9)
+    const id = createRandomId('toast', 10)
     const newToast: ToastItem = { id, message, type, duration }
 
     setToasts((prev) => [...prev, newToast])

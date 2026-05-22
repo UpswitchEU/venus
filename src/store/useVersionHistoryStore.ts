@@ -29,6 +29,7 @@ import {
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
+import { createRandomId } from '../utils/secureRandom'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
@@ -142,7 +143,7 @@ export interface VersionHistoryStore {
  * Generate version ID
  */
 function generateVersionId(): string {
-  return `version_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
+  return createRandomId('version', 16)
 }
 
 /**

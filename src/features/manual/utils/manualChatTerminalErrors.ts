@@ -25,6 +25,7 @@ interface ManualChatAIResponseErrorEnvelope {
   requires_auth?: boolean
   requires_consent?: boolean
   requires_upgrade?: boolean
+  success?: boolean
 }
 
 function messageOrFallback(
@@ -88,6 +89,10 @@ export function buildManualChatTerminalErrorPatchFromAIResponse(
 
   if (response.requires_auth) {
     return buildManualChatTerminalErrorPatch({ kind: 'auth', message: response.error }, translate)
+  }
+
+  if (response.success === false && response.error) {
+    return buildManualChatTerminalErrorPatch({ kind: 'generic', message: response.error }, translate)
   }
 
   return null

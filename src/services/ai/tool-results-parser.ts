@@ -9,6 +9,7 @@
  * single ToolCard discriminated union.
  */
 
+import type { AiLooseToolResultEnvelope } from '@upswitch/ai-actions'
 import { parseBuyerReadyToolResult } from './buyer-ready-tool-result-parser'
 import { recordValue } from './tool-result-parser-utils'
 import {
@@ -115,7 +116,7 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
 
   for (const tr of toolResults) {
     if (!tr || typeof tr !== 'object') continue
-    const entry = tr as { type?: unknown; data?: unknown }
+    const entry = tr as AiLooseToolResultEnvelope
     const type = entry.type
     const data = entry.data
     if (typeof type !== 'string') continue

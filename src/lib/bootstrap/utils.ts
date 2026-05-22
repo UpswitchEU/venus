@@ -9,6 +9,7 @@
 import { looksLikeExistingReportId } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
 import { parseReportModeSearchParam } from '../../utils/reportMode'
+import { createRandomToken } from '../../utils/secureRandom'
 import type { BootstrapContext, BootstrapHints, FlowType } from './types'
 
 /**
@@ -64,20 +65,8 @@ export function isRecentReportId(reportId: string): boolean {
  */
 export function generateReportId(): string {
   const timestamp = Date.now()
-  const random = generateRandomString(10)
+  const random = createRandomToken(10)
   return `val_${timestamp}_v${random}`
-}
-
-/**
- * Generate a random alphanumeric string
- */
-function generateRandomString(length: number): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
 }
 
 /**

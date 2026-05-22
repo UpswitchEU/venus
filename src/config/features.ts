@@ -6,6 +6,7 @@
 
 import { env } from '../utils/env'
 import { generalLogger } from '../utils/logger'
+import { createRandomToken } from '../utils/secureRandom'
 
 export const FEATURE_FLAGS = {
   // Credit System Flags
@@ -78,7 +79,7 @@ function getStudioVisitorBucket(): number | null {
     const KEY = 'upswitch.studio.bucket'
     let raw = window.localStorage.getItem(KEY)
     if (!raw) {
-      const bucket = Math.floor(Math.random() * 100)
+      const bucket = Number.parseInt(createRandomToken(4), 36) % 100
       raw = String(bucket)
       window.localStorage.setItem(KEY, raw)
     }

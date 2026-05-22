@@ -22,6 +22,8 @@
  * - Debugging: Source encoded in ID itself (no extra field needed)
  */
 
+import { createRandomToken } from './secureRandom'
+
 /**
  * Generate unique report ID with Venus source encoding
  * Format: val_${timestamp}_v${random8chars}
@@ -31,7 +33,7 @@
  */
 export const generateReportId = (): string => {
   const timestamp = Date.now()
-  const random = Math.random().toString(36).substr(2, 9) // 8-9 chars
+  const random = createRandomToken(9)
   return `val_${timestamp}_v${random}` // ✅ 'v' = Venus source
 }
 

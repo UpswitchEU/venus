@@ -1,7 +1,8 @@
 import type { TaxLatencyCandidate } from '../../store/useTaxLatencyStore'
+import { createRandomId } from '../../utils/secureRandom'
 
 export function generateTaxLatencyId(): string {
-  return `tl-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+  return createRandomId('tl', 10)
 }
 
 export function sanitizeNumericInput(value: string): string {

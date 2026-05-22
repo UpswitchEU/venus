@@ -3,6 +3,7 @@ import { fetchWithBySession404Retry } from '../../utils/fetchWithBySession404Ret
 import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
 import { MERCURY_ADVISOR_URL_MODE } from '../../utils/reportMode'
+import { createRandomId } from '../../utils/secureRandom'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { isSafeMercuryReturnUrlInput } from '../return-url'
 import {
@@ -24,7 +25,7 @@ import { useAuthStore } from './store'
 import { sanitizeUrl } from './urlSecurity'
 
 function generateTraceId(): string {
-  return `init_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+  return createRandomId('init', 8)
 }
 
 export async function initializeAuth(): Promise<void> {

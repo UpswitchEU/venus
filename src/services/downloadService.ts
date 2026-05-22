@@ -3,6 +3,7 @@ import { backendAPI } from '../services/backendApi'
 import type { ValuationRequest } from '../types/valuation'
 import { HTMLProcessor } from '../utils/htmlProcessor'
 import { generalLogger } from '../utils/logger'
+import { createRandomId } from '../utils/secureRandom'
 
 export interface DownloadOptions {
   format: 'html' | 'pdf'
@@ -371,7 +372,7 @@ export class DownloadService {
     }
   ): Promise<void> {
     const startTime = performance.now()
-    const downloadId = `pdf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const downloadId = createRandomId('pdf', 12)
 
     try {
       generalLogger.info('[DownloadService] PDF download initiated', {

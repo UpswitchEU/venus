@@ -59,9 +59,6 @@ class DeviceFingerprintService {
 
       // WebGL fingerprint (if available)
       await this.getWebGLFingerprint(),
-
-      // Add some entropy
-      Math.random().toString(36).substring(2, 15),
     ]
 
     const fingerprintString = components.filter(Boolean).join('|')
@@ -138,7 +135,6 @@ class DeviceFingerprintService {
       screen.width,
       screen.height,
       new Date().getTimezoneOffset(),
-      Math.random().toString(36).substring(2, 15),
     ]
 
     return this.simpleHash(components.join('|'))

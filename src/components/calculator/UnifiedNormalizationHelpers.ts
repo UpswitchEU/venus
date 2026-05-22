@@ -1,3 +1,4 @@
+import { createRandomToken } from '../../utils/secureRandom'
 import type { NormalizationItem, NormalizationType } from './UnifiedNormalizationTypes'
 
 // Fuzzy search helper - matches characters in order but not necessarily adjacent
@@ -175,7 +176,7 @@ export const PRESET_CONFIGS: Array<{
   },
 ]
 
-export const generateId = () => Math.random().toString(36).substring(2, 11)
+export const generateId = () => createRandomToken(9)
 
 /** Infer normalization category from Belgian MAR grootboek code range */
 export function inferCategoryFromCode(code: string): NormalizationItem['category'] {

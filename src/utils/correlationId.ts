@@ -9,6 +9,8 @@
  * @module utils/correlationId
  */
 
+import { createRandomToken } from './secureRandom'
+
 /**
  * Generate correlation ID
  *
@@ -49,18 +51,12 @@ export function createCorrelationId(prefix: string): string {
 /**
  * Generate short UUID (8 characters)
  *
- * Uses crypto.randomUUID() if available, falls back to Math.random()
+ * Uses Web Crypto when available and a monotonic fallback only for unsupported runtimes.
  *
  * @returns 8-character UUID
  */
 function generateShortUuid(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    // Use secure random UUID (browser/Node.js 19+)
-    return crypto.randomUUID().slice(0, 8)
-  }
-
-  // Fallback for older environments
-  return Math.random().toString(36).substring(2, 10)
+  return createRandomToken(8)
 }
 
 /**

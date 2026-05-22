@@ -42,6 +42,16 @@ export default defineConfig({
       '@/lib': path.resolve(__dirname, './src/lib'),
       '@/utils': path.resolve(__dirname, './src/utils'),
       '@/types': path.resolve(__dirname, './src/types'),
+      '@upswitch/ai-actions': path.resolve(__dirname, '../../packages/ai-actions/src/index.ts'),
+      '@upswitch/types/valuation-methods': path.resolve(
+        __dirname,
+        '../../packages/types/src/valuation-methods.ts'
+      ),
+      '@upswitch/types/normalization': path.resolve(
+        __dirname,
+        '../../packages/types/src/normalization.ts'
+      ),
+      '@upswitch/types': path.resolve(__dirname, '../../packages/types/src/index.ts'),
     },
   },
 })

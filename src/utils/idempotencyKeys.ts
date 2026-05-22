@@ -8,6 +8,7 @@
  */
 
 import { storeLogger } from './logger'
+import { createRandomToken } from './secureRandom'
 
 /**
  * Generate idempotency key for operation
@@ -53,7 +54,7 @@ import { storeLogger } from './logger'
  */
 export function generateIdempotencyKey(reportId: string, operation: string): string {
   const timestamp = Date.now()
-  const nonce = Math.random().toString(36).slice(2, 10)
+  const nonce = createRandomToken(10)
   return `${reportId}-${operation}-${timestamp}-${nonce}`
 }
 
