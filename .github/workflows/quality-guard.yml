@@ -59,11 +59,20 @@ jobs:
       - name: Guard repo hygiene
         run: pnpm run guard:repo-hygiene
 
+      - name: Guard secret hygiene
+        run: pnpm run guard:secret-hygiene
+
       - name: Guard auth surface
         run: pnpm run guard:auth-surface
 
+      - name: Guard browser persistence
+        run: pnpm run guard:browser-persistence
+
       - name: Guard debug surface
         run: pnpm run guard:debug-surface
+
+      - name: Guard security headers
+        run: pnpm run guard:security-headers
 
       - name: Guard type debt
         run: pnpm run guard:type-debt
