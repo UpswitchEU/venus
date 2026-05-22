@@ -21,9 +21,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@upswitch/ai-actions": ["../../packages/ai-actions/src/index.ts"],
-      "@upswitch/types": ["../../packages/types/src/index.ts"],
-      "@upswitch/types/*": ["../../packages/types/src/*"],
+      "@upswitch/ai-actions": ["./vendor/ai-actions/src/index.ts"],
+      "@upswitch/types": ["./vendor/types/src/index.ts"],
+      "@upswitch/types/*": ["./vendor/types/src/*"],
       "@/components/*": ["./src/components/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/utils/*": ["./src/utils/*"],

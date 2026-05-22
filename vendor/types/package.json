@@ -1,0 +1,43 @@
+{
+  "name": "@upswitch/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.26.2",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "description": "Canonical shared TypeScript contracts for UpSwitch apps.",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./normalization": {
+      "types": "./dist/esm/normalization.d.ts",
+      "import": "./dist/esm/normalization.js",
+      "require": "./dist/cjs/normalization.js"
+    },
+    "./ai-actions": {
+      "types": "./dist/esm/ai-actions.d.ts",
+      "import": "./dist/esm/ai-actions.js",
+      "require": "./dist/cjs/ai-actions.js"
+    },
+    "./valuation-methods": {
+      "types": "./dist/esm/valuation-methods.d.ts",
+      "import": "./dist/esm/valuation-methods.js",
+      "require": "./dist/cjs/valuation-methods.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
+    "type-check": "tsc --noEmit -p tsconfig.esm.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
