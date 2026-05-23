@@ -3,15 +3,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Lock, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
+import { useAdvisorControlsModalStore } from '../../../store/useAdvisorControlsModalStore'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
@@ -318,7 +312,8 @@ function AdvisorControlsTrigger({
   disabled,
 }: AdvisorControlsTriggerProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
-  const [open, setOpen] = useState(false)
+  const open = useAdvisorControlsModalStore((s) => s.open)
+  const setOpen = useAdvisorControlsModalStore((s) => s.setOpen)
   const prefilled = (advisorDefaultsAppliedFields?.length ?? 0) > 0
 
   return (

@@ -170,6 +170,27 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(tape.textContent?.match(/—/g)?.length).toBe(3)
   })
 
+  it('renders the section chrome (step header + section element) in default chrome mode', () => {
+    const { container } = render(<AdvancedAdvisorControlsSection {...baseProps} />)
+    expect(container.querySelector('section')).not.toBeNull()
+    // The valuation section header is rendered for the inline case so that
+    // anywhere this is *embedded* (legacy code paths, future preview
+    // surfaces) keeps its visual chrome.
+    expect(screen.getByText('title')).toBeInTheDocument()
+  })
+
+  it('omits the section chrome when chrome="bare" — the modal supplies its own header', () => {
+    const { container } = render(
+      <AdvancedAdvisorControlsSection {...baseProps} chrome='bare' />
+    )
+    expect(container.querySelector('section')).toBeNull()
+    // The body (the rounded inner card with the toggle + calibration block)
+    // is still mounted — we only drop the section/header wrapper.
+    expect(screen.getByTestId('advisor-calibration-derivation')).toBeInTheDocument()
+    // And we do not paint the title twice (modal header owns it).
+    expect(screen.queryByText('title')).not.toBeInTheDocument()
+  })
+
   it('rebalances edited year weights so the total stays at 100%', () => {
     render(
       <AdvancedAdvisorControlsSection

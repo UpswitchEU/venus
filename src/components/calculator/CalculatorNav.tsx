@@ -32,6 +32,7 @@ import {
   getPreSelectableMethodsForFirm,
   resolveDisplayPreSelectedMethodKey,
 } from '@/constants/methodFieldConfig'
+import { useAdvisorControlsModalStore } from '@/store/useAdvisorControlsModalStore'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
@@ -117,6 +118,10 @@ export function CalculatorNav({
   const router = useTransitionRouter()
   const [avatarError, setAvatarError] = useState(false)
   const showAvatar = avatarUrl && !avatarError
+  // Shared open-signal for the advanced-controls modal — also driven by the
+  // wizard's "Calibratie & weging" button. Kebab item below is the second
+  // entry point per the per-valuation-actions design decision (2026-05-23).
+  const openAdvisorControlsModal = useAdvisorControlsModalStore((s) => s.setOpen)
 
   const activeVersion =
     valuationVersions.find((v) => v.id === selectedVersionId) || valuationVersions[0]
@@ -291,6 +296,28 @@ export function CalculatorNav({
                                   >
                                     <Pencil className="w-4 h-4" />
                                     {t('valuationEditModal.editValuation')}
+                                  </button>
+                                )}
+                                {/*
+                                 * Advanced advisor controls — only on the
+                                 * active valuation, because the modal binds
+                                 * to the form-store currently in scope.
+                                 * Adding it to non-active rows would open a
+                                 * modal that silently mutates a different
+                                 * valuation's draft.
+                                 */}
+                                {val.id === activeReportId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      openAdvisorControlsModal(true)
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                  >
+                                    <SlidersHorizontal className="w-4 h-4" />
+                                    {t(
+                                      'manualInput.methodSelector.advancedAdvisorControls.kebabMenuItem'
+                                    )}
                                   </button>
                                 )}
                                 <button
