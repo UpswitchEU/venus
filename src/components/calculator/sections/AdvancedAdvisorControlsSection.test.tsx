@@ -7,6 +7,10 @@ vi.mock('next-intl', () => ({
   useLocale: () => 'en',
 }))
 
+vi.mock('../../../utils/getMercuryAppOrigin', () => ({
+  resolveMercuryAppOrigin: () => 'https://upswitch.test',
+}))
+
 const baseProps = {
   step: 6,
   sectorAverageMultiple: 5.5,
@@ -90,6 +94,25 @@ describe('AdvancedAdvisorControlsSection', () => {
     )
 
     expect(screen.queryByText('prefilledFromSettings')).not.toBeInTheDocument()
+  })
+
+  it('renders the prefilled-from-settings link with the locale-scoped Mercury settings tab URL', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={0.5}
+        multipleCalibrationNote="seeded"
+        advisorDefaultsAppliedFields={['multiple_calibration_adjustment']}
+      />
+    )
+
+    const link = screen.getByRole('link', { name: 'prefilledFromSettingsLink' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://upswitch.test/en/advisor/settings?tab=valuation'
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer noopener')
   })
 
   it('rebalances edited year weights so the total stays at 100%', () => {

@@ -8,6 +8,7 @@ import {
   normalizeRemainderWeights,
   rebalanceMethodWeights,
 } from '@/constants/methodFieldConfig'
+import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
@@ -42,18 +43,6 @@ interface AdvancedAdvisorControlsSectionProps {
   disabled?: boolean
 }
 
-function getMercuryAppOrigin(): string | null {
-  if (typeof window === 'undefined') return null
-  const explicit = process.env.NEXT_PUBLIC_MERCURY_URL?.trim()
-  if (explicit) return explicit.replace(/\/+$/, '')
-  // Mercury and Venus typically sit on sibling subdomains in production; fall
-  // back to swapping the host prefix when no explicit env var is set.
-  const { protocol, host } = window.location
-  if (host.startsWith('venus.')) return `${protocol}//${host.replace(/^venus\./, '')}`
-  if (host.startsWith('calculator.'))
-    return `${protocol}//${host.replace(/^calculator\./, '')}`
-  return null
-}
 
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
@@ -82,7 +71,7 @@ export function AdvancedAdvisorControlsSection({
   const locale = useLocale()
   const showPrefilledHint =
     (advisorDefaultsAppliedFields?.length ?? 0) > 0
-  const mercuryAppOrigin = useMemo(() => getMercuryAppOrigin(), [])
+  const mercuryAppOrigin = useMemo(() => resolveMercuryAppOrigin(), [])
   const prefilledSettingsHref = mercuryAppOrigin
     ? `${mercuryAppOrigin}/${locale}/advisor/settings?tab=valuation`
     : null
