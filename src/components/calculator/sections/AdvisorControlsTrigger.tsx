@@ -24,6 +24,8 @@
 import { SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect } from 'react'
+import { AuroraButton } from '../../../design-system/components/Button'
+import { Badge } from '../../../design-system/components/Badge'
 import { useAdvisorControlsModalStore } from '../../../store/useAdvisorControlsModalStore'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { AdvancedAdvisorControlsModal } from './AdvancedAdvisorControlsModal'
@@ -80,27 +82,51 @@ export function AdvisorControlsTrigger({
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      <button
+      {/*
+       * AuroraButton variant="outline" matches the Aurora Clarity medium-
+       * emphasis affordance: low-key in the wizard data flow, but reads
+       * as actionable. The bordered surface deliberately mirrors the
+       * Mercury settings tab's secondary controls so an advisor moving
+       * between Mercury and Venus sees the same visual grammar for "open
+       * a configuration surface."
+       */}
+      <AuroraButton
         type="button"
+        variant="outline"
+        size="sm"
         onClick={() => setOpen(true)}
         disabled={disabled}
         data-testid="advisor-controls-trigger"
-        className="inline-flex items-center gap-2 rounded-lg border border-foreground/15 bg-foreground/[0.02] px-3 py-2 text-sm font-medium text-foreground/85 transition-colors hover:bg-foreground/[0.06] hover:border-foreground/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+        // Override default `gap-2` from the variant base so the hint
+        // text hugs the label more tightly than the icon, reading as
+        // "label — hint" rather than three peer segments.
+        className="!gap-1.5"
       >
         <SlidersHorizontal className="h-3.5 w-3.5 text-foreground/55" aria-hidden />
-        {t('openModalButton')}
-        <span className="text-xs text-foreground/45">— {t('openModalButtonHint')}</span>
-      </button>
+        <span>{t('openModalButton')}</span>
+        <span className="text-xs text-foreground/45">
+          — {t('openModalButtonHint')}
+        </span>
+      </AuroraButton>
 
+      {/*
+       * Badge variant="primary" earns the primary accent because the
+       * pill is the single signal returning advisors need to know their
+       * house-style baseline is already applied — high-information,
+       * deserves the eye. size="sm" keeps it from overpowering the
+       * button it adjoins.
+       */}
       {prefilled && (
-        <span
+        <Badge
+          variant="primary"
+          size="sm"
           data-testid="advisor-controls-prefilled-pill"
-          className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] text-primary"
           title={t('prefilledFromSettings')}
+          className="rounded-full gap-1"
         >
           <Sparkles className="h-3 w-3" aria-hidden />
           {t('prefilledFromSettingsLink')}
-        </span>
+        </Badge>
       )}
 
       <AdvancedAdvisorControlsModal
