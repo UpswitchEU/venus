@@ -41,9 +41,15 @@ export function AdvancedAdvisorControlsModal({
       <ModalContent
         size="xl"
         description={t('modalDescription')}
-        // Wider than `xl`'s default fixed cap so the calibration + year
-        // sliders breathe on tablet widths; still constrained on desktop.
-        className="max-h-[90vh] overflow-y-auto"
+        // The `xl` size sets max-w-xl (~576px) but does not clamp against
+        // the viewport — on phones with `fixed left-1/2 -translate-x-1/2`
+        // centering, the modal can sit wider than the screen and force a
+        // horizontal scrollbar. The min(36rem, calc(100vw - 2rem)) pattern
+        // mirrors the design-system `lg` variant: caps at the same desktop
+        // width as `xl` and respects a 1rem gutter on each side at narrow
+        // widths so the calibration form never overflows. Vertical clamp
+        // protects against the year-slider stack on short viewports.
+        className="!max-w-[min(36rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto"
       >
         <ModalHeader>
           <ModalTitle>{t('title')}</ModalTitle>
