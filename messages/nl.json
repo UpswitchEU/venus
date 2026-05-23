@@ -1984,7 +1984,9 @@
 				"standardAverage": "Standaard gemiddelde",
 				"weightedAverage": "Gewogen gemiddelde",
 				"resetEqual": "Gelijk verdelen",
-				"needsThreeYears": "Gewogen gemiddelde vereist minstens drie boekjaren."
+				"needsThreeYears": "Gewogen gemiddelde vereist minstens drie boekjaren.",
+				"prefilledFromSettings": "Vooraf ingevuld vanuit uw kantoor-standaard. Pas per dossier aan waar nodig.",
+				"prefilledFromSettingsLink": "Standaardwaarden beheren →"
 			},
 			"terminalGrowthHighWarning": "Eeuwigdurende groei boven het langetermijngroeipad van de economie is zeldzaam; controleurs bekritiseren vaak tarieven boven 3%. Gebruik enkel hoger als je het in het dossier kunt onderbouwen.",
 			"terminalGrowthCapTitle": "Eeuwigdurende groei boven 5% — buiten bandbreedte",

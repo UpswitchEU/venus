@@ -1984,7 +1984,9 @@
 				"standardAverage": "Standard average",
 				"weightedAverage": "Weighted average",
 				"resetEqual": "Reset equal",
-				"needsThreeYears": "Weighted average needs at least three fiscal years."
+				"needsThreeYears": "Weighted average needs at least three fiscal years.",
+				"prefilledFromSettings": "Pre-filled from your house-style defaults. Override per deal where needed.",
+				"prefilledFromSettingsLink": "Manage defaults →"
 			},
 			"terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
 			"terminalGrowthCapTitle": "Terminal growth above 5% — out-of-band",

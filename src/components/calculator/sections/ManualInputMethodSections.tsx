@@ -16,8 +16,20 @@ import {
   SynthesisWeightingSection,
 } from './index'
 
+type AdvisorDefaultAppliedField =
+  | 'multiple_calibration_adjustment'
+  | 'historical_ebitda_weighting_mode'
+  | 'show_enterprise_to_equity_bridge'
+
 interface ManualInputMethodSectionsProps {
   adaptiveHeaderSteps: ManualInputAdaptiveHeaderSteps
+  /**
+   * Step-4a form fields seeded from the advisor's saved defaults on this
+   * mount. Empty when the user hasn't saved any, or when the corresponding
+   * form fields were already set. Used purely to surface a "prefilled from
+   * settings" hint — the values themselves are in `formData`.
+   */
+  advisorDefaultsAppliedFields?: ReadonlyArray<AdvisorDefaultAppliedField>
   balanceSheetCarveOutStep: number
   canApplyDcfProjectionAutofill: boolean
   disabled: boolean
@@ -51,6 +63,7 @@ interface ManualInputMethodSectionsProps {
 
 export function ManualInputMethodSections({
   adaptiveHeaderSteps,
+  advisorDefaultsAppliedFields,
   balanceSheetCarveOutStep,
   canApplyDcfProjectionAutofill,
   disabled,
@@ -170,6 +183,7 @@ export function ManualInputMethodSections({
           historicalEbitdaWeightingMode={formData.historical_ebitda_weighting_mode}
           historicalEbitdaWeights={formData.historical_ebitda_weights}
           showEnterpriseToEquityBridge={formData.show_enterprise_to_equity_bridge}
+          advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
           onFieldChange={(field, value) => {
             setFormData((prev) => ({ ...prev, [field]: value }))
           }}

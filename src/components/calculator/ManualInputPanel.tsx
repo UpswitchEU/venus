@@ -15,7 +15,10 @@
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useMemo, useState } from 'react'
 import type { ParsedCSVData } from '@/components/integrations/CSVUploadCard'
-import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
+import {
+  isAccountantFreeOrStarterTier,
+  isAccountantTierRole,
+} from '@/constants/accountantPlanMethods'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 
@@ -50,6 +53,7 @@ import {
   hasExplicitNumericValue as hasExplicitFinancialValue,
 } from '../../utils/yearlyFinancials'
 import type { FieldHelpContext } from './FieldHelpTrigger'
+import { useApplyAdvisorValuationDefaults } from './hooks/useApplyAdvisorValuationDefaults'
 import { useManualAccountingImportController } from './hooks/useManualAccountingImportController'
 import { useManualCompanyIdentificationController } from './hooks/useManualCompanyIdentificationController'
 import { useManualDcfForecastController } from './hooks/useManualDcfForecastController'
@@ -188,6 +192,12 @@ export function ManualInputPanel({
   const [formData, setFormData] = useState<ValuationFormData>(() =>
     buildManualInputInitialFormData(initialData)
   )
+  const { appliedFields: advisorDefaultsAppliedFields } =
+    useApplyAdvisorValuationDefaults({
+      enabled: isAccountantTierRole(user?.role),
+      formData,
+      setFormData,
+    })
   const currentFilingYear = getCurrentFilingYear()
   const accountingImportMessages = useMemo(
     () => ({
@@ -637,6 +647,7 @@ export function ManualInputPanel({
 
             <ManualInputMethodSections
               adaptiveHeaderSteps={adaptiveHeaderSteps}
+              advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
               balanceSheetCarveOutStep={balanceSheetCarveOutStep}
               canApplyDcfProjectionAutofill={canApplyDcfProjectionAutofill}
               disabled={isCalculating}

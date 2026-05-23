@@ -4,6 +4,7 @@ import { AdvancedAdvisorControlsSection } from './AdvancedAdvisorControlsSection
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => 'en',
 }))
 
 const baseProps = {
@@ -65,6 +66,30 @@ describe('AdvancedAdvisorControlsSection', () => {
       2024: 33,
       2025: 33,
     })
+  })
+
+  it('renders the prefilled-from-settings hint when advisor defaults were seeded', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={0.5}
+        multipleCalibrationNote="seeded from advisor defaults"
+        advisorDefaultsAppliedFields={['multiple_calibration_adjustment']}
+      />
+    )
+
+    expect(screen.getByText('prefilledFromSettings')).toBeInTheDocument()
+  })
+
+  it('hides the prefilled-from-settings hint when no advisor defaults were applied', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        advisorDefaultsAppliedFields={[]}
+      />
+    )
+
+    expect(screen.queryByText('prefilledFromSettings')).not.toBeInTheDocument()
   })
 
   it('rebalances edited year weights so the total stays at 100%', () => {

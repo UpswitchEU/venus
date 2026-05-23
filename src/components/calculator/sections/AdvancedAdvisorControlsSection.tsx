@@ -1,7 +1,7 @@
 'use client'
 
-import { Info, RotateCcw } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { Info, RotateCcw, Sparkles } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import {
   equalWeightsFor,
@@ -17,6 +17,11 @@ import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type WeightingMode = 'standard' | 'weighted'
 
+type AdvisorDefaultAppliedField =
+  | 'multiple_calibration_adjustment'
+  | 'historical_ebitda_weighting_mode'
+  | 'show_enterprise_to_equity_bridge'
+
 interface AdvancedAdvisorControlsSectionProps {
   step: string | number
   sectorAverageMultiple?: number | null
@@ -26,8 +31,28 @@ interface AdvancedAdvisorControlsSectionProps {
   historicalEbitdaWeightingMode?: WeightingMode
   historicalEbitdaWeights?: Record<number, number>
   showEnterpriseToEquityBridge?: boolean
+  /**
+   * Fields on this step that were seeded from the advisor's saved defaults
+   * (Mercury settings → Titan `accountant_settings`). Renders a small
+   * "prefilled from your settings" hint with a link back to Mercury so the
+   * advisor knows the value is a starting point, not a hard rule.
+   */
+  advisorDefaultsAppliedFields?: ReadonlyArray<AdvisorDefaultAppliedField>
   onFieldChange: (field: string, value: unknown) => void
   disabled?: boolean
+}
+
+function getMercuryAppOrigin(): string | null {
+  if (typeof window === 'undefined') return null
+  const explicit = process.env.NEXT_PUBLIC_MERCURY_URL?.trim()
+  if (explicit) return explicit.replace(/\/+$/, '')
+  // Mercury and Venus typically sit on sibling subdomains in production; fall
+  // back to swapping the host prefix when no explicit env var is set.
+  const { protocol, host } = window.location
+  if (host.startsWith('venus.')) return `${protocol}//${host.replace(/^venus\./, '')}`
+  if (host.startsWith('calculator.'))
+    return `${protocol}//${host.replace(/^calculator\./, '')}`
+  return null
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -49,10 +74,18 @@ export function AdvancedAdvisorControlsSection({
   historicalEbitdaWeightingMode,
   historicalEbitdaWeights,
   showEnterpriseToEquityBridge,
+  advisorDefaultsAppliedFields,
   onFieldChange,
   disabled,
 }: AdvancedAdvisorControlsSectionProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
+  const locale = useLocale()
+  const showPrefilledHint =
+    (advisorDefaultsAppliedFields?.length ?? 0) > 0
+  const mercuryAppOrigin = useMemo(() => getMercuryAppOrigin(), [])
+  const prefilledSettingsHref = mercuryAppOrigin
+    ? `${mercuryAppOrigin}/${locale}/advisor/settings?tab=valuation`
+    : null
 
   const years = useMemo(() => sortedDistinctYears(historicalYears).slice(-5), [historicalYears])
   const yearKeys = useMemo(() => years.map(String), [years])
@@ -107,6 +140,28 @@ export function AdvancedAdvisorControlsSection({
   return (
     <section className="space-y-4">
       <ValuationSectionHeader step={step} title={t('title')} complete={complete} />
+
+      {showPrefilledHint && (
+        <div
+          className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/70"
+          role="note"
+        >
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/80" aria-hidden />
+          <p className="leading-relaxed">
+            {t('prefilledFromSettings')}{' '}
+            {prefilledSettingsHref ? (
+              <a
+                href={prefilledSettingsHref}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {t('prefilledFromSettingsLink')}
+              </a>
+            ) : null}
+          </p>
+        </div>
+      )}
 
       <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-4 space-y-4">
         <Switch

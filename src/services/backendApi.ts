@@ -36,6 +36,7 @@ import type { ValuationSession } from '../types/valuation'
 import { ValuationRequest, ValuationResponse } from '../types/valuation'
 import { CreditAPI } from './api/credit'
 import { APIRequestConfig } from './api/HttpClient'
+import { AccountantSettingsAPI } from './api/profile/AccountantSettingsAPI'
 import { ProfileAPI } from './api/profile/ProfileAPI'
 import { ReportAPI } from './api/report'
 import { type CreateValuationSessionInput, SessionAPI } from './api/session'
@@ -84,6 +85,7 @@ class BackendAPI {
   private sessionAPI: SessionAPI
   private creditAPI: CreditAPI
   private profileAPI: ProfileAPI
+  private accountantSettingsAPI: AccountantSettingsAPI
   private utilityAPI: UtilityAPI
 
   /**
@@ -109,6 +111,7 @@ class BackendAPI {
     this.sessionAPI = new SessionAPI()
     this.creditAPI = new CreditAPI()
     this.profileAPI = new ProfileAPI()
+    this.accountantSettingsAPI = new AccountantSettingsAPI()
     this.utilityAPI = new UtilityAPI()
   }
 
@@ -282,6 +285,14 @@ class BackendAPI {
     data: Partial<import('./api/profile/ProfileAPI').ProfileData>
   ): Promise<import('./api/profile/ProfileAPI').ProfileData> {
     return this.profileAPI.updateProfile(data)
+  }
+
+  // ===== ACCOUNTANT SETTINGS (per-advisor defaults) =====
+
+  async getAccountantValuationDefaults(): Promise<
+    import('./api/profile/AccountantSettingsAPI').AccountantValuationDefaults
+  > {
+    return this.accountantSettingsAPI.getValuationDefaults()
   }
 
   // ===== UTILITY OPERATIONS =====
