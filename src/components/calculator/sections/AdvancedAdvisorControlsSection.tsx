@@ -10,6 +10,7 @@ import {
 } from '@/constants/methodFieldConfig'
 import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
 import { AuroraButton } from '@/design-system/components/Button'
+import { AuroraFormAlert } from '@/design-system/components/FormSection'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
@@ -135,26 +136,28 @@ export function AdvancedAdvisorControlsSection({
     }
   }
 
+  // AuroraFormAlert type='info' is the DS-canonical place for this kind
+  // of contextual hint — it carries the same Aurora primary tint we were
+  // hand-rolling, plus the motion + spacing tokens. The Sparkles glyph
+  // signals "your saved baseline is in"; the deep-link to Mercury keeps
+  // its underline-on-hover treatment so it stays recognisable as a link.
   const prefilledHint = showPrefilledHint ? (
-    <div
-      className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/70"
-      role="note"
+    <AuroraFormAlert
+      type="info"
+      icon={<Sparkles className="h-3.5 w-3.5 text-primary/80" aria-hidden />}
     >
-      <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/80" aria-hidden />
-      <p className="leading-relaxed">
-        {t('prefilledFromSettings')}{' '}
-        {prefilledSettingsHref ? (
-          <a
-            href={prefilledSettingsHref}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="font-medium text-primary underline-offset-2 hover:underline"
-          >
-            {t('prefilledFromSettingsLink')}
-          </a>
-        ) : null}
-      </p>
-    </div>
+      {t('prefilledFromSettings')}{' '}
+      {prefilledSettingsHref ? (
+        <a
+          href={prefilledSettingsHref}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
+          {t('prefilledFromSettingsLink')}
+        </a>
+      ) : null}
+    </AuroraFormAlert>
   ) : null
 
   const Wrapper: 'section' | 'div' = chrome === 'section' ? 'section' : 'div'

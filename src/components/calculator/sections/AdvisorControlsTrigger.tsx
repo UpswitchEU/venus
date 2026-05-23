@@ -24,8 +24,9 @@
 import { SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect } from 'react'
-import { AuroraButton } from '../../../design-system/components/Button'
 import { Badge } from '../../../design-system/components/Badge'
+import { AuroraButton } from '../../../design-system/components/Button'
+import { Tooltip } from '../../../design-system/components/Tooltip'
 import { useAdvisorControlsModalStore } from '../../../store/useAdvisorControlsModalStore'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { AdvancedAdvisorControlsModal } from './AdvancedAdvisorControlsModal'
@@ -115,18 +116,24 @@ export function AdvisorControlsTrigger({
        * house-style baseline is already applied — high-information,
        * deserves the eye. size="sm" keeps it from overpowering the
        * button it adjoins.
+       *
+       * Wrapped in DS Tooltip (was `title=` attr) so the long
+       * NL "Vooraf ingevuld vanuit uw kantoor-standaard..." copy gets
+       * proper a11y semantics, a tuned hover delay, and the Aurora
+       * surface treatment instead of the OS native chrome.
        */}
       {prefilled && (
-        <Badge
-          variant="primary"
-          size="sm"
-          data-testid="advisor-controls-prefilled-pill"
-          title={t('prefilledFromSettings')}
-          className="rounded-full gap-1"
-        >
-          <Sparkles className="h-3 w-3" aria-hidden />
-          {t('prefilledFromSettingsLink')}
-        </Badge>
+        <Tooltip content={t('prefilledFromSettings')} side="top">
+          <Badge
+            variant="primary"
+            size="sm"
+            data-testid="advisor-controls-prefilled-pill"
+            className="rounded-full gap-1 cursor-default"
+          >
+            <Sparkles className="h-3 w-3" aria-hidden />
+            {t('prefilledFromSettingsLink')}
+          </Badge>
+        </Tooltip>
       )}
 
       <AdvancedAdvisorControlsModal
