@@ -23,7 +23,7 @@
 
 import { SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import type { Dispatch, SetStateAction } from 'react'
+import { type Dispatch, type SetStateAction, useEffect } from 'react'
 import { useAdvisorControlsModalStore } from '../../../store/useAdvisorControlsModalStore'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { AdvancedAdvisorControlsModal } from './AdvancedAdvisorControlsModal'
@@ -54,6 +54,29 @@ export function AdvisorControlsTrigger({
   const open = useAdvisorControlsModalStore((s) => s.open)
   const setOpen = useAdvisorControlsModalStore((s) => s.setOpen)
   const prefilled = (advisorDefaultsAppliedFields?.length ?? 0) > 0
+
+  // Reset the shared modal-open atom whenever this trigger unmounts.
+  //
+  // The trigger is mounted inside the wizard tree under a `key={reportId}`
+  // boundary (ManualLayoutBody). When the advisor switches between
+  // valuations in the sidebar, React unmounts the trigger and re-mounts a
+  // fresh one with the new valuation's formData. Without this cleanup the
+  // store's `open=true` would survive the unmount and the new trigger
+  // would immediately reopen the modal — except now it would render the
+  // *new* valuation's calibration data, which is jarring and would let an
+  // advisor accidentally edit the wrong deal's premium.
+  //
+  // Resetting on unmount only fires on actual unmount (valuation switch,
+  // navigation away). Normal in-place re-renders during interaction
+  // (typing, toggling, save) do not unmount the trigger and so leave the
+  // modal state alone. Acceptable strict-mode caveat: in dev the initial
+  // double-invoke runs cleanup once before the user has interacted, so
+  // open=false → setOpen(false) is a no-op.
+  useEffect(() => {
+    return () => {
+      useAdvisorControlsModalStore.getState().setOpen(false)
+    }
+  }, [])
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">

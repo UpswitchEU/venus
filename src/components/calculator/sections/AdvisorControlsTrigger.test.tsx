@@ -76,6 +76,21 @@ describe('AdvisorControlsTrigger', () => {
     ).toBeInTheDocument()
   })
 
+  it('closes the modal on unmount so a valuation switch never carries open=true forward', () => {
+    // Reproduces the valuation-switch flow: user opens the modal on
+    // valuation A, then a `key={reportId}` change in the layout body
+    // unmounts the entire wizard subtree. The trigger must reset the
+    // store so the next-mounted trigger doesn't immediately reopen the
+    // modal with the new valuation's calibration data showing.
+    const { unmount } = render(<AdvisorControlsTrigger {...baseProps} />)
+    fireEvent.click(screen.getByTestId('advisor-controls-trigger'))
+    expect(useAdvisorControlsModalStore.getState().open).toBe(true)
+
+    unmount()
+
+    expect(useAdvisorControlsModalStore.getState().open).toBe(false)
+  })
+
   it('honours the disabled prop — button is not clickable when the wizard is calculating', () => {
     render(<AdvisorControlsTrigger {...baseProps} disabled />)
     const button = screen.getByTestId('advisor-controls-trigger')
