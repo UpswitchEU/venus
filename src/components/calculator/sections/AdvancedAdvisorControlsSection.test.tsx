@@ -115,6 +115,61 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(link).toHaveAttribute('rel', 'noreferrer noopener')
   })
 
+  it('renders the derivation tape with em-dashes when no premium is entered', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} />)
+
+    const tape = screen.getByTestId('advisor-calibration-derivation')
+
+    // Sector value carries through. Premium row shows "—" because nothing
+    // has been typed. Calibrated equals sector because adjustment is 0.
+    expect(tape.textContent).toContain('5.50x')
+    expect(tape.textContent).toContain('—')
+  })
+
+  it('formats a positive premium with a leading + sign and updates the calibrated row', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={1.25}
+        multipleCalibrationNote="strong recurring revenue"
+      />
+    )
+
+    const tape = screen.getByTestId('advisor-calibration-derivation')
+    expect(tape.textContent).toContain('+1.25')
+    // 5.5 (sector) + 1.25 = 6.75 calibrated
+    expect(tape.textContent).toContain('6.75x')
+  })
+
+  it('formats a negative premium without doubling the sign', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={-0.5}
+        multipleCalibrationNote="customer concentration risk"
+      />
+    )
+
+    const tape = screen.getByTestId('advisor-calibration-derivation')
+    // toFixed(2) on -0.5 is "-0.50"; we must not prepend another "+".
+    expect(tape.textContent).toContain('-0.50')
+    expect(tape.textContent).not.toContain('+-0.50')
+    expect(tape.textContent).toContain('5.00x')
+  })
+
+  it('shows an em-dash for sector + calibrated when no sector multiple is available', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        sectorAverageMultiple={null}
+      />
+    )
+
+    const tape = screen.getByTestId('advisor-calibration-derivation')
+    // Three em-dashes: sector row, premium row, calibrated row.
+    expect(tape.textContent?.match(/—/g)?.length).toBe(3)
+  })
+
   it('rebalances edited year weights so the total stays at 100%', () => {
     render(
       <AdvancedAdvisorControlsSection

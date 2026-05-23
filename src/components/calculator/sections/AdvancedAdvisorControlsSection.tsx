@@ -23,7 +23,7 @@ type AdvisorDefaultAppliedField =
   | 'historical_ebitda_weighting_mode'
   | 'show_enterprise_to_equity_bridge'
 
-interface AdvancedAdvisorControlsSectionProps {
+export interface AdvancedAdvisorControlsSectionProps {
   step: string | number
   sectorAverageMultiple?: number | null
   multipleCalibrationAdjustment?: number
@@ -39,6 +39,14 @@ interface AdvancedAdvisorControlsSectionProps {
    * advisor knows the value is a starting point, not a hard rule.
    */
   advisorDefaultsAppliedFields?: ReadonlyArray<AdvisorDefaultAppliedField>
+  /**
+   * `'section'` (default) renders the original wizard-flow section header
+   * + body. `'bare'` strips the section chrome so the same body can be
+   * mounted inside a Modal (the modal supplies its own header). Step 4a
+   * graduated from inline to modal-only on 2026-05-23; the section variant
+   * is preserved so any future "inline preview" surface can still embed it.
+   */
+  chrome?: 'section' | 'bare'
   onFieldChange: (field: string, value: unknown) => void
   disabled?: boolean
 }
@@ -64,6 +72,7 @@ export function AdvancedAdvisorControlsSection({
   historicalEbitdaWeights,
   showEnterpriseToEquityBridge,
   advisorDefaultsAppliedFields,
+  chrome = 'section',
   onFieldChange,
   disabled,
 }: AdvancedAdvisorControlsSectionProps) {
@@ -126,31 +135,37 @@ export function AdvancedAdvisorControlsSection({
     }
   }
 
-  return (
-    <section className="space-y-4">
-      <ValuationSectionHeader step={step} title={t('title')} complete={complete} />
+  const prefilledHint = showPrefilledHint ? (
+    <div
+      className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/70"
+      role="note"
+    >
+      <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/80" aria-hidden />
+      <p className="leading-relaxed">
+        {t('prefilledFromSettings')}{' '}
+        {prefilledSettingsHref ? (
+          <a
+            href={prefilledSettingsHref}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {t('prefilledFromSettingsLink')}
+          </a>
+        ) : null}
+      </p>
+    </div>
+  ) : null
 
-      {showPrefilledHint && (
-        <div
-          className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/70"
-          role="note"
-        >
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/80" aria-hidden />
-          <p className="leading-relaxed">
-            {t('prefilledFromSettings')}{' '}
-            {prefilledSettingsHref ? (
-              <a
-                href={prefilledSettingsHref}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="font-medium text-primary underline-offset-2 hover:underline"
-              >
-                {t('prefilledFromSettingsLink')}
-              </a>
-            ) : null}
-          </p>
-        </div>
+  const Wrapper: 'section' | 'div' = chrome === 'section' ? 'section' : 'div'
+
+  return (
+    <Wrapper className="space-y-4">
+      {chrome === 'section' && (
+        <ValuationSectionHeader step={step} title={t('title')} complete={complete} />
       )}
+
+      {prefilledHint}
 
       <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-4 space-y-4">
         <Switch
@@ -160,15 +175,18 @@ export function AdvancedAdvisorControlsSection({
           disabled={disabled}
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-foreground/10 bg-background/40 px-3 py-2">
-            <div className="text-[11px] text-foreground/50">{t('sectorMultiple')}</div>
-            <div className="mt-1 font-mono text-sm text-foreground">
-              {sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)
-                ? `${sectorAverageMultiple.toFixed(2)}x`
-                : '-'}
-            </div>
-          </div>
+        {/*
+         * Multiple calibration block.
+         *
+         * Previously a 3-col grid (sector | input | calibrated) which
+         * truncated the long "Specifieke risico-/kwaliteitspremie" label and
+         * gave equal visual weight to one editable field plus two read-only
+         * derivations. The fields are *not* peers — they form an equation
+         * (sector + premium = calibrated). Stacking the input above a
+         * derivation "tape" makes the affordance unambiguous (one click
+         * target) and reads top-to-bottom like the arithmetic it represents.
+         */}
+        <div className="space-y-3" data-testid="advisor-calibration-block">
           <AuroraInput
             type="number"
             min="-10"
@@ -183,12 +201,41 @@ export function AdvancedAdvisorControlsSection({
             }}
             disabled={disabled}
           />
-          <div className="rounded-lg border border-foreground/10 bg-background/40 px-3 py-2">
-            <div className="text-[11px] text-foreground/50">{t('calibratedMultiple')}</div>
-            <div className="mt-1 font-mono text-sm text-foreground">
-              {calibratedMultiple != null ? `${calibratedMultiple.toFixed(2)}x` : '-'}
+
+          <dl
+            className="rounded-lg border border-foreground/10 bg-background/40 px-4 py-3 text-sm space-y-1.5"
+            data-testid="advisor-calibration-derivation"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-foreground/65">{t('sectorMultiple')}</dt>
+              <dd className="font-mono tabular-nums text-foreground/80">
+                {sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)
+                  ? `${sectorAverageMultiple.toFixed(2)}x`
+                  : '—'}
+              </dd>
             </div>
-          </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-foreground/65">{t('plusYourPremium')}</dt>
+              <dd className="font-mono tabular-nums text-foreground/80">
+                {/*
+                 * Treat undefined and exactly 0 identically: both display "—"
+                 * because the audit-trail rule (calibrationNote required when
+                 * adjustment !== 0) already collapses them — surfacing
+                 * "+0.00" here would imply a deliberate zero-premium choice
+                 * that the rest of the section does not enforce.
+                 */}
+                {multipleCalibrationAdjustment === undefined || adjustment === 0
+                  ? '—'
+                  : `${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(2)}`}
+              </dd>
+            </div>
+            <div className="border-t border-foreground/10 pt-2 flex items-baseline justify-between gap-3">
+              <dt className="font-medium text-foreground">{t('calibratedMultiple')}</dt>
+              <dd className="font-mono text-base font-semibold tabular-nums text-foreground">
+                {calibratedMultiple != null ? `${calibratedMultiple.toFixed(2)}x` : '—'}
+              </dd>
+            </div>
+          </dl>
         </div>
 
         {requiresCalibrationNote && (
@@ -271,6 +318,6 @@ export function AdvancedAdvisorControlsSection({
           )}
         </div>
       </div>
-    </section>
+    </Wrapper>
   )
 }

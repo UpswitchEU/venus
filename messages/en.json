@@ -1977,6 +1977,7 @@
 				"waterfallToggle": "Show Enterprise-to-Equity Bridge (Waterfall)",
 				"sectorMultiple": "Sector average multiple",
 				"specificPremium": "Specific risk/quality premium",
+				"plusYourPremium": "+ your premium",
 				"calibratedMultiple": "Calibrated multiple",
 				"calibrationNote": "Calibration note",
 				"calibrationNoteRequired": "Add a short note for the calibration audit trail.",
@@ -1986,7 +1987,11 @@
 				"resetEqual": "Reset equal",
 				"needsThreeYears": "Weighted average needs at least three fiscal years.",
 				"prefilledFromSettings": "Pre-filled from your house-style defaults. Override per deal where needed.",
-				"prefilledFromSettingsLink": "Manage defaults →"
+				"prefilledFromSettingsLink": "Manage defaults →",
+				"modalDescription": "Premium above the sector average, historical EBITDA weighting, and whether the report renders the Enterprise-to-Equity Bridge. These choices apply only to this valuation.",
+				"openModalButton": "Calibration & weighting",
+				"openModalButtonHint": "Premium, weighting, bridge",
+				"kebabMenuItem": "Advanced advisor controls"
 			},
 			"terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
 			"terminalGrowthCapTitle": "Terminal growth above 5% — out-of-band",
