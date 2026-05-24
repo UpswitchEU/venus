@@ -32,15 +32,16 @@ import {
   getPreSelectableMethodsForFirm,
   resolveDisplayPreSelectedMethodKey,
 } from '@/constants/methodFieldConfig'
-import { useAdvisorControlsModalStore } from '@/store/useAdvisorControlsModalStore'
-import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
+import { useAdvisorControlsModalStore } from '@/store/useAdvisorControlsModalStore'
 import type { CalculatorNavProps } from './CalculatorNav.types'
 import {
   confidenceDotClassName,
   formatPrice,
   formatTimeAgo,
+  resolveCalculatorNavMethodLabels,
+  resolvePdfDownloadTooltip,
   valuationNavAmountClass,
 } from './CalculatorNav.utils'
 import { Dropdown } from './CalculatorNavDropdown'
@@ -118,9 +119,6 @@ export function CalculatorNav({
   const router = useTransitionRouter()
   const [avatarError, setAvatarError] = useState(false)
   const showAvatar = avatarUrl && !avatarError
-  // Shared open-signal for the advanced-controls modal — also driven by the
-  // wizard's "Calibratie & weging" button. Kebab item below is the second
-  // entry point per the per-valuation-actions design decision (2026-05-23).
   const openAdvisorControlsModal = useAdvisorControlsModalStore((s) => s.setOpen)
 
   const activeVersion =
@@ -148,27 +146,12 @@ export function CalculatorNav({
   )
 
   const pdfPlanLocked = hasReport && !canDownloadPdf
-  // Neutral tooltip — the actual upsell copy (Starter for advisors vs. invite-
-  // your-advisor for business owners) is rendered by the audience-aware
-  // paywall modal that opens on click. Keeping the tooltip neutral avoids
-  // showing advisor SaaS pricing to sellers in a hover state.
-  const pdfDownloadTooltip = pdfPlanLocked
-    ? navLocale === 'nl'
-      ? 'Read-only met watermerk — klik voor opties om de PDF zonder watermerk te ontgrendelen'
-      : 'Read-only with watermark — click for options to unlock the watermark-free PDF'
-    : null
-
-  const selectedMethodLabel = t(
-    METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
-  )
-  const multiMethodCount = preSelectedMethods?.length ?? 0
-  const isMultiMethod =
-    multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
-  const compactMethodLabel = isMultiMethod
-    ? `${multiMethodCount} ${t('manualInput.methodSelector.methods')}`
-    : displayPreSelectedMethod === 'upswitch_adaptive'
-      ? t('manualInput.methodSelector.adaptiveShort')
-      : selectedMethodLabel
+  const pdfDownloadTooltip = resolvePdfDownloadTooltip(pdfPlanLocked, navLocale)
+  const { compactMethodLabel, selectedMethodLabel } = resolveCalculatorNavMethodLabels({
+    displayPreSelectedMethod,
+    preSelectedMethods,
+    t,
+  })
   const methodTriggerLabel = `${t('manualInput.methodSelector.label')} — ${selectedMethodLabel}`
 
   const handleBack = () => {
@@ -577,11 +560,8 @@ export function CalculatorNav({
           </AnimatePresence>
         </div>
 
-        {/* Right: Assistant Button + Report Actions + User Avatar */}
         <div className="flex min-w-0 items-center justify-self-end">
-          {/* Action buttons - grouped with Assistant */}
           <div className="hidden sm:flex items-center gap-0.5">
-            {/* Assistant Button - Primary action (Clarity parity) */}
             <Tooltip content={t('assistant.title')}>
               <AuroraButton
                 variant={isAssistantOpen ? 'primary' : 'ghost'}
@@ -614,7 +594,6 @@ export function CalculatorNav({
               </AuroraButton>
             </Tooltip>
 
-            {/* Normalization Hub Button - Secondary action (Clarity parity) */}
             {onOpenNormalization && (
               <Tooltip
                 content={
@@ -685,11 +664,8 @@ export function CalculatorNav({
               </button>
             </Tooltip>
 
-            {/* Divider separates the primary action cluster from the secondary
-                container — the overflow menu — and the user identity */}
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
-            {/* Overflow menu: Brondata, Versiegeschiedenis, Download (+ recent), Fullscreen */}
             <ToolbarOverflowMenu
               navLocale={navLocale}
               t={t}
@@ -709,9 +685,7 @@ export function CalculatorNav({
             />
           </div>
 
-          {/* Mobile actions */}
           <div className="flex min-w-0 sm:hidden items-center gap-1">
-            {/* Mobile method selector — compact labeled trigger */}
             {onPreSelectMethod && (
               <Dropdown
                 keepOpen
@@ -795,7 +769,6 @@ export function CalculatorNav({
               </button>
             </Tooltip>
 
-            {/* Normalisaties — promoted to mobile so the pending-count badge is never hidden */}
             {onOpenNormalization && (
               <Tooltip
                 content={
@@ -837,7 +810,6 @@ export function CalculatorNav({
               </Tooltip>
             )}
 
-            {/* Mobile overflow — same surface as desktop, with 44px tap target */}
             <ToolbarOverflowMenu
               navLocale={navLocale}
               t={t}
@@ -858,10 +830,8 @@ export function CalculatorNav({
             />
           </div>
 
-          {/* Separator before avatar */}
           <div className="h-5 w-px bg-foreground/[0.08] mx-1 sm:mx-2" />
 
-          {/* User Avatar with Dropdown — Mercury parity */}
           <Dropdown
             variant="glass"
             trigger={
@@ -896,7 +866,6 @@ export function CalculatorNav({
             align="end"
           >
             <div className="p-1.5 w-56 min-w-[220px]" role="menu">
-              {/* Header — Mercury AvatarMenuHeader parity */}
               <div className="px-3 py-3 border-b border-foreground/10 mb-1.5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border border-foreground/10 flex-shrink-0">
@@ -929,7 +898,6 @@ export function CalculatorNav({
                 </div>
               </div>
 
-              {/* Menu items — isAccountantMode: full Mercury menu; else: simple menu */}
               {isAccountantMode ? (
                 <>
                   <button

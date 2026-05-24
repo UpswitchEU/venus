@@ -1,3 +1,4 @@
+import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { cn } from '@/design-system/utils'
 import { dateLikeAgeMs } from '@/utils/date-like'
 
@@ -37,5 +38,40 @@ export function confidenceDotClassName(confidence: 'high' | 'medium' | 'low') {
       return cn(base, 'bg-destructive')
     default:
       return cn(base, 'bg-foreground/40')
+  }
+}
+
+type NavTranslator = (key: string) => string
+
+export function resolvePdfDownloadTooltip(pdfPlanLocked: boolean, navLocale: string) {
+  if (!pdfPlanLocked) return null
+  return navLocale === 'nl'
+    ? 'Read-only met watermerk — klik voor opties om de PDF zonder watermerk te ontgrendelen'
+    : 'Read-only with watermark — click for options to unlock the watermark-free PDF'
+}
+
+export function resolveCalculatorNavMethodLabels({
+  displayPreSelectedMethod,
+  preSelectedMethods,
+  t,
+}: {
+  displayPreSelectedMethod: string
+  preSelectedMethods?: string[]
+  t: NavTranslator
+}) {
+  const selectedMethodLabel = t(
+    METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
+  )
+  const multiMethodCount = preSelectedMethods?.length ?? 0
+  const isMultiMethod =
+    multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
+
+  return {
+    selectedMethodLabel,
+    compactMethodLabel: isMultiMethod
+      ? `${multiMethodCount} ${t('manualInput.methodSelector.methods')}`
+      : displayPreSelectedMethod === 'upswitch_adaptive'
+        ? t('manualInput.methodSelector.adaptiveShort')
+        : selectedMethodLabel,
   }
 }
