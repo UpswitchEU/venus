@@ -1641,6 +1641,21 @@ describe('dispatchAIChatChunk — tool chunks', () => {
 })
 
 describe('dispatchAIChatChunk — terminal chunks', () => {
+  it('silently absorbs keepalive chunks without callbacks or terminal state', () => {
+    const cb = freshCallbacks()
+    const state = makeChunkDispatchState()
+
+    const nextState = dispatchAIChatChunk({ type: '_keepalive' }, state, cb)
+
+    expect(nextState).toBe(state)
+    expect(state.doneReceived).toBe(false)
+    expect(cb.onText).not.toHaveBeenCalled()
+    expect(cb.onToolStart).not.toHaveBeenCalled()
+    expect(cb.onToolResult).not.toHaveBeenCalled()
+    expect(cb.onDone).not.toHaveBeenCalled()
+    expect(cb.onError).not.toHaveBeenCalled()
+  })
+
   it('fires onDone with chunk.conversationId when present (preferred over captured)', () => {
     const cb = freshCallbacks()
     const state = makeChunkDispatchState()

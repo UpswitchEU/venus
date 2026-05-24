@@ -98,6 +98,12 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache, no-transform',
           Connection: 'keep-alive',
+          // Vercel/nginx will buffer SSE without this — turns short turns
+          // into a wall of silence flushed only on close, which the FE
+          // (Venus + Mercury both) reads as an empty stream. Sibling
+          // routes in apps/mercury/app/api/ai/chat + onboarding/stream
+          // pin this same header; do not drop it.
+          'X-Accel-Buffering': 'no',
         },
       })
     }

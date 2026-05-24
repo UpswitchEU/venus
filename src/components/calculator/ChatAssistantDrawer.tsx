@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { FileText, Image as ImageIcon, Loader2, Paperclip, Send, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { useAiConsent } from '@/hooks/useAiConsent'
@@ -250,6 +251,7 @@ export function ChatAssistantDrawer({
     },
     [onCommandPillClick, onSendMessage]
   )
+
   const [attachments, setAttachments] = useState<File[]>([])
   const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([])
   const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([])
@@ -269,6 +271,30 @@ export function ChatAssistantDrawer({
   // Robust scroll lock when drawer is open (iOS Safari + Android)
   useScrollLock(open)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Suggestion-chip insertion (paste-and-wait): seeds the draft instead of
+  // replacing it, appends a trailing space so the next keystroke is a fresh
+  // word, and parks the caret at the end so the user keeps typing without
+  // repositioning. Mirrors Mercury's AdvisorAIDockPanel.insertChipPrompt.
+  //
+  // flushSync commits the input update inside this click handler so the
+  // focus() call stays in the user-initiated event chain (iOS Safari only
+  // opens the soft keyboard for focus triggered from an interaction event)
+  // and the caret reads the up-to-date value rather than racing the render.
+  const insertSuggestion = useCallback((text: string) => {
+    let nextValue = ''
+    flushSync(() => {
+      setInput((prev) => {
+        const trimmed = prev.replace(/\s+$/, '')
+        nextValue = trimmed.length > 0 ? `${trimmed} ${text} ` : `${text} `
+        return nextValue
+      })
+    })
+    const el = textareaRef.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(nextValue.length, nextValue.length)
+  }, [])
 
   // Scroll to bottom on new messages and during streaming content updates
   const messageRenderKey = messages
@@ -694,7 +720,7 @@ export function ChatAssistantDrawer({
             >
               {isEmpty ? (
                 <EmptyState
-                  onSuggestionClick={(text) => setInput(text)}
+                  onSuggestionClick={insertSuggestion}
                   companyName={companyName}
                   fieldContext={fieldContext}
                   suggestions={suggestions}

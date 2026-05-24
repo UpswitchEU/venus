@@ -94,8 +94,15 @@ async function proxyToTitan(
       return new NextResponse(titanResponse.body, {
         headers: {
           'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
+          // `no-transform` matters in addition to `no-cache`: some CDNs gzip
+          // text streams by default, which breaks SSE chunk framing. Sibling
+          // route apps/venus/app/api/ai/chat pins the same value.
+          'Cache-Control': 'no-cache, no-transform',
           Connection: 'keep-alive',
+          // Vercel/nginx will buffer SSE without this — turns short turns
+          // into a wall of silence flushed only on close. Same as the AI
+          // chat route fix.
+          'X-Accel-Buffering': 'no',
         },
       })
     }

@@ -75,6 +75,10 @@ export function dispatchAIChatChunk(
         typeof c.error === 'string' && c.error.length > 0 ? c.error : 'Unknown error'
       )
       break
+    case '_keepalive':
+      // SSE heartbeat from Titan; deliberately no-op so idle proxy protection
+      // never becomes visible content or a terminal event in the chat UI.
+      break
     default:
       // Unknown type - silently skip for forward compatibility.
       break

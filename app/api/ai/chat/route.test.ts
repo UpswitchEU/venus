@@ -630,6 +630,10 @@ describe('response shape', () => {
     expect(res.headers.get('Content-Type')).toBe('text/event-stream')
     expect(res.headers.get('Cache-Control')).toBe('no-cache, no-transform')
     expect(res.headers.get('Connection')).toBe('keep-alive')
+    // Vercel/nginx will buffer SSE without this — turns short streams
+    // into a wall of silence that flushes only on close. Mirrors the
+    // sibling Mercury BFF route pins; do not quietly drop it.
+    expect(res.headers.get('X-Accel-Buffering')).toBe('no')
   })
 
   it('returns NextResponse.json for non-streaming success', async () => {

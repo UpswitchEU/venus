@@ -88,8 +88,17 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
 export type AiActionToolResultType = (typeof AI_ACTION_TOOL_RESULT_TYPES)[number];
 export type AiToolResultEnvelopeType = AiActionToolResultType | 'data';
 
-export const AI_STREAM_CHUNK_TYPES = ['text', 'tool_start', 'tool_result', 'done', 'error'] as const;
+export const AI_STREAM_CHUNK_TYPES = [
+  'text',
+  'tool_start',
+  'tool_result',
+  'done',
+  'error',
+  '_keepalive',
+] as const;
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
+
+export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 
 export interface AiToolResultEnvelope<
   TType extends AiToolResultEnvelopeType = AiToolResultEnvelopeType,
@@ -138,6 +147,11 @@ export type AiStreamChunk =
       type: 'error';
       error?: string;
       conversationId?: string;
+    }
+  | {
+      // Heartbeat frame used to keep long SSE tool chains open. Consumers must
+      // treat this as a no-op, not visible content or a terminal event.
+      type: '_keepalive';
     };
 
 const AI_ACTION_TOOL_NAME_SET = new Set<string>(AI_ACTION_TOOL_NAMES);
@@ -151,6 +165,8 @@ export function isAiActionToolResultType(value: unknown): value is AiActionToolR
   return typeof value === 'string' && AI_ACTION_TOOL_RESULT_TYPE_SET.has(value);
 }
 
-export function classifyAiActionToolResultType(toolName: string): AiToolResultEnvelopeType {
+export function classifyAiActionToolResultType(
+  toolName: string,
+): AiToolResultEnvelopeType {
   return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName as AiActionToolName] ?? 'data';
 }

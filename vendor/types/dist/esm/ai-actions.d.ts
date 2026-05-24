@@ -48,12 +48,6 @@ export type AiActionToolResultType = (typeof AI_ACTION_TOOL_RESULT_TYPES)[number
 export type AiToolResultEnvelopeType = AiActionToolResultType | 'data';
 export declare const AI_STREAM_CHUNK_TYPES: readonly ["text", "tool_start", "tool_result", "done", "error", "_keepalive"];
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
-/**
- * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
- * the producer (Titan AI / onboarding controllers) and consumers (Venus +
- * Mercury) cannot drift. Any change here must be made in lockstep with
- * Titan's hardcoded emit (Titan is a separate repo and cannot import).
- */
 export declare const AI_STREAM_KEEPALIVE_CHUNK_JSON = "{\"type\":\"_keepalive\"}";
 export interface AiToolResultEnvelope<TType extends AiToolResultEnvelopeType = AiToolResultEnvelopeType> {
     type: TType;
@@ -104,4 +98,4 @@ export type AiStreamChunk = {
 export declare function isAiActionToolName(value: unknown): value is AiActionToolName;
 export declare function isAiActionToolResultType(value: unknown): value is AiActionToolResultType;
 export declare function classifyAiActionToolResultType(toolName: string): AiToolResultEnvelopeType;
-//# sourceMappingURL=index.d.ts.map
+//# sourceMappingURL=ai-actions.d.ts.map

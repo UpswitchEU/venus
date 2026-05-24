@@ -196,6 +196,13 @@ export function useManualChatMessageActions<TCollectedData extends object>({
 
         const streamingMsgId = crypto.randomUUID()
         let streamedContent = ''
+        // Track whether the stream produced anything user-visible. Either
+        // text or a rendered tool card counts; neither one means Titan closed
+        // the SSE with no payload (the silent-empty-stream bug the Mercury
+        // dock used to hit — proxy short-circuit, Anthropic end_turn with
+        // no content, or a gate stripping the synthesized fallback). Without
+        // this flag the assistant bubble silently stays blank after onDone.
+        let hasReceivedAnyContent = false
         const clearActiveStream = () => {
           streamCleanupRef.current = null
           setToolInProgress(null)
@@ -222,6 +229,9 @@ export function useManualChatMessageActions<TCollectedData extends object>({
         streamCleanupRef.current = aiChatService.streamMessage(aiRequest, {
           onText: (text) => {
             streamedContent += text
+            if (text.trim().length > 0) {
+              hasReceivedAnyContent = true
+            }
             patchAssistantMessage({ content: streamedContent })
           },
           onToolStart: (toolName) => {
@@ -234,6 +244,10 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             )
             if (!cards) return
 
+            // A rendered card counts as user-visible content for the empty-
+            // stream guard in onDone — even a turn with no prose has happened
+            // if a tool card landed.
+            hasReceivedAnyContent = true
             setChatMessages((prev) =>
               appendManualChatToolCardsToMessages(prev, streamingMsgId, cards)
             )
@@ -248,6 +262,17 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
           },
           onDone: (responseConversationId) => {
+            // Empty-stream guard: Titan closed the SSE cleanly but emitted
+            // no text and no rendered tool cards. Without this branch the
+            // assistant bubble silently stays blank — the same failure mode
+            // the Mercury dock used to hit. Patch with the generic terminal
+            // error so the user sees a real, localised message instead of
+            // a frozen empty placeholder. Mirrors the FE's
+            // `streamFailureFallback` on `apps/mercury/shared/components/ai-dock`.
+            if (!hasReceivedAnyContent) {
+              finishWithTerminalError({ kind: 'generic' })
+              return
+            }
             clearActiveStream()
             setIsChatGenerating(false)
 

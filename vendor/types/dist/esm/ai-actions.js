@@ -83,20 +83,8 @@ export const AI_STREAM_CHUNK_TYPES = [
     'tool_result',
     'done',
     'error',
-    // SSE keep-alive — emitted server-side every ~30s while the generator is
-    // alive, so proxies (Cloudflare ~100s idle limit) don't close long tool
-    // chains mid-stream. Consumers MUST treat these as no-ops — they must
-    // never satisfy "received content" gates, otherwise a silent Claude turn
-    // would hide behind the keepalive. See `AI_STREAM_KEEPALIVE_CHUNK_JSON`
-    // for the wire literal.
     '_keepalive',
 ];
-/**
- * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
- * the producer (Titan AI / onboarding controllers) and consumers (Venus +
- * Mercury) cannot drift. Any change here must be made in lockstep with
- * Titan's hardcoded emit (Titan is a separate repo and cannot import).
- */
 export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 const AI_ACTION_TOOL_NAME_SET = new Set(AI_ACTION_TOOL_NAMES);
 const AI_ACTION_TOOL_RESULT_TYPE_SET = new Set(AI_ACTION_TOOL_RESULT_TYPES);
@@ -109,4 +97,4 @@ export function isAiActionToolResultType(value) {
 export function classifyAiActionToolResultType(toolName) {
     return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
 }
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=ai-actions.js.map

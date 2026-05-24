@@ -1,10 +1,16 @@
+"use strict";
 /**
  * Canonical cross-app AI action contract.
  *
  * Titan emits these tool-result envelope strings; Mercury and Venus render
  * them. Keep this file aligned with `tests/contracts/ai-tool-result-contract.json`.
  */
-export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AI_STREAM_KEEPALIVE_CHUNK_JSON = exports.AI_STREAM_CHUNK_TYPES = exports.AI_ACTION_TOOL_RESULT_TYPES = exports.AI_ACTION_TOOL_NAMES = exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = void 0;
+exports.isAiActionToolName = isAiActionToolName;
+exports.isAiActionToolResultType = isAiActionToolResultType;
+exports.classifyAiActionToolResultType = classifyAiActionToolResultType;
+exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     suggest_normalization: 'normalization_suggestion',
     update_field_value: 'field_update',
     propose_business_card_field: 'field_update',
@@ -41,8 +47,8 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     propose_package_publish: 'package_publish_request',
     request_lawyer_handoff: 'lawyer_handoff_request',
 };
-export const AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
-export const AI_ACTION_TOOL_RESULT_TYPES = [
+exports.AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
+exports.AI_ACTION_TOOL_RESULT_TYPES = [
     'normalization_suggestion',
     'field_update',
     'valuation_run_request',
@@ -77,36 +83,24 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
     'package_publish_request',
     'lawyer_handoff_request',
 ];
-export const AI_STREAM_CHUNK_TYPES = [
+exports.AI_STREAM_CHUNK_TYPES = [
     'text',
     'tool_start',
     'tool_result',
     'done',
     'error',
-    // SSE keep-alive — emitted server-side every ~30s while the generator is
-    // alive, so proxies (Cloudflare ~100s idle limit) don't close long tool
-    // chains mid-stream. Consumers MUST treat these as no-ops — they must
-    // never satisfy "received content" gates, otherwise a silent Claude turn
-    // would hide behind the keepalive. See `AI_STREAM_KEEPALIVE_CHUNK_JSON`
-    // for the wire literal.
     '_keepalive',
 ];
-/**
- * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
- * the producer (Titan AI / onboarding controllers) and consumers (Venus +
- * Mercury) cannot drift. Any change here must be made in lockstep with
- * Titan's hardcoded emit (Titan is a separate repo and cannot import).
- */
-export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
-const AI_ACTION_TOOL_NAME_SET = new Set(AI_ACTION_TOOL_NAMES);
-const AI_ACTION_TOOL_RESULT_TYPE_SET = new Set(AI_ACTION_TOOL_RESULT_TYPES);
-export function isAiActionToolName(value) {
+exports.AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
+const AI_ACTION_TOOL_NAME_SET = new Set(exports.AI_ACTION_TOOL_NAMES);
+const AI_ACTION_TOOL_RESULT_TYPE_SET = new Set(exports.AI_ACTION_TOOL_RESULT_TYPES);
+function isAiActionToolName(value) {
     return typeof value === 'string' && AI_ACTION_TOOL_NAME_SET.has(value);
 }
-export function isAiActionToolResultType(value) {
+function isAiActionToolResultType(value) {
     return typeof value === 'string' && AI_ACTION_TOOL_RESULT_TYPE_SET.has(value);
 }
-export function classifyAiActionToolResultType(toolName) {
-    return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
+function classifyAiActionToolResultType(toolName) {
+    return exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
 }
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=ai-actions.js.map

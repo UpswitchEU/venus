@@ -94,8 +94,23 @@ export const AI_STREAM_CHUNK_TYPES = [
   'tool_result',
   'done',
   'error',
+  // SSE keep-alive — emitted server-side every ~30s while the generator is
+  // alive, so proxies (Cloudflare ~100s idle limit) don't close long tool
+  // chains mid-stream. Consumers MUST treat these as no-ops — they must
+  // never satisfy "received content" gates, otherwise a silent Claude turn
+  // would hide behind the keepalive. See `AI_STREAM_KEEPALIVE_CHUNK_JSON`
+  // for the wire literal.
+  '_keepalive',
 ] as const;
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
+
+/**
+ * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
+ * the producer (Titan AI / onboarding controllers) and consumers (Venus +
+ * Mercury) cannot drift. Any change here must be made in lockstep with
+ * Titan's hardcoded emit (Titan is a separate repo and cannot import).
+ */
+export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 
 export interface AiToolResultEnvelope<
   TType extends AiToolResultEnvelopeType = AiToolResultEnvelopeType,
@@ -144,6 +159,12 @@ export type AiStreamChunk =
       type: 'error';
       error?: string;
       conversationId?: string;
+    }
+  | {
+      // Heartbeat — see `AI_STREAM_KEEPALIVE_CHUNK_JSON`. Consumers must
+      // pattern-match this as a no-op and never let it satisfy
+      // "received content" gates.
+      type: '_keepalive';
     };
 
 const AI_ACTION_TOOL_NAME_SET = new Set<string>(AI_ACTION_TOOL_NAMES);
