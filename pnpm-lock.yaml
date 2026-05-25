@@ -173,8 +173,8 @@ importers:
         specifier: ^18.2.0
         version: 18.3.7(@types/react@18.3.28)
       '@upswitch/platform-scripts':
-        specifier: file:../../packages/platform-scripts
-        version: file:../../packages/platform-scripts
+        specifier: file:./vendor/platform-scripts
+        version: file:vendor/platform-scripts
       '@vitejs/plugin-react':
         specifier: ^5.1.2
         version: 5.1.4(vite@7.3.3(@types/node@24.10.13)(jiti@1.21.7))
@@ -1496,28 +1496,24 @@ packages:
     engines: {node: '>=10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@swc/core-linux-arm64-musl@1.15.11':
     resolution: {integrity: sha512-PYftgsTaGnfDK4m6/dty9ryK1FbLk+LosDJ/RJR2nkXGc8rd+WenXIlvHjWULiBVnS1RsjHHOXmTS4nDhe0v0w==}
     engines: {node: '>=10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@swc/core-linux-x64-gnu@1.15.11':
     resolution: {integrity: sha512-DKtnJKIHiZdARyTKiX7zdRjiDS1KihkQWatQiCHMv+zc2sfwb4Glrodx2VLOX4rsa92NLR0Sw8WLcPEMFY1szQ==}
     engines: {node: '>=10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@swc/core-linux-x64-musl@1.15.11':
     resolution: {integrity: sha512-mUjjntHj4+8WBaiDe5UwRNHuEzLjIWBTSGTw0JT9+C9/Yyuh4KQqlcEQ3ro6GkHmBGXBFpGIj/o5VMyRWfVfWw==}
     engines: {node: '>=10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@swc/core-win32-arm64-msvc@1.15.11':
     resolution: {integrity: sha512-ZkNNG5zL49YpaFzfl6fskNOSxtcZ5uOYmWBkY4wVAvgbSAQzLRVBp+xArGWh2oXlY/WgL99zQSGTv7RI5E6nzA==}
@@ -1722,8 +1718,8 @@ packages:
     resolution: {directory: vendor/ai-actions, type: directory}
     engines: {node: '>=20.0.0'}
 
-  '@upswitch/platform-scripts@file:../../packages/platform-scripts':
-    resolution: {directory: ../../packages/platform-scripts, type: directory}
+  '@upswitch/platform-scripts@file:vendor/platform-scripts':
+    resolution: {directory: vendor/platform-scripts, type: directory}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -4738,7 +4734,7 @@ snapshots:
 
   '@upswitch/ai-actions@file:vendor/ai-actions': {}
 
-  '@upswitch/platform-scripts@file:../../packages/platform-scripts': {}
+  '@upswitch/platform-scripts@file:vendor/platform-scripts': {}
 
   '@upswitch/types@file:vendor/types': {}
 
