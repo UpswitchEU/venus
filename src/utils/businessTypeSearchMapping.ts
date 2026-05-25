@@ -1,5 +1,6 @@
 import { Building2 } from 'lucide-react'
-import { categoryIcons, type BusinessType as EntitySearchBusinessType } from '@/design-system'
+import { categoryIcons } from '@/design-system/components/entity-search/BusinessTypeData'
+import type { BusinessType as EntitySearchBusinessType } from '@/design-system/components/entity-search/EntitySearchTypes'
 import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
 import { businessTypeCategoryStrings } from './businessTypeCategory'
 
