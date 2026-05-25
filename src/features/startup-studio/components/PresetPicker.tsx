@@ -33,6 +33,10 @@ import {
   type StartupSector,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import {
+  businessTypeCategoryStrings,
+  formatBusinessTypeCategory,
+} from '@/utils/businessTypeCategory'
 
 /**
  * Studio sector → DB-business-type-category fallback map.  The DB
@@ -71,7 +75,7 @@ const SECTOR_TO_DB_CATEGORY: Record<StartupSector, string[]> = {
  * unchanged in that case (the BusinessTypeSearchInput is still the
  * authoritative way for the founder to pick / override).
  */
-function resolveBusinessTypeIdForSector(
+export function resolveBusinessTypeIdForSector(
   sector: StartupSector,
   catalogue: BusinessType[]
 ): string | null {
@@ -80,20 +84,47 @@ function resolveBusinessTypeIdForSector(
   // Strategy 1: keyword match — the most precise.
   const sectorKeyword = sector.toLowerCase()
   const byKeyword = catalogue.find((bt) =>
-    (bt.keywords ?? []).some((kw) => kw.toLowerCase().includes(sectorKeyword))
+    (bt.keywords ?? []).some(
+      (kw) => typeof kw === 'string' && kw.toLowerCase().includes(sectorKeyword)
+    )
   )
   if (byKeyword) return byKeyword.id
 
   // Strategy 2: category fallback — first business type matching any
   // canonical category in `SECTOR_TO_DB_CATEGORY[sector]`.
   for (const candidateCategory of SECTOR_TO_DB_CATEGORY[sector] ?? []) {
-    const byCategory = catalogue.find(
-      (bt) => bt.category?.toLowerCase() === candidateCategory.toLowerCase()
+    const candidateKey = normalizeCategoryLookupKey(candidateCategory)
+    const byCategory = catalogue.find((bt) =>
+      businessTypeLookupCategories(bt).some((category) => category === candidateKey)
     )
     if (byCategory) return byCategory.id
   }
 
   return null
+}
+
+function normalizeCategoryLookupKey(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+}
+
+function businessTypeLookupCategories(bt: BusinessType): string[] {
+  const categoryValues = [
+    ...businessTypeCategoryStrings((bt as { category?: unknown }).category),
+    (bt as { category_id?: unknown }).category_id,
+    (bt as { industry?: unknown }).industry,
+    (bt as { industryMapping?: unknown }).industryMapping,
+  ]
+
+  return [
+    ...new Set(
+      categoryValues
+        .map((value) => normalizeCategoryLookupKey(value))
+        .filter((value): value is string => value.length > 0)
+    ),
+  ]
 }
 
 const SESSION_KEY = 'upswitch.studio.applied_preset'
@@ -193,7 +224,9 @@ export function PresetPicker(_props: PresetPickerProps) {
       if (resolvedBtId) {
         updates.business_type_id = resolvedBtId
         const matched = businessTypes.find((bt) => bt.id === resolvedBtId)
-        if (matched?.category) updates.industry = matched.category
+        if (matched?.category) {
+          updates.industry = formatBusinessTypeCategory(matched.category, matched.category_id)
+        }
       }
       if (Object.keys(updates).length > 0) {
         updateFormData(updates)

@@ -19,7 +19,7 @@ interface UseManualDcfForecastControllerParams {
   setFormData: Dispatch<SetStateAction<ManualValuationFormData>>
   hasDcfSelected: boolean
   importBatchData: ManualDcfImportBatchData | null
-  selectedBusinessCategory?: string | null
+  selectedBusinessCategory?: unknown
   sortedYearlyFinancials: YearlyFinancials[]
   translate: ManualDcfTranslator
 }

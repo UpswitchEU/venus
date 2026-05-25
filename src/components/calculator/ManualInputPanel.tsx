@@ -192,12 +192,11 @@ export function ManualInputPanel({
   const [formData, setFormData] = useState<ValuationFormData>(() =>
     buildManualInputInitialFormData(initialData)
   )
-  const { appliedFields: advisorDefaultsAppliedFields } =
-    useApplyAdvisorValuationDefaults({
-      enabled: isAccountantTierRole(user?.role),
-      formData,
-      setFormData,
-    })
+  const { appliedFields: advisorDefaultsAppliedFields } = useApplyAdvisorValuationDefaults({
+    enabled: isAccountantTierRole(user?.role),
+    formData,
+    setFormData,
+  })
   const currentFilingYear = getCurrentFilingYear()
   const accountingImportMessages = useMemo(
     () => ({
@@ -412,6 +411,10 @@ export function ManualInputPanel({
     [hasDcfSelected, sortedYearlyFinancials]
   )
   const baseFilingYearForLabels = useMemo(() => getSeedBaseFilingYear(formData), [formData])
+  const selectedBusinessCategoryForMethodInputs = useMemo(() => {
+    return selectedBusinessType?.category ?? null
+  }, [selectedBusinessType?.category])
+
   const {
     canApplyDcfProjectionAutofill,
     dcfDefaultsProvenance,
@@ -434,7 +437,7 @@ export function ManualInputPanel({
     setFormData,
     hasDcfSelected,
     importBatchData,
-    selectedBusinessCategory: selectedBusinessType?.category,
+    selectedBusinessCategory: selectedBusinessCategoryForMethodInputs,
     sortedYearlyFinancials,
     translate: mi,
   })
@@ -453,8 +456,8 @@ export function ManualInputPanel({
 
   /** Prefer picker object; fall back to session `businessType` id before sync completes. */
   const resolvedBusinessCategoryForBonusSections = useMemo(
-    () => selectedBusinessType?.category ?? null,
-    [selectedBusinessType?.category]
+    () => selectedBusinessCategoryForMethodInputs,
+    [selectedBusinessCategoryForMethodInputs]
   )
   const resolvedBusinessTypeIdForBonusSections = useMemo(
     () =>

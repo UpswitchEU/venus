@@ -7,7 +7,7 @@ export interface RevenueQualitySectionStackProps {
   step: number
   methods: readonly string[]
   businessTypeId?: string
-  businessCategory?: string
+  businessCategory?: unknown
   formData: ManualValuationFormData
   latestCompleteYearlyFinancial?: YearlyFinancials
   onFieldChange: (field: string, value: number | undefined) => void

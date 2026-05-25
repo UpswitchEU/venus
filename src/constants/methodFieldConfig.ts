@@ -6,6 +6,7 @@ import {
   deriveStandaloneMethods,
 } from '@/lib/methods/registry'
 import type { InputSectionKey } from '@/lib/methods/types'
+import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
 import { revenueMethodologySiblingKey } from '@/utils/extractValuationResultsMap'
 import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
 
@@ -75,24 +76,28 @@ export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
   saas_software: ['saas_metrics'],
 }
 
-function normalizeBusinessSectionKey(value?: string | null): string | null {
-  if (!value) return null
+function normalizeBusinessSectionKey(value?: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
   return value
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_')
 }
 
+function getNormalizedBusinessSectionKeys(value?: unknown): string[] {
+  return businessTypeCategoryStrings(value)
+    .map(normalizeBusinessSectionKey)
+    .filter((candidate): candidate is string => Boolean(candidate))
+}
+
 function getBusinessSectionCandidates(
-  businessCategory?: string | null,
-  businessTypeId?: string | null
+  businessCategory?: unknown,
+  businessTypeId?: unknown
 ): string[] {
   const candidates = [
-    normalizeBusinessSectionKey(businessTypeId),
-    normalizeBusinessSectionKey(businessCategory),
-    businessTypeId?.trim().toLowerCase() ?? null,
-    businessCategory?.trim().toLowerCase() ?? null,
-  ].filter((value): value is string => Boolean(value))
+    ...getNormalizedBusinessSectionKeys(businessTypeId),
+    ...getNormalizedBusinessSectionKeys(businessCategory),
+  ]
 
   const expanded = [...candidates]
   for (const candidate of candidates) {
@@ -412,8 +417,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 export function getBonusSections(
   method: string,
-  businessCategory?: string | null,
-  businessTypeId?: string | null,
+  businessCategory?: unknown,
+  businessTypeId?: unknown,
   saasSignals?: GetBonusSectionsSaasSignals | null
 ): InputSectionKey[] {
   const methodSections = METHOD_FIELD_CONFIG[method]?.bonusSections ?? []
@@ -436,8 +441,8 @@ export function getBonusSections(
  */
 export function getBonusSectionsForMethods(
   methods: string[],
-  businessCategory?: string | null,
-  businessTypeId?: string | null,
+  businessCategory?: unknown,
+  businessTypeId?: unknown,
   saasSignals?: GetBonusSectionsSaasSignals | null
 ): InputSectionKey[] {
   const combined: InputSectionKey[] = []

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { businessTypeCategoryKey, formatBusinessTypeCategory } from './businessTypeCategory'
+import {
+  businessTypeCategoryKey,
+  businessTypeCategoryStrings,
+  formatBusinessTypeCategory,
+} from './businessTypeCategory'
 
 describe('businessTypeCategory', () => {
   it('formats string categories', () => {
@@ -17,5 +21,11 @@ describe('businessTypeCategory', () => {
   it('uses caller fallback for missing categories', () => {
     expect(formatBusinessTypeCategory(null, 'Other')).toBe('Other')
     expect(businessTypeCategoryKey(undefined)).toBe('Other')
+  })
+
+  it('returns all object category string candidates in display precedence', () => {
+    expect(
+      businessTypeCategoryStrings({ id: 'technology', title: 'Software', name: 'Tech' })
+    ).toEqual(['Tech', 'Software', 'technology'])
   })
 })

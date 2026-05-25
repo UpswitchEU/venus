@@ -97,7 +97,7 @@ export function AdaptiveSections({
 }: {
   effectiveMethod: string
   effectiveMethods?: string[]
-  businessCategory?: string
+  businessCategory?: unknown
   businessTypeId?: string
   saasSignals?: GetBonusSectionsSaasSignals | null
   formData: ValuationFormData

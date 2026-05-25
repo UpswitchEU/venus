@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
 import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
@@ -33,7 +34,7 @@ interface RevenueQualitySectionProps {
   latestRevenue?: number
   effectiveMethods?: string[]
   businessTypeId?: string
-  businessCategory?: string
+  businessCategory?: unknown
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
 }
@@ -44,9 +45,19 @@ function isEbitdaOnlyContext(methods: string[]): boolean {
   return multiples.length > 0 && multiples.every((m) => m === 'ebitda_multiple')
 }
 
-function isSaasOrTech(businessTypeId?: string, businessCategory?: string): boolean {
+function normalizeLowerLookupKeys(value: unknown): string[] {
+  return businessTypeCategoryStrings(value).map((text) => text.toLowerCase())
+}
+
+function isSaasOrTech(businessTypeId?: string, businessCategory?: unknown): boolean {
   if (businessTypeId && SAAS_BUSINESS_TYPE_IDS.has(businessTypeId.toLowerCase())) return true
-  if (businessCategory && TECH_CATEGORIES.has(businessCategory.toLowerCase())) return true
+  if (
+    normalizeLowerLookupKeys(businessCategory).some((categoryKey) =>
+      TECH_CATEGORIES.has(categoryKey)
+    )
+  ) {
+    return true
+  }
   return false
 }
 

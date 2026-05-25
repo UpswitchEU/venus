@@ -180,6 +180,13 @@ describe('methodFieldConfig', () => {
     expect(getBonusSections('dcf', 'saas_software')).toEqual(['dcf_projections', 'saas_metrics'])
   })
 
+  it('accepts object-shaped business categories when resolving business-type sections', () => {
+    expect(getBonusSections('dcf', { id: 'saas_software', name: 'Softwarebedrijf' })).toEqual([
+      'dcf_projections',
+      'saas_metrics',
+    ])
+  })
+
   it('falls back to business-type sections when the method is unknown', () => {
     expect(getBonusSections('unknown_method', 'saas_software')).toEqual(['saas_metrics'])
   })

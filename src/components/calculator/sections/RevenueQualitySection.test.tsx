@@ -62,6 +62,22 @@ describe('RevenueQualitySection', () => {
     expect(screen.queryByText('fields.revContractBacklog')).not.toBeInTheDocument()
   })
 
+  it('accepts object-shaped business categories without crashing', () => {
+    render(
+      <RevenueQualitySection
+        step={6}
+        effectiveMethods={['omzet_multiple']}
+        businessCategory={{ id: 'technology', name: 'Technologie' }}
+        revRecurringAmount={400000}
+        revTopClientAmount={150000}
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('fields.revGrossChurnPct')).toBeInTheDocument()
+    expect(screen.queryByText('fields.revContractBacklog')).not.toBeInTheDocument()
+  })
+
   it('derives preview ratios from latest revenue when available', () => {
     render(
       <RevenueQualitySection

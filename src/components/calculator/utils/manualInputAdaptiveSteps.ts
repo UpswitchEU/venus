@@ -17,7 +17,7 @@ export interface BuildManualInputAdaptiveHeaderStepsParams {
   effectiveMethod: string
   effectiveMethods: string[]
   hasDcfForecastWorkspace: boolean
-  resolvedBusinessCategory: string | null
+  resolvedBusinessCategory: unknown
   resolvedBusinessTypeId?: string | null
   saasSignals: GetBonusSectionsSaasSignals
 }

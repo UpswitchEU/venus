@@ -63,6 +63,13 @@ describe('deriveWaccSectorBand', () => {
     expect(band.max).toBe(13.5)
   })
 
+  it('accepts object-shaped business categories from business type payloads', () => {
+    const band = deriveWaccSectorBand({ id: 'saas_software', name: 'Softwarebedrijf' })
+
+    expect(band.sectorLabel).toBe('SaaS / Software')
+    expect(band.median).toBe(11)
+  })
+
   it('returns the European SMB default when category is unknown or empty', () => {
     expect(deriveWaccSectorBand(undefined)).toMatchObject({
       sectorLabel: 'European SMB',

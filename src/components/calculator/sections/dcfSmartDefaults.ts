@@ -1,3 +1,5 @@
+import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
+
 export interface DcfYearlyFinancialsLike {
   year: string
   revenue: number
@@ -31,8 +33,12 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
 
-function classifyWaccBase(businessCategory?: string): number {
-  const key = (businessCategory ?? '').toLowerCase()
+function businessCategoryLookupKey(businessCategory?: unknown): string {
+  return businessTypeCategoryStrings(businessCategory).join(' ').toLowerCase()
+}
+
+function classifyWaccBase(businessCategory?: unknown): number {
+  const key = businessCategoryLookupKey(businessCategory)
   if (key.includes('saas') || key.includes('software') || key.includes('tech')) return 11
   if (key.includes('retail') || key.includes('ecommerce') || key.includes('e-commerce')) return 11.5
   if (key.includes('construction') || key.includes('horeca') || key.includes('hospitality'))
@@ -56,9 +62,9 @@ export interface WaccSectorBand {
   max: number
 }
 
-export function deriveWaccSectorBand(businessCategory?: string): WaccSectorBand {
+export function deriveWaccSectorBand(businessCategory?: unknown): WaccSectorBand {
   const median = classifyWaccBase(businessCategory)
-  const key = (businessCategory ?? '').toLowerCase()
+  const key = businessCategoryLookupKey(businessCategory)
   let sectorLabel = 'European SMB'
   if (key.includes('saas') || key.includes('software') || key.includes('tech')) {
     sectorLabel = 'SaaS / Software'
@@ -84,7 +90,7 @@ export function deriveWaccSectorBand(businessCategory?: string): WaccSectorBand 
 
 export function deriveDcfSmartDefaults(args: {
   yearlyFinancials?: DcfYearlyFinancialsLike[]
-  businessCategory?: string
+  businessCategory?: unknown
 }): DcfSmartDefaults | null {
   const historical = (args.yearlyFinancials ?? [])
     .filter((row) => !row.isForecast)

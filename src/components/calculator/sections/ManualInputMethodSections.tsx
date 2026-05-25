@@ -9,10 +9,7 @@ import type { ManualValuationFormData, ValuationMethodResult } from '../../../ty
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import { AdaptiveSections } from './AdaptiveSections'
-import {
-  AdvisorControlsTrigger,
-  type AdvisorDefaultAppliedField,
-} from './AdvisorControlsTrigger'
+import { AdvisorControlsTrigger, type AdvisorDefaultAppliedField } from './AdvisorControlsTrigger'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
 
@@ -42,7 +39,7 @@ interface ManualInputMethodSectionsProps {
   onTerminalValueMethodChange: (method: TerminalValueMethod) => void
   onViewAllNormalizations?: () => void
   previewCurrencyFormatter: Intl.NumberFormat
-  resolvedBusinessCategory?: string | null
+  resolvedBusinessCategory?: unknown
   resolvedBusinessTypeId?: string | null
   saasSignals: GetBonusSectionsSaasSignals
   setFormData: Dispatch<SetStateAction<ManualValuationFormData>>
@@ -271,4 +268,3 @@ export function ManualInputMethodSections({
     </>
   )
 }
-

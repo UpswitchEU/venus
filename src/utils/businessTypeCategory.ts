@@ -18,21 +18,27 @@ function isCategoryObject(
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export function formatBusinessTypeCategory(category: unknown, fallback = ''): string {
+export function businessTypeCategoryStrings(category: unknown, fallback = ''): string[] {
+  const values: string[] = []
+  const push = (value: unknown) => {
+    const stringValue = nonEmptyString(value)
+    if (stringValue && !values.includes(stringValue)) values.push(stringValue)
+  }
+
   if (typeof category === 'string') {
-    return nonEmptyString(category) ?? fallback
+    push(category)
+  } else if (isCategoryObject(category)) {
+    push(category.name)
+    push(category.title)
+    push(category.id)
   }
 
-  if (isCategoryObject(category)) {
-    return (
-      nonEmptyString(category.name) ??
-      nonEmptyString(category.title) ??
-      nonEmptyString(category.id) ??
-      fallback
-    )
-  }
+  push(fallback)
+  return values
+}
 
-  return fallback
+export function formatBusinessTypeCategory(category: unknown, fallback = ''): string {
+  return businessTypeCategoryStrings(category, fallback)[0] ?? fallback
 }
 
 export function businessTypeCategoryKey(
