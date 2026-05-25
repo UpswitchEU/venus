@@ -197,6 +197,33 @@ describe('SessionAPI', () => {
       expect(result.session?.name).toBe('Updated Corp business valuation')
     })
 
+    it('retries transient Premature close failures once before failing the save', async () => {
+      vi.useFakeTimers()
+      try {
+        executeRequestSpy
+          .mockRejectedValueOnce({
+            response: { status: 500, data: { message: 'Premature close' } },
+          })
+          .mockResolvedValueOnce({
+            session_key: 'val_update_123',
+            session_data: { company_name: 'Updated Corp' },
+          })
+
+        const resultPromise = api.updateValuationSession('val_update_123', {
+          reportId: 'val_update_123',
+          updates: { sessionData: { company_name: 'Updated Corp' } },
+        })
+
+        await vi.advanceTimersByTimeAsync(500)
+        const result = await resultPromise
+
+        expect(result.success).toBe(true)
+        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('maps PATCH updates to Titan session_data and strips report HTML blobs', async () => {
       executeRequestSpy.mockResolvedValue({
         success: true,

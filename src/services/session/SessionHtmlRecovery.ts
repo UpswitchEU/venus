@@ -15,6 +15,34 @@ const logger = createContextLogger('SessionService')
 
 /** Deduplicate concurrent self-heal calls per Titan report identifier */
 const ensureHtmlInFlight = new Set<string>()
+const ensureHtmlRecentFailures = new Map<string, number>()
+const ENSURE_HTML_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+
+function hasRecentEnsureHtmlFailure(dedupeKey: string): boolean {
+  const failedAt = ensureHtmlRecentFailures.get(dedupeKey)
+  if (!failedAt) return false
+  if (Date.now() - failedAt > ENSURE_HTML_FAILURE_COOLDOWN_MS) {
+    ensureHtmlRecentFailures.delete(dedupeKey)
+    return false
+  }
+  return true
+}
+
+function markEnsureHtmlFailure(dedupeKey: string): void {
+  ensureHtmlRecentFailures.set(dedupeKey, Date.now())
+}
+
+function clearEnsureHtmlFailure(dedupeKey: string): void {
+  ensureHtmlRecentFailures.delete(dedupeKey)
+}
+
+function shouldRefetchAfterEnsureResponse(response: Record<string, unknown>): boolean {
+  const status = typeof response.status === 'string' ? response.status : null
+  if (!status) {
+    return response.success !== false
+  }
+  return status === 'recovered' || status === 'already_present'
+}
 
 function valuationSnapshotHasRange(valuationResult: unknown): boolean {
   if (!valuationResult || typeof valuationResult !== 'object') return false
@@ -101,6 +129,14 @@ export async function tryRefetchAfterEnsureHtml(
   })
   const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}|${alternateReportId ?? ''}`
 
+  if (hasRecentEnsureHtmlFailure(dedupeKey)) {
+    logger.debug('HTML self-heal skipped: recent render attempt failed', {
+      reportId: reportId?.substring(0, 24),
+      cooldownMs: ENSURE_HTML_FAILURE_COOLDOWN_MS,
+    })
+    return null
+  }
+
   if (ensureHtmlInFlight.has(dedupeKey)) {
     return null
   }
@@ -119,11 +155,22 @@ export async function tryRefetchAfterEnsureHtml(
           reportId: reportId?.substring(0, 24),
         }
       )
+      markEnsureHtmlFailure(dedupeKey)
       return null
     }
     if ((res as { success?: boolean }).success === false) {
+      markEnsureHtmlFailure(dedupeKey)
       return null
     }
+    if (!shouldRefetchAfterEnsureResponse(res)) {
+      logger.debug('ensureReportHtml did not recover usable HTML yet; skipping refetch', {
+        reportId: reportId?.substring(0, 24),
+        status: typeof res.status === 'string' ? res.status : undefined,
+      })
+      markEnsureHtmlFailure(dedupeKey)
+      return null
+    }
+    clearEnsureHtmlFailure(dedupeKey)
 
     const lookupIds = orderedValuationSessionLookupIds({
       ensureResponseReportId: (res as { reportId?: unknown }).reportId,
@@ -143,6 +190,7 @@ export async function tryRefetchAfterEnsureHtml(
       reportId,
       error: getErrorMessage(error),
     })
+    markEnsureHtmlFailure(dedupeKey)
     return null
   } finally {
     ensureHtmlInFlight.delete(dedupeKey)

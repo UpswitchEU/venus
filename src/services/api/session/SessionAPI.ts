@@ -109,9 +109,51 @@ function normalizeUpdateSessionResponse(response: unknown): UpdateValuationSessi
   }
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function transientSessionPatchMessage(error: unknown): string {
+  const axiosError = toAxiosLikeError(error)
+  const responseData = axiosError.response?.data
+  const responseRecord = asRecord(responseData)
+  return [
+    axiosError.message,
+    typeof responseData === 'string' ? responseData : undefined,
+    typeof responseRecord?.message === 'string' ? responseRecord.message : undefined,
+    typeof responseRecord?.error === 'string' ? responseRecord.error : undefined,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function isTransientSessionPatchError(error: unknown): boolean {
+  const axiosError = toAxiosLikeError(error)
+  const status = axiosError.response?.status
+  if (status === 429 || status === 404) {
+    return false
+  }
+  if (status === 500 || status === 502 || status === 503 || status === 504) {
+    return true
+  }
+  if (isNetworkError(error) || isTimeoutLikeError(error)) {
+    return true
+  }
+  const message = transientSessionPatchMessage(error).toLowerCase()
+  return (
+    message.includes('premature close') ||
+    message.includes('econnreset') ||
+    message.includes('etimedout') ||
+    message.includes('socket hang up') ||
+    message.includes('connection terminated') ||
+    message.includes('network error')
+  )
+}
+
 export class SessionAPI extends HttpClient {
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
+  private static readonly TRANSIENT_PATCH_RETRY_DELAYS_MS = [500, 1500]
 
   private static markSessionDeleted(reportId: string): void {
     SessionAPI.deletedSessionTombstones.set(reportId, Date.now())
@@ -135,6 +177,39 @@ export class SessionAPI extends HttpClient {
     }
 
     return true
+  }
+
+  private async patchValuationSessionWithTransientRetry(
+    reportId: string,
+    patchBody: Record<string, unknown>,
+    options?: APIRequestConfig
+  ): Promise<unknown> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.executeRequest<unknown>(
+          requestConfig({
+            method: 'PATCH',
+            url: `/api/v2/valuations/sessions/${reportId}`,
+            data: patchBody,
+            headers: {},
+          }),
+          options
+        )
+      } catch (error) {
+        const retryDelay = SessionAPI.TRANSIENT_PATCH_RETRY_DELAYS_MS[attempt]
+        if (!isTransientSessionPatchError(error) || retryDelay == null) {
+          throw error
+        }
+        apiLogger.warn('Transient session PATCH failed, retrying', {
+          reportId,
+          attempt: attempt + 1,
+          retryDelay,
+          status: toAxiosLikeError(error).response?.status,
+          message: transientSessionPatchMessage(error),
+        })
+        await delay(retryDelay)
+      }
+    }
   }
 
   /**
@@ -526,13 +601,9 @@ export class SessionAPI extends HttpClient {
       const patchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
-      const response = await this.executeRequest<unknown>(
-        requestConfig({
-          method: 'PATCH',
-          url: `/api/v2/valuations/sessions/${reportId}`,
-          data: patchBody,
-          headers: {},
-        }),
+      const response = await this.patchValuationSessionWithTransientRetry(
+        reportId,
+        patchBody,
         options
       )
 
