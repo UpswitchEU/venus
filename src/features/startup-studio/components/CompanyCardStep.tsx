@@ -29,7 +29,6 @@
  *   - Preset picker — pre-fills a defensible baseline in one click.
  */
 
-import { Building2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
@@ -37,7 +36,6 @@ import { TARGET_COUNTRIES } from '@/config/countries'
 import {
   type BusinessType,
   BusinessTypeSearchInput,
-  categoryIcons,
   type KBOCompany,
   KBOSearchInput,
 } from '@/design-system'
@@ -56,6 +54,7 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { mapApiBusinessTypeForEntitySearch } from '@/utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
@@ -443,25 +442,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   } = useBusinessTypes()
 
   const businessTypesForSearch = useMemo<BusinessType[]>(() => {
-    return businessTypes.map((bt) => {
-      const cat =
-        typeof bt.category === 'string'
-          ? bt.category
-          : ((bt.category as Record<string, unknown>)?.name ??
-            (bt.category as Record<string, unknown>)?.title ??
-            'other')
-      const rawCategory = String(cat).toLowerCase().replace(/\s+/g, '-')
-      const category = categoryIcons[rawCategory] ? rawCategory : 'other'
-      return {
-        id: bt.id,
-        code: bt.industryMapping || bt.id,
-        name: bt.title,
-        category,
-        icon: categoryIcons[rawCategory] ?? categoryIcons.other ?? Building2,
-        emoji: bt.icon || '🏢',
-        popular: bt.popular ?? false,
-      }
-    })
+    return businessTypes.map(mapApiBusinessTypeForEntitySearch)
   }, [businessTypes])
 
   // -------------------------------------------------------------------

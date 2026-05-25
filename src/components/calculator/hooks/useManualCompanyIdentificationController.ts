@@ -1,4 +1,3 @@
-import { Building2 } from 'lucide-react'
 import {
   type Dispatch,
   type MutableRefObject,
@@ -7,11 +6,12 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { type BusinessType, categoryIcons, type KBOCompany } from '@/design-system'
+import { type BusinessType, type KBOCompany } from '@/design-system'
 import { useBusinessTypes } from '../../../hooks/useBusinessTypes'
 import { registryService } from '../../../services/registry/registryService'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import type { ManualValuationFormData as ValuationFormData } from '../../../types/valuation'
+import { mapApiBusinessTypeForEntitySearch } from '../../../utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { pickLegalFormFromRegistryHit } from '../../../utils/registryUtils'
 import { useManualNaceBusinessTypePrefill } from './useManualNaceBusinessTypePrefill'
@@ -96,7 +96,7 @@ export function useManualCompanyIdentificationController({
     refetch: refetchBusinessTypes,
   } = useBusinessTypes()
   const businessTypesForSearch = useMemo(
-    () => businessTypes.map(mapBusinessTypeForSearch),
+    () => businessTypes.map(mapApiBusinessTypeForEntitySearch),
     [businessTypes]
   )
 
@@ -280,41 +280,5 @@ function mapRegistryResultToKboCompany(
     countryCode: result.country_code || searchCountry,
     businessTypeId,
     businessTypeTitle,
-  }
-}
-
-function mapBusinessTypeForSearch(bt: {
-  category?: unknown
-  icon?: string | null
-  id: string
-  industryMapping?: string | null
-  popular?: boolean
-  title: string
-}): BusinessType {
-  const apiCategoryToIconKey: Record<string, string> = {
-    restaurant: 'food',
-    restaurants: 'food',
-    horeca: 'hospitality',
-    catering: 'food',
-    professional: 'consulting',
-    professionals: 'consulting',
-  }
-  const cat =
-    typeof bt.category === 'string'
-      ? bt.category
-      : ((bt.category as Record<string, unknown>)?.name ??
-        (bt.category as Record<string, unknown>)?.title ??
-        'other')
-  const rawCategory = String(cat).toLowerCase().replace(/\s+/g, '-')
-  const iconKey = apiCategoryToIconKey[rawCategory] ?? rawCategory
-  const category = categoryIcons[iconKey] ? iconKey : 'other'
-  return {
-    id: bt.id,
-    code: bt.industryMapping || bt.id,
-    name: bt.title,
-    category,
-    icon: categoryIcons[iconKey] ?? categoryIcons['other'] ?? Building2,
-    emoji: bt.icon || '\u{1F3E2}',
-    popular: bt.popular ?? false,
   }
 }
