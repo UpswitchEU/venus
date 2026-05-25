@@ -7,7 +7,11 @@
  * @module services/api/report/ReportAPI
  */
 
-import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
+import {
+  BY_SESSION_404_BACKOFF_MS,
+  buildAxiosEffectiveRequestUrl,
+  isBySessionReportUrl,
+} from '../../../constants/reportBySessionRetry'
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -17,6 +21,11 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 type AxiosLikeError = {
   code?: string
+  config?: {
+    baseURL?: string
+    method?: string
+    url?: string
+  }
   name?: string
   response?: {
     data?: unknown
@@ -340,14 +349,25 @@ export class ReportAPI extends HttpClient {
    * Handle report-specific errors
    */
   private handleReportError(error: unknown, operation: string): never {
-    apiLogger.error(`Report ${operation} failed`, { error })
-
     const axiosError = asAxiosLikeError(error)
     const status = axiosError?.response?.status
+    const effectiveUrl = buildAxiosEffectiveRequestUrl(axiosError?.config)
+    const isExpectedBySession404 = status === 404 && isBySessionReportUrl(effectiveUrl)
 
     if (status === 404) {
+      if (isExpectedBySession404) {
+        apiLogger.debug('Report by-session not available', {
+          operation,
+          status,
+          url: effectiveUrl || axiosError?.config?.url,
+        })
+      } else {
+        apiLogger.warn(`Report ${operation} not found`, { error })
+      }
       throw new APIError('Report not found', status, undefined, true)
     }
+
+    apiLogger.error(`Report ${operation} failed`, { error })
 
     if (status === 401 || status === 403) {
       throw new AuthenticationError('Authentication required for report operation')

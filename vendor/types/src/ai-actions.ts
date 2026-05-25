@@ -14,6 +14,11 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
   run_sellability: 'sellability_run_request',
   update_owner_profile_answer: 'owner_profile_answer_request',
   propose_integration_connect: 'integration_connect_request',
+  propose_integration_sync: 'integration_sync_request',
+  propose_owner_reminder: 'owner_reminder_request',
+  propose_listing_visibility: 'listing_visibility_request',
+  propose_share_token: 'share_token_request',
+  propose_share_token_revoke: 'share_token_revoke_request',
   propose_secure_credential: 'secure_credential_request',
   propose_csv_upload: 'csv_upload_request',
   propose_multi_select: 'multi_select_request',
@@ -30,6 +35,7 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
   search_business_types: 'business_type_search_results',
   search_kbo_registry: 'registry_search_results',
   search_kvk_registry: 'registry_search_results',
+  suggest_normalization_batch: 'normalization_suggestion_batch',
   get_buyer_ready_package: 'buyer_ready_package_status',
   generate_buyer_ready_package: 'buyer_ready_package_generation_request',
   get_dd_checklist: 'dd_checklist',
@@ -57,6 +63,11 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
   'sellability_run_request',
   'owner_profile_answer_request',
   'integration_connect_request',
+  'integration_sync_request',
+  'owner_reminder_request',
+  'listing_visibility_request',
+  'share_token_request',
+  'share_token_revoke_request',
   'secure_credential_request',
   'csv_upload_request',
   'multi_select_request',
@@ -72,6 +83,7 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
   'buyer_profile_preview',
   'business_type_search_results',
   'registry_search_results',
+  'normalization_suggestion_batch',
   'buyer_ready_package_status',
   'buyer_ready_package_generation_request',
   'dd_checklist',
@@ -94,10 +106,29 @@ export const AI_STREAM_CHUNK_TYPES = [
   'tool_result',
   'done',
   'error',
+  // SSE keep-alive — emitted server-side every ~30s while the generator is
+  // alive, so proxies (Cloudflare ~100s idle limit) don't close long tool
+  // chains mid-stream. The FE MUST treat these as no-ops — they must never
+  // satisfy `didReceiveAnyContent`, otherwise a silent Claude turn would
+  // hide behind the keepalive and skip the user-facing empty-stream
+  // fallback. See `AI_STREAM_KEEPALIVE_CHUNK_JSON` for the wire literal.
   '_keepalive',
 ] as const;
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
 
+/**
+ * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
+ * the producer (Titan AI / onboarding controllers) and the consumer
+ * (Mercury dock + tests) cannot drift: any change here breaks the FE pin
+ * in `ai-dock-tool-card-parser-streaming.test.ts` and forces a deliberate
+ * matching update on Titan.
+ *
+ * Why a constant for the *encoded* shape: Titan emits via
+ * `{ data: AI_STREAM_KEEPALIVE_CHUNK_JSON }` to skip a JSON.stringify per
+ * heartbeat and to keep the wire format pin in one place. Consumers
+ * reading the parsed object should still pattern-match on `type` against
+ * the discriminant above.
+ */
 export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 
 export interface AiToolResultEnvelope<
@@ -149,8 +180,9 @@ export type AiStreamChunk =
       conversationId?: string;
     }
   | {
-      // Heartbeat frame used to keep long SSE tool chains open. Consumers must
-      // treat this as a no-op, not visible content or a terminal event.
+      // Heartbeat — see `AI_STREAM_KEEPALIVE_CHUNK_JSON`. Consumers must
+      // pattern-match this as a no-op and never let it satisfy
+      // "received content" gates.
       type: '_keepalive';
     };
 

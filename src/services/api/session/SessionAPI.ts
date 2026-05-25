@@ -80,6 +80,35 @@ function emptyOptimisticUpdate(): UpdateValuationSessionResponse {
   }
 }
 
+function isBackendSessionPayload(value: SessionRecord | null): value is SessionRecord {
+  return !!(
+    value &&
+    ('id' in value ||
+      'reportId' in value ||
+      'session_key' in value ||
+      'session_data' in value ||
+      'sessionData' in value ||
+      'view_type' in value)
+  )
+}
+
+function normalizeUpdateSessionResponse(response: unknown): UpdateValuationSessionResponse {
+  const responseRecord = asRecord(response)
+  const nestedData = asRecord(responseRecord?.data)
+  const sessionPayload = isBackendSessionPayload(nestedData)
+    ? nestedData
+    : isBackendSessionPayload(responseRecord)
+      ? responseRecord
+      : null
+  const sessionData = sessionPayload ? normalizeBackendSessionPayload(sessionPayload) : null
+
+  return {
+    success: typeof responseRecord?.success === 'boolean' ? responseRecord.success : true,
+    session: sessionData as unknown as ValuationSession,
+    updated: true,
+  }
+}
+
 export class SessionAPI extends HttpClient {
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
@@ -109,23 +138,108 @@ export class SessionAPI extends HttpClient {
   }
 
   /**
-   * Titan expects `ai-guided`; Venus uses `conversational`. Single source of truth for PATCH
-   * bodies + blob stripping (initial request, 429 retries, and any future call sites).
+   * Titan's PATCH DTO is canonical snake_case. Keep Venus-only envelopes and metadata out of the
+   * top-level body so strict backend validation does not reject autosaves.
    */
   private static mapTitanPatchAndStripReportBlobs(
     patch: Partial<ValuationSession> | undefined
   ): Record<string, unknown> {
     const p = patch as Record<string, unknown> | undefined
     if (!p) {
-      return stripReportsFromValuationSessionPatchUpdates({}) as Record<string, unknown>
+      return {}
     }
+
+    const sessionData: Record<string, unknown> = {}
+    const mergeIntoSessionData = (value: unknown): void => {
+      const record = asRecord(value)
+      if (record) {
+        Object.assign(sessionData, record)
+      }
+    }
+
+    mergeIntoSessionData(p.session_data)
+    mergeIntoSessionData(p.sessionData)
+    mergeIntoSessionData(p.partial_data)
+    mergeIntoSessionData(p.partialData)
+
     const mappedCurrentView = p.currentView === 'conversational' ? 'ai-guided' : p.currentView
     const mappedDataSource = p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
-    const merged: Record<string, unknown> = { ...p, currentView: mappedCurrentView }
-    if (p.dataSource !== undefined) {
-      merged.dataSource = mappedDataSource
+
+    if (mappedCurrentView !== undefined) {
+      sessionData.currentView = mappedCurrentView
     }
-    return stripReportsFromValuationSessionPatchUpdates(merged) as Record<string, unknown>
+    if (mappedDataSource !== undefined) {
+      sessionData.dataSource = mappedDataSource
+    }
+    if (typeof p.name === 'string') {
+      sessionData.name = p.name
+    }
+
+    const knownTopLevelKeys = new Set([
+      'buyerReadiness',
+      'calculatedAt',
+      'completedAt',
+      'completeness',
+      'createdAt',
+      'current_step',
+      'currentStep',
+      'currentView',
+      'dataSource',
+      'guest_session_id',
+      'htmlReport',
+      'lastSyncedAt',
+      'name',
+      'partial_data',
+      'partialData',
+      'reportId',
+      'reportReady',
+      'session_data',
+      'sessionData',
+      'status',
+      'updatedAt',
+      'valuationResult',
+      'view_type',
+    ])
+
+    for (const [key, value] of Object.entries(p)) {
+      if (!knownTopLevelKeys.has(key)) {
+        sessionData[key] = value
+      }
+    }
+
+    const titanPatch: Record<string, unknown> = {}
+    const strippedSessionData = stripReportBlobsFromSessionPatch(sessionData)
+    if (
+      strippedSessionData &&
+      typeof strippedSessionData === 'object' &&
+      !Array.isArray(strippedSessionData) &&
+      Object.keys(strippedSessionData as Record<string, unknown>).length > 0
+    ) {
+      titanPatch.session_data = strippedSessionData
+    }
+
+    const rawViewType = p.view_type ?? mappedCurrentView
+    if (rawViewType === 'simple' || rawViewType === 'advanced') {
+      titanPatch.view_type = rawViewType
+    } else if (rawViewType === 'manual') {
+      titanPatch.view_type = 'simple'
+    } else if (rawViewType === 'conversational' || rawViewType === 'ai-guided') {
+      titanPatch.view_type = 'advanced'
+    }
+
+    const currentStep = p.current_step ?? p.currentStep
+    if (typeof currentStep === 'number' && Number.isInteger(currentStep) && currentStep >= 1) {
+      titanPatch.current_step = currentStep
+    }
+
+    if (p.status === 'active' || p.status === 'completed' || p.status === 'expired') {
+      titanPatch.status = p.status
+    }
+    if (typeof p.guest_session_id === 'string') {
+      titanPatch.guest_session_id = p.guest_session_id
+    }
+
+    return stripReportsFromValuationSessionPatchUpdates(titanPatch) as Record<string, unknown>
   }
 
   /**
@@ -289,6 +403,7 @@ export class SessionAPI extends HttpClient {
         // Preserve currentView in session_data for restoration
         currentView: currentView,
         ...(session.dataSource && { dataSource: session.dataSource }),
+        ...(typeof session.name === 'string' && { name: session.name }),
       }) as Record<string, unknown>
 
       // AUTH-FIRST: Guest session handling removed - authentication is required
@@ -356,6 +471,11 @@ export class SessionAPI extends HttpClient {
         currentView: currentView, // Preserve requested view
         sessionData: responseSessionData,
       } as unknown as ValuationSession
+      if (typeof responseSessionData.name === 'string') {
+        venusSession.name = responseSessionData.name
+      } else if (typeof session.name === 'string') {
+        venusSession.name = session.name
+      }
 
       // Map backend 'ai-guided' to frontend 'conversational' (if it exists in session_data)
       if (responseSessionData.currentView === 'ai-guided') {
@@ -406,7 +526,7 @@ export class SessionAPI extends HttpClient {
       const patchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
-      const response = await this.executeRequest<SessionEnvelope<SessionRecord>>(
+      const response = await this.executeRequest<unknown>(
         requestConfig({
           method: 'PATCH',
           url: `/api/v2/valuations/sessions/${reportId}`,
@@ -416,26 +536,7 @@ export class SessionAPI extends HttpClient {
         options
       )
 
-      // Backend returns { success: true, data: {...} }
-      // Transform to { success: true, session: {...}, updated: true }
-      const sessionData = response.data
-
-      // Map backend 'ai-guided' to frontend 'conversational'
-      if (sessionData) {
-        if (sessionData.currentView === 'ai-guided') {
-          sessionData.currentView = 'conversational'
-        }
-        // Map dataSource: 'ai-guided' → 'conversational'
-        if (sessionData.dataSource === 'ai-guided') {
-          sessionData.dataSource = 'conversational'
-        }
-      }
-
-      return {
-        success: response.success ?? true,
-        session: sessionData as unknown as ValuationSession,
-        updated: true,
-      }
+      return normalizeUpdateSessionResponse(response)
     } catch (error) {
       const axiosError = toAxiosLikeError(error)
 
@@ -453,7 +554,7 @@ export class SessionAPI extends HttpClient {
 
           const retriedResponse = await retryWithBackoff(
             async () => {
-              return await this.executeRequest<SessionEnvelope<SessionRecord>>(
+              return await this.executeRequest<unknown>(
                 requestConfig({
                   method: 'PATCH',
                   url: `/api/v2/valuations/sessions/${reportId}`,
@@ -471,21 +572,7 @@ export class SessionAPI extends HttpClient {
             }
           )
 
-          const sessionData = retriedResponse.data
-          if (sessionData) {
-            if (sessionData.currentView === 'ai-guided') {
-              sessionData.currentView = 'conversational'
-            }
-            if (sessionData.dataSource === 'ai-guided') {
-              sessionData.dataSource = 'conversational'
-            }
-          }
-
-          return {
-            success: retriedResponse.success ?? true,
-            session: sessionData as unknown as ValuationSession,
-            updated: true,
-          }
+          return normalizeUpdateSessionResponse(retriedResponse)
         } catch (retryError) {
           // Rate limit retries exhausted - return optimistic success for non-critical updates
           const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)

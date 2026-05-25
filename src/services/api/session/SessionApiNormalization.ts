@@ -9,6 +9,7 @@ type BackendSessionPayload = SessionRecord & {
   currentView?: unknown
   dataSource?: unknown
   htmlReport?: unknown
+  name?: unknown
   partialData?: unknown
   reportReady?: unknown
   session_data?: unknown
@@ -52,6 +53,14 @@ function repairBackendSessionPayload(sessionData: unknown): BackendSessionPayloa
     if (backendSessionData.currentView && !payload.currentView) {
       payload.currentView = backendSessionData.currentView
     }
+    if (backendSessionData.dataSource && !payload.dataSource) {
+      payload.dataSource = backendSessionData.dataSource
+    }
+  }
+
+  const mergedSessionData = asSessionRecord(payload.sessionData)
+  if (typeof payload.name !== 'string' && typeof mergedSessionData?.name === 'string') {
+    payload.name = mergedSessionData.name
   }
 
   if ((payload.currentView as string) === 'ai-guided') {
