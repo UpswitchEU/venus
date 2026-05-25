@@ -22,6 +22,7 @@ import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancel
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
+import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
 import { shouldHydrateBootstrapPackage } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
@@ -46,14 +47,58 @@ import {
 import { parseUrlToContext } from './utils'
 
 // Module-level flag: once bootstrap completes successfully, prevent
-// re-triggering from any source (effect re-run, remount, auth toggle).
-// Only reset on explicit forceRefresh or page reload.
+// re-triggering for the same existing report from any source (effect re-run,
+// remount, auth toggle). Only reset on explicit forceRefresh or page reload.
 let bootstrapCompletedGlobally = false
 // Module-level snapshot of the last successful result. Unlike the service's
-// TTL-based cache (10s), this never expires — it survives component remounts
-// indefinitely and is the authoritative hydration source for remounted
-// BootstrapProviders. Cleared only on logout or explicit force-refresh.
+// TTL-based cache (10s), this never expires for existing reports — it survives
+// component remounts indefinitely, but only for the exact requested context.
+// Cleared only on logout, explicit force-refresh, or context key mismatch.
 let lastGlobalResult: SessionBootstrapState | null = null
+let lastGlobalContextKey: string | null = null
+
+function getScopedGlobalResult(
+  context: BootstrapContextShape | null | undefined
+): SessionBootstrapState | null {
+  const requestedContextKey = getBootstrapContextCacheKey(context)
+  const requestedReportKey = getBootstrapReportCacheKey(context?.reportId)
+  if (
+    !bootstrapCompletedGlobally ||
+    lastGlobalContextKey !== requestedContextKey ||
+    !lastGlobalResult
+  ) {
+    return null
+  }
+
+  // Do not hydrate /reports/new from an immortal module cache. The service TTL
+  // handles short remount deduplication for new report creation.
+  if (requestedReportKey === 'new') {
+    return null
+  }
+
+  const returnedId = lastGlobalResult.report.reportId?.trim()
+  return returnedId === requestedReportKey ? lastGlobalResult : null
+}
+
+function rememberScopedGlobalResult(
+  context: BootstrapContextShape | null | undefined,
+  result: SessionBootstrapState
+) {
+  const requestedContextKey = getBootstrapContextCacheKey(context)
+  const requestedReportKey = getBootstrapReportCacheKey(context?.reportId)
+  const returnedId = result.report.reportId?.trim()
+
+  if (requestedReportKey === 'new' || returnedId !== requestedReportKey) {
+    bootstrapCompletedGlobally = false
+    lastGlobalResult = null
+    lastGlobalContextKey = null
+    return
+  }
+
+  bootstrapCompletedGlobally = true
+  lastGlobalResult = result
+  lastGlobalContextKey = requestedContextKey
+}
 
 function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefillData']): boolean {
   if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
@@ -84,6 +129,7 @@ function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefi
 export function resetBootstrapGuard() {
   bootstrapCompletedGlobally = false
   lastGlobalResult = null
+  lastGlobalContextKey = null
 }
 
 // ============================================================================
@@ -193,6 +239,10 @@ export function BootstrapProvider({
 
   // Abort guard: prevents stale setState calls after unmount
   const mountedRef = useIsMountedRef()
+  const activeContext = useMemo(
+    () => context || parseUrlToContext(typeof window !== 'undefined' ? window.location.href : '/'),
+    [context]
+  )
 
   // Bootstrap function
   const runBootstrap = useCallback(async () => {
@@ -201,7 +251,7 @@ export function BootstrapProvider({
       generalLogger.debug(
         '[BootstrapProvider] Bootstrap already started, skipping duplicate call',
         {
-          reportId: context?.reportId?.substring(0, 30),
+          reportId: activeContext.reportId?.substring(0, 30),
         }
       )
       return
@@ -209,12 +259,13 @@ export function BootstrapProvider({
 
     // Guard 2 (module-level): bootstrap already completed in a previous mount
     if (bootstrapCompletedGlobally) {
-      const cached = bootstrapService.getCachedResult() || lastGlobalResult
+      const cached =
+        bootstrapService.getCachedResult(activeContext) || getScopedGlobalResult(activeContext)
       if (cached) {
         generalLogger.debug(
-          '[BootstrapProvider] Module-level guard — hydrating from cache (no callbacks)',
+          '[BootstrapProvider] Module-level guard — hydrating scoped cache (no callbacks)',
           {
-            reportId: context?.reportId?.substring(0, 30),
+            reportId: activeContext.reportId?.substring(0, 30),
           }
         )
         bootstrapStartedRef.current = true
@@ -224,21 +275,28 @@ export function BootstrapProvider({
         setBootstrapState(cached)
         return
       }
+
+      generalLogger.debug('[BootstrapProvider] Ignoring stale module-level bootstrap cache', {
+        requestedReportId: activeContext.reportId?.substring(0, 30),
+        cachedReportId: lastGlobalResult?.report.reportId?.substring(0, 30),
+      })
+      bootstrapCompletedGlobally = false
+      lastGlobalResult = null
+      lastGlobalContextKey = null
     }
 
     // Guard 3 (singleton cache): prevent re-bootstrap after component remount
-    const cachedResult = bootstrapService.getCachedResult()
-    if (bootstrapService.hasCompletedFor(context?.reportId) && cachedResult) {
+    const cachedResult = bootstrapService.getCachedResult(activeContext)
+    if (cachedResult) {
       generalLogger.debug(
         '[BootstrapProvider] Singleton cache hit — using cached result instead of re-fetching',
         {
-          reportId: context?.reportId?.substring(0, 30),
+          reportId: activeContext.reportId?.substring(0, 30),
         }
       )
       bootstrapStartedRef.current = true
       bootstrapCompletedRef.current = true
-      bootstrapCompletedGlobally = true
-      lastGlobalResult = cachedResult
+      rememberScopedGlobalResult(activeContext, cachedResult)
       setState(cachedResult)
       setIsBootstrapping(false)
       setBootstrapState(cachedResult)
@@ -264,8 +322,7 @@ export function BootstrapProvider({
     const _startTime = performance.now()
 
     try {
-      const bootstrapContext =
-        context || parseUrlToContext(typeof window !== 'undefined' ? window.location.href : '/')
+      const bootstrapContext = activeContext
 
       generalLogger.debug('[BootstrapProvider] Starting bootstrap', {
         contextReportId: bootstrapContext.reportId?.substring(0, 30) || 'none',
@@ -354,8 +411,7 @@ export function BootstrapProvider({
 
       if (mountedRef.current) setState(result)
       bootstrapCompletedRef.current = true
-      bootstrapCompletedGlobally = true
-      lastGlobalResult = result
+      rememberScopedGlobalResult(bootstrapContext, result)
 
       // Bootstrap succeeded — clear the reload-loop circuit breaker so
       // future legitimate reloads aren't blocked.
@@ -503,7 +559,7 @@ export function BootstrapProvider({
       if (mountedRef.current) setIsBootstrapping(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context, method, mountedRef.current])
+  }, [activeContext, method, mountedRef])
 
   // Explicit retry: resets all guards and forces a fresh bootstrap call.
   // Used when bootstrap fails and the user/UI needs to retry.
@@ -512,11 +568,13 @@ export function BootstrapProvider({
     bootstrapStartedRef.current = false
     bootstrapCompletedRef.current = false
     bootstrapCompletedGlobally = false
+    lastGlobalResult = null
+    lastGlobalContextKey = null
     bootstrapService.clearCache()
     bootstrapService.resetCircuitBreaker()
     if (mountedRef.current) setBootstrapError(null)
     await runBootstrap()
-  }, [runBootstrap, mountedRef.current])
+  }, [runBootstrap, mountedRef])
 
   // Auth-readiness subscription. Required for optimistic AuthGate paths:
   // when AuthGate renders children before auth has settled, the first
@@ -536,17 +594,28 @@ export function BootstrapProvider({
   // promise cache) ensure at-most-once execution per report.
   useEffect(() => {
     if (bootstrapCompletedGlobally) {
-      if (!bootstrapStartedRef.current) {
-        const cached = bootstrapService.getCachedResult() || lastGlobalResult
-        if (cached) {
-          bootstrapStartedRef.current = true
-          bootstrapCompletedRef.current = true
-          setState(cached)
-          setIsBootstrapping(false)
-          setBootstrapState(cached)
-        }
+      if (bootstrapStartedRef.current) {
+        return
       }
-      return
+
+      const cached =
+        bootstrapService.getCachedResult(activeContext) || getScopedGlobalResult(activeContext)
+      if (cached) {
+        bootstrapStartedRef.current = true
+        bootstrapCompletedRef.current = true
+        setState(cached)
+        setIsBootstrapping(false)
+        setBootstrapState(cached)
+        return
+      }
+
+      generalLogger.debug('[BootstrapProvider] Global bootstrap cache missed current report', {
+        requestedReportId: activeContext.reportId?.substring(0, 30),
+        cachedReportId: lastGlobalResult?.report.reportId?.substring(0, 30),
+      })
+      bootstrapCompletedGlobally = false
+      lastGlobalResult = null
+      lastGlobalContextKey = null
     }
 
     if (bootstrapStartedRef.current || initialState) {
@@ -557,7 +626,7 @@ export function BootstrapProvider({
       runBootstrap()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady, autoBootstrap, initialState, runBootstrap])
+  }, [authReady, autoBootstrap, activeContext, initialState, runBootstrap])
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:

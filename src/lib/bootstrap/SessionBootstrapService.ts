@@ -15,6 +15,7 @@
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
+import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
@@ -82,7 +83,7 @@ export class SessionBootstrapService {
   private static readonly RESULT_CACHE_TTL_MS = 10_000
   private lastSuccessfulResult: SessionBootstrapState | null = null
   private lastSuccessfulAt = 0
-  private lastSuccessfulReportId: string | null = null
+  private lastSuccessfulCacheKey: string | null = null
 
   constructor(
     authResolver?: AuthResolver,
@@ -177,7 +178,7 @@ export class SessionBootstrapService {
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
-    const cacheReportId = context.reportId || 'new'
+    const cacheKey = this.getCacheKey(context)
 
     // Guard 1: Sliding-window circuit breaker (shared with bootstrapViaTitan)
     const now = Date.now()
@@ -185,18 +186,18 @@ export class SessionBootstrapService {
       (t) => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
     )
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
-      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
+      const cachedResult = this.getCachedResult(context)
+      if (cachedResult) return cachedResult
       throw new Error('[Bootstrap] Circuit breaker tripped (client-side path)')
     }
 
     // Guard 2: Result cache
-    if (this.hasCompletedFor(context.reportId)) {
+    if (this.hasCompletedFor(context)) {
       if (this.lastSuccessfulResult) return this.lastSuccessfulResult
     }
 
     const opts = { ...DEFAULT_OPTIONS, ...options }
     const startTime = performance.now()
-    const cacheKey = this.getCacheKey(context)
 
     // Guard 3: In-flight dedup
     const inflight = this.bootstrapPromiseCache.get(cacheKey)
@@ -213,7 +214,7 @@ export class SessionBootstrapService {
       const result = await bootstrapPromise
       this.lastSuccessfulResult = result
       this.lastSuccessfulAt = Date.now()
-      this.lastSuccessfulReportId = cacheReportId
+      this.lastSuccessfulCacheKey = cacheKey
       return result
     } finally {
       this.bootstrapPromiseCache.delete(cacheKey)
@@ -396,14 +397,15 @@ export class SessionBootstrapService {
   }
 
   /**
-   * Generate cache key for deduplication.
+   * Generate a context-aware cache key for deduplication.
    *
-   * IMPORTANT: Only use reportId — do NOT include clientToken because
-   * auth.ts sanitizes the URL (strips clientToken) after the first call.
-   * Including it would cause a second call to miss the in-flight cache.
+   * IMPORTANT: Do NOT include clientToken, cookies, or the raw URL. Auth may
+   * sanitize clientToken after the first call, cookies are volatile, and the URL
+   * can contain non-semantic cache-busting params. The explicit context fields
+   * below are the stable inputs that can alter bootstrap output.
    */
   private getCacheKey(context: BootstrapContext): string {
-    return context.reportId || 'new'
+    return getBootstrapContextCacheKey(context)
   }
 
   /**
@@ -536,22 +538,14 @@ export class SessionBootstrapService {
   }
 
   /**
-   * Bootstrap via Titan API endpoint (single-request optimization)
-   *
-   * This method uses the Titan bootstrap endpoint which performs all
-   * resolution server-side, reducing network round-trips.
-   *
-   * Use this for production for optimal performance.
-   */
-  /**
-   * Check if a successful bootstrap result is cached for the given reportId.
+   * Check if a successful bootstrap result is cached for the given context.
    * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
    */
-  hasCompletedFor(reportId: string | undefined): boolean {
-    const effectiveId = reportId || 'new'
+  hasCompletedFor(contextOrReportId: BootstrapContext | string | undefined): boolean {
+    const effectiveKey = getBootstrapCacheLookupKey(contextOrReportId)
     return (
       this.lastSuccessfulResult !== null &&
-      this.lastSuccessfulReportId === effectiveId &&
+      this.lastSuccessfulCacheKey === effectiveKey &&
       Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
     )
   }
@@ -563,7 +557,7 @@ export class SessionBootstrapService {
   clearCache(): void {
     this.lastSuccessfulResult = null
     this.lastSuccessfulAt = 0
-    this.lastSuccessfulReportId = null
+    this.lastSuccessfulCacheKey = null
   }
 
   /**
@@ -576,23 +570,44 @@ export class SessionBootstrapService {
 
   /**
    * Return the cached result if available and still fresh, or null.
+   * When a reportId is provided, the cache is scoped to that requested report
+   * so a rapid SPA navigation cannot hydrate another report's payload.
    */
-  getCachedResult(): SessionBootstrapState | null {
-    if (
+  getCachedResult(contextOrReportId?: BootstrapContext | string): SessionBootstrapState | null {
+    const hasFreshResult =
       this.lastSuccessfulResult !== null &&
       Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
+
+    if (!hasFreshResult) {
+      return null
+    }
+
+    if (
+      arguments.length > 0 &&
+      this.lastSuccessfulCacheKey !== getBootstrapCacheLookupKey(contextOrReportId)
     ) {
+      return null
+    }
+
+    if (this.lastSuccessfulResult) {
       return this.lastSuccessfulResult
     }
+
     return null
   }
 
+  /**
+   * Bootstrap via Titan API endpoint (single-request optimization).
+   *
+   * This method uses the Titan bootstrap endpoint which performs all
+   * resolution server-side, reducing network round-trips.
+   */
   async bootstrapViaTitan(
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
     // Full ID for cache matching; truncated only for log readability
-    const cacheReportId = context.reportId || 'new'
+    const cacheKey = this.getCacheKey(context)
     const logReportId = context.reportId?.substring(0, 30) || 'new'
 
     // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
@@ -603,41 +618,42 @@ export class SessionBootstrapService {
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
       const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`
       this.logger.error(msg)
-      if (this.lastSuccessfulResult) {
-        this.logger.info('[Bootstrap] Returning last successful result from circuit breaker')
-        return this.lastSuccessfulResult
+      const cachedResult = this.getCachedResult(context)
+      if (cachedResult) {
+        this.logger.info('[Bootstrap] Returning scoped cached result from circuit breaker')
+        return cachedResult
       }
       throw new Error(msg)
     }
 
     // Guard 2: Result cache — return cached result if fresh
-    if (this.hasCompletedFor(context.reportId)) {
+    if (this.hasCompletedFor(context)) {
       this.logger.info(
         `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
       )
       if (this.lastSuccessfulResult) return this.lastSuccessfulResult
     }
 
-    const cacheKey = `titan:${this.getCacheKey(context)}`
+    const titanCacheKey = `titan:${cacheKey}`
 
     // Guard 3: Dedup in-flight request
-    const inflight = this.bootstrapPromiseCache.get(cacheKey)
+    const inflight = this.bootstrapPromiseCache.get(titanCacheKey)
     if (inflight) {
       this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)')
       return inflight
     }
 
     const promise = this._executeBootstrapViaTitan(context, options)
-    this.bootstrapPromiseCache.set(cacheKey, promise)
+    this.bootstrapPromiseCache.set(titanCacheKey, promise)
 
     try {
       const result = await promise
       this.lastSuccessfulResult = result
       this.lastSuccessfulAt = Date.now()
-      this.lastSuccessfulReportId = cacheReportId
+      this.lastSuccessfulCacheKey = cacheKey
       return result
     } finally {
-      this.bootstrapPromiseCache.delete(cacheKey)
+      this.bootstrapPromiseCache.delete(titanCacheKey)
     }
   }
 
