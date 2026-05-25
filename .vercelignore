@@ -1,10 +1,10 @@
 # Force Vercel to ignore build cache
-.vercel
-.next
-dist
-build
-node_modules
-.vite
+/.vercel
+/.next
+/dist
+/build
+/node_modules
+/.vite
 
 # Venus uses pnpm; avoid package manager conflict warning
-package-lock.json
+/package-lock.json
