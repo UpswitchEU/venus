@@ -67,14 +67,22 @@ export function formatValuationRange(
 ): string {
   if (!range) return '-'
   if (Number.isFinite(range.min) && Number.isFinite(range.max)) {
-    return `${formatMoney(range.min, locale)} - ${formatMoney(range.max, locale)}`
+    return `${formatMoney(range.min, locale)} to ${formatMoney(range.max, locale)}`
   }
   return formatMoney(range.mid, locale)
 }
 
 export function statusLabel(status: string | null | undefined): string {
   if (!status) return 'Unknown'
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return status
+    .replace(/top10/gi, 'Top 10')
+    .replace(/ip_register/gi, 'IP_register')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bIp\b/g, 'IP')
+    .replace(/\bEbitda\b/g, 'EBITDA')
+    .replace(/\bGdpr\b/g, 'GDPR')
+    .replace(/\bNace\b/g, 'NACE')
 }
 
 export function statusTone(
@@ -86,6 +94,36 @@ export function statusTone(
   return 'neutral'
 }
 
+export function confidenceLabel(confidence: 'high' | 'medium' | 'low' | null | undefined): string {
+  if (confidence === 'high') return 'High confidence'
+  if (confidence === 'medium') return 'Medium confidence'
+  if (confidence === 'low') return 'Low confidence'
+  return 'Unscored'
+}
+
+export function imSectionHeading(section: BuyerReadyImSection): string {
+  const cleaned = section.heading.trim()
+  const knownHeadings: Record<string, string> = {
+    executive_summary: 'Executive Summary',
+    business_overview: 'Business Overview',
+    financial_summary: 'Financial Summary',
+    ebitda_bridge: 'Normalised EBITDA Bridge',
+    normalized_ebitda_bridge: 'Normalised EBITDA Bridge',
+    customer_mix: 'Customer Mix',
+    team_and_ownership: 'Team and Ownership',
+    team_ownership: 'Team and Ownership',
+    growth_thesis: 'Growth Thesis',
+    deal_terms: 'Deal Terms',
+    transferability_and_risks: 'Transferability and Risks',
+    transferability_risks: 'Transferability and Risks',
+    wc_peg: 'Working-Capital Peg',
+    tax_latency: 'Tax Latency',
+    appendix_methodology: 'Appendix: Methodology',
+    appendix_missing_docs: 'Appendix: Missing Documents',
+  }
+  return knownHeadings[section.section_key] ?? cleaned.replace(/\bEbitda\b/g, 'EBITDA')
+}
+
 export function orderedImSections(
   sections: Record<string, BuyerReadyImSection> | null | undefined
 ) {
@@ -95,13 +133,21 @@ export function orderedImSections(
     'executive_summary',
     'business_overview',
     'financial_summary',
+    'ebitda_bridge',
     'normalized_ebitda_bridge',
     'customer_mix',
+    'team_and_ownership',
     'team_ownership',
     'growth_thesis',
     'deal_terms',
+    'transferability_and_risks',
     'transferability_risks',
+    'wc_peg',
+    'tax_latency',
+    'appendix_methodology',
+    'appendix_missing_docs',
     'appendix',
+    'disclaimers',
   ]
   return Object.values(sections).sort((a, b) => {
     const ai = preferred.indexOf(a.section_key)

@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   buildEvidenceIndex,
   buildPackageSummaryDownload,
+  confidenceLabel,
   extractBuyerReadinessFromPackageResponse,
   formatValuationRange,
+  imSectionHeading,
   orderedImSections,
+  statusLabel,
   summarizeRoom,
 } from './readiness-room-model'
 import type { BuyerReadinessPackage, BuyerReadyRoomPayload } from './types'
@@ -205,6 +208,23 @@ describe('readiness room model', () => {
     expect(summary.imSectionCount).toBe(2)
     expect(orderedImSections(room.im?.sections)[0]?.section_key).toBe('cover')
     expect(formatValuationRange(room.package?.report.pricingRange, 'nl-BE')).toContain('€')
+    expect(formatValuationRange(room.package?.report.pricingRange, 'en')).toContain(' to ')
+  })
+
+  it('formats buyer-facing labels without raw enum rough edges', () => {
+    expect(statusLabel('top10_customer_contracts')).toBe('Top 10 Customer Contracts')
+    expect(statusLabel('ip_register')).toBe('IP Register')
+    expect(confidenceLabel('medium')).toBe('Medium confidence')
+    expect(
+      imSectionHeading({
+        section_key: 'business_overview',
+        heading: 'Business overview',
+        narrative_paragraphs: [],
+        key_figures: [],
+        confidence: 'medium',
+        provenance: [],
+      })
+    ).toBe('Business Overview')
   })
 
   it('builds evidence and package summary downloads without UI state', () => {

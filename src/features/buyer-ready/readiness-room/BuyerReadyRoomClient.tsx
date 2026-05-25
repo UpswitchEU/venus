@@ -23,8 +23,10 @@ import { cn } from '@/lib/utils'
 import {
   buildEvidenceIndex,
   buildPackageSummaryDownload,
+  confidenceLabel,
   docsByCategory,
   formatMoney,
+  imSectionHeading,
   orderedImSections,
   statusLabel,
   statusTone,
@@ -545,7 +547,7 @@ function ImSectionPreview({ section }: { section: BuyerReadyImSection }) {
   return (
     <article className="rounded-lg border border-foreground/[0.08] bg-background px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-foreground">{section.heading}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{imSectionHeading(section)}</h3>
         <Badge
           variant={
             section.confidence === 'high'
@@ -556,7 +558,7 @@ function ImSectionPreview({ section }: { section: BuyerReadyImSection }) {
           }
           size="sm"
         >
-          {section.confidence}
+          {confidenceLabel(section.confidence)}
         </Badge>
       </div>
       <div className="mt-2 space-y-2">
