@@ -34,6 +34,9 @@ import {
   parseShareTokenRevokeRequest,
   parseSingleSelectRequest,
   parseSyncStatus,
+  parseBulkValuationRunRequest,
+  parseListingFieldUpdateRequest,
+  parseValuationDefaultsPreview,
   parseValuationDefaultsRequest,
   parseValuationMethodPreferenceRequest,
   parseValuationSessionRequest,
@@ -114,7 +117,10 @@ function emptyResult(): ParsedToolResults {
     shareTokenRequests: [],
     shareTokenRevokeRequests: [],
     valuationMethodPreferenceRequests: [],
+    bulkValuationRunRequests: [],
+    listingFieldUpdateRequests: [],
     valuationDefaultsRequests: [],
+    valuationDefaultsPreviews: [],
     acknowledgeWarningRequests: [],
     secureCredentialRequests: [],
     csvUploadRequests: [],
@@ -232,6 +238,15 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'valuation_defaults_request':
         out.valuationDefaultsRequests.push(...parseValuationDefaultsRequest(data))
+        break
+      case 'bulk_valuation_run_request':
+        out.bulkValuationRunRequests.push(...parseBulkValuationRunRequest(data))
+        break
+      case 'listing_field_update_request':
+        out.listingFieldUpdateRequests.push(...parseListingFieldUpdateRequest(data))
+        break
+      case 'valuation_defaults':
+        out.valuationDefaultsPreviews.push(...parseValuationDefaultsPreview(data))
         break
       case 'acknowledge_warning_request':
         out.acknowledgeWarningRequests.push(...parseAcknowledgeWarningRequest(data))

@@ -40,6 +40,9 @@ import type {
   ShareTokenRevokeRequest,
   SingleSelectRequest,
   SyncStatusPreview,
+  BulkValuationRunRequest,
+  ListingFieldUpdateRequest,
+  ValuationDefaultsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
@@ -1148,6 +1151,153 @@ function ValuationMethodPreferenceCard({ request }: { request: ValuationMethodPr
   )
 }
 
+function ListingFieldUpdateCard({ request }: { request: ListingFieldUpdateRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const change = request.change ?? {}
+  const proposedKeys = Object.keys(change).filter((k) =>
+    ['title', 'summary', 'description', 'asking_price'].includes(k)
+  )
+  const isEmpty = !isBlocked && (proposedKeys.length === 0 || !request.listingId)
+
+  // Inline meta lists which fields are being touched and a tight preview
+  // for the text fields. Mercury's card shows full previews; here we keep
+  // it short — Venus is a wizard surface, listing edits are rare here.
+  const metaParts: string[] = []
+  if ('title' in change) {
+    const v = change.title
+    metaParts.push(
+      v === null
+        ? ca('proposalCards.agent.listingFieldUpdateTitleCleared')
+        : ca('proposalCards.agent.listingFieldUpdateTitleSet', {
+            value: typeof v === 'string' ? v.slice(0, 40) : '',
+          })
+    )
+  }
+  if ('asking_price' in change) {
+    const v = change.asking_price
+    metaParts.push(
+      v === null
+        ? ca('proposalCards.agent.listingFieldUpdatePriceCleared')
+        : ca('proposalCards.agent.listingFieldUpdatePriceSet', {
+            value:
+              typeof v === 'number'
+                ? v.toLocaleString('en-US', { maximumFractionDigits: 0 })
+                : '',
+          })
+    )
+  }
+  if ('summary' in change)
+    metaParts.push(ca('proposalCards.agent.listingFieldUpdateSummary'))
+  if ('description' in change)
+    metaParts.push(ca('proposalCards.agent.listingFieldUpdateDescription'))
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.listingFieldUpdateBlocked')
+          : ca('proposalCards.agent.listingFieldUpdateTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.reason ?? request.message)}
+      meta={isBlocked ? undefined : compactParts(metaParts)}
+      tone={isBlocked || isEmpty ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      actionLabel={
+        isBlocked || isEmpty
+          ? undefined
+          : ca('proposalCards.agent.listingFieldUpdateAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.saved')}
+      onAction={
+        isBlocked || isEmpty || !request.listingId
+          ? undefined
+          : async () => {
+              const response = await fetch(
+                `/api/listings/${encodeURIComponent(request.listingId as string)}`,
+                {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders(
+                      'propose_listing_field_update',
+                      request.id
+                    ),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify(change),
+                }
+              )
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
+function BulkValuationRunCard({ request }: { request: BulkValuationRunRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const count = request.clientCount ?? request.clientIds?.length ?? 0
+  const credits = request.estimatedCredits ?? count * 5
+  const isInvalid = !request.clientIds || request.clientIds.length === 0
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.bulkValuationRunBlocked')
+          : count === 1
+            ? ca('proposalCards.agent.bulkValuationRunTitleSingle')
+            : ca('proposalCards.agent.bulkValuationRunTitle', { count: String(count) })
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.reason ?? request.message)}
+      meta={compactParts([
+        ca('proposalCards.agent.bulkValuationRunCount', { count: String(count) }),
+        ca('proposalCards.agent.bulkValuationRunCredits', { credits: String(credits) }),
+        typeof request.rejectedCount === 'number' && request.rejectedCount > 0
+          ? ca('proposalCards.agent.bulkValuationRunRejected', {
+              count: String(request.rejectedCount),
+            })
+          : null,
+      ])}
+      // Venus InlineActionCard only supports 'default' | 'blocked'; the
+      // cost warning lives in the meta chips (Credits: 500) and the explicit
+      // CTA copy ("Run bulk valuation"). Mercury renders this with a
+      // destructive-toned primary; Venus is the wizard surface and rarely
+      // hits this card so we accept the cross-app visual delta.
+      tone={isBlocked || isInvalid ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      actionLabel={
+        isBlocked || isInvalid
+          ? undefined
+          : ca('proposalCards.agent.bulkValuationRunAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.bulkValuationRunStarted')}
+      onAction={
+        isBlocked || isInvalid || !request.clientIds
+          ? undefined
+          : async () => {
+              const response = await fetch('/api/valuations/bulk', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...buildAgentToolActionHeaders('propose_bulk_valuation_run', request.id),
+                },
+                credentials: 'include',
+                body: JSON.stringify({ client_ids: request.clientIds }),
+              })
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
 function ValuationDefaultsCard({ request }: { request: ValuationDefaultsRequest }) {
   const ca = useTranslations('chatAssistant')
   const isBlocked = request.status === 'blocked'
@@ -1225,6 +1375,59 @@ function ValuationDefaultsCard({ request }: { request: ValuationDefaultsRequest 
               if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
             }
       }
+    />
+  )
+}
+
+function ValuationDefaultsPreviewCard({ preview }: { preview: ValuationDefaultsPreview }) {
+  const ca = useTranslations('chatAssistant')
+  const isFailed = preview.status === 'failed'
+  const defaults = preview.defaults ?? {
+    multiple_calibration_adjustment: null,
+    historical_ebitda_weighting_mode: null,
+    show_enterprise_to_equity_bridge: null,
+  }
+
+  const adj = defaults.multiple_calibration_adjustment
+  const weighting = defaults.historical_ebitda_weighting_mode
+  const bridge = defaults.show_enterprise_to_equity_bridge
+
+  const metaParts: string[] = []
+  if (adj === null) metaParts.push(ca('proposalCards.agent.valuationDefaultsPremiumDefault'))
+  else {
+    const sign = adj > 0 ? '+' : ''
+    metaParts.push(
+      ca('proposalCards.agent.valuationDefaultsPremium', { value: `${sign}${adj.toFixed(2)}` })
+    )
+  }
+  if (weighting === null)
+    metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingDefault'))
+  else if (weighting === 'weighted')
+    metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingWeighted'))
+  else metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingStandard'))
+  if (bridge === null) metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeDefault'))
+  else if (bridge) metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeShow'))
+  else metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeHide'))
+
+  return (
+    <InlineActionCard
+      id={preview.id}
+      title={
+        isFailed
+          ? ca('proposalCards.agent.valuationDefaultsPreviewFailed')
+          : ca('proposalCards.agent.valuationDefaultsPreviewTitle')
+      }
+      detail={
+        isFailed
+          ? preview.message
+          : preview.allDefaultsAtSystem
+            ? ca('proposalCards.agent.valuationDefaultsPreviewAllSystem')
+            : preview.message
+      }
+      meta={isFailed ? undefined : compactParts(metaParts)}
+      tone={isFailed ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      // No actionLabel — preview is read-only.
     />
   )
 }
@@ -1963,7 +2166,10 @@ export function ChatAssistantAgentActionCards({
           (message.shareTokenRequests?.length ?? 0) > 0 ||
           (message.shareTokenRevokeRequests?.length ?? 0) > 0 ||
           (message.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+          (message.bulkValuationRunRequests?.length ?? 0) > 0 ||
+          (message.listingFieldUpdateRequests?.length ?? 0) > 0 ||
           (message.valuationDefaultsRequests?.length ?? 0) > 0 ||
+          (message.valuationDefaultsPreviews?.length ?? 0) > 0 ||
           (message.acknowledgeWarningRequests?.length ?? 0) > 0 ||
           (message.secureCredentialRequests?.length ?? 0) > 0 ||
           (message.csvUploadRequests?.length ?? 0) > 0 ||
@@ -2010,8 +2216,17 @@ export function ChatAssistantAgentActionCards({
       {message.valuationMethodPreferenceRequests?.map((request) => (
         <ValuationMethodPreferenceCard key={request.id} request={request} />
       ))}
+      {message.bulkValuationRunRequests?.map((request) => (
+        <BulkValuationRunCard key={request.id} request={request} />
+      ))}
+      {message.listingFieldUpdateRequests?.map((request) => (
+        <ListingFieldUpdateCard key={request.id} request={request} />
+      ))}
       {message.valuationDefaultsRequests?.map((request) => (
         <ValuationDefaultsCard key={request.id} request={request} />
+      ))}
+      {message.valuationDefaultsPreviews?.map((preview) => (
+        <ValuationDefaultsPreviewCard key={preview.id} preview={preview} />
       ))}
       {message.acknowledgeWarningRequests?.map((request) => (
         <AcknowledgeWarningCard key={request.id} request={request} />

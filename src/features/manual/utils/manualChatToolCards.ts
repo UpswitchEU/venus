@@ -18,7 +18,14 @@ type ShareTokenRevokeCard = NonNullable<ChatMessage['shareTokenRevokeRequests']>
 type ValuationMethodPreferenceCard = NonNullable<
   ChatMessage['valuationMethodPreferenceRequests']
 >[number]
+type BulkValuationRunCard = NonNullable<ChatMessage['bulkValuationRunRequests']>[number]
+type ListingFieldUpdateCard = NonNullable<
+  ChatMessage['listingFieldUpdateRequests']
+>[number]
 type ValuationDefaultsCard = NonNullable<ChatMessage['valuationDefaultsRequests']>[number]
+type ValuationDefaultsPreviewCard = NonNullable<
+  ChatMessage['valuationDefaultsPreviews']
+>[number]
 type AcknowledgeWarningCard = NonNullable<ChatMessage['acknowledgeWarningRequests']>[number]
 type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
 type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
@@ -59,7 +66,10 @@ export interface ManualChatToolCards {
   shareTokenRequests?: ShareTokenCard[]
   shareTokenRevokeRequests?: ShareTokenRevokeCard[]
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceCard[]
+  bulkValuationRunRequests?: BulkValuationRunCard[]
+  listingFieldUpdateRequests?: ListingFieldUpdateCard[]
   valuationDefaultsRequests?: ValuationDefaultsCard[]
+  valuationDefaultsPreviews?: ValuationDefaultsPreviewCard[]
   acknowledgeWarningRequests?: AcknowledgeWarningCard[]
   secureCredentialRequests?: SecureCredentialCard[]
   csvUploadRequests?: CsvUploadCard[]
@@ -95,7 +105,10 @@ interface ManualChatToolCardsInput {
   shareTokenRequests?: readonly unknown[]
   shareTokenRevokeRequests?: readonly unknown[]
   valuationMethodPreferenceRequests?: readonly unknown[]
+  bulkValuationRunRequests?: readonly unknown[]
+  listingFieldUpdateRequests?: readonly unknown[]
   valuationDefaultsRequests?: readonly unknown[]
+  valuationDefaultsPreviews?: readonly unknown[]
   acknowledgeWarningRequests?: readonly unknown[]
   secureCredentialRequests?: readonly unknown[]
   csvUploadRequests?: readonly unknown[]
@@ -294,6 +307,28 @@ export function addIdsToManualChatToolCards(
   )
   pushIfAny(
     out,
+    'bulkValuationRunRequests',
+    (cards.bulkValuationRunRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as BulkValuationRunCard
+    )
+  )
+  pushIfAny(
+    out,
+    'listingFieldUpdateRequests',
+    (cards.listingFieldUpdateRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ListingFieldUpdateCard
+    )
+  )
+  pushIfAny(
+    out,
     'valuationDefaultsRequests',
     (cards.valuationDefaultsRequests ?? []).map(
       (request) =>
@@ -301,6 +336,17 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as ValuationDefaultsCard
+    )
+  )
+  pushIfAny(
+    out,
+    'valuationDefaultsPreviews',
+    (cards.valuationDefaultsPreviews ?? []).map(
+      (preview) =>
+        ({
+          ...(asRecord(preview) ?? {}),
+          id: createId(),
+        }) as ValuationDefaultsPreviewCard
     )
   )
   pushIfAny(
@@ -534,6 +580,12 @@ export function parseManualChatStreamToolResult(
         return { type: 'valuation_method_preference_request', data }
       case 'propose_valuation_defaults':
         return { type: 'valuation_defaults_request', data }
+      case 'propose_bulk_valuation_run':
+        return { type: 'bulk_valuation_run_request', data }
+      case 'propose_listing_field_update':
+        return { type: 'listing_field_update_request', data }
+      case 'get_valuation_defaults':
+        return { type: 'valuation_defaults', data }
       case 'propose_acknowledge_warning':
         return { type: 'acknowledge_warning_request', data }
       case 'propose_secure_credential':
@@ -622,7 +674,10 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.shareTokenRequests?.length ?? 0) > 0 ||
         (cards.shareTokenRevokeRequests?.length ?? 0) > 0 ||
         (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+        (cards.bulkValuationRunRequests?.length ?? 0) > 0 ||
+        (cards.listingFieldUpdateRequests?.length ?? 0) > 0 ||
         (cards.valuationDefaultsRequests?.length ?? 0) > 0 ||
+        (cards.valuationDefaultsPreviews?.length ?? 0) > 0 ||
         (cards.acknowledgeWarningRequests?.length ?? 0) > 0 ||
         (cards.secureCredentialRequests?.length ?? 0) > 0 ||
         (cards.csvUploadRequests?.length ?? 0) > 0 ||
@@ -724,10 +779,28 @@ export function appendManualChatToolCardsToMessage(
         ...cards.shareTokenRevokeRequests,
       ],
     }),
+    ...(cards.bulkValuationRunRequests && {
+      bulkValuationRunRequests: [
+        ...(message.bulkValuationRunRequests ?? []),
+        ...cards.bulkValuationRunRequests,
+      ],
+    }),
+    ...(cards.listingFieldUpdateRequests && {
+      listingFieldUpdateRequests: [
+        ...(message.listingFieldUpdateRequests ?? []),
+        ...cards.listingFieldUpdateRequests,
+      ],
+    }),
     ...(cards.valuationDefaultsRequests && {
       valuationDefaultsRequests: [
         ...(message.valuationDefaultsRequests ?? []),
         ...cards.valuationDefaultsRequests,
+      ],
+    }),
+    ...(cards.valuationDefaultsPreviews && {
+      valuationDefaultsPreviews: [
+        ...(message.valuationDefaultsPreviews ?? []),
+        ...cards.valuationDefaultsPreviews,
       ],
     }),
     ...(cards.valuationMethodPreferenceRequests && {

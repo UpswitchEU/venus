@@ -231,6 +231,31 @@ export interface ValuationMethodPreferenceRequest {
   message?: string
 }
 
+export interface BulkValuationRunRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  clientIds?: string[]
+  clientCount?: number
+  estimatedCredits?: number
+  rejectedCount?: number
+  reason?: string
+  message?: string
+}
+
+export interface ListingFieldUpdateRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  change?: {
+    title?: string | null
+    summary?: string | null
+    description?: string | null
+    asking_price?: number | null
+  }
+  reason?: string
+  message?: string
+}
+
 export interface ValuationDefaultsRequest {
   id: string
   status: 'pending_approval' | 'blocked'
@@ -240,6 +265,18 @@ export interface ValuationDefaultsRequest {
     show_enterprise_to_equity_bridge?: boolean | null
   }
   reason?: string
+  message?: string
+}
+
+export interface ValuationDefaultsPreview {
+  id: string
+  status: 'ok' | 'failed'
+  defaults?: {
+    multiple_calibration_adjustment: number | null
+    historical_ebitda_weighting_mode: 'standard' | 'weighted' | null
+    show_enterprise_to_equity_bridge: boolean | null
+  }
+  allDefaultsAtSystem?: boolean
   message?: string
 }
 
@@ -604,7 +641,10 @@ export interface ChatMessage {
   shareTokenRequests?: ShareTokenRequest[]
   shareTokenRevokeRequests?: ShareTokenRevokeRequest[]
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceRequest[]
+  bulkValuationRunRequests?: BulkValuationRunRequest[]
+  listingFieldUpdateRequests?: ListingFieldUpdateRequest[]
   valuationDefaultsRequests?: ValuationDefaultsRequest[]
+  valuationDefaultsPreviews?: ValuationDefaultsPreview[]
   acknowledgeWarningRequests?: AcknowledgeWarningRequest[]
   secureCredentialRequests?: SecureCredentialRequest[]
   csvUploadRequests?: CsvUploadRequest[]

@@ -20,6 +20,9 @@ import type {
   ShareTokenRequest,
   ShareTokenRevokeRequest,
   SingleSelectRequest,
+  BulkValuationRunRequest,
+  ListingFieldUpdateRequest,
+  ValuationDefaultsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
@@ -310,6 +313,96 @@ export function parseValuationMethodPreferenceRequest(
   return []
 }
 
+export function parseListingFieldUpdateRequest(
+  data: unknown
+): ListingFieldUpdateRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const rawChange = recordValue(req.change) ?? {}
+    const change: ListingFieldUpdateRequest['change'] = {}
+    if ('title' in rawChange) {
+      const v = rawChange.title
+      if (v === null) change.title = null
+      else if (typeof v === 'string') change.title = v
+    }
+    if ('summary' in rawChange) {
+      const v = rawChange.summary
+      if (v === null) change.summary = null
+      else if (typeof v === 'string') change.summary = v
+    }
+    if ('description' in rawChange) {
+      const v = rawChange.description
+      if (v === null) change.description = null
+      else if (typeof v === 'string') change.description = v
+    }
+    if ('asking_price' in rawChange) {
+      const v = rawChange.asking_price
+      if (v === null) change.asking_price = null
+      else if (typeof v === 'number' && Number.isFinite(v)) change.asking_price = v
+    }
+    return [
+      {
+        status: 'pending_approval',
+        listingId: optionalString(req.listing_id),
+        change,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseBulkValuationRunRequest(
+  data: unknown
+): BulkValuationRunRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const ids = Array.isArray(req.client_ids)
+      ? req.client_ids.filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : undefined
+    return [
+      {
+        status: 'pending_approval',
+        clientIds: ids,
+        clientCount:
+          typeof req.client_count === 'number' ? req.client_count : ids?.length,
+        estimatedCredits:
+          typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
+        rejectedCount:
+          typeof req.rejected_count === 'number' && req.rejected_count > 0
+            ? req.rejected_count
+            : undefined,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
 export function parseValuationDefaultsRequest(
   data: unknown
 ): ValuationDefaultsRequest[] {
@@ -350,6 +443,46 @@ export function parseValuationDefaultsRequest(
       {
         status: 'blocked',
         reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseValuationDefaultsPreview(
+  data: unknown
+): ValuationDefaultsPreview[] {
+  const d = recordValue(data)
+  if (!d) return []
+  if (d.status === 'ok') {
+    const rawDefaults = recordValue(d.defaults) ?? {}
+    const adj = rawDefaults.multiple_calibration_adjustment
+    const weighting = rawDefaults.historical_ebitda_weighting_mode
+    const bridge = rawDefaults.show_enterprise_to_equity_bridge
+    return [
+      {
+        status: 'ok',
+        defaults: {
+          multiple_calibration_adjustment:
+            typeof adj === 'number' && Number.isFinite(adj) ? adj : null,
+          historical_ebitda_weighting_mode:
+            weighting === 'standard' || weighting === 'weighted' ? weighting : null,
+          show_enterprise_to_equity_bridge:
+            typeof bridge === 'boolean' ? bridge : null,
+        },
+        allDefaultsAtSystem:
+          typeof d.all_defaults_at_system === 'boolean'
+            ? d.all_defaults_at_system
+            : undefined,
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'failed') {
+    return [
+      {
+        status: 'failed',
         message: optionalString(d.message),
       },
     ]
