@@ -43,6 +43,7 @@ import type {
   BulkValuationRunRequest,
   ListingFieldUpdateRequest,
   ValuationDefaultsPreview,
+  WorkspaceClientsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
@@ -1379,6 +1380,59 @@ function ValuationDefaultsCard({ request }: { request: ValuationDefaultsRequest 
   )
 }
 
+function WorkspaceClientsPreviewCard({ preview }: { preview: WorkspaceClientsPreview }) {
+  const ca = useTranslations('chatAssistant')
+  const isFailed = preview.status === 'failed'
+  const counts = preview.counts ?? { draft: 0, invited: 0, active: 0 }
+  const total = preview.totalClients ?? (preview.clients?.length ?? 0)
+
+  // Compact: chip-row for the status rollup, no per-client list (Venus
+  // dock is narrower than Mercury's). If the agent wants to enumerate
+  // names it can write them in the chat text body.
+  const metaParts: string[] = [
+    ca('proposalCards.agent.workspaceClientsTotal', { count: String(total) }),
+    ca('proposalCards.agent.workspaceClientsActive', { count: String(counts.active) }),
+    ca('proposalCards.agent.workspaceClientsInvited', { count: String(counts.invited) }),
+    ca('proposalCards.agent.workspaceClientsDraft', { count: String(counts.draft) }),
+  ]
+  if (preview.filter?.status) {
+    metaParts.push(
+      ca('proposalCards.agent.workspaceClientsFilteredStatus', {
+        status: preview.filter.status,
+      })
+    )
+  }
+  if (preview.filter?.search) {
+    metaParts.push(
+      ca('proposalCards.agent.workspaceClientsFilteredSearch', {
+        search: preview.filter.search,
+      })
+    )
+  }
+
+  return (
+    <InlineActionCard
+      id={preview.id}
+      title={
+        isFailed
+          ? ca('proposalCards.agent.workspaceClientsPreviewFailed')
+          : ca('proposalCards.agent.workspaceClientsPreviewTitle')
+      }
+      detail={
+        isFailed
+          ? preview.message
+          : preview.truncated
+            ? preview.message
+            : undefined
+      }
+      meta={isFailed ? undefined : compactParts(metaParts)}
+      tone={isFailed ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      // No action — preview is read-only.
+    />
+  )
+}
+
 function ValuationDefaultsPreviewCard({ preview }: { preview: ValuationDefaultsPreview }) {
   const ca = useTranslations('chatAssistant')
   const isFailed = preview.status === 'failed'
@@ -2170,6 +2224,7 @@ export function ChatAssistantAgentActionCards({
           (message.listingFieldUpdateRequests?.length ?? 0) > 0 ||
           (message.valuationDefaultsRequests?.length ?? 0) > 0 ||
           (message.valuationDefaultsPreviews?.length ?? 0) > 0 ||
+          (message.workspaceClientsPreviews?.length ?? 0) > 0 ||
           (message.acknowledgeWarningRequests?.length ?? 0) > 0 ||
           (message.secureCredentialRequests?.length ?? 0) > 0 ||
           (message.csvUploadRequests?.length ?? 0) > 0 ||
@@ -2221,6 +2276,9 @@ export function ChatAssistantAgentActionCards({
       ))}
       {message.listingFieldUpdateRequests?.map((request) => (
         <ListingFieldUpdateCard key={request.id} request={request} />
+      ))}
+      {message.workspaceClientsPreviews?.map((preview) => (
+        <WorkspaceClientsPreviewCard key={preview.id} preview={preview} />
       ))}
       {message.valuationDefaultsRequests?.map((request) => (
         <ValuationDefaultsCard key={request.id} request={request} />

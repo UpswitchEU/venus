@@ -256,6 +256,29 @@ export interface ListingFieldUpdateRequest {
   message?: string
 }
 
+export interface WorkspaceClientsPreview {
+  id: string
+  status: 'ok' | 'failed'
+  clients?: Array<{
+    id: string
+    name: string
+    email: string | null
+    company_number: string | null
+    status: 'draft' | 'invited' | 'active'
+    invited_at: string | null
+    accepted_at: string | null
+  }>
+  totalClients?: number
+  returnedCount?: number
+  truncated?: boolean
+  counts?: { draft: number; invited: number; active: number }
+  filter?: {
+    status?: 'draft' | 'invited' | 'active' | null
+    search?: string | null
+  }
+  message?: string
+}
+
 export interface ValuationDefaultsRequest {
   id: string
   status: 'pending_approval' | 'blocked'
@@ -643,6 +666,7 @@ export interface ChatMessage {
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceRequest[]
   bulkValuationRunRequests?: BulkValuationRunRequest[]
   listingFieldUpdateRequests?: ListingFieldUpdateRequest[]
+  workspaceClientsPreviews?: WorkspaceClientsPreview[]
   valuationDefaultsRequests?: ValuationDefaultsRequest[]
   valuationDefaultsPreviews?: ValuationDefaultsPreview[]
   acknowledgeWarningRequests?: AcknowledgeWarningRequest[]

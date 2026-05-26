@@ -25,6 +25,7 @@ import type {
   ValuationDefaultsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
+  WorkspaceClientsPreview,
   ValuationSessionRequest,
 } from './tool-result-types'
 
@@ -443,6 +444,77 @@ export function parseValuationDefaultsRequest(
       {
         status: 'blocked',
         reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseWorkspaceClientsPreview(
+  data: unknown
+): WorkspaceClientsPreview[] {
+  const d = recordValue(data)
+  if (!d) return []
+  if (d.status === 'ok') {
+    const rawList = Array.isArray(d.clients) ? d.clients : []
+    const clients = rawList
+      .map((entry) => {
+        const row = recordValue(entry)
+        if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') return null
+        const statusValue = row.status
+        const safeStatus: 'draft' | 'invited' | 'active' =
+          statusValue === 'draft' || statusValue === 'invited' || statusValue === 'active'
+            ? statusValue
+            : 'draft'
+        return {
+          id: row.id,
+          name: row.name,
+          email: typeof row.email === 'string' ? row.email : null,
+          company_number: typeof row.company_number === 'string' ? row.company_number : null,
+          status: safeStatus,
+          invited_at: typeof row.invited_at === 'string' ? row.invited_at : null,
+          accepted_at: typeof row.accepted_at === 'string' ? row.accepted_at : null,
+        }
+      })
+      .filter(
+        (c): c is NonNullable<WorkspaceClientsPreview['clients']>[number] =>
+          c !== null
+      )
+    const counts = recordValue(d.counts) ?? {}
+    const filter = recordValue(d.filter) ?? null
+    const filterStatus =
+      filter &&
+      (filter.status === 'draft' || filter.status === 'invited' || filter.status === 'active')
+        ? (filter.status as 'draft' | 'invited' | 'active')
+        : null
+    return [
+      {
+        status: 'ok',
+        clients,
+        totalClients: typeof d.total_clients === 'number' ? d.total_clients : undefined,
+        returnedCount:
+          typeof d.returned_count === 'number' ? d.returned_count : clients.length,
+        truncated: d.truncated === true,
+        counts: {
+          draft: typeof counts.draft === 'number' ? counts.draft : 0,
+          invited: typeof counts.invited === 'number' ? counts.invited : 0,
+          active: typeof counts.active === 'number' ? counts.active : 0,
+        },
+        filter: filter
+          ? {
+              status: filterStatus,
+              search: typeof filter.search === 'string' ? filter.search : null,
+            }
+          : undefined,
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'failed') {
+    return [
+      {
+        status: 'failed',
         message: optionalString(d.message),
       },
     ]

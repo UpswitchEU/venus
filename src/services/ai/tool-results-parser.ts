@@ -39,6 +39,7 @@ import {
   parseValuationDefaultsPreview,
   parseValuationDefaultsRequest,
   parseValuationMethodPreferenceRequest,
+  parseWorkspaceClientsPreview,
   parseValuationSessionRequest,
 } from './tool-result-request-parsers'
 import type { ParsedToolResults } from './tool-result-types'
@@ -119,6 +120,7 @@ function emptyResult(): ParsedToolResults {
     valuationMethodPreferenceRequests: [],
     bulkValuationRunRequests: [],
     listingFieldUpdateRequests: [],
+    workspaceClientsPreviews: [],
     valuationDefaultsRequests: [],
     valuationDefaultsPreviews: [],
     acknowledgeWarningRequests: [],
@@ -244,6 +246,9 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'listing_field_update_request':
         out.listingFieldUpdateRequests.push(...parseListingFieldUpdateRequest(data))
+        break
+      case 'workspace_clients':
+        out.workspaceClientsPreviews.push(...parseWorkspaceClientsPreview(data))
         break
       case 'valuation_defaults':
         out.valuationDefaultsPreviews.push(...parseValuationDefaultsPreview(data))

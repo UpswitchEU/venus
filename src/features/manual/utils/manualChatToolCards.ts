@@ -22,6 +22,9 @@ type BulkValuationRunCard = NonNullable<ChatMessage['bulkValuationRunRequests']>
 type ListingFieldUpdateCard = NonNullable<
   ChatMessage['listingFieldUpdateRequests']
 >[number]
+type WorkspaceClientsPreviewCard = NonNullable<
+  ChatMessage['workspaceClientsPreviews']
+>[number]
 type ValuationDefaultsCard = NonNullable<ChatMessage['valuationDefaultsRequests']>[number]
 type ValuationDefaultsPreviewCard = NonNullable<
   ChatMessage['valuationDefaultsPreviews']
@@ -68,6 +71,7 @@ export interface ManualChatToolCards {
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceCard[]
   bulkValuationRunRequests?: BulkValuationRunCard[]
   listingFieldUpdateRequests?: ListingFieldUpdateCard[]
+  workspaceClientsPreviews?: WorkspaceClientsPreviewCard[]
   valuationDefaultsRequests?: ValuationDefaultsCard[]
   valuationDefaultsPreviews?: ValuationDefaultsPreviewCard[]
   acknowledgeWarningRequests?: AcknowledgeWarningCard[]
@@ -107,6 +111,7 @@ interface ManualChatToolCardsInput {
   valuationMethodPreferenceRequests?: readonly unknown[]
   bulkValuationRunRequests?: readonly unknown[]
   listingFieldUpdateRequests?: readonly unknown[]
+  workspaceClientsPreviews?: readonly unknown[]
   valuationDefaultsRequests?: readonly unknown[]
   valuationDefaultsPreviews?: readonly unknown[]
   acknowledgeWarningRequests?: readonly unknown[]
@@ -325,6 +330,17 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as ListingFieldUpdateCard
+    )
+  )
+  pushIfAny(
+    out,
+    'workspaceClientsPreviews',
+    (cards.workspaceClientsPreviews ?? []).map(
+      (preview) =>
+        ({
+          ...(asRecord(preview) ?? {}),
+          id: createId(),
+        }) as WorkspaceClientsPreviewCard
     )
   )
   pushIfAny(
@@ -584,6 +600,8 @@ export function parseManualChatStreamToolResult(
         return { type: 'bulk_valuation_run_request', data }
       case 'propose_listing_field_update':
         return { type: 'listing_field_update_request', data }
+      case 'get_workspace_clients':
+        return { type: 'workspace_clients', data }
       case 'get_valuation_defaults':
         return { type: 'valuation_defaults', data }
       case 'propose_acknowledge_warning':
@@ -676,6 +694,7 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
         (cards.bulkValuationRunRequests?.length ?? 0) > 0 ||
         (cards.listingFieldUpdateRequests?.length ?? 0) > 0 ||
+        (cards.workspaceClientsPreviews?.length ?? 0) > 0 ||
         (cards.valuationDefaultsRequests?.length ?? 0) > 0 ||
         (cards.valuationDefaultsPreviews?.length ?? 0) > 0 ||
         (cards.acknowledgeWarningRequests?.length ?? 0) > 0 ||
@@ -789,6 +808,12 @@ export function appendManualChatToolCardsToMessage(
       listingFieldUpdateRequests: [
         ...(message.listingFieldUpdateRequests ?? []),
         ...cards.listingFieldUpdateRequests,
+      ],
+    }),
+    ...(cards.workspaceClientsPreviews && {
+      workspaceClientsPreviews: [
+        ...(message.workspaceClientsPreviews ?? []),
+        ...cards.workspaceClientsPreviews,
       ],
     }),
     ...(cards.valuationDefaultsRequests && {
