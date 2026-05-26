@@ -133,6 +133,18 @@ function readHttpStatus(error: unknown): number | null {
   return typeof record.status === 'number' ? record.status : null
 }
 
+function createSessionNotFoundError(reportId: string): Error & {
+  response: { status: number }
+  status: number
+  statusCode: number
+} {
+  return Object.assign(new Error(`Session not found: ${reportId}`), {
+    response: { status: 404 },
+    status: 404,
+    statusCode: 404,
+  })
+}
+
 type PaywallLoadError = Error & {
   isPaywallError?: boolean
   current?: number
@@ -287,7 +299,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const loadedSession = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
 
         if (!loadedSession) {
-          throw new Error(`Session not found: ${reportId}`)
+          throw createSessionNotFoundError(reportId)
         }
 
         let session: ValuationSession = loadedSession

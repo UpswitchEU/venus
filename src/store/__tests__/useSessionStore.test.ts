@@ -142,6 +142,20 @@ describe('useSessionStore', () => {
       expect(useSessionStore.getState().session).toBeNull()
     })
 
+    it('should treat a null engine load result as a 404-shaped not-found error', async () => {
+      mockLoadSession.mockResolvedValue(null)
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      await useSessionStore
+        .getState()
+        .loadSession('val_deleted_123')
+        .catch(() => undefined)
+
+      expect(useSessionStore.getState().status).toBe('error')
+      expect(useSessionStore.getState().errorMessage).toBe('Session not found: val_deleted_123')
+      expect(useSessionStore.getState().session).toBeNull()
+    })
+
     it('should skip load if already loaded with same reportId', async () => {
       const mockSession = {
         reportId: 'val_same_123',
