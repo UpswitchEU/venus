@@ -28,7 +28,7 @@ describe('HttpClient valuation result transport guard', () => {
     client = new TestHttpClient('https://api.example.test')
   })
 
-  it('preemptively omits oversized htmlReport for valuation result saves', async () => {
+  it('preemptively omits oversized report blobs for valuation result saves', async () => {
     const requests: AxiosRequestConfig[] = []
     client.setRequestStub(async (config) => {
       requests.push(config)
@@ -45,6 +45,8 @@ describe('HttpClient valuation result transport guard', () => {
           sessionData: { company_name: 'Large Corp' },
           valuationResult: { equity_value_mid: 900000 },
           htmlReport: hugeHtml,
+          pdfHtmlReport: '<html>pdf</html>',
+          html_report: '<html>alias</html>',
         },
       },
       { retry: { maxRetries: 0 } }
@@ -52,13 +54,16 @@ describe('HttpClient valuation result transport guard', () => {
 
     expect(requests).toHaveLength(1)
     expect((requests[0].data as Record<string, unknown>).htmlReport).toBeUndefined()
+    expect((requests[0].data as Record<string, unknown>).pdfHtmlReport).toBeUndefined()
+    expect((requests[0].data as Record<string, unknown>).html_report).toBeUndefined()
     expect((requests[0].data as Record<string, unknown>).sessionData).toMatchObject({
       company_name: 'Large Corp',
     })
   })
 
-  it('retries a 413 valuation result save once without htmlReport', async () => {
+  it('retries a 413 valuation result save once without report blobs', async () => {
     const htmlReport = '<html>rendered report</html>'
+    const pdfHtmlReport = '<html>pdf rendered report</html>'
     const requests: AxiosRequestConfig[] = []
     const requestStub = vi.fn(async (config: AxiosRequestConfig) => {
       requests.push(config)
@@ -77,6 +82,7 @@ describe('HttpClient valuation result transport guard', () => {
           sessionData: { company_name: 'Retry Corp' },
           valuationResult: { equity_value_mid: 900000 },
           htmlReport,
+          pdfHtmlReport,
         },
       },
       { retry: { maxRetries: 0 } }
@@ -85,7 +91,9 @@ describe('HttpClient valuation result transport guard', () => {
     expect(result).toMatchObject({ success: true, reportReady: true })
     expect(requestStub).toHaveBeenCalledTimes(2)
     expect((requests[0].data as Record<string, unknown>).htmlReport).toBe(htmlReport)
+    expect((requests[0].data as Record<string, unknown>).pdfHtmlReport).toBe(pdfHtmlReport)
     expect((requests[1].data as Record<string, unknown>).htmlReport).toBeUndefined()
+    expect((requests[1].data as Record<string, unknown>).pdfHtmlReport).toBeUndefined()
     expect((requests[1].data as Record<string, unknown>).valuationResult).toMatchObject({
       equity_value_mid: 900000,
     })

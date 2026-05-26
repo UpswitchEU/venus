@@ -25,6 +25,16 @@ vi.mock('../../../utils/logger', async (importOriginal) => {
 
 import { AuthenticatedSessionEngine } from './AuthenticatedSessionEngine'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 describe('AuthenticatedSessionEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -129,5 +139,77 @@ describe('AuthenticatedSessionEngine', () => {
     // Sanity: the stripped payload is at most a few KB — definitely
     // not the 13.9MB the original PATCH shipped.
     expect(JSON.stringify(payload).length).toBeLessThan(10_000)
+  })
+
+  it('serializes overlapping saves and preserves local edits made while the first save is in flight', async () => {
+    const createdAt = new Date('2026-05-26T10:00:00.000Z')
+    const firstSave = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.saveSession
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(async (reportId, payload) => ({
+        reportId,
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: new Date('2026-05-26T10:00:02.000Z'),
+        sessionData: payload,
+        partialData: {},
+      }))
+
+    const engine = new AuthenticatedSessionEngine()
+    engine.updateSession({
+      reportId: 'val_race_789',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
+      partialData: {},
+    })
+
+    const first = engine.saveSession('autosave')
+    await Promise.resolve()
+    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+    engine.updateSession({
+      sessionData: { revenue: 1_250_000, ebitda: 250_000 },
+    })
+    const second = engine.saveSession('autosave')
+    await Promise.resolve()
+    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+    firstSave.resolve({
+      reportId: 'val_race_789',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: new Date('2026-05-26T10:00:01.000Z'),
+      sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
+      partialData: {},
+    })
+
+    await Promise.all([first, second])
+
+    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
+    expect(sessionServiceMocks.saveSession.mock.calls[1]?.[1]).toMatchObject({
+      company_name: 'METANOUS',
+      revenue: 1_250_000,
+      ebitda: 250_000,
+      currentView: 'manual',
+    })
+    expect(engine.getSession()?.sessionData).toMatchObject({
+      company_name: 'METANOUS',
+      revenue: 1_250_000,
+      ebitda: 250_000,
+    })
   })
 })

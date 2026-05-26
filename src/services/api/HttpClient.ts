@@ -101,6 +101,16 @@ function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
 const VALUATION_RESULT_HTML_OMIT_BYTES = 10 * 1024 * 1024
+const VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS = [
+  'htmlReport',
+  'html_report',
+  '_htmlReport',
+  'pdfHtmlReport',
+  'pdf_html_report',
+  '_pdfHtmlReport',
+  'pdfHtml',
+  'reportHtml',
+] as const
 
 /**
  * Generate a correlation ID for request tracing across services
@@ -126,12 +136,23 @@ function isValuationResultSaveConfig(config: AxiosRequestConfig): boolean {
   return method === 'PUT' && url.includes('/api/v2/valuations/sessions/') && url.includes('/result')
 }
 
-function getConfigHtmlReport(config: AxiosRequestConfig): string | undefined {
+function getConfigReportBlobLengths(config: AxiosRequestConfig): Record<string, number> {
   const data = config.data
   if (!isUnknownRecord(data)) {
-    return undefined
+    return {}
   }
-  return typeof data.htmlReport === 'string' ? data.htmlReport : undefined
+  const lengths: Record<string, number> = {}
+  for (const key of VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS) {
+    const value = data[key]
+    if (typeof value === 'string' && value.length > 0) {
+      lengths[key] = value.length
+    }
+  }
+  return lengths
+}
+
+function hasConfigReportBlobs(config: AxiosRequestConfig): boolean {
+  return Object.keys(getConfigReportBlobLengths(config)).length > 0
 }
 
 function estimateJsonByteLength(value: unknown): number {
@@ -149,26 +170,28 @@ function estimateJsonByteLength(value: unknown): number {
   }
 }
 
-function withoutConfigHtmlReport(config: AxiosRequestConfig): AxiosRequestConfig | null {
-  if (!isValuationResultSaveConfig(config) || !getConfigHtmlReport(config)) {
+function withoutConfigReportBlobs(config: AxiosRequestConfig): AxiosRequestConfig | null {
+  if (!isValuationResultSaveConfig(config) || !hasConfigReportBlobs(config)) {
     return null
+  }
+  const data = { ...(config.data as UnknownRecord) }
+  for (const key of VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS) {
+    if (typeof data[key] === 'string') {
+      data[key] = undefined
+    }
   }
   return {
     ...config,
-    data: {
-      ...(config.data as UnknownRecord),
-      htmlReport: undefined,
-    },
+    data,
   }
 }
 
-function omitOversizedValuationResultHtmlReport(config: AxiosRequestConfig): {
+function omitOversizedValuationResultReportBlobs(config: AxiosRequestConfig): {
   config: AxiosRequestConfig
   estimatedBodyBytes?: number
   omitted: boolean
 } {
-  const htmlReport = getConfigHtmlReport(config)
-  if (!isValuationResultSaveConfig(config) || !htmlReport) {
+  if (!isValuationResultSaveConfig(config) || !hasConfigReportBlobs(config)) {
     return { config, omitted: false }
   }
 
@@ -178,7 +201,7 @@ function omitOversizedValuationResultHtmlReport(config: AxiosRequestConfig): {
   }
 
   return {
-    config: withoutConfigHtmlReport(config) ?? config,
+    config: withoutConfigReportBlobs(config) ?? config,
     estimatedBodyBytes,
     omitted: true,
   }
@@ -428,13 +451,13 @@ export class HttpClient {
     config: AxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
-    const prepared = omitOversizedValuationResultHtmlReport(config)
+    const prepared = omitOversizedValuationResultReportBlobs(config)
     if (prepared.omitted) {
-      apiLogger.warn('[HttpClient] Omitting oversized htmlReport from valuation result request', {
+      apiLogger.warn('[HttpClient] Omitting oversized report blobs from valuation result request', {
         url: config.url,
         estimatedBodyBytes: prepared.estimatedBodyBytes,
         limitBytes: VALUATION_RESULT_HTML_OMIT_BYTES,
-        htmlReportLength: getConfigHtmlReport(config)?.length ?? 0,
+        blobLengths: getConfigReportBlobLengths(config),
       })
     }
 
@@ -465,13 +488,13 @@ export class HttpClient {
     try {
       return await runRequest()
     } catch (error) {
-      const retryWithoutHtmlReport = prepared.omitted ? null : withoutConfigHtmlReport(config)
-      if (getAxiosStatus(error) === 413 && retryWithoutHtmlReport) {
-        apiLogger.warn('[HttpClient] Retrying valuation result request without htmlReport', {
+      const retryWithoutReportBlobs = prepared.omitted ? null : withoutConfigReportBlobs(config)
+      if (getAxiosStatus(error) === 413 && retryWithoutReportBlobs) {
+        apiLogger.warn('[HttpClient] Retrying valuation result request without report blobs', {
           url: config.url,
-          htmlReportLength: getConfigHtmlReport(config)?.length ?? 0,
+          blobLengths: getConfigReportBlobLengths(config),
         })
-        return this.executeRequest<T>(retryWithoutHtmlReport, {
+        return this.executeRequest<T>(retryWithoutReportBlobs, {
           ...options,
           retry: { maxRetries: 0 },
         })

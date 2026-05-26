@@ -86,6 +86,26 @@ function stripBackendComputedFields(payload: Record<string, unknown>): Record<st
   return stripped
 }
 
+function mergeQueuedLocalSession(
+  serverSession: ValuationSession,
+  localSession: ValuationSession
+): ValuationSession {
+  return {
+    ...serverSession,
+    ...localSession,
+    status: serverSession.status ?? localSession.status,
+    reportReady: serverSession.reportReady ?? localSession.reportReady,
+    sessionData: {
+      ...(serverSession.sessionData || {}),
+      ...(localSession.sessionData || {}),
+    },
+    partialData: {
+      ...(serverSession.partialData || {}),
+      ...(localSession.partialData || {}),
+    },
+  }
+}
+
 /**
  * Authenticated Session Engine
  *
@@ -100,6 +120,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private loadingPromise: Promise<ValuationSession | null> | null = null
   private loadingReportId: string | null = null
   private pendingUpdates: Partial<ValuationSession>[] = []
+  private localMutationVersion = 0
 
   // The reportId originally requested (from URL). The API may return a different
   // format (session_key like "val_xxx" instead of the UUID used in Mercury URLs).
@@ -195,6 +216,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         ...updates.partialData,
       }
     }
+
+    this.localMutationVersion += 1
   }
 
   hydrateSession(updates: Partial<ValuationSession>): void {
@@ -327,60 +350,42 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       return
     }
 
-    // ✅ RACE CONDITION FIX: If a save is already in progress, mark pending and wait
-    // This ensures we don't send concurrent PATCH requests that race
+    // Single drain promise: all callers await the same serialized queue. When
+    // another autosave arrives mid-flight we mark one follow-up pass, and that
+    // pass snapshots the latest in-memory session state.
     if (this.savePromise) {
       this.savePending = true
       generalLogger.debug('[AuthenticatedSessionEngine] Save already in progress, queuing', {
         reportId: this.currentSession.reportId,
         reason,
       })
-
-      // Store reference to current promise before awaiting
-      const currentSavePromise = this.savePromise
-
-      // Wait for current save to complete
-      try {
-        await currentSavePromise
-      } catch {
-        // Ignore errors from the previous save, we'll try again
-      }
-
-      // If savePending is still true, it means another save was queued while we were waiting
-      // Exit and let that one handle it (it will process the queue in its finally block)
-      // This prevents an avalanche of queued saves
-      if (this.savePending) {
-        generalLogger.debug('[AuthenticatedSessionEngine] Another save is handling the queue', {
-          reportId: this.currentSession?.reportId,
-        })
-        return
-      }
+      await this.savePromise
+      return
     }
 
-    // Clear pending flag since we're about to save
-    this.savePending = false
-
     try {
-      // Create the save promise
-      this.savePromise = this.executeSave(reason)
+      this.savePromise = this.drainSaveQueue(reason)
       await this.savePromise
     } finally {
       this.savePromise = null
+      this.savePending = false
+    }
+  }
 
-      // If more saves were queued while we were saving, trigger another save
+  private async drainSaveQueue(reason: 'user' | 'autosave' | 'system'): Promise<void> {
+    let nextReason = reason
+
+    do {
+      this.savePending = false
+      await this.executeSave(nextReason)
+      nextReason = 'autosave'
+
       if (this.savePending && this.currentSession) {
-        this.savePending = false
         generalLogger.debug('[AuthenticatedSessionEngine] Processing queued save', {
           reportId: this.currentSession.reportId,
         })
-        // Don't await - let it run in the background
-        this.saveSession('autosave').catch((err) => {
-          generalLogger.error('[AuthenticatedSessionEngine] Queued save failed', {
-            error: err instanceof Error ? err.message : String(err),
-          })
-        })
       }
-    }
+    } while (this.savePending && this.currentSession)
   }
 
   /**
@@ -412,6 +417,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           currentView: this.currentSession.currentView,
           ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
         }
+        const mutationVersionAtSend = this.localMutationVersion
 
         const updatedSession = await sessionService.saveSession(
           this.currentSession.reportId,
@@ -419,7 +425,15 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         )
 
         if (updatedSession) {
-          this.currentSession = updatedSession
+          const localSession = this.currentSession
+          if (
+            localSession &&
+            (this.savePending || this.localMutationVersion !== mutationVersionAtSend)
+          ) {
+            this.currentSession = mergeQueuedLocalSession(updatedSession, localSession)
+          } else {
+            this.currentSession = updatedSession
+          }
           this.normalizeReportId()
 
           if (attempt > 0) {
