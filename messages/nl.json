@@ -3347,6 +3347,8 @@
 		"reportNotAvailable": "Rapport niet beschikbaar",
 		"reportNotAvailableDesc": "HTML-rapport is niet gegenereerd door de backend",
 		"failedToLoadReport": "Rapport laden mislukt",
+		"renderPayloadTooLarge": "Rapport is te groot om weer te geven",
+		"renderPayloadTooLargeDesc": "De waardering is voltooid, maar het rapport overschrijdt de groottelimiet van onze rendering-service. Het probleem is gelogd — neem contact op met support.",
 		"enterpriseBridgeToggle": "Toon Enterprise-to-Equity Bridge (Waterfall)",
 		"enterpriseBridgeToggleDescription": "Bepaalt of de bridge verschijnt in deze rapportpreview en opgeslagen rapportinstellingen.",
 		"date": "Datum",

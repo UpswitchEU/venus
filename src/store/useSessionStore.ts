@@ -43,11 +43,21 @@ function scheduleOptionalGapFillAfterHydrate(): void {
  */
 export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
+/**
+ * Non-recoverable render failures surfaced from Titan via ensure-html.
+ * `payload_too_large` is the only known case today: the valuation completed
+ * but ValuationIQ's /reports/render rejected the payload as >25MB. Marking
+ * it on the session store lets the report viewer show a specific message
+ * instead of the generic "report not available" fallback.
+ */
+export type SessionRenderError = 'payload_too_large'
+
 interface SessionStore {
   // Core state (explicit state machine)
   session: ValuationSession | null
   status: SessionStatus
   errorMessage: string | null
+  renderError: SessionRenderError | null
 
   // Computed properties for backward compatibility
   isLoading: boolean
@@ -79,6 +89,7 @@ interface SessionStore {
   engine: ISessionEngine | null
 
   // Actions
+  setRenderError: (renderError: SessionRenderError | null) => void
   setEngine: (identity: IdentityState) => void
   loadSession: (
     reportId: string,
@@ -162,6 +173,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   session: null,
   status: 'idle' as SessionStatus,
   errorMessage: null,
+  renderError: null,
+
+  setRenderError: (renderError: SessionRenderError | null) => set({ renderError }),
 
   // Computed properties for backward compatibility
   get isLoading() {
@@ -276,6 +290,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         })
         set({
           errorMessage: null,
+          renderError: null,
           // Keep session and restorationComplete as-is; the success path will
           // update them with the full server payload.
         })
@@ -283,6 +298,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         set({
           status: 'loading' as SessionStatus,
           errorMessage: null,
+          renderError: null,
           restorationComplete: false,
           session: state.session?.reportId !== reportId ? null : state.session,
         })
@@ -796,6 +812,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       session: null,
       status: 'idle' as SessionStatus,
       errorMessage: null,
+      renderError: null,
       isSaving: false,
       lastSaved: null,
       hasUnsavedChanges: false,

@@ -16,9 +16,15 @@ const logger = createContextLogger('SessionService')
 /** Deduplicate concurrent self-heal calls per Titan report identifier */
 const ensureHtmlInFlight = new Set<string>()
 const ensureHtmlRecentFailures = new Map<string, number>()
+// Per-tab permanent failures: dedupeKeys where retry is pointless until the
+// underlying engine config / payload changes (e.g. 413 from ValuationIQ).
+// Cleared on full page reload — that's the only signal we have that the
+// operator may have raised the engine size limit or trimmed the payload.
+const ensureHtmlPermanentFailures = new Set<string>()
 const ENSURE_HTML_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 
 function hasRecentEnsureHtmlFailure(dedupeKey: string): boolean {
+  if (ensureHtmlPermanentFailures.has(dedupeKey)) return true
   const failedAt = ensureHtmlRecentFailures.get(dedupeKey)
   if (!failedAt) return false
   if (Date.now() - failedAt > ENSURE_HTML_FAILURE_COOLDOWN_MS) {
@@ -32,8 +38,27 @@ function markEnsureHtmlFailure(dedupeKey: string): void {
   ensureHtmlRecentFailures.set(dedupeKey, Date.now())
 }
 
+function markEnsureHtmlPermanentFailure(dedupeKey: string): void {
+  ensureHtmlPermanentFailures.add(dedupeKey)
+  ensureHtmlRecentFailures.delete(dedupeKey)
+}
+
 function clearEnsureHtmlFailure(dedupeKey: string): void {
   ensureHtmlRecentFailures.delete(dedupeKey)
+  ensureHtmlPermanentFailures.delete(dedupeKey)
+}
+
+/**
+ * Test-only: reset the module-level dedupe / cooldown / permanent-failure
+ * tracking. Keeping these Sets at module scope is intentional (they
+ * deduplicate concurrent self-heal calls across the tab lifetime), but tests
+ * that exercise the recovery flow must reset state to avoid order-dependent
+ * pollution. Do NOT call this from production code paths.
+ */
+export function __resetEnsureHtmlStateForTests(): void {
+  ensureHtmlInFlight.clear()
+  ensureHtmlRecentFailures.clear()
+  ensureHtmlPermanentFailures.clear()
 }
 
 function shouldRefetchAfterEnsureResponse(response: Record<string, unknown>): boolean {
@@ -42,6 +67,13 @@ function shouldRefetchAfterEnsureResponse(response: Record<string, unknown>): bo
     return response.success !== false
   }
   return status === 'recovered' || status === 'already_present'
+}
+
+function isPayloadTooLargeStatus(response: Record<string, unknown>): boolean {
+  return (
+    typeof response.status === 'string' &&
+    (response.status === 'payload_too_large' || response.status === 'PAYLOAD_TOO_LARGE')
+  )
 }
 
 function valuationSnapshotHasRange(valuationResult: unknown): boolean {
@@ -156,6 +188,36 @@ export async function tryRefetchAfterEnsureHtml(
         }
       )
       markEnsureHtmlFailure(dedupeKey)
+      return null
+    }
+    // Check the terminal `payload_too_large` status BEFORE the generic
+    // success-flag check. The current Titan contract returns success:true
+    // alongside this status, but we must not depend on that — flipping the
+    // flag later would otherwise downgrade a permanent failure into the
+    // transient 5-minute cooldown path and resume the retry loop.
+    if (isPayloadTooLargeStatus(res)) {
+      logger.error(
+        'ensureReportHtml aborted — render payload exceeds engine size limit (413). ' +
+          'Operator must raise VALUATION_IQ_MAX_REQUEST_SIZE_MB or trim the report payload. ' +
+          'Suppressing further retries for this report in this tab.',
+        {
+          reportId: reportId?.substring(0, 24),
+          status: typeof res.status === 'string' ? res.status : undefined,
+        }
+      )
+      markEnsureHtmlPermanentFailure(dedupeKey)
+      // Surface to the report viewer so it can replace the generic
+      // "report not available" fallback with an actionable message.
+      // Dynamic import avoids a static cycle (store -> services -> store).
+      try {
+        const { useSessionStore } = await import('../../store/useSessionStore')
+        useSessionStore.getState().setRenderError('payload_too_large')
+      } catch (storeError) {
+        logger.warn('Failed to set renderError on session store', {
+          reportId: reportId?.substring(0, 24),
+          error: getErrorMessage(storeError),
+        })
+      }
       return null
     }
     if ((res as { success?: boolean }).success === false) {
