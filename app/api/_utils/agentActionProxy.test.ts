@@ -123,6 +123,54 @@ describe('agent action proxy', () => {
     })
   })
 
+  it('forwards PUT agent approvals with the JSON body intact', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token',
+      cookieSource: 'header',
+    })
+    mocks.fetchWithTimeout.mockResolvedValue(
+      titanJsonResponse(200, {
+        value: 'dcf',
+      })
+    )
+
+    const response = await proxyAgentJsonToTitan(
+      request({
+        'X-Upswitch-Agent-Tool-Name': 'propose_valuation_method_preference',
+        'X-Upswitch-Agent-Proposal-Id': 'preference-123',
+      }),
+      '/api/v2/accountants/clients/client-1/valuation-method-preference',
+      {
+        method: 'PUT',
+        body: { value: 'dcf' },
+      }
+    )
+
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      'https://api.upswitch.app/api/v2/accountants/clients/client-1/valuation-method-preference',
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: 'upswitch_access_token=jwt-token',
+          Authorization: 'Bearer jwt-token',
+          'X-Upswitch-Agent-Tool-Name': 'propose_valuation_method_preference',
+          'X-Upswitch-Agent-Proposal-Id': 'preference-123',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ value: 'dcf' }),
+      },
+      15_000
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        value: 'dcf',
+      },
+    })
+  })
+
   it('passes through a Titan 204 response without forcing a JSON envelope', async () => {
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: 'upswitch_access_token=jwt-token',

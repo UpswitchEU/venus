@@ -5,12 +5,14 @@ import {
   type SetStateAction,
   useCallback,
   useMemo,
+  useState,
 } from 'react'
 import {
   type AgentChoiceSelection,
   ChatAssistantDrawer,
   type ChatMessage,
   type FieldContext,
+  type ManualInputAssistantPatch,
   type ValuationFormData,
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
@@ -27,7 +29,9 @@ import type { ManualStarterPaywallReason } from '../components/ManualStarterPayw
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import {
   buildAgentChoiceFollowUpPrompt,
+  FINANCIAL_YEAR_CHOICE_PATH,
   METHOD_WEIGHT_CHOICE_PATH,
+  parseAgentFinancialYearChoice,
   parseAgentMethodWeightChoice,
   parseAgentValuationScenarioChoice,
   VALUATION_SCENARIO_CHOICE_PATH,
@@ -55,11 +59,15 @@ type ChatSendHandler = (
   ...args: Parameters<ChatDrawerProps['onSendMessage']>
 ) => void | Promise<void>
 
-const CHOICE_FOLLOW_UP_PATHS = new Set([
-  '/api/valuations/years',
-  '/api/valuations/scenario',
-  '/api/profile/buyer-profile',
-])
+const CHOICE_FOLLOW_UP_PATHS = new Set(['/api/valuations/scenario', '/api/profile/buyer-profile'])
+
+function hasMatchingHistoricalFinancialYear(
+  selectedYears: readonly number[],
+  yearlyFinancials: readonly Pick<ManualLiveYearlyFinancial, 'year' | 'isForecast'>[]
+): boolean {
+  const selectedYearKeys = new Set(selectedYears.map(String))
+  return yearlyFinancials.some((row) => !row.isForecast && selectedYearKeys.has(String(row.year)))
+}
 
 export interface UseManualAssistantControllerParams {
   acknowledgedQualityWarnings: Set<string>
@@ -198,6 +206,9 @@ export function useManualAssistantController({
   userWeights,
   wrappedOnSubmit,
 }: UseManualAssistantControllerParams): UseManualAssistantControllerResult {
+  const [assistantInputPatch, setAssistantInputPatch] = useState<ManualInputAssistantPatch | null>(
+    null
+  )
   const hasEbitda = useMemo(() => {
     const currentYear = formStoreData?.current_year_data as { ebitda?: number } | undefined
     const historicalYears = (formStoreData?.historical_years_data || []) as Array<{
@@ -273,6 +284,7 @@ export function useManualAssistantController({
     synthesisUnlocked,
     synthesisValuationResults,
     onSynthesisPaywall: () => openStarterPaywall('synthesis'),
+    assistantPatch: assistantInputPatch,
     initialData,
     isAssistantOpen: chatDrawerOpen,
     onOpenAssistant: () => setChatDrawerOpen(true),
@@ -356,6 +368,27 @@ export function useManualAssistantController({
         return true
       }
 
+      if (submitPath === FINANCIAL_YEAR_CHOICE_PATH) {
+        const years = parseAgentFinancialYearChoice(choice)
+        const latestRows = latestFormDataRef.current?.yearlyFinancials
+        const financialRows =
+          Array.isArray(latestRows) && latestRows.length > 0
+            ? latestRows
+            : getLiveYearlyFinancials()
+        if (years && hasMatchingHistoricalFinancialYear(years, financialRows)) {
+          setAssistantInputPatch({
+            id: `${choice.id}:${years.join(',')}`,
+            type: 'select_financial_years',
+            years,
+          })
+          return true
+        }
+        await Promise.resolve(
+          handleChatMessage(buildAgentChoiceFollowUpPrompt(choice, currentLocale))
+        )
+        return true
+      }
+
       if (submitPath === VALUATION_SCENARIO_CHOICE_PATH) {
         const state = usePreparerMultipleStore.getState()
         const parsed = parseAgentValuationScenarioChoice(choice, state.benchmarkMedian)
@@ -379,7 +412,7 @@ export function useManualAssistantController({
 
       return false
     },
-    [currentLocale, handleChatMessage]
+    [currentLocale, getLiveYearlyFinancials, handleChatMessage, latestFormDataRef]
   )
 
   const chatDrawerProps: ChatDrawerProps = {

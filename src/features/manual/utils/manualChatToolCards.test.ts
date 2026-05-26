@@ -455,6 +455,41 @@ describe('manualChatToolCards', () => {
 
     expect(
       parseManualChatStreamToolResult(
+        'propose_valuation_method_preference',
+        {
+          status: 'pending_approval',
+          request: { client_id: 'client-1', method: 'dcf', business_name: 'Acme NV' },
+        },
+        createId
+      )?.valuationMethodPreferenceRequests?.[0]
+    ).toMatchObject({ id: 'id-7', clientId: 'client-1', method: 'dcf' })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'propose_acknowledge_warning',
+        {
+          status: 'pending_approval',
+          request: {
+            code: 'cap_breach:2024:owner_salary',
+            kind: 'cap_breach',
+            summary: 'Owner salary normalization exceeds cap',
+            reason: 'Founder confirmed below-market comp.',
+            client_id: 'client-1',
+            report_id: 'report-1',
+          },
+        },
+        createId
+      )?.acknowledgeWarningRequests?.[0]
+    ).toMatchObject({
+      id: 'id-8',
+      code: 'cap_breach:2024:owner_salary',
+      warningKind: 'cap_breach',
+      clientId: 'client-1',
+      reportId: 'report-1',
+    })
+
+    expect(
+      parseManualChatStreamToolResult(
         'create_client',
         {
           status: 'pending_approval',
@@ -462,7 +497,7 @@ describe('manualChatToolCards', () => {
         },
         createId
       )?.clientCreateRequests?.[0]
-    ).toMatchObject({ id: 'id-7', businessName: 'Acme NV' })
+    ).toMatchObject({ id: 'id-9', businessName: 'Acme NV' })
 
     expect(
       parseManualChatStreamToolResult(
@@ -473,7 +508,7 @@ describe('manualChatToolCards', () => {
         },
         createId
       )?.valuationSessionRequests?.[0]
-    ).toMatchObject({ id: 'id-8', clientId: 'client-1', businessName: 'Acme NV' })
+    ).toMatchObject({ id: 'id-10', clientId: 'client-1', businessName: 'Acme NV' })
 
     expect(
       parseManualChatStreamToolResult(
@@ -484,7 +519,7 @@ describe('manualChatToolCards', () => {
         },
         createId
       )?.importReviewRequests?.[0]
-    ).toMatchObject({ id: 'id-9', clientId: 'client-1', actionableFlagCount: 2 })
+    ).toMatchObject({ id: 'id-11', clientId: 'client-1', actionableFlagCount: 2 })
 
     expect(
       parseManualChatStreamToolResult(
@@ -500,7 +535,7 @@ describe('manualChatToolCards', () => {
         createId
       )?.buyerReadyCards?.[0]
     ).toMatchObject({
-      id: 'id-10',
+      id: 'id-12',
       kind: 'im_regenerate',
       sectionKey: 'financial_overview',
       currentConfidence: 'low',
@@ -518,7 +553,7 @@ describe('manualChatToolCards', () => {
         createId
       )?.businessTypeSearchResults?.[0]
     ).toMatchObject({
-      id: 'id-11',
+      id: 'id-13',
       status: 'ok',
       query: 'software',
       results: [{ id: 'saas-company', title: 'SaaS company', industry: 'Software' }],
@@ -554,6 +589,19 @@ describe('manualChatToolCards', () => {
       reportGenerationRequests: [{ id: 'report-card', status: 'blocked' }],
       ownerProfileAnswerRequests: [{ id: 'owner-card', field: 'key_person' }],
       integrationConnectRequests: [{ id: 'integration-card', status: 'pending_approval' }],
+      integrationSyncRequests: [{ id: 'integration-sync-card', status: 'pending_approval' }],
+      syncStatusPreviews: [{ id: 'sync-status-card', status: 'ok', providers: [] }],
+      ownerInviteAccountantRequests: [{ id: 'owner-invite-card', status: 'pending_approval' }],
+      ownerReminderRequests: [{ id: 'owner-reminder-card', status: 'pending_approval' }],
+      listingVisibilityRequests: [{ id: 'listing-visibility-card', status: 'pending_approval' }],
+      shareTokenRequests: [{ id: 'share-token-card', status: 'pending_approval' }],
+      shareTokenRevokeRequests: [{ id: 'share-token-revoke-card', status: 'pending_approval' }],
+      valuationMethodPreferenceRequests: [
+        { id: 'method-preference-card', status: 'pending_approval' },
+      ],
+      acknowledgeWarningRequests: [
+        { id: 'ack-warning-card', status: 'pending_approval', code: 'cap_breach:2024' },
+      ],
       secureCredentialRequests: [{ id: 'credential-card', status: 'pending_approval' }],
       csvUploadRequests: [{ id: 'csv-card', status: 'pending_approval' }],
       multiSelectRequests: [{ id: 'multi-card', status: 'pending_approval' }],
@@ -598,6 +646,33 @@ describe('manualChatToolCards', () => {
     expect(next[1].ownerProfileAnswerRequests).toEqual([{ id: 'owner-card', field: 'key_person' }])
     expect(next[1].integrationConnectRequests).toEqual([
       { id: 'integration-card', status: 'pending_approval' },
+    ])
+    expect(next[1].integrationSyncRequests).toEqual([
+      { id: 'integration-sync-card', status: 'pending_approval' },
+    ])
+    expect(next[1].syncStatusPreviews).toEqual([
+      { id: 'sync-status-card', status: 'ok', providers: [] },
+    ])
+    expect(next[1].ownerInviteAccountantRequests).toEqual([
+      { id: 'owner-invite-card', status: 'pending_approval' },
+    ])
+    expect(next[1].ownerReminderRequests).toEqual([
+      { id: 'owner-reminder-card', status: 'pending_approval' },
+    ])
+    expect(next[1].listingVisibilityRequests).toEqual([
+      { id: 'listing-visibility-card', status: 'pending_approval' },
+    ])
+    expect(next[1].shareTokenRequests).toEqual([
+      { id: 'share-token-card', status: 'pending_approval' },
+    ])
+    expect(next[1].shareTokenRevokeRequests).toEqual([
+      { id: 'share-token-revoke-card', status: 'pending_approval' },
+    ])
+    expect(next[1].valuationMethodPreferenceRequests).toEqual([
+      { id: 'method-preference-card', status: 'pending_approval' },
+    ])
+    expect(next[1].acknowledgeWarningRequests).toEqual([
+      { id: 'ack-warning-card', status: 'pending_approval', code: 'cap_breach:2024' },
     ])
     expect(next[1].secureCredentialRequests).toEqual([
       { id: 'credential-card', status: 'pending_approval' },

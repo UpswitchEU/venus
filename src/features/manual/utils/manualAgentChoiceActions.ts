@@ -14,6 +14,7 @@ import { canonicalAgentMethodSelection } from './manualAiValuationMethods'
 
 export const METHOD_WEIGHT_CHOICE_PATH = '/api/valuations/method-weights'
 export const VALUATION_SCENARIO_CHOICE_PATH = '/api/valuations/scenario'
+export const FINANCIAL_YEAR_CHOICE_PATH = '/api/valuations/years'
 
 const EQUAL_WEIGHT_VALUES = new Set([
   'equal',
@@ -56,6 +57,8 @@ const SCENARIO_ALIASES: Record<string, ScenarioPreset['id'] | 'base'> = {
   concentration: 'customer_concentration',
   key_customer: 'customer_concentration',
 }
+
+const FISCAL_YEAR_PATTERN = /\d{4}/g
 
 function selectedChoiceValues(choice: AgentChoiceSelection): string[] {
   if (choice.kind === 'multi_select') return choice.values ?? []
@@ -249,6 +252,26 @@ export function parseAgentValuationScenarioChoice(
     appliedMedian: projectSuggestedMultiple(benchmarkMedian, preset.band),
     reasonKey: preset.reasonKey,
   }
+}
+
+export function parseAgentFinancialYearChoice(choice: AgentChoiceSelection): number[] | null {
+  const sources = [
+    ...selectedChoiceValues(choice),
+    ...choice.selectedOptions.flatMap((option) => [option.value, option.label]),
+  ]
+  const years: number[] = []
+  const seen = new Set<number>()
+
+  for (const source of sources) {
+    for (const match of source.matchAll(FISCAL_YEAR_PATTERN)) {
+      const year = Number.parseInt(match[0], 10)
+      if (!Number.isInteger(year) || year < 1900 || year > 2100 || seen.has(year)) continue
+      seen.add(year)
+      years.push(year)
+    }
+  }
+
+  return years.length > 0 ? years : null
 }
 
 export function buildAgentChoiceFollowUpPrompt(

@@ -189,6 +189,26 @@ export interface ShareTokenRevokeRequest {
   message?: string
 }
 
+export interface ValuationMethodPreferenceRequest {
+  status: 'pending_approval' | 'blocked'
+  clientId?: string
+  method?: string | null
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface AcknowledgeWarningRequest {
+  status: 'pending_approval' | 'blocked'
+  code?: string
+  warningKind?: 'cap_breach' | 'defensibility'
+  summary?: string | null
+  reason?: string
+  message?: string
+  clientId?: string
+  reportId?: string
+}
+
 export interface SecureCredentialRequest {
   status: 'pending_approval'
   provider?: string
@@ -687,6 +707,8 @@ export interface ParsedToolResults {
   listingVisibilityRequests: ListingVisibilityRequest[]
   shareTokenRequests: ShareTokenRequest[]
   shareTokenRevokeRequests: ShareTokenRevokeRequest[]
+  valuationMethodPreferenceRequests: ValuationMethodPreferenceRequest[]
+  acknowledgeWarningRequests: AcknowledgeWarningRequest[]
   secureCredentialRequests: SecureCredentialRequest[]
   csvUploadRequests: CsvUploadRequest[]
   multiSelectRequests: MultiSelectRequest[]

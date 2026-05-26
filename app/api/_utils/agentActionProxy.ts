@@ -29,7 +29,7 @@ export async function proxyAgentJsonToTitan(
   request: NextRequest,
   path: string,
   options: {
-    method: 'POST' | 'PATCH' | 'DELETE'
+    method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'
     body?: unknown
     timeoutMs?: number
     successStatus?: number

@@ -8,6 +8,15 @@ const renderableCardCollections: Array<keyof ChatMessage> = [
   'sellabilityRunRequests',
   'ownerProfileAnswerRequests',
   'integrationConnectRequests',
+  'integrationSyncRequests',
+  'syncStatusPreviews',
+  'ownerInviteAccountantRequests',
+  'ownerReminderRequests',
+  'listingVisibilityRequests',
+  'shareTokenRequests',
+  'shareTokenRevokeRequests',
+  'valuationMethodPreferenceRequests',
+  'acknowledgeWarningRequests',
   'secureCredentialRequests',
   'csvUploadRequests',
   'multiSelectRequests',
@@ -49,6 +58,16 @@ export function getChatAssistantMessageRenderKey(messages: ChatMessage[]): strin
         }:${message.sellabilityRunRequests?.length ?? 0}:${
           message.ownerProfileAnswerRequests?.length ?? 0
         }:${message.integrationConnectRequests?.length ?? 0}:${
+          message.integrationSyncRequests?.length ?? 0
+        }:${message.syncStatusPreviews?.length ?? 0}:${
+          message.ownerInviteAccountantRequests?.length ?? 0
+        }:${message.ownerReminderRequests?.length ?? 0}:${
+          message.listingVisibilityRequests?.length ?? 0
+        }:${message.shareTokenRequests?.length ?? 0}:${
+          message.shareTokenRevokeRequests?.length ?? 0
+        }:${message.valuationMethodPreferenceRequests?.length ?? 0}:${
+          message.acknowledgeWarningRequests?.length ?? 0
+        }:${
           message.secureCredentialRequests?.length ?? 0
         }:${message.csvUploadRequests?.length ?? 0}:${message.multiSelectRequests?.length ?? 0}:${
           message.singleSelectRequests?.length ?? 0

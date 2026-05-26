@@ -13,6 +13,7 @@ import type { AiLooseToolResultEnvelope } from '@upswitch/ai-actions'
 import { parseBuyerReadyToolResult } from './buyer-ready-tool-result-parser'
 import { recordValue } from './tool-result-parser-utils'
 import {
+  parseAcknowledgeWarningRequest,
   parseBelgianCompanyBootstrap,
   parseBuyerProfilePreview,
   parseClientCreateRequest,
@@ -33,6 +34,7 @@ import {
   parseShareTokenRevokeRequest,
   parseSingleSelectRequest,
   parseSyncStatus,
+  parseValuationMethodPreferenceRequest,
   parseValuationSessionRequest,
 } from './tool-result-request-parsers'
 import type { ParsedToolResults } from './tool-result-types'
@@ -49,6 +51,7 @@ export type { ChunkDispatchCallbacks, ChunkDispatchState } from './ai-chat-chunk
 export { dispatchAIChatChunk, makeChunkDispatchState } from './ai-chat-chunk-dispatcher'
 
 export type {
+  AcknowledgeWarningRequest,
   BelgianCompanyBootstrap,
   BusinessTypeSearchResult,
   BusinessTypeSearchResults,
@@ -86,6 +89,7 @@ export type {
   ShareTokenRevokeRequest,
   SingleSelectRequest,
   SyncStatusPreview,
+  ValuationMethodPreferenceRequest,
   ValuationRunRequest,
   ValuationRunRequestBlocked,
   ValuationRunRequestPending,
@@ -108,6 +112,8 @@ function emptyResult(): ParsedToolResults {
     listingVisibilityRequests: [],
     shareTokenRequests: [],
     shareTokenRevokeRequests: [],
+    valuationMethodPreferenceRequests: [],
+    acknowledgeWarningRequests: [],
     secureCredentialRequests: [],
     csvUploadRequests: [],
     multiSelectRequests: [],
@@ -218,6 +224,12 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'share_token_revoke_request':
         out.shareTokenRevokeRequests.push(...parseShareTokenRevokeRequest(data))
+        break
+      case 'valuation_method_preference_request':
+        out.valuationMethodPreferenceRequests.push(...parseValuationMethodPreferenceRequest(data))
+        break
+      case 'acknowledge_warning_request':
+        out.acknowledgeWarningRequests.push(...parseAcknowledgeWarningRequest(data))
         break
       case 'secure_credential_request':
         out.secureCredentialRequests.push(...parseSecureCredentialRequest(data))

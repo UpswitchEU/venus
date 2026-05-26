@@ -15,6 +15,7 @@
 import { useClientContext } from '../../stores/clientContext'
 import { createContextLogger } from '../../utils/logger'
 import {
+  type AcknowledgeWarningRequest,
   type BelgianCompanyBootstrap,
   type BusinessTypeSearchResults,
   type BuyerProfilePreview,
@@ -45,6 +46,7 @@ import {
   type ShareTokenRevokeRequest,
   type SingleSelectRequest,
   type SyncStatusPreview,
+  type ValuationMethodPreferenceRequest,
   type ValuationRunRequest,
   type ValuationSessionRequest,
 } from './tool-results-parser'
@@ -201,6 +203,10 @@ export interface AIChatResponse {
   shareTokenRequests?: ShareTokenRequest[]
   /** Private marketplace share-token revoke proposals. */
   shareTokenRevokeRequests?: ShareTokenRevokeRequest[]
+  /** Per-client valuation-method override proposals. */
+  valuationMethodPreferenceRequests?: ValuationMethodPreferenceRequest[]
+  /** Mercury import-review warning acknowledgements that Venus bridges back to Mercury. */
+  acknowledgeWarningRequests?: AcknowledgeWarningRequest[]
   /** Secure credential form proposals. Credentials must never be sent through chat text. */
   secureCredentialRequests?: SecureCredentialRequest[]
   /** CSV upload proposals for trial-balance or bulk-client import. */
@@ -443,6 +449,12 @@ class AIChatServiceImpl {
         }
         if (parsed.shareTokenRevokeRequests.length > 0) {
           aiResponse.shareTokenRevokeRequests = parsed.shareTokenRevokeRequests
+        }
+        if (parsed.valuationMethodPreferenceRequests.length > 0) {
+          aiResponse.valuationMethodPreferenceRequests = parsed.valuationMethodPreferenceRequests
+        }
+        if (parsed.acknowledgeWarningRequests.length > 0) {
+          aiResponse.acknowledgeWarningRequests = parsed.acknowledgeWarningRequests
         }
         if (parsed.secureCredentialRequests.length > 0) {
           aiResponse.secureCredentialRequests = parsed.secureCredentialRequests

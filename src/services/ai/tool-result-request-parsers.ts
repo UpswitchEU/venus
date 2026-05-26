@@ -1,5 +1,6 @@
 import { optionalString, optionalStringList, recordValue } from './tool-result-parser-utils'
 import type {
+  AcknowledgeWarningRequest,
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
   ClientCreateRequest,
@@ -19,6 +20,7 @@ import type {
   ShareTokenRequest,
   ShareTokenRevokeRequest,
   SingleSelectRequest,
+  ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
 } from './tool-result-types'
 
@@ -261,6 +263,68 @@ export function parseShareTokenRevokeRequest(data: unknown): ShareTokenRevokeReq
         businessName: typeof req.business_name === 'string' ? req.business_name : null,
         reason: optionalString(req.reason),
         message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseValuationMethodPreferenceRequest(
+  data: unknown
+): ValuationMethodPreferenceRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const method = req.method === null ? null : optionalString(req.method)
+    return [
+      {
+        status: 'pending_approval',
+        clientId: optionalString(req.client_id),
+        method,
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseAcknowledgeWarningRequest(data: unknown): AcknowledgeWarningRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const kind = req.kind
+    return [
+      {
+        status: 'pending_approval',
+        code: optionalString(req.code),
+        warningKind: kind === 'cap_breach' || kind === 'defensibility' ? kind : undefined,
+        summary: typeof req.summary === 'string' ? req.summary : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+        clientId: optionalString(req.client_id),
+        reportId: optionalString(req.report_id),
       },
     ]
   }

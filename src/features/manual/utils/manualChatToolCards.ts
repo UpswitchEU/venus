@@ -11,12 +11,14 @@ type IntegrationConnectCard = NonNullable<ChatMessage['integrationConnectRequest
 type IntegrationSyncCard = NonNullable<ChatMessage['integrationSyncRequests']>[number]
 type SyncStatusPreviewCard = NonNullable<ChatMessage['syncStatusPreviews']>[number]
 type OwnerReminderCard = NonNullable<ChatMessage['ownerReminderRequests']>[number]
-type OwnerInviteAccountantCard = NonNullable<
-  ChatMessage['ownerInviteAccountantRequests']
->[number]
+type OwnerInviteAccountantCard = NonNullable<ChatMessage['ownerInviteAccountantRequests']>[number]
 type ListingVisibilityCard = NonNullable<ChatMessage['listingVisibilityRequests']>[number]
 type ShareTokenCard = NonNullable<ChatMessage['shareTokenRequests']>[number]
 type ShareTokenRevokeCard = NonNullable<ChatMessage['shareTokenRevokeRequests']>[number]
+type ValuationMethodPreferenceCard = NonNullable<
+  ChatMessage['valuationMethodPreferenceRequests']
+>[number]
+type AcknowledgeWarningCard = NonNullable<ChatMessage['acknowledgeWarningRequests']>[number]
 type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
 type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
 type MultiSelectCard = NonNullable<ChatMessage['multiSelectRequests']>[number]
@@ -55,6 +57,8 @@ export interface ManualChatToolCards {
   listingVisibilityRequests?: ListingVisibilityCard[]
   shareTokenRequests?: ShareTokenCard[]
   shareTokenRevokeRequests?: ShareTokenRevokeCard[]
+  valuationMethodPreferenceRequests?: ValuationMethodPreferenceCard[]
+  acknowledgeWarningRequests?: AcknowledgeWarningCard[]
   secureCredentialRequests?: SecureCredentialCard[]
   csvUploadRequests?: CsvUploadCard[]
   multiSelectRequests?: MultiSelectCard[]
@@ -88,6 +92,8 @@ interface ManualChatToolCardsInput {
   listingVisibilityRequests?: readonly unknown[]
   shareTokenRequests?: readonly unknown[]
   shareTokenRevokeRequests?: readonly unknown[]
+  valuationMethodPreferenceRequests?: readonly unknown[]
+  acknowledgeWarningRequests?: readonly unknown[]
   secureCredentialRequests?: readonly unknown[]
   csvUploadRequests?: readonly unknown[]
   multiSelectRequests?: readonly unknown[]
@@ -270,6 +276,28 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as ShareTokenRevokeCard
+    )
+  )
+  pushIfAny(
+    out,
+    'valuationMethodPreferenceRequests',
+    (cards.valuationMethodPreferenceRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ValuationMethodPreferenceCard
+    )
+  )
+  pushIfAny(
+    out,
+    'acknowledgeWarningRequests',
+    (cards.acknowledgeWarningRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as AcknowledgeWarningCard
     )
   )
   pushIfAny(
@@ -488,6 +516,10 @@ export function parseManualChatStreamToolResult(
         return { type: 'share_token_request', data }
       case 'propose_share_token_revoke':
         return { type: 'share_token_revoke_request', data }
+      case 'propose_valuation_method_preference':
+        return { type: 'valuation_method_preference_request', data }
+      case 'propose_acknowledge_warning':
+        return { type: 'acknowledge_warning_request', data }
       case 'propose_secure_credential':
         return { type: 'secure_credential_request', data }
       case 'propose_csv_upload':
@@ -573,6 +605,8 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.listingVisibilityRequests?.length ?? 0) > 0 ||
         (cards.shareTokenRequests?.length ?? 0) > 0 ||
         (cards.shareTokenRevokeRequests?.length ?? 0) > 0 ||
+        (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+        (cards.acknowledgeWarningRequests?.length ?? 0) > 0 ||
         (cards.secureCredentialRequests?.length ?? 0) > 0 ||
         (cards.csvUploadRequests?.length ?? 0) > 0 ||
         (cards.multiSelectRequests?.length ?? 0) > 0 ||
@@ -644,10 +678,7 @@ export function appendManualChatToolCardsToMessage(
       ],
     }),
     ...(cards.syncStatusPreviews && {
-      syncStatusPreviews: [
-        ...(message.syncStatusPreviews ?? []),
-        ...cards.syncStatusPreviews,
-      ],
+      syncStatusPreviews: [...(message.syncStatusPreviews ?? []), ...cards.syncStatusPreviews],
     }),
     ...(cards.ownerInviteAccountantRequests && {
       ownerInviteAccountantRequests: [
@@ -674,6 +705,18 @@ export function appendManualChatToolCardsToMessage(
       shareTokenRevokeRequests: [
         ...(message.shareTokenRevokeRequests ?? []),
         ...cards.shareTokenRevokeRequests,
+      ],
+    }),
+    ...(cards.valuationMethodPreferenceRequests && {
+      valuationMethodPreferenceRequests: [
+        ...(message.valuationMethodPreferenceRequests ?? []),
+        ...cards.valuationMethodPreferenceRequests,
+      ],
+    }),
+    ...(cards.acknowledgeWarningRequests && {
+      acknowledgeWarningRequests: [
+        ...(message.acknowledgeWarningRequests ?? []),
+        ...cards.acknowledgeWarningRequests,
       ],
     }),
     ...(cards.secureCredentialRequests && {

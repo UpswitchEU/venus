@@ -77,6 +77,7 @@ export { HistoryPanel } from './HistoryPanel'
 export type { IntegrationStepPanelProps } from './IntegrationStepPanel'
 export { IntegrationStepPanel } from './IntegrationStepPanel'
 export type {
+  ManualInputAssistantPatch,
   ManualValuationFormData,
   ValuationFormData,
   YearlyFinancials,

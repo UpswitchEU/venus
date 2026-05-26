@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import {
+  AlertTriangle,
   Bell,
   Check,
   Eye,
@@ -9,6 +10,7 @@ import {
   KeyRound,
   Link2,
   Mail,
+  Pin,
   RefreshCw,
   Share2,
   ShieldX,
@@ -20,6 +22,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
+  AcknowledgeWarningRequest,
   AgentChoiceSelection,
   ChatMessage,
   ClientCreateRequest,
@@ -37,6 +40,7 @@ import type {
   ShareTokenRevokeRequest,
   SingleSelectRequest,
   SyncStatusPreview,
+  ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
 } from './ChatAssistantTypes'
 
@@ -73,6 +77,20 @@ const MAX_SHARE_TOKEN_EXPIRES_DAYS = 90
 const MIN_SHARE_TOKEN_USES = 1
 const MAX_SHARE_TOKEN_USES = 100
 const OWNER_REMINDER_MAX_LENGTH = 1000
+
+const VALUATION_METHOD_LABELS: Record<string, string> = {
+  upswitch_adaptive: 'Upswitch adaptive',
+  ebitda_multiple: 'EBITDA multiple',
+  omzet_multiple: 'Omzet multiple',
+  revenue_multiple: 'Revenue multiple',
+  dcf: 'DCF',
+  sde_multiple: 'SDE multiple',
+  arr_multiple: 'ARR multiple',
+  adjusted_nav: 'Adjusted NAV',
+  fiscal_4x: 'Fiscal 4x',
+  startup_valuation: 'Startup valuation',
+  liquidation_analysis: 'Liquidation analysis',
+}
 
 function compactParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -187,6 +205,17 @@ function providerLabel(provider?: string) {
     xero: 'Xero',
   }
   return labels[provider] ?? provider
+}
+
+function fallbackMethodLabel(method: string) {
+  return (
+    VALUATION_METHOD_LABELS[method] ??
+    method
+      .split('_')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  )
 }
 
 function formatBytes(value?: number) {
@@ -1044,6 +1073,146 @@ function ShareTokenRevokeCard({ request }: { request: ShareTokenRevokeRequest })
   )
 }
 
+function ValuationMethodPreferenceCard({ request }: { request: ValuationMethodPreferenceRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const isClear = request.method === null
+  const methodLabel =
+    typeof request.method === 'string' ? fallbackMethodLabel(request.method) : null
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.valuationMethodPreferenceBlocked')
+          : isClear
+            ? request.businessName
+              ? ca('proposalCards.agent.valuationMethodPreferenceClearWithName', {
+                  name: request.businessName,
+                })
+              : ca('proposalCards.agent.valuationMethodPreferenceClear')
+            : methodLabel && request.businessName
+              ? ca('proposalCards.agent.valuationMethodPreferencePinWithName', {
+                  method: methodLabel,
+                  name: request.businessName,
+                })
+              : methodLabel
+                ? ca('proposalCards.agent.valuationMethodPreferencePin', { method: methodLabel })
+                : ca('proposalCards.agent.valuationMethodPreferenceTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([
+        request.businessName,
+        isClear ? ca('proposalCards.agent.valuationMethodPreferenceDefault') : methodLabel,
+      ])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      actionLabel={
+        isClear
+          ? ca('proposalCards.agent.valuationMethodPreferenceClearAction')
+          : ca('proposalCards.agent.valuationMethodPreferencePinAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.saved')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (!request.clientId) throw new Error(ca('proposalCards.agent.missingClient'))
+              if (request.method === undefined) {
+                throw new Error(ca('proposalCards.agent.missingMethod'))
+              }
+              const response = await fetch(
+                `/api/accountants/clients/${encodeURIComponent(
+                  request.clientId
+                )}/valuation-method-preference`,
+                {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders(
+                      'propose_valuation_method_preference',
+                      request.id
+                    ),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({ value: request.method }),
+                }
+              )
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
+function AcknowledgeWarningCard({ request }: { request: AcknowledgeWarningRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const isBlocked = request.status === 'blocked'
+  const isCapBreach = request.warningKind === 'cap_breach'
+  const canOpenReview = !isBlocked && Boolean(request.code)
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked || !request.code
+          ? ca('proposalCards.agent.acknowledgeWarningBlocked')
+          : isCapBreach
+            ? ca('proposalCards.agent.acknowledgeWarningCapTitle')
+            : request.warningKind === 'defensibility'
+              ? ca('proposalCards.agent.acknowledgeWarningDefensibilityTitle')
+              : ca('proposalCards.agent.acknowledgeWarningTitle')
+      }
+      detail={
+        isBlocked
+          ? (request.message ?? request.reason)
+          : (request.reason ?? request.message ?? ca('proposalCards.agent.acknowledgeWarningHint'))
+      }
+      meta={compactParts([
+        isCapBreach
+          ? ca('proposalCards.agent.acknowledgeWarningKindCap')
+          : request.warningKind === 'defensibility'
+            ? ca('proposalCards.agent.acknowledgeWarningKindDefensibility')
+            : null,
+        request.reportId,
+      ])}
+      tone={isBlocked || !request.code ? 'blocked' : 'default'}
+      icon={<AlertTriangle className="h-3.5 w-3.5" />}
+      actionLabel={canOpenReview ? ca('proposalCards.agent.acknowledgeWarningAction') : undefined}
+      actionSuccessLabel={ca('proposalCards.agent.opened')}
+      onAction={
+        canOpenReview
+          ? () => {
+              openInNewTab(
+                mercuryPath(locale, '/advisor/import-review', {
+                  source: 'venus-ai',
+                  clientId: request.clientId,
+                  reportId: request.reportId,
+                  warning_code: request.code,
+                  warning_kind: request.warningKind,
+                })
+              )
+            }
+          : undefined
+      }
+    >
+      {(request.summary || request.code) && (
+        <div className="mt-2 rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+          {request.summary && <p className="text-foreground/65">{request.summary}</p>}
+          {request.code && (
+            <p className="mt-1 font-mono text-[11px] text-foreground/55 break-all">
+              {ca('proposalCards.agent.acknowledgeWarningCodeLabel')}: {request.code}
+            </p>
+          )}
+        </div>
+      )}
+    </InlineActionCard>
+  )
+}
+
 function SecureCredentialCard({ request }: { request: SecureCredentialRequest }) {
   const ca = useTranslations('chatAssistant')
   const provider = providerLabel(request.provider)
@@ -1711,6 +1880,8 @@ export function ChatAssistantAgentActionCards({
           (message.listingVisibilityRequests?.length ?? 0) > 0 ||
           (message.shareTokenRequests?.length ?? 0) > 0 ||
           (message.shareTokenRevokeRequests?.length ?? 0) > 0 ||
+          (message.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+          (message.acknowledgeWarningRequests?.length ?? 0) > 0 ||
           (message.secureCredentialRequests?.length ?? 0) > 0 ||
           (message.csvUploadRequests?.length ?? 0) > 0 ||
           (message.multiSelectRequests?.length ?? 0) > 0 ||
@@ -1752,6 +1923,12 @@ export function ChatAssistantAgentActionCards({
       ))}
       {message.shareTokenRevokeRequests?.map((request) => (
         <ShareTokenRevokeCard key={request.id} request={request} />
+      ))}
+      {message.valuationMethodPreferenceRequests?.map((request) => (
+        <ValuationMethodPreferenceCard key={request.id} request={request} />
+      ))}
+      {message.acknowledgeWarningRequests?.map((request) => (
+        <AcknowledgeWarningCard key={request.id} request={request} />
       ))}
       {message.secureCredentialRequests?.map((request) => (
         <SecureCredentialCard key={request.id} request={request} />

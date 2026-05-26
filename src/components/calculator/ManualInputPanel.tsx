@@ -13,7 +13,7 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import {
   isAccountantFreeOrStarterTier,
@@ -66,6 +66,7 @@ import { CompanyIdentificationSection } from './sections/CompanyIdentificationSe
 import { FinancialHistorySection } from './sections/FinancialHistorySection'
 import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
+import { applyManualFinancialYearSelection } from './utils/manualFinancialRowMutations'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
@@ -85,6 +86,11 @@ import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
 export type { ManualValuationFormData, YearlyFinancials }
 /** Back-compat name used throughout this file and `calculator` exports. */
 export type ValuationFormData = ManualValuationFormData
+export interface ManualInputAssistantPatch {
+  id: string
+  type: 'select_financial_years'
+  years: number[]
+}
 export { venusLiveBatchImportProvider } from './hooks/useManualAccountingImportController'
 export {
   getSeedBaseFilingYear,
@@ -132,6 +138,8 @@ interface ManualInputPanelProps {
   onFormDataChange?: (data: Record<string, unknown>) => void
   /** Optional ref to sync form financials synchronously during render. Used by sibling modals that need latest data without effect delay. */
   formDataRef?: React.MutableRefObject<Record<string, unknown> | null>
+  /** One-shot assistant-approved mutation that must land in the same state as the manual controls. */
+  assistantPatch?: ManualInputAssistantPatch | null
   /** STP: When true, KBO fields are pre-filled from backend enrichment and shown as read-only */
   readOnlyKbo?: boolean
   /** STP: When true, auto-advance past steps that are fully pre-filled */
@@ -161,6 +169,7 @@ export function ManualInputPanel({
   onViewAllNormalizations,
   onFormDataChange,
   formDataRef,
+  assistantPatch,
   readOnlyKbo = false,
   autoAdvancePastPrefilledSteps = false,
   synthesisWeights = {},
@@ -192,6 +201,15 @@ export function ManualInputPanel({
   const [formData, setFormData] = useState<ValuationFormData>(() =>
     buildManualInputInitialFormData(initialData)
   )
+  const appliedAssistantPatchIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!assistantPatch || appliedAssistantPatchIdRef.current === assistantPatch.id) return
+    appliedAssistantPatchIdRef.current = assistantPatch.id
+
+    if (assistantPatch.type === 'select_financial_years') {
+      setFormData((prev) => applyManualFinancialYearSelection(prev, assistantPatch.years).next)
+    }
+  }, [assistantPatch])
   const { appliedFields: advisorDefaultsAppliedFields } = useApplyAdvisorValuationDefaults({
     enabled: isAccountantTierRole(user?.role),
     formData,

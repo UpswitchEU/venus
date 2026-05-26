@@ -43,6 +43,7 @@ import { useChatAssistantConsentFlow } from './useChatAssistantConsentFlow'
 export type { ParsedCommand, ParsedValue } from './ChatAssistantParsing'
 export { parseFinancialValues, parseNormalizationCommands } from './ChatAssistantParsing'
 export type {
+  AcknowledgeWarningRequest,
   AgentChoiceSelection,
   BelgianCompanyBootstrap,
   BuyerProfilePreview,

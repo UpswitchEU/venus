@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AgentChoiceSelection } from '@/components/calculator'
 import {
   buildAgentChoiceFollowUpPrompt,
+  parseAgentFinancialYearChoice,
   parseAgentMethodWeightChoice,
   parseAgentValuationScenarioChoice,
 } from './manualAgentChoiceActions'
@@ -78,6 +79,26 @@ describe('manualAgentChoiceActions', () => {
 
   it('falls back instead of silently equalizing invalid explicit weight sums', () => {
     expect(parseAgentMethodWeightChoice(single('dcf=60, ebitda_multiple=30'), [])).toBeNull()
+  })
+
+  it('parses assistant-selected fiscal years from multi-select values and labels', () => {
+    expect(
+      parseAgentFinancialYearChoice({
+        id: 'choice-1',
+        kind: 'multi_select',
+        title: 'Which fiscal years?',
+        submitPath: '/api/valuations/years',
+        values: ['fy_2024', '2023'],
+        selectedOptions: [
+          { value: 'fy_2024', label: 'FY 2024' },
+          { value: '2023', label: '2023 closed accounts' },
+        ],
+      })
+    ).toEqual([2024, 2023])
+  })
+
+  it('rejects assistant year choices without a four-digit fiscal year', () => {
+    expect(parseAgentFinancialYearChoice(single('latest_available'))).toBeNull()
   })
 
   it('builds localized follow-up prompts for choices that still need the agent loop', () => {

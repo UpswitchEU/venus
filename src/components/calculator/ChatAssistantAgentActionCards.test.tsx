@@ -293,6 +293,200 @@ describe('ChatAssistantAgentActionCards', () => {
     expect(onSendFollowUp).not.toHaveBeenCalled()
   })
 
+  it('starts client-scope integration syncs through the Venus BFF', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: { job_id: 'job-1' } }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      integrationSyncRequests: [
+        {
+          id: 'proposal-sync-client',
+          status: 'pending_approval',
+          provider: 'exact',
+          scope: 'client_scope',
+          clientId: 'client-1',
+          reason: 'Refresh this client before running the valuation.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'proposalCards.agent.integrationSyncAction' })
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/integrations/accounting/resync-client/client-1',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ force: true }),
+        })
+      )
+    })
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Upswitch-Agent-Tool-Name': 'propose_integration_sync',
+        'X-Upswitch-Agent-Proposal-Id': 'proposal-sync-client',
+      })
+    )
+  })
+
+  it('sends owner accountant invites through the Venus BFF', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, email_sent: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      ownerInviteAccountantRequests: [
+        {
+          id: 'proposal-owner-invite',
+          status: 'pending_approval',
+          accountantEmail: 'Advisor@Example.COM',
+          customMessage: 'Please review the books.',
+          reason: 'The owner wants their accountant involved.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Send invite' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/client/orphaned-seller/invite-accountant',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({
+            accountant_email: 'advisor@example.com',
+            surface: 'card',
+            custom_message: 'Please review the books.',
+          }),
+        })
+      )
+    })
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Upswitch-Agent-Tool-Name': 'propose_owner_invite_accountant',
+        'X-Upswitch-Agent-Proposal-Id': 'proposal-owner-invite',
+      })
+    )
+  })
+
+  it('updates valuation-method preference through the Venus BFF', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      valuationMethodPreferenceRequests: [
+        {
+          id: 'proposal-method-pref',
+          status: 'pending_approval',
+          clientId: 'client-1',
+          method: 'dcf',
+          businessName: 'Acme NV',
+          reason: 'Use DCF as the headline lens.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'proposalCards.agent.valuationMethodPreferencePinAction',
+      })
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/accountants/clients/client-1/valuation-method-preference',
+        expect.objectContaining({
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ value: 'dcf' }),
+        })
+      )
+    })
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Upswitch-Agent-Tool-Name': 'propose_valuation_method_preference',
+        'X-Upswitch-Agent-Proposal-Id': 'proposal-method-pref',
+      })
+    )
+  })
+
+  it('bridges Mercury warning acknowledgements to the real import-review surface', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const openMock = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const message: ChatMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      acknowledgeWarningRequests: [
+        {
+          id: 'proposal-ack-warning',
+          status: 'pending_approval',
+          code: 'cap_breach:2024:owner_salary',
+          warningKind: 'cap_breach',
+          summary: 'Owner salary normalization exceeds cap',
+          reason: 'Founder confirmed below-market comp.',
+          clientId: 'client-1',
+          reportId: 'report-1',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'proposalCards.agent.acknowledgeWarningAction',
+      })
+    )
+
+    await waitFor(() => {
+      expect(openMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'http://localhost:3000/en/advisor/import-review?source=venus-ai&clientId=client-1&reportId=report-1'
+        ),
+        '_blank',
+        'noopener,noreferrer'
+      )
+    })
+    expect(openMock.mock.calls[0]?.[0]).toContain('warning_code=cap_breach%3A2024%3Aowner_salary')
+    expect(openMock.mock.calls[0]?.[0]).toContain('warning_kind=cap_breach')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('opens integration proposals on Mercury provider deep links instead of bypassing OAuth state', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

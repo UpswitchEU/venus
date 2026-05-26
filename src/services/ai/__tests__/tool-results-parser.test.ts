@@ -38,6 +38,8 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingVisibilityRequests: [],
       shareTokenRequests: [],
       shareTokenRevokeRequests: [],
+      valuationMethodPreferenceRequests: [],
+      acknowledgeWarningRequests: [],
       secureCredentialRequests: [],
       csvUploadRequests: [],
       multiSelectRequests: [],
@@ -78,6 +80,8 @@ describe('parseAIChatToolResults — input tolerance', () => {
       listingVisibilityRequests: [],
       shareTokenRequests: [],
       shareTokenRevokeRequests: [],
+      valuationMethodPreferenceRequests: [],
+      acknowledgeWarningRequests: [],
       secureCredentialRequests: [],
       csvUploadRequests: [],
       multiSelectRequests: [],
@@ -124,10 +128,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
-      'valuation_method_preference_request',
-      'acknowledge_warning_request',
-    ])
+    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
   })
 
   it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {
@@ -814,6 +815,17 @@ describe('agentic action envelopes', () => {
         },
       },
       {
+        type: 'owner_invite_accountant_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            accountant_email: 'advisor@example.com',
+            custom_message: 'Please review the books.',
+            reason: 'The owner wants their accountant involved.',
+          },
+        },
+      },
+      {
         type: 'listing_visibility_request',
         data: {
           status: 'pending_approval',
@@ -853,6 +865,32 @@ describe('agentic action envelopes', () => {
           },
         },
       },
+      {
+        type: 'valuation_method_preference_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            client_id: 'client-1',
+            method: 'dcf',
+            business_name: 'Acme NV',
+            reason: 'DCF should be the headline lens for the next bulk run.',
+          },
+        },
+      },
+      {
+        type: 'acknowledge_warning_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            code: 'cap_breach:2024:owner_salary',
+            kind: 'cap_breach',
+            summary: 'Owner salary normalization exceeds cap',
+            reason: 'Founder confirmed below-market comp.',
+            client_id: 'client-1',
+            report_id: 'report-1',
+          },
+        },
+      },
     ])
 
     expect(result.integrationSyncRequests[0]).toMatchObject({
@@ -866,6 +904,11 @@ describe('agentic action envelopes', () => {
       clientId: 'client-1',
       businessName: 'Acme NV',
       customerEmail: 'owner@acme.test',
+    })
+    expect(result.ownerInviteAccountantRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      accountantEmail: 'advisor@example.com',
+      customMessage: 'Please review the books.',
     })
     expect(result.listingVisibilityRequests[0]).toMatchObject({
       status: 'pending_approval',
@@ -884,6 +927,19 @@ describe('agentic action envelopes', () => {
       listingId: 'listing-1',
       tokenId: 'token-1',
       tokenHint: 'up_1234',
+    })
+    expect(result.valuationMethodPreferenceRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      clientId: 'client-1',
+      method: 'dcf',
+      businessName: 'Acme NV',
+    })
+    expect(result.acknowledgeWarningRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      code: 'cap_breach:2024:owner_salary',
+      warningKind: 'cap_breach',
+      clientId: 'client-1',
+      reportId: 'report-1',
     })
   })
 

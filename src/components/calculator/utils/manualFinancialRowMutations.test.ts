@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import {
   applyManualFilingYearSelection,
+  applyManualFinancialYearSelection,
   getManualPartialHistoricalYears,
   removeManualForecastYears,
   removeManualHistoricalYear,
@@ -49,6 +50,47 @@ describe('manual financial row mutations', () => {
     expect(result.filingYearConfirmed).toBe(true)
     expect(result.current_year_data?.year).toBe(2024)
     expect(result.yearlyFinancials.map((row) => row.year)).toContain('2024')
+  })
+
+  it('applies assistant-selected historical years while preserving forecast rows', () => {
+    const result = applyManualFinancialYearSelection(
+      makeForm([
+        { year: '2024', revenue: 100, ebitda: 20 },
+        { year: '2023', revenue: 90, ebitda: 18 },
+        { year: '2022', revenue: 80, ebitda: 16 },
+        { year: '2025', revenue: 110, ebitda: 22, isForecast: true },
+      ]),
+      [2024, 2022]
+    )
+
+    expect(result.didApply).toBe(true)
+    expect(result.next.yearlyFinancials).toEqual([
+      { year: '2024', revenue: 100, ebitda: 20 },
+      { year: '2022', revenue: 80, ebitda: 16 },
+      { year: '2025', revenue: 110, ebitda: 22, isForecast: true },
+    ])
+  })
+
+  it('refuses assistant year selections that would leave no historical row', () => {
+    const form = makeForm([
+      { year: '2024', revenue: 100, ebitda: 20 },
+      { year: '2025', revenue: 110, ebitda: 22, isForecast: true },
+    ])
+    const result = applyManualFinancialYearSelection(form, [2025])
+
+    expect(result.didApply).toBe(false)
+    expect(result.next).toBe(form)
+  })
+
+  it('treats assistant selections matching the current historical set as a no-op', () => {
+    const form = makeForm([
+      { year: '2024', revenue: 100, ebitda: 20 },
+      { year: '2023', revenue: 90, ebitda: 18 },
+    ])
+    const result = applyManualFinancialYearSelection(form, [2024, 2023])
+
+    expect(result.didApply).toBe(false)
+    expect(result.next).toBe(form)
   })
 
   it('removes historical years only when more than one historical row remains', () => {

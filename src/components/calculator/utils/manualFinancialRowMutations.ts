@@ -49,6 +49,37 @@ export function applyManualFilingYearSelection(
   }
 }
 
+export function applyManualFinancialYearSelection(
+  formData: ManualValuationFormData,
+  selectedYears: readonly number[]
+): {
+  didApply: boolean
+  next: ManualValuationFormData
+} {
+  const selectedYearKeys = new Set(
+    selectedYears
+      .filter((year) => Number.isInteger(year) && year >= 1900 && year <= 2100)
+      .map(String)
+  )
+  if (selectedYearKeys.size === 0) return { didApply: false, next: formData }
+
+  const historicalRows = formData.yearlyFinancials.filter((row) => !row.isForecast)
+  const keptHistoricalRows = historicalRows.filter((row) => selectedYearKeys.has(String(row.year)))
+  if (keptHistoricalRows.length === 0 || keptHistoricalRows.length === historicalRows.length) {
+    return { didApply: false, next: formData }
+  }
+
+  return {
+    didApply: true,
+    next: {
+      ...formData,
+      yearlyFinancials: formData.yearlyFinancials.filter(
+        (row) => row.isForecast || selectedYearKeys.has(String(row.year))
+      ),
+    },
+  }
+}
+
 export function removeManualHistoricalYear(
   formData: ManualValuationFormData,
   year: string
