@@ -18,6 +18,7 @@ type ShareTokenRevokeCard = NonNullable<ChatMessage['shareTokenRevokeRequests']>
 type ValuationMethodPreferenceCard = NonNullable<
   ChatMessage['valuationMethodPreferenceRequests']
 >[number]
+type ValuationDefaultsCard = NonNullable<ChatMessage['valuationDefaultsRequests']>[number]
 type AcknowledgeWarningCard = NonNullable<ChatMessage['acknowledgeWarningRequests']>[number]
 type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
 type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
@@ -58,6 +59,7 @@ export interface ManualChatToolCards {
   shareTokenRequests?: ShareTokenCard[]
   shareTokenRevokeRequests?: ShareTokenRevokeCard[]
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceCard[]
+  valuationDefaultsRequests?: ValuationDefaultsCard[]
   acknowledgeWarningRequests?: AcknowledgeWarningCard[]
   secureCredentialRequests?: SecureCredentialCard[]
   csvUploadRequests?: CsvUploadCard[]
@@ -93,6 +95,7 @@ interface ManualChatToolCardsInput {
   shareTokenRequests?: readonly unknown[]
   shareTokenRevokeRequests?: readonly unknown[]
   valuationMethodPreferenceRequests?: readonly unknown[]
+  valuationDefaultsRequests?: readonly unknown[]
   acknowledgeWarningRequests?: readonly unknown[]
   secureCredentialRequests?: readonly unknown[]
   csvUploadRequests?: readonly unknown[]
@@ -287,6 +290,17 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as ValuationMethodPreferenceCard
+    )
+  )
+  pushIfAny(
+    out,
+    'valuationDefaultsRequests',
+    (cards.valuationDefaultsRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ValuationDefaultsCard
     )
   )
   pushIfAny(
@@ -518,6 +532,8 @@ export function parseManualChatStreamToolResult(
         return { type: 'share_token_revoke_request', data }
       case 'propose_valuation_method_preference':
         return { type: 'valuation_method_preference_request', data }
+      case 'propose_valuation_defaults':
+        return { type: 'valuation_defaults_request', data }
       case 'propose_acknowledge_warning':
         return { type: 'acknowledge_warning_request', data }
       case 'propose_secure_credential':
@@ -606,6 +622,7 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.shareTokenRequests?.length ?? 0) > 0 ||
         (cards.shareTokenRevokeRequests?.length ?? 0) > 0 ||
         (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+        (cards.valuationDefaultsRequests?.length ?? 0) > 0 ||
         (cards.acknowledgeWarningRequests?.length ?? 0) > 0 ||
         (cards.secureCredentialRequests?.length ?? 0) > 0 ||
         (cards.csvUploadRequests?.length ?? 0) > 0 ||
@@ -705,6 +722,12 @@ export function appendManualChatToolCardsToMessage(
       shareTokenRevokeRequests: [
         ...(message.shareTokenRevokeRequests ?? []),
         ...cards.shareTokenRevokeRequests,
+      ],
+    }),
+    ...(cards.valuationDefaultsRequests && {
+      valuationDefaultsRequests: [
+        ...(message.valuationDefaultsRequests ?? []),
+        ...cards.valuationDefaultsRequests,
       ],
     }),
     ...(cards.valuationMethodPreferenceRequests && {

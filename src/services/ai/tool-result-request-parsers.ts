@@ -20,6 +20,7 @@ import type {
   ShareTokenRequest,
   ShareTokenRevokeRequest,
   SingleSelectRequest,
+  ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
 } from './tool-result-types'
@@ -292,6 +293,53 @@ export function parseValuationMethodPreferenceRequest(
         clientId: optionalString(req.client_id),
         method,
         businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseValuationDefaultsRequest(
+  data: unknown
+): ValuationDefaultsRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const rawChange = recordValue(req.change) ?? {}
+    const change: ValuationDefaultsRequest['change'] = {}
+    if ('multiple_calibration_adjustment' in rawChange) {
+      const v = rawChange.multiple_calibration_adjustment
+      if (v === null) change.multiple_calibration_adjustment = null
+      else if (typeof v === 'number' && Number.isFinite(v))
+        change.multiple_calibration_adjustment = v
+    }
+    if ('historical_ebitda_weighting_mode' in rawChange) {
+      const v = rawChange.historical_ebitda_weighting_mode
+      if (v === null) change.historical_ebitda_weighting_mode = null
+      else if (v === 'standard' || v === 'weighted')
+        change.historical_ebitda_weighting_mode = v
+    }
+    if ('show_enterprise_to_equity_bridge' in rawChange) {
+      const v = rawChange.show_enterprise_to_equity_bridge
+      if (v === null) change.show_enterprise_to_equity_bridge = null
+      else if (typeof v === 'boolean') change.show_enterprise_to_equity_bridge = v
+    }
+    return [
+      {
+        status: 'pending_approval',
+        change,
         reason: optionalString(req.reason),
         message: optionalString(d.message),
       },

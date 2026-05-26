@@ -34,6 +34,7 @@ import {
   parseShareTokenRevokeRequest,
   parseSingleSelectRequest,
   parseSyncStatus,
+  parseValuationDefaultsRequest,
   parseValuationMethodPreferenceRequest,
   parseValuationSessionRequest,
 } from './tool-result-request-parsers'
@@ -113,6 +114,7 @@ function emptyResult(): ParsedToolResults {
     shareTokenRequests: [],
     shareTokenRevokeRequests: [],
     valuationMethodPreferenceRequests: [],
+    valuationDefaultsRequests: [],
     acknowledgeWarningRequests: [],
     secureCredentialRequests: [],
     csvUploadRequests: [],
@@ -227,6 +229,9 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'valuation_method_preference_request':
         out.valuationMethodPreferenceRequests.push(...parseValuationMethodPreferenceRequest(data))
+        break
+      case 'valuation_defaults_request':
+        out.valuationDefaultsRequests.push(...parseValuationDefaultsRequest(data))
         break
       case 'acknowledge_warning_request':
         out.acknowledgeWarningRequests.push(...parseAcknowledgeWarningRequest(data))

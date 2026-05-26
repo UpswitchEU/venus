@@ -198,6 +198,17 @@ export interface ValuationMethodPreferenceRequest {
   message?: string
 }
 
+export interface ValuationDefaultsRequest {
+  status: 'pending_approval' | 'blocked'
+  change?: {
+    multiple_calibration_adjustment?: number | null
+    historical_ebitda_weighting_mode?: 'standard' | 'weighted' | null
+    show_enterprise_to_equity_bridge?: boolean | null
+  }
+  reason?: string
+  message?: string
+}
+
 export interface AcknowledgeWarningRequest {
   status: 'pending_approval' | 'blocked'
   code?: string
@@ -708,6 +719,7 @@ export interface ParsedToolResults {
   shareTokenRequests: ShareTokenRequest[]
   shareTokenRevokeRequests: ShareTokenRevokeRequest[]
   valuationMethodPreferenceRequests: ValuationMethodPreferenceRequest[]
+  valuationDefaultsRequests: ValuationDefaultsRequest[]
   acknowledgeWarningRequests: AcknowledgeWarningRequest[]
   secureCredentialRequests: SecureCredentialRequest[]
   csvUploadRequests: CsvUploadRequest[]

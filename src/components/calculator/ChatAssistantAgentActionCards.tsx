@@ -40,6 +40,7 @@ import type {
   ShareTokenRevokeRequest,
   SingleSelectRequest,
   SyncStatusPreview,
+  ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
 } from './ChatAssistantTypes'
@@ -1147,6 +1148,87 @@ function ValuationMethodPreferenceCard({ request }: { request: ValuationMethodPr
   )
 }
 
+function ValuationDefaultsCard({ request }: { request: ValuationDefaultsRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const change = request.change ?? {}
+  const proposedKeys = Object.keys(change).filter((k) =>
+    [
+      'multiple_calibration_adjustment',
+      'historical_ebitda_weighting_mode',
+      'show_enterprise_to_equity_bridge',
+    ].includes(k)
+  )
+  const isEmpty = !isBlocked && proposedKeys.length === 0
+
+  // Compact meta summarising what the agent proposed. Each chip mirrors
+  // the Mercury card's chip-row so the conversational shape stays
+  // consistent across the two apps even though the layout primitives
+  // differ.
+  const metaParts: string[] = []
+  if ('multiple_calibration_adjustment' in change) {
+    const v = change.multiple_calibration_adjustment
+    if (v === null) {
+      metaParts.push(ca('proposalCards.agent.valuationDefaultsPremiumDefault'))
+    } else if (typeof v === 'number') {
+      const sign = v > 0 ? '+' : ''
+      metaParts.push(
+        ca('proposalCards.agent.valuationDefaultsPremium', { value: `${sign}${v.toFixed(2)}` })
+      )
+    }
+  }
+  if ('historical_ebitda_weighting_mode' in change) {
+    const v = change.historical_ebitda_weighting_mode
+    if (v === null)
+      metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingDefault'))
+    else if (v === 'weighted')
+      metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingWeighted'))
+    else metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingStandard'))
+  }
+  if ('show_enterprise_to_equity_bridge' in change) {
+    const v = change.show_enterprise_to_equity_bridge
+    if (v === null) metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeDefault'))
+    else if (v) metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeShow'))
+    else metaParts.push(ca('proposalCards.agent.valuationDefaultsBridgeHide'))
+  }
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.valuationDefaultsBlocked')
+          : ca('proposalCards.agent.valuationDefaultsTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.reason ?? request.message)}
+      meta={compactParts(metaParts)}
+      tone={isBlocked || isEmpty ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      actionLabel={
+        isBlocked || isEmpty ? undefined : ca('proposalCards.agent.valuationDefaultsAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.saved')}
+      onAction={
+        isBlocked || isEmpty
+          ? undefined
+          : async () => {
+              const response = await fetch('/api/accountants/settings', {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...buildAgentToolActionHeaders('propose_valuation_defaults', request.id),
+                },
+                credentials: 'include',
+                body: JSON.stringify(change),
+              })
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
 function AcknowledgeWarningCard({ request }: { request: AcknowledgeWarningRequest }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
@@ -1881,6 +1963,7 @@ export function ChatAssistantAgentActionCards({
           (message.shareTokenRequests?.length ?? 0) > 0 ||
           (message.shareTokenRevokeRequests?.length ?? 0) > 0 ||
           (message.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
+          (message.valuationDefaultsRequests?.length ?? 0) > 0 ||
           (message.acknowledgeWarningRequests?.length ?? 0) > 0 ||
           (message.secureCredentialRequests?.length ?? 0) > 0 ||
           (message.csvUploadRequests?.length ?? 0) > 0 ||
@@ -1926,6 +2009,9 @@ export function ChatAssistantAgentActionCards({
       ))}
       {message.valuationMethodPreferenceRequests?.map((request) => (
         <ValuationMethodPreferenceCard key={request.id} request={request} />
+      ))}
+      {message.valuationDefaultsRequests?.map((request) => (
+        <ValuationDefaultsCard key={request.id} request={request} />
       ))}
       {message.acknowledgeWarningRequests?.map((request) => (
         <AcknowledgeWarningCard key={request.id} request={request} />
