@@ -29,6 +29,41 @@ const logger = createContextLogger('ReportService')
 // Tracks pending asset saves to ensure saveSession waits for saveReportAssets to complete
 export const pendingAssetSaves = new Map<string, Promise<void>>()
 
+type ReportAssets = {
+  sessionData?: Record<string, unknown>
+  valuationResult?: ValuationResponse
+  htmlReport?: string
+  name?: string
+}
+
+function snapshotValue<T>(value: T): T {
+  if (value == null || typeof value !== 'object') {
+    return value
+  }
+
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => snapshotValue(item)) as T
+  }
+
+  const out: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = snapshotValue(child)
+  }
+  return out as T
+}
+
+function snapshotReportAssets(assets: ReportAssets): ReportAssets {
+  return {
+    ...assets,
+    sessionData: snapshotValue(assets.sessionData),
+    valuationResult: snapshotValue(assets.valuationResult),
+  }
+}
+
 /**
  * ReportService - Shared report management
  *
@@ -63,52 +98,31 @@ export class ReportService {
    * @param reportId - Report identifier
    * @param assets - Complete report assets to save
    */
-  async saveReportAssets(
-    reportId: string,
-    assets: {
-      sessionData?: Record<string, unknown> // ✅ NEW: Input data (form fields or collected data)
-      valuationResult?: ValuationResponse
-      htmlReport?: string
-      name?: string // Custom valuation name (e.g., "Amadeus report")
-    }
-  ): Promise<void> {
-    // ✅ FIX: Check if there's already a pending save for this reportId
-    // If so, wait for it to complete to prevent race conditions, then proceed with new save
-    const existingSave = pendingAssetSaves.get(reportId)
-    if (existingSave) {
-      logger.info(
-        '[ReportService] Waiting for pending asset save to complete before saving new assets',
-        {
-          reportId,
-          note: 'Queueing save to prevent data loss - will save new assets after existing save completes',
-        }
-      )
-      await existingSave
-      // ✅ FIX: Continue to save new assets after existing save completes (removed early return)
-      // This ensures all saves are processed sequentially without data loss
+  async saveReportAssets(reportId: string, assets: ReportAssets): Promise<void> {
+    const assetsSnapshot = snapshotReportAssets(assets)
+    const previousSave = pendingAssetSaves.get(reportId)
+    if (previousSave) {
+      logger.info('[ReportService] Queueing report asset save behind pending save', {
+        reportId,
+        note: 'Serializing saves for this reportId so later payloads cannot race earlier writes',
+      })
     }
 
-    // Create save promise and track it
-    const savePromise = this._saveReportAssetsInternal(reportId, assets)
+    const savePromise = (previousSave ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this._saveReportAssetsInternal(reportId, assetsSnapshot))
     pendingAssetSaves.set(reportId, savePromise)
 
     try {
       await savePromise
     } finally {
-      // Clean up tracking after completion
-      pendingAssetSaves.delete(reportId)
+      if (pendingAssetSaves.get(reportId) === savePromise) {
+        pendingAssetSaves.delete(reportId)
+      }
     }
   }
 
-  private async _saveReportAssetsInternal(
-    reportId: string,
-    assets: {
-      sessionData?: Record<string, unknown>
-      valuationResult?: ValuationResponse
-      htmlReport?: string
-      name?: string // Custom valuation name (e.g., "Amadeus report")
-    }
-  ): Promise<void> {
+  private async _saveReportAssetsInternal(reportId: string, assets: ReportAssets): Promise<void> {
     const startTime = performance.now()
 
     try {

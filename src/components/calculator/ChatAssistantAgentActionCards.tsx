@@ -178,6 +178,14 @@ function mercuryPath(
   return target.toString()
 }
 
+function inferRegistryCountryFromCompanyNumber(value: string): 'BE' | 'NL' | null {
+  const trimmed = value.trim()
+  const digits = trimmed.replace(/\D/g, '')
+  if (/^(NL|KVK)\b/i.test(trimmed) || digits.length === 8) return 'NL'
+  if (/^(BE|KBO)\b/i.test(trimmed) || digits.length === 10) return 'BE'
+  return null
+}
+
 function venusValuationSessionPath(locale: string, clientId: string) {
   const target = new URL(
     `/${locale.replace(/^\/+|\/+$/g, '') || 'en'}/calculator`,
@@ -2122,33 +2130,45 @@ function ClientCreateCard({ request }: { request: ClientCreateRequest }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
   const isBlocked = request.status === 'blocked'
+  const companyNumber =
+    typeof request.companyNumber === 'string' ? request.companyNumber.trim() : ''
+  const isMissingCompanyNumber = !isBlocked && !companyNumber
+  const isActionBlocked = isBlocked || isMissingCompanyNumber
   return (
     <InlineActionCard
       id={request.id}
       title={
-        isBlocked
+        isActionBlocked
           ? ca('proposalCards.agent.clientCreateBlocked')
           : ca('proposalCards.agent.clientCreateTitle')
       }
-      detail={isBlocked ? (request.message ?? request.reason) : request.message}
+      detail={
+        isBlocked
+          ? (request.message ?? request.reason)
+          : isMissingCompanyNumber
+            ? ca('proposalCards.agent.missingCompanyNumber')
+            : request.message
+      }
       meta={compactParts([
         request.businessName,
-        request.companyNumber,
+        companyNumber,
         request.industry,
         request.location,
         request.customerEmail,
       ])}
-      tone={isBlocked ? 'blocked' : 'default'}
+      tone={isActionBlocked ? 'blocked' : 'default'}
       actionLabel={ca('proposalCards.agent.clientCreateAction')}
       actionSuccessLabel={ca('proposalCards.agent.opened')}
       onAction={
-        isBlocked
+        isActionBlocked
           ? undefined
           : () => {
+              const country = inferRegistryCountryFromCompanyNumber(companyNumber)
               openInNewTab(
                 mercuryPath(locale, '/advisor/clients/create', {
-                  company: request.businessName,
-                  companyNumber: request.companyNumber,
+                  kbo: companyNumber,
+                  name: request.businessName,
+                  country,
                   email: request.customerEmail,
                   source: 'venus-ai',
                 })

@@ -29,6 +29,7 @@ import {
 import { apiLogger } from '../../../utils/logger'
 import {
   stripReportBlobsFromSessionPatch,
+  stripReportBlobsFromValuationResult,
   stripReportsFromValuationSessionPatchUpdates,
 } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
@@ -148,6 +149,22 @@ function isTransientSessionPatchError(error: unknown): boolean {
     message.includes('connection terminated') ||
     message.includes('network error')
   )
+}
+
+function normalizeSaveValuationResultResponse(
+  response: SaveValuationResultResponse | undefined
+): SaveValuationResultResponse {
+  if (!response) {
+    return {
+      success: true,
+      message: 'Valuation result saved',
+    }
+  }
+
+  return {
+    ...response,
+    session: response.session ? normalizeBackendSessionPayload(response.session) : response.session,
+  }
 }
 
 export class SessionAPI extends HttpClient {
@@ -1091,16 +1108,24 @@ export class SessionAPI extends HttpClient {
     data: SaveValuationResultPayload,
     options?: APIRequestConfig
   ): Promise<SaveValuationResultResponse> {
+    const sessionDataPayload = stripReportBlobsFromSessionPatch(data.sessionData) as
+      | SessionRecord
+      | undefined
+    const valuationResultPayload = stripReportBlobsFromValuationResult(data.valuationResult) as
+      | Partial<ValuationResponse>
+      | SessionRecord
+      | undefined
+
     try {
       const response = await this.executeRequest<SaveValuationResultResponse>(
         requestConfig({
           method: 'PUT',
           url: `/api/v2/valuations/sessions/${reportId}/result`,
           data: {
-            sessionData: data.sessionData, // ✅ NEW: Send input data
-            valuationResult: data.valuationResult,
+            sessionData: sessionDataPayload,
+            valuationResult: valuationResultPayload,
             htmlReport: data.htmlReport,
-            name: data.name, // ✅ NEW: Send custom valuation name
+            name: data.name,
           },
           headers: {},
         }),
@@ -1109,28 +1134,16 @@ export class SessionAPI extends HttpClient {
 
       apiLogger.info('Complete valuation package saved to session', {
         reportId,
-        hasSessionData: !!data.sessionData,
-        sessionDataKeys: data.sessionData ? Object.keys(data.sessionData) : [],
-        hasValuationResult: !!data.valuationResult,
+        hasSessionData: !!sessionDataPayload,
+        sessionDataKeys: sessionDataPayload ? Object.keys(sessionDataPayload) : [],
+        hasValuationResult: !!valuationResultPayload,
         hasHtmlReport: !!data.htmlReport,
         htmlReportLength: data.htmlReport?.length || 0,
         reportReady: response?.reportReady ?? null,
         hasSession: !!response?.session,
       })
 
-      if (!response) {
-        return {
-          success: true,
-          message: 'Valuation result saved',
-        }
-      }
-
-      return {
-        ...response,
-        session: response.session
-          ? normalizeBackendSessionPayload(response.session)
-          : response.session,
-      }
+      return normalizeSaveValuationResultResponse(response)
     } catch (error) {
       apiLogger.error('Failed to save valuation result to session', {
         reportId,

@@ -164,7 +164,7 @@ export function useManualCalculationCompletion({
 
       if (versionCreationFailed.aborted) return versionCreationFailed
 
-      if (!versionCreationFailed.versionCreationFailed) {
+      if (saveResult.durableSaveSucceeded && !versionCreationFailed.versionCreationFailed) {
         if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
         toast.success(translate('calculationComplete'))
         if (postValuationListingHandoffPendingRef.current) {

@@ -741,12 +741,16 @@ export function parseClientCreateRequest(data: unknown): ClientCreateRequest[] {
   const status = d.status
   const req = recordValue(d.request)
   if ((status === 'pending_approval' || status === 'auto_approved') && req) {
+    const companyNumber =
+      typeof req.company_number === 'string' ? req.company_number.trim() : ''
+    if (!companyNumber) return []
+
     return [
       {
         status,
         businessName: optionalString(req.business_name),
         customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
-        companyNumber: typeof req.company_number === 'string' ? req.company_number : null,
+        companyNumber,
         industry: typeof req.industry === 'string' ? req.industry : null,
         location: typeof req.location === 'string' ? req.location : null,
         notes: typeof req.notes === 'string' ? req.notes : null,

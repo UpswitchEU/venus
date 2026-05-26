@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   stripReportBlobsFromSessionPatch,
+  stripReportBlobsFromValuationResult,
   stripReportsFromValuationSessionPatchUpdates,
 } from './stripReportBlobsFromSessionPatch'
 
@@ -41,6 +42,31 @@ describe('stripReportBlobsFromSessionPatch', () => {
     const det = slim.details as Record<string, unknown>
     expect(det.html_report).toBeUndefined()
     expect(det.foo).toBe(1)
+  })
+
+  it('strips transport-heavy blobs from a valuation result while preserving metrics', () => {
+    const out = stripReportBlobsFromValuationResult({
+      equity_value_mid: 1_100_000,
+      html_report: '<div>huge</div>',
+      htmlReport: '<div>huge camel</div>',
+      pdf_html_report: '<html>pdf</html>',
+      pdfHtml: '<html>pdf camel</html>',
+      details: {
+        html_report: '<p>inner</p>',
+        pdf_html_report: '<html>inner pdf</html>',
+        method: 'dcf',
+      },
+    }) as Record<string, unknown>
+
+    expect(out.equity_value_mid).toBe(1_100_000)
+    expect(out.html_report).toBeUndefined()
+    expect(out.htmlReport).toBeUndefined()
+    expect(out.pdf_html_report).toBeUndefined()
+    expect(out.pdfHtml).toBeUndefined()
+    const details = out.details as Record<string, unknown>
+    expect(details.html_report).toBeUndefined()
+    expect(details.pdf_html_report).toBeUndefined()
+    expect(details.method).toBe('dcf')
   })
 
   it('recursively strips blobs inside nested sessionData (mis-merged PATCH → create payloads)', () => {

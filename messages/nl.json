@@ -2558,6 +2558,7 @@
 				"clientCreateTitle": "Advisor-client aanmaken",
 				"clientCreateBlocked": "Kan client nog niet aanmaken",
 				"clientCreateAction": "Client aanmaken",
+				"missingCompanyNumber": "Een KBO-/KVK-nummer of officieel registratienummer is verplicht voordat deze client kan worden aangemaakt.",
 				"valuationSessionTitle": "Waarderingssessie openen",
 				"valuationSessionBlocked": "Waarderingssessie nog niet klaar",
 				"valuationSessionAction": "Waardering openen",

@@ -100,6 +100,7 @@ function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
+const VALUATION_RESULT_HTML_OMIT_BYTES = 10 * 1024 * 1024
 
 /**
  * Generate a correlation ID for request tracing across services
@@ -117,6 +118,70 @@ function generateCorrelationId(): string {
  */
 function generateIdempotencyKey(): string {
   return `idem_${Date.now().toString(36)}_${crypto.randomUUID().split('-')[0]}`
+}
+
+function isValuationResultSaveConfig(config: AxiosRequestConfig): boolean {
+  const method = String(config.method ?? '').toUpperCase()
+  const url = String(config.url ?? '')
+  return method === 'PUT' && url.includes('/api/v2/valuations/sessions/') && url.includes('/result')
+}
+
+function getConfigHtmlReport(config: AxiosRequestConfig): string | undefined {
+  const data = config.data
+  if (!isUnknownRecord(data)) {
+    return undefined
+  }
+  return typeof data.htmlReport === 'string' ? data.htmlReport : undefined
+}
+
+function estimateJsonByteLength(value: unknown): number {
+  try {
+    const serialized = JSON.stringify(value)
+    if (!serialized) {
+      return 0
+    }
+    if (typeof TextEncoder !== 'undefined') {
+      return new TextEncoder().encode(serialized).byteLength
+    }
+    return serialized.length
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+function withoutConfigHtmlReport(config: AxiosRequestConfig): AxiosRequestConfig | null {
+  if (!isValuationResultSaveConfig(config) || !getConfigHtmlReport(config)) {
+    return null
+  }
+  return {
+    ...config,
+    data: {
+      ...(config.data as UnknownRecord),
+      htmlReport: undefined,
+    },
+  }
+}
+
+function omitOversizedValuationResultHtmlReport(config: AxiosRequestConfig): {
+  config: AxiosRequestConfig
+  estimatedBodyBytes?: number
+  omitted: boolean
+} {
+  const htmlReport = getConfigHtmlReport(config)
+  if (!isValuationResultSaveConfig(config) || !htmlReport) {
+    return { config, omitted: false }
+  }
+
+  const estimatedBodyBytes = estimateJsonByteLength(config.data)
+  if (estimatedBodyBytes <= VALUATION_RESULT_HTML_OMIT_BYTES) {
+    return { config, estimatedBodyBytes, omitted: false }
+  }
+
+  return {
+    config: withoutConfigHtmlReport(config) ?? config,
+    estimatedBodyBytes,
+    omitted: true,
+  }
 }
 
 export interface APIRequestConfig {
@@ -363,27 +428,56 @@ export class HttpClient {
     config: AxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
+    const prepared = omitOversizedValuationResultHtmlReport(config)
+    if (prepared.omitted) {
+      apiLogger.warn('[HttpClient] Omitting oversized htmlReport from valuation result request', {
+        url: config.url,
+        estimatedBodyBytes: prepared.estimatedBodyBytes,
+        limitBytes: VALUATION_RESULT_HTML_OMIT_BYTES,
+        htmlReportLength: getConfigHtmlReport(config)?.length ?? 0,
+      })
+    }
+
     const retryConfig = options?.retry
 
     // Default retry behavior: retry network errors and 5xx server errors
     // Only skip retry if explicitly disabled (maxRetries: 0)
-    if (retryConfig?.maxRetries === 0) {
-      return this.executeSingleRequest<T>(config, options)
+    const runRequest = async (): Promise<T> => {
+      if (retryConfig?.maxRetries === 0) {
+        return this.executeSingleRequest<T>(prepared.config, options)
+      }
+
+      // Use retry logic with default config if not provided
+      const effectiveRetryConfig = retryConfig || {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        backoffMultiplier: 2,
+        shouldRetry: this.shouldRetryError.bind(this),
+      }
+
+      return this.executeRequestWithRetry<T>(prepared.config, {
+        ...options,
+        retry: effectiveRetryConfig,
+      })
     }
 
-    // Use retry logic with default config if not provided
-    const effectiveRetryConfig = retryConfig || {
-      maxRetries: 3,
-      initialDelay: 1000,
-      maxDelay: 10000,
-      backoffMultiplier: 2,
-      shouldRetry: this.shouldRetryError.bind(this),
+    try {
+      return await runRequest()
+    } catch (error) {
+      const retryWithoutHtmlReport = prepared.omitted ? null : withoutConfigHtmlReport(config)
+      if (getAxiosStatus(error) === 413 && retryWithoutHtmlReport) {
+        apiLogger.warn('[HttpClient] Retrying valuation result request without htmlReport', {
+          url: config.url,
+          htmlReportLength: getConfigHtmlReport(config)?.length ?? 0,
+        })
+        return this.executeRequest<T>(retryWithoutHtmlReport, {
+          ...options,
+          retry: { maxRetries: 0 },
+        })
+      }
+      throw error
     }
-
-    return this.executeRequestWithRetry<T>(config, {
-      ...options,
-      retry: effectiveRetryConfig,
-    })
   }
 
   /**

@@ -521,4 +521,66 @@ describe('ChatAssistantAgentActionCards', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(onSendFollowUp).not.toHaveBeenCalled()
   })
+
+  it('opens client-create proposals with registry-safe Mercury query params', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const openMock = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const message: ChatMessage = {
+      id: 'msg-client-create',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      clientCreateRequests: [
+        {
+          id: 'proposal-client-create',
+          status: 'pending_approval',
+          businessName: 'Decostere NV',
+          companyNumber: 'BE0123456789',
+          customerEmail: 'owner@example.test',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+    fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.clientCreateAction' }))
+
+    await waitFor(() => {
+      expect(openMock).toHaveBeenCalledWith(
+        'http://localhost:3000/en/advisor/clients/create?kbo=BE0123456789&name=Decostere+NV&country=BE&email=owner%40example.test&source=venus-ai',
+        '_blank',
+        'noopener,noreferrer'
+      )
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks malformed client-create proposals without a company number', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const openMock = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const message: ChatMessage = {
+      id: 'msg-client-create-invalid',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      clientCreateRequests: [
+        {
+          id: 'proposal-client-create-invalid',
+          status: 'pending_approval',
+          businessName: 'Name Only NV',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+
+    expect(screen.getByText('proposalCards.agent.clientCreateBlocked')).toBeInTheDocument()
+    expect(screen.getByText('proposalCards.agent.missingCompanyNumber')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'proposalCards.agent.clientCreateAction' })).toBe(
+      null
+    )
+    expect(openMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

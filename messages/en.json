@@ -2558,6 +2558,7 @@
 				"clientCreateTitle": "Create advisor client",
 				"clientCreateBlocked": "Cannot create client yet",
 				"clientCreateAction": "Create client",
+				"missingCompanyNumber": "A KBO/KVK or official company number is required before creating this client.",
 				"valuationSessionTitle": "Open valuation session",
 				"valuationSessionBlocked": "Valuation session not ready",
 				"valuationSessionAction": "Open valuation",
