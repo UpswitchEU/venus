@@ -100,7 +100,7 @@ function getManualStarterPaywallBody({
 
   if (isDutch) {
     if (reason === 'methods') {
-      return 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA, gecorrigeerd NAV en liquidatiewaarde (read-only, geen PDF-download). Upgrade naar Starter voor alle 10 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
+      return 'Je gratis plan bevat Upswitch adaptieve marktbenadering, DCF, EBITDA, gecorrigeerd NAV en liquidatiewaarde (read-only, geen PDF-download). Upgrade naar Starter voor alle 10 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
     }
     if (reason === 'normalization') {
       return 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
@@ -115,7 +115,7 @@ function getManualStarterPaywallBody({
   }
 
   if (reason === 'methods') {
-    return 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all valuation methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.'
+    return 'Your free plan includes Upswitch adaptive market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all valuation methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.'
   }
   if (reason === 'normalization') {
     return 'The full normalization hub (incl. tax latencies) is on Starter together with branded PDFs, full manual control, and the ability to overwrite valuations with full audit trail.'

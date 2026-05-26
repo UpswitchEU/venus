@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
@@ -11,6 +11,7 @@ import {
   BootstrapProvider,
   type FlowType,
 } from '../../../../src/lib/bootstrap'
+import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
 import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
@@ -157,6 +158,26 @@ export default function ValuationReportClient({
   const embedded = urlParams.embedded
   const returnUrl = urlParams.return_url
   const source = urlParams.source
+
+  // Optimistic seed: write `prefilledQuery` straight into the manual form
+  // store during this render — BEFORE any descendant mounts. The wizard's
+  // bootstrap POST takes ~1–3s; without this, ManualLayoutLoaded mounts with
+  // an empty `company_name`, paints a blank KBO field, and only fills once
+  // useBootstrapPrefill's queueMicrotask drains. Seeding here makes the first
+  // paint already show the company name from the URL. Bootstrap's prefill
+  // still runs and overrides with the canonical registry record when it
+  // returns. Authoritative on every fresh mount (not gated on store-empty)
+  // so SPA navigation between reports doesn't flash the previous report's
+  // company name. Ref-guarded so re-renders don't re-fire it within a mount;
+  // ref reset on reportId change so client-side navigation re-seeds.
+  const seedAttemptedRef = useRef<string | null>(null)
+  if (seedAttemptedRef.current !== reportId && typeof window !== 'undefined') {
+    seedAttemptedRef.current = reportId
+    const trimmed = prefilledQuery?.trim()
+    if (trimmed) {
+      useManualFormStore.getState().updateFormData({ company_name: trimmed })
+    }
+  }
 
   /** Never trust raw `mode` alone (Mercury sends `accountant`). Reconcile from URL for client navigations. */
   const uiMode = useMemo(

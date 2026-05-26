@@ -5,7 +5,7 @@ import { ValuationEditModal } from './ValuationEditModal'
 
 const translations: Record<string, Record<string, string>> = {
   'manualInput.methodSelector': {
-    adaptiveRecommended: 'Upswitch marktbenadering',
+    adaptiveRecommended: 'Upswitch adaptieve marktbenadering',
     arrMultiple: 'ARR-multiple',
     ebitdaMultiple: 'EBITDA-multiple',
     revenueMultiple: 'Omzet-multiple',
@@ -23,7 +23,7 @@ const translations: Record<string, Record<string, string>> = {
     unavailableBlurbReportPending: 'Wacht even.',
     transientLoadTitle: 'Methodedata tijdelijk niet geladen',
     transientLoadBlurb: 'De server was te druk. Wacht even of vernieuw de pagina.',
-    currentMethodAdaptive: 'Upswitch marktbenadering',
+    currentMethodAdaptive: 'Upswitch adaptieve marktbenadering',
     subtitle: 'Kies methode',
     methodsReadyBadge: '{available}/{total} klaar',
     currentMethodLabel: 'Huidig: {method}',
@@ -38,7 +38,7 @@ const translations: Record<string, Record<string, string>> = {
     columnMultiple: 'Multiple',
     columnDelta: 't.o.v. marktbenadering',
     columnHintMobile:
-      'Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van de Upswitch marktbenadering.',
+      'Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van de Upswitch adaptieve marktbenadering.',
     adaptiveBaselineLabel: 'Referentie',
     selected: 'Geselecteerd',
     rangeModel: 'model',
@@ -219,7 +219,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 257_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -248,7 +248,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -279,7 +279,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 357_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
         }}
         result={
@@ -315,7 +315,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -348,7 +348,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -479,7 +479,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
         }}
         showZeroDraftExport

@@ -47,7 +47,7 @@ describe('SessionRestorationService', () => {
           upswitch_adaptive: {
             available: true,
             value: 277000,
-            label: 'Upswitch marktbenadering',
+            label: 'Upswitch adaptieve marktbenadering',
           },
         },
       } as any,
