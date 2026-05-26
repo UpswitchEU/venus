@@ -173,11 +173,10 @@ export function useBootstrapPrefill(): {
     if (!hasMeaningfulPrefill) {
       const countryOnly = resolveCountryCode(bootstrap.prefillData.companyInfo?.countryCode)
       if (bootstrap.report.mode === 'new' && countryOnly) {
-        queueMicrotask(() => {
-          const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
-          if (cur === countryOnly) return
+        const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
+        if (cur !== countryOnly) {
           formStore.getState().updateFormData({ country_code: countryOnly })
-        })
+        }
         logger.info('Applied bootstrap country prefill (below confidence threshold)', {
           country_code: countryOnly,
           confidence: bootstrap.prefillData.confidence,
@@ -200,38 +199,45 @@ export function useBootstrapPrefill(): {
     // Get form store actions directly to avoid stale closures
     const { updateFormData, prefillFromBusinessCard } = formStore.getState()
 
-    // ✅ FIX: Defer state updates to prevent React error #185
-    // useLayoutEffect runs during commit phase; queueMicrotask runs earlier than setTimeout(0)
-    // so form store is populated sooner, reducing timing issues with collectedData/initialData
-    queueMicrotask(() => {
-      // Apply prefill data to form AFTER render completes
-      applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard)
+    // Apply prefill synchronously inside useLayoutEffect. Previously this was
+    // wrapped in queueMicrotask defensively against React #185 ("Cannot update
+    // a component while rendering a different component"), but:
+    //  • applyPrefillToForm makes a SINGLE batched updateFormData call (line
+    //    846); subscribers see the full update atomically, not a cascade.
+    //  • prefillFromBusinessCard already defers itself via requestAnimationFrame
+    //    (see useManualFormStore.ts:182), so the original render-phase hazard
+    //    it carried is already neutralised at the store level.
+    //  • re-entry into this effect is guarded by globalPrefillApplied /
+    //    hasPrefilledRef before any state mutation, so subscriber re-renders
+    //    triggered by our update cannot re-enter and loop.
+    //  • setHasPrefilled is React state, batched into the same commit as the
+    //    Zustand notification inside React 18.
+    // Net effect: bootstrap prefill paints in the same frame as the mount of
+    // ManualLayoutLoaded — no sub-frame empty→filled flash for KBO number,
+    // NACE, financials, or any other prefilled field.
+    applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard)
 
-      // Verify form data was actually set (read after update)
-      const formDataAfterPrefill = formStore.getState().formData
+    const formDataAfterPrefill = formStore.getState().formData
 
-      // Mark as prefilled globally and locally
-      globalPrefillApplied = true
-      globalPrefillReportId = currentReportId
-      hasPrefilledRef.current = true
-      setHasPrefilled(true)
+    globalPrefillApplied = true
+    globalPrefillReportId = currentReportId
+    hasPrefilledRef.current = true
+    setHasPrefilled(true)
 
-      logger.info('Applied bootstrap prefill to form (deferred)', {
-        sources: prefillData.sources,
-        confidence: prefillData.confidence.toFixed(2),
-        fieldsPopulated: prefillData.fieldsPopulated.length,
-        fieldsRemaining: prefillData.fieldsRemaining.length,
-        hasKboData: !!prefillData.kboData,
-        companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
-        // Verify form data was set
-        formDataAfterPrefill: {
-          company_name: formDataAfterPrefill.company_name?.substring(0, 30),
-          hasKboNumber: !!formDataAfterPrefill.kbo_number,
-          hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
-          hasFoundingYear: !!formDataAfterPrefill.founding_year,
-          hasBusinessContext: !!formDataAfterPrefill.business_context,
-        },
-      })
+    logger.info('Applied bootstrap prefill to form', {
+      sources: prefillData.sources,
+      confidence: prefillData.confidence.toFixed(2),
+      fieldsPopulated: prefillData.fieldsPopulated.length,
+      fieldsRemaining: prefillData.fieldsRemaining.length,
+      hasKboData: !!prefillData.kboData,
+      companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
+      formDataAfterPrefill: {
+        company_name: formDataAfterPrefill.company_name?.substring(0, 30),
+        hasKboNumber: !!formDataAfterPrefill.kbo_number,
+        hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
+        hasFoundingYear: !!formDataAfterPrefill.founding_year,
+        hasBusinessContext: !!formDataAfterPrefill.business_context,
+      },
     })
   }, [bootstrap])
 

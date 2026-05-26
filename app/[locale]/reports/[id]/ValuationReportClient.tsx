@@ -14,6 +14,7 @@ import {
 import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
+import { isValidReportId } from '../../../../src/utils/reportIdGenerator'
 import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
 
 // Module-level singleton so re-mounts don't re-trigger network for chunks the
@@ -159,23 +160,45 @@ export default function ValuationReportClient({
   const returnUrl = urlParams.return_url
   const source = urlParams.source
 
-  // Optimistic seed: write `prefilledQuery` straight into the manual form
-  // store during this render — BEFORE any descendant mounts. The wizard's
-  // bootstrap POST takes ~1–3s; without this, ManualLayoutLoaded mounts with
-  // an empty `company_name`, paints a blank KBO field, and only fills once
-  // useBootstrapPrefill's queueMicrotask drains. Seeding here makes the first
-  // paint already show the company name from the URL. Bootstrap's prefill
-  // still runs and overrides with the canonical registry record when it
-  // returns. Authoritative on every fresh mount (not gated on store-empty)
-  // so SPA navigation between reports doesn't flash the previous report's
-  // company name. Ref-guarded so re-renders don't re-fire it within a mount;
-  // ref reset on reportId change so client-side navigation re-seeds.
+  // Optimistic seed + stale-state reset on reportId change.
+  //
+  // Why this lives at the top of the client tree, during render:
+  // bootstrap's POST takes ~1–3s. Without a seed, the user stares at the
+  // skeleton the whole time without confirmation that they're looking at the
+  // right company. Running here, BEFORE any descendant mounts, lets the first
+  // paint of ManualLayoutLoaded already show the company name from the URL.
+  // Bootstrap's prefill (now synchronous — see useBootstrapPrefill) overrides
+  // with the canonical registry record in the same commit it returns.
+  //
+  // Two responsibilities, both keyed on reportId (so SPA nav re-fires):
+  //  1. Reset stale form data when navigating between persisted reports so
+  //     previous-report KBO / NACE / financials don't bleed into the new one.
+  //     Skipped on first mount (store starts at defaults) AND when the
+  //     previous reportId was a placeholder like 'new' — the placeholder→
+  //     minted-UUID transition is a server mint of the SAME draft, not a
+  //     nav to a different report; wiping the form there would erase the
+  //     user's own optimistic seed plus any data already typed on the draft.
+  //  2. Seed company_name from `prefilledQuery`. Skipped when the value
+  //     already matches so we don't churn Zustand subscribers.
+  //
+  // Modifying an external store during render is sanctioned for this exact
+  // use case (sync-to-external-state, ref-guarded one-shot) — see React docs
+  // on useState initializers / external store sync.
   const seedAttemptedRef = useRef<string | null>(null)
   if (seedAttemptedRef.current !== reportId && typeof window !== 'undefined') {
+    const previousReportId = seedAttemptedRef.current
     seedAttemptedRef.current = reportId
+
+    if (previousReportId !== null && isValidReportId(previousReportId)) {
+      useManualFormStore.getState().resetForm()
+    }
+
     const trimmed = prefilledQuery?.trim()
     if (trimmed) {
-      useManualFormStore.getState().updateFormData({ company_name: trimmed })
+      const current = useManualFormStore.getState().formData.company_name?.trim()
+      if (current !== trimmed) {
+        useManualFormStore.getState().updateFormData({ company_name: trimmed })
+      }
     }
   }
 
