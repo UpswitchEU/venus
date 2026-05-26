@@ -114,6 +114,9 @@ describe('AuthenticatedSessionEngine', () => {
         htmlReport: 'mirror',
         pdf_html_report: '<html>'.padEnd(2_000_000, 'P'),
         pdfHtmlReport: 'mirror',
+        _pdfHtmlReport: 'mirror',
+        pdfHtml: 'legacy mirror',
+        reportHtml: 'legacy report mirror',
         report_context: { equity_value_mid: 1_334_032 },
       },
       partialData: {},
@@ -135,6 +138,9 @@ describe('AuthenticatedSessionEngine', () => {
     expect(payload).not.toHaveProperty('htmlReport')
     expect(payload).not.toHaveProperty('pdf_html_report')
     expect(payload).not.toHaveProperty('pdfHtmlReport')
+    expect(payload).not.toHaveProperty('_pdfHtmlReport')
+    expect(payload).not.toHaveProperty('pdfHtml')
+    expect(payload).not.toHaveProperty('reportHtml')
     expect(payload).not.toHaveProperty('report_context')
     // Sanity: the stripped payload is at most a few KB — definitely
     // not the 13.9MB the original PATCH shipped.

@@ -11,6 +11,8 @@ describe('stripReportBlobsFromSessionPatch', () => {
       company_name: 'ACME',
       htmlReport: '<html>' + 'x'.repeat(4000),
       pdf_html_report: 'y'.repeat(3000),
+      _pdfHtmlReport: 'z'.repeat(3000),
+      reportHtml: '<html>legacy mirror</html>',
       revenue: 1_000_000,
     }
     const copy = { ...original }
@@ -19,6 +21,8 @@ describe('stripReportBlobsFromSessionPatch', () => {
     expect(copy.htmlReport).toBeDefined()
     expect(out.htmlReport).toBeUndefined()
     expect(out.pdf_html_report).toBeUndefined()
+    expect(out._pdfHtmlReport).toBeUndefined()
+    expect(out.reportHtml).toBeUndefined()
     expect(out.company_name).toBe('ACME')
     expect(out.revenue).toBe(1_000_000)
   })
@@ -50,7 +54,9 @@ describe('stripReportBlobsFromSessionPatch', () => {
       html_report: '<div>huge</div>',
       htmlReport: '<div>huge camel</div>',
       pdf_html_report: '<html>pdf</html>',
+      _pdfHtmlReport: '<html>pdf mirror</html>',
       pdfHtml: '<html>pdf camel</html>',
+      reportHtml: '<html>legacy mirror</html>',
       details: {
         html_report: '<p>inner</p>',
         pdf_html_report: '<html>inner pdf</html>',
@@ -62,7 +68,9 @@ describe('stripReportBlobsFromSessionPatch', () => {
     expect(out.html_report).toBeUndefined()
     expect(out.htmlReport).toBeUndefined()
     expect(out.pdf_html_report).toBeUndefined()
+    expect(out._pdfHtmlReport).toBeUndefined()
     expect(out.pdfHtml).toBeUndefined()
+    expect(out.reportHtml).toBeUndefined()
     const details = out.details as Record<string, unknown>
     expect(details.html_report).toBeUndefined()
     expect(details.pdf_html_report).toBeUndefined()

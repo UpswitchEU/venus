@@ -50,6 +50,7 @@ export function useBusinessTypes(): UseBusinessTypesState {
   const mountedRef = useIsMountedRef()
   const inFlightRef = useRef<AbortController | null>(null)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mountedRef.current is read lazily, not reactive
   const fetchBusinessTypes = useCallback(async () => {
     inFlightRef.current?.abort()
     const controller = new AbortController()
@@ -92,7 +93,11 @@ export function useBusinessTypes(): UseBusinessTypesState {
         setLoading(false)
       }
     }
-  }, [mountedRef.current])
+    // `mountedRef` is a ref; reading `.current` here would not invalidate the
+    // memo (refs don't notify React on change) and including it tripped the
+    // exhaustive-deps lint. The fetch reads `mountedRef.current` lazily inside
+    // the body, which is the intended pattern.
+  }, [])
 
   const refetch = useCallback(async () => {
     await fetchBusinessTypes()

@@ -289,6 +289,7 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
   /**
    * Force immediate save (bypass debounce)
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: isMountedRef.current is read lazily, not reactive
   const forceSave = useCallback(async () => {
     if (!reportId) {
       generalLogger.warn('[OptimisticAutosave] No reportId, skipping force save')
@@ -355,7 +356,10 @@ export function useOptimisticAutosave(reportId: string, options: OptimisticAutos
         error: errorMessage,
       })
     }
-  }, [reportId, onSaveSuccess, onSaveError, isMountedRef.current])
+    // `isMountedRef.current` removed from deps: refs don't notify React on
+    // change, and including the read invited subtle re-creations during the
+    // unmount transition. The body reads `isMountedRef.current` lazily.
+  }, [reportId, onSaveSuccess, onSaveError])
 
   return {
     // State

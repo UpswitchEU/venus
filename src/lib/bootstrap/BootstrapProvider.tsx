@@ -582,10 +582,10 @@ export function BootstrapProvider({
   // resets bootstrapStartedRef. Without watching auth state, bootstrap would
   // never retry. Subscribing here re-renders the provider when auth flips
   // and our effect below picks up the second chance.
-  const authLoading = useAuthStore((s) => s.loading)
-  const authIsInitializing = useAuthStore((s) => s.isInitializing)
-  const authIsRefreshing = useAuthStore((s) => s.isRefreshing)
-  const authReady = !authLoading && !authIsInitializing && !authIsRefreshing
+  // Single derived boolean keeps the re-render count to one per auth-readiness
+  // transition (previously each of the three selectors fired independently,
+  // tripling provider renders on every auth tick).
+  const authReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)
 
   // Auto-bootstrap when auth is ready and no initial state is provided.
   // Fires on mount (non-optimistic path: AuthGate already gated) and again

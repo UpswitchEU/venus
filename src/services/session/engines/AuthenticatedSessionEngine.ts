@@ -52,6 +52,8 @@ const BACKEND_COMPUTED_SESSION_KEYS = new Set<string>([
   'pdf_html_report',
   'pdfHtmlReport',
   '_pdfHtmlReport',
+  'pdfHtml',
+  'reportHtml',
   'report_context',
 ])
 

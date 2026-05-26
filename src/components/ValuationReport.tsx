@@ -78,11 +78,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // Embedded mode detection for iframe integration
     const { isEmbedded } = useEmbeddedMode()
 
-    // URL state management for browser navigation support
-    const { urlState, updateUrl } = useUrlState({
-      reportId,
-      onStateChange: () => undefined,
-    })
+    // URL state management for browser navigation support.
+    // `onStateChange` is omitted (not a fresh arrow each render) so `updateUrl`
+    // keeps a stable identity across renders — any consumer with `updateUrl`
+    // in its deps used to re-fire on every render.
+    const { urlState, updateUrl } = useUrlState({ reportId })
 
     // LOOP FIX: Ref to prevent duplicate URL sync when effect re-runs (e.g. after remount)
     const urlSyncAttemptedRef = useRef(false)

@@ -295,7 +295,11 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       }
     }
 
-    // Update dropdown position when open (for Portal)
+    // Update dropdown position when open (for Portal). `containerRef.current`
+    // is intentionally NOT a dep — refs don't notify React on change and
+    // listing `.current` re-fired the effect every render. The body reads the
+    // current value lazily, which is the correct pattern.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: ref reads are deliberate, not reactive
     React.useLayoutEffect(() => {
       if (isOpen && containerRef.current) {
         const updateRect = () => {
@@ -314,9 +318,10 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       } else {
         setDropdownRect(null)
       }
-    }, [isOpen, containerRef.current])
+    }, [isOpen])
 
     // Close on outside click (Portal: check both container and dropdown)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: refs read inside handler are not reactive
     React.useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
         const target = e.target as Node
@@ -331,7 +336,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
 
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [containerRef.current?.contains])
+    }, [])
 
     // Focus search input when opened
     React.useEffect(() => {

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { Toast, ToastType } from '../components/ui/Toast'
 import { createRandomId } from '../utils/secureRandom'
 
@@ -44,8 +44,14 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
+  // Memoised so consumers don't re-render every time the toasts list changes —
+  // `showToast`/`hideToast` are already stable, so the value identity must be
+  // too. Without this, every toast push cascaded a re-render through every
+  // `useToast()` caller in the tree, including any callback-ref siblings.
+  const contextValue = useMemo(() => ({ showToast, hideToast }), [showToast, hideToast])
+
   return (
-    <ToastContext.Provider value={{ showToast, hideToast }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((toast) => (

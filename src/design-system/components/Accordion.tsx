@@ -118,17 +118,26 @@ const AccordionContext = React.createContext<{
 const Accordion = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Root>,
   AccordionProps
->(({ className, variant = 'default', iconStyle = 'chevron', ...props }, ref) => (
-  <AccordionContext.Provider value={{ variant: variant || 'default', iconStyle }}>
-    <AccordionPrimitive.Root
-      ref={ref}
-      className={cn(accordionVariants({ variant }), className)}
-      {...(props as
-        | AccordionPrimitive.AccordionSingleProps
-        | AccordionPrimitive.AccordionMultipleProps)}
-    />
-  </AccordionContext.Provider>
-))
+>(({ className, variant = 'default', iconStyle = 'chevron', ...props }, ref) => {
+  // Memoise the context value so consumers don't re-render every time the
+  // Accordion root re-renders (and don't cascade through `composeRefs` of
+  // any callback-ref children inside).
+  const contextValue = React.useMemo(
+    () => ({ variant: variant || 'default', iconStyle }),
+    [variant, iconStyle]
+  )
+  return (
+    <AccordionContext.Provider value={contextValue}>
+      <AccordionPrimitive.Root
+        ref={ref}
+        className={cn(accordionVariants({ variant }), className)}
+        {...(props as
+          | AccordionPrimitive.AccordionSingleProps
+          | AccordionPrimitive.AccordionMultipleProps)}
+      />
+    </AccordionContext.Provider>
+  )
+})
 Accordion.displayName = 'Accordion'
 
 // ─────────────────────────────────────────

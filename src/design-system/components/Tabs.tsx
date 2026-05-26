@@ -11,7 +11,7 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { motion } from 'framer-motion'
 import * as React from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../utils'
 import { springSnappy } from './motion'
 
@@ -111,8 +111,19 @@ const Tabs = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Root>, TabsP
     const [activeRect, setActiveRect] = useState<DOMRect | null>(null)
     const listRef = useRef<HTMLDivElement>(null)
 
+    // Memoise the context value so every render of <Tabs> doesn't push a new
+    // object into the Provider. Without this, every consumer re-rendered on
+    // every parent render, which (combined with the inline callback refs in
+    // TabsList/TabsTrigger below) cascaded into Radix `composeRefs` recursion
+    // — the React #185 "Maximum update depth exceeded" path the production
+    // accountant flow was hitting.
+    const contextValue = useMemo(
+      () => ({ variant, size, activeRect, setActiveRect, listRef }),
+      [variant, size, activeRect]
+    )
+
     return (
-      <TabsContext.Provider value={{ variant, size, activeRect, setActiveRect, listRef }}>
+      <TabsContext.Provider value={contextValue}>
         <TabsPrimitive.Root ref={ref} className={cn('w-full', className)} {...props} />
       </TabsContext.Provider>
     )
@@ -126,17 +137,29 @@ Tabs.displayName = 'Tabs'
 
 const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, TabsListProps>(
   ({ className, variant: variantProp, size: sizeProp, ...props }, ref) => {
+    void sizeProp
     const context = useTabsContext()
     const variant = variantProp ?? context.variant
+    const contextListRef = context.listRef
+
+    // Stable composed-ref so React doesn't detach + reattach this callback on
+    // every render. The previous inline arrow created a new identity each
+    // commit, and Radix `composeRefs` then recursed through the chain — the
+    // root cause of the React #185 in the staging accountant flow.
+    const setListRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        if (typeof ref === 'function') ref(node)
+        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+        if (contextListRef) {
+          ;(contextListRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+        }
+      },
+      [ref, contextListRef]
+    )
 
     return (
       <TabsPrimitive.List
-        ref={(node) => {
-          if (typeof ref === 'function') ref(node)
-          else if (ref) ref.current = node
-          // @ts-ignore - setting internal ref
-          if (context.listRef) context.listRef.current = node
-        }}
+        ref={setListRef}
         className={cn('relative inline-flex items-center', listVariantStyles[variant], className)}
         {...props}
       >
@@ -240,14 +263,21 @@ const TabsTrigger = React.forwardRef<
     }
   }, [setActiveRect])
 
+  // Stable composed-ref. See TabsList comment — inline callback refs created a
+  // fresh identity every render, forcing Radix to detach + reattach in commit
+  // and recursing through `composeRefs` until React threw #185.
+  const setTriggerRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      if (typeof ref === 'function') ref(node)
+      else if (ref) (ref as React.MutableRefObject<HTMLButtonElement | null>).current = node
+      ;(triggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = node
+    },
+    [ref]
+  )
+
   return (
     <TabsPrimitive.Trigger
-      ref={(node) => {
-        if (typeof ref === 'function') ref(node)
-        else if (ref) ref.current = node
-        // @ts-ignore
-        triggerRef.current = node
-      }}
+      ref={setTriggerRef}
       className={cn(
         triggerBaseStyles,
         triggerSizeStyles[size],

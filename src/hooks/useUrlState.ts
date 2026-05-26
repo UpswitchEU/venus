@@ -10,7 +10,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { parseReportModeSearchParam, shouldPreserveMercuryEmbedMode } from '@/utils/reportMode'
 
 interface UrlState {
@@ -45,6 +45,7 @@ interface UseUrlStateReturn {
 const URL_UPDATE_RESET_DELAY_MS = 400
 
 export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): UseUrlStateReturn {
+  void reportId
   const router = useTransitionRouter()
   const searchParams = useSearchParams()
   const isUpdatingRef = useRef(false)
@@ -52,17 +53,38 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const targetStateRef = useRef<UrlState | null>(null)
 
+  // Latest-ref so the memoized `updateUrl` / popstate handler don't recreate
+  // when callers pass an inline `() => ...` callback. Without this, `updateUrl`
+  // got a new identity every render — downstream `useEffect([..., updateUrl])`
+  // consumers churned, and the popstate listener was detached+reattached on
+  // every render, occasionally racing with React 19 ref attach in commit phase.
+  const onStateChangeRef = useRef(onStateChange)
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange
+  }, [onStateChange])
+
   // Read initial state from URL
   // SECURITY: prefilledQuery is read-only from URL (backward compatibility)
   // It should not be synced back to URL - it's stored in session data instead
-  const versionParam = searchParams?.get('version') ?? undefined
-  const urlState: UrlState = {
-    mode: parseReportModeSearchParam(searchParams?.get('mode')),
-    version: versionParam !== undefined ? parseInt(versionParam, 10) : undefined,
-    flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
-    prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
-    autoSend: searchParams?.get('autoSend') === 'true',
-  }
+  // Memoised on the primitive parts so the returned `urlState` object identity
+  // is stable across renders unless something actually changed. Anyone using
+  // `urlState` as a dep (e.g. ValuationSessionManager) used to see a fresh
+  // object reference every render, defeating their effect guards.
+  const modeParam = searchParams?.get('mode') ?? null
+  const versionParam = searchParams?.get('version') ?? null
+  const flowParam = searchParams?.get('flow') ?? null
+  const prefilledQueryParam = searchParams?.get('prefilledQuery') ?? null
+  const autoSendParam = searchParams?.get('autoSend') === 'true'
+  const urlState = useMemo<UrlState>(
+    () => ({
+      mode: parseReportModeSearchParam(modeParam),
+      version: versionParam !== null ? parseInt(versionParam, 10) : undefined,
+      flow: (flowParam as 'manual' | 'conversational') || undefined,
+      prefilledQuery: prefilledQueryParam || undefined,
+      autoSend: autoSendParam,
+    }),
+    [modeParam, versionParam, flowParam, prefilledQueryParam, autoSendParam]
+  )
 
   // Update URL with new state
   const updateUrl = useCallback(
@@ -133,10 +155,9 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         lastStateRef.current = newState
         targetStateRef.current = newState
 
-        // Notify parent component of state change
-        if (onStateChange) {
-          onStateChange(newState)
-        }
+        // Notify parent component of state change (read through the latest-ref
+        // so this callback's identity doesn't depend on the caller's closure)
+        onStateChangeRef.current?.(newState)
 
         // RACE CONDITION FIX: Delay reset so Next.js can propagate searchParams.
         // Resetting immediately causes effects to re-run with stale searchParams → duplicate updateUrl → loop.
@@ -156,7 +177,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         throw err
       }
     },
-    [router, onStateChange]
+    [router]
   )
 
   // Sync component state to URL (for external state changes)
@@ -167,31 +188,32 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
     [updateUrl]
   )
 
-  // Listen for browser navigation (back/forward)
+  // Listen for browser navigation (back/forward). Reads the latest URL inside
+  // the handler (not via the searchParams snapshot captured at attach time) so
+  // the listener can stay mounted for the lifetime of the component instead of
+  // being detached + reattached on every render.
   useEffect(() => {
+    if (typeof window === 'undefined') return
     const handlePopState = () => {
-      // URL changed via browser navigation - read new state
-      const pv = searchParams?.get('version') ?? undefined
+      const params = new URLSearchParams(window.location.search)
+      const pv = params.get('version') ?? undefined
       const newState: UrlState = {
-        mode: parseReportModeSearchParam(searchParams?.get('mode')),
+        mode: parseReportModeSearchParam(params.get('mode')),
         version: pv !== undefined ? parseInt(pv, 10) : undefined,
-        flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
-        prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
-        autoSend: searchParams?.get('autoSend') === 'true',
+        flow: (params.get('flow') as 'manual' | 'conversational') || undefined,
+        prefilledQuery: params.get('prefilledQuery') || undefined,
+        autoSend: params.get('autoSend') === 'true',
       }
 
-      // Only notify if state actually changed
       if (JSON.stringify(newState) !== JSON.stringify(lastStateRef.current)) {
         lastStateRef.current = newState
-        if (onStateChange) {
-          onStateChange(newState)
-        }
+        onStateChangeRef.current?.(newState)
       }
     }
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [searchParams, onStateChange])
+  }, [])
 
   // Initialize lastStateRef snapshot (run once; URL-derived state recreated each render elsewhere)
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount baseline only — adding urlState reruns unnecessarily

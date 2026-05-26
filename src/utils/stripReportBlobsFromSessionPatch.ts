@@ -15,7 +15,9 @@ const TOP_LEVEL_BLOB_KEYS = [
   '_htmlReport',
   'pdfHtmlReport',
   'pdf_html_report',
+  '_pdfHtmlReport',
   'pdfHtml',
+  'reportHtml',
 ] as const
 
 /** Nested shapes produced by bad merges (e.g. PATCH 404 -> create) or snake_case echoes. */
