@@ -22,6 +22,7 @@ import type {
   SingleSelectRequest,
   BulkValuationRunRequest,
   ListingFieldUpdateRequest,
+  NormalizationDismissRequest,
   ValuationDefaultsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
@@ -297,6 +298,38 @@ export function parseValuationMethodPreferenceRequest(
         clientId: optionalString(req.client_id),
         method,
         businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseNormalizationDismissRequest(
+  data: unknown
+): NormalizationDismissRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    return [
+      {
+        status: 'pending_approval',
+        reportId: optionalString(req.report_id),
+        adjustmentId: optionalString(req.adjustment_id),
+        category: optionalString(req.category),
+        amount:
+          typeof req.amount === 'number' && Number.isFinite(req.amount) ? req.amount : null,
         reason: optionalString(req.reason),
         message: optionalString(d.message),
       },

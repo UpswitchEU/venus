@@ -221,6 +221,16 @@ export interface ListingFieldUpdateRequest {
   message?: string
 }
 
+export interface NormalizationDismissRequest {
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  adjustmentId?: string
+  category?: string
+  amount?: number | null
+  reason?: string
+  message?: string
+}
+
 export interface ValuationDefaultsRequest {
   status: 'pending_approval' | 'blocked'
   change?: {
@@ -777,6 +787,7 @@ export interface ParsedToolResults {
   valuationMethodPreferenceRequests: ValuationMethodPreferenceRequest[]
   bulkValuationRunRequests: BulkValuationRunRequest[]
   listingFieldUpdateRequests: ListingFieldUpdateRequest[]
+  normalizationDismissRequests: NormalizationDismissRequest[]
   workspaceClientsPreviews: WorkspaceClientsPreview[]
   valuationDefaultsRequests: ValuationDefaultsRequest[]
   valuationDefaultsPreviews: ValuationDefaultsPreview[]

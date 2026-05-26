@@ -36,6 +36,7 @@ import {
   parseSyncStatus,
   parseBulkValuationRunRequest,
   parseListingFieldUpdateRequest,
+  parseNormalizationDismissRequest,
   parseValuationDefaultsPreview,
   parseValuationDefaultsRequest,
   parseValuationMethodPreferenceRequest,
@@ -120,6 +121,7 @@ function emptyResult(): ParsedToolResults {
     valuationMethodPreferenceRequests: [],
     bulkValuationRunRequests: [],
     listingFieldUpdateRequests: [],
+    normalizationDismissRequests: [],
     workspaceClientsPreviews: [],
     valuationDefaultsRequests: [],
     valuationDefaultsPreviews: [],
@@ -246,6 +248,9 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'listing_field_update_request':
         out.listingFieldUpdateRequests.push(...parseListingFieldUpdateRequest(data))
+        break
+      case 'normalization_dismiss_request':
+        out.normalizationDismissRequests.push(...parseNormalizationDismissRequest(data))
         break
       case 'workspace_clients':
         out.workspaceClientsPreviews.push(...parseWorkspaceClientsPreview(data))

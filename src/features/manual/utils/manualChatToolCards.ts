@@ -22,6 +22,9 @@ type BulkValuationRunCard = NonNullable<ChatMessage['bulkValuationRunRequests']>
 type ListingFieldUpdateCard = NonNullable<
   ChatMessage['listingFieldUpdateRequests']
 >[number]
+type NormalizationDismissCard = NonNullable<
+  ChatMessage['normalizationDismissRequests']
+>[number]
 type WorkspaceClientsPreviewCard = NonNullable<
   ChatMessage['workspaceClientsPreviews']
 >[number]
@@ -71,6 +74,7 @@ export interface ManualChatToolCards {
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceCard[]
   bulkValuationRunRequests?: BulkValuationRunCard[]
   listingFieldUpdateRequests?: ListingFieldUpdateCard[]
+  normalizationDismissRequests?: NormalizationDismissCard[]
   workspaceClientsPreviews?: WorkspaceClientsPreviewCard[]
   valuationDefaultsRequests?: ValuationDefaultsCard[]
   valuationDefaultsPreviews?: ValuationDefaultsPreviewCard[]
@@ -111,6 +115,7 @@ interface ManualChatToolCardsInput {
   valuationMethodPreferenceRequests?: readonly unknown[]
   bulkValuationRunRequests?: readonly unknown[]
   listingFieldUpdateRequests?: readonly unknown[]
+  normalizationDismissRequests?: readonly unknown[]
   workspaceClientsPreviews?: readonly unknown[]
   valuationDefaultsRequests?: readonly unknown[]
   valuationDefaultsPreviews?: readonly unknown[]
@@ -330,6 +335,17 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as ListingFieldUpdateCard
+    )
+  )
+  pushIfAny(
+    out,
+    'normalizationDismissRequests',
+    (cards.normalizationDismissRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as NormalizationDismissCard
     )
   )
   pushIfAny(
@@ -600,6 +616,8 @@ export function parseManualChatStreamToolResult(
         return { type: 'bulk_valuation_run_request', data }
       case 'propose_listing_field_update':
         return { type: 'listing_field_update_request', data }
+      case 'propose_normalization_dismiss':
+        return { type: 'normalization_dismiss_request', data }
       case 'get_workspace_clients':
         return { type: 'workspace_clients', data }
       case 'get_valuation_defaults':
@@ -694,6 +712,7 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
         (cards.bulkValuationRunRequests?.length ?? 0) > 0 ||
         (cards.listingFieldUpdateRequests?.length ?? 0) > 0 ||
+        (cards.normalizationDismissRequests?.length ?? 0) > 0 ||
         (cards.workspaceClientsPreviews?.length ?? 0) > 0 ||
         (cards.valuationDefaultsRequests?.length ?? 0) > 0 ||
         (cards.valuationDefaultsPreviews?.length ?? 0) > 0 ||
@@ -808,6 +827,12 @@ export function appendManualChatToolCardsToMessage(
       listingFieldUpdateRequests: [
         ...(message.listingFieldUpdateRequests ?? []),
         ...cards.listingFieldUpdateRequests,
+      ],
+    }),
+    ...(cards.normalizationDismissRequests && {
+      normalizationDismissRequests: [
+        ...(message.normalizationDismissRequests ?? []),
+        ...cards.normalizationDismissRequests,
       ],
     }),
     ...(cards.workspaceClientsPreviews && {

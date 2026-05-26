@@ -256,6 +256,17 @@ export interface ListingFieldUpdateRequest {
   message?: string
 }
 
+export interface NormalizationDismissRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  reportId?: string
+  adjustmentId?: string
+  category?: string
+  amount?: number | null
+  reason?: string
+  message?: string
+}
+
 export interface WorkspaceClientsPreview {
   id: string
   status: 'ok' | 'failed'
@@ -666,6 +677,7 @@ export interface ChatMessage {
   valuationMethodPreferenceRequests?: ValuationMethodPreferenceRequest[]
   bulkValuationRunRequests?: BulkValuationRunRequest[]
   listingFieldUpdateRequests?: ListingFieldUpdateRequest[]
+  normalizationDismissRequests?: NormalizationDismissRequest[]
   workspaceClientsPreviews?: WorkspaceClientsPreview[]
   valuationDefaultsRequests?: ValuationDefaultsRequest[]
   valuationDefaultsPreviews?: ValuationDefaultsPreview[]

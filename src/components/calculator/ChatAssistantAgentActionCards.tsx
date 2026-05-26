@@ -42,6 +42,7 @@ import type {
   SyncStatusPreview,
   BulkValuationRunRequest,
   ListingFieldUpdateRequest,
+  NormalizationDismissRequest,
   ValuationDefaultsPreview,
   WorkspaceClientsPreview,
   ValuationDefaultsRequest,
@@ -1152,6 +1153,72 @@ function ValuationMethodPreferenceCard({ request }: { request: ValuationMethodPr
   )
 }
 
+function NormalizationDismissCard({ request }: { request: NormalizationDismissRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const isInvalid = !isBlocked && (!request.reportId || !request.adjustmentId)
+
+  const metaParts: string[] = []
+  if (request.category)
+    metaParts.push(
+      ca('proposalCards.agent.normalizationDismissCategory', {
+        category: request.category,
+      })
+    )
+  if (typeof request.amount === 'number') {
+    const sign = request.amount > 0 ? '+' : ''
+    metaParts.push(
+      ca('proposalCards.agent.normalizationDismissAmount', {
+        value: `${sign}${request.amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+      })
+    )
+  }
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.normalizationDismissBlocked')
+          : ca('proposalCards.agent.normalizationDismissTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.reason ?? request.message)}
+      meta={isBlocked ? undefined : compactParts(metaParts)}
+      tone={isBlocked || isInvalid ? 'blocked' : 'default'}
+      icon={<Pin className="h-3.5 w-3.5" />}
+      actionLabel={
+        isBlocked || isInvalid
+          ? undefined
+          : ca('proposalCards.agent.normalizationDismissAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.normalizationDismissRemoved')}
+      onAction={
+        isBlocked || isInvalid || !request.reportId || !request.adjustmentId
+          ? undefined
+          : async () => {
+              const response = await fetch(
+                `/api/valuations/${encodeURIComponent(
+                  request.reportId as string
+                )}/adjustments/${encodeURIComponent(request.adjustmentId as string)}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    ...buildAgentToolActionHeaders(
+                      'propose_normalization_dismiss',
+                      request.id
+                    ),
+                  },
+                  credentials: 'include',
+                }
+              )
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
 function ListingFieldUpdateCard({ request }: { request: ListingFieldUpdateRequest }) {
   const ca = useTranslations('chatAssistant')
   const isBlocked = request.status === 'blocked'
@@ -2222,6 +2289,7 @@ export function ChatAssistantAgentActionCards({
           (message.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
           (message.bulkValuationRunRequests?.length ?? 0) > 0 ||
           (message.listingFieldUpdateRequests?.length ?? 0) > 0 ||
+          (message.normalizationDismissRequests?.length ?? 0) > 0 ||
           (message.valuationDefaultsRequests?.length ?? 0) > 0 ||
           (message.valuationDefaultsPreviews?.length ?? 0) > 0 ||
           (message.workspaceClientsPreviews?.length ?? 0) > 0 ||
@@ -2276,6 +2344,9 @@ export function ChatAssistantAgentActionCards({
       ))}
       {message.listingFieldUpdateRequests?.map((request) => (
         <ListingFieldUpdateCard key={request.id} request={request} />
+      ))}
+      {message.normalizationDismissRequests?.map((request) => (
+        <NormalizationDismissCard key={request.id} request={request} />
       ))}
       {message.workspaceClientsPreviews?.map((preview) => (
         <WorkspaceClientsPreviewCard key={preview.id} preview={preview} />
