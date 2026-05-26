@@ -62,6 +62,11 @@ exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     propose_buyer_invitation: 'buyer_invitation_request',
     propose_package_publish: 'package_publish_request',
     request_lawyer_handoff: 'lawyer_handoff_request',
+    // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
+    // as an inline CompanyNameInput widget; Venus intentionally ignores it
+    // (Venus is the wizard surface, not the dock). Listed here so the contract
+    // hash matches and the verify:ai-tool-result-contracts gate stays green.
+    advisor_add_client_widget: 'add_client_widget',
 };
 exports.AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
 exports.AI_ACTION_TOOL_RESULT_TYPES = [
@@ -114,6 +119,7 @@ exports.AI_ACTION_TOOL_RESULT_TYPES = [
     'buyer_invitation_request',
     'package_publish_request',
     'lawyer_handoff_request',
+    'add_client_widget',
 ];
 exports.AI_STREAM_CHUNK_TYPES = [
     'text',

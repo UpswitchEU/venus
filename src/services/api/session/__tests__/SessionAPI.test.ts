@@ -68,7 +68,7 @@ describe('SessionAPI', () => {
           method: 'GET',
           url: '/api/v2/valuations/sessions/val_test_123',
         }),
-        expect.objectContaining({ timeout: 10000 })
+        expect.objectContaining({ timeout: 30000 })
       )
       expect(result?.success).toBe(true)
       expect(result?.session?.reportId).toBe('val_test_123')

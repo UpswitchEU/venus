@@ -108,8 +108,32 @@ const triggerSizeStyles = {
 
 const Tabs = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Root>, TabsProps>(
   ({ className, variant = 'underline', size = 'md', ...props }, ref) => {
-    const [activeRect, setActiveRect] = useState<DOMRect | null>(null)
+    const [activeRect, setActiveRectRaw] = useState<DOMRect | null>(null)
     const listRef = useRef<HTMLDivElement>(null)
+
+    // Value-equality wrapper around setActiveRect. `getBoundingClientRect()`
+    // returns a fresh DOMRect every call, so useState's Object.is bailout
+    // never fires — every MutationObserver/ResizeObserver tick from
+    // TabsTrigger used to re-render the whole Tabs tree, which then
+    // re-created the composed-ref array for every TabsList/TabsTrigger and
+    // cascaded through Radix `composeRefs` until React threw #185.
+    // We compare the four numeric fields and reuse the previous object
+    // reference when they're unchanged.
+    const setActiveRect = useCallback((next: DOMRect | null) => {
+      setActiveRectRaw((prev) => {
+        if (prev === next) return prev
+        if (prev == null || next == null) return next
+        if (
+          prev.left === next.left &&
+          prev.top === next.top &&
+          prev.width === next.width &&
+          prev.height === next.height
+        ) {
+          return prev
+        }
+        return next
+      })
+    }, [])
 
     // Memoise the context value so every render of <Tabs> doesn't push a new
     // object into the Provider. Without this, every consumer re-rendered on
@@ -119,7 +143,7 @@ const Tabs = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Root>, TabsP
     // accountant flow was hitting.
     const contextValue = useMemo(
       () => ({ variant, size, activeRect, setActiveRect, listRef }),
-      [variant, size, activeRect]
+      [variant, size, activeRect, setActiveRect]
     )
 
     return (

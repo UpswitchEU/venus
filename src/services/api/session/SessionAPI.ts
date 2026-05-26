@@ -381,10 +381,15 @@ export class SessionAPI extends HttpClient {
     const baseDelay = 1000 // 1 second
 
     try {
-      // Add 10-second timeout per attempt
+      // 30-second timeout per attempt: the response body can be multi-MB once
+      // valuation_reports.valuation_result is joined in, and slow staging DB
+      // queries against valuation_sessions push end-to-end past 5s on cold reads.
+      // The original 10s ceiling caused AbortController cancels mid-flight
+      // (see the "canceled" / "Request timeout, aborting" trail in staging logs).
+      // Matches the HttpClient default (HttpClient.ts:639).
       const timeoutOptions = {
         ...options,
-        timeout: 10000,
+        timeout: 30000,
       }
 
       // ✅ FIX: HttpClient unwraps response.data?.data || response.data

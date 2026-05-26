@@ -37,12 +37,14 @@ import { SessionRestorationService } from '../services/session/SessionRestoratio
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useSessionStore } from '../store/useSessionStore'
+import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import {
+  buildSeedIdentity,
   canRenderReportSession,
   hasAssetsInSession,
   shouldAllowOptimisticMercuryRender,
@@ -260,6 +262,28 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           return
         }
 
+        // LOOP FIX (React #185 in Mercury accountant existing-report flow):
+        // The seed timer used to flip status='loaded' BEFORE BootstrapProvider's
+        // post-Titan setEngine() ran. That opened a window where ManualLayout
+        // mounted with session=stub + engine=null; hooks that called
+        // updateSession()/saveSession() during that window hit the engine-null
+        // guard, but the surrounding re-render churn (Radix composeRefs
+        // cleanup chain across every commit) compounded into a Maximum update
+        // depth crash. We derive a minimal identity from auth + clientContext
+        // now, set the engine, then advance status — never the other way around.
+        // If auth hasn't settled enough to produce an identity, we bail and let
+        // the bootstrap path own initialization.
+        const seedIdentity = buildSeedIdentity({
+          authUser: useAuthStore.getState().user,
+          clientContext: useClientContext.getState(),
+        })
+        if (!seedIdentity) {
+          generalLogger.debug(
+            '[SessionManager] Skipping Mercury shell seed — auth user not ready'
+          )
+          return
+        }
+
         if (current.session?.reportId && current.session.reportId !== reportId) {
           current.clearSession()
         }
@@ -279,10 +303,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             _optimisticMercuryShell: true,
           } as ValuationSession['sessionData'],
         })
+        if (!store.engine) {
+          store.setEngine(seedIdentity)
+        }
         store.completeInitialization()
         generalLogger.info('[SessionManager] Seeded optimistic Mercury shell', {
           reportId: reportId.substring(0, 30),
           delayMs: MERCURY_OPTIMISTIC_SHELL_DELAY_MS,
+          identityType: seedIdentity.type,
+          engineWasNullAtSeed: !current.engine,
         })
       }, MERCURY_OPTIMISTIC_SHELL_DELAY_MS)
 

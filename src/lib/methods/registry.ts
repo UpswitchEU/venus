@@ -130,6 +130,10 @@ export function deriveMethodLabelKeys(): Readonly<Record<MethodKey, string>> {
   return Object.freeze(Object.fromEntries(ORDERED_SPECS.map((s) => [s.key, s.labelKey])))
 }
 
+export function deriveMethodCompactLabelKeys(): Readonly<Record<MethodKey, string>> {
+  return Object.freeze(Object.fromEntries(ORDERED_SPECS.map((s) => [s.key, `${s.labelKey}Pill`])))
+}
+
 export function deriveMethodDescriptionKeys(): Readonly<Record<MethodKey, string>> {
   const entries: Array<[MethodKey, string]> = []
   for (const s of ORDERED_SPECS) {

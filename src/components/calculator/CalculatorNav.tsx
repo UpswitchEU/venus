@@ -361,7 +361,7 @@ export function CalculatorNav({
                     aria-haspopup="listbox"
                     title={methodTriggerLabel}
                     aria-label={methodTriggerLabel}
-                    className="group flex min-w-0 max-w-[184px] lg:max-w-[200px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="group flex min-w-0 max-w-[140px] lg:max-w-[160px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 group-hover:text-foreground/70 shrink-0" />
                     <span className="truncate min-w-0 flex-1 text-left">{compactMethodLabel}</span>

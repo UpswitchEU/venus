@@ -1,3 +1,4 @@
+import type { IdentityState } from '../lib/bootstrap/types'
 import type { ValuationSession } from '../types/valuation'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
@@ -55,6 +56,65 @@ export function shouldSeedOptimisticMercuryShell(params: {
   // `loaded` covers SPA handoffs where the previous report is still in the
   // store. Mercury should still get the fast shell for the new report.
   return params.status === 'idle' || params.status === 'loaded'
+}
+
+/**
+ * Build the IdentityState used to bootstrap the session engine during the
+ * Mercury optimistic-shell seed. Returns null when auth hasn't yet exposed a
+ * userId — the seed must bail in that case rather than mount ManualLayout
+ * against a null engine.
+ *
+ * This was extracted from the inline seed timer so the order-of-operations
+ * invariant (engine BEFORE status='loaded') is unit-testable without
+ * mounting the whole BootstrapProvider tree. See React #185 regression
+ * traced 2026-05-26.
+ */
+export function buildSeedIdentity(params: {
+  authUser: { id?: string; email?: string; name?: string } | null | undefined
+  clientContext: {
+    isActingAsClient: boolean
+    accountant: { id: string; email: string } | null
+    client: { id: string; email: string } | null
+    relationshipId: string | null
+  }
+}): IdentityState | null {
+  const { authUser, clientContext } = params
+  if (!authUser?.id) return null
+
+  const firstName = authUser.name?.split(' ')[0]
+  const lastName = authUser.name?.split(' ').slice(1).join(' ') || undefined
+
+  if (clientContext.isActingAsClient && clientContext.relationshipId) {
+    return {
+      type: 'accountant_for_client',
+      userId: authUser.id,
+      email: authUser.email,
+      firstName,
+      lastName,
+      clientContext: {
+        accountantUserId: clientContext.accountant?.id || authUser.id,
+        accountantEmail: clientContext.accountant?.email,
+        clientUserId: clientContext.client?.id ?? null,
+        clientEmail: clientContext.client?.email,
+        relationshipId: clientContext.relationshipId,
+        // Defensive permissive defaults: BootstrapProvider's real setEngine
+        // call replaces this once Titan returns the canonical permission set.
+        permissions: {
+          canCreateValuations: true,
+          canViewReports: true,
+          canEditReports: true,
+        },
+      },
+    }
+  }
+
+  return {
+    type: 'authenticated',
+    userId: authUser.id,
+    email: authUser.email,
+    firstName,
+    lastName,
+  }
 }
 
 export function canRenderReportSession(params: {

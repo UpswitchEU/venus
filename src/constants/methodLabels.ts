@@ -6,9 +6,21 @@
  * Adding an 11th method means editing one spec; both maps update automatically.
  */
 
-import { deriveMethodDescriptionKeys, deriveMethodLabelKeys } from '@/lib/methods/registry'
+import {
+  deriveMethodCompactLabelKeys,
+  deriveMethodDescriptionKeys,
+  deriveMethodLabelKeys,
+} from '@/lib/methods/registry'
 
 export const METHOD_LABEL_KEYS: Record<string, string> = deriveMethodLabelKeys()
+
+/**
+ * Pill/chip-sized labels for the top-bar method selector. Distinct from
+ * METHOD_LABEL_KEYS because every market-approach label starts with
+ * "Marktbenadering" — right-truncation in a narrow pill hides the
+ * differentiating suffix. These render the discriminator only.
+ */
+export const METHOD_COMPACT_LABEL_KEYS: Record<string, string> = deriveMethodCompactLabelKeys()
 
 /** Methods that show an info tooltip in the nav dropdown (long-form i18n description). */
 export const METHOD_DESCRIPTION_KEYS: Record<string, string> = deriveMethodDescriptionKeys()

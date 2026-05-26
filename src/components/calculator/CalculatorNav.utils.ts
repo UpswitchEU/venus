@@ -1,4 +1,4 @@
-import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
+import { METHOD_COMPACT_LABEL_KEYS, METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { cn } from '@/design-system/utils'
 import { dateLikeAgeMs } from '@/utils/date-like'
 
@@ -62,6 +62,9 @@ export function resolveCalculatorNavMethodLabels({
   const selectedMethodLabel = t(
     METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
   )
+  const compactLabelKey =
+    METHOD_COMPACT_LABEL_KEYS[displayPreSelectedMethod] ??
+    'manualInput.methodSelector.adaptiveRecommendedPill'
   const multiMethodCount = preSelectedMethods?.length ?? 0
   const isMultiMethod =
     multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
@@ -70,8 +73,6 @@ export function resolveCalculatorNavMethodLabels({
     selectedMethodLabel,
     compactMethodLabel: isMultiMethod
       ? `${multiMethodCount} ${t('manualInput.methodSelector.methods')}`
-      : displayPreSelectedMethod === 'upswitch_adaptive'
-        ? t('manualInput.methodSelector.adaptiveShort')
-        : selectedMethodLabel,
+      : t(compactLabelKey),
   }
 }
