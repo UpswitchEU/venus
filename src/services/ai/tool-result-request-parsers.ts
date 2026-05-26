@@ -8,11 +8,16 @@ import type {
   ImportReviewRequest,
   ImportReviewRequestPending,
   IntegrationConnectRequest,
+  IntegrationSyncRequest,
   ListingPreview,
+  ListingVisibilityRequest,
   MethodReadinessPreview,
   MultiSelectRequest,
   OwnerProfileAnswerRequest,
+  OwnerReminderRequest,
   SecureCredentialRequest,
+  ShareTokenRequest,
+  ShareTokenRevokeRequest,
   SingleSelectRequest,
   ValuationSessionRequest,
 } from './tool-result-types'
@@ -64,6 +69,211 @@ export function parseIntegrationConnectRequest(data: unknown): IntegrationConnec
       message: optionalString(d.message),
     },
   ]
+}
+
+export function parseIntegrationSyncRequest(data: unknown): IntegrationSyncRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const scope = req.scope
+    return [
+      {
+        status: 'pending_approval',
+        provider: optionalString(req.provider),
+        scope: scope === 'provider_scope' || scope === 'client_scope' ? scope : undefined,
+        clientId: typeof req.client_id === 'string' ? req.client_id : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseSyncStatus(data: unknown): import('./tool-result-types').SyncStatusPreview[] {
+  const d = recordValue(data)
+  if (!d) return []
+  if (d.status !== 'ok' && d.status !== 'failed') return []
+  const providersRaw = Array.isArray(d.providers) ? d.providers : []
+  const providers = providersRaw
+    .map((entry) => recordValue(entry))
+    .filter((entry): entry is Record<string, unknown> => entry !== null)
+    .map((entry) => ({
+      provider: typeof entry.provider === 'string' ? entry.provider : '',
+      connected: entry.connected === true,
+      syncInProgress: entry.syncInProgress === true,
+      lastSyncAt: typeof entry.lastSyncAt === 'string' ? entry.lastSyncAt : null,
+      clientCount:
+        typeof entry.clientCount === 'number' && Number.isFinite(entry.clientCount)
+          ? entry.clientCount
+          : null,
+      error: typeof entry.error === 'string' ? entry.error : null,
+    }))
+    .filter((p) => p.provider.length > 0)
+  return [
+    {
+      status: d.status,
+      providers,
+      message: optionalString(d.message),
+    },
+  ]
+}
+
+export function parseOwnerInviteAccountantRequest(
+  data: unknown
+): import('./tool-result-types').OwnerInviteAccountantRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    return [
+      {
+        status: 'pending_approval',
+        accountantEmail: optionalString(req.accountant_email),
+        customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseOwnerReminderRequest(data: unknown): OwnerReminderRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    return [
+      {
+        status: 'pending_approval',
+        clientId: optionalString(req.client_id),
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
+        customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseListingVisibilityRequest(data: unknown): ListingVisibilityRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    const visibility = req.visibility
+    return [
+      {
+        status: 'pending_approval',
+        listingId: optionalString(req.listing_id),
+        visibility: visibility === 'public' || visibility === 'private' ? visibility : undefined,
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseShareTokenRequest(data: unknown): ShareTokenRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    return [
+      {
+        status: 'pending_approval',
+        listingId: optionalString(req.listing_id),
+        expiresInDays: typeof req.expires_in_days === 'number' ? req.expires_in_days : null,
+        maxUses: typeof req.max_uses === 'number' ? req.max_uses : null,
+        label: typeof req.label === 'string' ? req.label : null,
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
+}
+
+export function parseShareTokenRevokeRequest(data: unknown): ShareTokenRevokeRequest[] {
+  const d = recordValue(data)
+  if (!d) return []
+  const req = recordValue(d.request)
+  if (d.status === 'pending_approval' && req) {
+    return [
+      {
+        status: 'pending_approval',
+        listingId: optionalString(req.listing_id),
+        tokenId: optionalString(req.token_id),
+        tokenHint: typeof req.token_hint === 'string' ? req.token_hint : null,
+        tokenLabel: typeof req.token_label === 'string' ? req.token_label : null,
+        businessName: typeof req.business_name === 'string' ? req.business_name : null,
+        reason: optionalString(req.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        reason: optionalString(d.reason),
+        message: optionalString(d.message),
+      },
+    ]
+  }
+  return []
 }
 
 export function parseSecureCredentialRequest(data: unknown): SecureCredentialRequest[] {

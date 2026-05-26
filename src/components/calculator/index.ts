@@ -25,6 +25,7 @@ export { CalculatorNav } from './CalculatorNav'
 export { CalculatorShellSkeleton } from './CalculatorShellSkeleton'
 // Chat-specific NormalisationSuggestion (different from modal's version)
 export type {
+  AgentChoiceSelection,
   ChatMessage,
   FieldContext,
   FieldUpdate,

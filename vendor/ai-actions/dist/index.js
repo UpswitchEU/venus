@@ -13,6 +13,14 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     run_sellability: 'sellability_run_request',
     update_owner_profile_answer: 'owner_profile_answer_request',
     propose_integration_connect: 'integration_connect_request',
+    propose_integration_sync: 'integration_sync_request',
+    propose_owner_reminder: 'owner_reminder_request',
+    propose_owner_invite_accountant: 'owner_invite_accountant_request',
+    propose_listing_visibility: 'listing_visibility_request',
+    propose_share_token: 'share_token_request',
+    propose_share_token_revoke: 'share_token_revoke_request',
+    propose_valuation_method_preference: 'valuation_method_preference_request',
+    propose_acknowledge_warning: 'acknowledge_warning_request',
     propose_secure_credential: 'secure_credential_request',
     propose_csv_upload: 'csv_upload_request',
     propose_multi_select: 'multi_select_request',
@@ -23,12 +31,14 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     get_client_data_readiness: 'client_data_readiness',
     open_import_review: 'import_review_request',
     get_method_readiness: 'method_readiness',
+    get_sync_status: 'sync_status',
     get_listing_preview: 'listing_preview',
     create_listing: 'listing_create_request',
     get_buyer_profile_preview: 'buyer_profile_preview',
     search_business_types: 'business_type_search_results',
     search_kbo_registry: 'registry_search_results',
     search_kvk_registry: 'registry_search_results',
+    suggest_normalization_batch: 'normalization_suggestion_batch',
     get_buyer_ready_package: 'buyer_ready_package_status',
     generate_buyer_ready_package: 'buyer_ready_package_generation_request',
     get_dd_checklist: 'dd_checklist',
@@ -50,6 +60,14 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
     'sellability_run_request',
     'owner_profile_answer_request',
     'integration_connect_request',
+    'integration_sync_request',
+    'owner_reminder_request',
+    'owner_invite_accountant_request',
+    'listing_visibility_request',
+    'share_token_request',
+    'share_token_revoke_request',
+    'valuation_method_preference_request',
+    'acknowledge_warning_request',
     'secure_credential_request',
     'csv_upload_request',
     'multi_select_request',
@@ -60,11 +78,13 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
     'client_data_readiness',
     'import_review_request',
     'method_readiness',
+    'sync_status',
     'listing_preview',
     'listing_create_request',
     'buyer_profile_preview',
     'business_type_search_results',
     'registry_search_results',
+    'normalization_suggestion_batch',
     'buyer_ready_package_status',
     'buyer_ready_package_generation_request',
     'dd_checklist',
@@ -85,17 +105,24 @@ export const AI_STREAM_CHUNK_TYPES = [
     'error',
     // SSE keep-alive — emitted server-side every ~30s while the generator is
     // alive, so proxies (Cloudflare ~100s idle limit) don't close long tool
-    // chains mid-stream. Consumers MUST treat these as no-ops — they must
-    // never satisfy "received content" gates, otherwise a silent Claude turn
-    // would hide behind the keepalive. See `AI_STREAM_KEEPALIVE_CHUNK_JSON`
-    // for the wire literal.
+    // chains mid-stream. The FE MUST treat these as no-ops — they must never
+    // satisfy `didReceiveAnyContent`, otherwise a silent Claude turn would
+    // hide behind the keepalive and skip the user-facing empty-stream
+    // fallback. See `AI_STREAM_KEEPALIVE_CHUNK_JSON` for the wire literal.
     '_keepalive',
 ];
 /**
  * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
- * the producer (Titan AI / onboarding controllers) and consumers (Venus +
- * Mercury) cannot drift. Any change here must be made in lockstep with
- * Titan's hardcoded emit (Titan is a separate repo and cannot import).
+ * the producer (Titan AI / onboarding controllers) and the consumer
+ * (Mercury dock + tests) cannot drift: any change here breaks the FE pin
+ * in `ai-dock-tool-card-parser-streaming.test.ts` and forces a deliberate
+ * matching update on Titan.
+ *
+ * Why a constant for the *encoded* shape: Titan emits via
+ * `{ data: AI_STREAM_KEEPALIVE_CHUNK_JSON }` to skip a JSON.stringify per
+ * heartbeat and to keep the wire format pin in one place. Consumers
+ * reading the parsed object should still pattern-match on `type` against
+ * the discriminant above.
  */
 export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 const AI_ACTION_TOOL_NAME_SET = new Set(AI_ACTION_TOOL_NAMES);

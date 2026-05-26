@@ -13,6 +13,10 @@ import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { buildManualAiNormalizationSuggestions } from '../utils/manualAiNormalizationSuggestions'
 import {
+  appendManualChatAttachmentContext,
+  buildManualChatAttachmentSummaries,
+} from '../utils/manualChatAttachments'
+import {
   buildPendingUpdatesFromDetectedValues,
   formatManualParsedCommandResponse,
   type ManualPendingFieldUpdate,
@@ -176,9 +180,15 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           ])
         }
 
+        const attachmentSummaries = await buildManualChatAttachmentSummaries(attachments)
+        const messageWithAttachmentContext = appendManualChatAttachmentContext(
+          content,
+          attachmentSummaries
+        )
+
         const { aiChatService } = await import('../../../services/ai/AIChatService')
         const aiRequest = buildManualAIChatRequest({
-          message: content,
+          message: messageWithAttachmentContext,
           reportId: manualChatReportId || undefined,
           currentLocale,
           collectedData: collectedData as Record<string, unknown>,

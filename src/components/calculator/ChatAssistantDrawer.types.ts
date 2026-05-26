@@ -1,5 +1,6 @@
 import type { ParsedCommand, ParsedValue } from './ChatAssistantParsing'
 import type {
+  AgentChoiceSelection,
   ChatMessage,
   FieldContext,
   QualityWarning,
@@ -34,6 +35,7 @@ export interface ChatAssistantDrawerProps {
   onResolveQualityWarning?: (warningType: string, prompt: string) => void
   onDismissStartupIssue?: (issueId: string) => void
   onResolveStartupIssue?: (issueId: string, prompt: string) => void
+  onApplyStartupIssueQuickFix?: (issueId: string) => void
   onJumpToStartupIssue?: (issueId: string) => void
   onApplyFieldUpdate?: (field: string, value: unknown) => void
   pendingUpdates?: PendingAssistantUpdate[]
@@ -54,6 +56,7 @@ export interface ChatAssistantDrawerProps {
     visibility?: 'public' | 'private'
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   showQuickNormalizations?: boolean
   onCommandPillClick?: (command: string) => void
   toolInProgress?: string | null

@@ -99,6 +99,96 @@ export interface IntegrationConnectRequest {
   message?: string
 }
 
+export interface IntegrationSyncRequest {
+  status: 'pending_approval' | 'blocked'
+  provider?: string
+  scope?: 'provider_scope' | 'client_scope'
+  clientId?: string | null
+  reason?: string
+  message?: string
+}
+
+/**
+ * Read-only companion of `IntegrationSyncRequest` — surfaces the
+ * per-provider connection + last-sync state so the agent can answer
+ * "is the sync done?" without forcing a settings-page refresh.
+ *
+ * Mirrors Mercury's `sync_status` card kind. Source-of-truth tool lives at
+ * `apps/titan-api/src/ai/tools/get-sync-status.tool.ts` (calls accounting
+ * services directly via DI through `collectAccountingProviderStatuses`).
+ */
+export interface SyncStatusPreview {
+  status: 'ok' | 'failed'
+  providers: Array<{
+    provider: string
+    connected: boolean
+    syncInProgress: boolean
+    lastSyncAt: string | null
+    clientCount: number | null
+    error: string | null
+  }>
+  message?: string
+}
+
+export interface OwnerReminderRequest {
+  status: 'pending_approval' | 'blocked'
+  clientId?: string
+  businessName?: string | null
+  customerEmail?: string | null
+  customMessage?: string | null
+  reason?: string
+  message?: string
+}
+
+/**
+ * Owner-side conversational mirror — agent proposes inviting the seller's
+ * accountant to join the deal. Reverse direction of the advisor → owner
+ * invite chain (which goes through `client_create`). Source-of-truth Titan
+ * tool: `propose_owner_invite_accountant`.
+ *
+ * On approve the card POSTs `{accountant_email, surface: 'card',
+ * custom_message?}` to `/api/client/orphaned-seller/invite-accountant`.
+ * 500-char cap on `customMessage` enforced both here and at the BFF.
+ */
+export interface OwnerInviteAccountantRequest {
+  status: 'pending_approval' | 'blocked'
+  accountantEmail?: string
+  customMessage?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ListingVisibilityRequest {
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  visibility?: 'public' | 'private'
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ShareTokenRequest {
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  expiresInDays?: number | null
+  maxUses?: number | null
+  label?: string | null
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ShareTokenRevokeRequest {
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  tokenId?: string
+  tokenHint?: string | null
+  tokenLabel?: string | null
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
 export interface SecureCredentialRequest {
   status: 'pending_approval'
   provider?: string
@@ -590,6 +680,13 @@ export interface ParsedToolResults {
   sellabilityRunRequests: SellabilityRunRequest[]
   ownerProfileAnswerRequests: OwnerProfileAnswerRequest[]
   integrationConnectRequests: IntegrationConnectRequest[]
+  integrationSyncRequests: IntegrationSyncRequest[]
+  syncStatusPreviews: SyncStatusPreview[]
+  ownerReminderRequests: OwnerReminderRequest[]
+  ownerInviteAccountantRequests: OwnerInviteAccountantRequest[]
+  listingVisibilityRequests: ListingVisibilityRequest[]
+  shareTokenRequests: ShareTokenRequest[]
+  shareTokenRevokeRequests: ShareTokenRevokeRequest[]
   secureCredentialRequests: SecureCredentialRequest[]
   csvUploadRequests: CsvUploadRequest[]
   multiSelectRequests: MultiSelectRequest[]

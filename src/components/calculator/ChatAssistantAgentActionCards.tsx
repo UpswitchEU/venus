@@ -1,27 +1,48 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Check, KeyRound, Link2, UploadCloud } from 'lucide-react'
+import {
+  Bell,
+  Check,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Link2,
+  Mail,
+  RefreshCw,
+  Share2,
+  ShieldX,
+  UploadCloud,
+} from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
+  AgentChoiceSelection,
   ChatMessage,
   ClientCreateRequest,
   CsvUploadRequest,
   ImportReviewRequest,
   IntegrationConnectRequest,
+  IntegrationSyncRequest,
+  ListingVisibilityRequest,
   MultiSelectRequest,
+  OwnerInviteAccountantRequest,
   OwnerProfileAnswerRequest,
+  OwnerReminderRequest,
   SecureCredentialRequest,
+  ShareTokenRequest,
+  ShareTokenRevokeRequest,
   SingleSelectRequest,
+  SyncStatusPreview,
   ValuationSessionRequest,
 } from './ChatAssistantTypes'
 
 interface ChatAssistantAgentActionCardsProps {
   message: ChatMessage
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onSendFollowUp?: (content: string) => void
 }
 
@@ -46,14 +67,53 @@ const AGENT_TOOL_ACTION_PROPOSAL_ID_HEADER = 'X-Upswitch-Agent-Proposal-Id'
 const DEFAULT_UPLOAD_ACCEPT =
   '.csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const DEFAULT_UPLOAD_MAX_SIZE_BYTES = 20 * 1024 * 1024
+const DEFAULT_SHARE_TOKEN_EXPIRES_DAYS = 30
+const MIN_SHARE_TOKEN_EXPIRES_DAYS = 1
+const MAX_SHARE_TOKEN_EXPIRES_DAYS = 90
+const MIN_SHARE_TOKEN_USES = 1
+const MAX_SHARE_TOKEN_USES = 100
+const OWNER_REMINDER_MAX_LENGTH = 1000
 
 function compactParts(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
 }
 
-function safeBffPath(path: string | undefined): string {
-  if (typeof path !== 'string' || !path.startsWith('/api/')) return ''
-  return path
+const SECURE_CREDENTIAL_BFF_PATHS = [
+  /^\/api\/integrations\/accounting\/(?:yuki|bizzcontrol|octopus)\/connect$/,
+] as const
+
+const CSV_UPLOAD_BFF_PATHS = [/^\/api\/import\/(?:trial-balance|bulk-clients)$/] as const
+
+const CHOICE_SUBMIT_BFF_PATHS = [
+  /^\/api\/valuations\/(?:years|scenario|methods|method-weights)$/,
+  /^\/api\/profile\/buyer-profile$/,
+] as const
+
+const HOST_APPLIED_CHOICE_PATHS = new Set([
+  '/api/valuations/years',
+  '/api/valuations/scenario',
+  '/api/valuations/methods',
+  '/api/valuations/method-weights',
+  '/api/profile/buyer-profile',
+])
+
+function safeBffPath(path: string | undefined, allowedPaths: readonly RegExp[]): string {
+  if (typeof path !== 'string') return ''
+  const trimmed = path.trim()
+  if (!trimmed.startsWith('/api/') || trimmed.startsWith('//')) return ''
+  if (trimmed.includes('\n') || trimmed.includes('\r') || trimmed.includes('?')) return ''
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed, 'https://valuation.upswitch.app')
+  } catch {
+    return ''
+  }
+  if (parsed.origin !== 'https://valuation.upswitch.app') return ''
+  return allowedPaths.some((pattern) => pattern.test(parsed.pathname)) ? parsed.pathname : ''
+}
+
+function isHostAppliedChoicePath(path: string): boolean {
+  return HOST_APPLIED_CHOICE_PATHS.has(path)
 }
 
 function buildAgentToolActionHeaders(
@@ -133,6 +193,22 @@ function formatBytes(value?: number) {
   if (!value || !Number.isFinite(value)) return null
   if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KB`
   return `${Math.ceil(value / (1024 * 1024))} MB`
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min
+  return Math.max(min, Math.min(max, Math.round(value)))
+}
+
+function listingSettingsPath(locale: string, listingId: string, action: string) {
+  return mercuryPath(locale, `/business/listing/${encodeURIComponent(listingId)}/settings`, {
+    action,
+  })
+}
+
+function buildShareUrl(listingId: string, token: string) {
+  if (typeof window === 'undefined') return `/marketplace/${listingId}?token=${token}`
+  return `${window.location.origin}/marketplace/${listingId}?token=${encodeURIComponent(token)}`
 }
 
 function InlineActionCard({
@@ -305,32 +381,665 @@ function IntegrationCard({ request }: { request: IntegrationConnectRequest }) {
       actionLabel={ca('proposalCards.agent.integrationAction')}
       actionSuccessLabel={ca('proposalCards.agent.opened')}
       onAction={async () => {
-        const rawProvider = request.provider?.trim()
-        if (request.authMode === 'oauth' && rawProvider) {
-          const response = await fetch(`/api/integrations/accounting/${rawProvider}/authorize`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: buildAgentToolActionHeaders('propose_integration_connect', request.id),
-          }).catch(() => null)
-          if (response?.ok) {
-            const json = (await response.json().catch(() => ({}))) as {
-              authorize_url?: string
-              authorizeUrl?: string
-            }
-            const authorizeUrl = json.authorize_url ?? json.authorizeUrl
-            if (authorizeUrl) {
-              openInNewTab(authorizeUrl)
-              return
-            }
-          }
-        }
         openInNewTab(
           mercuryPath(locale, '/advisor/settings', {
             tab: 'integrations',
-            provider: request.provider,
+            source: 'venus_chat',
+            accounting_provider: request.provider,
           })
         )
       }}
+    />
+  )
+}
+
+function IntegrationSyncCard({ request }: { request: IntegrationSyncRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const provider = providerLabel(request.provider)
+  const isClientScope = request.scope === 'client_scope'
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.integrationSyncBlocked')
+          : provider
+            ? ca('proposalCards.agent.integrationSyncTitleWithProvider', { provider })
+            : ca('proposalCards.agent.integrationSyncTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([
+        isClientScope
+          ? ca('proposalCards.agent.integrationSyncScopeClient')
+          : ca('proposalCards.agent.integrationSyncScopeProvider'),
+        request.clientId,
+      ])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<RefreshCw className="h-3.5 w-3.5" />}
+      actionLabel={
+        isClientScope
+          ? ca('proposalCards.agent.integrationSyncAction')
+          : ca('proposalCards.agent.integrationSyncProviderAction')
+      }
+      actionSuccessLabel={ca('proposalCards.agent.integrationSyncStarted')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (isClientScope && request.clientId) {
+                const response = await fetch(
+                  `/api/integrations/accounting/resync-client/${encodeURIComponent(
+                    request.clientId
+                  )}`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...buildAgentToolActionHeaders('propose_integration_sync', request.id),
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ force: true }),
+                  }
+                )
+                const json: unknown = await response.json().catch(() => ({}))
+                if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+                return
+              }
+
+              if (!request.provider) throw new Error(ca('proposalCards.agent.missingProvider'))
+              const response = await fetch(
+                `/api/integrations/accounting/sync-provider/${encodeURIComponent(
+                  request.provider
+                )}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_integration_sync', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({ chain_to_bulk: false }),
+                }
+              )
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
+/**
+ * Read-only companion of IntegrationSyncCard — surfaces the agent's answer
+ * to "is the sync done?" inline in chat. No approve/reject; renders the
+ * per-provider connection + last-sync state. Source-of-truth Titan tool:
+ * `get_sync_status`. Mirrors Mercury's SyncStatusCard.
+ */
+function SyncStatusPreviewCard({ preview }: { preview: SyncStatusPreview }) {
+  const locale = useLocale()
+  const isFailed = preview.status === 'failed'
+  const isEn = locale === 'en'
+
+  const copy = isEn
+    ? {
+        title: isFailed ? 'Sync status unavailable' : 'Accounting sync status',
+        connected: 'connected',
+        notConnected: 'not connected',
+        inProgress: 'sync in progress',
+        lastSync: 'Last sync',
+        never: 'never',
+        justNow: 'just now',
+        empty: 'No accounting integrations connected yet.',
+        clientsLabel: (n: number) => `${n} client${n === 1 ? '' : 's'}`,
+      }
+    : {
+        title: isFailed ? 'Synchronisatiestatus niet beschikbaar' : 'Status boekhoudkoppelingen',
+        connected: 'gekoppeld',
+        notConnected: 'niet gekoppeld',
+        inProgress: 'synchronisatie bezig',
+        lastSync: 'Laatste sync',
+        never: 'nooit',
+        justNow: 'zojuist',
+        empty: 'Nog geen boekhoudkoppelingen actief.',
+        clientsLabel: (n: number) => `${n} klant${n === 1 ? '' : 'en'}`,
+      }
+
+  const formatRelative = (iso: string | null): string => {
+    if (!iso) return copy.never
+    const synced = new Date(iso).getTime()
+    if (!Number.isFinite(synced)) return '—'
+    const diffMs = Date.now() - synced
+    if (diffMs < 60_000) return copy.justNow
+    const minutes = Math.round(diffMs / 60_000)
+    if (minutes < 60) return isEn ? `${minutes}m ago` : `${minutes} min geleden`
+    const hours = Math.round(minutes / 60)
+    if (hours < 24) return isEn ? `${hours}h ago` : `${hours} u geleden`
+    const days = Math.round(hours / 24)
+    if (days < 30) return isEn ? `${days}d ago` : `${days} d geleden`
+    return new Date(iso).toLocaleDateString(isEn ? 'en-BE' : 'nl-BE')
+  }
+
+  const connectedRows = preview.providers.filter((p) => p.connected)
+  const disconnectedRows = preview.providers.filter((p) => !p.connected)
+
+  return (
+    <InlineActionCard
+      id={preview.id}
+      title={copy.title}
+      detail={preview.message}
+      icon={<RefreshCw className="h-3.5 w-3.5" />}
+      tone={isFailed ? 'blocked' : 'default'}
+    >
+      {preview.providers.length === 0 ? (
+        <p className="text-foreground/50 italic">{copy.empty}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {connectedRows.map((p) => {
+            const provider = providerLabel(p.provider) ?? p.provider
+            return (
+              <div key={p.provider} className="rounded-md bg-foreground/[0.035] px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-foreground/80">{provider}</span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-1.5 py-0.5 text-[10px]',
+                      p.syncInProgress
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-success/10 text-success/90'
+                    )}
+                  >
+                    {p.syncInProgress ? copy.inProgress : copy.connected}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-foreground/55">
+                  <span>
+                    {copy.lastSync}: {formatRelative(p.lastSyncAt)}
+                  </span>
+                  {p.clientCount != null ? <span>{copy.clientsLabel(p.clientCount)}</span> : null}
+                </div>
+                {p.error ? <p className="text-destructive mt-1 text-[11px]">{p.error}</p> : null}
+              </div>
+            )
+          })}
+          {disconnectedRows.length > 0 ? (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {disconnectedRows.map((p) => {
+                const provider = providerLabel(p.provider) ?? p.provider
+                return (
+                  <span
+                    key={p.provider}
+                    className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/45"
+                  >
+                    {provider} · {copy.notConnected}
+                  </span>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </InlineActionCard>
+  )
+}
+
+/**
+ * Owner-side conversational mirror — agent proposes inviting the seller's
+ * accountant to join the deal. Reverse direction of advisor → owner invite
+ * (which goes through `client_create`). Source-of-truth Titan tool:
+ * `propose_owner_invite_accountant`. Mirrors Mercury's OwnerInviteAccountantCard.
+ */
+const OWNER_INVITE_ACCOUNTANT_MAX_LENGTH = 500
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function OwnerInviteAccountantCard({ request }: { request: OwnerInviteAccountantRequest }) {
+  const locale = useLocale()
+  const isBlocked = request.status === 'blocked'
+  const isEn = locale === 'en'
+  const [draftEmail, setDraftEmail] = useState(request.accountantEmail ?? '')
+  const [draftMessage, setDraftMessage] = useState(request.customMessage ?? '')
+
+  const trimmedEmail = draftEmail.trim().toLowerCase()
+  const trimmedMessage = draftMessage.trim()
+  const tooLong = trimmedMessage.length > OWNER_INVITE_ACCOUNTANT_MAX_LENGTH
+  const invalidEmail = trimmedEmail.length > 0 && !EMAIL_REGEX.test(trimmedEmail)
+
+  const copy = isEn
+    ? {
+        title: isBlocked ? 'Cannot send accountant invite' : 'Invite your accountant',
+        emailLabel: 'Accountant email',
+        emailPlaceholder: 'name@accountancy.be',
+        messageLabel: 'Personal note (optional)',
+        messagePlaceholder:
+          'A short note for context. Leave empty to send the default invite copy.',
+        primaryCta: 'Send invite',
+        sentCta: 'Invite sent',
+        tooLongError: `Personal note must be ${OWNER_INVITE_ACCOUNTANT_MAX_LENGTH} characters or fewer.`,
+        invalidEmailError: 'Enter a valid email address.',
+        missingEmailError: 'Accountant email is required.',
+      }
+    : {
+        title: isBlocked ? 'Uitnodiging niet mogelijk' : 'Boekhouder uitnodigen',
+        emailLabel: 'E-mail boekhouder',
+        emailPlaceholder: 'naam@boekhouder.be',
+        messageLabel: 'Persoonlijke noot (optioneel)',
+        messagePlaceholder: 'Een korte noot ter context. Leeg laten = standaard uitnodiging.',
+        primaryCta: 'Uitnodiging sturen',
+        sentCta: 'Verzonden',
+        tooLongError: `Persoonlijke noot mag maximaal ${OWNER_INVITE_ACCOUNTANT_MAX_LENGTH} tekens zijn.`,
+        invalidEmailError: 'Voer een geldig e-mailadres in.',
+        missingEmailError: 'E-mail boekhouder is verplicht.',
+      }
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={copy.title}
+      detail={request.message ?? request.reason}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<Mail className="h-3.5 w-3.5" />}
+      actionLabel={copy.primaryCta}
+      actionSuccessLabel={copy.sentCta}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (trimmedEmail.length === 0) throw new Error(copy.missingEmailError)
+              if (invalidEmail) throw new Error(copy.invalidEmailError)
+              if (tooLong) throw new Error(copy.tooLongError)
+              const body: Record<string, unknown> = {
+                accountant_email: trimmedEmail,
+                surface: 'card',
+              }
+              if (trimmedMessage.length > 0) body.custom_message = trimmedMessage
+              const response = await fetch('/api/client/orphaned-seller/invite-accountant', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...buildAgentToolActionHeaders('propose_owner_invite_accountant', request.id),
+                },
+                credentials: 'include',
+                body: JSON.stringify(body),
+              })
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    >
+      {!isBlocked && (
+        <div className="mt-2 space-y-2">
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-foreground/60">{copy.emailLabel}</span>
+            <input
+              type="email"
+              value={draftEmail}
+              placeholder={copy.emailPlaceholder}
+              onChange={(event) => setDraftEmail(event.target.value)}
+              className={cn(
+                'w-full rounded-md border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30',
+                invalidEmail ? 'border-destructive/50' : 'border-foreground/[0.12]'
+              )}
+            />
+            {invalidEmail && (
+              <span className="text-[10px] text-destructive">{copy.invalidEmailError}</span>
+            )}
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-foreground/60">{copy.messageLabel}</span>
+            <textarea
+              value={draftMessage}
+              maxLength={OWNER_INVITE_ACCOUNTANT_MAX_LENGTH + 50}
+              rows={3}
+              placeholder={copy.messagePlaceholder}
+              onChange={(event) => setDraftMessage(event.target.value)}
+              className={cn(
+                'w-full resize-none rounded-md border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30',
+                tooLong ? 'border-destructive/50' : 'border-foreground/[0.12]'
+              )}
+            />
+            {tooLong && <span className="text-[10px] text-destructive">{copy.tooLongError}</span>}
+          </label>
+        </div>
+      )}
+    </InlineActionCard>
+  )
+}
+
+function OwnerReminderCard({ request }: { request: OwnerReminderRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const isBlocked = request.status === 'blocked'
+  const [draft, setDraft] = useState(request.customMessage ?? '')
+  const tooLong = draft.trim().length > OWNER_REMINDER_MAX_LENGTH
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.ownerReminderBlocked')
+          : request.businessName
+            ? ca('proposalCards.agent.ownerReminderTitleWithName', {
+                name: request.businessName,
+              })
+            : ca('proposalCards.agent.ownerReminderTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([request.customerEmail])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<Bell className="h-3.5 w-3.5" />}
+      actionLabel={ca('proposalCards.agent.ownerReminderAction')}
+      actionSuccessLabel={ca('proposalCards.agent.ownerReminderSent')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (!request.clientId) throw new Error(ca('proposalCards.agent.missingClient'))
+              if (tooLong) throw new Error(ca('proposalCards.agent.messageTooLong'))
+              const customMessage = draft.trim()
+              const response = await fetch(
+                `/api/accountants/clients/${encodeURIComponent(
+                  request.clientId
+                )}/owner-profile-reminder`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_owner_reminder', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify(
+                    customMessage.length > 0 ? { custom_message: customMessage } : {}
+                  ),
+                }
+              )
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    >
+      {!isBlocked && (
+        <label className="mt-2 block space-y-1">
+          <span className="text-[11px] font-medium text-foreground/60">
+            {ca('proposalCards.agent.ownerReminderMessage')}
+          </span>
+          <textarea
+            value={draft}
+            maxLength={OWNER_REMINDER_MAX_LENGTH + 50}
+            rows={3}
+            onChange={(event) => setDraft(event.target.value)}
+            className={cn(
+              'w-full resize-none rounded-md border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30',
+              tooLong ? 'border-destructive/50' : 'border-foreground/[0.12]'
+            )}
+          />
+          {tooLong && (
+            <span className="text-[10px] text-destructive">
+              {ca('proposalCards.agent.messageTooLong')}
+            </span>
+          )}
+        </label>
+      )}
+    </InlineActionCard>
+  )
+}
+
+function ListingVisibilityCard({ request }: { request: ListingVisibilityRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const isBlocked = request.status === 'blocked'
+  const targetIsPublic = request.visibility === 'public'
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.listingVisibilityBlocked')
+          : targetIsPublic
+            ? ca('proposalCards.agent.listingVisibilityPublic')
+            : ca('proposalCards.agent.listingVisibilityPrivate')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([request.businessName, request.visibility])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={targetIsPublic ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+      actionLabel={ca('proposalCards.agent.listingVisibilityAction')}
+      actionSuccessLabel={ca('proposalCards.agent.saved')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (!request.listingId) throw new Error(ca('proposalCards.agent.missingListing'))
+              if (!request.visibility) throw new Error(ca('proposalCards.agent.missingVisibility'))
+              const response = await fetch(
+                `/api/listings/${encodeURIComponent(request.listingId)}`,
+                {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_listing_visibility', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({ visibility: request.visibility }),
+                }
+              )
+              if (response.status === 404) {
+                openInNewTab(listingSettingsPath(locale, request.listingId, 'visibility'))
+                return
+              }
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
+    />
+  )
+}
+
+function ShareTokenCard({ request }: { request: ShareTokenRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const isBlocked = request.status === 'blocked'
+  const [expiresInDays, setExpiresInDays] = useState(
+    clampNumber(
+      request.expiresInDays ?? DEFAULT_SHARE_TOKEN_EXPIRES_DAYS,
+      MIN_SHARE_TOKEN_EXPIRES_DAYS,
+      MAX_SHARE_TOKEN_EXPIRES_DAYS
+    )
+  )
+  const [maxUsesText, setMaxUsesText] = useState(
+    typeof request.maxUses === 'number' ? String(request.maxUses) : ''
+  )
+  const [label, setLabel] = useState(request.label ?? '')
+  const [mintedUrl, setMintedUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.shareTokenBlocked')
+          : request.businessName
+            ? ca('proposalCards.agent.shareTokenTitleWithName', { name: request.businessName })
+            : ca('proposalCards.agent.shareTokenTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([
+        ca('proposalCards.agent.shareTokenExpires', { count: expiresInDays }),
+        maxUsesText.trim()
+          ? ca('proposalCards.agent.shareTokenMaxUses', { count: Number(maxUsesText) || 0 })
+          : ca('proposalCards.agent.shareTokenUnlimited'),
+      ])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<Share2 className="h-3.5 w-3.5" />}
+      actionLabel={ca('proposalCards.agent.shareTokenAction')}
+      actionSuccessLabel={ca('proposalCards.agent.shareTokenMinted')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (!request.listingId) throw new Error(ca('proposalCards.agent.missingListing'))
+              const rawMaxUses = maxUsesText.trim().length > 0 ? Number(maxUsesText) : null
+              const body: Record<string, unknown> = { expiresInDays }
+              if (rawMaxUses !== null) {
+                body.maxUses = clampNumber(rawMaxUses, MIN_SHARE_TOKEN_USES, MAX_SHARE_TOKEN_USES)
+              }
+              const trimmedLabel = label.trim()
+              if (trimmedLabel.length > 0) body.label = trimmedLabel
+              const response = await fetch(
+                `/api/listings/${encodeURIComponent(request.listingId)}/share-tokens`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_share_token', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify(body),
+                }
+              )
+              if (response.status === 404) {
+                openInNewTab(listingSettingsPath(locale, request.listingId, 'share-token'))
+                return
+              }
+              const json = (await response.json().catch(() => ({}))) as {
+                success?: boolean
+                data?: { token?: string }
+                message?: string
+                error?: string
+              }
+              if (!response.ok || !json.data?.token) {
+                throw new Error(extractErrorMessage(json, response.status))
+              }
+              setMintedUrl(buildShareUrl(request.listingId, json.data.token))
+            }
+      }
+    >
+      {!isBlocked && !mintedUrl && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="text-[11px] font-medium text-foreground/60">
+              {ca('proposalCards.agent.shareTokenDaysLabel')}
+            </span>
+            <input
+              type="number"
+              min={MIN_SHARE_TOKEN_EXPIRES_DAYS}
+              max={MAX_SHARE_TOKEN_EXPIRES_DAYS}
+              value={expiresInDays}
+              onChange={(event) =>
+                setExpiresInDays(
+                  clampNumber(
+                    Number(event.target.value),
+                    MIN_SHARE_TOKEN_EXPIRES_DAYS,
+                    MAX_SHARE_TOKEN_EXPIRES_DAYS
+                  )
+                )
+              }
+              className="w-full rounded-md border border-foreground/[0.12] bg-background px-2 py-1.5 text-xs"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-medium text-foreground/60">
+              {ca('proposalCards.agent.shareTokenUsesLabel')}
+            </span>
+            <input
+              type="number"
+              min={MIN_SHARE_TOKEN_USES}
+              max={MAX_SHARE_TOKEN_USES}
+              value={maxUsesText}
+              placeholder={ca('proposalCards.agent.shareTokenUnlimited')}
+              onChange={(event) => setMaxUsesText(event.target.value)}
+              className="w-full rounded-md border border-foreground/[0.12] bg-background px-2 py-1.5 text-xs"
+            />
+          </label>
+          <label className="col-span-2 space-y-1">
+            <span className="text-[11px] font-medium text-foreground/60">
+              {ca('proposalCards.agent.shareTokenLabel')}
+            </span>
+            <input
+              value={label}
+              maxLength={80}
+              onChange={(event) => setLabel(event.target.value)}
+              className="w-full rounded-md border border-foreground/[0.12] bg-background px-2 py-1.5 text-xs"
+            />
+          </label>
+        </div>
+      )}
+      {mintedUrl && (
+        <div className="mt-2 space-y-2">
+          <input
+            readOnly
+            value={mintedUrl}
+            onFocus={(event) => event.currentTarget.select()}
+            className="w-full rounded-md border border-success/20 bg-success/5 px-2 py-1.5 text-xs text-foreground"
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard?.writeText(mintedUrl).catch(() => undefined)
+              setCopied(true)
+              window.setTimeout(() => setCopied(false), 1600)
+            }}
+            className="text-xs font-medium text-primary/85 hover:text-primary"
+          >
+            {copied
+              ? ca('proposalCards.agent.shareTokenCopied')
+              : ca('proposalCards.agent.shareTokenCopy')}
+          </button>
+        </div>
+      )}
+    </InlineActionCard>
+  )
+}
+
+function ShareTokenRevokeCard({ request }: { request: ShareTokenRevokeRequest }) {
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const isBlocked = request.status === 'blocked'
+
+  return (
+    <InlineActionCard
+      id={request.id}
+      title={
+        isBlocked
+          ? ca('proposalCards.agent.shareTokenRevokeBlocked')
+          : ca('proposalCards.agent.shareTokenRevokeTitle')
+      }
+      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      meta={compactParts([request.businessName, request.tokenLabel, request.tokenHint])}
+      tone={isBlocked ? 'blocked' : 'default'}
+      icon={<ShieldX className="h-3.5 w-3.5" />}
+      actionLabel={ca('proposalCards.agent.shareTokenRevokeAction')}
+      actionSuccessLabel={ca('proposalCards.agent.shareTokenRevoked')}
+      onAction={
+        isBlocked
+          ? undefined
+          : async () => {
+              if (!request.listingId) throw new Error(ca('proposalCards.agent.missingListing'))
+              if (!request.tokenId) throw new Error(ca('proposalCards.agent.missingToken'))
+              const response = await fetch(
+                `/api/listings/${encodeURIComponent(
+                  request.listingId
+                )}/share-tokens/${encodeURIComponent(request.tokenId)}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...buildAgentToolActionHeaders('propose_share_token_revoke', request.id),
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({}),
+                }
+              )
+              if (response.status === 404) {
+                openInNewTab(listingSettingsPath(locale, request.listingId, 'share-token'))
+                return
+              }
+              const json: unknown = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(extractErrorMessage(json, response.status))
+            }
+      }
     />
   )
 }
@@ -357,7 +1066,7 @@ function SecureCredentialCard({ request }: { request: SecureCredentialRequest })
         }
       }
 
-      const path = safeBffPath(request.submitPath)
+      const path = safeBffPath(request.submitPath, SECURE_CREDENTIAL_BFF_PATHS)
       if (!path) {
         setErrorMessage(ca('proposalCards.agent.endpointMissing'))
         return
@@ -546,7 +1255,7 @@ function CsvUploadCard({ request }: { request: CsvUploadRequest }) {
                   setErrorMessage(ca('proposalCards.agent.chooseFileFirst'))
                   return
                 }
-                const path = safeBffPath(request.submitPath)
+                const path = safeBffPath(request.submitPath, CSV_UPLOAD_BFF_PATHS)
                 if (!path) {
                   setErrorMessage(ca('proposalCards.agent.endpointMissing'))
                   return
@@ -599,7 +1308,13 @@ function CsvUploadCard({ request }: { request: CsvUploadRequest }) {
   )
 }
 
-function MultiSelectCard({ request }: { request: MultiSelectRequest }) {
+function MultiSelectCard({
+  request,
+  onApplyAgentChoice,
+}: {
+  request: MultiSelectRequest
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
+}) {
   const ca = useTranslations('chatAssistant')
   const [selected, setSelected] = useState<string[]>(request.preselected ?? [])
   const [state, setState] = useState<'idle' | 'submitting' | 'submitted'>('idle')
@@ -658,7 +1373,7 @@ function MultiSelectCard({ request }: { request: MultiSelectRequest }) {
             type="button"
             disabled={!canSubmit || isSubmitting}
             onClick={async () => {
-              const path = safeBffPath(request.submitPath)
+              const path = safeBffPath(request.submitPath, CHOICE_SUBMIT_BFF_PATHS)
               if (!path) {
                 setErrorMessage(ca('proposalCards.agent.endpointMissing'))
                 return
@@ -666,6 +1381,24 @@ function MultiSelectCard({ request }: { request: MultiSelectRequest }) {
               setState('submitting')
               setErrorMessage(null)
               try {
+                const selectedOptions = options.filter((option) => selected.includes(option.value))
+                if (onApplyAgentChoice) {
+                  const handled = await onApplyAgentChoice({
+                    id: request.id,
+                    kind: 'multi_select',
+                    title: request.title,
+                    submitPath: request.submitPath,
+                    values: selected,
+                    selectedOptions,
+                  })
+                  if (handled) {
+                    setState('submitted')
+                    return
+                  }
+                }
+                if (isHostAppliedChoicePath(path)) {
+                  throw new Error(ca('proposalCards.agent.endpointMissing'))
+                }
                 const response = await fetch(path, {
                   method: 'POST',
                   headers: {
@@ -698,7 +1431,13 @@ function MultiSelectCard({ request }: { request: MultiSelectRequest }) {
   )
 }
 
-function SingleSelectCard({ request }: { request: SingleSelectRequest }) {
+function SingleSelectCard({
+  request,
+  onApplyAgentChoice,
+}: {
+  request: SingleSelectRequest
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
+}) {
   const ca = useTranslations('chatAssistant')
   const [selected, setSelected] = useState<string | null>(request.preselected ?? null)
   const [state, setState] = useState<'idle' | 'submitting' | 'submitted'>('idle')
@@ -749,7 +1488,7 @@ function SingleSelectCard({ request }: { request: SingleSelectRequest }) {
             disabled={!selected || isSubmitting}
             onClick={async () => {
               if (!selected) return
-              const path = safeBffPath(request.submitPath)
+              const path = safeBffPath(request.submitPath, CHOICE_SUBMIT_BFF_PATHS)
               if (!path) {
                 setErrorMessage(ca('proposalCards.agent.endpointMissing'))
                 return
@@ -757,6 +1496,24 @@ function SingleSelectCard({ request }: { request: SingleSelectRequest }) {
               setState('submitting')
               setErrorMessage(null)
               try {
+                const selectedOption = options.find((option) => option.value === selected)
+                if (onApplyAgentChoice) {
+                  const handled = await onApplyAgentChoice({
+                    id: request.id,
+                    kind: 'single_select',
+                    title: request.title,
+                    submitPath: request.submitPath,
+                    value: selected,
+                    selectedOptions: selectedOption ? [selectedOption] : [],
+                  })
+                  if (handled) {
+                    setState('submitted')
+                    return
+                  }
+                }
+                if (isHostAppliedChoicePath(path)) {
+                  throw new Error(ca('proposalCards.agent.endpointMissing'))
+                }
                 const response = await fetch(path, {
                   method: 'POST',
                   headers: {
@@ -938,12 +1695,22 @@ function ImportReviewCard({ request }: { request: ImportReviewRequest }) {
   )
 }
 
-export function ChatAssistantAgentActionCards({ message }: ChatAssistantAgentActionCardsProps) {
+export function ChatAssistantAgentActionCards({
+  message,
+  onApplyAgentChoice,
+}: ChatAssistantAgentActionCardsProps) {
   const hasCards = useMemo(
     () =>
       Boolean(
         (message.ownerProfileAnswerRequests?.length ?? 0) > 0 ||
           (message.integrationConnectRequests?.length ?? 0) > 0 ||
+          (message.integrationSyncRequests?.length ?? 0) > 0 ||
+          (message.syncStatusPreviews?.length ?? 0) > 0 ||
+          (message.ownerInviteAccountantRequests?.length ?? 0) > 0 ||
+          (message.ownerReminderRequests?.length ?? 0) > 0 ||
+          (message.listingVisibilityRequests?.length ?? 0) > 0 ||
+          (message.shareTokenRequests?.length ?? 0) > 0 ||
+          (message.shareTokenRevokeRequests?.length ?? 0) > 0 ||
           (message.secureCredentialRequests?.length ?? 0) > 0 ||
           (message.csvUploadRequests?.length ?? 0) > 0 ||
           (message.multiSelectRequests?.length ?? 0) > 0 ||
@@ -965,6 +1732,27 @@ export function ChatAssistantAgentActionCards({ message }: ChatAssistantAgentAct
       {message.integrationConnectRequests?.map((request) => (
         <IntegrationCard key={request.id} request={request} />
       ))}
+      {message.integrationSyncRequests?.map((request) => (
+        <IntegrationSyncCard key={request.id} request={request} />
+      ))}
+      {message.syncStatusPreviews?.map((preview) => (
+        <SyncStatusPreviewCard key={preview.id} preview={preview} />
+      ))}
+      {message.ownerInviteAccountantRequests?.map((request) => (
+        <OwnerInviteAccountantCard key={request.id} request={request} />
+      ))}
+      {message.ownerReminderRequests?.map((request) => (
+        <OwnerReminderCard key={request.id} request={request} />
+      ))}
+      {message.listingVisibilityRequests?.map((request) => (
+        <ListingVisibilityCard key={request.id} request={request} />
+      ))}
+      {message.shareTokenRequests?.map((request) => (
+        <ShareTokenCard key={request.id} request={request} />
+      ))}
+      {message.shareTokenRevokeRequests?.map((request) => (
+        <ShareTokenRevokeCard key={request.id} request={request} />
+      ))}
       {message.secureCredentialRequests?.map((request) => (
         <SecureCredentialCard key={request.id} request={request} />
       ))}
@@ -972,10 +1760,18 @@ export function ChatAssistantAgentActionCards({ message }: ChatAssistantAgentAct
         <CsvUploadCard key={request.id} request={request} />
       ))}
       {message.multiSelectRequests?.map((request) => (
-        <MultiSelectCard key={request.id} request={request} />
+        <MultiSelectCard
+          key={request.id}
+          request={request}
+          onApplyAgentChoice={onApplyAgentChoice}
+        />
       ))}
       {message.singleSelectRequests?.map((request) => (
-        <SingleSelectCard key={request.id} request={request} />
+        <SingleSelectCard
+          key={request.id}
+          request={request}
+          onApplyAgentChoice={onApplyAgentChoice}
+        />
       ))}
       {message.clientCreateRequests?.map((request) => (
         <ClientCreateCard key={request.id} request={request} />

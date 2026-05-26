@@ -65,8 +65,21 @@ function formatMoney(value: number | null | undefined, currency: string) {
   }).format(value)
 }
 
-function safeBffPath(value?: string) {
-  return typeof value === 'string' && value.startsWith('/api/') ? value : null
+function safeBuyerReadyPackagePath(value?: string) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('/api/') || trimmed.startsWith('//')) return null
+  if (trimmed.includes('\n') || trimmed.includes('\r') || trimmed.includes('?')) return null
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed, 'https://valuation.upswitch.app')
+  } catch {
+    return null
+  }
+  if (parsed.origin !== 'https://valuation.upswitch.app') return null
+  return /^\/api\/valuations\/reports\/[^/]+\/buyer-ready-package$/.test(parsed.pathname)
+    ? parsed.pathname
+    : null
 }
 
 function extractGeneratedEntityId(json: unknown): string | null {
@@ -448,7 +461,7 @@ function BuyerReadyCard({
     request: Extract<BuyerReadyToolCard, { kind: 'buyer_package_generation' }>
   ) => {
     const path =
-      safeBffPath(request.submitPath) ??
+      safeBuyerReadyPackagePath(request.submitPath) ??
       (request.reportId
         ? `/api/valuations/reports/${encodeURIComponent(request.reportId)}/buyer-ready-package`
         : null)

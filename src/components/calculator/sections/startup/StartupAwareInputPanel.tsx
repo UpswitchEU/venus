@@ -36,6 +36,11 @@ import { AuroraButton } from '@/design-system'
 import { ReviewDefaultsModal } from '@/features/startup-studio/components/ReviewDefaultsModal'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
+import {
+  getStartupSubmitReviewRequestDetail,
+  STARTUP_SUBMIT_REVIEW_REQUEST_EVENT,
+  type StartupSubmitReviewRequestOptions,
+} from '@/features/startup-studio/utils/startupSubmitReviewRequest'
 import { useAuth } from '@/hooks/useAuth'
 import { trackStudioRunComplete } from '@/lib/analytics'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
@@ -207,7 +212,7 @@ export function StartupSubmitFooter({
   const { benchmark } = useStartupBenchmark(country, stage, sector)
   const { blockers: allBlockers } = useStudioIssues(benchmark)
   const ALREADY_GATED_IDS = useMemo(
-    () => new Set(['missing_company_name', 'missing_first_milestone']),
+    () => new Set(['missing_company_name', 'no_berkus_milestone']),
     []
   )
   const extraBlockers = useMemo(
@@ -224,6 +229,7 @@ export function StartupSubmitFooter({
   // from generating an "investor-ready" report against unreviewed
   // defaults (Y5, ROI, sector, exit multiple, etc.).
   const [reviewOpen, setReviewOpen] = useState(false)
+  const assistantSubmitRequestRef = useRef<StartupSubmitReviewRequestOptions | null>(null)
 
   const fireSubmit = useCallback(() => {
     if (!onSubmit) return
@@ -236,24 +242,53 @@ export function StartupSubmitFooter({
     void onSubmit(buildStartupSubmitPayload())
   }, [onSubmit, params?.id, stage])
 
+  const openReviewGate = useCallback(
+    (request?: StartupSubmitReviewRequestOptions | null): boolean => {
+      if (!onSubmit) return false
+      if (isCalculating) return false
+      if (!companyName.trim()) return false
+      if (!hasAnyMilestone) return false
+      // A15 — extra blockers (e.g. positive pedigree flag with empty
+      // evidence) also gate. The button is already disabled in this
+      // state — the early-return is a defence-in-depth in case the
+      // disabled-state and click-handler ever drift.
+      if (hasExtraBlockers) return false
+      assistantSubmitRequestRef.current = request ?? null
+      setReviewOpen(true)
+      return true
+    },
+    [onSubmit, isCalculating, companyName, hasAnyMilestone, hasExtraBlockers]
+  )
+
   const handleClick = useCallback(() => {
-    if (!onSubmit) return
-    if (isCalculating) return
-    if (!hasAnyMilestone) return
-    // A15 — extra blockers (e.g. positive pedigree flag with empty
-    // evidence) also gate. The button is already disabled in this
-    // state — the early-return is a defence-in-depth in case the
-    // disabled-state and click-handler ever drift.
-    if (hasExtraBlockers) return
-    setReviewOpen(true)
-  }, [onSubmit, isCalculating, hasAnyMilestone, hasExtraBlockers])
+    openReviewGate(null)
+  }, [openReviewGate])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleAssistantSubmitRequest = (event: Event) => {
+      const detail = getStartupSubmitReviewRequestDetail(event)
+      if (!detail) return
+      detail.respond?.(openReviewGate(detail) ? 'opened' : 'blocked')
+    }
+    window.addEventListener(STARTUP_SUBMIT_REVIEW_REQUEST_EVENT, handleAssistantSubmitRequest)
+    return () => {
+      window.removeEventListener(STARTUP_SUBMIT_REVIEW_REQUEST_EVENT, handleAssistantSubmitRequest)
+    }
+  }, [openReviewGate])
 
   const handleConfirm = useCallback(() => {
+    const request = assistantSubmitRequestRef.current
+    assistantSubmitRequestRef.current = null
     setReviewOpen(false)
+    request?.onWillSubmit?.()
     fireSubmit()
   }, [fireSubmit])
 
-  const handleCancel = useCallback(() => setReviewOpen(false), [])
+  const handleCancel = useCallback(() => {
+    assistantSubmitRequestRef.current = null
+    setReviewOpen(false)
+  }, [])
 
   const missingCompanyName = !companyName.trim()
   const missingMilestone = !hasAnyMilestone

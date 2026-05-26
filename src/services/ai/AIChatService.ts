@@ -26,18 +26,25 @@ import {
   type FieldUpdateParsed,
   type ImportReviewRequest,
   type IntegrationConnectRequest,
+  type IntegrationSyncRequest,
   type ListingCreateRequest,
   type ListingPreview,
+  type ListingVisibilityRequest,
   type MethodReadinessPreview,
   type MultiSelectRequest,
   makeChunkDispatchState,
+  type OwnerInviteAccountantRequest,
   type OwnerProfileAnswerRequest,
+  type OwnerReminderRequest,
   parseAIChatToolResults,
   type RegistrySearchResults,
   type ReportGenerationRequest,
   type SecureCredentialRequest,
   type SellabilityRunRequest,
+  type ShareTokenRequest,
+  type ShareTokenRevokeRequest,
   type SingleSelectRequest,
+  type SyncStatusPreview,
   type ValuationRunRequest,
   type ValuationSessionRequest,
 } from './tool-results-parser'
@@ -180,6 +187,20 @@ export interface AIChatResponse {
   ownerProfileAnswerRequests?: OwnerProfileAnswerRequest[]
   /** Accounting integration connection proposals. */
   integrationConnectRequests?: IntegrationConnectRequest[]
+  /** Accounting sync proposals for already-connected integrations. */
+  integrationSyncRequests?: IntegrationSyncRequest[]
+  /** Read-only sync status answers for already-connected integrations. */
+  syncStatusPreviews?: SyncStatusPreview[]
+  /** Owner-side proposal to invite their accountant into the workflow. */
+  ownerInviteAccountantRequests?: OwnerInviteAccountantRequest[]
+  /** Owner profile reminder proposals. */
+  ownerReminderRequests?: OwnerReminderRequest[]
+  /** Marketplace listing visibility toggle proposals. */
+  listingVisibilityRequests?: ListingVisibilityRequest[]
+  /** Private marketplace share-token mint proposals. */
+  shareTokenRequests?: ShareTokenRequest[]
+  /** Private marketplace share-token revoke proposals. */
+  shareTokenRevokeRequests?: ShareTokenRevokeRequest[]
   /** Secure credential form proposals. Credentials must never be sent through chat text. */
   secureCredentialRequests?: SecureCredentialRequest[]
   /** CSV upload proposals for trial-balance or bulk-client import. */
@@ -401,6 +422,27 @@ class AIChatServiceImpl {
         }
         if (parsed.integrationConnectRequests.length > 0) {
           aiResponse.integrationConnectRequests = parsed.integrationConnectRequests
+        }
+        if (parsed.integrationSyncRequests.length > 0) {
+          aiResponse.integrationSyncRequests = parsed.integrationSyncRequests
+        }
+        if (parsed.syncStatusPreviews.length > 0) {
+          aiResponse.syncStatusPreviews = parsed.syncStatusPreviews
+        }
+        if (parsed.ownerInviteAccountantRequests.length > 0) {
+          aiResponse.ownerInviteAccountantRequests = parsed.ownerInviteAccountantRequests
+        }
+        if (parsed.ownerReminderRequests.length > 0) {
+          aiResponse.ownerReminderRequests = parsed.ownerReminderRequests
+        }
+        if (parsed.listingVisibilityRequests.length > 0) {
+          aiResponse.listingVisibilityRequests = parsed.listingVisibilityRequests
+        }
+        if (parsed.shareTokenRequests.length > 0) {
+          aiResponse.shareTokenRequests = parsed.shareTokenRequests
+        }
+        if (parsed.shareTokenRevokeRequests.length > 0) {
+          aiResponse.shareTokenRevokeRequests = parsed.shareTokenRevokeRequests
         }
         if (parsed.secureCredentialRequests.length > 0) {
           aiResponse.secureCredentialRequests = parsed.secureCredentialRequests

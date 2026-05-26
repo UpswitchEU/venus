@@ -76,6 +76,41 @@ describe('ChatAssistantBuyerReadyCards', () => {
     )
   })
 
+  it('blocks buyer-ready package submit paths outside the exact package endpoint shape', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-unsafe',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      buyerReadyCards: [
+        {
+          id: 'card-unsafe',
+          kind: 'buyer_package_generation',
+          status: 'pending_approval',
+          reason: 'Generate the IM',
+          submitPath: '/api/auth/logout',
+          resultSummary: {
+            businessName: 'Acme BV',
+            businessType: 'Software',
+            valuationMethod: 'dcf',
+            currency: 'EUR',
+            midpoint: 1_200_000,
+            min: null,
+            max: null,
+          },
+        },
+      ],
+    }
+
+    render(<ChatAssistantBuyerReadyCards message={message} />)
+    fireEvent.click(screen.getByRole('button', { name: 'proposalCards.buyerReady.generateAction' }))
+
+    await screen.findByText('proposalCards.buyerReady.endpointMissing')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('turns buyer-ready package status into conversational next steps', () => {
     const onSendFollowUp = vi.fn()
     const message: ChatMessage = {

@@ -7,6 +7,7 @@ import {
   useMemo,
 } from 'react'
 import {
+  type AgentChoiceSelection,
   ChatAssistantDrawer,
   type ChatMessage,
   type FieldContext,
@@ -14,6 +15,8 @@ import {
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
 import { useStartupAssistantSurface } from '../../../lib/methods'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
+import { usePreparerMultipleStore } from '../../../store/manual/usePreparerMultipleStore'
 import type {
   ManualValuationFormData,
   ValuationFormData as StoreValuationFormData,
@@ -22,6 +25,14 @@ import type {
 } from '../../../types/valuation'
 import type { ManualStarterPaywallReason } from '../components/ManualStarterPaywallModal'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
+import {
+  buildAgentChoiceFollowUpPrompt,
+  METHOD_WEIGHT_CHOICE_PATH,
+  parseAgentMethodWeightChoice,
+  parseAgentValuationScenarioChoice,
+  VALUATION_SCENARIO_CHOICE_PATH,
+} from '../utils/manualAgentChoiceActions'
+import { canonicalAgentMethodSelection } from '../utils/manualAiValuationMethods'
 import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
 import {
   buildManualInputInitialData,
@@ -44,6 +55,12 @@ type ChatSendHandler = (
   ...args: Parameters<ChatDrawerProps['onSendMessage']>
 ) => void | Promise<void>
 
+const CHOICE_FOLLOW_UP_PATHS = new Set([
+  '/api/valuations/years',
+  '/api/valuations/scenario',
+  '/api/profile/buyer-profile',
+])
+
 export interface UseManualAssistantControllerParams {
   acknowledgedQualityWarnings: Set<string>
   acknowledgedStartupIssues: Set<string>
@@ -59,7 +76,7 @@ export interface UseManualAssistantControllerParams {
   formActivityCode?: string | null
   formNaceCode?: string | null
   formStoreData: Partial<StoreValuationFormData>
-  generatePdf?: (() => Promise<unknown>) | null
+  handlePdfExport?: (() => Promise<unknown>) | null
   getLiveYearlyFinancials: () => ManualLiveYearlyFinancial[]
   handleAcceptNormalisation: NonNullable<ChatDrawerProps['onAcceptNormalisation']>
   handleAcceptUpdate: NonNullable<ChatDrawerProps['onAcceptUpdate']>
@@ -131,7 +148,7 @@ export function useManualAssistantController({
   formActivityCode,
   formNaceCode,
   formStoreData,
-  generatePdf,
+  handlePdfExport,
   getLiveYearlyFinancials,
   handleAcceptNormalisation,
   handleAcceptUpdate,
@@ -214,6 +231,7 @@ export function useManualAssistantController({
     handleResolveQualityWarning,
     handleDismissQualityWarning,
     handleResolveStartupIssue,
+    handleApplyStartupIssueQuickFix,
     handleDismissStartupIssue,
     handleJumpToStartupIssue,
   } = useManualAssistantIssueActions({
@@ -293,8 +311,9 @@ export function useManualAssistantController({
     buildLiveValuationSubmitData,
     clientContextId,
     contextRelationshipId,
-    generatePdf,
+    handlePdfExport,
     handleManualSubmit,
+    isStartupAssistantRoute,
     lastSubmittedDataRef,
     mercuryLocale,
     postValuationListingHandoffPendingRef,
@@ -304,6 +323,64 @@ export function useManualAssistantController({
     session,
     setChatMessages,
   })
+
+  const handleApplyAgentChoice = useCallback(
+    async (choice: AgentChoiceSelection): Promise<boolean> => {
+      const submitPath = choice.submitPath?.trim()
+      const selectedValues =
+        choice.kind === 'multi_select' ? (choice.values ?? []) : choice.value ? [choice.value] : []
+
+      if (submitPath === '/api/valuations/methods') {
+        const methods = canonicalAgentMethodSelection(selectedValues)
+        if (methods.length === 0) {
+          throw new Error('No supported valuation methods selected.')
+        }
+        useManualResultsStore.getState().setPreSelectedMethods(methods)
+        return true
+      }
+
+      if (submitPath === METHOD_WEIGHT_CHOICE_PATH) {
+        const state = useManualResultsStore.getState()
+        const parsed = parseAgentMethodWeightChoice(choice, state.preSelectedMethods)
+        if (parsed) {
+          state.setPreSelectedMethods(parsed.methods)
+          useManualResultsStore.getState().setUserWeights(parsed.weights)
+          if (parsed.justification) {
+            useManualResultsStore.getState().setUserWeightJustification(parsed.justification)
+          }
+          return true
+        }
+        await Promise.resolve(
+          handleChatMessage(buildAgentChoiceFollowUpPrompt(choice, currentLocale))
+        )
+        return true
+      }
+
+      if (submitPath === VALUATION_SCENARIO_CHOICE_PATH) {
+        const state = usePreparerMultipleStore.getState()
+        const parsed = parseAgentValuationScenarioChoice(choice, state.benchmarkMedian)
+        if (parsed) {
+          if (parsed.reasonKey === '') {
+            state.resetToBenchmark()
+          } else {
+            state.setAppliedMedian(parsed.appliedMedian)
+            state.setReasonKey(parsed.reasonKey)
+          }
+          return true
+        }
+      }
+
+      if (submitPath && CHOICE_FOLLOW_UP_PATHS.has(submitPath)) {
+        await Promise.resolve(
+          handleChatMessage(buildAgentChoiceFollowUpPrompt(choice, currentLocale))
+        )
+        return true
+      }
+
+      return false
+    },
+    [currentLocale, handleChatMessage]
+  )
 
   const chatDrawerProps: ChatDrawerProps = {
     open: chatDrawerOpen,
@@ -322,6 +399,7 @@ export function useManualAssistantController({
     onRejectUpdate: handleRejectUpdate,
     startupIssues,
     onResolveStartupIssue: handleResolveStartupIssue,
+    onApplyStartupIssueQuickFix: handleApplyStartupIssueQuickFix,
     onDismissStartupIssue: handleDismissStartupIssue,
     onJumpToStartupIssue: handleJumpToStartupIssue,
     qualityWarnings,
@@ -337,6 +415,7 @@ export function useManualAssistantController({
     onRejectSellabilityRun: handleRejectSellabilityRun,
     onApproveListingCreate: handleApproveListingCreate,
     onRejectListingCreate: handleRejectListingCreate,
+    onApplyAgentChoice: handleApplyAgentChoice,
     toolInProgress: startupToolInProgress,
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,

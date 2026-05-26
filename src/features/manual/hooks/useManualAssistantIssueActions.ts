@@ -1,5 +1,7 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
+import { applyStartupIssueQuickFix } from '@/lib/methods/startup_valuation/startupIssueQuickFix'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { getManualStartupIssueAnchor } from '../utils/manualStartupAssistantSurface'
 
 type AcknowledgementSetter = Dispatch<SetStateAction<Set<string>>>
@@ -21,6 +23,7 @@ export interface UseManualAssistantIssueActionsResult {
   handleResolveQualityWarning: (warningType: string, prompt: string) => void
   handleDismissQualityWarning: (warningType: string) => void
   handleResolveStartupIssue: (issueId: string, prompt: string) => void
+  handleApplyStartupIssueQuickFix: (issueId: string) => void
   handleDismissStartupIssue: (issueId: string) => void
   handleJumpToStartupIssue: (issueId: string) => void
 }
@@ -31,6 +34,15 @@ function acknowledge(setter: AcknowledgementSetter, id: string) {
     next.add(id)
     return next
   })
+}
+
+function jumpToIssue(startupIssueById: ReadonlyMap<string, StartupIssueAnchor>, issueId: string) {
+  const issue = startupIssueById.get(issueId)
+  if (!issue || typeof window === 'undefined') return
+  const anchor = getManualStartupIssueAnchor(issue.step)
+  if (!anchor) return
+  const el = document.getElementById(anchor)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 export function useManualAssistantIssueActions({
@@ -89,14 +101,19 @@ export function useManualAssistantIssueActions({
     [setAcknowledgedStartupIssues]
   )
 
+  const handleApplyStartupIssueQuickFix = useCallback(
+    (issueId: string) => {
+      const applied = applyStartupIssueQuickFix(issueId, useStartupValuationStore.getState())
+      if (!applied) return
+      acknowledge(setAcknowledgedStartupIssues, issueId)
+      jumpToIssue(startupIssueById, issueId)
+    },
+    [setAcknowledgedStartupIssues, startupIssueById]
+  )
+
   const handleJumpToStartupIssue = useCallback(
     (issueId: string) => {
-      const issue = startupIssueById.get(issueId)
-      if (!issue || typeof window === 'undefined') return
-      const anchor = getManualStartupIssueAnchor(issue.step)
-      if (!anchor) return
-      const el = document.getElementById(anchor)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      jumpToIssue(startupIssueById, issueId)
     },
     [startupIssueById]
   )
@@ -106,6 +123,7 @@ export function useManualAssistantIssueActions({
     handleResolveQualityWarning,
     handleDismissQualityWarning,
     handleResolveStartupIssue,
+    handleApplyStartupIssueQuickFix,
     handleDismissStartupIssue,
     handleJumpToStartupIssue,
   }

@@ -1,5 +1,6 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
+import { requestStartupSubmitReview } from '@/features/startup-studio/utils/startupSubmitReviewRequest'
 import { trackReturnToMercury } from '@/lib/analytics'
 import type { ChatMessage, ValuationFormData } from '../../../components/calculator'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
@@ -20,15 +21,16 @@ import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import { resolveManualCanonicalReportId } from '../utils/manualSessionIdentifiers'
 
 type ManualSubmitHandler = (data: ValuationFormData) => void | Promise<void>
-type GeneratePdfHandler = (() => Promise<unknown>) | null | undefined
+type PdfExportHandler = (() => Promise<unknown>) | null | undefined
 
 export interface UseManualAiProposalActionsParams {
   activeSessionKey?: string | null
   buildLiveValuationSubmitData: () => ValuationFormData
   clientContextId?: string | null
   contextRelationshipId?: string | null
-  generatePdf?: GeneratePdfHandler
+  handlePdfExport?: PdfExportHandler
   handleManualSubmit: ManualSubmitHandler
+  isStartupAssistantRoute: boolean
   lastSubmittedDataRef: MutableRefObject<ValuationFormData | null>
   mercuryLocale: ManualMercuryLocale
   postValuationListingHandoffPendingRef: MutableRefObject<boolean>
@@ -64,8 +66,9 @@ export function useManualAiProposalActions({
   buildLiveValuationSubmitData,
   clientContextId,
   contextRelationshipId,
-  generatePdf,
+  handlePdfExport,
   handleManualSubmit,
+  isStartupAssistantRoute,
   lastSubmittedDataRef,
   mercuryLocale,
   postValuationListingHandoffPendingRef,
@@ -77,13 +80,36 @@ export function useManualAiProposalActions({
 }: UseManualAiProposalActionsParams): UseManualAiProposalActionsResult {
   const handleApproveValuationRun = useCallback(
     (proposalId: string, _reportId?: string, methods?: string[] | null) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
-      )
+      const markApproved = () => {
+        setChatMessages((prev) =>
+          markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, 'approved')
+        )
+      }
       const canonicalMethods = canonicalAgentMethodSelection(methods)
       if (canonicalMethods.length > 0) {
         useManualResultsStore.getState().setPreSelectedMethods(canonicalMethods)
       }
+
+      if (isStartupAssistantRoute) {
+        const outcome = requestStartupSubmitReview({
+          onWillSubmit: () => {
+            postValuationListingHandoffPendingRef.current = true
+            markApproved()
+          },
+        })
+        if (outcome === 'opened') return
+
+        toast.info(
+          outcome === 'blocked'
+            ? // TODO i18n
+              'Werk eerst de open startup-checks af en probeer daarna opnieuw vanuit de chat.'
+            : // TODO i18n
+              'Open de startup-waardering en gebruik daarna de chatactie opnieuw.'
+        )
+        return
+      }
+
+      markApproved()
       const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
       postValuationListingHandoffPendingRef.current = true
       void handleManualSubmit(submitData)
@@ -91,6 +117,7 @@ export function useManualAiProposalActions({
     [
       buildLiveValuationSubmitData,
       handleManualSubmit,
+      isStartupAssistantRoute,
       lastSubmittedDataRef,
       postValuationListingHandoffPendingRef,
       setChatMessages,
@@ -108,12 +135,12 @@ export function useManualAiProposalActions({
 
   const handleApproveReportGeneration = useCallback(
     (proposalId: string, _reportId?: string) => {
-      setChatMessages((prev) =>
-        markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'approved')
-      )
-      if (generatePdf) {
-        generatePdf().catch((err: unknown) => {
-          generalLogger.warn('[ManualLayout] AI-approved PDF generation failed', {
+      if (handlePdfExport) {
+        setChatMessages((prev) =>
+          markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'approved')
+        )
+        handlePdfExport().catch((err: unknown) => {
+          generalLogger.warn('[ManualLayout] AI-approved PDF export failed', {
             error: err instanceof Error ? err.message : String(err),
           })
           toast.error(
@@ -124,11 +151,11 @@ export function useManualAiProposalActions({
       } else {
         toast.info(
           // TODO i18n
-          'PDF generatie nog niet beschikbaar — bereken eerst de waardering.'
+          'PDF export nog niet beschikbaar — bereken eerst de waardering.'
         )
       }
     },
-    [generatePdf, setChatMessages]
+    [handlePdfExport, setChatMessages]
   )
 
   const handleRejectReportGeneration = useCallback(

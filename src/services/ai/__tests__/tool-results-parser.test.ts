@@ -32,6 +32,12 @@ describe('parseAIChatToolResults — input tolerance', () => {
       sellabilityRunRequests: [],
       ownerProfileAnswerRequests: [],
       integrationConnectRequests: [],
+      integrationSyncRequests: [],
+      ownerReminderRequests: [],
+      ownerInviteAccountantRequests: [],
+      listingVisibilityRequests: [],
+      shareTokenRequests: [],
+      shareTokenRevokeRequests: [],
       secureCredentialRequests: [],
       csvUploadRequests: [],
       multiSelectRequests: [],
@@ -47,6 +53,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       buyerProfilePreviews: [],
       registrySearchResults: [],
       businessTypeSearchResults: [],
+      syncStatusPreviews: [],
       buyerReadyCards: [],
     }
     expect(parseAIChatToolResults(undefined)).toEqual(empty)
@@ -65,6 +72,12 @@ describe('parseAIChatToolResults — input tolerance', () => {
       sellabilityRunRequests: [],
       ownerProfileAnswerRequests: [],
       integrationConnectRequests: [],
+      integrationSyncRequests: [],
+      ownerReminderRequests: [],
+      ownerInviteAccountantRequests: [],
+      listingVisibilityRequests: [],
+      shareTokenRequests: [],
+      shareTokenRevokeRequests: [],
       secureCredentialRequests: [],
       csvUploadRequests: [],
       multiSelectRequests: [],
@@ -80,6 +93,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       buyerProfilePreviews: [],
       registrySearchResults: [],
       businessTypeSearchResults: [],
+      syncStatusPreviews: [],
       buyerReadyCards: [],
     })
   })
@@ -110,7 +124,10 @@ describe('parseAIChatToolResults — input tolerance', () => {
       ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
+    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
+      'valuation_method_preference_request',
+      'acknowledge_warning_request',
+    ])
   })
 
   it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {
@@ -247,6 +264,25 @@ describe('normalization_suggestion', () => {
       { type: 'normalization_suggestion', data: 'string' },
     ])
     expect(result.normalisationSuggestions).toEqual([])
+  })
+
+  it('fans out batch suggestions into individual normalisation cards', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'normalization_suggestion_batch',
+        data: {
+          status: 'pending_approval',
+          suggestions: [
+            { category: 'rent', amount: 12000 },
+            { category: 'salary', amount: 45000 },
+          ],
+        },
+      },
+    ])
+    expect(result.normalisationSuggestions).toEqual([
+      { category: 'rent', amount: 12000 },
+      { category: 'salary', amount: 45000 },
+    ])
   })
 })
 
@@ -746,6 +782,108 @@ describe('agentic action envelopes', () => {
       status: 'pending_approval',
       title: 'Choose source',
       preselected: 'csv',
+    })
+  })
+
+  it('parses Mercury parity proposals for sync, reminders, listing visibility, and share tokens', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'integration_sync_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            provider: 'exact',
+            scope: 'client_scope',
+            client_id: 'client-1',
+            reason: 'Fresh 2025 data is available.',
+          },
+          message: 'Sync Exact before running valuation.',
+        },
+      },
+      {
+        type: 'owner_reminder_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            client_id: 'client-1',
+            business_name: 'Acme NV',
+            customer_email: 'owner@acme.test',
+            custom_message: 'Could you complete the owner profile?',
+            reason: 'Owner profile is incomplete.',
+          },
+        },
+      },
+      {
+        type: 'listing_visibility_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            listing_id: 'listing-1',
+            visibility: 'private',
+            business_name: 'Acme listing',
+            reason: 'Keep it invite-only for now.',
+          },
+        },
+      },
+      {
+        type: 'share_token_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            listing_id: 'listing-1',
+            expires_in_days: 14,
+            max_uses: 1,
+            label: 'For Acme Capital',
+            business_name: 'Acme listing',
+            reason: 'One buyer needs a private link.',
+          },
+        },
+      },
+      {
+        type: 'share_token_revoke_request',
+        data: {
+          status: 'pending_approval',
+          request: {
+            listing_id: 'listing-1',
+            token_id: 'token-1',
+            token_hint: 'up_1234',
+            token_label: 'For Acme Capital',
+            business_name: 'Acme listing',
+            reason: 'The buyer dropped out.',
+          },
+        },
+      },
+    ])
+
+    expect(result.integrationSyncRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      provider: 'exact',
+      scope: 'client_scope',
+      clientId: 'client-1',
+    })
+    expect(result.ownerReminderRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      clientId: 'client-1',
+      businessName: 'Acme NV',
+      customerEmail: 'owner@acme.test',
+    })
+    expect(result.listingVisibilityRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      listingId: 'listing-1',
+      visibility: 'private',
+    })
+    expect(result.shareTokenRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      listingId: 'listing-1',
+      expiresInDays: 14,
+      maxUses: 1,
+      label: 'For Acme Capital',
+    })
+    expect(result.shareTokenRevokeRequests[0]).toMatchObject({
+      status: 'pending_approval',
+      listingId: 'listing-1',
+      tokenId: 'token-1',
+      tokenHint: 'up_1234',
     })
   })
 

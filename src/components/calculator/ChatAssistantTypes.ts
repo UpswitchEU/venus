@@ -133,6 +133,94 @@ export interface IntegrationConnectRequest {
   message?: string
 }
 
+export interface IntegrationSyncRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  provider?: string
+  scope?: 'provider_scope' | 'client_scope'
+  clientId?: string | null
+  reason?: string
+  message?: string
+}
+
+/**
+ * Read-only companion of `IntegrationSyncRequest` — renders the agent's
+ * answer to "is the sync done?" without forcing a settings-page refresh.
+ * Source-of-truth Titan tool: `get_sync_status`.
+ */
+export interface SyncStatusPreview {
+  id: string
+  status: 'ok' | 'failed'
+  providers: Array<{
+    provider: string
+    connected: boolean
+    syncInProgress: boolean
+    lastSyncAt: string | null
+    clientCount: number | null
+    error: string | null
+  }>
+  message?: string
+}
+
+/**
+ * Owner-side conversational mirror — agent proposes inviting the seller's
+ * accountant to join the deal. Reverse direction of the advisor → owner
+ * invite chain. Source-of-truth Titan tool: `propose_owner_invite_accountant`.
+ */
+export interface OwnerInviteAccountantRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  accountantEmail?: string
+  customMessage?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface OwnerReminderRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  clientId?: string
+  businessName?: string | null
+  customerEmail?: string | null
+  customMessage?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ListingVisibilityRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  visibility?: 'public' | 'private'
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ShareTokenRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  expiresInDays?: number | null
+  maxUses?: number | null
+  label?: string | null
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
+export interface ShareTokenRevokeRequest {
+  id: string
+  status: 'pending_approval' | 'blocked'
+  listingId?: string
+  tokenId?: string
+  tokenHint?: string | null
+  tokenLabel?: string | null
+  businessName?: string | null
+  reason?: string
+  message?: string
+}
+
 export interface SecureCredentialRequest {
   id: string
   status: 'pending_approval'
@@ -182,6 +270,16 @@ export interface SingleSelectRequest {
   preselected?: string | null
   submitPath?: string
   reason?: string
+}
+
+export interface AgentChoiceSelection {
+  id: string
+  kind: 'multi_select' | 'single_select'
+  title?: string
+  submitPath?: string
+  values?: string[]
+  value?: string
+  selectedOptions: Array<{ value: string; label: string; helper?: string }>
 }
 
 export interface ClientCreateRequest {
@@ -464,6 +562,13 @@ export interface ChatMessage {
   // Agentic owner-onboarding and advisor workflow cards.
   ownerProfileAnswerRequests?: OwnerProfileAnswerRequest[]
   integrationConnectRequests?: IntegrationConnectRequest[]
+  integrationSyncRequests?: IntegrationSyncRequest[]
+  syncStatusPreviews?: SyncStatusPreview[]
+  ownerReminderRequests?: OwnerReminderRequest[]
+  ownerInviteAccountantRequests?: OwnerInviteAccountantRequest[]
+  listingVisibilityRequests?: ListingVisibilityRequest[]
+  shareTokenRequests?: ShareTokenRequest[]
+  shareTokenRevokeRequests?: ShareTokenRevokeRequest[]
   secureCredentialRequests?: SecureCredentialRequest[]
   csvUploadRequests?: CsvUploadRequest[]
   multiSelectRequests?: MultiSelectRequest[]
@@ -577,5 +682,6 @@ export interface StartupAssistantIssue {
   action: string
   ctaLabel: string
   ctaPrompt: string
+  quickFixLabel?: string
   jumpLabel?: string
 }

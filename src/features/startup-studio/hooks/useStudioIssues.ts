@@ -212,6 +212,7 @@ function pickIssues(
   // ── 5. Sector vs traction signal ────────────────────────────────
   if (
     SECTORS_REQUIRING_RECURRING_REVENUE.has(state.sector) &&
+    state.revenue_status !== 'no' &&
     (state.mrr == null || state.mrr <= 0) &&
     (state.arr == null || state.arr <= 0)
   ) {

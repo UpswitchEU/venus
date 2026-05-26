@@ -20,12 +20,19 @@ import {
   parseCsvUploadRequest,
   parseImportReviewRequest,
   parseIntegrationConnectRequest,
+  parseIntegrationSyncRequest,
   parseListingPreview,
+  parseListingVisibilityRequest,
   parseMethodReadiness,
   parseMultiSelectRequest,
+  parseOwnerInviteAccountantRequest,
   parseOwnerProfileAnswerRequest,
+  parseOwnerReminderRequest,
   parseSecureCredentialRequest,
+  parseShareTokenRequest,
+  parseShareTokenRevokeRequest,
   parseSingleSelectRequest,
+  parseSyncStatus,
   parseValuationSessionRequest,
 } from './tool-result-request-parsers'
 import type { ParsedToolResults } from './tool-result-types'
@@ -54,13 +61,17 @@ export type {
   ImportReviewRequest,
   ImportReviewRequestPending,
   IntegrationConnectRequest,
+  IntegrationSyncRequest,
   ListingCreateRequest,
   ListingCreateRequestBlocked,
   ListingCreateRequestPending,
   ListingPreview,
+  ListingVisibilityRequest,
   MethodReadinessPreview,
   MultiSelectRequest,
+  OwnerInviteAccountantRequest,
   OwnerProfileAnswerRequest,
+  OwnerReminderRequest,
   ParsedToolResults,
   RegistrySearchHit,
   RegistrySearchResults,
@@ -71,7 +82,10 @@ export type {
   SellabilityRunRequest,
   SellabilityRunRequestBlocked,
   SellabilityRunRequestPending,
+  ShareTokenRequest,
+  ShareTokenRevokeRequest,
   SingleSelectRequest,
+  SyncStatusPreview,
   ValuationRunRequest,
   ValuationRunRequestBlocked,
   ValuationRunRequestPending,
@@ -87,6 +101,13 @@ function emptyResult(): ParsedToolResults {
     sellabilityRunRequests: [],
     ownerProfileAnswerRequests: [],
     integrationConnectRequests: [],
+    integrationSyncRequests: [],
+    syncStatusPreviews: [],
+    ownerReminderRequests: [],
+    ownerInviteAccountantRequests: [],
+    listingVisibilityRequests: [],
+    shareTokenRequests: [],
+    shareTokenRevokeRequests: [],
     secureCredentialRequests: [],
     csvUploadRequests: [],
     multiSelectRequests: [],
@@ -128,6 +149,16 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         }
         break
 
+      case 'normalization_suggestion_batch': {
+        const suggestions = recordValue(data)?.suggestions
+        if (Array.isArray(suggestions)) {
+          out.normalisationSuggestions.push(
+            ...suggestions.filter((item) => item && typeof item === 'object')
+          )
+        }
+        break
+      }
+
       case 'field_update': {
         const update = recordValue(recordValue(data)?.update)
         if (!update) break
@@ -166,6 +197,27 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'integration_connect_request':
         out.integrationConnectRequests.push(...parseIntegrationConnectRequest(data))
+        break
+      case 'integration_sync_request':
+        out.integrationSyncRequests.push(...parseIntegrationSyncRequest(data))
+        break
+      case 'sync_status':
+        out.syncStatusPreviews.push(...parseSyncStatus(data))
+        break
+      case 'owner_reminder_request':
+        out.ownerReminderRequests.push(...parseOwnerReminderRequest(data))
+        break
+      case 'owner_invite_accountant_request':
+        out.ownerInviteAccountantRequests.push(...parseOwnerInviteAccountantRequest(data))
+        break
+      case 'listing_visibility_request':
+        out.listingVisibilityRequests.push(...parseListingVisibilityRequest(data))
+        break
+      case 'share_token_request':
+        out.shareTokenRequests.push(...parseShareTokenRequest(data))
+        break
+      case 'share_token_revoke_request':
+        out.shareTokenRevokeRequests.push(...parseShareTokenRevokeRequest(data))
         break
       case 'secure_credential_request':
         out.secureCredentialRequests.push(...parseSecureCredentialRequest(data))

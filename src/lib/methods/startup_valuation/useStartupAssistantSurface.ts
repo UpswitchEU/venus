@@ -20,6 +20,7 @@ import type { StartupAssistantIssue } from '@/components/calculator'
 import { type StudioIssue, useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+import { getStartupIssueQuickFixLabel } from './startupIssueQuickFix'
 
 /** Step labels shown in the assistant's "Jump to" affordance, per locale. */
 const STUDIO_STEP_LABELS: Record<StudioIssue['step'], { en: string; nl: string }> = {
@@ -90,6 +91,7 @@ export function useStartupAssistantSurface(
         action: issue.action[assistantLocale],
         ctaLabel: assistantLocale === 'nl' ? 'Fix met AI' : 'Fix with AI',
         ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
+        quickFixLabel: getStartupIssueQuickFixLabel(issue.id, assistantLocale),
         jumpLabel: `${assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'} ${
           STUDIO_STEP_LABELS[issue.step][assistantLocale]
         }`,

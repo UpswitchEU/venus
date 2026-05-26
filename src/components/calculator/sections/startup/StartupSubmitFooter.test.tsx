@@ -22,7 +22,7 @@
  * signal left to honour.  Submit is always explicit.
  */
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Per-file next-intl mock — see StartupAwareInputPanel.test.tsx for
@@ -34,6 +34,7 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+import { requestStartupSubmitReview } from '@/features/startup-studio/utils/startupSubmitReviewRequest'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
   MATURITY_TO_SCORE,
@@ -145,6 +146,7 @@ describe('StartupSubmitFooter', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useManualFormStore.setState(initialFormSnapshot, true)
     useStartupValuationStore.setState(initialStudioSnapshot, true)
     setLocation('')
@@ -208,6 +210,71 @@ describe('StartupSubmitFooter', () => {
     expect(payload).toHaveProperty('industry')
     expect(payload).toHaveProperty('yearFounded')
     expect(Array.isArray(payload.yearlyFinancials)).toBe(true)
+  })
+
+  it('returns unavailable for assistant submit requests when the startup footer is not mounted', () => {
+    const onWillSubmit = vi.fn()
+    expect(requestStartupSubmitReview({ onWillSubmit })).toBe('unavailable')
+    expect(onWillSubmit).not.toHaveBeenCalled()
+  })
+
+  it('routes assistant submit requests through the same review-defaults gate', () => {
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: {
+          ...initialFormSnapshot.formData,
+          company_name: 'Acme Robotics',
+          country_code: 'BE',
+        },
+      },
+      true
+    )
+    useStartupValuationStore.setState(
+      {
+        ...initialStudioSnapshot,
+        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
+        sound_idea: MATURITY_TO_SCORE.strong,
+      },
+      true
+    )
+
+    const onSubmit = vi.fn()
+    const onWillSubmit = vi.fn()
+    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+
+    let outcome: ReturnType<typeof requestStartupSubmitReview> | null = null
+    act(() => {
+      outcome = requestStartupSubmitReview({ onWillSubmit })
+    })
+
+    expect(outcome).toBe('opened')
+    expect(onWillSubmit).not.toHaveBeenCalled()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /generate report/i }))
+
+    expect(onWillSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onWillSubmit.mock.invocationCallOrder[0]).toBeLessThan(
+      onSubmit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    )
+  })
+
+  it('blocks assistant submit requests while required startup gates are incomplete', () => {
+    const onSubmit = vi.fn()
+    const onWillSubmit = vi.fn()
+    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+
+    let outcome: ReturnType<typeof requestStartupSubmitReview> | null = null
+    act(() => {
+      outcome = requestStartupSubmitReview({ onWillSubmit })
+    })
+
+    expect(outcome).toBe('blocked')
+    expect(screen.queryByRole('button', { name: /generate report/i })).not.toBeInTheDocument()
+    expect(onWillSubmit).not.toHaveBeenCalled()
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('opens the review-defaults modal but does NOT submit when the founder cancels', () => {

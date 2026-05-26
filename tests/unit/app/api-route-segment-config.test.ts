@@ -61,8 +61,12 @@ const MAX_DURATION_HARD_CEILING = 800;
  * Routes intentionally above {@link MAX_DURATION_CEILING}.
  *
  * - Normalization catch-all: Titan + ValuationIQ can exceed 120s on heavy saves.
+ * - Conversational CSV upload proxies: mirror Mercury's manual import budget;
+ *   large spreadsheets can spend minutes in parsing, mapping, and Hermes ingest.
  */
 const MAX_DURATION_EXCEPTIONS: ReadonlyMap<string, number> = new Map([
+	['app/api/import/bulk-clients/route.ts', 300],
+	['app/api/import/trial-balance/route.ts', 300],
 	['app/api/normalization/[[...path]]/route.ts', 800],
 ]);
 

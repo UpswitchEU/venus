@@ -43,6 +43,7 @@ import { useChatAssistantConsentFlow } from './useChatAssistantConsentFlow'
 export type { ParsedCommand, ParsedValue } from './ChatAssistantParsing'
 export { parseFinancialValues, parseNormalizationCommands } from './ChatAssistantParsing'
 export type {
+  AgentChoiceSelection,
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
   BuyerReadyToolCard,
@@ -92,6 +93,7 @@ export function ChatAssistantDrawer({
   onResolveQualityWarning,
   onDismissStartupIssue,
   onResolveStartupIssue,
+  onApplyStartupIssueQuickFix,
   onJumpToStartupIssue,
   onAcceptNormalisation,
   onRejectNormalisation,
@@ -103,6 +105,7 @@ export function ChatAssistantDrawer({
   onRejectSellabilityRun,
   onApproveListingCreate,
   onRejectListingCreate,
+  onApplyAgentChoice,
   showQuickNormalizations = false,
   onCommandPillClick,
   toolInProgress,
@@ -362,6 +365,7 @@ export function ChatAssistantDrawer({
               startupIssues={startupIssues}
               onDismissStartupIssue={onDismissStartupIssue}
               onResolveStartupIssue={onResolveStartupIssue}
+              onApplyStartupIssueQuickFix={onApplyStartupIssueQuickFix}
               onJumpToStartupIssue={onJumpToStartupIssue}
             />
             <QualityWarningRail
@@ -415,6 +419,7 @@ export function ChatAssistantDrawer({
                         onRejectSellabilityRun={onRejectSellabilityRun}
                         onApproveListingCreate={onApproveListingCreate}
                         onRejectListingCreate={onRejectListingCreate}
+                        onApplyAgentChoice={onApplyAgentChoice}
                         onCommandPillClick={handleCommandPillClick}
                         onOpenConsent={handleOpenConsent}
                         onRetry={onRetry}

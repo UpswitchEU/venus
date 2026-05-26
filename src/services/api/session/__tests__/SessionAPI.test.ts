@@ -328,6 +328,43 @@ describe('SessionAPI', () => {
       })
     })
 
+    it('maps the flat autosave payload from AuthenticatedSessionEngine to session_data', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        data: {
+          session_key: 'rid',
+          session_data: {
+            company_name: 'Three Towers Capital',
+            revenue: 1_250_000,
+            currentView: 'manual',
+            name: 'Three Towers Capital business valuation',
+          },
+          view_type: 'simple',
+        },
+      })
+
+      await api.updateValuationSession('rid', {
+        reportId: 'rid',
+        updates: {
+          company_name: 'Three Towers Capital',
+          revenue: 1_250_000,
+          currentView: 'manual',
+          name: 'Three Towers Capital business valuation',
+        } as Partial<ValuationSession>,
+      })
+
+      const req = executeRequestSpy.mock.calls[0][0] as { data: Record<string, unknown> }
+      expect(req.data).toEqual({
+        session_data: {
+          company_name: 'Three Towers Capital',
+          revenue: 1_250_000,
+          currentView: 'manual',
+          name: 'Three Towers Capital business valuation',
+        },
+        view_type: 'simple',
+      })
+    })
+
     it('returns optimistic success on 404 for non-critical empty updates', async () => {
       executeRequestSpy.mockRejectedValue({ response: { status: 404 } })
       const result = await api.updateValuationSession('val_nonexistent', {

@@ -71,4 +71,18 @@ describe('useStudioIssues', () => {
     expect(w?.title.en).not.toMatch(/logged for SAAS\b/i)
     expect(w?.title.nl).toContain('B2B SaaS')
   })
+
+  it('does not warn about missing ARR after the founder explicitly marks pre-revenue', () => {
+    useStartupValuationStore.getState().reset()
+    useManualFormStore.getState().updateFormData({ company_name: 'Acme BV' })
+    const st = useStartupValuationStore.getState()
+    st.setField('stage', 'pre_seed')
+    st.setField('sector', 'saas')
+    st.setMaturity('sound_idea', 'basic')
+    st.setField('investment_amount_sought', 500_000)
+    st.setField('revenue_status', 'no')
+
+    const { result } = renderHook(() => useStudioIssues(mockAthenaBenchmark))
+    expect(result.current.warnings.some((i) => i.id === 'recurring_sector_no_arr')).toBe(false)
+  })
 })

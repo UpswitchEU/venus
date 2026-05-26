@@ -275,9 +275,9 @@ export function CalculatorNav({
                                     onClick={() => {
                                       onOpenValuationEdit()
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                    className="w-full flex items-center justify-start gap-2 px-2 py-2 rounded-lg text-left text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
                                   >
-                                    <Pencil className="w-4 h-4" />
+                                    <Pencil className="w-4 h-4 shrink-0" />
                                     {t('valuationEditModal.editValuation')}
                                   </button>
                                 )}
@@ -295,9 +295,9 @@ export function CalculatorNav({
                                     onClick={() => {
                                       openAdvisorControlsModal(true)
                                     }}
-                                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                    className="w-full flex items-center justify-start gap-2 px-2 py-2 rounded-lg text-left text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
                                   >
-                                    <SlidersHorizontal className="w-4 h-4" />
+                                    <SlidersHorizontal className="w-4 h-4 shrink-0" />
                                     {t(
                                       'manualInput.methodSelector.advancedAdvisorControls.kebabMenuItem'
                                     )}
@@ -316,9 +316,9 @@ export function CalculatorNav({
                                       onDeleteValuation(val)
                                     }
                                   }}
-                                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
+                                  className="w-full flex items-center justify-start gap-2 px-2 py-2 rounded-lg text-left text-destructive hover:bg-destructive/10 transition-colors text-sm"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4 shrink-0" />
                                   {t('common.actions.delete')}
                                 </button>
                               </div>
@@ -361,7 +361,7 @@ export function CalculatorNav({
                     aria-haspopup="listbox"
                     title={methodTriggerLabel}
                     aria-label={methodTriggerLabel}
-                    className="group flex min-w-0 max-w-[126px] lg:max-w-[160px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="group flex min-w-0 max-w-[184px] lg:max-w-[200px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 group-hover:text-foreground/70 shrink-0" />
                     <span className="truncate min-w-0 flex-1 text-left">{compactMethodLabel}</span>
@@ -528,9 +528,9 @@ export function CalculatorNav({
                           <button
                             type="button"
                             onClick={() => onOpenValuationEdit()}
-                            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                            className="w-full flex items-center justify-start gap-2 px-2 py-2 rounded-lg text-left text-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-3.5 h-3.5 shrink-0" />
                             {t('valuationEditModal.editValuation')}
                           </button>
                         </>

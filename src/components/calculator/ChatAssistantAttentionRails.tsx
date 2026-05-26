@@ -10,6 +10,7 @@ interface StartupIssueRailProps {
   startupIssues: StartupAssistantIssue[]
   onDismissStartupIssue?: (issueId: string) => void
   onResolveStartupIssue?: (issueId: string, prompt: string) => void
+  onApplyStartupIssueQuickFix?: (issueId: string) => void
   onJumpToStartupIssue?: (issueId: string) => void
 }
 
@@ -17,6 +18,7 @@ export function StartupIssueRail({
   startupIssues,
   onDismissStartupIssue,
   onResolveStartupIssue,
+  onApplyStartupIssueQuickFix,
   onJumpToStartupIssue,
 }: StartupIssueRailProps) {
   const ca = useTranslations('chatAssistant')
@@ -65,6 +67,15 @@ export function StartupIssueRail({
               )}
             </div>
             <div className="ml-2 flex flex-wrap items-center gap-1.5">
+              {issue.quickFixLabel && (
+                <button
+                  type="button"
+                  onClick={() => onApplyStartupIssueQuickFix?.(issue.id)}
+                  className="rounded-full bg-primary/10 hover:bg-primary/15 border border-primary/15 hover:border-primary/25 px-3 py-1 text-xs font-medium text-primary/90 hover:text-primary transition-colors whitespace-nowrap touch-manipulation"
+                >
+                  {issue.quickFixLabel}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onResolveStartupIssue?.(issue.id, issue.ctaPrompt)}

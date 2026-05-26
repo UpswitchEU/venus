@@ -19,7 +19,7 @@ import remarkGfm from 'remark-gfm'
 import { cn } from '@/design-system/utils'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
-import type { ChatMessage, FieldContext } from './ChatAssistantTypes'
+import type { AgentChoiceSelection, ChatMessage, FieldContext } from './ChatAssistantTypes'
 
 // Empty State Component - Premium minimal design (no redundant icons)
 export function EmptyState({
@@ -114,6 +114,7 @@ export function MessageBubble({
   onRejectSellabilityRun,
   onApproveListingCreate,
   onRejectListingCreate,
+  onApplyAgentChoice,
   onCommandPillClick,
   onOpenConsent,
   onRetry,
@@ -137,6 +138,7 @@ export function MessageBubble({
     visibility?: 'public' | 'private'
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onCommandPillClick?: (command: string) => void
   onOpenConsent?: (messageId: string) => void
   onRetry?: (messageId: string) => void
@@ -579,6 +581,7 @@ export function MessageBubble({
           onRejectSellabilityRun={onRejectSellabilityRun}
           onApproveListingCreate={onApproveListingCreate}
           onRejectListingCreate={onRejectListingCreate}
+          onApplyAgentChoice={onApplyAgentChoice}
           onSendFollowUp={onSendFollowUp}
         />
 

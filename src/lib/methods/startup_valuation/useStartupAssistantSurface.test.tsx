@@ -117,7 +117,7 @@ describe('useStartupAssistantSurface', () => {
 
   describe('locale mapping', () => {
     it('uses English copy + "Fix with AI" + "Jump to" labels when locale is "en"', () => {
-      setIssues([issue({ id: 'a', step: 'berkus' })])
+      setIssues([issue({ id: 'missing_investment_ask', step: 'berkus' })])
       const { result } = renderHook(() =>
         useStartupAssistantSurface(makeParams({ assistantLocale: 'en' }))
       )
@@ -128,10 +128,11 @@ describe('useStartupAssistantSurface', () => {
       expect(mapped.ctaLabel).toBe('Fix with AI')
       expect(mapped.jumpLabel).toBe('Jump to Risk reduction')
       expect(mapped.ctaPrompt).toBe('wrapped:EN prompt')
+      expect(mapped.quickFixLabel).toBe('Use stage default')
     })
 
     it('uses Dutch copy + "Fix met AI" + "Ga naar" labels when locale is "nl"', () => {
-      setIssues([issue({ id: 'a', step: 'traction' })])
+      setIssues([issue({ id: 'recurring_sector_no_arr', step: 'traction' })])
       const { result } = renderHook(() =>
         useStartupAssistantSurface(makeParams({ assistantLocale: 'nl' }))
       )
@@ -142,6 +143,13 @@ describe('useStartupAssistantSurface', () => {
       expect(mapped.ctaLabel).toBe('Fix met AI')
       expect(mapped.jumpLabel).toBe('Ga naar Tractie')
       expect(mapped.ctaPrompt).toBe('wrapped:NL prompt')
+      expect(mapped.quickFixLabel).toBe('Markeer pre-revenue')
+    })
+
+    it('omits the quick-fix label when a startup issue needs human input', () => {
+      setIssues([issue({ id: 'missing_company_name', step: 'profile' })])
+      const { result } = renderHook(() => useStartupAssistantSurface(makeParams()))
+      expect(result.current.startupIssues[0].quickFixLabel).toBeUndefined()
     })
 
     it('selects the right step label for each StudioStepId', () => {

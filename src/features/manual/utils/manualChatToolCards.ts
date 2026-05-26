@@ -8,6 +8,15 @@ type ReportGenerationCard = NonNullable<ChatMessage['reportGenerationRequests']>
 type SellabilityRunCard = NonNullable<ChatMessage['sellabilityRunRequests']>[number]
 type OwnerProfileAnswerCard = NonNullable<ChatMessage['ownerProfileAnswerRequests']>[number]
 type IntegrationConnectCard = NonNullable<ChatMessage['integrationConnectRequests']>[number]
+type IntegrationSyncCard = NonNullable<ChatMessage['integrationSyncRequests']>[number]
+type SyncStatusPreviewCard = NonNullable<ChatMessage['syncStatusPreviews']>[number]
+type OwnerReminderCard = NonNullable<ChatMessage['ownerReminderRequests']>[number]
+type OwnerInviteAccountantCard = NonNullable<
+  ChatMessage['ownerInviteAccountantRequests']
+>[number]
+type ListingVisibilityCard = NonNullable<ChatMessage['listingVisibilityRequests']>[number]
+type ShareTokenCard = NonNullable<ChatMessage['shareTokenRequests']>[number]
+type ShareTokenRevokeCard = NonNullable<ChatMessage['shareTokenRevokeRequests']>[number]
 type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
 type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
 type MultiSelectCard = NonNullable<ChatMessage['multiSelectRequests']>[number]
@@ -39,6 +48,13 @@ export interface ManualChatToolCards {
   sellabilityRunRequests?: SellabilityRunCard[]
   ownerProfileAnswerRequests?: OwnerProfileAnswerCard[]
   integrationConnectRequests?: IntegrationConnectCard[]
+  integrationSyncRequests?: IntegrationSyncCard[]
+  syncStatusPreviews?: SyncStatusPreviewCard[]
+  ownerReminderRequests?: OwnerReminderCard[]
+  ownerInviteAccountantRequests?: OwnerInviteAccountantCard[]
+  listingVisibilityRequests?: ListingVisibilityCard[]
+  shareTokenRequests?: ShareTokenCard[]
+  shareTokenRevokeRequests?: ShareTokenRevokeCard[]
   secureCredentialRequests?: SecureCredentialCard[]
   csvUploadRequests?: CsvUploadCard[]
   multiSelectRequests?: MultiSelectCard[]
@@ -65,6 +81,13 @@ interface ManualChatToolCardsInput {
   sellabilityRunRequests?: readonly unknown[]
   ownerProfileAnswerRequests?: readonly unknown[]
   integrationConnectRequests?: readonly unknown[]
+  integrationSyncRequests?: readonly unknown[]
+  syncStatusPreviews?: readonly unknown[]
+  ownerReminderRequests?: readonly unknown[]
+  ownerInviteAccountantRequests?: readonly unknown[]
+  listingVisibilityRequests?: readonly unknown[]
+  shareTokenRequests?: readonly unknown[]
+  shareTokenRevokeRequests?: readonly unknown[]
   secureCredentialRequests?: readonly unknown[]
   csvUploadRequests?: readonly unknown[]
   multiSelectRequests?: readonly unknown[]
@@ -170,6 +193,83 @@ export function addIdsToManualChatToolCards(
           ...(asRecord(request) ?? {}),
           id: createId(),
         }) as IntegrationConnectCard
+    )
+  )
+  pushIfAny(
+    out,
+    'integrationSyncRequests',
+    (cards.integrationSyncRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as IntegrationSyncCard
+    )
+  )
+  pushIfAny(
+    out,
+    'syncStatusPreviews',
+    (cards.syncStatusPreviews ?? []).map(
+      (preview) =>
+        ({
+          ...(asRecord(preview) ?? {}),
+          id: createId(),
+        }) as SyncStatusPreviewCard
+    )
+  )
+  pushIfAny(
+    out,
+    'ownerInviteAccountantRequests',
+    (cards.ownerInviteAccountantRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as OwnerInviteAccountantCard
+    )
+  )
+  pushIfAny(
+    out,
+    'ownerReminderRequests',
+    (cards.ownerReminderRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as OwnerReminderCard
+    )
+  )
+  pushIfAny(
+    out,
+    'listingVisibilityRequests',
+    (cards.listingVisibilityRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ListingVisibilityCard
+    )
+  )
+  pushIfAny(
+    out,
+    'shareTokenRequests',
+    (cards.shareTokenRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ShareTokenCard
+    )
+  )
+  pushIfAny(
+    out,
+    'shareTokenRevokeRequests',
+    (cards.shareTokenRevokeRequests ?? []).map(
+      (request) =>
+        ({
+          ...(asRecord(request) ?? {}),
+          id: createId(),
+        }) as ShareTokenRevokeCard
     )
   )
   pushIfAny(
@@ -366,6 +466,8 @@ export function parseManualChatStreamToolResult(
         return data.update ? { type: 'field_update', data } : null
       case 'suggest_normalization':
         return data.suggestion ? { type: 'normalization_suggestion', data: data.suggestion } : null
+      case 'suggest_normalization_batch':
+        return { type: 'normalization_suggestion_batch', data }
       case 'run_valuation':
         return { type: 'valuation_run_request', data }
       case 'generate_report':
@@ -376,6 +478,16 @@ export function parseManualChatStreamToolResult(
         return { type: 'owner_profile_answer_request', data }
       case 'propose_integration_connect':
         return { type: 'integration_connect_request', data }
+      case 'propose_integration_sync':
+        return { type: 'integration_sync_request', data }
+      case 'propose_owner_reminder':
+        return { type: 'owner_reminder_request', data }
+      case 'propose_listing_visibility':
+        return { type: 'listing_visibility_request', data }
+      case 'propose_share_token':
+        return { type: 'share_token_request', data }
+      case 'propose_share_token_revoke':
+        return { type: 'share_token_revoke_request', data }
       case 'propose_secure_credential':
         return { type: 'secure_credential_request', data }
       case 'propose_csv_upload':
@@ -396,6 +508,10 @@ export function parseManualChatStreamToolResult(
         return { type: 'import_review_request', data }
       case 'get_method_readiness':
         return { type: 'method_readiness', data }
+      case 'get_sync_status':
+        return { type: 'sync_status', data }
+      case 'propose_owner_invite_accountant':
+        return { type: 'owner_invite_accountant_request', data }
       case 'get_listing_preview':
         return { type: 'listing_preview', data }
       case 'create_listing':
@@ -450,6 +566,13 @@ export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null 
         (cards.sellabilityRunRequests?.length ?? 0) > 0 ||
         (cards.ownerProfileAnswerRequests?.length ?? 0) > 0 ||
         (cards.integrationConnectRequests?.length ?? 0) > 0 ||
+        (cards.integrationSyncRequests?.length ?? 0) > 0 ||
+        (cards.syncStatusPreviews?.length ?? 0) > 0 ||
+        (cards.ownerInviteAccountantRequests?.length ?? 0) > 0 ||
+        (cards.ownerReminderRequests?.length ?? 0) > 0 ||
+        (cards.listingVisibilityRequests?.length ?? 0) > 0 ||
+        (cards.shareTokenRequests?.length ?? 0) > 0 ||
+        (cards.shareTokenRevokeRequests?.length ?? 0) > 0 ||
         (cards.secureCredentialRequests?.length ?? 0) > 0 ||
         (cards.csvUploadRequests?.length ?? 0) > 0 ||
         (cards.multiSelectRequests?.length ?? 0) > 0 ||
@@ -512,6 +635,45 @@ export function appendManualChatToolCardsToMessage(
       integrationConnectRequests: [
         ...(message.integrationConnectRequests ?? []),
         ...cards.integrationConnectRequests,
+      ],
+    }),
+    ...(cards.integrationSyncRequests && {
+      integrationSyncRequests: [
+        ...(message.integrationSyncRequests ?? []),
+        ...cards.integrationSyncRequests,
+      ],
+    }),
+    ...(cards.syncStatusPreviews && {
+      syncStatusPreviews: [
+        ...(message.syncStatusPreviews ?? []),
+        ...cards.syncStatusPreviews,
+      ],
+    }),
+    ...(cards.ownerInviteAccountantRequests && {
+      ownerInviteAccountantRequests: [
+        ...(message.ownerInviteAccountantRequests ?? []),
+        ...cards.ownerInviteAccountantRequests,
+      ],
+    }),
+    ...(cards.ownerReminderRequests && {
+      ownerReminderRequests: [
+        ...(message.ownerReminderRequests ?? []),
+        ...cards.ownerReminderRequests,
+      ],
+    }),
+    ...(cards.listingVisibilityRequests && {
+      listingVisibilityRequests: [
+        ...(message.listingVisibilityRequests ?? []),
+        ...cards.listingVisibilityRequests,
+      ],
+    }),
+    ...(cards.shareTokenRequests && {
+      shareTokenRequests: [...(message.shareTokenRequests ?? []), ...cards.shareTokenRequests],
+    }),
+    ...(cards.shareTokenRevokeRequests && {
+      shareTokenRevokeRequests: [
+        ...(message.shareTokenRevokeRequests ?? []),
+        ...cards.shareTokenRevokeRequests,
       ],
     }),
     ...(cards.secureCredentialRequests && {

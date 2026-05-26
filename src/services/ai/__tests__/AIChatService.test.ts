@@ -179,6 +179,86 @@ describe('AIChatService', () => {
     expect(response.fallback).toBeUndefined()
   })
 
+  it('preserves read-only and owner-invite tool cards in the non-streaming fallback path', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          response: 'I checked the integration state.',
+          conversationId: 'cv-tool-cards',
+          toolResults: [
+            {
+              type: 'sync_status',
+              data: {
+                status: 'ok',
+                providers: [
+                  {
+                    provider: 'exact',
+                    connected: true,
+                    syncInProgress: false,
+                    lastSyncAt: '2026-05-25T12:00:00.000Z',
+                    clientCount: 3,
+                    error: null,
+                  },
+                ],
+                message: 'Exact is up to date.',
+              },
+            },
+            {
+              type: 'owner_invite_accountant_request',
+              data: {
+                status: 'pending_approval',
+                request: {
+                  accountant_email: 'advisor@example.com',
+                  custom_message: 'Can you help review this valuation?',
+                  reason: 'The owner asked for accountant support.',
+                },
+                message: 'Invite your accountant?',
+              },
+            },
+          ],
+        })
+      )
+    )
+
+    const response = await aiChatService.sendMessage({
+      message: 'Is Exact synced, and can I invite my accountant?',
+      locale: 'en',
+      stream: false,
+    })
+
+    expect(response).toMatchObject({
+      success: true,
+      content: 'I checked the integration state.',
+      conversationId: 'cv-tool-cards',
+      syncStatusPreviews: [
+        {
+          status: 'ok',
+          providers: [
+            {
+              provider: 'exact',
+              connected: true,
+              syncInProgress: false,
+              lastSyncAt: '2026-05-25T12:00:00.000Z',
+              clientCount: 3,
+              error: null,
+            },
+          ],
+          message: 'Exact is up to date.',
+        },
+      ],
+      ownerInviteAccountantRequests: [
+        {
+          status: 'pending_approval',
+          accountantEmail: 'advisor@example.com',
+          customMessage: 'Can you help review this valuation?',
+          reason: 'The owner asked for accountant support.',
+          message: 'Invite your accountant?',
+        },
+      ],
+    })
+  })
+
   it('routes streaming Titan 412 to onConsentRequired instead of onError', async () => {
     vi.stubGlobal(
       'fetch',

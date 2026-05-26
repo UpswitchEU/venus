@@ -5,7 +5,7 @@ import { ChatAssistantAgentActionCards } from './ChatAssistantAgentActionCards'
 import { ChatAssistantBuyerReadyCards } from './ChatAssistantBuyerReadyCards'
 import { ChatAssistantMarketplaceProposalCards } from './ChatAssistantMarketplaceProposalCards'
 import { ChatAssistantRunProposalCards } from './ChatAssistantRunProposalCards'
-import type { ChatMessage } from './ChatAssistantTypes'
+import type { AgentChoiceSelection, ChatMessage } from './ChatAssistantTypes'
 
 interface ChatAssistantProposalCardsProps {
   message: ChatMessage
@@ -22,6 +22,7 @@ interface ChatAssistantProposalCardsProps {
     visibility?: 'public' | 'private'
   ) => void
   onRejectListingCreate?: (proposalId: string) => void
+  onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onSendFollowUp?: (content: string) => void
 }
 
@@ -35,6 +36,7 @@ export function ChatAssistantProposalCards({
   onRejectSellabilityRun,
   onApproveListingCreate,
   onRejectListingCreate,
+  onApplyAgentChoice,
   onSendFollowUp,
 }: ChatAssistantProposalCardsProps) {
   return (
@@ -47,7 +49,11 @@ export function ChatAssistantProposalCards({
         onRejectReportGeneration={onRejectReportGeneration}
       />
 
-      <ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />
+      <ChatAssistantAgentActionCards
+        message={message}
+        onApplyAgentChoice={onApplyAgentChoice}
+        onSendFollowUp={onSendFollowUp}
+      />
 
       <ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />
 
