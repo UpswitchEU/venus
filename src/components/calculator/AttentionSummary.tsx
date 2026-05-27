@@ -128,8 +128,15 @@ export function AttentionSummary({
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setOpen(items.length === 1)
-    setExpandedKeys(new Set())
+    // Functional-set bails when value is unchanged so we don't allocate a new
+    // Set ref or flip `open` to the same boolean every render. The old form
+    // (`setExpandedKeys(new Set())`) churned a fresh reference on every fire,
+    // which compounded with parent re-render bursts (autosave / bootstrap
+    // settling) into the React #185 cascade traced in the Mercury accountant
+    // flow on 2026-05-27.
+    const nextOpen = items.length === 1
+    setOpen((prev) => (prev === nextOpen ? prev : nextOpen))
+    setExpandedKeys((prev) => (prev.size === 0 ? prev : new Set()))
   }, [fingerprint, items.length])
 
   const blockCount = items.filter((i) => i.severity === 'block').length

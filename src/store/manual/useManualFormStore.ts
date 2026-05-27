@@ -87,6 +87,49 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
 
   // Update form data (atomic with functional update)
   updateFormData: (updates: Partial<ValuationFormData>) => {
+    // No-op short-circuit (React #185 hardening, 2026-05-27): bootstrap
+    // settling fans out the SAME prefill payload through several call sites
+    // in close succession (useBootstrapSync.syncSession + useBootstrapPrefill
+    // microtask + useSessionDataPrefill.runPrefill). When the values already
+    // match the store, the previous behaviour fired a fresh `formData`
+    // reference and `isDirty=true` on every call, notifying every form
+    // subscriber and feeding useFormSessionSync's debounced autosave for no
+    // net change. Bailing here collapses redundant prefill bursts into a
+    // single legitimate notification on the first call that actually
+    // mutates a field.
+    {
+      const current = get().formData as unknown as Record<string, unknown>
+      const keys = Object.keys(updates) as Array<keyof ValuationFormData>
+      let changed = false
+      for (const key of keys) {
+        const value = updates[key]
+        if (key === 'shares_for_sale') {
+          if (current.shares_for_sale !== 100) {
+            changed = true
+            break
+          }
+          continue
+        }
+        if (value === undefined && (key === 'activity_code' || key === 'activity_label')) {
+          if (key in current) {
+            changed = true
+            break
+          }
+          continue
+        }
+        // Object.is treats NaN as equal to itself and -0/+0 as distinct — the
+        // right contract for form fields, where we want a numeric NaN slot to
+        // remain stable instead of forcing a notification cycle.
+        if (!Object.is(current[key as string], value)) {
+          changed = true
+          break
+        }
+      }
+      if (!changed) {
+        return
+      }
+    }
+
     set((state) => {
       const next: ValuationFormData = { ...state.formData }
       const mutable = next as unknown as Record<string, unknown>

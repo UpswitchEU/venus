@@ -39,6 +39,80 @@ function scheduleOptionalGapFillAfterHydrate(): void {
 }
 
 /**
+ * Top-level session fields safe to scalar-compare for the no-op check.
+ * `sessionData` / `partialData` are handled separately (they shallow-merge
+ * instead of replace), and extension fields (e.g. `pdfUrl`, used by
+ * `BootstrapMinimalSession`) fall through to the conservative "treat as
+ * change" path.
+ */
+const HYDRATE_SCALAR_KEYS: ReadonlySet<string> = new Set<string>([
+  'reportId',
+  'currentView',
+  'dataSource',
+  'createdAt',
+  'updatedAt',
+  'status',
+  'reportReady',
+  'name',
+  'valuationResult',
+  'htmlReport',
+  'buyerReadiness',
+])
+
+/**
+ * Cheap content check: would applying `updates` to `current` change anything
+ * a subscriber could observe?
+ *
+ * Returns true ONLY when every requested top-level update already matches the
+ * current value AND every key in `updates.sessionData` / `updates.partialData`
+ * is already present on the current session with an `Object.is`-equal value.
+ *
+ * We deliberately keep this shallow on the merged subtrees — going deep would
+ * be both slower and pointless: most prefill payloads target leaf scalars
+ * (`company_name`, `kbo_number`, …) and same-leaf-same-value is the exact
+ * case we want to filter out.
+ */
+function sessionHydrateUpdatesAreNoop(
+  current: ValuationSession,
+  updates: Partial<ValuationSession>
+): boolean {
+  const currentRecord = current as unknown as Record<string, unknown>
+  const updatesRecord = updates as unknown as Record<string, unknown>
+  for (const key of Object.keys(updatesRecord)) {
+    if (key === 'sessionData' || key === 'partialData') continue
+    if (HYDRATE_SCALAR_KEYS.has(key)) {
+      if (!Object.is(currentRecord[key], updatesRecord[key])) {
+        return false
+      }
+    } else {
+      // Unknown / extension key — assume change to stay safe.
+      return false
+    }
+  }
+  const incomingSessionData = updates.sessionData
+  if (incomingSessionData && typeof incomingSessionData === 'object') {
+    const currentSessionData = (current.sessionData ?? {}) as Record<string, unknown>
+    const incoming = incomingSessionData as Record<string, unknown>
+    for (const k of Object.keys(incoming)) {
+      if (!Object.is(currentSessionData[k], incoming[k])) {
+        return false
+      }
+    }
+  }
+  const incomingPartialData = updates.partialData
+  if (incomingPartialData && typeof incomingPartialData === 'object') {
+    const currentPartialData = (current.partialData ?? {}) as Record<string, unknown>
+    const incoming = incomingPartialData as Record<string, unknown>
+    for (const k of Object.keys(incoming)) {
+      if (!Object.is(currentPartialData[k], incoming[k])) {
+        return false
+      }
+    }
+  }
+  return true
+}
+
+/**
  * Explicit session states (bank-grade state machine)
  */
 export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
@@ -298,6 +372,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => {
     const state = get()
+
+    // No-op short-circuit (React #185 hardening, 2026-05-27): the bootstrap
+    // settling window calls this from useBootstrapSync.syncSession AND from
+    // the optimistic Mercury shell path. When the second caller produces no
+    // net change (same sessionData fields with same values, status already
+    // 'loaded'), the prior code still spread-rebuilt `session` + emitted a
+    // Zustand notification. Each notification fanned out across the
+    // sessionData / session / status selectors and compounded with parallel
+    // form-store writes into the React #185 cascade. We compare BEFORE the
+    // `set()` so the cascade never starts.
+    if (
+      state.status === 'loaded' &&
+      state.errorMessage === null &&
+      state.renderError === null &&
+      state.session &&
+      sessionHydrateUpdatesAreNoop(state.session, updates)
+    ) {
+      storeLogger.debug('[Session] Hydrate+complete skipped — content unchanged', {
+        reportId: state.session.reportId?.substring(0, 30),
+      })
+      return
+    }
 
     // Build the next session the same way `hydrateSession` does so the
     // contract stays identical — but commit `status='loaded'` in the same
@@ -727,6 +823,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   hydrateSession: (updates: Partial<ValuationSession>) => {
     const state = get()
+
+    // No-op short-circuit (React #185 hardening, 2026-05-27): the gap-fill
+    // path in useBootstrapSync.syncSession calls `hydrateSession` with the
+    // exact prefill that was already merged into the optimistic Mercury
+    // shell. Pre-fix this produced a fresh `session` reference + Zustand
+    // notification for every prefill source even when the merged outcome
+    // was bit-identical.
+    if (state.session && sessionHydrateUpdatesAreNoop(state.session, updates)) {
+      storeLogger.debug('[Session] Hydrate skipped — content unchanged', {
+        reportId: state.session.reportId?.substring(0, 30),
+      })
+      return
+    }
 
     if (!state.engine) {
       if (!updates.reportId && !state.session) {
