@@ -229,27 +229,44 @@ export type ActionableQualityWarningType = QualityWarningAssistantCtaKey
 
 /**
  * i18n keys under `chatAssistant` for each guided CTA — single source for {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS}.
+ *
+ * Each entry can supply a `titleKey` / `bodyKey` to override the raw engine
+ * `warning.message` / `warning.recommendation`. The engine voice tends to
+ * lead with the failure ("could not be executed…"); the override copy leads
+ * with what actually happened ("substitute method used") so the advisor
+ * doesn't read a successful valuation as a broken one. Engine text remains
+ * the fallback when no override is present.
  */
 export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   thin_comparables_proxy: {
     labelKey: 'qualityCtaThinComparablesLabel',
     promptKey: 'qualityCtaThinComparablesPrompt',
+    titleKey: 'qualityTitleThinComparables',
+    bodyKey: 'qualityBodyThinComparables',
   },
   owner_concentration_skipped_missing_inputs: {
     labelKey: 'qualityCtaOwnerConcentrationLabel',
     promptKey: 'qualityCtaOwnerConcentrationPrompt',
+    titleKey: 'qualityTitleOwnerConcentration',
+    bodyKey: 'qualityBodyOwnerConcentration',
   },
   ebitda_divergence: {
     labelKey: 'qualityCtaEbitdaDivergenceLabel',
     promptKey: 'qualityCtaEbitdaDivergencePrompt',
+    titleKey: 'qualityTitleEbitdaDivergence',
+    bodyKey: 'qualityBodyEbitdaDivergence',
   },
   method_substitution: {
     labelKey: 'qualityCtaMethodSubstitutionLabel',
     promptKey: 'qualityCtaMethodSubstitutionPrompt',
+    titleKey: 'qualityTitleMethodSubstitution',
+    bodyKey: 'qualityBodyMethodSubstitution',
   },
   ebitda_benchmark_deviation: {
     labelKey: 'qualityCtaEbitdaBenchmarkDeviationLabel',
     promptKey: 'qualityCtaEbitdaBenchmarkDeviationPrompt',
+    titleKey: 'qualityTitleEbitdaBenchmarkDeviation',
+    bodyKey: 'qualityBodyEbitdaBenchmarkDeviation',
   },
   // Surfaced when Step 7 had to assume net debt = 0 because no balance
   // sheet was supplied. Owner-managed micro-SMEs hit this constantly because
@@ -258,14 +275,20 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   net_debt_unavailable: {
     labelKey: 'qualityCtaNetDebtLabel',
     promptKey: 'qualityCtaNetDebtPrompt',
+    titleKey: 'qualityTitleNetDebt',
+    bodyKey: 'qualityBodyNetDebt',
   },
   owner_compensation_estimated: {
     labelKey: 'qualityCtaOwnerCompEstimatedLabel',
     promptKey: 'qualityCtaOwnerCompEstimatedPrompt',
+    titleKey: 'qualityTitleOwnerCompEstimated',
+    bodyKey: 'qualityBodyOwnerCompEstimated',
   },
   book_equity_unavailable: {
     labelKey: 'qualityCtaBookEquityLabel',
     promptKey: 'qualityCtaBookEquityPrompt',
+    titleKey: 'qualityTitleBookEquity',
+    bodyKey: 'qualityBodyBookEquity',
   },
   // ``impossible_margin`` — emitted when any year shows normalised EBITDA
   // margin ≥ 100% of revenue. The prompt walks the user through the three
@@ -275,8 +298,13 @@ export const QUALITY_WARNING_ASSISTANT_CTA_CONFIG = {
   impossible_margin: {
     labelKey: 'qualityCtaImpossibleMarginLabel',
     promptKey: 'qualityCtaImpossibleMarginPrompt',
+    titleKey: 'qualityTitleImpossibleMargin',
+    bodyKey: 'qualityBodyImpossibleMargin',
   },
-} as const satisfies Record<QualityWarningAssistantCtaKey, { labelKey: string; promptKey: string }>
+} as const satisfies Record<
+  QualityWarningAssistantCtaKey,
+  { labelKey: string; promptKey: string; titleKey: string; bodyKey: string }
+>
 
 /** Same keys as {@link QUALITY_WARNING_ASSISTANT_CTA_KEYS} — use for Set membership / auto-open. */
 export const ACTIONABLE_QUALITY_WARNING_TYPES = new Set<string>([

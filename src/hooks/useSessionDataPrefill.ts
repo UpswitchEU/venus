@@ -74,12 +74,36 @@ type SessionPrefillMergedData = Record<string, unknown> & {
 
 /** Fallback prefill from `session.sessionData` when bootstrap did not paint first. */
 export function useSessionDataPrefill() {
+  // LOOP FIX (React #185 hardening, 2026-05-27):
+  // Subscribe ONLY to the values that should trigger a re-fire of the
+  // prefill effect — never to `formData.*`. Live form state is read via
+  // `useManualFormStore.getState()` inside the effect body (the same
+  // pattern useFormSessionSync uses).
+  //
+  // Background: this hook used to do `const { updateFormData, formData } =
+  // useManualFormStore()` (whole-store subscription) and list ~10
+  // `formData.X` fields as effect deps. Every prefill commit triggered
+  // updateFormData, which created a new `formData` reference, which
+  // re-fired the effect. The `hasPrefilledRef` gate broke the loop in
+  // the happy case, but during the bootstrap settling window — when
+  // `sessionData` churns (useBootstrapSync hydrate, restoration merge,
+  // late-arriving package fields) — `optionalPrefillSig` flips, resets
+  // the gate, and the cycle runs again. Combined with the parallel
+  // bootstrap cascade, this kept tripping the React #185 cascade traced
+  // in the Mercury accountant existing-report flow.
+  //
+  // After this hardening, the only re-fire triggers are:
+  //   • sessionData reference change (real new session payload)
+  //   • reportId change (SPA navigation)
+  //   • restorationComplete flips true
+  //   • bootstrap object reference change (settled / errored / mode flip)
+  // Form mutations no longer feed back into this hook.
   const sessionData = useSessionStore((state) => state.session?.sessionData) as
     | SessionPrefillMergedData
     | undefined
   const reportId = useSessionStore((state) => state.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
-  const { updateFormData, formData } = useManualFormStore()
+  const updateFormData = useManualFormStore((s) => s.updateFormData)
   const hasPrefilledRef = useRef(false)
   const cancelledRef = useRef(false)
   const lastReportIdRef = useRef<string | undefined>(undefined)
@@ -106,6 +130,11 @@ export function useSessionDataPrefill() {
     if (!restorationComplete) {
       return
     }
+    // Read live form state via getState() — never close over the React-subscribed
+    // copy. Subscription was removed to break the self-feedback loop (updateFormData
+    // → formData change → effect re-fires → updateFormData → ...). See hook header
+    // for full reasoning.
+    const formData = useManualFormStore.getState().formData
     // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
     // Restoration (loadSession) is async - form may stay blank until it completes.
     // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
@@ -433,8 +462,10 @@ export function useSessionDataPrefill() {
       // DCF/NAV/SaaS/etc.: coalesced with useSessionOptionalMethodPrefill via queueOptionalGapFillFlush
       // Apply identity + contextual updates first so optional merge sees overlays in getState().
       if (!cancelledRef.current && Object.keys(updates).length > 0) {
-        updateFormData(updates)
+        // Mark applied BEFORE the write so the (cancelled) re-fire path bails
+        // cleanly even if it sneaks in. Atomic-set under React 18 batching.
         hasPrefilledRef.current = true
+        updateFormData(updates)
 
         generalLogger.info('[useSessionDataPrefill] Form prefilled from Mercury session data', {
           fields: Object.keys(updates),
@@ -458,27 +489,11 @@ export function useSessionDataPrefill() {
     return () => {
       cancelledRef.current = true
     }
-  }, [
-    sessionData,
-    formData.company_name,
-    formData.kbo_number,
-    formData.business_type_id,
-    updateFormData,
-    bootstrap?.report?.mode,
-    bootstrap?.report?.hasExistingData,
-    bootstrap?.report?.hasValuationResult,
-    bootstrap?.hasPrefilledData,
-    bootstrap?.prefillData,
-    reportId,
-    restorationComplete,
-    bootstrap,
-    formData.business_context,
-    formData.comparables,
-    formData.current_year_data,
-    formData.filing_year_confirmed,
-    formData.forecast_years_data,
-    formData.historical_years_data,
-    formData.recurring_revenue_percentage,
-    formData.subIndustry,
-  ])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `bootstrap` is the
+    // canonical re-fire trigger (its identity changes when bootstrap settles or
+    // mode/prefill flips); the destructured `bootstrap?.X` paths used inside the
+    // body are read from that captured reference. Adding them as separate deps
+    // would not surface different snapshots — and would add no-op churn. Form
+    // fields are deliberately NOT subscribed (see hook header).
+  }, [sessionData, updateFormData, reportId, restorationComplete, bootstrap])
 }

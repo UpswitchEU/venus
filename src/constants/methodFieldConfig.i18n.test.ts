@@ -19,11 +19,25 @@ describe('QUALITY_WARNING_ASSISTANT_CTA_CONFIG i18n coverage', () => {
     const en = readMessages('en').chatAssistant ?? {}
     const nl = readMessages('nl').chatAssistant ?? {}
 
-    for (const cfg of Object.values(QUALITY_WARNING_ASSISTANT_CTA_CONFIG)) {
-      expect(Object.hasOwn(en, cfg.labelKey)).toBe(true)
-      expect(Object.hasOwn(en, cfg.promptKey)).toBe(true)
-      expect(Object.hasOwn(nl, cfg.labelKey)).toBe(true)
-      expect(Object.hasOwn(nl, cfg.promptKey)).toBe(true)
+    // Walk every property whose name ends in `Key` so new fields added to
+    // the config (e.g. titleKey / bodyKey) are automatically covered without
+    // having to remember to update this test.
+    for (const [type, cfg] of Object.entries(QUALITY_WARNING_ASSISTANT_CTA_CONFIG)) {
+      for (const [field, value] of Object.entries(cfg as Record<string, unknown>)) {
+        if (!field.endsWith('Key')) continue
+        if (typeof value !== 'string') continue
+        expect(Object.hasOwn(en, value), `EN missing ${field} (${value}) for ${type}`).toBe(true)
+        expect(Object.hasOwn(nl, value), `NL missing ${field} (${value}) for ${type}`).toBe(true)
+      }
     }
+  })
+
+  it('rewritten method_substitution title no longer leads with "could not"', () => {
+    const en = readMessages('en').chatAssistant as Record<string, string>
+    const nl = readMessages('nl').chatAssistant as Record<string, string>
+    // Regression guard against the original failure-led copy. The advisor
+    // must NOT see "could not be executed" at the top of a successful report.
+    expect(en.qualityTitleMethodSubstitution.toLowerCase()).not.toMatch(/could not/)
+    expect(nl.qualityTitleMethodSubstitution.toLowerCase()).not.toMatch(/kon niet/)
   })
 })

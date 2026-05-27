@@ -35,11 +35,26 @@ export function buildManualQualityWarnings({
       const promptDefault =
         (warning.message ?? '') + (warning.recommendation ? ` ${warning.recommendation}` : '')
 
+      // Title + body are also overridable via i18n. The engine voice tends to
+      // lead with the failure ("could not be executed") which reads like the
+      // valuation broke when it actually succeeded with a substitute method.
+      // When no override is configured, pass the engine fields through
+      // verbatim (including `undefined`) so downstream renderers can tell
+      // "engine said nothing" apart from "engine said empty string".
+      const engineMessage = warning.message
+      const engineRecommendation = warning.recommendation
+      const title = cta
+        ? translateCta(cta.titleKey, (engineMessage ?? '').trim())
+        : engineMessage
+      const recommendation = cta
+        ? translateCta(cta.bodyKey, (engineRecommendation ?? '').trim())
+        : engineRecommendation
+
       return {
         type,
         severity: warning.severity ?? 'high',
-        message: warning.message,
-        recommendation: warning.recommendation,
+        message: title,
+        recommendation,
         step_number: warning.step_number,
         cta_label: cta ? translateCta(cta.labelKey, labelDefault) : labelDefault,
         cta_prompt: cta ? translateCta(cta.promptKey, promptDefault) : promptDefault,

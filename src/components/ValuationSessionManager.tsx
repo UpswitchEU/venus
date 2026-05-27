@@ -270,7 +270,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         // guard, but the surrounding re-render churn (Radix composeRefs
         // cleanup chain across every commit) compounded into a Maximum update
         // depth crash. We derive a minimal identity from auth + clientContext
-        // now, set the engine, then advance status — never the other way around.
+        // now and seed `session` + `engine` + `status='loaded'` in a single
+        // atomic `setState` (see `seedOptimisticMercuryShell` on the store).
+        // The previous three-call sequence (`hydrateSession` → `setEngine` →
+        // `completeInitialization`) fired three separate Zustand notifications
+        // during the bootstrap in-flight window. Each notification triggered
+        // a separate React commit; with many subscribers below ManualLayout
+        // (form/store hooks, Radix-driven UI, framer-motion children), three
+        // back-to-back commits compounded with composeRefs / Provider value
+        // churn into the same React #185 cascade the engine-null fix was
+        // supposed to close. Collapsing to one notification removes the
+        // intermediate states ('session set / engine null', 'engine set /
+        // status idle') that subscribers used to observe and re-render
+        // against.
         // If auth hasn't settled enough to produce an identity, we bail and let
         // the bootstrap path own initialization.
         const seedIdentity = buildSeedIdentity({
@@ -288,30 +300,26 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           current.clearSession()
         }
 
-        const now = new Date()
+        const engineWasNullAtSeed = !current.engine
         optimisticMercuryShellSeededRef.current = reportId
-        const store = useSessionStore.getState()
-        store.hydrateSession({
-          reportId,
-          currentView: 'manual',
-          dataSource: 'manual',
-          createdAt: now,
-          updatedAt: now,
-          partialData: {},
-          sessionData: {
-            _bootstrapPrefill: false,
-            _optimisticMercuryShell: true,
-          } as ValuationSession['sessionData'],
+        useSessionStore.getState().seedOptimisticMercuryShell({
+          seedSession: {
+            reportId,
+            currentView: 'manual',
+            dataSource: 'manual',
+            partialData: {},
+            sessionData: {
+              _bootstrapPrefill: false,
+              _optimisticMercuryShell: true,
+            } as ValuationSession['sessionData'],
+          },
+          identity: seedIdentity,
         })
-        if (!store.engine) {
-          store.setEngine(seedIdentity)
-        }
-        store.completeInitialization()
         generalLogger.info('[SessionManager] Seeded optimistic Mercury shell', {
           reportId: reportId.substring(0, 30),
           delayMs: MERCURY_OPTIMISTIC_SHELL_DELAY_MS,
           identityType: seedIdentity.type,
-          engineWasNullAtSeed: !current.engine,
+          engineWasNullAtSeed,
         })
       }, MERCURY_OPTIMISTIC_SHELL_DELAY_MS)
 

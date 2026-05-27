@@ -441,6 +441,16 @@ export function useBootstrapSync(): {
   const lastSyncSignatureRef = useRef<string | undefined>(undefined)
   /** Enables re-sync when navigating to another report without remounting ManualLayout */
   const lastSyncedReportIdRef = useRef<string | undefined>(undefined)
+  /**
+   * Microtask scheduling guard. Set to the signature of the sync we've
+   * already scheduled (not yet drained). Prevents double-scheduling when
+   * the effect re-fires between `queueMicrotask` and the microtask
+   * actually running — e.g. if BootstrapProvider's `setState` from
+   * `setEngine` triggers another bootstrap state update in the same
+   * tick. Cleared inside the microtask body before the writes happen
+   * so the next legitimate signature change can schedule again.
+   */
+  const syncScheduledForSignatureRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (!bootstrap) {
@@ -451,6 +461,7 @@ export function useBootstrapSync(): {
     if (reportId && lastSyncedReportIdRef.current && lastSyncedReportIdRef.current !== reportId) {
       hasSyncedRef.current = false
       lastSyncSignatureRef.current = undefined
+      syncScheduledForSignatureRef.current = undefined
       setIsSynced(false)
       logger.info('Bootstrap reportId changed — resetting sync gate for new valuation', {
         previousReportId: lastSyncedReportIdRef.current.substring(0, 30),
@@ -476,31 +487,72 @@ export function useBootstrapSync(): {
     if (hasSyncedRef.current && syncSignature === lastSyncSignatureRef.current) {
       return
     }
-
-    // Perform sync
-    syncIdentity(state)
-    syncSession(state)
-    syncClientContext(state)
-
-    // CRITICAL: For new reports, syncSession creates session in store synchronously.
-    // completeInitialization sets status='loaded' so UI exits loading state.
-    // For existing reports, syncSession triggers async loadSession - don't override.
-    if (state.report.mode === 'new') {
-      useSessionStore.getState().completeInitialization()
+    // Already scheduled for this exact signature — let the in-flight microtask
+    // finish; re-scheduling would queue duplicate writes against the same data.
+    if (syncScheduledForSignatureRef.current === syncSignature) {
+      return
     }
+    syncScheduledForSignatureRef.current = syncSignature
 
-    hasSyncedRef.current = true
-    lastSyncSignatureRef.current = syncSignature
-    if (reportId) {
-      lastSyncedReportIdRef.current = reportId
-    }
-    setIsSynced(true)
+    // Defer the cross-store sync to a microtask — see history comment below.
+    //
+    // syncSession mutates two stores synchronously (session via
+    // `hydrateSessionAndComplete`, form via `updateFormData`), and
+    // syncClientContext mutates a third (clientContext via
+    // `setClientContext`). Running them inside the current useEffect
+    // body means subscribers downstream of `bootstrap` (BootstrapProvider
+    // value, ManualLayout's hook chain) see those notifications in the
+    // SAME tick as the bootstrap state update — compounding with the
+    // engine-swap commit BootstrapProvider does immediately after
+    // `setState(result)` (BootstrapProvider line 499). The combined
+    // cascade is what kept tripping React #185 in the Mercury accountant
+    // existing-report flow even after the engine-null + atomic-seed +
+    // useBootstrapPrefill microtask fixes — same root cause (multiple
+    // store notifications inside one commit window), different surface.
+    //
+    // queueMicrotask runs after the current commit's subscribers settle
+    // but before paint, so we don't introduce a visible empty→filled
+    // flash. React 18 auto-batches the resulting setStates across stores
+    // into a single re-render per subscriber.
+    queueMicrotask(() => {
+      // Re-check: bootstrap may have errored/been cleared between schedule
+      // and drain. The captured `state` is fine to use (we copied it at
+      // schedule time and won't react to mutations), but we want to honour
+      // a fresh error if one came in.
+      if (bootstrap.bootstrapError) {
+        syncScheduledForSignatureRef.current = undefined
+        return
+      }
 
-    logger.info('Bootstrap sync complete', {
-      syncStatus: syncStatusRef.current,
-      identityType: state.identity.type,
-      reportMode: state.report.mode,
-      prefillConfidence: state.prefillData.confidence.toFixed(2),
+      syncIdentity(state)
+      syncSession(state)
+      syncClientContext(state)
+
+      // CRITICAL: For new reports, syncSession creates session in store synchronously.
+      // completeInitialization sets status='loaded' so UI exits loading state.
+      // For existing reports, syncSession already flipped status='loaded' via
+      // `hydrateSessionAndComplete` (atomic with the session hydrate).
+      if (state.report.mode === 'new') {
+        useSessionStore.getState().completeInitialization()
+      }
+
+      hasSyncedRef.current = true
+      lastSyncSignatureRef.current = syncSignature
+      if (reportId) {
+        lastSyncedReportIdRef.current = reportId
+      }
+      // Clear the schedule guard AFTER the writes so a re-render between
+      // here and the next effect run can re-schedule if the signature has
+      // legitimately changed.
+      syncScheduledForSignatureRef.current = undefined
+      setIsSynced(true)
+
+      logger.info('Bootstrap sync complete (deferred)', {
+        syncStatus: syncStatusRef.current,
+        identityType: state.identity.type,
+        reportMode: state.report.mode,
+        prefillConfidence: state.prefillData.confidence.toFixed(2),
+      })
     })
   }, [bootstrap])
 
@@ -841,7 +893,14 @@ function syncSession(state: SessionBootstrapState): void {
             minimalSession.valuationResult = pricingRangeToValuationResult(pkg.pricingRange)
           }
         }
-        sessionStore.hydrateSession(minimalSession)
+        // Atomic hydrate + status='loaded' — see `hydrateSessionAndComplete`
+        // on the session store for the React #185 cascade history. The prior
+        // pair (`hydrateSession` here + `completeInitialization` below) used
+        // to fire two separate Zustand notifications in the same microtask,
+        // and downstream Radix/framer subscribers cascaded into the
+        // "Maximum update depth exceeded" path on the Mercury accountant
+        // existing-report flow.
+        sessionStore.hydrateSessionAndComplete(minimalSession)
 
         if (hasPrefill) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
@@ -869,15 +928,10 @@ function syncSession(state: SessionBootstrapState): void {
         })
       }
 
-      // FLIP status='loaded' so downstream gates (ManualLayout.isInitializing,
-      // ValuationSessionManager stage='data-entry') unblock immediately rather
-      // than waiting for ValuationSessionManager's subsequent loadSession() to
-      // complete. The minimal session carries prefill + (optional) valuation
-      // package data — enough for the wizard chrome to render. loadSession()
-      // still runs in the background when assets are missing, but is now
-      // refresh-aware (useSessionStore.ts) and won't kick the UI back to
-      // skeleton mid-refresh.
-      sessionStore.completeInitialization()
+      // `status='loaded'` was already committed atomically by
+      // `hydrateSessionAndComplete` above — no separate
+      // `completeInitialization` call here (was the second Zustand
+      // notification that compounded the cascade).
 
       // SINGLE-OWNER: Do NOT call loadSession here.
       // ValuationSessionManager is the sole owner of session loading for existing reports.

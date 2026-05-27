@@ -19,11 +19,8 @@ import { cn } from '@/design-system/utils'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
 import { AiConsentModal } from './AiConsentModal'
-import {
-  PendingFieldUpdatesCard,
-  QualityWarningRail,
-  StartupIssueRail,
-} from './ChatAssistantAttentionRails'
+import { AttentionSummary } from './AttentionSummary'
+import { PendingFieldUpdatesCard } from './ChatAssistantAttentionRails'
 import { ChatAssistantComposer } from './ChatAssistantComposer'
 import type { ChatAssistantDrawerProps } from './ChatAssistantDrawer.types'
 import {
@@ -362,17 +359,15 @@ export function ChatAssistantDrawer({
               onChange={handleFileChange}
             />
 
-            <StartupIssueRail
+            <AttentionSummary
               startupIssues={startupIssues}
-              onDismissStartupIssue={onDismissStartupIssue}
+              qualityWarnings={qualityWarnings}
               onResolveStartupIssue={onResolveStartupIssue}
               onApplyStartupIssueQuickFix={onApplyStartupIssueQuickFix}
               onJumpToStartupIssue={onJumpToStartupIssue}
-            />
-            <QualityWarningRail
-              qualityWarnings={qualityWarnings}
-              onDismissQualityWarning={onDismissQualityWarning}
+              onDismissStartupIssue={onDismissStartupIssue}
               onResolveQualityWarning={onResolveQualityWarning}
+              onDismissQualityWarning={onDismissQualityWarning}
             />
             <PendingFieldUpdatesCard
               pendingUpdates={pendingUpdates}

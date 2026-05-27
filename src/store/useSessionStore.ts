@@ -102,6 +102,38 @@ interface SessionStore {
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
   completeInitialization: () => void
+  /**
+   * Atomic seed used by the Mercury optimistic shell.
+   *
+   * Replaces the prior three-call sequence (`hydrateSession` →
+   * `setEngine` → `completeInitialization`) which fired three separate
+   * Zustand notifications during the bootstrap in-flight window. With
+   * many subscribers below ManualLayout (form/store hooks, session
+   * panels, Radix-driven UI), three back-to-back commits compounded
+   * with composeRefs / context Provider churn into the React #185
+   * "Maximum update depth exceeded" cascade traced in the accountant
+   * existing-report flow on 2026-05-26.
+   *
+   * One `set()` collapses the cascade to a single notification cycle.
+   */
+  seedOptimisticMercuryShell: (params: {
+    seedSession: Partial<ValuationSession> & { reportId: string }
+    identity: IdentityState
+  }) => void
+  /**
+   * Atomic hydrate that also advances `status` to `'loaded'` in the same
+   * Zustand `set()`. Used by `useBootstrapSync` after Titan returns the
+   * existing-report payload so subscribers see the new session + the
+   * status flip as a single commit instead of two (`hydrateSession`
+   * notification → `completeInitialization` notification).
+   *
+   * The two-call form was the second source of React #185 cascades in
+   * the same Mercury accountant flow — separate from (but symmetric to)
+   * the optimistic-shell seed cascade fixed by `seedOptimisticMercuryShell`.
+   * `errorMessage` and `renderError` are cleared as part of the same
+   * commit so the loaded state is internally consistent.
+   */
+  hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => void
 
   // Restoration actions
   setRestorationComplete: (value: boolean) => void
@@ -220,6 +252,151 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       engineType: 'AuthenticatedSessionEngine',
       hydratedExistingSession: !!existingSession,
     })
+  },
+
+  seedOptimisticMercuryShell: ({ seedSession, identity }) => {
+    const engine = createSessionEngine(identity)
+    const now = seedSession.updatedAt || seedSession.createdAt || new Date()
+    const builtSession: ValuationSession = {
+      reportId: seedSession.reportId,
+      currentView: seedSession.currentView || 'manual',
+      dataSource: seedSession.dataSource || 'manual',
+      createdAt: seedSession.createdAt || now,
+      updatedAt: now,
+      sessionData: seedSession.sessionData || {},
+      partialData: seedSession.partialData || {},
+      ...(seedSession.status && { status: seedSession.status }),
+      ...(seedSession.reportReady !== undefined && { reportReady: seedSession.reportReady }),
+      ...(seedSession.name && { name: seedSession.name }),
+      ...(seedSession.valuationResult && { valuationResult: seedSession.valuationResult }),
+      ...(seedSession.htmlReport && { htmlReport: seedSession.htmlReport }),
+    } as ValuationSession
+
+    // Hydrate the engine's internal copy BEFORE the single setState so it
+    // matches the session we expose. `engine.hydrateSession` is a method
+    // call, not a Zustand notification — it does not trigger subscriber
+    // re-renders. The atomic `set()` below is the only React-visible commit.
+    engine.hydrateSession(builtSession)
+
+    set({
+      session: builtSession,
+      engine,
+      status: 'loaded' as SessionStatus,
+      errorMessage: null,
+      renderError: null,
+    })
+
+    // `restorationComplete` stays false on the optimistic shell path so the
+    // gap-fill helper bails (see `queueOptionalGapFillFlush`). The real
+    // restoration sets it later via `setRestorationComplete(true)`.
+
+    storeLogger.debug('[Session] Optimistic Mercury shell seeded atomically', {
+      reportId: builtSession.reportId.substring(0, 30),
+      identityType: identity.type,
+    })
+  },
+
+  hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => {
+    const state = get()
+
+    // Build the next session the same way `hydrateSession` does so the
+    // contract stays identical — but commit `status='loaded'` in the same
+    // `set()` to remove the two-step ('session updated → status flipped')
+    // window that subscribers used to observe and re-render against.
+    if (!state.engine) {
+      if (!updates.reportId && !state.session) {
+        storeLogger.warn('[Session] Cannot hydrate+complete - engine and reportId both missing')
+        // Still flip status='loaded' so the UI exits the skeleton; otherwise the
+        // caller is stuck waiting on a payload that never arrives. Matches
+        // `completeInitialization`'s tolerant contract.
+        set({ status: 'loaded' as SessionStatus, errorMessage: null, renderError: null })
+        return
+      }
+
+      set((current) => {
+        const reportId = updates.reportId ?? current.session?.reportId
+        if (!reportId) {
+          return {
+            session: current.session,
+            status: 'loaded' as SessionStatus,
+            errorMessage: null,
+            renderError: null,
+            hasUnsavedChanges: current.hasUnsavedChanges,
+            dirtyVersion: current.dirtyVersion,
+          }
+        }
+
+        const nextSession = current.session
+          ? {
+              ...current.session,
+              ...updates,
+              sessionData: updates.sessionData
+                ? {
+                    ...(current.session?.sessionData || {}),
+                    ...updates.sessionData,
+                  }
+                : current.session?.sessionData,
+              partialData: updates.partialData
+                ? {
+                    ...(current.session?.partialData || {}),
+                    ...updates.partialData,
+                  }
+                : current.session?.partialData,
+            }
+          : ({
+              reportId,
+              currentView: updates.currentView || 'manual',
+              dataSource: updates.dataSource || 'manual',
+              createdAt: updates.createdAt || new Date(),
+              updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+              sessionData: updates.sessionData || {},
+              partialData: updates.partialData || {},
+              ...(updates.status && { status: updates.status }),
+              ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+              ...(updates.name && { name: updates.name }),
+              ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+              ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+              ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
+            } as ValuationSession)
+
+        return {
+          session: nextSession,
+          status: 'loaded' as SessionStatus,
+          errorMessage: null,
+          renderError: null,
+          hasUnsavedChanges: current.hasUnsavedChanges,
+          dirtyVersion: current.dirtyVersion,
+        }
+      })
+      scheduleOptionalGapFillAfterHydrate()
+      storeLogger.debug('[Session] Hydrated + completed atomically (no engine)', {
+        reportId: updates.reportId?.substring(0, 30) ?? state.session?.reportId?.substring(0, 30),
+      })
+      return
+    }
+
+    state.engine.hydrateSession(updates)
+
+    const updatedSession = state.engine.getSession()
+    if (updatedSession) {
+      set({
+        session: updatedSession,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+        renderError: null,
+        hasUnsavedChanges: state.hasUnsavedChanges,
+        dirtyVersion: state.dirtyVersion,
+      })
+      scheduleOptionalGapFillAfterHydrate()
+      storeLogger.debug('[Session] Hydrated + completed atomically (with engine)', {
+        reportId: updatedSession.reportId?.substring(0, 30),
+      })
+    } else {
+      // Engine accepted the hydrate but returned no session — still flip
+      // status='loaded' so the UI exits the skeleton. Symmetric with the
+      // `completeInitialization` tolerance.
+      set({ status: 'loaded' as SessionStatus, errorMessage: null, renderError: null })
+    }
   },
 
   /**
