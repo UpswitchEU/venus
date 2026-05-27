@@ -2,10 +2,28 @@
    UPSWITCH VALUATION REPORT - HYBRID AURORA DESIGN SYSTEM
    ============================================================================
    Big 4 Professional Standards | Multi-Country Legal Compliance (BE/NL) | A4 Print-Ready
-   
+
+   ROLE: Defensive fallback layer, NOT the source of truth.
+   ----------------------------------------------------------------------------
+   The canonical stylesheet for the embedded valuation report lives inline in
+   apps/valuation-iq/src/templates/main_report/base.html (single <style> block,
+   ~1100 lines). At runtime it ships INSIDE the HTML the sanitizer re-injects
+   (see apps/venus/src/utils/htmlProcessor.ts:sanitizeExtractedCSS).
+
+   This file ONLY provides a minimal baseline so that if the template <style>
+   ever drops out again (e.g. a future CSS construct trips the sanitizer's
+   safety policy), the cover/page chrome still has tokens to read.
+
+   ⚠️ When you edit this file, DO NOT try to keep it 1:1 with the template —
+   that path leads to drift. Keep it scoped to the durable token set
+   (--report-slate-*, --report-teal*, --report-bg/surface/text/text-muted) and
+   a small number of skeleton .valuation-report rules. Anything richer
+   (--space-*, --font-size-*, .cover-*, .callout, .badge, etc.) belongs in
+   the template and reaches the DOM via the inline <style>.
+
    Color System (60/30/10):
    - 60% Deep Slate (#14171d) - Canvas
-   - 30% Aurora Teal (#2ba899) - Primary/Authority  
+   - 30% Aurora Teal (#2ba899) - Primary/Authority
    - 10% Burnt Clay (#c87f63) - Accent/CTA
    ============================================================================ */
 

@@ -11,13 +11,23 @@
 /* Import Valuation Report Print (Aurora tokens for .valuation-report) */
 @import "../src/styles/valuation-report-print.css";
 
-/* Valuation Report container (ValuationIQ HTML) */
-/* Screen: use --report-bg (white) from valuation-report-print.css for Clarity parity */
-/* Print: white for PDF export */
-.valuation-report {
+/* Valuation Report container (ValuationIQ HTML)
+ *
+ * Layout rules live on `.valuation-report-container` — the OUTER scrollable
+ * wrapper that every report-mounting surface owns (ManualReportWorkspace,
+ * FullscreenReportModal, Results, SafeReportHtml callers). They MUST NOT live
+ * on `.valuation-report`, because the rendered HTML carries that class on the
+ * template's inner wrapper (`base.html` `<div class="valuation-report">`) as
+ * well as on Venus' JSX wrapper that holds the dangerouslySetInnerHTML root.
+ * A `.valuation-report` padding rule therefore applies twice and the cover
+ * page ends up with double gutter / nested scroll.
+ *
+ * Typography + colour for `.valuation-report` come from
+ * src/styles/valuation-report-print.css (idempotent — safe to match the
+ * selector multiple times). Print overrides stay here, scoped narrowly.
+ */
+.valuation-report-container {
   padding: 24px;
-  min-height: 100%;
-  overflow-y: auto;
 }
 
 @media print {

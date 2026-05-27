@@ -170,6 +170,27 @@ function estimateJsonByteLength(value: unknown): number {
   }
 }
 
+/**
+ * Break down a valuation-result PUT body by top-level field so the "oversized"
+ * log can point at the elephant. The strip path only touches `htmlReport`-shaped
+ * keys; if those are small but the body is huge, the bloater is almost always
+ * `sessionData` (normalization snapshots) or `valuationResult` (residual
+ * details). Without this breakdown the operator only sees `blobLengths`,
+ * which shows the *string* blobs and misses object-shaped fields entirely.
+ */
+function getConfigBodyFieldByteLengths(config: AxiosRequestConfig): Record<string, number> {
+  const data = config.data
+  if (!isUnknownRecord(data)) {
+    return {}
+  }
+  const lengths: Record<string, number> = {}
+  for (const key of Object.keys(data)) {
+    if (data[key] === undefined) continue
+    lengths[key] = estimateJsonByteLength(data[key])
+  }
+  return lengths
+}
+
 function withoutConfigReportBlobs(config: AxiosRequestConfig): AxiosRequestConfig | null {
   if (!isValuationResultSaveConfig(config) || !hasConfigReportBlobs(config)) {
     return null
@@ -458,6 +479,9 @@ export class HttpClient {
         estimatedBodyBytes: prepared.estimatedBodyBytes,
         limitBytes: VALUATION_RESULT_HTML_OMIT_BYTES,
         blobLengths: getConfigReportBlobLengths(config),
+        // Per-field breakdown so we can identify the bloater when the html
+        // blobs alone are tiny (typically sessionData / valuationResult).
+        fieldByteLengths: getConfigBodyFieldByteLengths(config),
       })
     }
 
@@ -493,6 +517,7 @@ export class HttpClient {
         apiLogger.warn('[HttpClient] Retrying valuation result request without report blobs', {
           url: config.url,
           blobLengths: getConfigReportBlobLengths(config),
+          fieldByteLengths: getConfigBodyFieldByteLengths(config),
         })
         return this.executeRequest<T>(retryWithoutReportBlobs, {
           ...options,

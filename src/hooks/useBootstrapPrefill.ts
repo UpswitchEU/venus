@@ -78,6 +78,11 @@ export function useBootstrapPrefill(): {
   const bootstrapRef = useRef(bootstrap)
   bootstrapRef.current = bootstrap
   const hasPrefilledRef = useRef(false)
+  // Belt-and-suspenders against the (theoretically impossible) case where the
+  // useLayoutEffect re-fires before the queued microtask drains: scheduling is
+  // strictly at-most-once per hook lifetime. Resets only on remount, which is
+  // the same lifetime as the global prefill flags below.
+  const scheduledRef = useRef(false)
   const [hasPrefilled, setHasPrefilled] = useState(false)
 
   // Get form store actions - access via getState to avoid re-renders
@@ -157,9 +162,12 @@ export function useBootstrapPrefill(): {
     // Get current report ID to track which report we've prefilled
     const currentReportId = bootstrap.report.reportId
 
-    // Reset prefill state when navigating to a different report (enables prefill for new report)
+    // Reset prefill state when navigating to a different report (enables prefill for new report).
+    // scheduledRef is reset here too so the new report can schedule its own microtask — the previous
+    // report's microtask has already drained by then (microtasks fire before any SPA nav).
     if (currentReportId && currentReportId !== globalPrefillReportId) {
       resetBootstrapPrefillState()
+      scheduledRef.current = false
     }
 
     // Skip if already prefilled for THIS report (prevents re-prefill on re-mount)
@@ -172,14 +180,21 @@ export function useBootstrapPrefill(): {
     // Skip if no meaningful prefill data (country-only may still be <0.05 if weights change — keep NL/BE path)
     if (!hasMeaningfulPrefill) {
       const countryOnly = resolveCountryCode(bootstrap.prefillData.companyInfo?.countryCode)
+      // Defer the only store write on this branch (country_code on a new
+      // report) out of the commit phase, symmetric with the main prefill
+      // path below. Single-store and value-checked, so the cascade surface
+      // is smaller than the four-store path, but the principle holds: never
+      // mutate Zustand inside a useLayoutEffect commit.
       if (bootstrap.report.mode === 'new' && countryOnly) {
-        const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
-        if (cur !== countryOnly) {
-          formStore.getState().updateFormData({ country_code: countryOnly })
-        }
-        logger.info('Applied bootstrap country prefill (below confidence threshold)', {
-          country_code: countryOnly,
-          confidence: bootstrap.prefillData.confidence,
+        queueMicrotask(() => {
+          const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
+          if (cur !== countryOnly) {
+            formStore.getState().updateFormData({ country_code: countryOnly })
+          }
+          logger.info('Applied bootstrap country prefill (below confidence threshold)', {
+            country_code: countryOnly,
+            confidence: bootstrap.prefillData.confidence,
+          })
         })
       } else {
         logger.debug('No meaningful prefill data from bootstrap', {
@@ -187,6 +202,10 @@ export function useBootstrapPrefill(): {
           confidence: bootstrap.prefillData.confidence,
         })
       }
+      // Guards stay synchronous: there is no scheduled write on the "else"
+      // path, and the country-write microtask is idempotent + value-checked,
+      // so marking applied immediately is safe and prevents the effect from
+      // re-firing this branch on subsequent bootstrap context churn.
       globalPrefillApplied = true
       globalPrefillReportId = currentReportId
       hasPrefilledRef.current = true
@@ -199,45 +218,44 @@ export function useBootstrapPrefill(): {
     // Get form store actions directly to avoid stale closures
     const { updateFormData, prefillFromBusinessCard } = formStore.getState()
 
-    // Apply prefill synchronously inside useLayoutEffect. Previously this was
-    // wrapped in queueMicrotask defensively against React #185 ("Cannot update
-    // a component while rendering a different component"), but:
-    //  • applyPrefillToForm makes a SINGLE batched updateFormData call (line
-    //    846); subscribers see the full update atomically, not a cascade.
-    //  • prefillFromBusinessCard already defers itself via requestAnimationFrame
-    //    (see useManualFormStore.ts:182), so the original render-phase hazard
-    //    it carried is already neutralised at the store level.
-    //  • re-entry into this effect is guarded by globalPrefillApplied /
-    //    hasPrefilledRef before any state mutation, so subscriber re-renders
-    //    triggered by our update cannot re-enter and loop.
-    //  • setHasPrefilled is React state, batched into the same commit as the
-    //    Zustand notification inside React 18.
-    // Net effect: bootstrap prefill paints in the same frame as the mount of
-    // ManualLayoutLoaded — no sub-frame empty→filled flash for KBO number,
-    // NACE, financials, or any other prefilled field.
-    applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard)
+    // Defer prefill out of the useLayoutEffect commit phase. applyPrefillToForm
+    // synchronously mutates four Zustand stores (NBB, TaxLatency, Normalization,
+    // ManualForm); doing that during commit re-opens the React #185 (Maximum
+    // update depth) cascade in the Mercury accountant flow where bootstrap
+    // settles well after first commit. queueMicrotask runs after the current
+    // commit completes but before paint, so the user still doesn't see an
+    // empty→filled flash. Guard sets move inside the microtask so the
+    // formDataAfterPrefill log reflects the post-apply state; scheduledRef is
+    // the strict at-most-once guard for the schedule itself, in case the
+    // bootstrap context churns within the microsecond window between
+    // queueMicrotask() and drain.
+    if (scheduledRef.current) return
+    scheduledRef.current = true
+    queueMicrotask(() => {
+      applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard)
 
-    const formDataAfterPrefill = formStore.getState().formData
+      const formDataAfterPrefill = formStore.getState().formData
 
-    globalPrefillApplied = true
-    globalPrefillReportId = currentReportId
-    hasPrefilledRef.current = true
-    setHasPrefilled(true)
+      globalPrefillApplied = true
+      globalPrefillReportId = currentReportId
+      hasPrefilledRef.current = true
+      setHasPrefilled(true)
 
-    logger.info('Applied bootstrap prefill to form', {
-      sources: prefillData.sources,
-      confidence: prefillData.confidence.toFixed(2),
-      fieldsPopulated: prefillData.fieldsPopulated.length,
-      fieldsRemaining: prefillData.fieldsRemaining.length,
-      hasKboData: !!prefillData.kboData,
-      companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
-      formDataAfterPrefill: {
-        company_name: formDataAfterPrefill.company_name?.substring(0, 30),
-        hasKboNumber: !!formDataAfterPrefill.kbo_number,
-        hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
-        hasFoundingYear: !!formDataAfterPrefill.founding_year,
-        hasBusinessContext: !!formDataAfterPrefill.business_context,
-      },
+      logger.info('Applied bootstrap prefill to form (deferred)', {
+        sources: prefillData.sources,
+        confidence: prefillData.confidence.toFixed(2),
+        fieldsPopulated: prefillData.fieldsPopulated.length,
+        fieldsRemaining: prefillData.fieldsRemaining.length,
+        hasKboData: !!prefillData.kboData,
+        companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
+        formDataAfterPrefill: {
+          company_name: formDataAfterPrefill.company_name?.substring(0, 30),
+          hasKboNumber: !!formDataAfterPrefill.kbo_number,
+          hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
+          hasFoundingYear: !!formDataAfterPrefill.founding_year,
+          hasBusinessContext: !!formDataAfterPrefill.business_context,
+        },
+      })
     })
   }, [bootstrap])
 

@@ -78,7 +78,29 @@ export class HTMLProcessor {
 
     if (!trimmed) return ''
 
-    const normalizedForPolicy = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').toLowerCase()
+    // Strip @import / @font-face surgically before the unsafe-pattern check.
+    // The valuation-iq template loads remote font CDNs via
+    // `@import url('https://fonts.googleapis.com/...')` at the top of its
+    // `<style>` block; under the previous whole-block policy this single line
+    // tripped /@import/ and /url\s*\(/ and the entire stylesheet was dropped,
+    // leaving the embedded report (cover page, every inner page) with no CSS
+    // at all. Mercury fixed the same regression in
+    // apps/mercury/shared/utils/sanitize-html.ts — this mirrors that approach
+    // so both apps stay in sync.
+    //
+    // External font fetches wouldn't work reliably from a `<style>` injected
+    // via `dangerouslySetInnerHTML` anyway; the report's font stack falls
+    // back to the Inter/system-ui chain already declared in the stylesheet,
+    // so dropping `@import`/`@font-face` is functionally a no-op for the
+    // embedded view.
+    const withoutImports = trimmed
+      .replace(/@import\s+url\([^)]*\)[^;]*;?/gi, '')
+      .replace(/@import\s+["'][^"']*["'][^;]*;?/gi, '')
+      .replace(/@font-face\s*\{[^}]*\}/gi, '')
+      .trim()
+    if (!withoutImports) return ''
+
+    const normalizedForPolicy = withoutImports.replace(/\/\*[\s\S]*?\*\//g, '').toLowerCase()
     const unsafeCssPatterns = [
       /<[^>]+>/,
       /<\/?\s*style\b/,
@@ -101,7 +123,7 @@ export class HTMLProcessor {
       return ''
     }
 
-    return trimmed
+    return withoutImports
   }
 
   /**
