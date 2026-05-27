@@ -132,6 +132,23 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/bootstrapHasExistingSession/)
   })
 
+  it('BootstrapProvider defers valuationPackage hydration synchronously in a microtask', () => {
+    const providerPath = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const providerSource = readFileSync(providerPath, 'utf8')
+    const runBootstrapBlock = providerSource.slice(
+      providerSource.indexOf('const runBootstrap = useCallback'),
+      providerSource.indexOf('const forceRefreshBootstrap = useCallback')
+    )
+    expect(runBootstrapBlock).toMatch(/applyBootstrapPackageHydration\(result\)/)
+    expect(runBootstrapBlock).not.toMatch(/queueMicrotask[\s\S]*await import/)
+
+    const hydrationPath = join(__dirname, '../../lib/bootstrap/packageHydration.ts')
+    const hydrationSource = readFileSync(hydrationPath, 'utf8')
+    expect(hydrationSource).toMatch(/export function applyBootstrapPackageHydration/)
+    expect(hydrationSource).toMatch(/SessionRestorationService\.hydrateFromPackage/)
+    expect(hydrationSource).not.toMatch(/await import/)
+  })
+
   it('useBootstrapSync owns setEngine after Titan bootstrap (not synchronous in BootstrapProvider)', () => {
     const providerPath = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
     const providerSource = readFileSync(providerPath, 'utf8')
@@ -149,12 +166,13 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(syncSource).toMatch(/syncEngine\(state\)/)
   })
 
-  it('useBootstrapPrefill defers bootstrap prefill to useBootstrapSync', () => {
+  it('useBootstrapPrefill defers existing-report prefill to useBootstrapSync', () => {
     const path = join(__dirname, '../../hooks/useBootstrapPrefill.ts')
     const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/useBootstrapSync owns bootstrap form data/)
-    expect(source).toMatch(/const syncOwnsPrefill/)
-    expect(source).toMatch(/bootstrap\.report\.mode === 'new' && hasMeaningfulPrefill/)
+    expect(source).toMatch(/useBootstrapSync owns existing-report bootstrap data/)
+    expect(source).toMatch(
+      /bootstrap\.report\.mode === 'existing' && bootstrap\.report\.hasExistingData/
+    )
   })
 
   it('ValuationSessionManager exits idle when package hydration marked restored', () => {

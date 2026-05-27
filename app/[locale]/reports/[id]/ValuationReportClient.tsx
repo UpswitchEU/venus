@@ -173,8 +173,7 @@ export default function ValuationReportClient({
   // skeleton the whole time without confirmation that they're looking at the
   // right company. Running here, BEFORE any descendant mounts, lets the first
   // paint of ManualLayoutLoaded already show the company name from the URL.
-  // Bootstrap's prefill (now synchronous — see useBootstrapPrefill) overrides
-  // with the canonical registry record in the same commit it returns.
+  // Bootstrap prefill overrides with the canonical registry record when Titan returns.
   //
   // Two responsibilities, both keyed on reportId (so SPA nav re-fires):
   //  1. Reset stale form data when navigating between persisted reports so

@@ -25,7 +25,7 @@ import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
 import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
-import { shouldHydrateBootstrapPackage } from './packageHydration'
+import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
 import type {
@@ -452,78 +452,13 @@ export function BootstrapProvider({
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result)
 
-      // WORLD-CLASS: Instant hydration from valuationPackage
-      // If package is present, hydrate stores immediately for < 100ms render
-      if (shouldHydrateBootstrapPackage(result.report, result.valuationPackage)) {
-        const valuationPackage = result.valuationPackage
-        if (valuationPackage) {
-          try {
-            const { SessionRestorationService } = await import(
-              '../../services/session/SessionRestorationService'
-            )
-            SessionRestorationService.hydrateFromPackage(
-              result.report.reportId,
-              valuationPackage,
-              result.ui.suggestedFlow || 'manual'
-            )
-            generalLogger.debug('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
-              reportId: result.report.reportId.substring(0, 30),
-              hasHtmlReport: !!valuationPackage.htmlReport,
-            })
-          } catch (hydrationError) {
-            generalLogger.warn(
-              '[BootstrapProvider] Package hydration failed - triggering full restoration',
-              {
-                error:
-                  hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
-              }
-            )
-
-            // FALLBACK: Trigger full session restoration when package hydration fails
-            // This ensures data is loaded even if the fast path fails
-            try {
-              const { SessionRestorationService } = await import(
-                '../../services/session/SessionRestorationService'
-              )
-              // Check if report has existing data that needs restoration
-              if (result.report.hasExistingData) {
-                generalLogger.debug(
-                  '[BootstrapProvider] Marking report for fallback restoration...',
-                  {
-                    reportId: result.report.reportId.substring(0, 30),
-                  }
-                )
-                // Mark for restoration so ManualLayout/ConversationalLayout know to restore
-                SessionRestorationService.markForRestoration(result.report.reportId)
-              }
-            } catch (fallbackError) {
-              generalLogger.error('[BootstrapProvider] Fallback restoration setup failed', {
-                error:
-                  fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-              })
-            }
-          }
-        }
-      } else if (result.report.mode === 'existing' && result.report.hasExistingData) {
-        try {
-          const { SessionRestorationService } = await import(
-            '../../services/session/SessionRestorationService'
-          )
-          SessionRestorationService.markForRestoration(result.report.reportId)
-          generalLogger.debug(
-            '[BootstrapProvider] Deferred package hydration until explicit report readiness',
-            {
-              reportId: result.report.reportId.substring(0, 30),
-              reportReady: result.report.reportReady,
-              hasPackage: !!result.valuationPackage,
-            }
-          )
-        } catch (fallbackError) {
-          generalLogger.error('[BootstrapProvider] Failed to mark pending restoration', {
-            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-          })
-        }
-      }
+      // Defer valuationPackage hydration to a microtask so it does not run in the
+      // same commit window as `setState(result)`. The callback must stay synchronous
+      // (no dynamic import) so this microtask finishes before useBootstrapSync's.
+      queueMicrotask(() => {
+        if (!mountedRef.current) return
+        applyBootstrapPackageHydration(result)
+      })
 
       // Session engine is set in useBootstrapSync's deferred microtask together with
       // session/form hydration — avoids a separate Zustand commit between

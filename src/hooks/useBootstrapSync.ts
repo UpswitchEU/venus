@@ -539,10 +539,8 @@ export function useBootstrapSync(): {
     // `setClientContext`). Running them inside the current useEffect
     // body means subscribers downstream of `bootstrap` (BootstrapProvider
     // value, ManualLayout's hook chain) see those notifications in the
-    // SAME tick as the bootstrap state update — compounding with the
-    // engine-swap commit BootstrapProvider does immediately after
-    // `setState(result)` (BootstrapProvider line 499). The combined
-    // cascade is what kept tripping React #185 in the Mercury accountant
+    // SAME tick as the bootstrap state update. The combined cascade is what
+    // kept tripping React #185 in the Mercury accountant
     // existing-report flow even after the engine-null + atomic-seed +
     // useBootstrapPrefill microtask fixes — same root cause (multiple
     // store notifications inside one commit window), different surface.
