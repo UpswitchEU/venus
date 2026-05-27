@@ -149,12 +149,19 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(syncSource).toMatch(/syncEngine\(state\)/)
   })
 
-  it('useBootstrapPrefill defers existing-report prefill to useBootstrapSync', () => {
+  it('useBootstrapPrefill defers bootstrap prefill to useBootstrapSync', () => {
     const path = join(__dirname, '../../hooks/useBootstrapPrefill.ts')
     const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/useBootstrapSync owns existing-report bootstrap data/)
+    expect(source).toMatch(/useBootstrapSync owns bootstrap form data/)
+    expect(source).toMatch(/const syncOwnsPrefill/)
+    expect(source).toMatch(/bootstrap\.report\.mode === 'new' && hasMeaningfulPrefill/)
+  })
+
+  it('ValuationSessionManager exits idle when package hydration marked restored', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
     expect(source).toMatch(
-      /bootstrap\.report\.mode === 'existing' && bootstrap\.report\.hasExistingData/
+      /isRestored\(reportId\)[\s\S]*status !== 'loaded'[\s\S]*completeInitialization/
     )
   })
 

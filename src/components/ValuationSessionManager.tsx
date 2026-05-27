@@ -564,17 +564,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         return
       }
 
-      // Titan returned an existing report but useBootstrapSync has not yet written the
-      // session stub (deferred microtask). Avoid racing loadSession against sync — that
+      // Bootstrap finished but useBootstrapSync has not yet written the session stub
+      // (deferred microtask). Avoid racing loadSession against sync — that
       // double-hydration caused React #185 on Mercury accountant handoffs.
       if (
         bootstrapComplete &&
-        bootstrapHasExistingSession &&
+        (bootstrapHasExistingSession || bootstrapHasNewReport) &&
         (!session || session.reportId !== reportId)
       ) {
         generalLogger.debug(
           '[SessionManager] Session load DEFERRED: waiting for bootstrap→store sync',
-          { reportId: reportId?.substring(0, 30), hasSession: !!session }
+          {
+            reportId: reportId?.substring(0, 30),
+            hasSession: !!session,
+            bootstrapMode: bootstrap?.report.mode,
+          }
         )
         return
       }
@@ -625,6 +629,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               '[SessionManager] Skipping restore - already completed or in progress for reportId',
               { reportId: reportId?.substring(0, 30) }
             )
+            // Package hydration can mark restored before useBootstrapSync flips status.
+            if (useSessionStore.getState().status !== 'loaded') {
+              useSessionStore.getState().completeInitialization()
+            }
             loadingInitiatedRef.current = null
             return
           }
@@ -706,9 +714,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             bootstrapMode: bootstrap?.report.mode,
           }
         )
-        // Mark initialization as complete since bootstrap has provided all necessary data
-        // The session will be created automatically when the user first saves
-        useSessionStore.getState().completeInitialization()
+        // Sync may have already flipped status via hydrateSessionAndComplete.
+        if (useSessionStore.getState().status !== 'loaded') {
+          useSessionStore.getState().completeInitialization()
+        }
         // Clear loading ref since we're done
         loadingInitiatedRef.current = null
         return

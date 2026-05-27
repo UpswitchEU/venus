@@ -140,14 +140,16 @@ export function useBootstrapPrefill(): {
       })
     }
 
-    // useBootstrapSync.syncSession owns all existing-report prefill (deferred
-    // microtask). Running applyPrefillToForm here too double-writes four Zustand
-    // stores in the same tick as sync — the Mercury accountant handoff crash
-    // (React #185) even after the optimistic-shell fix.
-    if (bootstrap.report.mode === 'existing' && bootstrap.report.hasExistingData) {
+    // useBootstrapSync.syncSession owns bootstrap prefill (deferred microtask).
+    // Running applyPrefillToForm here too double-writes Zustand stores in the same
+    // tick as sync — the Mercury accountant handoff crash (React #185).
+    const syncOwnsPrefill =
+      (bootstrap.report.mode === 'existing' && bootstrap.report.hasExistingData) ||
+      (bootstrap.report.mode === 'new' && hasMeaningfulPrefill)
+    if (syncOwnsPrefill) {
       logger.info(
         hasMeaningfulPrefill
-          ? 'Skipping duplicate prefill — useBootstrapSync owns existing-report bootstrap data'
+          ? 'Skipping duplicate prefill — useBootstrapSync owns bootstrap form data'
           : 'Skipping prefill - existing report, no meaningful prefill data (deferring to restoration)',
         {
           reportId: bootstrap.report.reportId?.substring(0, 30),

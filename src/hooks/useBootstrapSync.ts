@@ -443,6 +443,11 @@ function resetGlobalBootstrapSyncGate(nextReportId?: string | null): void {
   globalBootstrapSyncScheduledKey = null
 }
 
+/** @internal Vitest-only — clears module dedupe between cases */
+export function resetGlobalBootstrapSyncGateForTests(): void {
+  resetGlobalBootstrapSyncGate()
+}
+
 export function useBootstrapSync(): {
   isSynced: boolean
   syncStatus: SyncStatus
