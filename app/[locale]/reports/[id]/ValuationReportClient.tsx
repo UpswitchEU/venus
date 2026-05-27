@@ -12,8 +12,13 @@ import {
   type FlowType,
 } from '../../../../src/lib/bootstrap'
 import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
+import { useClientContext } from '../../../../src/stores/clientContext'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
+import {
+  buildMercuryDelegatedHandoffSignals,
+  isDelegatedMercuryAccountantHandoff,
+} from '../../../../src/lib/mercury/sessionReadiness'
 import { isValidReportId } from '../../../../src/utils/reportIdGenerator'
 import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
 
@@ -159,6 +164,7 @@ export default function ValuationReportClient({
   const embedded = urlParams.embedded
   const returnUrl = urlParams.return_url
   const source = urlParams.source
+  const isActingAsClient = useClientContext((s) => s.isActingAsClient)
 
   // Optimistic seed + stale-state reset on reportId change.
   //
@@ -194,7 +200,17 @@ export default function ValuationReportClient({
     }
 
     const trimmed = prefilledQuery?.trim()
-    if (trimmed) {
+    const skipRenderTimeCompanySeed = isDelegatedMercuryAccountantHandoff(
+      buildMercuryDelegatedHandoffSignals({
+        isFromMercury: source === 'mercury',
+        reportId,
+        clientId,
+        clientToken,
+        mode: urlParams.mode,
+        isActingAsClient,
+      })
+    )
+    if (trimmed && !skipRenderTimeCompanySeed) {
       const current = useManualFormStore.getState().formData.company_name?.trim()
       if (current !== trimmed) {
         useManualFormStore.getState().updateFormData({ company_name: trimmed })
@@ -228,6 +244,7 @@ export default function ValuationReportClient({
       embedded: embedded === 'true',
       returnUrl,
       sourceApp: source,
+      mercuryPersonaMode: source === 'mercury' ? urlParams.mode : undefined,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -242,6 +259,7 @@ export default function ValuationReportClient({
     embedded,
     returnUrl,
     source,
+    urlParams.mode,
   ])
 
   return (

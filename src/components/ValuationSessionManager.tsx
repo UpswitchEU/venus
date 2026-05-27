@@ -40,16 +40,17 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
-import { looksLikeExistingReportId } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import {
+  buildMercuryDelegatedHandoffSignals,
   buildSeedIdentity,
   canRenderReportSession,
   hasAssetsInSession,
+  isDelegatedMercuryAccountantHandoff,
   shouldAllowOptimisticMercuryRender,
   shouldSeedOptimisticMercuryShell,
-} from './sessionReadiness'
+} from '../lib/mercury/sessionReadiness'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
@@ -103,6 +104,18 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
     const isFromMercury = searchParams?.get('source') === 'mercury'
+    const clientIdParam = searchParams?.get('clientId')?.trim() || null
+    const clientTokenParam = searchParams?.get('clientToken')?.trim() || null
+    const mercuryModeParam = searchParams?.get('mode')
+    const isActingAsClient = useClientContext((s) => s.isActingAsClient)
+    const delegatedHandoffSignals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury,
+      reportId,
+      clientId: clientIdParam,
+      clientToken: clientTokenParam,
+      mode: mercuryModeParam,
+      isActingAsClient,
+    })
 
     // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
     const bootstrap = useBootstrapSafe()
@@ -147,7 +160,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // - val_xxx: Direct Venus session key format
     // - UUID: Mercury passes valuation_reports.id (UUID format like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
     // Using centralized identifier utilities for consistent format detection
-    const urlIndicatesExisting = looksLikeExistingReportId(reportId)
+    const urlIndicatesExisting = delegatedHandoffSignals.urlIndicatesExisting ?? false
+
+    const isDelegatedAccountantHandoff =
+      isDelegatedMercuryAccountantHandoff(delegatedHandoffSignals)
 
     const bootstrapMismatch =
       bootstrap &&
@@ -209,6 +225,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // when the effect re-runs due to bootstrap/context updates
     const restorationCompletedForReportIdRef = useRef<string | null>(null)
     const optimisticMercuryShellSeededRef = useRef<string | null>(null)
+    const delegatedShellSkipLoggedRef = useRef(false)
     /** One-shot: redirect off stale deleted-report URLs after load failure */
     const staleRecoveryAttemptedRef = useRef(false)
 
@@ -220,6 +237,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
       optimisticMercuryShellSeededRef.current = null
+      delegatedShellSkipLoggedRef.current = false
       staleRecoveryAttemptedRef.current = false
       generalLogger.debug('[SessionManager] Reset report-scoped load guards', {
         reportId: scopedReportId?.substring(0, 30),
@@ -231,6 +249,36 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // local shell so ManualLayout can mount; useCanSave keeps destructive
     // actions disabled until auth + bootstrap have settled, and the real
     // session/prefill payload merges in through useBootstrapSync/loadSession.
+    //
+    // Delegated advisor opens (`clientId`, `clientToken`, `mode=accountant` on
+    // an existing report) skip the shell — bootstrap must hydrate once to
+    // avoid React #185 store cascades (see isDelegatedMercuryAccountantHandoff).
+    useEffect(() => {
+      if (isDelegatedAccountantHandoff && !delegatedShellSkipLoggedRef.current) {
+        delegatedShellSkipLoggedRef.current = true
+        generalLogger.debug(
+          '[SessionManager] Skipping optimistic Mercury shell — delegated accountant handoff',
+          {
+            reportId: reportId?.substring(0, 30),
+            hasClientId: !!clientIdParam,
+            hasClientToken: !!clientTokenParam,
+            isActingAsClient,
+            mode: mercuryModeParam,
+          }
+        )
+      }
+      if (!isDelegatedAccountantHandoff) {
+        delegatedShellSkipLoggedRef.current = false
+      }
+    }, [
+      isDelegatedAccountantHandoff,
+      reportId,
+      clientIdParam,
+      clientTokenParam,
+      isActingAsClient,
+      mercuryModeParam,
+    ])
+
     useEffect(() => {
       if (
         !shouldSeedOptimisticMercuryShell({
@@ -241,6 +289,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           currentSessionReportId: session?.reportId,
           status,
           seededReportId: optimisticMercuryShellSeededRef.current,
+          delegatedHandoffSignals,
         })
       ) {
         return
@@ -257,6 +306,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             currentSessionReportId: current.session?.reportId,
             status: current.status,
             seededReportId: optimisticMercuryShellSeededRef.current,
+            delegatedHandoffSignals,
           })
         ) {
           return
@@ -296,6 +346,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           return
         }
 
+        const handoffAtFire = buildMercuryDelegatedHandoffSignals({
+          isFromMercury,
+          reportId,
+          clientId: clientIdParam,
+          clientToken: clientTokenParam,
+          mode: mercuryModeParam,
+          isActingAsClient: useClientContext.getState().isActingAsClient,
+        })
+        if (isDelegatedMercuryAccountantHandoff(handoffAtFire)) {
+          generalLogger.debug(
+            '[SessionManager] Skipping Mercury shell seed — delegated handoff at timer fire'
+          )
+          return
+        }
+
         if (current.session?.reportId && current.session.reportId !== reportId) {
           current.clearSession()
         }
@@ -314,6 +379,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             } as ValuationSession['sessionData'],
           },
           identity: seedIdentity,
+          delegatedHandoffSignals: handoffAtFire,
         })
         generalLogger.info('[SessionManager] Seeded optimistic Mercury shell', {
           reportId: reportId.substring(0, 30),
@@ -324,7 +390,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       }, MERCURY_OPTIMISTIC_SHELL_DELAY_MS)
 
       return () => window.clearTimeout(timer)
-    }, [isBootstrapping, isFromMercury, reportId, session?.reportId, status, urlIndicatesExisting])
+    }, [
+      isBootstrapping,
+      isFromMercury,
+      isDelegatedAccountantHandoff,
+      clientIdParam,
+      clientTokenParam,
+      mercuryModeParam,
+      isActingAsClient,
+      reportId,
+      session?.reportId,
+      status,
+      urlIndicatesExisting,
+    ])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
@@ -416,6 +494,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           isBootstrapping,
           isLoading,
           bootstrapMode: bootstrap?.report.mode ?? null,
+          urlIndicatesExisting,
+          delegatedHandoffSignals,
         })
       ) {
         return 'data-entry'
@@ -481,6 +561,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         generalLogger.debug('[SessionManager] Session load SKIPPED: waiting for bootstrap', {
           reportId,
         })
+        return
+      }
+
+      // Titan returned an existing report but useBootstrapSync has not yet written the
+      // session stub (deferred microtask). Avoid racing loadSession against sync — that
+      // double-hydration caused React #185 on Mercury accountant handoffs.
+      if (
+        bootstrapComplete &&
+        bootstrapHasExistingSession &&
+        (!session || session.reportId !== reportId)
+      ) {
+        generalLogger.debug(
+          '[SessionManager] Session load DEFERRED: waiting for bootstrap→store sync',
+          { reportId: reportId?.substring(0, 30), hasSession: !!session }
+        )
         return
       }
 

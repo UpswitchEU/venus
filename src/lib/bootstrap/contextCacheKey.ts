@@ -27,6 +27,7 @@ export function getBootstrapContextCacheKey(context: BootstrapContext | null | u
   const prefilledQuery = context?.prefilledQuery?.trim() || ''
   const flow = context?.flow || ''
   const mode = context?.mode || ''
+  const mercuryPersonaMode = context?.mercuryPersonaMode?.trim() || ''
   const version = context?.version == null ? '' : String(context.version)
   const locale = context?.locale?.trim() || ''
   const embedded = context?.embedded ? '1' : '0'
@@ -45,6 +46,8 @@ export function getBootstrapContextCacheKey(context: BootstrapContext | null | u
     flow,
     'mode',
     mode,
+    'mercuryMode',
+    mercuryPersonaMode,
     'version',
     version,
     'locale',
@@ -76,6 +79,8 @@ export function getBootstrapCacheLookupKey(
     'flow',
     '',
     'mode',
+    '',
+    'mercuryMode',
     '',
     'version',
     '',

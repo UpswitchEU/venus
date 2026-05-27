@@ -1,0 +1,248 @@
+/**
+ * Locks Mercury → Venus report URL shapes to delegated-handoff detection.
+ * Regression guard for preview crash: advisor opens existing report while
+ * bootstrap is in flight (React #185 when optimistic shell collides).
+ */
+
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+import {
+  buildMercuryDelegatedHandoffSignals,
+  buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
+  isDelegatedMercuryAccountantHandoff,
+  shouldWaitForMercuryClientContextBeforeBootstrap,
+} from '../../lib/mercury/sessionReadiness'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const mercuryRootFromVenusTests = '../../../../../apps/mercury'
+
+/** Production preview incident (2026-05-27). */
+const PREVIEW_INCIDENT_SEARCH =
+  'flow=manual&mode=accountant&locale=nl&return_url=https%3A%2F%2Fpreview.upswitch.app%2Fnl%2Fadvisor%2Fclients%2Fe25ce3b7-2e1e-4c6d-890d-eb826d527afd&source=mercury&benchmark_contribution=1&clientId=e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+
+const PREVIEW_REPORT_ID = 'dba236f5-31eb-4ab9-b995-e52c64dce70c'
+
+function parseSearchParams(search: string): URLSearchParams {
+  return new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+}
+
+describe('sessionReadiness Mercury report URL contract', () => {
+  it('preview incident query is a delegated accountant handoff on an existing report', () => {
+    const params = parseSearchParams(PREVIEW_INCIDENT_SEARCH)
+    expect(params.get('source')).toBe('mercury')
+    expect(params.get('mode')).toBe('accountant')
+    expect(params.get('clientId')).toBe('e25ce3b7-2e1e-4c6d-890d-eb826d527afd')
+
+    const signals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury: params.get('source') === 'mercury',
+      reportId: PREVIEW_REPORT_ID,
+      clientId: params.get('clientId'),
+      clientToken: params.get('clientToken'),
+      mode: params.get('mode'),
+    })
+    expect(signals.urlIndicatesExisting).toBe(true)
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  it('matches CalculatorRedirectClient existing-report Venus URL shape', () => {
+    const params = new URLSearchParams()
+    params.set('flow', 'manual')
+    params.set('mode', 'accountant')
+    params.set('locale', 'nl')
+    params.set('return_url', 'https://preview.upswitch.app/nl/advisor/clients/client-1')
+    params.set('source', 'mercury')
+    params.set('clientId', 'client-1')
+
+    const signals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury: true,
+      reportId: PREVIEW_REPORT_ID,
+      clientId: params.get('clientId'),
+      mode: params.get('mode'),
+    })
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  it('matches ValuationModal embedded iframe shape', () => {
+    const signals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury: true,
+      reportId: PREVIEW_REPORT_ID,
+      clientId: 'client-1',
+      mode: 'accountant',
+    })
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  it('BootstrapProvider runBootstrap defers Titan when delegated context is not ready', () => {
+    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(
+      /Delegated client context not ready — deferring Titan bootstrap/
+    )
+    expect(source).toMatch(/needsDelegatedContext[\s\S]*useClientContext\.getState\(\)/)
+  })
+
+  it('useBootstrapSync gap-fill uses hydrateSessionAndComplete not bare hydrateSession', () => {
+    const path = join(__dirname, '../../hooks/useBootstrapSync.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/sessionStore\.hydrateSessionAndComplete\(\{/)
+    const gapFillBlock = source.slice(
+      source.indexOf('Session already in store, checking for prefill updates'),
+      source.indexOf('} else if (report.mode === \'new\')')
+    )
+    expect(gapFillBlock).toMatch(/hydrateSessionAndComplete/)
+    expect(gapFillBlock).not.toMatch(/sessionStore\.hydrateSession\(/)
+  })
+
+  it('SessionBootstrapService aborts Titan POST when delegated context is missing after wait', () => {
+    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Aborting Titan bootstrap — delegated context required/)
+    expect(source).toMatch(/!ctx\.isActingAsClient \|\| !ctx\.accountant \|\| !ctx\.relationshipId/)
+  })
+
+  it('clientContextGate waits when URL has clientId, clientToken, or Mercury accountant existing report', () => {
+    const path = join(__dirname, '../../lib/auth/clientContextGate.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/params\.get\('clientToken'\)/)
+    expect(source).toMatch(/params\.get\('clientId'\)/)
+    expect(source).toMatch(/isMercuryAdvisorModeParam/)
+    expect(source).toMatch(/looksLikeExistingReportId/)
+  })
+
+  it('useBootstrapSync dedupes across hook instances (ValuationReport + ManualLayout)', () => {
+    const syncPath = join(__dirname, '../../hooks/useBootstrapSync.ts')
+    const source = readFileSync(syncPath, 'utf8')
+    expect(source).toMatch(/globalBootstrapSyncScheduledKey/)
+    expect(source).toMatch(/globalBootstrapSyncSignature/)
+
+    const manualLayoutPath = join(
+      __dirname,
+      '../../features/manual/components/ManualLayout.tsx'
+    )
+    const manualSource = readFileSync(manualLayoutPath, 'utf8')
+    expect(manualSource).not.toMatch(/useBootstrapSync\(/)
+  })
+
+  it('ValuationSessionManager defers loadSession until bootstrap sync writes session', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Session load DEFERRED: waiting for bootstrap→store sync/)
+    expect(source).toMatch(/bootstrapHasExistingSession/)
+  })
+
+  it('useBootstrapSync owns setEngine after Titan bootstrap (not synchronous in BootstrapProvider)', () => {
+    const providerPath = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const providerSource = readFileSync(providerPath, 'utf8')
+    const runBootstrapBlock = providerSource.slice(
+      providerSource.indexOf('const runBootstrap = useCallback'),
+      providerSource.indexOf('const forceRefreshBootstrap = useCallback')
+    )
+    expect(runBootstrapBlock).not.toMatch(
+      /useSessionStore\.getState\(\)\.setEngine\(result\.identity\)/
+    )
+
+    const syncPath = join(__dirname, '../../hooks/useBootstrapSync.ts')
+    const syncSource = readFileSync(syncPath, 'utf8')
+    expect(syncSource).toMatch(/function syncEngine\(/)
+    expect(syncSource).toMatch(/syncEngine\(state\)/)
+  })
+
+  it('useBootstrapPrefill defers existing-report prefill to useBootstrapSync', () => {
+    const path = join(__dirname, '../../hooks/useBootstrapPrefill.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/useBootstrapSync owns existing-report bootstrap data/)
+    expect(source).toMatch(
+      /bootstrap\.report\.mode === 'existing' && bootstrap\.report\.hasExistingData/
+    )
+  })
+
+  it('initializeAuth rejects delegated context when report restore fails on Mercury accountant URL', () => {
+    const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/mercuryDelegatedExisting/)
+    expect(source).toMatch(/rejectClientContext/)
+  })
+
+  it('initializeAuth fetches client context on clientId without requiring mode=accountant in URL', () => {
+    const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/clientIdParam && isAccountantTierRole\(user\.role\)/)
+    expect(source).not.toMatch(
+      /mode === MERCURY_ADVISOR_URL_MODE &&\s*\n\s*clientIdParam/
+    )
+  })
+
+  it('preview incident: bootstrap wait and delegated handoff agree', () => {
+    const ctx = {
+      sourceApp: 'mercury' as const,
+      reportId: PREVIEW_REPORT_ID,
+      clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+      mercuryPersonaMode: 'accountant',
+    }
+    expect(shouldWaitForMercuryClientContextBeforeBootstrap(ctx)).toBe(true)
+    expect(isDelegatedMercuryAccountantHandoff(
+      buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx)
+    )).toBe(true)
+  })
+
+  it('bootstrap wait aligns with bootstrap context (preview incident)', () => {
+    expect(
+      shouldWaitForMercuryClientContextBeforeBootstrap({
+        sourceApp: 'mercury',
+        reportId: PREVIEW_REPORT_ID,
+        clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+        mercuryPersonaMode: 'accountant',
+      })
+    ).toBe(true)
+    expect(
+      isDelegatedMercuryAccountantHandoff(
+        buildMercuryDelegatedHandoffSignalsFromBootstrapContext({
+          sourceApp: 'mercury',
+          reportId: PREVIEW_REPORT_ID,
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })
+      )
+    ).toBe(true)
+  })
+
+  it('buildAdvisorClientValuationUrl always sets clientId, mode=accountant, and source=mercury', () => {
+    const path = join(
+      __dirname,
+      mercuryRootFromVenusTests,
+      'shared/utils/advisor-client-valuation-url.ts'
+    )
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/query\.set\(\s*['"]clientId['"]/)
+    expect(source).toMatch(/query\.set\(\s*['"]mode['"]\s*,\s*['"]accountant['"]\s*\)/)
+    expect(source).toMatch(/query\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
+  })
+
+  it('VenusEmbeddedModal propagates clientId and mode for accountant iframe opens', () => {
+    const path = join(
+      __dirname,
+      mercuryRootFromVenusTests,
+      'shared/components/modals/VenusEmbeddedModal.tsx'
+    )
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/mode === 'accountant' && clientId/)
+    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]clientId['"]/)
+  })
+
+  it('CalculatorRedirectClient propagates clientId when opening an existing report', () => {
+    const path = join(
+      __dirname,
+      mercuryRootFromVenusTests,
+      'app/[locale]/(fullscreen)/calculator/CalculatorRedirectClient.tsx'
+    )
+    const source = readFileSync(path, 'utf8')
+
+    expect(source).toMatch(/if \(reportId\)/)
+    expect(source).toMatch(
+      /url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*clientId\s*\)/
+    )
+    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
+  })
+})

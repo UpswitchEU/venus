@@ -14,6 +14,10 @@
  */
 
 import { create } from 'zustand'
+import {
+  isDelegatedMercuryAccountantHandoff,
+  type DelegatedMercuryHandoffSignals,
+} from '../lib/mercury/sessionReadiness'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../lib/return-url'
@@ -112,6 +116,47 @@ function sessionHydrateUpdatesAreNoop(
   return true
 }
 
+function sessionDataHasBootstrapMarker(data: Record<string, unknown>): boolean {
+  return '_bootstrapPrefill' in data || '_bootstrapCreated' in data
+}
+
+/** Merge sessionData and drop the optimistic Mercury stub once bootstrap owns the snapshot. */
+function mergeSessionDataStrippingOptimisticShell(
+  current: Record<string, unknown> | undefined,
+  incoming: Record<string, unknown> | undefined
+): ValuationSession['sessionData'] {
+  const merged = { ...(current || {}), ...(incoming || {}) } as Record<string, unknown>
+  if (sessionDataHasBootstrapMarker(merged)) {
+    delete merged._optimisticMercuryShell
+  }
+  return merged as ValuationSession['sessionData']
+}
+
+function stripOptimisticShellFromSession(session: ValuationSession): ValuationSession {
+  const sd = asSessionDataRecord(session.sessionData)
+  if (!sessionDataHasBootstrapMarker(sd) || !('_optimisticMercuryShell' in sd)) {
+    return session
+  }
+  const next = { ...sd }
+  delete next._optimisticMercuryShell
+  return { ...session, sessionData: next as ValuationSession['sessionData'] }
+}
+
+/** Drop the optimistic Mercury stub marker on incoming hydrate patches. */
+function normalizeHydrateUpdatesRemovingOptimisticShell(
+  updates: Partial<ValuationSession>
+): Partial<ValuationSession> {
+  const sd = updates.sessionData
+  if (!sd || typeof sd !== 'object') return updates
+  const record = sd as Record<string, unknown>
+  if (!('_optimisticMercuryShell' in record) || !sessionDataHasBootstrapMarker(record)) {
+    return updates
+  }
+  const next = { ...record }
+  delete next._optimisticMercuryShell
+  return { ...updates, sessionData: next as ValuationSession['sessionData'] }
+}
+
 /**
  * Explicit session states (bank-grade state machine)
  */
@@ -193,6 +238,8 @@ interface SessionStore {
   seedOptimisticMercuryShell: (params: {
     seedSession: Partial<ValuationSession> & { reportId: string }
     identity: IdentityState
+    /** When set, refuses seed for advisor delegated handoffs (defense in depth). */
+    delegatedHandoffSignals?: DelegatedMercuryHandoffSignals
   }) => void
   /**
    * Atomic hydrate that also advances `status` to `'loaded'` in the same
@@ -328,7 +375,25 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })
   },
 
-  seedOptimisticMercuryShell: ({ seedSession, identity }) => {
+  seedOptimisticMercuryShell: ({ seedSession, identity, delegatedHandoffSignals }) => {
+    if (identity.type === 'accountant_for_client') {
+      storeLogger.warn(
+        '[Session] Refusing optimistic Mercury shell for accountant_for_client — bootstrap owns delegated handoffs',
+        { reportId: seedSession.reportId.substring(0, 30) }
+      )
+      return
+    }
+    if (
+      delegatedHandoffSignals &&
+      isDelegatedMercuryAccountantHandoff(delegatedHandoffSignals)
+    ) {
+      storeLogger.warn(
+        '[Session] Refusing optimistic Mercury shell — delegated handoff signals',
+        { reportId: seedSession.reportId.substring(0, 30) }
+      )
+      return
+    }
+
     const engine = createSessionEngine(identity)
     const now = seedSession.updatedAt || seedSession.createdAt || new Date()
     const builtSession: ValuationSession = {
@@ -372,6 +437,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => {
     const state = get()
+    updates = normalizeHydrateUpdatesRemovingOptimisticShell(updates)
 
     // No-op short-circuit (React #185 hardening, 2026-05-27): the bootstrap
     // settling window calls this from useBootstrapSync.syncSession AND from
@@ -427,10 +493,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               ...current.session,
               ...updates,
               sessionData: updates.sessionData
-                ? {
-                    ...(current.session?.sessionData || {}),
-                    ...updates.sessionData,
-                  }
+                ? mergeSessionDataStrippingOptimisticShell(
+                    asSessionDataRecord(current.session?.sessionData),
+                    asSessionDataRecord(updates.sessionData)
+                  )
                 : current.session?.sessionData,
               partialData: updates.partialData
                 ? {
@@ -475,8 +541,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     const updatedSession = state.engine.getSession()
     if (updatedSession) {
+      const sessionToCommit = stripOptimisticShellFromSession(updatedSession)
       set({
-        session: updatedSession,
+        session: sessionToCommit,
         status: 'loaded' as SessionStatus,
         errorMessage: null,
         renderError: null,
@@ -485,7 +552,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       })
       scheduleOptionalGapFillAfterHydrate()
       storeLogger.debug('[Session] Hydrated + completed atomically (with engine)', {
-        reportId: updatedSession.reportId?.substring(0, 30),
+        reportId: sessionToCommit.reportId?.substring(0, 30),
       })
     } else {
       // Engine accepted the hydrate but returned no session — still flip
@@ -823,6 +890,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   hydrateSession: (updates: Partial<ValuationSession>) => {
     const state = get()
+    updates = normalizeHydrateUpdatesRemovingOptimisticShell(updates)
 
     // No-op short-circuit (React #185 hardening, 2026-05-27): the gap-fill
     // path in useBootstrapSync.syncSession calls `hydrateSession` with the
@@ -858,10 +926,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               ...current.session,
               ...updates,
               sessionData: updates.sessionData
-                ? {
-                    ...(current.session?.sessionData || {}),
-                    ...updates.sessionData,
-                  }
+                ? mergeSessionDataStrippingOptimisticShell(
+                    asSessionDataRecord(current.session?.sessionData),
+                    asSessionDataRecord(updates.sessionData)
+                  )
                 : current.session?.sessionData,
               partialData: updates.partialData
                 ? {
@@ -901,7 +969,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const updatedSession = state.engine.getSession()
     if (updatedSession) {
       set({
-        session: updatedSession,
+        session: stripOptimisticShellFromSession(updatedSession),
         hasUnsavedChanges: state.hasUnsavedChanges,
         dirtyVersion: state.dirtyVersion,
       })

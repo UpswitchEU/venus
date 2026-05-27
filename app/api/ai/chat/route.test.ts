@@ -31,10 +31,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getBffCookieHeaderForTitan: vi.fn(),
+  apiLogger: {
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }))
 
 vi.mock('@/utils/bffAuthProxy', () => ({
   getBffCookieHeaderForTitan: mocks.getBffCookieHeaderForTitan,
+}))
+
+vi.mock('@/utils/logger', () => ({
+  apiLogger: mocks.apiLogger,
 }))
 
 import { POST } from './route'
@@ -75,8 +83,39 @@ function titanStreamResponse(): Response {
   })
 }
 
+function titanEmptyStreamResponse(): Response {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.close()
+      },
+    }),
+    {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    }
+  )
+}
+
+function titanKeepaliveOnlyStreamResponse(): Response {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"_keepalive"}\n\n'))
+        controller.close()
+      },
+    }),
+    {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    }
+  )
+}
+
 beforeEach(() => {
   mocks.getBffCookieHeaderForTitan.mockReset()
+  mocks.apiLogger.warn.mockReset()
+  mocks.apiLogger.error.mockReset()
   mocks.getBffCookieHeaderForTitan.mockImplementation(
     async (requestLike: Pick<Request, 'headers'>) => ({
       cookieHeader: requestLike.headers.get('cookie') || '',
@@ -634,6 +673,60 @@ describe('response shape', () => {
     // into a wall of silence that flushes only on close. Mirrors the
     // sibling Mercury BFF route pins; do not quietly drop it.
     expect(res.headers.get('X-Accel-Buffering')).toBe('no')
+  })
+
+  it('retries non-streaming chat and synthesizes SSE when upstream stream body is empty', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(titanEmptyStreamResponse())
+      .mockResolvedValueOnce(
+        titanJsonResponse(200, {
+          success: true,
+          conversationId: 'conv-fallback',
+          content: 'Welk bedrijf wil je toevoegen?',
+          aiCredits: { remaining: 41, limit: 100 },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(request({ message: 'Voeg een nieuwe klant toe' }))
+    const text = await res.text()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/v2/ai/stream')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/v2/ai/chat')
+    expect(
+      (fetchMock.mock.calls[1]?.[1] as { headers?: Record<string, string> } | undefined)
+        ?.headers?.Accept
+    ).toBe('application/json')
+    expect(text).toContain('Welk bedrijf wil je toevoegen?')
+    expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
+      '[ai.chat] recovered empty SSE via non-streaming chat',
+      expect.objectContaining({ route: '/api/ai/chat' })
+    )
+  })
+
+  it('retries non-streaming chat when upstream SSE only contained keepalive frames', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(titanKeepaliveOnlyStreamResponse())
+      .mockResolvedValueOnce(
+        titanJsonResponse(200, {
+          success: true,
+          content: 'Recovered after keepalive-only stream',
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(request({ message: 'Voeg bakker klaas toe' }))
+    const text = await res.text()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(text).toContain('Recovered after keepalive-only stream')
+    expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
+      '[ai.chat] upstream SSE had no visible content',
+      expect.objectContaining({ noVisibleContent: true })
+    )
   })
 
   it('returns NextResponse.json for non-streaming success', async () => {

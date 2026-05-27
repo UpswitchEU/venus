@@ -1,8 +1,8 @@
 import { isAccountantTierRole } from '../../constants/accountantPlanMethods'
 import { fetchWithBySession404Retry } from '../../utils/fetchWithBySession404Retry'
-import { isSessionKey, isUuid } from '../../utils/identifiers'
+import { isSessionKey, isUuid, looksLikeExistingReportId } from '../../utils/identifiers'
+import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
 import { generalLogger } from '../../utils/logger'
-import { MERCURY_ADVISOR_URL_MODE } from '../../utils/reportMode'
 import { createRandomId } from '../../utils/secureRandom'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { isSafeMercuryReturnUrlInput } from '../return-url'
@@ -279,16 +279,15 @@ export async function initializeAuth(): Promise<void> {
           trackAuthSuccess(user.id, 'cookie')
           authMetrics.recordSuccess()
 
-          const mode = params.get('mode')
-          const clientIdParam = params.get('clientId')
+          const clientIdParam = params.get('clientId')?.trim() || null
 
-          if (
-            mode === MERCURY_ADVISOR_URL_MODE &&
-            clientIdParam &&
-            isAccountantTierRole(user.role)
-          ) {
+          // Any advisor-tier open with `?clientId=` needs delegated context — not only
+          // when `mode=accountant` is present (CalculatorRedirect always sets both, but
+          // bootstrap waits on clientId alone and would race if we gated on mode here).
+          if (clientIdParam && isAccountantTierRole(user.role)) {
             generalLogger.info(
-              `[Auth:${traceId}] Advisor-tier mode with clientId - fetching client context`
+              `[Auth:${traceId}] Advisor-tier clientId in URL — fetching client context`,
+              { clientId: clientIdParam.substring(0, 8) }
             )
 
             initClientContextPromise()
@@ -338,6 +337,11 @@ export async function initializeAuth(): Promise<void> {
           if (!clientIdParam && isAccountantTierRole(user.role)) {
             const reportIdMatch = window.location.pathname.match(/\/reports\/([^/]+)/)
             const reportId = reportIdMatch ? reportIdMatch[1] : null
+            const mercuryDelegatedExisting =
+              params.get('source') === 'mercury' &&
+              isMercuryAdvisorModeParam(params.get('mode')) &&
+              !!reportId &&
+              looksLikeExistingReportId(reportId)
 
             if (reportId && (isSessionKey(reportId) || isUuid(reportId))) {
               const { useClientContext } = await import('../../stores/clientContext')
@@ -345,8 +349,13 @@ export async function initializeAuth(): Promise<void> {
 
               if (!contextState.isActingAsClient) {
                 generalLogger.debug(
-                  `[Auth:${traceId}] Checking report for accountant_customer_id to restore context`
+                  `[Auth:${traceId}] Checking report for accountant_customer_id to restore context`,
+                  { mercuryDelegatedExisting }
                 )
+
+                if (mercuryDelegatedExisting) {
+                  initClientContextPromise()
+                }
 
                 try {
                   const reportEndpoint = isSessionKey(reportId)
@@ -404,36 +413,60 @@ export async function initializeAuth(): Promise<void> {
                           )
                           resolveClientContext()
                         } else {
-                          generalLogger.warn(
-                            `[Auth:${traceId}] Invalid client context structure from report`
-                          )
+                          const message = 'Invalid client context structure received'
+                          generalLogger.warn(`[Auth:${traceId}] ${message} (from report)`)
+                          if (mercuryDelegatedExisting) {
+                            rejectClientContext(new Error(message))
+                            useAuthStore.getState().setError(message)
+                          }
                         }
                       } else {
                         const errorData = await contextResponse.json().catch(() => ({}))
-                        generalLogger.warn(
-                          `[Auth:${traceId}] Failed to fetch client context from report`,
-                          {
-                            message: errorData.message || contextResponse.status,
-                          }
-                        )
+                        const message =
+                          errorData.message ||
+                          `Failed to fetch client context (${contextResponse.status})`
+                        generalLogger.warn(`[Auth:${traceId}] Failed to fetch client context from report`, {
+                          message,
+                        })
+                        if (mercuryDelegatedExisting) {
+                          rejectClientContext(new Error(message))
+                          useAuthStore.getState().setError(message)
+                        }
                       }
+                    } else if (mercuryDelegatedExisting) {
+                      const message =
+                        'This report is not linked to a client — delegated advisor context is unavailable'
+                      generalLogger.warn(`[Auth:${traceId}] ${message}`)
+                      rejectClientContext(new Error(message))
+                      useAuthStore.getState().setError(message)
                     } else {
                       generalLogger.debug(
                         `[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`
                       )
                     }
+                  } else if (mercuryDelegatedExisting) {
+                    const message = `Report not accessible (${reportResponse.status})`
+                    generalLogger.warn(`[Auth:${traceId}] ${message}`)
+                    rejectClientContext(new Error(message))
+                    useAuthStore.getState().setError(message)
                   } else {
                     generalLogger.debug(
                       `[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`
                     )
                   }
                 } catch (error) {
+                  const message =
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to restore client context from report'
                   generalLogger.warn(
-                    `[Auth:${traceId}] Failed to restore client context from report (non-critical)`,
-                    {
-                      error: error instanceof Error ? error.message : String(error),
-                    }
+                    `[Auth:${traceId}] Failed to restore client context from report`,
+                    { error: message, mercuryDelegatedExisting }
                   )
+                  if (mercuryDelegatedExisting) {
+                    rejectClientContext(error instanceof Error ? error : new Error(message))
+                    useAuthStore.getState().setError(message)
+                  }
                 }
               }
             }

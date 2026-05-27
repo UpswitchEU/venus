@@ -12,7 +12,6 @@ import { toast } from 'sonner'
 import { ChatAssistantDrawer } from '../../../components/calculator'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
-import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useCredits } from '../../../hooks/useCredits'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
@@ -132,7 +131,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const { user } = useAuth()
   const { allowedMethodKeys, planFeatures } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
-  useBootstrapSync()
+  // Bootstrap→store sync runs once in ValuationReport.useBootstrapSync (parent tree).
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
   useSessionOptionalMethodPrefill()

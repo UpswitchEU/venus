@@ -14,6 +14,7 @@ describe('bootstrap utils', () => {
     expect(context.sourceApp).toBe('mercury')
     // Mercury's mode=accountant is not a Venus report-mode enum and should be omitted.
     expect(context.mode).toBeUndefined()
+    expect(context.mercuryPersonaMode).toBe('accountant')
   })
 
   it('treats UUID report IDs as existing reports in bootstrap hints', () => {

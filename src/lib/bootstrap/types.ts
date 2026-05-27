@@ -478,6 +478,8 @@ export interface BootstrapContext {
   embedded?: boolean
   returnUrl?: string
   sourceApp?: string
+  /** Raw Mercury URL `mode` (`accountant` | `seller`) — not UI `edit` | `view`. */
+  mercuryPersonaMode?: string
   cookies?: string
 }
 

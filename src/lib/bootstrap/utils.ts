@@ -105,6 +105,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       flow: (params.get('flow') as FlowType) || undefined,
       // Invalid values (e.g. Mercury's mode=accountant) are omitted — see parseReportModeSearchParam
       mode: parseReportModeSearchParam(params.get('mode')),
+      mercuryPersonaMode: params.get('mode') || undefined,
       version: versionParam ? parseInt(versionParam, 10) : undefined,
       locale,
       embedded: params.get('embedded') === 'true',

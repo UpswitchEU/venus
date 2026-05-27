@@ -49,7 +49,32 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('[ErrorBoundary] Caught error:', error, errorInfo)
+    const isMaxUpdateDepth =
+      error.name === 'Error' &&
+      (error.message.includes('Maximum update depth') || error.message.includes('maximum update depth'))
+
+    const search =
+      typeof window !== 'undefined' ? window.location.search : undefined
+    const mercuryHandoff =
+      search != null
+        ? {
+            source: new URLSearchParams(search).get('source'),
+            mode: new URLSearchParams(search).get('mode'),
+            hasClientId: !!new URLSearchParams(search).get('clientId')?.trim(),
+            hasClientToken: !!new URLSearchParams(search).get('clientToken')?.trim(),
+          }
+        : undefined
+
+    console.error('[ErrorBoundary] Caught error:', {
+      name: error.name,
+      message: error.message,
+      isMaxUpdateDepth,
+      path: typeof window !== 'undefined' ? window.location.pathname : undefined,
+      search,
+      mercuryHandoff,
+      componentStack: errorInfo.componentStack?.split('\n').slice(0, 8).join('\n'),
+      stack: error.stack,
+    })
 
     // Clear business types cache when category/toLowerCase crash - allows Try Again to fetch fresh data
     if (error.message?.includes('toLowerCase') && error.message?.includes('category')) {

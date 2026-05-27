@@ -8,10 +8,17 @@ const mocks = vi.hoisted(() => {
     loading: false,
     isInitializing: false,
     isRefreshing: false,
+    error: null as string | null,
+  }
+  const clientContextState = {
+    isActingAsClient: false,
+    accountant: null as { id: string; email: string } | null,
+    relationshipId: null as string | null,
   }
 
   return {
     authState,
+    clientContextState,
     bootstrapViaTitan: vi.fn(),
     bootstrapClient: vi.fn(),
     getCachedResult: vi.fn(),
@@ -64,6 +71,13 @@ vi.mock('../../../store/useSessionStore', () => ({
     }),
   },
 }))
+
+vi.mock('../../../stores/clientContext', () => {
+  const useClientContext = (selector?: (state: typeof mocks.clientContextState) => unknown) =>
+    selector ? selector(mocks.clientContextState) : mocks.clientContextState
+  useClientContext.getState = () => mocks.clientContextState
+  return { useClientContext }
+})
 
 function makeContext(
   reportId: string,
@@ -124,6 +138,10 @@ function Probe() {
 describe('BootstrapProvider', () => {
   beforeEach(() => {
     resetBootstrapGuard()
+    mocks.authState.error = null
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = 'rel-1'
     mocks.getCachedResult.mockReturnValue(null)
     mocks.hasCompletedFor.mockReturnValue(false)
     mocks.bootstrapViaTitan.mockImplementation(async (context: BootstrapContext) =>
@@ -226,6 +244,71 @@ describe('BootstrapProvider', () => {
     expect(mocks.bootstrapViaTitan.mock.calls[1][0]).toMatchObject({
       reportId: 'val_report_a',
       clientId: 'client-b',
+    })
+  })
+
+  it('defers Titan bootstrap when clientId is present but client context is not ready', async () => {
+    mocks.clientContextState.isActingAsClient = false
+
+    render(
+      <BootstrapProvider
+        context={makeContext('dba236f5-31eb-4ab9-b995-e52c64dce70c', {
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    expect(screen.getByTestId('report-state')).toHaveTextContent(':loading:ok')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('surfaces auth error when delegated clientId context fails to load', async () => {
+    mocks.clientContextState.isActingAsClient = false
+    mocks.authState.error = 'Failed to establish client context'
+
+    render(
+      <BootstrapProvider
+        context={makeContext('dba236f5-31eb-4ab9-b995-e52c64dce70c', {
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      const text = screen.getByTestId('report-state').textContent ?? ''
+      expect(text).toContain(':ready:Failed to establish client context')
+    })
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('starts Titan bootstrap when delegated clientId context is already ready', async () => {
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = 'rel-1'
+
+    render(
+      <BootstrapProvider
+        context={makeContext('dba236f5-31eb-4ab9-b995-e52c64dce70c', {
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(1)
     })
   })
 })

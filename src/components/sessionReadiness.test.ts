@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildMercuryDelegatedHandoffSignals,
+  buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
   buildSeedIdentity,
   canRenderReportSession,
   hasAssetsInSession,
+  isDelegatedMercuryAccountantHandoff,
   shouldAllowOptimisticMercuryRender,
   shouldSeedOptimisticMercuryShell,
-} from './sessionReadiness'
+  shouldWaitForMercuryClientContextBeforeBootstrap,
+} from '../lib/mercury/sessionReadiness'
 
 describe('sessionReadiness', () => {
   it('keeps existing Mercury reports behind loading until assets are renderable', () => {
@@ -64,6 +68,43 @@ describe('sessionReadiness', () => {
     ).toBe(false)
   })
 
+  it('blocks optimistic Mercury render for delegated handoffs and bootstrap mismatch', () => {
+    expect(
+      shouldAllowOptimisticMercuryRender({
+        isFromMercury: true,
+        isBootstrapping: true,
+        isLoading: false,
+        bootstrapMode: 'new',
+        isDelegatedAccountantHandoff: true,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldAllowOptimisticMercuryRender({
+        isFromMercury: true,
+        isBootstrapping: true,
+        isLoading: false,
+        bootstrapMode: 'new',
+        delegatedHandoffSignals: buildMercuryDelegatedHandoffSignals({
+          isFromMercury: true,
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mode: 'accountant',
+        }),
+      })
+    ).toBe(false)
+
+    expect(
+      shouldAllowOptimisticMercuryRender({
+        isFromMercury: true,
+        isBootstrapping: true,
+        isLoading: false,
+        bootstrapMode: 'new',
+        urlIndicatesExisting: true,
+      })
+    ).toBe(false)
+  })
+
   it('detects nested session assets', () => {
     expect(
       hasAssetsInSession({
@@ -97,6 +138,210 @@ describe('sessionReadiness', () => {
         urlIndicatesExisting: true,
         currentSessionReportId: 'val_previous',
         status: 'loaded',
+      })
+    ).toBe(true)
+  })
+
+  it('buildMercuryDelegatedHandoffSignalsFromBootstrapContext mirrors bootstrap fields', () => {
+    const signals = buildMercuryDelegatedHandoffSignalsFromBootstrapContext({
+      sourceApp: 'mercury',
+      reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+      clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+      mercuryPersonaMode: 'accountant',
+    })
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  it('buildMercuryDelegatedHandoffSignals mirrors URL + report id', () => {
+    const signals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury: true,
+      reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+      clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+      mode: 'accountant',
+    })
+    expect(signals.urlIndicatesExisting).toBe(true)
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  describe('shouldWaitForMercuryClientContextBeforeBootstrap', () => {
+    const previewUrl =
+      'https://preview.valuation.upswitch.app/nl/reports/dba236f5-31eb-4ab9-b995-e52c64dce70c?mode=accountant&clientId=e25ce3b7-2e1e-4c6d-890d-eb826d527afd&source=mercury'
+
+    it('waits for preview incident advisor handoff (clientId on existing report)', () => {
+      expect(
+        shouldWaitForMercuryClientContextBeforeBootstrap({
+          sourceApp: 'mercury',
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          url: previewUrl,
+        })
+      ).toBe(true)
+    })
+
+    it('waits when clientToken hint is present', () => {
+      expect(
+        shouldWaitForMercuryClientContextBeforeBootstrap({
+          sourceApp: 'mercury',
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          hasClientTokenHint: true,
+        })
+      ).toBe(true)
+    })
+
+    it('does not wait for Mercury owner existing report without delegation signals', () => {
+      expect(
+        shouldWaitForMercuryClientContextBeforeBootstrap({
+          sourceApp: 'mercury',
+          reportId: 'val_owner_existing',
+          url: 'https://venus.test/nl/reports/val_owner_existing?source=mercury',
+        })
+      ).toBe(false)
+    })
+
+    it('waits for mode=accountant on existing report when clientId is absent', () => {
+      expect(
+        shouldWaitForMercuryClientContextBeforeBootstrap({
+          sourceApp: 'mercury',
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          mercuryPersonaMode: 'accountant',
+        })
+      ).toBe(true)
+    })
+
+    it('does not rely on bootstrap context.url without search params (persona mode is explicit)', () => {
+      expect(
+        shouldWaitForMercuryClientContextBeforeBootstrap({
+          sourceApp: 'mercury',
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          url: 'https://venus.test/nl/reports/dba236f5-31eb-4ab9-b995-e52c64dce70c',
+        })
+      ).toBe(false)
+    })
+  })
+
+  describe('isDelegatedMercuryAccountantHandoff', () => {
+    const existingUuid = 'dba236f5-31eb-4ab9-b995-e52c64dce70c'
+
+    it('detects clientId, clientToken, acting-as-client, and mode=accountant on existing reports', () => {
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          clientToken: 'tok_abc',
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          isActingAsClient: true,
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          urlIndicatesExisting: true,
+          mode: 'accountant',
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          urlIndicatesExisting: true,
+          mode: 'accountant',
+          clientId: existingUuid,
+        })
+      ).toBe(true)
+    })
+
+    it('does not treat non-Mercury or seller persona as delegated', () => {
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: false,
+          clientId: 'c1',
+        })
+      ).toBe(false)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          urlIndicatesExisting: true,
+          mode: 'seller',
+        })
+      ).toBe(false)
+
+      expect(
+        isDelegatedMercuryAccountantHandoff({
+          isFromMercury: true,
+          mode: 'accountant',
+          urlIndicatesExisting: false,
+        })
+      ).toBe(false)
+    })
+  })
+
+  it('does not seed the Mercury fast shell for advisor delegated handoffs', () => {
+    const delegated = isDelegatedMercuryAccountantHandoff({
+      isFromMercury: true,
+      urlIndicatesExisting: true,
+      clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+      mode: 'accountant',
+    })
+
+    expect(delegated).toBe(true)
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'idle',
+        isDelegatedAccountantHandoff: delegated,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'idle',
+        delegatedHandoffSignals: buildMercuryDelegatedHandoffSignals({
+          isFromMercury: true,
+          reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mode: 'accountant',
+        }),
+      })
+    ).toBe(false)
+  })
+
+  it('still seeds for Mercury owner existing reports without advisor delegation', () => {
+    const delegated = isDelegatedMercuryAccountantHandoff({
+      isFromMercury: true,
+      urlIndicatesExisting: true,
+    })
+    expect(delegated).toBe(false)
+    expect(
+      shouldSeedOptimisticMercuryShell({
+        isFromMercury: true,
+        isBootstrapping: true,
+        reportId: 'val_owner_existing',
+        urlIndicatesExisting: true,
+        currentSessionReportId: null,
+        status: 'idle',
+        isDelegatedAccountantHandoff: delegated,
       })
     ).toBe(true)
   })

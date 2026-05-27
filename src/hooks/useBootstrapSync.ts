@@ -431,6 +431,18 @@ const syncStatusRef = {
   current: { identity: false, session: false, prefill: false, clientContext: false } as SyncStatus,
 }
 
+/** Single sync per report+signature — ValuationReport and ManualLayout both mount this hook. */
+let globalBootstrapSyncReportId: string | null = null
+let globalBootstrapSyncSignature: string | null = null
+let globalBootstrapSyncScheduledKey: string | null = null
+
+function resetGlobalBootstrapSyncGate(nextReportId?: string | null): void {
+  if (nextReportId && globalBootstrapSyncReportId === nextReportId) return
+  globalBootstrapSyncReportId = null
+  globalBootstrapSyncSignature = null
+  globalBootstrapSyncScheduledKey = null
+}
+
 export function useBootstrapSync(): {
   isSynced: boolean
   syncStatus: SyncStatus
@@ -462,6 +474,7 @@ export function useBootstrapSync(): {
       hasSyncedRef.current = false
       lastSyncSignatureRef.current = undefined
       syncScheduledForSignatureRef.current = undefined
+      resetGlobalBootstrapSyncGate()
       setIsSynced(false)
       logger.info('Bootstrap reportId changed — resetting sync gate for new valuation', {
         previousReportId: lastSyncedReportIdRef.current.substring(0, 30),
@@ -484,15 +497,34 @@ export function useBootstrapSync(): {
 
     const state = bootstrap.state
     const syncSignature = stableBootstrapSyncSignature(state)
+    const syncKey = `${reportId ?? 'none'}:${syncSignature}`
+
+    if (
+      globalBootstrapSyncReportId === reportId &&
+      globalBootstrapSyncSignature === syncSignature
+    ) {
+      if (!hasSyncedRef.current) {
+        hasSyncedRef.current = true
+        lastSyncSignatureRef.current = syncSignature
+        if (reportId) lastSyncedReportIdRef.current = reportId
+        setIsSynced(true)
+      }
+      return
+    }
+
     if (hasSyncedRef.current && syncSignature === lastSyncSignatureRef.current) {
       return
     }
     // Already scheduled for this exact signature — let the in-flight microtask
     // finish; re-scheduling would queue duplicate writes against the same data.
-    if (syncScheduledForSignatureRef.current === syncSignature) {
+    if (
+      syncScheduledForSignatureRef.current === syncSignature ||
+      globalBootstrapSyncScheduledKey === syncKey
+    ) {
       return
     }
     syncScheduledForSignatureRef.current = syncSignature
+    globalBootstrapSyncScheduledKey = syncKey
 
     // Defer the cross-store sync to a microtask — see history comment below.
     //
@@ -521,20 +553,20 @@ export function useBootstrapSync(): {
       // a fresh error if one came in.
       if (bootstrap.bootstrapError) {
         syncScheduledForSignatureRef.current = undefined
+        globalBootstrapSyncScheduledKey = null
         return
       }
 
+      // Engine + session hydrate in one microtask (React #185 hardening): calling
+      // `setEngine` synchronously in BootstrapProvider after `setState(result)` caused
+      // an extra Zustand notification in the same commit window as this effect scheduling.
+      syncEngine(state)
       syncIdentity(state)
       syncSession(state)
       syncClientContext(state)
 
-      // CRITICAL: For new reports, syncSession creates session in store synchronously.
-      // completeInitialization sets status='loaded' so UI exits loading state.
-      // For existing reports, syncSession already flipped status='loaded' via
-      // `hydrateSessionAndComplete` (atomic with the session hydrate).
-      if (state.report.mode === 'new') {
-        useSessionStore.getState().completeInitialization()
-      }
+      // New + existing report hydrates use `hydrateSessionAndComplete` inside
+      // syncSession (status='loaded' in the same notification).
 
       hasSyncedRef.current = true
       lastSyncSignatureRef.current = syncSignature
@@ -545,6 +577,9 @@ export function useBootstrapSync(): {
       // here and the next effect run can re-schedule if the signature has
       // legitimately changed.
       syncScheduledForSignatureRef.current = undefined
+      globalBootstrapSyncScheduledKey = null
+      globalBootstrapSyncReportId = reportId ?? null
+      globalBootstrapSyncSignature = syncSignature
       setIsSynced(true)
 
       logger.info('Bootstrap sync complete (deferred)', {
@@ -559,6 +594,22 @@ export function useBootstrapSync(): {
   return {
     isSynced,
     syncStatus: { ...syncStatusRef.current },
+  }
+}
+
+/**
+ * Set session engine from bootstrap identity (deferred with sync microtask).
+ */
+function syncEngine(state: SessionBootstrapState): void {
+  try {
+    useSessionStore.getState().setEngine(state.identity)
+    logger.debug('Session engine set from bootstrap sync', {
+      identityType: state.identity.type,
+    })
+  } catch (error) {
+    logger.error('Failed to set session engine from bootstrap', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
@@ -677,7 +728,9 @@ function syncSession(state: SessionBootstrapState): void {
 
         if (Object.keys(sessionGapPatch).length > 0 || Object.keys(topLevelPatch).length > 0) {
           const currentSessionDataRecord = currentSessionData as Record<string, unknown>
-          sessionStore.hydrateSession({
+          // Atomic hydrate — gap-fill after package hydration must not emit a second
+          // bare `hydrateSession` notification before status='loaded' (React #185).
+          sessionStore.hydrateSessionAndComplete({
             ...topLevelPatch,
             sessionData: {
               ...currentSessionData,
@@ -749,7 +802,7 @@ function syncSession(state: SessionBootstrapState): void {
           sessionData,
         }
 
-        sessionStore.hydrateSession(minimalSession)
+        sessionStore.hydrateSessionAndComplete(minimalSession)
 
         if (meaningfulPrefill) {
           const formDataUpdate = buildPrefillFormFields(prefillData)

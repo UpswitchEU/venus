@@ -1,7 +1,5 @@
 'use client'
 
-'use client'
-
 /**
  * ErrorFallback — Venus Aurora design system error UI
  *
@@ -48,15 +46,21 @@ export function ErrorFallback({
   const displayMessage = message ?? t('genericDesc')
 
   useEffect(() => {
+    const isMaxUpdateDepth = error.message.toLowerCase().includes('maximum update depth')
     console.error('[ErrorFallback]', {
+      name: error.name,
       message: error.message,
+      isMaxUpdateDepth,
       digest: error.digest,
+      path: typeof window !== 'undefined' ? window.location.pathname : undefined,
       stack: error.stack,
     })
   }, [error])
 
-  const isDev = process.env.NODE_ENV === 'development'
-  const showDetails = showDetailsInDev && isDev
+  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV
+  const showDiagnosticEnv =
+    process.env.NODE_ENV === 'development' || vercelEnv === 'preview' || vercelEnv === 'staging'
+  const showDetails = showDetailsInDev && showDiagnosticEnv
 
   const isCompact = variant === 'modal' || variant === 'inline'
   const iconSize = isCompact ? 'w-10 h-10' : 'w-12 h-12'

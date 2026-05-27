@@ -51,6 +51,20 @@ describe('bootstrap context cache keys', () => {
     expect(otherClientKey).not.toBe(originalKey)
   })
 
+  it('scopes existing report caches by Mercury persona mode', () => {
+    const advisorKey = getBootstrapContextCacheKey({
+      ...mercuryReportContext,
+      mercuryPersonaMode: 'accountant',
+    })
+    const ownerKey = getBootstrapContextCacheKey({
+      ...mercuryReportContext,
+      clientId: undefined,
+      mercuryPersonaMode: undefined,
+    })
+
+    expect(ownerKey).not.toBe(advisorKey)
+  })
+
   it('scopes new report caches by prefill, locale, return target, and source', () => {
     const alphaKey = getBootstrapContextCacheKey({
       reportId: 'new',
@@ -105,7 +119,7 @@ describe('bootstrap context cache keys', () => {
 
   it('uses the same bare report lookup shape as the service fallback path', () => {
     expect(getBootstrapCacheLookupKey('report-a')).toBe(
-      'report:report-a:client::source::prefill::flow::mode::version::locale::embedded:0:return:'
+      'report:report-a:client::source::prefill::flow::mode::mercuryMode::version::locale::embedded:0:return:'
     )
     expect(getBootstrapCacheLookupKey({ reportId: 'report-a' })).toBe(
       getBootstrapCacheLookupKey('report-a')

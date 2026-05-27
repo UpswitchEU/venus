@@ -27,6 +27,7 @@ import {
   buildTitanErrorEnvelope,
   buildTitanNetworkErrorEnvelope,
 } from './chat-proxy'
+import { wrapAiSseBodyForObservability } from './ai-stream-proxy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -68,21 +69,24 @@ export async function POST(request: NextRequest) {
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
     const titanApiUrl = getTitanApiUrl(request)
-    const titanEndpoint = plan.useStream
-      ? `${titanApiUrl}/api/v2/ai/stream`
-      : `${titanApiUrl}/api/v2/ai/chat`
+    const titanStreamEndpoint = `${titanApiUrl}/api/v2/ai/stream`
+    const titanChatEndpoint = `${titanApiUrl}/api/v2/ai/chat`
 
     const clientContextHeaders = getTitanClientContextHeaders(request)
+    const streamHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: plan.useStream ? 'text/event-stream' : 'application/json',
+      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+      ...(cookieHeader && { Cookie: cookieHeader }),
+      ...clientContextHeaders,
+    }
+    const chatHeaders = plan.useStream
+      ? { ...streamHeaders, Accept: 'application/json' }
+      : streamHeaders
 
-    const titanResponse = await fetch(titanEndpoint, {
+    const titanResponse = await fetch(plan.useStream ? titanStreamEndpoint : titanChatEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: plan.useStream ? 'text/event-stream' : 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-        ...(cookieHeader && { Cookie: cookieHeader }),
-        ...clientContextHeaders,
-      },
+      headers: streamHeaders,
       body: JSON.stringify(plan.payload),
       signal: controller.signal,
     })
@@ -93,19 +97,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (plan.useStream && titanResponse.body) {
-      return new Response(titanResponse.body, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-          // Vercel/nginx will buffer SSE without this — turns short turns
-          // into a wall of silence flushed only on close, which the FE
-          // (Venus + Mercury both) reads as an empty stream. Sibling
-          // routes in apps/mercury/app/api/ai/chat + onboarding/stream
-          // pin this same header; do not drop it.
-          'X-Accel-Buffering': 'no',
-        },
-      })
+      const nonStreamingPayload = { ...plan.payload }
+      return new Response(
+        wrapAiSseBodyForObservability(titanResponse.body, {
+          upstreamStatus: titanResponse.status,
+          fetchNonStreamingFallback: () =>
+            fetch(titanChatEndpoint, {
+              method: 'POST',
+              headers: chatHeaders,
+              body: JSON.stringify(nonStreamingPayload),
+            }),
+        }),
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+            // Vercel/nginx will buffer SSE without this — turns short turns
+            // into a wall of silence flushed only on close, which the FE
+            // (Venus + Mercury both) reads as an empty stream. Sibling
+            // routes in apps/mercury/app/api/ai/chat + onboarding/stream
+            // pin this same header; do not drop it.
+            'X-Accel-Buffering': 'no',
+          },
+        }
+      )
     }
 
     const data = await titanResponse.json()

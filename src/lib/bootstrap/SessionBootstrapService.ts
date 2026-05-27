@@ -12,6 +12,11 @@
  * @module lib/bootstrap/SessionBootstrapService
  */
 
+import {
+  buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
+  isDelegatedMercuryAccountantHandoff,
+  shouldWaitForMercuryClientContextBeforeBootstrap,
+} from '../mercury/sessionReadiness'
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
@@ -416,7 +421,7 @@ export class SessionBootstrapService {
    * - When clientToken present: wait for isInitializing=false AND isActingAsClient (client context in store)
    * - Otherwise: maxWaitMs for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
    */
-  private async waitForAuth(maxWaitMs: number, hasClientToken?: boolean): Promise<boolean> {
+  private async waitForAuth(maxWaitMs: number, needsClientContext?: boolean): Promise<boolean> {
     const { useAuthStore } = await import('../auth')
     const { useClientContext } = await import('../../stores/clientContext')
     const start = Date.now()
@@ -424,7 +429,7 @@ export class SessionBootstrapService {
     // 3000ms is enough headroom: get-client-context is a single round-trip that
     // typically completes in 500–2000ms. The previous 5000ms cap routinely added
     // dead-air on Mercury→Venus accountant opens when context arrived in <1s.
-    const effectiveMaxWait = hasClientToken ? 3000 : maxWaitMs
+    const effectiveMaxWait = needsClientContext ? 3000 : maxWaitMs
 
     const isAuthAndContextReady = (): boolean => {
       const authState = useAuthStore.getState()
@@ -436,9 +441,12 @@ export class SessionBootstrapService {
         !authState.isRefreshing &&
         !!authState.user
       if (!authReady) return false
-      // When clientToken present, also require client context in store (headers needed for Titan delegated flow)
-      if (hasClientToken && !useClientContext.getState().isActingAsClient) {
-        return false
+      // Delegated flow: require full client context (matches BootstrapProvider gate).
+      if (needsClientContext) {
+        const ctx = useClientContext.getState()
+        if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+          return false
+        }
       }
       return true
     }
@@ -678,20 +686,33 @@ export class SessionBootstrapService {
       // When clientToken present, wait for client context exchange to complete (up to 5s)
       // Otherwise wait up to 2.5s for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
       //
-      // MERCURY ACCOUNTANT FLOW FIX: When Mercury opens an EXISTING report without a clientToken
-      // (e.g. after page refresh, or when Mercury links directly to an existing session), the
-      // clientToken has already been consumed. AuthGate's fallback logic will restore client context
-      // by fetching the report's accountant_customer_id (~1–2s). We detect this case and wait for
-      // isActingAsClient just like we do for the clientToken flow, giving the fallback time to run.
-      const isAccountantExistingReportFlow =
-        context.sourceApp === 'mercury' && !!context.reportId && !context.clientToken
-      const needsClientContext = hints.hasClientToken || isAccountantExistingReportFlow
+      // MERCURY DELEGATED FLOW: Wait for get-client-context / AuthGate fallback before Titan POST
+      // when the URL carries advisor delegation signals (clientId, clientToken, or
+      // mode=accountant on an existing report). Owner Mercury opens without those signals
+      // must not block on isActingAsClient (was adding ~0–3s dead-air).
+      const needsClientContext = shouldWaitForMercuryClientContextBeforeBootstrap({
+        sourceApp: context.sourceApp,
+        reportId: context.reportId,
+        clientId: context.clientId,
+        clientToken: context.clientToken,
+        mercuryPersonaMode: context.mercuryPersonaMode,
+        url: context.url,
+        hasClientTokenHint: hints.hasClientToken,
+      })
 
-      if (isAccountantExistingReportFlow) {
+      const delegatedHandoff = isDelegatedMercuryAccountantHandoff(
+        buildMercuryDelegatedHandoffSignalsFromBootstrapContext(context)
+      )
+
+      if (needsClientContext) {
         this.logger.info(
-          `[Bootstrap:${traceId}] Mercury accountant existing-report flow detected — waiting for client context`,
+          `[Bootstrap:${traceId}] Mercury delegated flow — waiting for client context`,
           {
             reportId: context.reportId?.substring(0, 30),
+            hasClientId: !!context.clientId?.trim(),
+            hasClientToken: !!context.clientToken?.trim(),
+            mercuryPersonaMode: context.mercuryPersonaMode,
+            delegatedHandoff,
           }
         )
       }
@@ -705,6 +726,18 @@ export class SessionBootstrapService {
         needsClientContext,
       })
       if (!authReady) {
+        if (needsClientContext) {
+          const { useAuthStore } = await import('../auth')
+          const authState = useAuthStore.getState()
+          const message =
+            authState.error?.trim() ||
+            'Delegated client context was not ready before valuation bootstrap'
+          this.logger.error(
+            `[Bootstrap:${traceId}] Aborting Titan bootstrap — delegated context required`,
+            { durationMs: authWaitMs, hasClientId: !!context.clientId?.trim() }
+          )
+          throw new Error(message)
+        }
         this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`)
       }
 

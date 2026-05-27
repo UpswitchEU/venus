@@ -18,7 +18,9 @@ import React, {
   useRef,
   useState,
 } from 'react'
+import { shouldWaitForMercuryClientContextBeforeBootstrap } from '../mercury/sessionReadiness'
 import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancellation'
+import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
@@ -314,6 +316,36 @@ export function BootstrapProvider({
       return
     }
 
+    const needsDelegatedContext = shouldWaitForMercuryClientContextBeforeBootstrap({
+      sourceApp: activeContext.sourceApp,
+      reportId: activeContext.reportId,
+      clientId: activeContext.clientId,
+      clientToken: activeContext.clientToken,
+      mercuryPersonaMode: activeContext.mercuryPersonaMode,
+      url: activeContext.url,
+      hasClientTokenHint: !!activeContext.clientToken?.trim(),
+    })
+    if (needsDelegatedContext) {
+      const ctx = useClientContext.getState()
+      if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+        generalLogger.warn(
+          '[BootstrapProvider] Delegated client context not ready — deferring Titan bootstrap',
+          {
+            reportId: activeContext.reportId?.substring(0, 30),
+            hasClientId: !!activeContext.clientId?.trim(),
+            authError: authState.error?.substring(0, 80),
+          }
+        )
+        bootstrapStartedRef.current = false
+        if (mountedRef.current) {
+          setIsBootstrapping(false)
+          const message = authState.error?.trim()
+          if (message) setBootstrapError(message)
+        }
+        return
+      }
+    }
+
     bootstrapStartedRef.current = true
     if (!mountedRef.current) return
     setIsBootstrapping(true)
@@ -493,19 +525,9 @@ export function BootstrapProvider({
         }
       }
 
-      // AUTH-FIRST: Set session engine for authenticated users
-      try {
-        const { useSessionStore } = await import('../../store/useSessionStore')
-        useSessionStore.getState().setEngine(result.identity)
-        generalLogger.debug('[BootstrapProvider] Session engine set', {
-          identityType: result.identity.type,
-          engineType: 'AuthenticatedSessionEngine',
-        })
-      } catch (engineError) {
-        generalLogger.error('[BootstrapProvider] Failed to set session engine', {
-          error: engineError instanceof Error ? engineError.message : String(engineError),
-        })
-      }
+      // Session engine is set in useBootstrapSync's deferred microtask together with
+      // session/form hydration — avoids a separate Zustand commit between
+      // `setState(result)` and ManualLayout's sync (React #185 on Mercury handoffs).
 
       onBootstrapCompleteRef.current?.(result)
 
@@ -585,7 +607,58 @@ export function BootstrapProvider({
   // Single derived boolean keeps the re-render count to one per auth-readiness
   // transition (previously each of the three selectors fired independently,
   // tripling provider renders on every auth tick).
-  const authReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)
+  const needsMercuryClientContext = useMemo(
+    () =>
+      shouldWaitForMercuryClientContextBeforeBootstrap({
+        sourceApp: activeContext.sourceApp,
+        reportId: activeContext.reportId,
+        clientId: activeContext.clientId,
+        clientToken: activeContext.clientToken,
+        mercuryPersonaMode: activeContext.mercuryPersonaMode,
+        url: activeContext.url,
+        hasClientTokenHint: !!activeContext.clientToken?.trim(),
+      }),
+    [
+      activeContext.sourceApp,
+      activeContext.reportId,
+      activeContext.clientId,
+      activeContext.clientToken,
+      activeContext.mercuryPersonaMode,
+      activeContext.url,
+    ]
+  )
+
+  const mercuryClientContextReady = useClientContext((s) =>
+    !needsMercuryClientContext
+      ? true
+      : !!(s.isActingAsClient && s.accountant && s.relationshipId)
+  )
+
+  const authStoreReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)
+  const authError = useAuthStore((s) => s.error)
+  const authReady = authStoreReady && mercuryClientContextReady
+
+  // Delegated Mercury opens: if get-client-context failed, surface auth error instead of
+  // spinning on loading until the 30s session timeout (optimistic AuthGate still renders children).
+  useEffect(() => {
+    if (!needsMercuryClientContext || mercuryClientContextReady || !authStoreReady) return
+    const message = authError?.trim()
+    if (!message || bootstrapCompletedRef.current) return
+
+    generalLogger.warn('[BootstrapProvider] Mercury client context failed — surfacing error', {
+      reportId: activeContext.reportId?.substring(0, 30),
+      hasClientId: !!activeContext.clientId?.trim(),
+    })
+    setBootstrapError(message)
+    setIsBootstrapping(false)
+  }, [
+    needsMercuryClientContext,
+    mercuryClientContextReady,
+    authStoreReady,
+    authError,
+    activeContext.reportId,
+    activeContext.clientId,
+  ])
 
   // Auto-bootstrap when auth is ready and no initial state is provided.
   // Fires on mount (non-optimistic path: AuthGate already gated) and again
@@ -630,7 +703,7 @@ export function BootstrapProvider({
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:
-  //   1. runBootstrap() — after Titan returns the resolved identity (primary path)
+  //   1. useBootstrapSync.syncEngine() — deferred microtask after Titan bootstrap
   //   2. updateIdentity() — when identity is explicitly mutated after bootstrap
   // A third reactive effect using require() would create a third engine instance on
   // every identity re-render, race with the primary invocations, and cause unnecessary

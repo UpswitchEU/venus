@@ -3,10 +3,34 @@
  * Uses a deferred promise to prevent API requests from firing before client
  * context is loaded.
  */
+import { looksLikeExistingReportId } from '../../utils/identifiers'
+import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
+
 let clientContextInitialized = false
 let clientContextPromise: Promise<void> | null = null
 let clientContextResolver: (() => void) | null = null
 let clientContextRejecter: ((error: Error) => void) | null = null
+
+function urlRequiresAsyncClientContext(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('clientToken')?.trim() || params.get('clientId')?.trim()) {
+    return true
+  }
+
+  // Mercury advisor opens existing reports with `mode=accountant` but may omit
+  // `clientId` in the URL; initializeAuth restores context via the report row.
+  if (params.get('source') === 'mercury' && isMercuryAdvisorModeParam(params.get('mode'))) {
+    const reportIdMatch = window.location.pathname.match(/\/reports\/([^/]+)/)
+    const reportId = reportIdMatch?.[1]
+    if (reportId && looksLikeExistingReportId(reportId)) {
+      return true
+    }
+  }
+
+  return false
+}
 
 export function initClientContextPromise(): Promise<void> {
   if (!clientContextPromise) {
@@ -49,11 +73,8 @@ export function waitForClientContext(): Promise<void> {
     return clientContextPromise
   }
 
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('clientToken')) {
-      return initClientContextPromise()
-    }
+  if (urlRequiresAsyncClientContext()) {
+    return initClientContextPromise()
   }
 
   return Promise.resolve()

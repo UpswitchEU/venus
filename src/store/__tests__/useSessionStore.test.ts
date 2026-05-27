@@ -713,6 +713,46 @@ describe('useSessionStore', () => {
       expect(hydrateArg.sessionData?._optimisticMercuryShell).toBe(true)
     })
 
+    it('refuses optimistic shell seed for accountant_for_client identity', () => {
+      useSessionStore.getState().seedOptimisticMercuryShell({
+        seedSession: { reportId: 'val_refuse_advisor' },
+        identity: {
+          type: 'accountant_for_client',
+          userId: 'acc-1',
+          clientContext: {
+            accountantUserId: 'acc-1',
+            clientUserId: 'cli-1',
+            relationshipId: 'rel-1',
+            permissions: {
+              canCreateValuations: true,
+              canViewReports: true,
+              canEditReports: true,
+            },
+          },
+        },
+      })
+
+      expect(useSessionStore.getState().session).toBeNull()
+      expect(useSessionStore.getState().engine).toBeNull()
+      expect(useSessionStore.getState().status).toBe('idle')
+    })
+
+    it('refuses optimistic shell seed when delegated handoff signals are present', () => {
+      useSessionStore.getState().seedOptimisticMercuryShell({
+        seedSession: { reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c' },
+        identity: { type: 'authenticated', userId: 'user-123' },
+        delegatedHandoffSignals: {
+          isFromMercury: true,
+          urlIndicatesExisting: true,
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mode: 'accountant',
+        },
+      })
+
+      expect(useSessionStore.getState().session).toBeNull()
+      expect(useSessionStore.getState().status).toBe('idle')
+    })
+
     it('clears errorMessage and renderError on optimistic seed', () => {
       useSessionStore.setState({
         errorMessage: 'stale error',
@@ -765,6 +805,60 @@ describe('useSessionStore', () => {
         status: 'loaded',
       })
       expect(mockHydrateSession).toHaveBeenCalledWith(hydratedSession)
+    })
+
+    it('hydrateSessionAndComplete strips _optimisticMercuryShell when bootstrap payload merges', () => {
+      const bootstrapSession: ValuationSession = {
+        reportId: 'val_strip_shell',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        partialData: {},
+        sessionData: {
+          _bootstrapPrefill: false,
+          company_name: 'Bootstrap Corp',
+        } as ValuationSession['sessionData'],
+      }
+
+      mockHydrateSession.mockImplementation((updates: Partial<ValuationSession>) => {
+        mockGetSession.mockReturnValue({
+          ...bootstrapSession,
+          ...updates,
+          sessionData: {
+            ...(bootstrapSession.sessionData as Record<string, unknown>),
+            ...(updates.sessionData as Record<string, unknown> | undefined),
+            _optimisticMercuryShell: true,
+          } as ValuationSession['sessionData'],
+        })
+      })
+      mockGetSession.mockReturnValue({
+        ...bootstrapSession,
+        sessionData: {
+          ...(bootstrapSession.sessionData as Record<string, unknown>),
+          _optimisticMercuryShell: true,
+        } as ValuationSession['sessionData'],
+      })
+
+      useSessionStore.getState().seedOptimisticMercuryShell({
+        seedSession: {
+          reportId: 'val_strip_shell',
+          currentView: 'manual',
+          dataSource: 'manual',
+          partialData: {},
+          sessionData: { _optimisticMercuryShell: true } as ValuationSession['sessionData'],
+        },
+        identity: { type: 'authenticated', userId: 'user-123' },
+      })
+
+      useSessionStore.getState().hydrateSessionAndComplete({
+        reportId: 'val_strip_shell',
+        sessionData: bootstrapSession.sessionData,
+      })
+
+      const sd = useSessionStore.getState().session?.sessionData as Record<string, unknown>
+      expect(sd?.company_name).toBe('Bootstrap Corp')
+      expect(sd?._optimisticMercuryShell).toBeUndefined()
     })
 
     it('hydrateSessionAndComplete: collapses hydrate + status flip into ONE notification (no engine)', () => {
