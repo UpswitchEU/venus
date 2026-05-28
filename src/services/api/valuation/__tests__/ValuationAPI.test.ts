@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ValidationError } from '../../../../types/errors'
+import { NetworkError, ValidationError } from '../../../../types/errors'
 import { ValuationAPI } from '../ValuationAPI'
 
 describe('ValuationAPI validation handling', () => {
@@ -60,6 +60,92 @@ describe('ValuationAPI validation handling', () => {
 
     expect(out.academic_validation_issues).toEqual(['WACC below SME guidance'])
     expect(out.details?.academic_validation_issues).toEqual(['WACC below SME guidance'])
+  })
+
+  // BENCHMARK_CONTRACT_REQUIRED wiring — covers both the Titan-side preflight
+  // (422 with structured `code`) and the python-tunneled-through-503 path
+  // (Titan ServiceUnavailableException with `code` in the body). Both must
+  // surface as ValidationError(context.code=BENCHMARK_CONTRACT_REQUIRED) so
+  // the toast handler in useManualSubmitErrorHandler can render a typed
+  // remediation. Real 503 outages (no code) keep falling to NetworkError.
+
+  it('surfaces 422 BENCHMARK_CONTRACT_REQUIRED into ValidationError.context.code', () => {
+    const api = new ValuationAPI()
+
+    const axiosError = {
+      response: {
+        status: 422,
+        data: {
+          code: 'BENCHMARK_CONTRACT_REQUIRED',
+          message: 'A business type is required so Upswitch can attach the Delphi-resolved benchmark contract to this calculation.',
+          country_code: 'BE',
+          reason: 'missing_business_type_id',
+        },
+      },
+    }
+
+    let thrownError: unknown
+    try {
+      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+    } catch (error) {
+      thrownError = error
+    }
+
+    expect(thrownError).toBeInstanceOf(ValidationError)
+    expect((thrownError as ValidationError).context?.code).toBe('BENCHMARK_CONTRACT_REQUIRED')
+    expect((thrownError as ValidationError).message).toMatch(/business type is required/)
+  })
+
+  it('surfaces 503 with structured code into ValidationError instead of generic NetworkError', () => {
+    const api = new ValuationAPI()
+
+    // Shape of Titan's ServiceUnavailableException({code, message}) for the
+    // python-tunneled-through case. Same shape NestJS uses for any
+    // UnprocessableEntityException with an object payload.
+    const axiosError = {
+      response: {
+        status: 503,
+        data: {
+          code: 'BENCHMARK_CONTRACT_REQUIRED',
+          message:
+            'Valuation calculation failed: [BENCHMARK_CONTRACT_REQUIRED] Resolved benchmark contract required for multiples valuation.',
+          error_type: 'MultiplesCalculationError',
+        },
+      },
+    }
+
+    let thrownError: unknown
+    try {
+      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+    } catch (error) {
+      thrownError = error
+    }
+
+    expect(thrownError).toBeInstanceOf(ValidationError)
+    expect((thrownError as ValidationError).context?.code).toBe('BENCHMARK_CONTRACT_REQUIRED')
+    expect((thrownError as ValidationError).context?.via_503_passthrough).toBe(true)
+    expect((thrownError as ValidationError).message).toMatch(/BENCHMARK_CONTRACT_REQUIRED/)
+  })
+
+  it('keeps 503 without a structured code as a generic NetworkError (real outage path)', () => {
+    const api = new ValuationAPI()
+
+    const axiosError = {
+      response: {
+        status: 503,
+        data: { message: 'upstream timeout' }, // no `code` field
+      },
+    }
+
+    let thrownError: unknown
+    try {
+      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+    } catch (error) {
+      thrownError = error
+    }
+
+    expect(thrownError).toBeInstanceOf(NetworkError)
+    expect(thrownError).not.toBeInstanceOf(ValidationError)
   })
 
   it('forwards preparer multiple edits on the method PATCH request', async () => {

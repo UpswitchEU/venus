@@ -2110,6 +2110,8 @@
 		"calculationFailedNoResult": "No result received.",
 		"serviceUnavailable": "The valuation service is temporarily unavailable. Please try again in a moment.",
 		"calculationFailedReview": "The valuation could not be completed. Please review your inputs and try again.",
+		"benchmarkContractRequired": "Benchmark unavailable for this business type",
+		"benchmarkContractRequiredDesc": "Upswitch couldn't find a trusted Delphi benchmark for this business type in the selected country. Pick a different business type or contact support to add coverage.",
 		"calculationComplete": "Indicative estimate completed",
 		"reportHtmlRecoveryFailed": "The report preview is still loading. Refresh the page or recalculate if it does not appear.",
 		"synthesisBlendSkippedTitle": "Blended valuation unavailable",

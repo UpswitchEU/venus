@@ -57,6 +57,30 @@ export function useManualSubmitErrorHandler({
         return
       }
 
+      // BENCHMARK_CONTRACT_REQUIRED — either Titan's preflight guard caught it
+      // (422 when business_type_id is missing) or python's preflight fired and
+      // Titan tunneled the code through the 503 wrapper. Render a typed toast
+      // so the user knows to re-pick a business type instead of seeing a
+      // generic "Service unavailable". Same `error.context.code` contract as
+      // EXTREME_MULTIPLE above.
+      if (
+        error instanceof ValidationError &&
+        error.context?.code === 'BENCHMARK_CONTRACT_REQUIRED'
+      ) {
+        toast.error(translate('calculationFailed'), {
+          description: error.message,
+          action: {
+            label: translate('retry'),
+            onClick: retrySubmit,
+          },
+        })
+        generalLogger.warn('[ManualLayout] BENCHMARK_CONTRACT_REQUIRED', {
+          message: error.message,
+          via503: Boolean((error.context as { via_503_passthrough?: boolean })?.via_503_passthrough),
+        })
+        return
+      }
+
       if (error instanceof CreditError) {
         toast.error(translateErrors('calculation.insufficientCredits'), {
           description: error.message,

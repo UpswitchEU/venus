@@ -219,6 +219,70 @@ describe('AuthenticatedSessionEngine', () => {
     })
   })
 
+  it('hydrateSession preserves URL reportId when SessionBackgroundRevalidation hydrates with the canonical session_key', () => {
+    // Regression: Titan returns sessions keyed on `session_key` (e.g. val_*) but
+    // Mercury delegated URLs hand off the report UUID. SessionBackgroundRevalidation
+    // promotes the canonical session_key into the hydrate payload to keep server
+    // identity authoritative. Without engine-level normalization, the spread inside
+    // applyUpdate overwrites session.reportId with the session_key, and
+    // ValuationSessionManager's `session.reportId === reportId` gate flips off
+    // until the 30s safety-timer surfaces a "session timeout" to the user.
+    const createdAt = new Date('2026-05-28T18:00:00.000Z')
+    const urlReportUuid = 'f712d21d-e509-43dd-9112-114281ab0a80'
+    const canonicalSessionKey = 'val_1779977030082_v5f70e4f9a'
+
+    const engine = new AuthenticatedSessionEngine()
+    // Mercury delegated bootstrap path: store seeds the engine with the URL UUID.
+    engine.hydrateSession({
+      reportId: urlReportUuid,
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Acme BV' },
+    })
+    expect(engine.getSession()?.reportId).toBe(urlReportUuid)
+
+    // SessionBackgroundRevalidation later hydrates with the server's canonical
+    // session_key. The engine must snap session.reportId back to the URL UUID.
+    engine.hydrateSession({
+      reportId: canonicalSessionKey,
+      htmlReport: '<main>Recovered after ensure-html</main>',
+      sessionData: { company_name: 'Acme BV', revenue: 1_000_000 },
+    })
+
+    expect(engine.getSession()?.reportId).toBe(urlReportUuid)
+    // The hydration's other fields still applied — only reportId is pinned.
+    expect(engine.getSession()?.htmlReport).toBe('<main>Recovered after ensure-html</main>')
+    expect(engine.getSession()?.sessionData).toMatchObject({ revenue: 1_000_000 })
+  })
+
+  it('updateSession preserves URL reportId when an updater ships the canonical session_key', () => {
+    const createdAt = new Date('2026-05-28T18:00:00.000Z')
+    const urlReportUuid = 'f712d21d-e509-43dd-9112-114281ab0a80'
+    const canonicalSessionKey = 'val_1779977030082_v5f70e4f9a'
+
+    const engine = new AuthenticatedSessionEngine()
+    // Seed requestedReportId via the same path bootstrap uses in production.
+    engine.hydrateSession({
+      reportId: urlReportUuid,
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Acme BV' },
+    })
+
+    // A subsequent updateSession that carries the canonical id must not drift.
+    engine.updateSession({
+      reportId: canonicalSessionKey,
+      valuationResult: { equity_value_mid: 1_500_000 },
+    })
+
+    expect(engine.getSession()?.reportId).toBe(urlReportUuid)
+    expect(engine.getSession()?.valuationResult).toMatchObject({ equity_value_mid: 1_500_000 })
+  })
+
   it('preserves recovered HTML when autosave response returns stale server snapshot', async () => {
     const createdAt = new Date('2026-05-26T10:00:00.000Z')
     const recoveredHtml = '<main>Recovered report after save</main>'

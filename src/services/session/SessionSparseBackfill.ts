@@ -4,10 +4,18 @@ import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import {
   mergeSessionSurfaceForOptionalPrefill,
-  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
-  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   sessionEnvelopeHasIdentitySignals,
 } from '../../utils/mergeOptionalSessionPrefillFields'
+// Read these constants directly from their source to side-step a Vite SSR
+// re-export hazard: when SessionSparseBackfill is loaded via the SessionService
+// → SessionBackgroundRevalidation chain in vitest, the re-export through
+// mergeOptionalSessionPrefillFields resolves to `undefined` and the spread on
+// line 93 crashes at module init with "not iterable". Pinning the import to the
+// source file avoids the indirection.
+import {
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+} from '../../utils/optionalSessionPrefillKeys'
 import { isLegalFormBusinessTypeValue } from '../naceBusinessTypeService'
 
 const logger = createContextLogger('SessionSparseBackfill')

@@ -391,6 +391,26 @@ export class ValuationAPI extends HttpClient {
       code === 'ECONNRESET' ||
       status === 503
     ) {
+      // Titan's 503 wrapper around the python engine carries a structured
+      // `code` (e.g. BENCHMARK_CONTRACT_REQUIRED) when the underlying
+      // failure is a typed domain error rather than a real outage. Hoist
+      // it into a ValidationError with `context.code` so the toast handler
+      // can render a typed remediation — same shape as the 422 path. Real
+      // outages (no code, ECONNREFUSED, etc.) keep the NetworkError path.
+      const nestedMsg = response?.message
+      const nestedMsgRecord = asRecord(nestedMsg)
+      const codeFromBody = asString(nestedMsgRecord?.code) ?? asString(response?.code)
+      if (status === 503 && codeFromBody) {
+        const userMessage =
+          asString(nestedMsgRecord?.message) ??
+          asString(response?.message) ??
+          'Service temporarily unavailable. Please try again in a moment.'
+        throw new ValidationError(userMessage, undefined, undefined, {
+          status,
+          code: codeFromBody,
+          via_503_passthrough: true,
+        })
+      }
       throw new NetworkError('Service temporarily unavailable. Please try again in a moment.')
     }
 

@@ -515,6 +515,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ? {
                 ...current.session,
                 ...updates,
+                // Same reportId pin as the no-engine hydrateSession branch — see
+                // that path for the rationale (canonical session_key drift).
+                reportId: current.session.reportId,
                 sessionData: updates.sessionData
                   ? mergeSessionDataStrippingOptimisticShell(
                       asSessionDataRecord(current.session?.sessionData),
@@ -970,6 +973,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ? {
                 ...current.session,
                 ...updates,
+                // Mirror AuthenticatedSessionEngine.normalizeReportId(): once a
+                // session has been bound to a reportId we never let a hydrate
+                // payload silently drift it (e.g. SessionBackgroundRevalidation
+                // shipping the canonical session_key when the page is on the
+                // URL UUID). The engine path enforces this via requestedReportId;
+                // the no-engine fallback enforces it by pinning to the established
+                // current.session.reportId.
+                reportId: current.session.reportId,
                 sessionData: updates.sessionData
                   ? mergeSessionDataStrippingOptimisticShell(
                       asSessionDataRecord(current.session?.sessionData),

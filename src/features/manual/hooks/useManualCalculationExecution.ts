@@ -65,9 +65,18 @@ export function useManualCalculationExecution({
       }
 
       const calcStartTime = Date.now()
+      // Include business_type_id + methodology in the diagnostic so a 422/500
+      // post-mortem can tell whether the FE actually sent enough for the
+      // Titan/python multiples preflight to attach a Delphi benchmark
+      // contract. Without these we can't distinguish a missing-on-FE bug
+      // from a Titan enrichment lookup miss.
       generalLogger.info('[ManualLayout] Calling valuationService.calculateValuation', {
         companyName: request.company_name,
         industry: request.industry,
+        businessTypeId: request.business_type_id ?? null,
+        methodology: (request as { methodology?: string }).methodology ?? null,
+        selectedMethod: (request as { selected_method?: string }).selected_method ?? null,
+        useMultiples: (request as { use_multiples?: boolean }).use_multiples ?? null,
       })
       const valuationResult = await valuationService.calculateValuation(request)
       const calculationDurationMs = Date.now() - calcStartTime

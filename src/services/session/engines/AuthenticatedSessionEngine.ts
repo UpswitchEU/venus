@@ -266,6 +266,12 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         previousSession
       )
     }
+    // SessionBackgroundRevalidation hydrates with the canonical session_key when
+    // Titan resolves a URL-UUID lookup to a row keyed on val_*. Without snapping
+    // back to requestedReportId, session.reportId drifts away from the URL and
+    // ValuationSessionManager's `session.reportId === reportId` gate gets stuck
+    // on 'loading' for 30s before the safety-timer surfaces a session-timeout.
+    this.normalizeReportId()
   }
 
   /**
@@ -305,6 +311,12 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
           ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
         } as ValuationSession
+        // Mirror loadSession + hydrateSession's no-current-session branch: any
+        // path that mints currentSession also pins requestedReportId so the
+        // normalizeReportId() guards on every later mutation have something to
+        // pin against. Without this, a subsequent updater can still drift the
+        // session id away from the URL.
+        this.requestedReportId = updates.reportId
 
         generalLogger.debug(
           '[AuthenticatedSessionEngine] Session initialized from updates (bootstrap flow)',
@@ -330,6 +342,10 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
     // Apply update to current session
     this.applyUpdate(updates)
+    // Same reasoning as hydrateSession: keep currentSession.reportId pinned to
+    // requestedReportId so SessionManager's equality gate never trips when an
+    // updater happens to ship the backend's canonical session_key.
+    this.normalizeReportId()
 
     generalLogger.debug('[AuthenticatedSessionEngine] Updated session (local)', {
       reportId: this.currentSession.reportId,

@@ -274,18 +274,31 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           htmlReport?: string | null
           details?: { html_report?: string | null }
         }
-        const renderableHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
-          [
-            resultWithLegacyAliases.html_report,
-            resultWithLegacyAliases.htmlReport,
-            resultWithLegacyAliases.details?.html_report,
-          ],
-          [state.htmlReport],
-          {
-            currentRenderFingerprint: resultWithLegacyAliases.render_fingerprint,
-            fallbackRenderFingerprint: state.result?.render_fingerprint,
-          }
+        const incomingHtmlCandidates = [
+          resultWithLegacyAliases.html_report,
+          resultWithLegacyAliases.htmlReport,
+          resultWithLegacyAliases.details?.html_report,
+        ]
+        // Metadata-only payloads (e.g. /reports/:id polling, background session
+        // revalidation) arrive with no html_report at all. The fingerprint guard
+        // inside getRenderableReportHtmlFromCurrentOrFallback would otherwise
+        // wipe state.htmlReport on every such call, flickering the UI to the
+        // skeleton until useManualReportHtmlRecovery refetches. Preserve the
+        // standalone html instead — recovery still drives a real refresh if the
+        // session is actually stale.
+        const incomingCarriesHtmlSignal = incomingHtmlCandidates.some(
+          (v) => typeof v === 'string' && v.length > 0
         )
+        const renderableHtmlReport = incomingCarriesHtmlSignal
+          ? getRenderableReportHtmlFromCurrentOrFallback(
+              incomingHtmlCandidates,
+              [state.htmlReport],
+              {
+                currentRenderFingerprint: resultWithLegacyAliases.render_fingerprint,
+                fallbackRenderFingerprint: state.result?.render_fingerprint,
+              }
+            )
+          : getFirstRenderableReportHtml(state.htmlReport)
 
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: normalizedResult.valuation_id,

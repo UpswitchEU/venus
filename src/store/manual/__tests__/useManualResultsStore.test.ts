@@ -187,6 +187,37 @@ describe('useManualResultsStore', () => {
       expect(result.current.htmlReport).toBe('<article>Full details report</article>')
     })
 
+    it('preserves standalone html when a metadata-only result arrives with a different render_fingerprint', () => {
+      // Regression: useManualReportMethodHydration and SessionBackgroundRevalidation
+      // both ship results that carry an updated render_fingerprint but no
+      // html_report (Titan strips the blob from these metadata-only payloads).
+      // The fingerprint guard inside getRenderableReportHtmlFromCurrentOrFallback
+      // used to treat that combination as "wipe the stale fallback", which
+      // flickered the right panel to skeleton until ensure-html could re-recover.
+      // The store must keep state.htmlReport as long as the incoming payload
+      // makes no claim about html.
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setResult({
+          valuation_id: 'val-ready',
+          render_fingerprint: 'fp-1',
+          html_report: '<article>Fully rendered report</article>',
+        } as any)
+      })
+      expect(result.current.htmlReport).toBe('<article>Fully rendered report</article>')
+
+      // Metadata-only refresh: same row, fresh fingerprint, no html field at all.
+      act(() => {
+        result.current.setResult({
+          valuation_id: 'val-ready',
+          render_fingerprint: 'fp-2',
+        } as any)
+      })
+
+      expect(result.current.htmlReport).toBe('<article>Fully rendered report</article>')
+    })
+
     it('clears previous report html when the current payload explicitly contains safety-net html', () => {
       const { result } = renderHook(() => useManualResultsStore())
 
