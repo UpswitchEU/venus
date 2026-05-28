@@ -241,13 +241,7 @@ function FollowUpButtons({
   )
 }
 
-function advisoryTone({
-  blocked,
-  ready,
-}: {
-  blocked?: boolean
-  ready?: boolean
-}): FormCardTone {
+function advisoryTone({ blocked, ready }: { blocked?: boolean; ready?: boolean }): FormCardTone {
   if (blocked) return 'warning'
   if (ready) return 'success'
   return 'idle'
@@ -435,62 +429,54 @@ export function ChatAssistantAdvisoryPreviewCards({
                 key={readiness.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  'rounded-xl border p-3 text-sm',
-                  needsReview
-                    ? 'border-amber-500/25 bg-amber-500/[0.04]'
-                    : isReady
-                      ? 'border-success/15 bg-success/[0.04]'
-                      : 'border-primary/15 bg-primary/[0.04]'
-                )}
               >
-                <p className="font-medium text-foreground/90">
-                  {needsReview
-                    ? ca('proposalCards.clientDataReadiness.titleReview')
-                    : isReady
-                      ? ca('proposalCards.clientDataReadiness.titleReady')
-                      : ca('proposalCards.clientDataReadiness.titleBlocked')}
-                </p>
-                {summaryBits.length > 0 && (
-                  <p className="mt-0.5 text-xs text-foreground/55 leading-snug">
-                    {summaryBits.join(' · ')}
-                  </p>
-                )}
-                {readiness.recommendedNextAction && (
-                  <p className="mt-2 text-xs text-foreground/65 leading-snug">
-                    <span className="font-medium text-foreground/75">
-                      {ca('proposalCards.clientDataReadiness.nextActionLabel')}:
-                    </span>{' '}
-                    {readiness.recommendedNextAction}
-                  </p>
-                )}
-                {topFlags.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {topFlags.slice(0, 3).map((flag, index) => (
-                      <div
-                        key={`${flag.year ?? 'year'}-${flag.code ?? flag.field ?? index}`}
-                        className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground/75 truncate">
-                            {flag.code ??
-                              flag.field ??
-                              ca('proposalCards.clientDataReadiness.flagsLabel')}
-                          </span>
-                          {flag.severity && (
-                            <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
-                              {flag.severity}
+                <FormCardShell
+                  title={
+                    needsReview
+                      ? ca('proposalCards.clientDataReadiness.titleReview')
+                      : isReady
+                        ? ca('proposalCards.clientDataReadiness.titleReady')
+                        : ca('proposalCards.clientDataReadiness.titleBlocked')
+                  }
+                  reason={summaryBits.length > 0 ? summaryBits.join(' · ') : undefined}
+                  tone={advisoryTone({ blocked: needsReview, ready: isReady })}
+                >
+                  {readiness.recommendedNextAction && (
+                    <p className="text-xs text-foreground/65 leading-snug">
+                      <span className="font-medium text-foreground/75">
+                        {ca('proposalCards.clientDataReadiness.nextActionLabel')}:
+                      </span>{' '}
+                      {readiness.recommendedNextAction}
+                    </p>
+                  )}
+                  {topFlags.length > 0 && (
+                    <div className="space-y-1">
+                      {topFlags.slice(0, 3).map((flag, index) => (
+                        <div
+                          key={`${flag.year ?? 'year'}-${flag.code ?? flag.field ?? index}`}
+                          className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-foreground/75 truncate">
+                              {flag.code ??
+                                flag.field ??
+                                ca('proposalCards.clientDataReadiness.flagsLabel')}
                             </span>
+                            {flag.severity && (
+                              <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
+                                {flag.severity}
+                              </span>
+                            )}
+                          </div>
+                          {flag.message && (
+                            <p className="mt-0.5 text-foreground/55">{flag.message}</p>
                           )}
                         </div>
-                        {flag.message && (
-                          <p className="mt-0.5 text-foreground/55">{flag.message}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
+                      ))}
+                    </div>
+                  )}
+                  <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
+                </FormCardShell>
               </motion.div>
             )
           })}
@@ -527,63 +513,52 @@ export function ChatAssistantAdvisoryPreviewCards({
                 key={preview.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  'rounded-xl border p-3 text-sm',
-                  isBlocked
-                    ? 'border-amber-500/25 bg-amber-500/[0.04]'
-                    : 'border-primary/15 bg-primary/[0.04]'
-                )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground/90">
-                      {isBlocked
-                        ? ca('proposalCards.methodReadiness.titleBlocked')
-                        : ca('proposalCards.methodReadiness.titleReady')}
-                    </p>
-                    {summaryBits.length > 0 && (
-                      <p className="mt-0.5 text-xs text-foreground/55 leading-snug">
-                        {summaryBits.join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {!isBlocked && (
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5">
-                      <p className="text-[10px] font-medium uppercase text-foreground/35">
-                        {ca('proposalCards.methodReadiness.readyLabel')}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {preview.readyMethods.slice(0, 6).map((method) => (
-                          <span
-                            key={method}
-                            className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] text-success/90"
-                          >
-                            {formatMethodName(method)}
-                          </span>
-                        ))}
+                <FormCardShell
+                  title={
+                    isBlocked
+                      ? ca('proposalCards.methodReadiness.titleBlocked')
+                      : ca('proposalCards.methodReadiness.titleReady')
+                  }
+                  reason={summaryBits.length > 0 ? summaryBits.join(' · ') : undefined}
+                  tone={advisoryTone({ blocked: isBlocked })}
+                >
+                  {!isBlocked && (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase text-foreground/35">
+                          {ca('proposalCards.methodReadiness.readyLabel')}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {preview.readyMethods.slice(0, 6).map((method) => (
+                            <span
+                              key={method}
+                              className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] text-success/90"
+                            >
+                              {formatMethodName(method)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-foreground/[0.025] px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase text-foreground/35">
+                          {ca('proposalCards.methodReadiness.blockedLabel')}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {preview.blockedMethods.slice(0, 6).map((method) => (
+                            <span
+                              key={method}
+                              className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55"
+                            >
+                              {formatMethodName(method)}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="rounded-md bg-foreground/[0.025] px-2 py-1.5">
-                      <p className="text-[10px] font-medium uppercase text-foreground/35">
-                        {ca('proposalCards.methodReadiness.blockedLabel')}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {preview.blockedMethods.slice(0, 6).map((method) => (
-                          <span
-                            key={method}
-                            className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55"
-                          >
-                            {formatMethodName(method)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
+                  )}
+                  <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
+                </FormCardShell>
               </motion.div>
             )
           })}

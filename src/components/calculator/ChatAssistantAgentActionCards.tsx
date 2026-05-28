@@ -1,5 +1,6 @@
 'use client'
 
+import { ProposalCardShell, type ProposalCardTone } from '@upswitch/ai-dock-shells'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -24,14 +25,17 @@ import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   AcknowledgeWarningRequest,
   AgentChoiceSelection,
+  BulkValuationRunRequest,
   ChatMessage,
   ClientCreateRequest,
   CsvUploadRequest,
   ImportReviewRequest,
   IntegrationConnectRequest,
   IntegrationSyncRequest,
+  ListingFieldUpdateRequest,
   ListingVisibilityRequest,
   MultiSelectRequest,
+  NormalizationDismissRequest,
   OwnerInviteAccountantRequest,
   OwnerProfileAnswerRequest,
   OwnerReminderRequest,
@@ -40,14 +44,11 @@ import type {
   ShareTokenRevokeRequest,
   SingleSelectRequest,
   SyncStatusPreview,
-  BulkValuationRunRequest,
-  ListingFieldUpdateRequest,
-  NormalizationDismissRequest,
   ValuationDefaultsPreview,
-  WorkspaceClientsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
   ValuationSessionRequest,
+  WorkspaceClientsPreview,
 } from './ChatAssistantTypes'
 
 interface ChatAssistantAgentActionCardsProps {
@@ -274,6 +275,17 @@ function InlineActionCard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const canAct = Boolean(onAction) || (typeof onSendFollowUp === 'function' && actionPrompt)
   const isSubmitting = decision === 'submitting'
+  const shellTone: ProposalCardTone =
+    decision === 'sent'
+      ? 'success'
+      : decision === 'dismissed'
+        ? 'rejected'
+        : tone === 'blocked'
+          ? 'warning'
+          : 'idle'
+  const primaryLabel = isSubmitting
+    ? (actionPendingLabel ?? ca('proposalCards.agent.submitting'))
+    : (actionLabel ?? ca('proposalCards.agent.continue'))
 
   const handleAction = useCallback(async () => {
     if (!canAct || isSubmitting) return
@@ -301,63 +313,38 @@ function InlineActionCard({
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className={cn(
-        'rounded-lg border px-3 py-2 text-sm leading-relaxed',
-        decision === 'sent'
-          ? 'border-success/20 bg-success/5'
-          : decision === 'dismissed'
-            ? 'border-foreground/[0.08] bg-foreground/[0.02] opacity-70'
-            : tone === 'blocked'
-              ? 'border-amber-500/25 bg-amber-500/[0.04]'
-              : 'border-primary/15 bg-primary/[0.035]'
-      )}
     >
-      <div className="flex items-start gap-2.5">
-        {icon && <div className="mt-0.5 shrink-0 text-primary/80">{icon}</div>}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground/90">{title}</p>
-          {detail && <p className="mt-0.5 text-xs text-foreground/60 leading-snug">{detail}</p>}
-          {meta.length > 0 && (
-            <p className="mt-1 text-xs text-foreground/50 leading-snug">{meta.join(' · ')}</p>
-          )}
-          {children}
-          {decision === 'sent' && (
-            <p className="mt-1.5 text-xs text-success/90">
-              {actionSuccessLabel ?? ca('proposalCards.agent.sent')}
-            </p>
-          )}
-          {decision === 'dismissed' && (
-            <p className="mt-1.5 text-xs text-foreground/45">
-              {ca('proposalCards.common.statusCancelled')}
-            </p>
-          )}
-          {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
-          {(decision === 'idle' || isSubmitting) && (actionLabel || canAct) && (
-            <div className="mt-2 flex items-center gap-3 text-xs">
-              {canAct && (
-                <button
-                  type="button"
-                  onClick={() => void handleAction()}
-                  disabled={isSubmitting}
-                  className="text-primary/85 hover:text-primary transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isSubmitting
-                    ? (actionPendingLabel ?? ca('proposalCards.agent.submitting'))
-                    : (actionLabel ?? ca('proposalCards.agent.continue'))}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setDecision('dismissed')}
-                disabled={isSubmitting}
-                className="text-foreground/45 hover:text-foreground/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {ca('proposalCards.common.buttonCancel')}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <ProposalCardShell
+        title={title}
+        subhead={detail}
+        reason={meta.length > 0 ? meta.join(' · ') : undefined}
+        tone={shellTone}
+        primaryLabel={(decision === 'idle' || isSubmitting) && canAct ? primaryLabel : undefined}
+        onPrimary={(decision === 'idle' || isSubmitting) && canAct ? handleAction : undefined}
+        rejectLabel={
+          (decision === 'idle' || isSubmitting) && canAct
+            ? ca('proposalCards.common.buttonCancel')
+            : undefined
+        }
+        onReject={
+          (decision === 'idle' || isSubmitting) && canAct
+            ? () => setDecision('dismissed')
+            : undefined
+        }
+        isInFlight={isSubmitting}
+        successNote={
+          decision === 'sent' ? (actionSuccessLabel ?? ca('proposalCards.agent.sent')) : undefined
+        }
+        errorMessage={errorMessage}
+      >
+        {icon ? <div className="mb-1 text-primary/80">{icon}</div> : null}
+        {children}
+        {decision === 'dismissed' ? (
+          <p className="mt-1.5 text-xs text-foreground/45">
+            {ca('proposalCards.common.statusCancelled')}
+          </p>
+        ) : null}
+      </ProposalCardShell>
     </motion.div>
   )
 }
@@ -1195,9 +1182,7 @@ function NormalizationDismissCard({ request }: { request: NormalizationDismissRe
       tone={isBlocked || isInvalid ? 'blocked' : 'default'}
       icon={<Pin className="h-3.5 w-3.5" />}
       actionLabel={
-        isBlocked || isInvalid
-          ? undefined
-          : ca('proposalCards.agent.normalizationDismissAction')
+        isBlocked || isInvalid ? undefined : ca('proposalCards.agent.normalizationDismissAction')
       }
       actionSuccessLabel={ca('proposalCards.agent.normalizationDismissRemoved')}
       onAction={
@@ -1211,10 +1196,7 @@ function NormalizationDismissCard({ request }: { request: NormalizationDismissRe
                 {
                   method: 'DELETE',
                   headers: {
-                    ...buildAgentToolActionHeaders(
-                      'propose_normalization_dismiss',
-                      request.id
-                    ),
+                    ...buildAgentToolActionHeaders('propose_normalization_dismiss', request.id),
                   },
                   credentials: 'include',
                 }
@@ -1257,14 +1239,11 @@ function ListingFieldUpdateCard({ request }: { request: ListingFieldUpdateReques
         ? ca('proposalCards.agent.listingFieldUpdatePriceCleared')
         : ca('proposalCards.agent.listingFieldUpdatePriceSet', {
             value:
-              typeof v === 'number'
-                ? v.toLocaleString('en-US', { maximumFractionDigits: 0 })
-                : '',
+              typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '',
           })
     )
   }
-  if ('summary' in change)
-    metaParts.push(ca('proposalCards.agent.listingFieldUpdateSummary'))
+  if ('summary' in change) metaParts.push(ca('proposalCards.agent.listingFieldUpdateSummary'))
   if ('description' in change)
     metaParts.push(ca('proposalCards.agent.listingFieldUpdateDescription'))
 
@@ -1281,9 +1260,7 @@ function ListingFieldUpdateCard({ request }: { request: ListingFieldUpdateReques
       tone={isBlocked || isEmpty ? 'blocked' : 'default'}
       icon={<Pin className="h-3.5 w-3.5" />}
       actionLabel={
-        isBlocked || isEmpty
-          ? undefined
-          : ca('proposalCards.agent.listingFieldUpdateAction')
+        isBlocked || isEmpty ? undefined : ca('proposalCards.agent.listingFieldUpdateAction')
       }
       actionSuccessLabel={ca('proposalCards.agent.saved')}
       onAction={
@@ -1296,10 +1273,7 @@ function ListingFieldUpdateCard({ request }: { request: ListingFieldUpdateReques
                   method: 'PATCH',
                   headers: {
                     'Content-Type': 'application/json',
-                    ...buildAgentToolActionHeaders(
-                      'propose_listing_field_update',
-                      request.id
-                    ),
+                    ...buildAgentToolActionHeaders('propose_listing_field_update', request.id),
                   },
                   credentials: 'include',
                   body: JSON.stringify(change),
@@ -1348,9 +1322,7 @@ function BulkValuationRunCard({ request }: { request: BulkValuationRunRequest })
       tone={isBlocked || isInvalid ? 'blocked' : 'default'}
       icon={<Pin className="h-3.5 w-3.5" />}
       actionLabel={
-        isBlocked || isInvalid
-          ? undefined
-          : ca('proposalCards.agent.bulkValuationRunAction')
+        isBlocked || isInvalid ? undefined : ca('proposalCards.agent.bulkValuationRunAction')
       }
       actionSuccessLabel={ca('proposalCards.agent.bulkValuationRunStarted')}
       onAction={
@@ -1405,8 +1377,7 @@ function ValuationDefaultsCard({ request }: { request: ValuationDefaultsRequest 
   }
   if ('historical_ebitda_weighting_mode' in change) {
     const v = change.historical_ebitda_weighting_mode
-    if (v === null)
-      metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingDefault'))
+    if (v === null) metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingDefault'))
     else if (v === 'weighted')
       metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingWeighted'))
     else metaParts.push(ca('proposalCards.agent.valuationDefaultsWeightingStandard'))
@@ -1459,7 +1430,7 @@ function WorkspaceClientsPreviewCard({ preview }: { preview: WorkspaceClientsPre
   const ca = useTranslations('chatAssistant')
   const isFailed = preview.status === 'failed'
   const counts = preview.counts ?? { draft: 0, invited: 0, active: 0 }
-  const total = preview.totalClients ?? (preview.clients?.length ?? 0)
+  const total = preview.totalClients ?? preview.clients?.length ?? 0
 
   // Compact: chip-row for the status rollup, no per-client list (Venus
   // dock is narrower than Mercury's). If the agent wants to enumerate
@@ -1493,13 +1464,7 @@ function WorkspaceClientsPreviewCard({ preview }: { preview: WorkspaceClientsPre
           ? ca('proposalCards.agent.workspaceClientsPreviewFailed')
           : ca('proposalCards.agent.workspaceClientsPreviewTitle')
       }
-      detail={
-        isFailed
-          ? preview.message
-          : preview.truncated
-            ? preview.message
-            : undefined
-      }
+      detail={isFailed ? preview.message : preview.truncated ? preview.message : undefined}
       meta={isFailed ? undefined : compactParts(metaParts)}
       tone={isFailed ? 'blocked' : 'default'}
       icon={<Pin className="h-3.5 w-3.5" />}
