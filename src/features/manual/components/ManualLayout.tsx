@@ -244,8 +244,8 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     valuationResults: synthesisValuationResults,
     navValuationSummary,
   } = useManualSynthesisController({ result, report })
-  // `isMethodSwitchRendering` is now derived from the persistence coordinator
-  // declared below — see `persistCoordinator.isPersisting`.
+  // `isMethodSwitchRendering` comes from `useManualMethodPersistenceController`
+  // (coordinator `isPersisting` — only true during user-initiated method/preparer persist).
   const liveMultipleReportPreview = useMemo(() => {
     return buildManualLiveMultiplePreview({
       result,
@@ -510,6 +510,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       reasonKey: preparerReasonKey ?? '',
     },
     report,
+    restorationComplete,
     result,
     selectedMethod,
     setPreSelectedMethod,
@@ -856,7 +857,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
         isCalculating={isCalculating}
         isExporting={isExporting}
         isGenerating={isGenerating}
-        isMethodSwitchRendering={isMethodSwitchRendering}
         isMobile={isMobile}
         navValuationSummary={navValuationSummary}
         onExitClientView={handleExitClientView}

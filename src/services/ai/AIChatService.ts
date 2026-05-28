@@ -53,8 +53,16 @@ import {
 
 const logger = createContextLogger('AIChatService')
 
+function generateAiChatCorrelationId(): string {
+  const timestamp = Date.now().toString(36)
+  const random = crypto.randomUUID().split('-')[0]
+  return `cid_${timestamp}_${random}`
+}
+
 function getRequestHeaders(includeContentType = true): Record<string, string> {
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = {
+    'X-Correlation-ID': generateAiChatCorrelationId(),
+  }
   if (includeContentType) headers['Content-Type'] = 'application/json'
   const contextHeaders = useClientContext.getState().getContextHeaders()
   if (Object.keys(contextHeaders).length > 0) {
@@ -268,6 +276,8 @@ export interface StreamCallbacks {
   }) => void
   /** Called instead of onError when the BFF returns 401. */
   onAuthRequired?: (payload: { message: string }) => void
+  /** BFF-only meta chunk — skip duplicate client recovery when fallback succeeded. */
+  onBffStreamRecovery?: (source: 'bff-fallback' | 'bff-fallback-failed') => void
 }
 
 // ─────────────────────────────────────────

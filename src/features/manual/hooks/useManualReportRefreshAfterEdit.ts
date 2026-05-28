@@ -11,6 +11,7 @@ import {
   getRenderableReportHtmlFromCurrentOrFallback,
 } from '../../../utils/safetyNetReportHtml'
 import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
+import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 
 type ManualPdfGenerator = () => Promise<string | null>
 
@@ -92,7 +93,20 @@ export function useManualReportRefreshAfterEdit({
         })
 
         if (htmlForPreview) {
-          regeneratePdfAfterValuationEdit({ canDownloadPdf, generatePdf })
+          regeneratePdfAfterValuationEdit({
+            canDownloadPdf,
+            generatePdf,
+            reportMeta: {
+              reportUpdatedAt: fresh.updated_at
+                ? new Date(String(fresh.updated_at))
+                : undefined,
+              pdfGeneratedAt:
+                fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
+                  ? new Date(String(fresh.pdf_generated_at))
+                  : null,
+              pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+            },
+          })
         }
 
         return true
@@ -108,7 +122,12 @@ export function useManualReportRefreshAfterEdit({
           setResult(
             latestResult ? { ...latestResult, html_report: renderableHtmlFromPatch } : latestResult
           )
-          regeneratePdfAfterValuationEdit({ canDownloadPdf, generatePdf })
+          regeneratePdfAfterValuationEdit({
+            canDownloadPdf,
+            generatePdf,
+            // HTML came from patch fallback — PDF is stale by definition.
+            forceRegenerate: true,
+          })
         }
 
         return false
@@ -123,11 +142,16 @@ export function useManualReportRefreshAfterEdit({
 function regeneratePdfAfterValuationEdit({
   canDownloadPdf,
   generatePdf,
+  reportMeta,
+  forceRegenerate = false,
 }: {
   canDownloadPdf: boolean
   generatePdf?: ManualPdfGenerator
+  reportMeta?: Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'>
+  forceRegenerate?: boolean
 }) {
   if (!canDownloadPdf || !generatePdf) return
+  if (!forceRegenerate && reportMeta && !isPdfLikelyStaleVenus(reportMeta)) return
 
   generatePdf().catch((err: unknown) => {
     if (err instanceof APIError && err.statusCode === 402) return

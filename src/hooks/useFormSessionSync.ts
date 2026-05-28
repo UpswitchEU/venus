@@ -18,7 +18,7 @@
  * @module hooks/useFormSessionSync
  */
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
@@ -37,6 +37,12 @@ import {
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
+import {
+  getMercuryDelegatedAutosaveDeferRemainingMs,
+  getMercurySourceApp,
+  MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
+  observeMercuryDelegatedRestoration,
+} from './formSessionAutosaveDefer'
 
 const SKIP_OPTIONAL_SESSION_SYNC_KEYS = new Set<string>(['revenue', 'ebitda', 'shares_for_sale'])
 
@@ -184,6 +190,11 @@ interface UseFormSessionSyncOptions {
  */
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
   const _taxLatencyItems = useTaxLatencyStore((s) => s.items)
+  const deferRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reportIdRef = useRef(reportId)
+  reportIdRef.current = reportId
+  const formDataRef = useRef(formData)
+  formDataRef.current = formData
   const isDataEqual = useCallback(
     (fd: unknown, sd: unknown, tax: unknown[] | undefined) =>
       areFormAndSessionDataEqualForAutosync(fd, sd, tax),
@@ -201,11 +212,35 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         return
       }
 
+      const activeReportId = reportIdRef.current
+      const sourceApp = getMercurySourceApp()
+      const deferRemainingMs = getMercuryDelegatedAutosaveDeferRemainingMs({
+        reportId: activeReportId,
+        restorationComplete: true,
+        sourceApp,
+      })
+      if (deferRemainingMs > 0) {
+        generalLogger.debug(
+          '[useFormSessionSync] Deferring autosave during Mercury delegated handoff settle window',
+          {
+            reportId: activeReportId,
+            deferMs: MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
+            retryInMs: deferRemainingMs,
+          }
+        )
+        if (deferRetryTimerRef.current) clearTimeout(deferRetryTimerRef.current)
+        deferRetryTimerRef.current = setTimeout(() => {
+          deferRetryTimerRef.current = null
+          void debouncedSyncToSession(formDataRef.current)
+        }, deferRemainingMs + 25)
+        return
+      }
+
       // Read session state inside the debounced function (not subscribed)
       const currentSession = useSessionStore.getState().session
       const updateSessionData = useSessionStore.getState().updateSessionData
 
-      if (!currentSession || !reportId || currentSession.reportId !== reportId) {
+      if (!currentSession || !activeReportId || currentSession.reportId !== activeReportId) {
         return
       }
 
@@ -387,16 +422,36 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         generalLogger.warn('Failed to sync form data to session', { error: err })
       }
     }, 500),
-    [] // Only depend on reportId and isDataEqual, not session
+    [] // Stable debounced fn — reads reportId via reportIdRef, session via getState()
   )
 
   // Sync form data to session store whenever it changes (debounced)
   // CRITICAL: Only subscribes to formData, not session
   useEffect(() => {
+    if (deferRetryTimerRef.current) {
+      clearTimeout(deferRetryTimerRef.current)
+      deferRetryTimerRef.current = null
+    }
     if (formData && Object.keys(formData).length > 0 && reportId) {
+      if (useSessionStore.getState().restorationComplete) {
+        observeMercuryDelegatedRestoration({
+          reportId,
+          restorationComplete: true,
+          sourceApp: getMercurySourceApp(),
+        })
+      }
       debouncedSyncToSession(formData)
     }
   }, [formData, debouncedSyncToSession, reportId])
+
+  useEffect(() => {
+    return () => {
+      if (deferRetryTimerRef.current) {
+        clearTimeout(deferRetryTimerRef.current)
+        deferRetryTimerRef.current = null
+      }
+    }
+  }, [reportId])
 
   // Flush pending debounced sync on page unload and tab hide to prevent data loss.
   // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after

@@ -23,9 +23,14 @@ import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { apiLogger } from '@/utils/logger'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 import {
+  AI_CHAT_PROXY_TIMEOUT_MS,
   buildTitanAiChatProxyPlan,
   buildTitanErrorEnvelope,
   buildTitanNetworkErrorEnvelope,
+  fetchWithTimeout,
+  getOrCreateCorrelationId,
+  getTitanResponseCorrelationId,
+  isTitanAiProxyTimeoutError,
 } from './chat-proxy'
 import { wrapAiSseBodyForObservability } from './ai-stream-proxy'
 
@@ -33,26 +38,26 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const TIMEOUT_MS = 60_000
-
 export async function POST(request: NextRequest) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
+  const correlationId = getOrCreateCorrelationId(request)
   try {
     let body: unknown
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Invalid JSON body', fallback: true },
         { status: 400 }
       )
+      response.headers.set('X-Correlation-ID', correlationId)
+      return response
     }
 
     const planResult = buildTitanAiChatProxyPlan(body)
     if (planResult.ok === false) {
-      return NextResponse.json(planResult.body, { status: planResult.status })
+      const response = NextResponse.json(planResult.body, { status: planResult.status })
+      response.headers.set('X-Correlation-ID', correlationId)
+      return response
     }
     const { plan } = planResult
 
@@ -60,10 +65,12 @@ export async function POST(request: NextRequest) {
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Authentication required', fallback: true },
         { status: 401 }
       )
+      response.headers.set('X-Correlation-ID', correlationId)
+      return response
     }
 
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
@@ -76,6 +83,7 @@ export async function POST(request: NextRequest) {
     const streamHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: plan.useStream ? 'text/event-stream' : 'application/json',
+      'X-Correlation-ID': correlationId,
       ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
       ...(cookieHeader && { Cookie: cookieHeader }),
       ...clientContextHeaders,
@@ -84,65 +92,87 @@ export async function POST(request: NextRequest) {
       ? { ...streamHeaders, Accept: 'application/json' }
       : streamHeaders
 
-    const titanResponse = await fetch(plan.useStream ? titanStreamEndpoint : titanChatEndpoint, {
-      method: 'POST',
-      headers: streamHeaders,
-      body: JSON.stringify(plan.payload),
-      signal: controller.signal,
-    })
+    const titanResponse = await fetchWithTimeout(
+      plan.useStream ? titanStreamEndpoint : titanChatEndpoint,
+      {
+        method: 'POST',
+        headers: streamHeaders,
+        body: JSON.stringify(plan.payload),
+      },
+      AI_CHAT_PROXY_TIMEOUT_MS
+    )
 
     if (!titanResponse.ok) {
       const errorData = await titanResponse.json().catch(() => ({}))
-      return NextResponse.json(buildTitanErrorEnvelope(errorData), { status: titanResponse.status })
+      const response = NextResponse.json(buildTitanErrorEnvelope(errorData), {
+        status: titanResponse.status,
+      })
+      response.headers.set(
+        'X-Correlation-ID',
+        getTitanResponseCorrelationId(titanResponse, correlationId)
+      )
+      return response
     }
 
     if (plan.useStream && titanResponse.body) {
+      const responseCorrelationId = getTitanResponseCorrelationId(titanResponse, correlationId)
       const nonStreamingPayload = { ...plan.payload }
-      return new Response(
-        wrapAiSseBodyForObservability(titanResponse.body, {
-          upstreamStatus: titanResponse.status,
-          fetchNonStreamingFallback: () =>
-            fetch(titanChatEndpoint, {
+      const wrapped = wrapAiSseBodyForObservability(titanResponse.body, {
+        correlationId: responseCorrelationId,
+        upstreamStatus: titanResponse.status,
+        fetchNonStreamingFallback: () =>
+          fetchWithTimeout(
+            titanChatEndpoint,
+            {
               method: 'POST',
               headers: chatHeaders,
               body: JSON.stringify(nonStreamingPayload),
-            }),
-        }),
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
-            // Vercel/nginx will buffer SSE without this — turns short turns
-            // into a wall of silence flushed only on close, which the FE
-            // (Venus + Mercury both) reads as an empty stream. Sibling
-            // routes in apps/mercury/app/api/ai/chat + onboarding/stream
-            // pin this same header; do not drop it.
-            'X-Accel-Buffering': 'no',
-          },
-        }
-      )
+            },
+            AI_CHAT_PROXY_TIMEOUT_MS
+          ),
+      })
+      return new Response(wrapped, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Correlation-ID': responseCorrelationId,
+          // Vercel/nginx will buffer SSE without this — turns short turns
+          // into a wall of silence flushed only on close, which the FE
+          // (Venus + Mercury both) reads as an empty stream. Sibling
+          // routes in apps/mercury/app/api/ai/chat + onboarding/stream
+          // pin this same header; do not drop it.
+          'X-Accel-Buffering': 'no',
+        },
+      })
     }
 
     const data = await titanResponse.json()
-    return NextResponse.json(data)
+    const response = NextResponse.json(data)
+    response.headers.set(
+      'X-Correlation-ID',
+      getTitanResponseCorrelationId(titanResponse, correlationId)
+    )
+    return response
   } catch (error) {
-    const isTimeout = error instanceof Error && error.name === 'AbortError'
+    const isTimeout = isTitanAiProxyTimeoutError(error)
     const titanApiUrl = getTitanApiUrl(request)
     if (isTimeout) {
-      return NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
+      const response = NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
         status: 504,
       })
+      response.headers.set('X-Correlation-ID', correlationId)
+      return response
     }
     apiLogger.error(
       'AI chat proxy failed',
-      { route: '/api/ai/chat' },
+      { route: '/api/ai/chat', correlationId },
       error instanceof Error ? error : undefined
     )
-    return NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
+    const response = NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
       status: 503,
     })
-  } finally {
-    clearTimeout(timeout)
+    response.headers.set('X-Correlation-ID', correlationId)
+    return response
   }
 }

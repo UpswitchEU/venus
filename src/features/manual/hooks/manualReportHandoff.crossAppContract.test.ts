@@ -1,0 +1,131 @@
+/**
+ * Regression guards for Mercury → Venus existing-report handoff load path.
+ * Source-level pins for the blur overlay / nav-spinner loop fixes (2026-05).
+ */
+
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const manualHooksRoot = '.'
+const manualComponentsRoot = '../components'
+
+describe('manual report handoff load contract', () => {
+  it('useValuationPersistenceCoordinator stabilizes its public API with useMemo', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useValuationPersistenceCoordinator.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/return useMemo\(\s*\(\) => \(\{ enqueueMethod, enqueuePreparer, setBaseline, isPersisting \}\)/)
+    expect(source).toMatch(/intent\.signature === lastSignatureRef\.current/)
+  })
+
+  it('useManualMethodPersistenceController gates enqueue on restorationComplete and seeds baseline without mount persist', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualMethodPersistenceController.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/if \(!persistedReportLookupId \|\| !restorationComplete\) return/)
+    expect(source).toMatch(/lastEnqueuedSelectedMethodRef\.current === null/)
+    expect(source).toMatch(/userInitiatedMethodChangeRef/)
+    expect(source).toMatch(/userInitiatedAtEffectStart/)
+    expect(source).toMatch(/serverMethod && selectedMethod !== serverMethod && !userInitiatedAtEffectStart/)
+    expect(source).not.toMatch(/persistCoordinator/)
+    expect(source).toMatch(/enqueueMethodRef/)
+    expect(source).toMatch(/currentSignature === serverSignature/)
+    expect(source).toMatch(/lastEnqueuedSelectedMethodRef\.current = intent\.previousMethod/)
+    expect(source).toMatch(
+      /togglePreSelectedMethodWithPlanGate = useCallback[\s\S]*methodActions\.togglePreSelectedMethodWithPlanGate\(methodKey\)/
+    )
+    expect(source).not.toMatch(
+      /togglePreSelectedMethodWithPlanGate[\s\S]{0,200}markUserMethodChange\(\)/
+    )
+  })
+
+  it('ManualLayoutNav does not map method persist spinner onto overflow-menu isExporting', () => {
+    const source = readFileSync(
+      join(__dirname, manualComponentsRoot, 'ManualLayoutNav.tsx'),
+      'utf8'
+    )
+    expect(source).toMatch(/isExporting=\{isExporting\}/)
+    expect(source).not.toMatch(/isExporting=\{isExporting \|\| isMethodSwitchRendering\}/)
+  })
+
+  it('useResultToReportBridge skips background PDF when fresh and dedupes poll fingerprint churn', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useResultToReportBridge.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/isPdfLikelyStaleVenus\(mappedReport\)/)
+    expect(source).toMatch(/lastPdfTriggerFingerprintRef/)
+    expect(source).toMatch(/resultPdfTriggerFingerprint/)
+  })
+
+  it('useManualReportRefreshAfterEdit respects PDF staleness before regenerate', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualReportRefreshAfterEdit.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/isPdfLikelyStaleVenus/)
+    expect(source).toMatch(/forceRegenerate/)
+  })
+
+  it('usePreSelectedMethodSessionSync skips autosave when session snapshot already matches store', () => {
+    const source = readFileSync(
+      join(__dirname, '../../../hooks/usePreSelectedMethodSessionSync.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/methodFieldMatch && methodsMatch && weightsMatch && justificationMatch/)
+    expect(source).toMatch(/manualMethodPrefs\.preSelectedMethods/)
+  })
+
+  it('useFormSessionSync defers Mercury delegated autosave during post-restoration settle window', () => {
+    const source = readFileSync(join(__dirname, '../../../hooks/useFormSessionSync.ts'), 'utf8')
+    expect(source).toMatch(/getMercuryDelegatedAutosaveDeferRemainingMs/)
+    expect(source).toMatch(/observeMercuryDelegatedRestoration/)
+    expect(source).toMatch(/deferRetryTimerRef/)
+    expect(source).toMatch(/reportIdRef/)
+    expect(source).toMatch(/formDataRef/)
+    expect(source).toMatch(/clearTimeout\(deferRetryTimerRef\.current\)/)
+  })
+
+  it('usePreSelectedMethodSessionSync shares Mercury delegated autosave defer', () => {
+    const source = readFileSync(
+      join(__dirname, '../../../hooks/usePreSelectedMethodSessionSync.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/getMercuryDelegatedAutosaveDeferRemainingMs/)
+    expect(source).toMatch(/observeMercuryDelegatedRestoration/)
+    expect(source).toMatch(/persistRetryTimerRef/)
+    expect(source).toMatch(/reportKeyRef/)
+    expect(source).toMatch(/session\.reportId !== activeReportKey/)
+  })
+
+  it('formSessionAutosaveDefer only applies to existing report ids', () => {
+    const source = readFileSync(
+      join(__dirname, '../../../hooks/formSessionAutosaveDefer.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/looksLikeExistingReportId/)
+  })
+
+  it('useResultToReportBridge uses stable generatePdf ref', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useResultToReportBridge.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/generatePdfRef/)
+    expect(source).not.toMatch(/generatePdf,\n    isMobile/)
+  })
+
+  it('integration test covers re-render storm with real persistence coordinator', () => {
+    const source = readFileSync(
+      join(__dirname, 'useManualMethodPersistenceController.integration.test.tsx'),
+      'utf8'
+    )
+    expect(source).toMatch(/re-render storm on open/)
+    expect(source).not.toMatch(/vi\.mock\('\.\/useValuationPersistenceCoordinator'/)
+  })
+})

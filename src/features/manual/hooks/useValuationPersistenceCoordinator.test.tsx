@@ -151,6 +151,23 @@ describe('useValuationPersistenceCoordinator', () => {
       expect(result.current.isPersisting).toBe(false)
     })
 
+    it('skips the preparer debounce when the signature already matches the baseline', async () => {
+      const { result, deferred } = setup({ initialBaseline: { preparerSignature: 'sig-7' } })
+      act(() => {
+        result.current.enqueuePreparer({
+          method: 'ebitda',
+          payload: { x: 1 },
+          clear: false,
+          signature: 'sig-7',
+        })
+      })
+      expect(result.current.isPersisting).toBe(false)
+      act(() => {
+        vi.advanceTimersByTime(700)
+      })
+      expect(deferred.runs.length).toBe(0)
+    })
+
     it('skips the preparer runner when the signature matches the baseline', async () => {
       const { result, deferred } = setup({ initialBaseline: { preparerSignature: 'sig-7' } })
       act(() => {
@@ -532,6 +549,25 @@ describe('useValuationPersistenceCoordinator', () => {
   })
 
   describe('isPersisting', () => {
+    it('returns a stable API object across parent rerenders', () => {
+      const { result, rerender, params } = setup()
+      const firstApi = result.current
+      rerender({ ...params })
+      expect(result.current).toBe(firstApi)
+    })
+
+    it('does not schedule method persist on repeated parent rerenders without enqueue', async () => {
+      const { result, rerender, params, deferred } = setup()
+      for (let i = 0; i < 10; i++) {
+        rerender({ ...params, reportId: 'report-1' })
+      }
+      act(() => {
+        vi.advanceTimersByTime(600)
+      })
+      expect(deferred.runs.length).toBe(0)
+      expect(result.current.isPersisting).toBe(false)
+    })
+
     it('is true during debounce and in-flight, false after settle', async () => {
       const { result, deferred } = setup()
       expect(result.current.isPersisting).toBe(false)

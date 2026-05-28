@@ -89,10 +89,27 @@ describe('useResultToReportBridge', () => {
       expect(params.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
-    it('calls generatePdf in the background when reportId + html + canDownloadPdf', () => {
-      const params = makeParams()
+    it('calls generatePdf in the background when PDF is stale', () => {
+      const params = makeParams({
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: null,
+        }),
+      })
       renderHook(() => useResultToReportBridge(params))
       expect(params.generatePdf).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT call generatePdf when PDF is fresh', () => {
+      const params = makeParams({
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: '2026-01-15T12:00:00.000Z',
+          pdf_url: 'https://example.com/report.pdf',
+        }),
+      })
+      renderHook(() => useResultToReportBridge(params))
+      expect(params.generatePdf).not.toHaveBeenCalled()
     })
 
     it('does NOT call generatePdf when reportId is missing', () => {
@@ -158,13 +175,49 @@ describe('useResultToReportBridge', () => {
       expect(next.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
-    it('fires generatePdf even when invoked on a result-arrival after manual gen (preserved)', () => {
-      // Simulate the user having manually generated a PDF before this result
-      // lands. The mapper / bridge do not know about that; auto-gen still
-      // fires. The preserved behaviour: every result-arrival pings generatePdf.
-      const params = makeParams()
-      renderHook(() => useResultToReportBridge(params))
+    it('does NOT call generatePdf again when poll merges produce a new result object with unchanged fingerprint', () => {
+      const staleResult = makeResult({
+        updated_at: '2026-01-15T12:00:00.000Z',
+        pdf_generated_at: null,
+        render_fingerprint: 'fp-1',
+      })
+      const params = makeParams({ result: staleResult })
+      const { rerender } = renderHook(
+        (p: UseResultToReportBridgeParams) => useResultToReportBridge(p),
+        { initialProps: params }
+      )
       expect(params.generatePdf).toHaveBeenCalledTimes(1)
+
+      rerender({
+        ...params,
+        result: { ...staleResult, company_name: 'Renamed BV' },
+      })
+      expect(params.generatePdf).toHaveBeenCalledTimes(1)
+    })
+
+    it('fires generatePdf when stale fingerprint changes after a report update', () => {
+      const params = makeParams({
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: null,
+          render_fingerprint: 'fp-1',
+        }),
+      })
+      const { rerender } = renderHook(
+        (p: UseResultToReportBridgeParams) => useResultToReportBridge(p),
+        { initialProps: params }
+      )
+      expect(params.generatePdf).toHaveBeenCalledTimes(1)
+
+      rerender({
+        ...params,
+        result: makeResult({
+          updated_at: '2026-01-16T12:00:00.000Z',
+          pdf_generated_at: null,
+          render_fingerprint: 'fp-2',
+        }),
+      })
+      expect(params.generatePdf).toHaveBeenCalledTimes(2)
     })
   })
 
@@ -184,15 +237,22 @@ describe('useResultToReportBridge', () => {
 
     it('swallows 402 paywall errors from generatePdf silently', async () => {
       const params = makeParams({
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: null,
+        }),
         generatePdf: vi.fn().mockRejectedValue(new APIError('paywall', 402)),
       })
       renderHook(() => useResultToReportBridge(params))
-      // generatePdf fired; the catch block swallows the 402.
       await waitFor(() => expect(params.generatePdf).toHaveBeenCalled())
     })
 
     it('logs non-402 generatePdf errors but does not re-throw', async () => {
       const params = makeParams({
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: null,
+        }),
         generatePdf: vi.fn().mockRejectedValue(new Error('boom')),
       })
       expect(() => renderHook(() => useResultToReportBridge(params))).not.toThrow()

@@ -25,6 +25,7 @@ export interface ChunkDispatchCallbacks {
   onToolResult?: (toolName: string, result: unknown) => void
   onDone?: (conversationId?: string) => void
   onError?: (error: string) => void
+  onBffStreamRecovery?: (source: 'bff-fallback' | 'bff-fallback-failed') => void
 }
 
 /**
@@ -78,6 +79,11 @@ export function dispatchAIChatChunk(
     case '_keepalive':
       // SSE heartbeat from Titan; deliberately no-op so idle proxy protection
       // never becomes visible content or a terminal event in the chat UI.
+      break
+    case 'stream_recovery':
+      if (c.source === 'bff-fallback' || c.source === 'bff-fallback-failed') {
+        callbacks.onBffStreamRecovery?.(c.source)
+      }
       break
     default:
       // Unknown type - silently skip for forward compatibility.

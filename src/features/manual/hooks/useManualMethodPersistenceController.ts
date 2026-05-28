@@ -1,4 +1,11 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect, useRef } from 'react'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react'
 import { toast } from 'sonner'
 import type { ValuationReportData } from '../../../components/calculator'
 import { backendAPI } from '../../../services/backendApi'
@@ -46,6 +53,7 @@ export interface UseManualMethodPersistenceControllerParams {
   preSelectedMethod: string | null
   preparer: PreparerMultipleState
   report: ValuationReportData | null
+  restorationComplete: boolean
   result: ValuationResponse | null
   selectedMethod: string
   setPreSelectedMethod: (method: string | null) => void
@@ -90,6 +98,7 @@ export function useManualMethodPersistenceController({
   preSelectedMethod,
   preparer,
   report,
+  restorationComplete,
   result,
   selectedMethod,
   setPreSelectedMethod,
@@ -101,6 +110,10 @@ export function useManualMethodPersistenceController({
   translate,
 }: UseManualMethodPersistenceControllerParams): UseManualMethodPersistenceControllerResult {
   const prevSelectedMethodRef = useRef(selectedMethod)
+  const lastEnqueuedSelectedMethodRef = useRef<string | null>(null)
+  const userInitiatedMethodChangeRef = useRef(false)
+  const userInitiatedPreviousMethodRef = useRef<string | null>(null)
+  const selectedMethodRef = useLatestRef(selectedMethod)
 
   useEffect(() => {
     if (!report) return
@@ -142,82 +155,147 @@ export function useManualMethodPersistenceController({
     (result as { selected_valuation_method?: string } | null)?.selected_valuation_method
   )
 
-  const persistCoordinator = useValuationPersistenceCoordinator({
-    reportId: persistedReportLookupId ?? null,
-    initialBaseline: {
-      method: selectedMethod,
-      preparerSignature: serializeManualPreparerPayload(
-        buildPersistedPreparerMultiplePayload(result)
-      ),
-    },
-    runner: async (intent: PersistIntent, signal: AbortSignal) => {
-      if (!persistedReportLookupId) return
-      const preparerOptions: Parameters<typeof backendAPI.updateSelectedMethod>[4] =
-        intent.kind === 'preparer'
-          ? intent.payload != null
-            ? (intent.payload as Parameters<typeof backendAPI.updateSelectedMethod>[4])
-            : intent.clear
-              ? { clear_preparer_override: true }
-              : undefined
-          : undefined
-      const overrideReason = intent.kind === 'method' ? intent.overrideReason : undefined
-      const overrideNote = intent.kind === 'method' ? intent.overrideNote : undefined
-      const res = await backendAPI.updateSelectedMethod(
-        persistedReportLookupId,
-        intent.method,
-        overrideReason,
-        overrideNote,
-        preparerOptions
-      )
-      if (signal.aborted) return
-      await refreshReportAfterEdit(res?.html_report)
-    },
-    onError: (intent, error) => {
-      if (intent.kind === 'method') {
-        const errMsg = error instanceof Error ? error.message : String(error)
-        generalLogger.error('[ManualLayout] Method persist failed', {
-          error: errMsg,
-          selectedMethod: intent.method,
-        })
-        setSelectedMethod(intent.previousMethod)
-        if (errMsg.includes('plan does not include')) {
-          openStarterPaywall('methods')
+  const { enqueueMethod, enqueuePreparer, setBaseline, isPersisting } =
+    useValuationPersistenceCoordinator({
+      reportId: persistedReportLookupId ?? null,
+      initialBaseline: {
+        method: selectedMethod,
+        preparerSignature: serializeManualPreparerPayload(
+          buildPersistedPreparerMultiplePayload(result)
+        ),
+      },
+      runner: async (intent: PersistIntent, signal: AbortSignal) => {
+        if (!persistedReportLookupId) return
+        const preparerOptions: Parameters<typeof backendAPI.updateSelectedMethod>[4] =
+          intent.kind === 'preparer'
+            ? intent.payload != null
+              ? (intent.payload as Parameters<typeof backendAPI.updateSelectedMethod>[4])
+              : intent.clear
+                ? { clear_preparer_override: true }
+                : undefined
+            : undefined
+        const overrideReason = intent.kind === 'method' ? intent.overrideReason : undefined
+        const overrideNote = intent.kind === 'method' ? intent.overrideNote : undefined
+        const res = await backendAPI.updateSelectedMethod(
+          persistedReportLookupId,
+          intent.method,
+          overrideReason,
+          overrideNote,
+          preparerOptions
+        )
+        if (signal.aborted) return
+        await refreshReportAfterEdit(res?.html_report)
+      },
+      onError: (intent, error) => {
+        if (intent.kind === 'method') {
+          const errMsg = error instanceof Error ? error.message : String(error)
+          generalLogger.error('[ManualLayout] Method persist failed', {
+            error: errMsg,
+            selectedMethod: intent.method,
+          })
+          // Roll UI back without re-enqueueing the revert as a new persist intent.
+          lastEnqueuedSelectedMethodRef.current = intent.previousMethod
+          userInitiatedMethodChangeRef.current = false
+          setSelectedMethod(intent.previousMethod)
+          if (errMsg.includes('plan does not include')) {
+            openStarterPaywall('methods')
+          } else {
+            toast.error(translate('persistFailed'), { description: translate('persistFailedDesc') })
+          }
         } else {
-          toast.error(translate('persistFailed'), { description: translate('persistFailedDesc') })
+          generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
+            error: error instanceof Error ? error.message : String(error),
+            selectedMethod: intent.method,
+          })
+          toastModalEditPersistError(error, translate)
         }
-      } else {
-        generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
-          error: error instanceof Error ? error.message : String(error),
-          selectedMethod: intent.method,
-        })
-        toastModalEditPersistError(error, translate)
-      }
-    },
-  })
+      },
+    })
+
+  const enqueueMethodRef = useLatestRef(enqueueMethod)
+  const enqueuePreparerRef = useLatestRef(enqueuePreparer)
+  const setBaselineRef = useLatestRef(setBaseline)
 
   useEffect(() => {
-    persistCoordinator.setBaseline({
+    lastEnqueuedSelectedMethodRef.current = null
+    userInitiatedMethodChangeRef.current = false
+    userInitiatedPreviousMethodRef.current = null
+  }, [persistedReportLookupId])
+
+  useEffect(() => {
+    if (!restorationComplete) {
+      lastEnqueuedSelectedMethodRef.current = null
+      userInitiatedMethodChangeRef.current = false
+      userInitiatedPreviousMethodRef.current = null
+    }
+  }, [restorationComplete])
+
+  useEffect(() => {
+    setBaselineRef.current({
       method: resultMethodRef.current,
       preparerSignature: serializeManualPreparerPayload(
         buildPersistedPreparerMultiplePayload(result)
       ),
     })
-  }, [result, persistCoordinator, resultMethodRef])
+  }, [result, resultMethodRef, setBaselineRef])
 
   useEffect(() => {
-    if (!persistedReportLookupId) return
+    if (!persistedReportLookupId || !restorationComplete) return
+
+    const userInitiatedAtEffectStart = userInitiatedMethodChangeRef.current
+    const serverMethod = resultMethodRef.current
+    if (lastEnqueuedSelectedMethodRef.current === null) {
+      // Wait for result hydration before arming — avoids seeding with a stale
+      // selectedMethod when the server method arrives on the next setResult tick.
+      if (!result && !serverMethod && !userInitiatedAtEffectStart) return
+      // Wait until UI selectedMethod matches the persisted server method so
+      // setResult hydration does not look like a user-initiated method change.
+      if (serverMethod && selectedMethod !== serverMethod && !userInitiatedAtEffectStart) return
+
+      lastEnqueuedSelectedMethodRef.current = userInitiatedAtEffectStart
+        ? (serverMethod ?? userInitiatedPreviousMethodRef.current ?? selectedMethod)
+        : (serverMethod ?? selectedMethod)
+      userInitiatedPreviousMethodRef.current = null
+
+      if (!userInitiatedAtEffectStart && lastEnqueuedSelectedMethodRef.current === selectedMethod) {
+        userInitiatedMethodChangeRef.current = false
+        return
+      }
+    }
+
+    if (lastEnqueuedSelectedMethodRef.current === selectedMethod) {
+      userInitiatedMethodChangeRef.current = false
+      return
+    }
+
+    // Hydration / store sync / error rollback — track without persisting.
+    if (!userInitiatedAtEffectStart) {
+      lastEnqueuedSelectedMethodRef.current = selectedMethod
+      userInitiatedMethodChangeRef.current = false
+      return
+    }
+
+    userInitiatedMethodChangeRef.current = false
+    lastEnqueuedSelectedMethodRef.current = selectedMethod
     const { reason, note } = pendingOverrideRef.current
     pendingOverrideRef.current = {}
-    persistCoordinator.enqueueMethod({
+    enqueueMethodRef.current({
       method: selectedMethod,
       previousMethod: resultMethodRef.current ?? selectedMethod,
       overrideReason: reason,
       overrideNote: note,
     })
-  }, [selectedMethod, persistedReportLookupId, persistCoordinator, resultMethodRef])
+  }, [
+    selectedMethod,
+    persistedReportLookupId,
+    restorationComplete,
+    result,
+    resultMethodRef,
+    enqueueMethodRef,
+  ])
 
   useEffect(() => {
-    if (!showValuationEditModal || !persistedReportLookupId) return
+    if (!showValuationEditModal || !persistedReportLookupId || !restorationComplete) return
     const mv = result?.multiples_valuation
     const currentPayload = buildPreparerMultiplePayload({
       benchmarkMedian: preparer.benchmarkMedian,
@@ -240,20 +318,32 @@ export function useManualMethodPersistenceController({
     ) {
       return
     }
-    persistCoordinator.enqueuePreparer({
+    const currentSignature = serializeManualPreparerPayload(currentPayload)
+    const serverSignature = serializeManualPreparerPayload(
+      buildPersistedPreparerMultiplePayload(result)
+    )
+    if (currentSignature === serverSignature) return
+
+    enqueuePreparerRef.current({
       method: selectedMethod,
       payload: currentPayload as Record<string, unknown> | null,
       clear: currentPayload == null,
-      signature: serializeManualPreparerPayload(currentPayload),
+      signature: currentSignature,
     })
   }, [
-    persistCoordinator,
+    enqueuePreparerRef,
     persistedReportLookupId,
     preparer,
     result,
     selectedMethod,
     showValuationEditModal,
+    restorationComplete,
   ])
+
+  const markUserMethodChange = useCallback(() => {
+    userInitiatedPreviousMethodRef.current = selectedMethodRef.current
+    userInitiatedMethodChangeRef.current = true
+  }, [selectedMethodRef])
 
   const methodActions = useManualMethodSelectionActions({
     allowedMethodKeys,
@@ -266,8 +356,36 @@ export function useManualMethodPersistenceController({
     togglePreSelectedMethod,
   })
 
+  const handleSelectMethodWithOverride = useCallback(
+    (methodKey: string, overrideReason?: string, overrideNote?: string) => {
+      markUserMethodChange()
+      methodActions.handleSelectMethodWithOverride(methodKey, overrideReason, overrideNote)
+    },
+    [markUserMethodChange, methodActions.handleSelectMethodWithOverride]
+  )
+
+  const handlePreSelectMethod = useCallback(
+    (methodKey: string) => {
+      if (methodKey !== selectedMethodRef.current) {
+        markUserMethodChange()
+      }
+      methodActions.handlePreSelectMethod(methodKey)
+    },
+    [markUserMethodChange, methodActions.handlePreSelectMethod, selectedMethodRef]
+  )
+
+  const togglePreSelectedMethodWithPlanGate = useCallback(
+    (methodKey: string) => {
+      methodActions.togglePreSelectedMethodWithPlanGate(methodKey)
+    },
+    [methodActions.togglePreSelectedMethodWithPlanGate]
+  )
+
   return {
     ...methodActions,
-    isMethodSwitchRendering: persistCoordinator.isPersisting,
+    handleSelectMethodWithOverride,
+    handlePreSelectMethod,
+    togglePreSelectedMethodWithPlanGate,
+    isMethodSwitchRendering: isPersisting,
   }
 }

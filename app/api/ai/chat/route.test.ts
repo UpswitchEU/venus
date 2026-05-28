@@ -4,7 +4,7 @@
  * Mirrors Mercury's chat BFF test surface but covers Venus-specific
  * implementation details:
  *   - Auth via raw cookie inspection (not Next `cookies()` helper)
- *   - Raw `fetch` with AbortController (not `fetchWithTimeout`)
+ *   - Raw `fetchWithTimeout` per upstream hop (stream + chat fallback)
  *   - Client-context headers — canonical-only on emit (Mercury doubles
  *     up with legacy aliases; Venus stays canonical because every
  *     Venus call originates with the new headers already)
@@ -309,6 +309,30 @@ describe('header forwarding', () => {
     expect(headers.Cookie).toBe(
       'upswitch_access_token=store-token; upswitch_refresh_token=store-refresh'
     )
+  })
+
+  it('forwards and echoes the AI stream correlation id', async () => {
+    const res = await POST(request({ message: 'hi' }, { 'X-Correlation-ID': 'ai-corr-123' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = init.headers as Record<string, string>
+    expect(headers['X-Correlation-ID']).toBe('ai-corr-123')
+    expect(res.headers.get('X-Correlation-ID')).toBe('ai-corr-123')
+  })
+
+  it('sanitizes the incoming correlation id before forwarding or echoing it', async () => {
+    const res = await POST(request({ message: 'hi' }, { 'X-Correlation-ID': ' ai corr/123 ' }))
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = init.headers as Record<string, string>
+    expect(headers['X-Correlation-ID']).toBe('ai_corr_123')
+    expect(res.headers.get('X-Correlation-ID')).toBe('ai_corr_123')
   })
 
   it('forwards canonical client-context headers (advisor-managed-client routing)', async () => {
@@ -700,6 +724,7 @@ describe('response shape', () => {
         ?.headers?.Accept
     ).toBe('application/json')
     expect(text).toContain('Welk bedrijf wil je toevoegen?')
+    expect(text).toContain('"type":"stream_recovery"')
     expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
       '[ai.chat] recovered empty SSE via non-streaming chat',
       expect.objectContaining({ route: '/api/ai/chat' })
@@ -726,6 +751,28 @@ describe('response shape', () => {
     expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
       '[ai.chat] upstream SSE had no visible content',
       expect.objectContaining({ noVisibleContent: true })
+    )
+  })
+
+  it('logs fallback status when non-streaming chat returns 499', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(titanEmptyStreamResponse())
+      .mockResolvedValueOnce(titanJsonResponse(499, {}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(request({ message: 'Leg de waarde uit' }))
+    const text = await res.text()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(text).toContain('AI stream fallback failed')
+    expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
+      '[ai.chat] empty SSE non-streaming fallback failed',
+      expect.objectContaining({ fallbackStatus: 499, streamRecovery: 'bff-fallback-failed' })
+    )
+    expect(mocks.apiLogger.warn).toHaveBeenCalledWith(
+      '[ai.chat] emitted terminal error SSE for client recovery',
+      expect.objectContaining({ streamRecovery: 'error-sse-emitted' })
     )
   })
 

@@ -24,6 +24,21 @@ function encodeSseChunk(chunk: AiStreamChunk): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`)
 }
 
+export type BffStreamRecoverySource = 'bff-fallback' | 'bff-fallback-failed'
+
+/** Wire-only SSE meta chunk so the FE skips duplicate non-stream recovery. */
+export function encodeStreamRecoveryMetaSseBytes(source: BffStreamRecoverySource): Uint8Array[] {
+  return [
+    new TextEncoder().encode(`data: ${JSON.stringify({ type: 'stream_recovery', source })}\n\n`),
+  ]
+}
+
+export function encodeStreamFallbackErrorSseBytes(
+  message = 'AI stream fallback failed'
+): Uint8Array[] {
+  return [encodeSseChunk({ type: 'error', error: message })]
+}
+
 export function isVisibleAiStreamChunk(chunk: unknown): boolean {
   if (!chunk || typeof chunk !== 'object') return false
   const typed = chunk as {

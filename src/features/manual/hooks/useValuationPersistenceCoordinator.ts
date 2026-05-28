@@ -37,7 +37,7 @@
  *      spinner that used to read `isMethodSwitchRendering`
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
 
 export type MethodPersistIntent = {
@@ -247,6 +247,7 @@ export function useValuationPersistenceCoordinator(
   const enqueuePreparer = useCallback(
     (intent: Omit<PreparerPersistIntent, 'kind'>): void => {
       if (!reportIdRef.current) return
+      if (intent.signature === lastSignatureRef.current) return
 
       clearPreparerTimer()
       preparerTimerRef.current = setTimeout(() => {
@@ -309,5 +310,8 @@ export function useValuationPersistenceCoordinator(
     }
   }, [])
 
-  return { enqueueMethod, enqueuePreparer, setBaseline, isPersisting }
+  return useMemo(
+    () => ({ enqueueMethod, enqueuePreparer, setBaseline, isPersisting }),
+    [enqueueMethod, enqueuePreparer, isPersisting, setBaseline]
+  )
 }

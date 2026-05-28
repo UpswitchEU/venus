@@ -46,12 +46,65 @@ describe('wrapAiSseBodyForObservability', () => {
     })
 
     const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-1',
       upstreamStatus: 200,
       fetchNonStreamingFallback: mockFetchNonStreamingFallback,
     })
 
     const text = await readResponseText(wrapped)
     expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
+    expect(text).toContain('"type":"stream_recovery"')
     expect(text).toContain('Recovered after invisible stream')
+  })
+
+  it('emits a terminal error SSE frame when non-streaming fallback fails', async () => {
+    mockFetchNonStreamingFallback.mockResolvedValue(new Response(null, { status: 499 }))
+
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close()
+      },
+    })
+
+    const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-1',
+      upstreamStatus: 200,
+      fetchNonStreamingFallback: mockFetchNonStreamingFallback,
+    })
+
+    const text = await readResponseText(wrapped)
+    expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
+    expect(text).toContain('"type":"stream_recovery"')
+    expect(text).toContain('bff-fallback-failed')
+    expect(text).toContain('AI stream fallback failed')
+  })
+
+  it('emits terminal error SSE when non-streaming fallback returns no visible payload', async () => {
+    mockFetchNonStreamingFallback.mockResolvedValue(
+      new Response(JSON.stringify({ success: true, content: '' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"_keepalive"}\n\n'))
+        controller.close()
+      },
+    })
+
+    const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-2',
+      upstreamStatus: 200,
+      fetchNonStreamingFallback: mockFetchNonStreamingFallback,
+    })
+
+    const text = await readResponseText(wrapped)
+    expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
+    expect(text).toContain('"type":"stream_recovery"')
+    expect(text).toContain('bff-fallback-failed')
+    expect(text).toContain('AI stream fallback failed')
+    expect(text).not.toContain('Recovered after invisible stream')
   })
 })

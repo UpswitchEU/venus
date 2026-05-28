@@ -24,6 +24,12 @@ const PREVIEW_INCIDENT_SEARCH =
 
 const PREVIEW_REPORT_ID = 'dba236f5-31eb-4ab9-b995-e52c64dce70c'
 
+/** Shorter handoff URL shape observed on preview.valuation.upswitch.app (2026-05-28). */
+const PREVIEW_VALUATION_HOST_SEARCH =
+  'flow=manual&mode=accountant&source=mercury&benchmark_contribution=1&clientId=e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+
+const PREVIEW_VALUATION_HOST_REPORT_ID = '35a422c3-028f-4d46-88e5-27ac5519826c'
+
 function parseSearchParams(search: string): URLSearchParams {
   return new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
 }
@@ -40,6 +46,22 @@ describe('sessionReadiness Mercury report URL contract', () => {
       reportId: PREVIEW_REPORT_ID,
       clientId: params.get('clientId'),
       clientToken: params.get('clientToken'),
+      mode: params.get('mode'),
+    })
+    expect(signals.urlIndicatesExisting).toBe(true)
+    expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
+  })
+
+  it('preview.valuation host handoff query is a delegated accountant handoff on an existing report', () => {
+    const params = parseSearchParams(PREVIEW_VALUATION_HOST_SEARCH)
+    expect(params.get('source')).toBe('mercury')
+    expect(params.get('mode')).toBe('accountant')
+    expect(params.get('benchmark_contribution')).toBe('1')
+
+    const signals = buildMercuryDelegatedHandoffSignals({
+      isFromMercury: params.get('source') === 'mercury',
+      reportId: PREVIEW_VALUATION_HOST_REPORT_ID,
+      clientId: params.get('clientId'),
       mode: params.get('mode'),
     })
     expect(signals.urlIndicatesExisting).toBe(true)

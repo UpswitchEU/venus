@@ -179,4 +179,22 @@ describe('dispatchAIChatChunk', () => {
     expect(state.doneReceived).toBe(false)
     expect(state.resolvedConversationId).toBe('')
   })
+
+  it('routes stream_recovery meta to onBffStreamRecovery without terminal side effects', () => {
+    const onBffStreamRecovery = vi.fn()
+    const { callbacks, spies } = makeCallbacks()
+    callbacks.onBffStreamRecovery = onBffStreamRecovery
+    const state = makeChunkDispatchState()
+
+    dispatchAIChatChunk(
+      { type: 'stream_recovery', source: 'bff-fallback-failed' },
+      state,
+      callbacks
+    )
+
+    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
+    expect(spies.onError).not.toHaveBeenCalled()
+    expect(spies.onDone).not.toHaveBeenCalled()
+    expect(state.doneReceived).toBe(false)
+  })
 })

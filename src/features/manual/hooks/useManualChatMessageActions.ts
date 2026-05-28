@@ -34,11 +34,10 @@ import {
 } from '../utils/manualChatRequestContext'
 import {
   buildManualChatTerminalErrorPatch,
-  buildManualChatTerminalErrorPatchFromAIResponse,
   type ManualChatTerminalErrorState,
 } from '../utils/manualChatTerminalErrors'
+import { requestManualChatNonStreamingRecovery, shouldAttemptManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
 import {
-  addIdsToManualChatToolCards,
   appendManualChatToolCardsToMessages,
   parseManualChatStreamToolResult,
 } from '../utils/manualChatToolCards'
@@ -213,7 +212,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
         // no content, or a gate stripping the synthesized fallback). Without
         // this flag the assistant bubble silently stays blank after onDone.
         let hasReceivedAnyContent = false
+        let didObserveToolActivity = false
+        let nonStreamingRecoveryStarted = false
+        let bffStreamRecoverySource: 'bff-fallback' | 'bff-fallback-failed' | null = null
         const clearActiveStream = () => {
+          streamCleanupRef.current?.()
           streamCleanupRef.current = null
           setToolInProgress(null)
         }
@@ -224,6 +227,63 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           clearActiveStream()
           setIsChatGenerating(false)
           patchAssistantMessage(buildManualChatTerminalErrorPatch(state, translate))
+        }
+        const recoverViaNonStreamingChat = () => {
+          if (
+            !shouldAttemptManualChatNonStreamingRecovery({
+              nonStreamingRecoveryStarted,
+              didObserveToolActivity,
+              bffStreamRecoverySource,
+            })
+          ) {
+            return
+          }
+          nonStreamingRecoveryStarted = true
+          clearActiveStream()
+          setIsChatGenerating(true)
+          generalLogger.warn('Streaming produced no visible content, falling back to non-streaming')
+          void requestManualChatNonStreamingRecovery({
+            aiRequest,
+            sendMessage: aiChatService.sendMessage.bind(aiChatService),
+            translate,
+            createId: () => crypto.randomUUID(),
+          })
+            .then((outcome) => {
+              switch (outcome.status) {
+                case 'terminal_error':
+                  patchAssistantMessage(outcome.patch)
+                  return
+                case 'miss':
+                  patchAssistantMessage(
+                    buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
+                  )
+                  return
+                case 'recovered': {
+                  const nextConversationId = resolveReturnedConversationIdUpdate(
+                    conversationId,
+                    outcome.conversationId
+                  )
+                  if (nextConversationId) {
+                    setConversationId(nextConversationId)
+                  }
+                  patchAssistantMessage(outcome.patch)
+                  if (outcome.showAiUnavailableToast) {
+                    toast.info(translate('aiUnavailable'), {
+                      description: translate('aiUnavailableDesc'),
+                      duration: 4000,
+                    })
+                  }
+                  if (outcome.fieldUpdates) {
+                    setPendingUpdates((prev) => [...prev, ...outcome.fieldUpdates!])
+                  }
+                  handleNormalisationSuggestions(outcome.normalisationSuggestions)
+                  return
+                }
+              }
+            })
+            .finally(() => {
+              setIsChatGenerating(false)
+            })
         }
 
         setChatMessages((prev) => [
@@ -245,6 +305,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             patchAssistantMessage({ content: streamedContent })
           },
           onToolStart: (toolName) => {
+            didObserveToolActivity = true
             setToolInProgress(toolName)
           },
           onToolResult: (toolName, result) => {
@@ -280,6 +341,10 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             // a frozen empty placeholder. Mirrors the FE's
             // `streamFailureFallback` on `apps/mercury/shared/components/ai-dock`.
             if (!hasReceivedAnyContent) {
+              if (!didObserveToolActivity) {
+                recoverViaNonStreamingChat()
+                return
+              }
               finishWithTerminalError({ kind: 'generic' })
               return
             }
@@ -307,58 +372,16 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           onAuthRequired: (payload) => {
             finishWithTerminalError({ kind: 'auth', message: payload.message })
           },
+          onBffStreamRecovery: (source) => {
+            bffStreamRecoverySource = source
+          },
           onError: (error) => {
-            clearActiveStream()
-
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
-            aiChatService
-              .sendMessage({ ...aiRequest, stream: false })
-              .then((aiResponse) => {
-                const terminalErrorPatch = buildManualChatTerminalErrorPatchFromAIResponse(
-                  aiResponse,
-                  translate
-                )
-                if (terminalErrorPatch) {
-                  patchAssistantMessage(terminalErrorPatch)
-                  return
-                }
-
-                const nextConversationId = resolveReturnedConversationIdUpdate(
-                  conversationId,
-                  aiResponse.conversationId
-                )
-                if (nextConversationId) {
-                  setConversationId(nextConversationId)
-                }
-
-                const responseCards = addIdsToManualChatToolCards(aiResponse, () =>
-                  crypto.randomUUID()
-                )
-                patchAssistantMessage({
-                  content: aiResponse.content,
-                  ...responseCards,
-                })
-
-                if (aiResponse.fallback) {
-                  toast.info(translate('aiUnavailable'), {
-                    description: translate('aiUnavailableDesc'),
-                    duration: 4000,
-                  })
-                }
-                const responseFieldUpdates = responseCards.fieldUpdates
-                if (responseFieldUpdates) {
-                  setPendingUpdates((prev) => [...prev, ...responseFieldUpdates])
-                }
-                handleNormalisationSuggestions(responseCards.normalisationSuggestions)
-              })
-              .catch(() => {
-                patchAssistantMessage(
-                  buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
-                )
-              })
-              .finally(() => {
-                setIsChatGenerating(false)
-              })
+            if (didObserveToolActivity) {
+              finishWithTerminalError({ kind: 'generic' })
+              return
+            }
+            recoverViaNonStreamingChat()
           },
         })
       } catch {

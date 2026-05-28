@@ -1,5 +1,62 @@
+export const AI_CHAT_PROXY_TIMEOUT_MS = 60_000
+
+const MAX_CORRELATION_ID_LENGTH = 128
+
+export function normalizeCorrelationId(value: string | null | undefined): string | null {
+  const normalized = value
+    ?.trim()
+    .replace(/[^A-Za-z0-9_.:-]/g, '_')
+    .slice(0, MAX_CORRELATION_ID_LENGTH)
+  return normalized || null
+}
+
+/** Generate or capture a correlation id from the inbound request. */
+export function getOrCreateCorrelationId(req: { headers: Headers }): string {
+  const normalized =
+    normalizeCorrelationId(req.headers.get('x-correlation-id')) ??
+    normalizeCorrelationId(req.headers.get('x-request-id'))
+  if (normalized) return normalized
+  return `bff_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
+}
+
+export function getTitanResponseCorrelationId(
+  response: Response,
+  fallbackCorrelationId: string
+): string {
+  return normalizeCorrelationId(response.headers.get('x-correlation-id')) ?? fallbackCorrelationId
+}
+
 type ChatRole = 'assistant' | 'user'
 type UnknownRecord = Record<string, unknown>
+
+export function isTitanAiProxyTimeoutError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+/**
+ * Fetch with timeout for AI BFF proxy routes. Clears the timer once headers
+ * arrive so streaming bodies are not aborted mid-read.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = AI_CHAT_PROXY_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    throw error
+  }
+}
 
 interface TitanChatMessage {
   role: ChatRole

@@ -39,7 +39,6 @@ export interface ManualLayoutNavProps {
   isCalculating: boolean
   isExporting: boolean
   isGenerating: boolean
-  isMethodSwitchRendering: boolean
   isMobile: boolean
   navValuationSummary: CalculatorNavProps['valuationSummary']
   onExitClientView?: () => void
@@ -97,7 +96,6 @@ export function ManualLayoutNav({
   isCalculating,
   isExporting,
   isGenerating,
-  isMethodSwitchRendering,
   isMobile,
   navValuationSummary,
   onExitClientView,
@@ -147,7 +145,7 @@ export function ManualLayoutNav({
       onOpenNormalization={showFullAdvisorMethodNav ? onOpenNormalization : undefined}
       normalizationCount={pendingNormalizationCount}
       openTasksCount={assistantOpenTasksCount}
-      isExporting={isExporting || isMethodSwitchRendering}
+      isExporting={isExporting}
       downloadHistory={isMobile ? undefined : downloadHistory}
       onRedownload={
         isMobile

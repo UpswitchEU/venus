@@ -26,6 +26,12 @@ import {
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
+import {
+  clearRestorationObserved,
+  getMercuryDelegatedAutosaveDeferRemainingMs,
+  getMercurySourceApp,
+  observeMercuryDelegatedRestoration,
+} from './formSessionAutosaveDefer'
 
 const PERSIST_DEBOUNCE_MS = 450
 
@@ -64,7 +70,7 @@ export function usePreSelectedMethodSessionSync({
   hasValuationResult,
   allowedMethodsForNav,
 }: UsePreSelectedMethodSessionSyncParams): void {
-  useManualResultsStore(
+  const manualMethodPrefs = useManualResultsStore(
     useShallow((s) => ({
       preSelectedMethod: s.preSelectedMethod,
       selectedMethod: s.selectedMethod,
@@ -76,8 +82,79 @@ export function usePreSelectedMethodSessionSync({
 
   const urlSeedDoneRef = useRef(false)
   const lastReportKeyRef = useRef<string | null>(null)
+  const persistRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const reportKey = resolvedReportId || reportId
+  const reportKeyRef = useRef(reportKey)
+  reportKeyRef.current = reportKey
+
+  useEffect(() => {
+    if (!restorationComplete) {
+      clearRestorationObserved(reportKey)
+      return
+    }
+    observeMercuryDelegatedRestoration({
+      reportId: reportKey,
+      restorationComplete: true,
+      sourceApp: getMercurySourceApp(),
+    })
+  }, [restorationComplete, reportKey])
+
+  const runPersist = () => {
+    const activeReportKey = reportKeyRef.current
+    const { session, updateSessionData, saveSession } = useSessionStore.getState()
+    if (!session?.reportId || !activeReportKey || session.reportId !== activeReportKey) return 0
+
+    const deferRemainingMs = getMercuryDelegatedAutosaveDeferRemainingMs({
+      reportId: activeReportKey,
+      restorationComplete: true,
+      sourceApp: getMercurySourceApp(),
+    })
+    if (deferRemainingMs > 0) return deferRemainingMs
+
+    const store = useManualResultsStore.getState()
+    const valueToStore = toSessionPreSelectedFieldValue(
+      store.preSelectedMethod,
+      store.selectedMethod
+    )
+
+    const sd = session.sessionData
+    const storedMethod = sd?.[SESSION_PRE_SELECTED_VALUATION_METHOD_KEY]
+    const storedMethods = sd?.[SESSION_PRE_SELECTED_METHODS_KEY]
+    const storedWeights = sd?.[SESSION_USER_WEIGHTS_KEY]
+    const storedJustification = sd?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+
+    const methodsMatch =
+      JSON.stringify(storedMethods ?? null) === JSON.stringify(store.preSelectedMethods)
+    const weightsMatch =
+      JSON.stringify(storedWeights ?? null) ===
+      JSON.stringify(Object.keys(store.userWeights).length > 0 ? store.userWeights : null)
+    const justificationMatch =
+      (storedJustification ?? '') === (store.userWeightJustification || '')
+    const methodFieldMatch = storedMethod === valueToStore
+
+    if (methodFieldMatch && methodsMatch && weightsMatch && justificationMatch) {
+      return 0
+    }
+
+    void (async () => {
+      try {
+        await updateSessionData({
+          [SESSION_PRE_SELECTED_VALUATION_METHOD_KEY]: valueToStore,
+          [SESSION_PRE_SELECTED_METHODS_KEY]: store.preSelectedMethods,
+          [SESSION_USER_WEIGHTS_KEY]:
+            Object.keys(store.userWeights).length > 0 ? store.userWeights : null,
+          [SESSION_USER_WEIGHT_JUSTIFICATION_KEY]: store.userWeightJustification || null,
+        })
+        await saveSession('autosave')
+      } catch (e) {
+        generalLogger.warn('[usePreSelectedMethodSessionSync] Persist failed', {
+          error: e instanceof Error ? e.message : String(e),
+        })
+      }
+    })()
+    return 0
+  }
 
   // Persist (debounced)
   useEffect(() => {
@@ -86,35 +163,33 @@ export function usePreSelectedMethodSessionSync({
     if (!id || id === 'new') return
 
     const handle = setTimeout(() => {
-      const { session, updateSessionData, saveSession } = useSessionStore.getState()
-      if (!session?.reportId) return
-
-      const store = useManualResultsStore.getState()
-      const valueToStore = toSessionPreSelectedFieldValue(
-        store.preSelectedMethod,
-        store.selectedMethod
-      )
-
-      void (async () => {
-        try {
-          await updateSessionData({
-            [SESSION_PRE_SELECTED_VALUATION_METHOD_KEY]: valueToStore,
-            [SESSION_PRE_SELECTED_METHODS_KEY]: store.preSelectedMethods,
-            [SESSION_USER_WEIGHTS_KEY]:
-              Object.keys(store.userWeights).length > 0 ? store.userWeights : null,
-            [SESSION_USER_WEIGHT_JUSTIFICATION_KEY]: store.userWeightJustification || null,
-          })
-          await saveSession('autosave')
-        } catch (e) {
-          generalLogger.warn('[usePreSelectedMethodSessionSync] Persist failed', {
-            error: e instanceof Error ? e.message : String(e),
-          })
-        }
-      })()
+      const deferRemainingMs = runPersist()
+      if (deferRemainingMs > 0) {
+        if (persistRetryTimerRef.current) clearTimeout(persistRetryTimerRef.current)
+        persistRetryTimerRef.current = setTimeout(() => {
+          persistRetryTimerRef.current = null
+          runPersist()
+        }, deferRemainingMs + 25)
+      }
     }, PERSIST_DEBOUNCE_MS)
 
-    return () => clearTimeout(handle)
-  }, [restorationComplete, resolvedReportId, reportId])
+    return () => {
+      clearTimeout(handle)
+      if (persistRetryTimerRef.current) {
+        clearTimeout(persistRetryTimerRef.current)
+        persistRetryTimerRef.current = null
+      }
+    }
+  }, [
+    restorationComplete,
+    resolvedReportId,
+    reportId,
+    manualMethodPrefs.preSelectedMethod,
+    manualMethodPrefs.selectedMethod,
+    manualMethodPrefs.preSelectedMethods,
+    manualMethodPrefs.userWeights,
+    manualMethodPrefs.userWeightJustification,
+  ])
 
   // URL seed: reset per report, then apply at most once when conditions hold.
   //

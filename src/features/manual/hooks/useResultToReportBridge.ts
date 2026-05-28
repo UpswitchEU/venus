@@ -35,16 +35,18 @@
  * re-extracting the bridge.
  */
 
-import { type Dispatch, type SetStateAction, useEffect } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react'
 import type { RightPanelView, ValuationReportData } from '@/components/calculator'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { generalLogger } from '@/utils/logger'
+import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import {
   mapValuationResultToReport,
   type ReportTranslator,
 } from '../utils/mapValuationResultToReport'
+import { useLatestRef } from './useNavigationCancellation'
 
 export interface UseResultToReportBridgeParams {
   /** Latest API response. `null`/`undefined` ⇒ the effect no-ops. */
@@ -70,6 +72,22 @@ export interface UseResultToReportBridgeParams {
   generatePdf: (() => Promise<unknown>) | undefined
 }
 
+function resultPdfTriggerFingerprint(result: ValuationResponse): string {
+  const r = result as ValuationResponse & {
+    render_fingerprint?: string | null
+    updated_at?: string | null
+    pdf_generated_at?: string | null
+    pdf_url?: string | null
+  }
+  return [
+    r.valuation_id ?? '',
+    r.render_fingerprint ?? '',
+    r.updated_at ?? '',
+    r.pdf_generated_at ?? '',
+    r.pdf_url ?? '',
+  ].join('|')
+}
+
 export function useResultToReportBridge(params: UseResultToReportBridgeParams): void {
   const {
     result,
@@ -86,6 +104,13 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     setShowFullscreenModal,
     generatePdf,
   } = params
+
+  const generatePdfRef = useLatestRef(generatePdf)
+  const lastPdfTriggerFingerprintRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    lastPdfTriggerFingerprintRef.current = null
+  }, [reportId])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- setter and `tReport` references are stable in practice; including them re-fires this expensive effect on every parent render.
   useEffect(() => {
@@ -119,16 +144,19 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         setShowFullscreenModal(true)
       }
 
-      // 8. Background PDF generation. PRESERVED: fires even if the user
-      //    already manually generated a PDF this session; documented as
-      //    intentional pending product review.
-      if (reportId && mappedReport.htmlReport && canDownloadPdf) {
-        generatePdf?.().catch((err) => {
-          if (err instanceof APIError && err.statusCode === 402) return
-          generalLogger.warn('[useResultToReportBridge] Background PDF generation failed', {
-            error: err instanceof Error ? err.message : String(err),
+      // 8. Background PDF generation — only when PDF is stale and fingerprint changed
+      // (guards against poll merges re-firing POST /pdf).
+      if (reportId && mappedReport.htmlReport && canDownloadPdf && isPdfLikelyStaleVenus(mappedReport)) {
+        const pdfFingerprint = resultPdfTriggerFingerprint(result)
+        if (lastPdfTriggerFingerprintRef.current !== pdfFingerprint) {
+          lastPdfTriggerFingerprintRef.current = pdfFingerprint
+          generatePdfRef.current?.().catch((err) => {
+            if (err instanceof APIError && err.statusCode === 402) return
+            generalLogger.warn('[useResultToReportBridge] Background PDF generation failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
           })
-        })
+        }
       }
     } catch (error) {
       generalLogger.error(
@@ -147,14 +175,13 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     result,
     onComplete,
     reportId,
-    generatePdf,
+    generatePdfRef,
     isMobile,
     selectedMethod,
     canDownloadPdf,
     setDraftStatus,
-    setLastSaved, // 3-5. Drop into panel state.
-    setReport, // 6. Switch panel view to preview. PRESERVED: overrides prior user
-    //    navigation; documented as intentional pending product review.
+    setLastSaved,
+    setReport,
     setRightPanelView,
     setShowFullscreenModal,
     tReport,

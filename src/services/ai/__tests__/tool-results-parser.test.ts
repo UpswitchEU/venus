@@ -140,7 +140,11 @@ describe('parseAIChatToolResults — input tolerance', () => {
       ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
+    // Advisor-only widgets (e.g. add_client_widget) are Mercury-dock surfaces — Venus
+    // deliberately ignores them so seller chat never renders advisor tooling.
+    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
+      'add_client_widget',
+    ])
   })
 
   it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {

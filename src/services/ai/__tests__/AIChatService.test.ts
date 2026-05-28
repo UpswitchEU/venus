@@ -79,6 +79,131 @@ describe('AIChatService', () => {
     expect(body.locale).toBe('nl')
   })
 
+  it('forwards a correlation id on every AI BFF request', async () => {
+    await aiChatService.sendMessage({
+      message: 'Leg de waarde uit',
+      locale: 'nl',
+      stream: false,
+    })
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = init.headers as Record<string, string>
+    expect(headers['X-Correlation-ID']).toMatch(/^cid_[a-z0-9]+_[a-f0-9]+$/)
+  })
+
+  it('routes stream_recovery meta chunks to onBffStreamRecovery during streaming', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        streamResponse([
+          'data: {"type":"stream_recovery","source":"bff-fallback-failed"}\n\n',
+          'data: {"type":"error","error":"AI stream fallback failed"}\n\n',
+        ])
+      )
+    )
+
+    const onBffStreamRecovery = vi.fn()
+    await new Promise<void>((resolve) => {
+      aiChatService.streamMessage(
+        {
+          message: 'Leg de waarde uit',
+          locale: 'nl',
+        },
+        {
+          onBffStreamRecovery,
+          onError: () => resolve(),
+        }
+      )
+    })
+
+    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
+  })
+
+  it('does not treat _keepalive as visible stream content', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        streamResponse(['data: {"type":"_keepalive"}\n\n'])
+      )
+    )
+
+    const onText = vi.fn()
+    const onDone = vi.fn()
+    await new Promise<void>((resolve) => {
+      aiChatService.streamMessage(
+        {
+          message: 'Leg de waarde uit',
+          locale: 'nl',
+        },
+        {
+          onText,
+          onDone: () => {
+            onDone()
+            resolve()
+          },
+        }
+      )
+    })
+
+    expect(onText).not.toHaveBeenCalled()
+    expect(onDone).toHaveBeenCalled()
+  })
+
+  it('supports layer-3 client recovery after BFF stream_recovery failed + error SSE', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        streamResponse([
+          'data: {"type":"stream_recovery","source":"bff-fallback-failed"}\n\n',
+          'data: {"type":"error","error":"AI stream fallback failed"}\n\n',
+        ])
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          content: 'Recovered after BFF fallback failure',
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    let bffStreamRecoverySource: 'bff-fallback' | 'bff-fallback-failed' | null = null
+    let recoveredContent = ''
+
+    await new Promise<void>((resolve) => {
+      aiChatService.streamMessage(
+        {
+          message: 'Leg de waarde uit',
+          locale: 'nl',
+          sessionId: 'sess-1',
+        },
+        {
+          onBffStreamRecovery: (source) => {
+            bffStreamRecoverySource = source
+          },
+          onError: async () => {
+            if (bffStreamRecoverySource === 'bff-fallback') return
+            const response = await aiChatService.sendMessage({
+              message: 'Leg de waarde uit',
+              locale: 'nl',
+              sessionId: 'sess-1',
+              stream: false,
+            })
+            recoveredContent = response.content
+            resolve()
+          },
+        }
+      )
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const [, recoveryInit] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(JSON.parse(String(recoveryInit.body))).toMatchObject({ stream: false })
+    expect(recoveredContent).toBe('Recovered after BFF fallback failure')
+  })
+
   it('returns a consent-required envelope on Titan 412 without local fallback', async () => {
     vi.stubGlobal(
       'fetch',
