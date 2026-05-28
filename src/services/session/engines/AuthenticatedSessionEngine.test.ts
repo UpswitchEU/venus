@@ -218,4 +218,41 @@ describe('AuthenticatedSessionEngine', () => {
       ebitda: 250_000,
     })
   })
+
+  it('preserves recovered HTML when autosave response returns stale server snapshot', async () => {
+    const createdAt = new Date('2026-05-26T10:00:00.000Z')
+    const recoveredHtml = '<main>Recovered report after save</main>'
+    const localSession = {
+      reportId: 'val_save_recovered',
+      currentView: 'manual' as const,
+      dataSource: 'manual' as const,
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'METANOUS', _htmlReport: recoveredHtml },
+      partialData: {},
+      htmlReport: recoveredHtml,
+      reportReady: true,
+      valuationResult: { equity_value_mid: 750_000, html_report: recoveredHtml },
+    }
+    const staleServerSession = {
+      reportId: 'val_save_recovered',
+      currentView: 'manual' as const,
+      dataSource: 'manual' as const,
+      createdAt,
+      updatedAt: new Date('2026-05-26T10:00:01.000Z'),
+      sessionData: { company_name: 'METANOUS' },
+      partialData: {},
+      reportReady: false,
+      valuationResult: { equity_value_mid: 750_000 },
+    }
+
+    sessionServiceMocks.saveSession.mockResolvedValue(staleServerSession)
+
+    const engine = new AuthenticatedSessionEngine()
+    engine.updateSession(localSession)
+    await engine.saveSession('autosave')
+
+    expect(engine.getSession()?.htmlReport).toBe(recoveredHtml)
+    expect(engine.getSession()?.reportReady).toBe(true)
+  })
 })

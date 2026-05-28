@@ -74,9 +74,9 @@ export async function restoreManualWorkspaceAfterDeleteFailure(params: {
   })
   if (recovery.status === 'recovered' && recovery.result) {
     result = recovery.result
+  } else {
+    useManualResultsStore.getState().setResult(result)
   }
-
-  useManualResultsStore.getState().setResult(result)
 
   generalLogger.info('[ManualLayout] Restored workspace after failed report delete', {
     reportId: reportId?.substring(0, 24),

@@ -54,6 +54,10 @@ import { useLatestRef } from './useNavigationCancellation'
 export interface UseResultToReportBridgeParams {
   /** Latest API response. `null`/`undefined` ⇒ the effect no-ops. */
   result: ValuationResponse | null | undefined
+  /** Session HTML fallback for self-heal before result.html_report catches up. */
+  sessionHtmlReport?: string | null
+  /** Results-store HTML fallback when not yet merged into result. */
+  standaloneHtmlReport?: string | null
   /** Active selected method (passed through to the mapper). */
   selectedMethod: string
   /** Live Waarderingssynthese blend for report headline (optional). */
@@ -100,6 +104,8 @@ function resultPdfTriggerFingerprint(result: ValuationResponse): string {
 export function useResultToReportBridge(params: UseResultToReportBridgeParams): void {
   const {
     result,
+    sessionHtmlReport,
+    standaloneHtmlReport,
     selectedMethod,
     clientBlendedValue,
     reportId,
@@ -149,6 +155,8 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
       // Build the report projection (pure).
       const mappedReport = mapValuationResultToReport({
         result,
+        sessionHtmlReport,
+        standaloneHtmlReport,
         selectedMethod,
         clientBlendedValue,
         reportId,
@@ -201,6 +209,8 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     }
   }, [
     result,
+    sessionHtmlReport,
+    standaloneHtmlReport,
     onComplete,
     reportId,
     generatePdfRef,

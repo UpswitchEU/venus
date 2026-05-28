@@ -258,6 +258,32 @@ describe('mapValuationResultToReport', () => {
     })
   })
 
+  describe('html report resolution', () => {
+    it('uses sessionHtmlReport when result has no renderable html', () => {
+      const report = mapValuationResultToReport({
+        result: makeResult({ equity_value_mid: 750_000 } as Partial<ValuationResponse>),
+        sessionHtmlReport: '<main>Recovered from session</main>',
+        selectedMethod: 'dcf',
+        reportId: 'r1',
+        canDownloadPdf: false,
+        tReport: translate,
+      })
+      expect(report.htmlReport).toBe('<main>Recovered from session</main>')
+    })
+
+    it('uses standaloneHtmlReport when result and session html are empty', () => {
+      const report = mapValuationResultToReport({
+        result: makeResult({ equity_value_mid: 750_000 } as Partial<ValuationResponse>),
+        standaloneHtmlReport: '<main>Recovered from store</main>',
+        selectedMethod: 'dcf',
+        reportId: 'r1',
+        canDownloadPdf: false,
+        tReport: translate,
+      })
+      expect(report.htmlReport).toBe('<main>Recovered from store</main>')
+    })
+  })
+
   describe('confidence level', () => {
     it('lowercases result.overall_confidence', () => {
       const result = makeResult()

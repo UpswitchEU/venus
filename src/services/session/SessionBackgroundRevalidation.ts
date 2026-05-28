@@ -1,7 +1,12 @@
 import type { ValuationSession } from '../../types/valuation'
+import { applyRecoveredReportHtml } from '../../utils/applyRecoveredReportHtml'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
+import {
+  buildRecoveryEligibilitySession,
+  extractRenderableHtmlFromSessionPayload,
+} from '../../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import { mergeSessionFields, normalizeSessionDates } from '../../utils/sessionHelpers'
@@ -98,56 +103,62 @@ export async function revalidateSessionCacheInBackground(reportId: string): Prom
         if (shouldSyncStore) {
           const { useManualResultsStore } = await import('../../store/manual/useManualResultsStore')
           const existingResult = useManualResultsStore.getState().result
-          const revalidatedScreenHtml = getFirstRenderableReportHtml(
-            mergedSession.htmlReport,
-            (mergedSession.valuationResult as { html_report?: string } | null | undefined)
-              ?.html_report,
-            (
-              mergedSession.valuationResult as
-                | { details?: { html_report?: string } }
-                | null
-                | undefined
-            )?.details?.html_report
-          )
+          const standaloneHtmlReport = useManualResultsStore.getState().htmlReport
+          const revalidatedScreenHtml = extractRenderableHtmlFromSessionPayload(mergedSession)
           const safeHtmlForStores =
             revalidatedScreenHtml ||
             getFirstRenderableReportHtml(
               (existingResult as { html_report?: string } | null | undefined)?.html_report,
               (existingResult as { details?: { html_report?: string } } | null | undefined)?.details
-                ?.html_report
+                ?.html_report,
+              standaloneHtmlReport
             )
-          const hydratePayload: Partial<ValuationSession> = {
-            htmlReport: safeHtmlForStores,
-            valuationResult: mergedSession.valuationResult,
-            sessionData: mergedSession.sessionData,
-          }
-          if (canonicalIsValid && canonicalReportId && storeRid && canonicalReportId !== storeRid) {
-            hydratePayload.reportId = canonicalReportId
-          }
-          useSessionStore.getState().hydrateSession(hydratePayload)
 
-          if (safeHtmlForStores || mergedSession.valuationResult) {
-            try {
-              const fullResult = {
-                ...(existingResult || {}),
-                ...(mergedSession.valuationResult || {}),
-                html_report: safeHtmlForStores,
+          if (revalidatedScreenHtml) {
+            applyRecoveredReportHtml({
+              reportId,
+              recoverySession: buildRecoveryEligibilitySession(mergedSession),
+              refetchedSession: mergedSession,
+              baseResult:
+                (existingResult as Record<string, unknown> | null | undefined) ??
+                (mergedSession.valuationResult as Record<string, unknown> | null | undefined) ??
+                {},
+              recoveredHtml: revalidatedScreenHtml,
+            })
+          } else {
+            const hydratePayload: Partial<ValuationSession> = {
+              htmlReport: safeHtmlForStores,
+              valuationResult: mergedSession.valuationResult,
+              sessionData: mergedSession.sessionData,
+            }
+            if (canonicalIsValid && canonicalReportId && storeRid && canonicalReportId !== storeRid) {
+              hydratePayload.reportId = canonicalReportId
+            }
+            useSessionStore.getState().hydrateSession(hydratePayload)
+
+            if (safeHtmlForStores || mergedSession.valuationResult) {
+              try {
+                const fullResult = {
+                  ...(existingResult || {}),
+                  ...(mergedSession.valuationResult || {}),
+                  html_report: safeHtmlForStores,
+                }
+                const manualResultsStore = useManualResultsStore.getState()
+                manualResultsStore.setResult(
+                  fullResult as Parameters<typeof manualResultsStore.setResult>[0]
+                )
+                if (safeHtmlForStores) {
+                  manualResultsStore.setHtmlReport(safeHtmlForStores)
+                }
+              } catch (resultsStoreError) {
+                logger.warn('Failed to hydrate results store after revalidation', {
+                  reportId,
+                  error:
+                    resultsStoreError instanceof Error
+                      ? resultsStoreError.message
+                      : String(resultsStoreError),
+                })
               }
-              const manualResultsStore = useManualResultsStore.getState()
-              manualResultsStore.setResult(
-                fullResult as Parameters<typeof manualResultsStore.setResult>[0]
-              )
-              if (safeHtmlForStores) {
-                manualResultsStore.setHtmlReport(safeHtmlForStores)
-              }
-            } catch (resultsStoreError) {
-              logger.warn('Failed to hydrate results store after revalidation', {
-                reportId,
-                error:
-                  resultsStoreError instanceof Error
-                    ? resultsStoreError.message
-                    : String(resultsStoreError),
-              })
             }
           }
 

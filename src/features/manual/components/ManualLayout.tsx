@@ -148,6 +148,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const {
     isCalculating,
     result,
+    htmlReport: standaloneHtmlReport,
     selectedMethod,
     setSelectedMethod,
     preSelectedMethod,
@@ -314,10 +315,10 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     reportId,
     session,
     result,
+    standaloneHtmlReport,
     restorationComplete,
     isCalculating,
     isGenerating,
-    setResult,
   })
 
   const tCa = useTranslations('chatAssistant')
@@ -506,6 +507,8 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   // result-arrival and the auto-PDF-gen trigger.
   useResultToReportBridge({
     result,
+    sessionHtmlReport: session?.htmlReport,
+    standaloneHtmlReport,
     selectedMethod,
     clientBlendedValue: navValuationSummary?.askPrice ?? null,
     reportId,

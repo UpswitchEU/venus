@@ -141,7 +141,13 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   }, [ownerProfilingState, result, sessionValuationResult])
 
   // Prefer session HTML, but do not let legacy safety-net HTML mask a real result report.
-  const htmlReport = getFirstRenderableReportHtml(sessionHtmlReport, result?.html_report)
+  const htmlReport = getFirstRenderableReportHtml(
+    sessionHtmlReport,
+    sessionValuationResult?.html_report,
+    sessionValuationResult?.details?.html_report,
+    result?.html_report,
+    result?.details?.html_report
+  )
   const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
   const showEnterpriseBridge = useMemo(() => {
     if (typeof localEnterpriseBridgePreference === 'boolean') return localEnterpriseBridgePreference
@@ -266,6 +272,17 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
         <ErrorState
           title={t('renderPayloadTooLarge')}
           message={t('renderPayloadTooLargeDesc')}
+        />
+      </div>
+    )
+  }
+
+  if (renderError === 'html_recovery_failed' && !htmlReport) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px] p-4">
+        <ErrorState
+          title={t('reportHtmlRecoveryFailed')}
+          message={t('reportHtmlRecoveryFailedDesc')}
         />
       </div>
     )

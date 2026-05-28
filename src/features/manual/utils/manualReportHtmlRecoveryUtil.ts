@@ -1,39 +1,24 @@
 import { tryRefetchAfterEnsureHtml } from '../../../services/session/SessionHtmlRecovery'
-import { useSessionStore } from '../../../store/useSessionStore'
+import { useManualResultsStore } from '../../../store/manual'
 import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
+import { enrichRecoveryValuationSnapshot } from '../../../utils/reportHtmlRecovery'
 import {
   buildManualHtmlRecoverySession,
   extractRenderableHtmlFromSession,
-  mergeRecoveredHtmlIntoResult,
+  needsManualReportHtmlRecovery,
   resultHasValuationRange,
   resultMissingRenderableHtml,
   sessionNeedsRenderableHtmlFromPayload,
 } from './manualReportHtmlRecoveryCore'
+import { applyRecoveredReportHtml } from '../../../utils/applyRecoveredReportHtml'
 
 export {
   buildManualHtmlRecoverySession,
   extractRenderableHtmlFromSession,
-  mergeRecoveredHtmlIntoResult,
+  needsManualReportHtmlRecovery,
   resultHasValuationRange,
   resultMissingRenderableHtml,
 } from './manualReportHtmlRecoveryCore'
-
-export function needsManualReportHtmlRecovery(params: {
-  reportId: string
-  session: ValuationSession | null | undefined
-  result: ValuationResponse | null | undefined
-}): boolean {
-  const { reportId, session, result } = params
-  if (!reportId || reportId === 'new') return false
-
-  const recoverySession = buildManualHtmlRecoverySession(reportId, session, result ?? null)
-  const needsFromSession =
-    session != null && sessionNeedsRenderableHtmlFromPayload(recoverySession)
-  const needsFromResult =
-    !!result && resultHasValuationRange(result) && resultMissingRenderableHtml(result)
-
-  return needsFromSession || needsFromResult
-}
 
 export type RecoverManualReportHtmlStatus = 'not_needed' | 'recovered' | 'failed'
 
@@ -43,18 +28,19 @@ export interface RecoverManualReportHtmlResult {
   result?: ValuationResponse
 }
 
+function resolveStandaloneHtmlReport(explicit?: string | null): string | null | undefined {
+  if (explicit !== undefined) return explicit
+  return useManualResultsStore.getState().htmlReport
+}
+
 /**
  * Titan ensure-html + session refetch when calculate/bootstrap left only safety-net HTML.
- */
-/**
  * After a successful calculate + save, attempt Titan ensure-html when only safety-net HTML exists.
- * Returns the result to keep in the results store (recovered or original).
  */
 export async function applyPostCalculateHtmlRecovery(params: {
   reportId: string
   session: ValuationSession | null | undefined
   result: ValuationResponse
-  setResult: (result: ValuationResponse | null) => void
 }): Promise<ValuationResponse> {
   const recovery = await recoverManualReportHtmlIfNeeded({
     reportId: params.reportId,
@@ -62,7 +48,6 @@ export async function applyPostCalculateHtmlRecovery(params: {
     result: params.result,
   })
   if (recovery.status === 'recovered' && recovery.result) {
-    params.setResult(recovery.result)
     return recovery.result
   }
   return params.result
@@ -72,40 +57,53 @@ export async function recoverManualReportHtmlIfNeeded(params: {
   reportId: string
   session: ValuationSession | null | undefined
   result: ValuationResponse | null | undefined
+  standaloneHtmlReport?: string | null
 }): Promise<RecoverManualReportHtmlResult> {
   const { reportId, session, result } = params
-  if (!needsManualReportHtmlRecovery({ reportId, session, result })) {
+  const standaloneHtmlReport = resolveStandaloneHtmlReport(params.standaloneHtmlReport)
+  if (!needsManualReportHtmlRecovery({ reportId, session, result, standaloneHtmlReport })) {
     return { status: 'not_needed' }
   }
 
   const recoverySession = buildManualHtmlRecoverySession(reportId, session, result ?? null)
-  const refetched = await tryRefetchAfterEnsureHtml(reportId, recoverySession)
-  if (!refetched?.session) {
-    return { status: 'failed' }
+  const maxAttempts = 2
+  const retryDelayMs = 1500
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+
+    const refetched = await tryRefetchAfterEnsureHtml(reportId, recoverySession, {
+      bypassCooldown: attempt > 0,
+    })
+    if (!refetched?.session) continue
+
+    const recoveredHtml = extractRenderableHtmlFromSession(refetched.session)
+    if (!recoveredHtml) continue
+
+    const enrichedBase =
+      result ??
+      enrichRecoveryValuationSnapshot(recoverySession, null) ??
+      (refetched.session.valuationResult as ValuationResponse | null | undefined)
+    if (!enrichedBase) {
+      return { status: 'failed' }
+    }
+
+    const mergedResult = applyRecoveredReportHtml({
+      reportId,
+      recoverySession,
+      refetchedSession: refetched.session,
+      baseResult: enrichedBase,
+      recoveredHtml,
+    })
+
+    return {
+      status: 'recovered',
+      html: recoveredHtml,
+      result: mergedResult,
+    }
   }
 
-  const recoveredHtml = extractRenderableHtmlFromSession(refetched.session)
-  if (!recoveredHtml) {
-    return { status: 'failed' }
-  }
-
-  const base =
-    result ?? (refetched.session.valuationResult as ValuationResponse | null | undefined)
-  if (!base) {
-    return { status: 'failed' }
-  }
-
-  const mergedResult = mergeRecoveredHtmlIntoResult(base, recoveredHtml)
-  useSessionStore.getState().hydrateSession({
-    valuationResult: mergedResult,
-    htmlReport: recoveredHtml,
-    reportId: refetched.session.reportId ?? reportId,
-  })
-  useSessionStore.getState().setRenderError(null)
-
-  return {
-    status: 'recovered',
-    html: recoveredHtml,
-    result: mergedResult,
-  }
+  return { status: 'failed' }
 }

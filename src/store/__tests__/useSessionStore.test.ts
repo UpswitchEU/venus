@@ -250,6 +250,61 @@ describe('useSessionStore', () => {
       )
     })
 
+    it('preserves in-flight recovered HTML when loadSession returns stale server payload', async () => {
+      const reportId = 'val_recovered_race'
+      const recoveredHtml = '<main>Recovered during load</main>'
+      const minimalSession = {
+        reportId,
+        sessionData: { _bootstrapPrefill: true },
+        updatedAt: new Date(),
+      }
+      const staleServerSession = {
+        reportId,
+        reportReady: false,
+        sessionData: {
+          _bootstrapPrefill: true,
+          _missingRestorationAssets: ['html_report'],
+        },
+        valuationResult: { equity_value_mid: 750_000 },
+        updatedAt: new Date(),
+      }
+
+      let releaseLoad: (s: typeof staleServerSession) => void
+      const loadDeferred = new Promise<typeof staleServerSession>((resolve) => {
+        releaseLoad = resolve
+      })
+      mockLoadSession.mockImplementation(() => loadDeferred)
+
+      useSessionStore.setState({
+        session: minimalSession,
+        status: 'loaded' as SessionStatus,
+        errorMessage: null,
+      })
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const loadPromise = useSessionStore.getState().loadSession(reportId)
+      await Promise.resolve()
+
+      useSessionStore.setState({
+        session: {
+          ...minimalSession,
+          htmlReport: recoveredHtml,
+          reportReady: true,
+          sessionData: {
+            ...minimalSession.sessionData,
+            _htmlReport: recoveredHtml,
+          },
+          valuationResult: { equity_value_mid: 750_000, html_report: recoveredHtml },
+        },
+      })
+
+      releaseLoad?.(staleServerSession)
+      await loadPromise
+
+      expect(useSessionStore.getState().session?.htmlReport).toBe(recoveredHtml)
+      expect(useSessionStore.getState().session?.reportReady).toBe(true)
+    })
+
     it('should refresh a bootstrap-minimal session even when _bootstrapPrefill is false (empty draft)', async () => {
       // Regression guard for the most subtle Mercury→Venus failure mode:
       // an existing report with no meaningful prefill data. useBootstrapSync

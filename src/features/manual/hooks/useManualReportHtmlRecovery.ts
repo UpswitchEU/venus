@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
@@ -6,16 +7,20 @@ import {
   needsManualReportHtmlRecovery,
   recoverManualReportHtmlIfNeeded,
 } from '../utils/manualReportHtmlRecoveryUtil'
+import { useLatestRef } from './useNavigationCancellation'
 
 export interface UseManualReportHtmlRecoveryParams {
   reportId: string
   session: ValuationSession | null | undefined
   result: ValuationResponse | null | undefined
+  standaloneHtmlReport?: string | null
   restorationComplete: boolean
   isCalculating: boolean
   isGenerating: boolean
-  setResult: (result: ValuationResponse | null) => void
 }
+
+const HOOK_RECOVERY_MAX_PASSES = 4
+const HOOK_RECOVERY_RETRY_MS = [0, 5_000, 15_000, 45_000] as const
 
 /**
  * When ValuationIQ returned safety-net HTML (or no HTML), trigger Titan ensure-html
@@ -29,93 +34,147 @@ export function useManualReportHtmlRecovery({
   reportId,
   session,
   result,
+  standaloneHtmlReport,
   restorationComplete,
   isCalculating,
   isGenerating,
-  setResult,
 }: UseManualReportHtmlRecoveryParams): UseManualReportHtmlRecoveryResult {
   const [isRecoveringReportHtml, setIsRecoveringReportHtml] = useState(false)
-  const lastAttemptKeyRef = useRef<string | null>(null)
-  const lastFailureKeyRef = useRef<string | null>(null)
+  const passRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlightRef = useRef(false)
+  const sessionRef = useLatestRef(session)
+  const resultRef = useLatestRef(result)
+  const standaloneHtmlReportRef = useLatestRef(standaloneHtmlReport)
+  const needsRecovery = needsManualReportHtmlRecovery({
+    reportId,
+    session,
+    result,
+    standaloneHtmlReport,
+  })
 
   useEffect(() => {
     if (isCalculating || isGenerating) {
-      lastAttemptKeyRef.current = null
-      lastFailureKeyRef.current = null
+      passRef.current = 0
+      if (useSessionStore.getState().renderError === 'html_recovery_failed') {
+        useSessionStore.getState().setRenderError(null)
+      }
     }
   }, [isCalculating, isGenerating])
 
   useEffect(() => {
+    const clearTimer = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+
+    const stillNeedsRecovery = () =>
+      needsManualReportHtmlRecovery({
+        reportId,
+        session: sessionRef.current,
+        result: resultRef.current,
+        standaloneHtmlReport: standaloneHtmlReportRef.current,
+      })
+
     if (
       !restorationComplete ||
       isCalculating ||
       isGenerating ||
       isReportDeleteInProgress(reportId) ||
-      isReportDeleteInProgress(session?.reportId)
+      isReportDeleteInProgress(sessionRef.current?.reportId)
     ) {
+      clearTimer()
+      inFlightRef.current = false
+      setIsRecoveringReportHtml(false)
       return
     }
 
-    if (!needsManualReportHtmlRecovery({ reportId, session, result })) {
-      lastAttemptKeyRef.current = null
-      lastFailureKeyRef.current = null
+    if (!needsRecovery) {
+      passRef.current = 0
+      clearTimer()
+      inFlightRef.current = false
+      setIsRecoveringReportHtml(false)
       return
     }
 
-    const attemptKey = `${reportId}|${result?.valuation_id ?? ''}|${result?.render_fingerprint ?? ''}|${session?.reportId ?? ''}`
-    if (lastAttemptKeyRef.current === attemptKey) return
-
-    if (lastFailureKeyRef.current === attemptKey) return
+    if (inFlightRef.current) return
 
     let cancelled = false
-    let completed = false
-
     setIsRecoveringReportHtml(true)
-    void (async () => {
+
+    const schedulePass = (pass: number) => {
+      if (cancelled || pass >= HOOK_RECOVERY_MAX_PASSES) return
+
+      const delay = HOOK_RECOVERY_RETRY_MS[pass] ?? HOOK_RECOVERY_RETRY_MS.at(-1)!
+      clearTimer()
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null
+        void runPass(pass)
+      }, delay)
+    }
+
+    const runPass = async (pass: number) => {
+      if (cancelled || pass >= HOOK_RECOVERY_MAX_PASSES) return
+
+      inFlightRef.current = true
       try {
-        const recovery = await recoverManualReportHtmlIfNeeded({ reportId, session, result })
+        const recovery = await recoverManualReportHtmlIfNeeded({
+          reportId,
+          session: sessionRef.current,
+          result: resultRef.current,
+          standaloneHtmlReport: standaloneHtmlReportRef.current,
+        })
         if (cancelled) return
-        completed = true
-        lastAttemptKeyRef.current = attemptKey
 
         if (recovery.status === 'recovered' && recovery.result) {
-          lastFailureKeyRef.current = null
-          setResult(recovery.result)
+          passRef.current = 0
+          setIsRecoveringReportHtml(false)
           generalLogger.info('[ManualLayout] Report HTML recovered via ensure-html', {
             reportId,
             htmlLength: recovery.html?.length ?? 0,
+            pass,
           })
           return
         }
 
         if (recovery.status === 'failed') {
-          lastFailureKeyRef.current = attemptKey
+          const nextPass = pass + 1
+          passRef.current = nextPass
           generalLogger.warn(
             '[ManualLayout] Report HTML ensure-html recovery did not return renderable HTML',
-            { reportId }
+            { reportId, pass, nextPass }
           )
+          if (nextPass >= HOOK_RECOVERY_MAX_PASSES && stillNeedsRecovery()) {
+            useSessionStore.getState().setRenderError('html_recovery_failed')
+            setIsRecoveringReportHtml(false)
+            return
+          }
+          schedulePass(nextPass)
         }
       } finally {
-        if (!cancelled) setIsRecoveringReportHtml(false)
+        inFlightRef.current = false
       }
-    })()
+    }
+
+    schedulePass(passRef.current)
 
     return () => {
       cancelled = true
+      clearTimer()
+      inFlightRef.current = false
       setIsRecoveringReportHtml(false)
-      // Strict-mode remount: allow the second effect run to retry ensure-html.
-      if (!completed && lastAttemptKeyRef.current === attemptKey) {
-        lastAttemptKeyRef.current = null
-      }
     }
   }, [
     reportId,
-    session,
-    result,
+    needsRecovery,
     restorationComplete,
     isCalculating,
     isGenerating,
-    setResult,
+    sessionRef,
+    resultRef,
+    standaloneHtmlReportRef,
   ])
 
   return { isRecoveringReportHtml }

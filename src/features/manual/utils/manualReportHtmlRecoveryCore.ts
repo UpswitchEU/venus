@@ -1,18 +1,17 @@
 import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
+import {
+  buildRecoveryEligibilitySession,
+  extractRenderableHtmlFromSessionPayload,
+  mergeRecoveredHtmlIntoValuationSnapshot,
+  sessionPayloadNeedsRenderableHtmlRecovery,
+  valuationSnapshotHasRange,
+} from '../../../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 
-export function extractRenderableHtmlFromSession(session: ValuationSession): string | undefined {
-  const valuationResult = session.valuationResult as Record<string, unknown> | null | undefined
-  const detailsHtml =
-    typeof valuationResult?.details === 'object' && valuationResult.details !== null
-      ? (valuationResult.details as { html_report?: string }).html_report
-      : undefined
+export { valuationSnapshotHasRange } from '../../../utils/reportHtmlRecovery'
 
-  return getFirstRenderableReportHtml(
-    session.htmlReport,
-    typeof valuationResult?.html_report === 'string' ? valuationResult.html_report : undefined,
-    detailsHtml
-  )
+export function extractRenderableHtmlFromSession(session: ValuationSession): string | undefined {
+  return extractRenderableHtmlFromSessionPayload(session)
 }
 
 export function buildManualHtmlRecoverySession(
@@ -20,31 +19,25 @@ export function buildManualHtmlRecoverySession(
   session: ValuationSession | null | undefined,
   result: ValuationResponse | null | undefined
 ): ValuationSession {
-  return {
+  const base = {
     ...(session || {}),
     reportId: session?.reportId ?? reportId,
-    valuationResult: result ?? session?.valuationResult,
-    htmlReport: session?.htmlReport,
     sessionData: session?.sessionData ?? {},
     currentView: session?.currentView ?? 'manual',
     dataSource: session?.dataSource ?? 'manual',
   } as ValuationSession
+
+  return buildRecoveryEligibilitySession(base, result ?? null)
 }
 
 export function resultHasValuationRange(result: ValuationResponse): boolean {
-  const r = result as unknown as Record<string, unknown>
-  return (
-    r.equity_value_mid != null ||
-    r.equity_value_low != null ||
-    r.equity_value_high != null ||
-    (typeof r.details === 'object' &&
-      r.details !== null &&
-      ((r.details as Record<string, unknown>).equity_value_mid != null ||
-        (r.details as Record<string, unknown>).equity_value_low != null))
-  )
+  return valuationSnapshotHasRange(result)
 }
 
-export function resultMissingRenderableHtml(result: ValuationResponse): boolean {
+export function resultMissingRenderableHtml(
+  result: ValuationResponse,
+  standaloneHtmlReport?: string | null
+): boolean {
   const r = result as unknown as Record<string, unknown>
   const details =
     typeof r.details === 'object' && r.details !== null
@@ -52,7 +45,9 @@ export function resultMissingRenderableHtml(result: ValuationResponse): boolean 
       : undefined
   return !getFirstRenderableReportHtml(
     typeof r.html_report === 'string' ? r.html_report : undefined,
-    details?.html_report
+    typeof r.htmlReport === 'string' ? r.htmlReport : undefined,
+    details?.html_report,
+    standaloneHtmlReport
   )
 }
 
@@ -60,21 +55,29 @@ export function mergeRecoveredHtmlIntoResult(
   base: ValuationResponse,
   html: string
 ): ValuationResponse {
-  return { ...base, html_report: html }
-}
-
-export function valuationSnapshotHasRange(valuationResult: unknown): boolean {
-  if (!valuationResult || typeof valuationResult !== 'object') return false
-  const record = valuationResult as Record<string, unknown>
-  return (
-    record.equity_value_mid != null ||
-    record.equity_value_low != null ||
-    record.equity_value_high != null
-  )
+  return mergeRecoveredHtmlIntoValuationSnapshot(base, html)
 }
 
 export function sessionNeedsRenderableHtmlFromPayload(session: ValuationSession): boolean {
-  if (!session?.valuationResult) return false
-  if (!valuationSnapshotHasRange(session.valuationResult)) return false
-  return !extractRenderableHtmlFromSession(session)
+  return sessionPayloadNeedsRenderableHtmlRecovery(session)
+}
+
+export function needsManualReportHtmlRecovery(params: {
+  reportId: string
+  session: ValuationSession | null | undefined
+  result: ValuationResponse | null | undefined
+  standaloneHtmlReport?: string | null
+}): boolean {
+  const { reportId, session, result, standaloneHtmlReport } = params
+  if (!reportId || reportId === 'new') return false
+
+  const recoverySession = buildManualHtmlRecoverySession(reportId, session, result ?? null)
+  const needsFromSession =
+    session != null && sessionNeedsRenderableHtmlFromPayload(recoverySession)
+  const needsFromResult =
+    !!result &&
+    resultHasValuationRange(result) &&
+    resultMissingRenderableHtml(result, standaloneHtmlReport)
+
+  return needsFromSession || needsFromResult
 }

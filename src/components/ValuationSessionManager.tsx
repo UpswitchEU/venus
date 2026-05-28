@@ -45,7 +45,7 @@ import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
-import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
+import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import {
   buildMercuryDelegatedHandoffSignals,
   buildSeedIdentity,
@@ -687,11 +687,11 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 !result.restoredHtmlReport
               ) {
                 const ms = useManualResultsStore.getState()
-                const hasHtml = !!getFirstRenderableReportHtml(
-                  ms.htmlReport,
-                  (ms.result as { html_report?: string } | null)?.html_report,
-                  (ms.result as { details?: { html_report?: string } } | null)?.details?.html_report
-                )
+                const hasHtml = !!extractRenderableHtmlFromSessionPayload({
+                  htmlReport: ms.htmlReport,
+                  valuationResult: ms.result,
+                  sessionData: session?.sessionData,
+                })
                 if (!hasHtml) {
                   generalLogger.debug(
                     '[SessionManager] Assets missing after restore - revalidating in background',

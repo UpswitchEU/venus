@@ -20,6 +20,7 @@
 
 import type { ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
+import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
 import { sessionService } from '../../index'
 import type { FlowType, ISessionEngine, SessionDataRecord } from '../SessionEngine'
 
@@ -92,11 +93,14 @@ function mergeQueuedLocalSession(
   serverSession: ValuationSession,
   localSession: ValuationSession
 ): ValuationSession {
-  return {
+  const merged: ValuationSession = {
     ...serverSession,
     ...localSession,
     status: serverSession.status ?? localSession.status,
-    reportReady: serverSession.reportReady ?? localSession.reportReady,
+    reportReady:
+      localSession.reportReady === true
+        ? true
+        : (serverSession.reportReady ?? localSession.reportReady),
     sessionData: {
       ...(serverSession.sessionData || {}),
       ...(localSession.sessionData || {}),
@@ -106,6 +110,8 @@ function mergeQueuedLocalSession(
       ...(localSession.partialData || {}),
     },
   }
+
+  return preserveClientRecoveredHtmlWhenServerSessionStale(merged, localSession)
 }
 
 /**
@@ -251,9 +257,14 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
 
     const previousUpdatedAt = this.currentSession.updatedAt
+    const previousSession = this.currentSession
     this.applyUpdate(updates)
     if (this.currentSession) {
       this.currentSession.updatedAt = updates.updatedAt || previousUpdatedAt || new Date()
+      this.currentSession = preserveClientRecoveredHtmlWhenServerSessionStale(
+        this.currentSession,
+        previousSession
+      )
     }
   }
 
@@ -434,7 +445,9 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           ) {
             this.currentSession = mergeQueuedLocalSession(updatedSession, localSession)
           } else {
-            this.currentSession = updatedSession
+            this.currentSession = localSession
+              ? preserveClientRecoveredHtmlWhenServerSessionStale(updatedSession, localSession)
+              : updatedSession
           }
           this.normalizeReportId()
 

@@ -36,6 +36,10 @@ export type ReportTranslator = (key: ReportTranslationKey) => string
 export interface MapValuationResultToReportOpts {
   /** Raw API response. Must be non-null — caller is responsible for the gate. */
   result: ValuationResponse
+  /** Active session HTML (may lead result.html_report after self-heal). */
+  sessionHtmlReport?: string | null
+  /** Standalone store HTML when not yet merged into result. */
+  standaloneHtmlReport?: string | null
   /** Current selected method (drives DCF readiness exposure). */
   selectedMethod: string
   /** The route's reportId. Used as a fallback id when the response omits one. */
@@ -76,7 +80,7 @@ function readOptionalString(value: unknown): string | undefined {
 export function mapValuationResultToReport(
   opts: MapValuationResultToReportOpts
 ): ValuationReportData {
-  const { result, selectedMethod, reportId, canDownloadPdf, tReport, clientBlendedValue } = opts
+  const { result, sessionHtmlReport, standaloneHtmlReport, selectedMethod, reportId, canDownloadPdf, tReport, clientBlendedValue } = opts
   const r = result as unknown as ReportResultRecord
 
   const presentation = deriveManualReportPresentation(result, selectedMethod, {
@@ -105,7 +109,10 @@ export function mapValuationResultToReport(
     : askingPrice ?? presentation.valuation
   const htmlReport = getFirstRenderableReportHtml(
     readOptionalString(r.html_report),
-    readOptionalString(r.details?.html_report)
+    readOptionalString(r.htmlReport),
+    readOptionalString(r.details?.html_report),
+    sessionHtmlReport,
+    standaloneHtmlReport
   )
   const shouldExposeDcfReadiness =
     isDcfOrHybridMethodSignal(selectedMethod) ||

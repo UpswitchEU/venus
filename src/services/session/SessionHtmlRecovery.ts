@@ -9,7 +9,13 @@ import {
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
 import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import {
+  extractRenderableHtmlFromSources,
+  extractRenderableHtmlFromSessionPayload,
+  isTransientEnsureHtmlSkipStatus,
+  mergeRecoveredHtmlIntoValuationSnapshot,
+  sessionNeedsRenderableHtmlRecovery,
+} from '../../utils/reportHtmlRecovery'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
@@ -23,6 +29,12 @@ const ensureHtmlRecentFailures = new Map<string, number>()
 // operator may have raised the engine size limit or trimmed the payload.
 const ensureHtmlPermanentFailures = new Set<string>()
 const ENSURE_HTML_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+const REFETCH_AFTER_ENSURE_RETRY_DELAY_MS = 600
+const REFETCH_AFTER_ENSURE_MAX_PASSES = 2
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function hasRecentEnsureHtmlFailure(dedupeKey: string): boolean {
   if (ensureHtmlPermanentFailures.has(dedupeKey)) return true
@@ -77,32 +89,50 @@ function isPayloadTooLargeStatus(response: Record<string, unknown>): boolean {
   )
 }
 
-function valuationSnapshotHasRange(valuationResult: unknown): boolean {
-  if (!valuationResult || typeof valuationResult !== 'object') return false
-  const record = valuationResult as Record<string, unknown>
-  return (
-    record.equity_value_mid != null ||
-    record.equity_value_low != null ||
-    record.equity_value_high != null
+function extractRenderableHtmlFromEnsureResponse(response: Record<string, unknown>): string | undefined {
+  return extractRenderableHtmlFromSources(
+    typeof response.html_report_view === 'string' ? response.html_report_view : undefined,
+    typeof response.html_report === 'string' ? response.html_report : undefined
   )
 }
 
-function sessionHasRenderableHtml(session: ValuationSession): boolean {
-  const valuationResult = session.valuationResult as Record<string, unknown> | null | undefined
-  const detailsHtml =
-    typeof valuationResult?.details === 'object' && valuationResult.details !== null
-      ? (valuationResult.details as { html_report?: string }).html_report
-      : undefined
+function buildSessionResponseWithInlineHtml(
+  mergedSession: ValuationSession,
+  html: string,
+  reportId: string
+): ValuationSessionResponse {
+  const valuationResult = mergedSession.valuationResult
+  const mergedValuationResult = valuationResult
+    ? mergeRecoveredHtmlIntoValuationSnapshot(
+        valuationResult as Record<string, unknown>,
+        html
+      )
+    : mergeRecoveredHtmlIntoValuationSnapshot({}, html)
+  const sessionData =
+    mergedSession.sessionData && typeof mergedSession.sessionData === 'object'
+      ? {
+          ...(mergedSession.sessionData as Record<string, unknown>),
+          _htmlReport: html,
+          htmlReport: html,
+          html_report: html,
+        }
+      : {
+          _htmlReport: html,
+          htmlReport: html,
+          html_report: html,
+        }
 
-  return !!getFirstRenderableReportHtml(
-    session.htmlReport,
-    typeof valuationResult?.html_report === 'string' ? valuationResult.html_report : undefined,
-    detailsHtml
-  )
-}
-
-function sessionUsableHtmlMissing(session: ValuationSession): boolean {
-  return !sessionHasRenderableHtml(session)
+  return {
+    success: true,
+    session: {
+      ...mergedSession,
+      htmlReport: html,
+      reportReady: true,
+      valuationResult: mergedValuationResult,
+      sessionData: sessionData as ValuationSession['sessionData'],
+      reportId: mergedSession.reportId ?? reportId,
+    },
+  } as ValuationSessionResponse
 }
 
 function pickTitanReportIdForEnsure(urlId: string, session: ValuationSession): string | null {
@@ -122,11 +152,7 @@ function pickTitanReportIdForEnsure(urlId: string, session: ValuationSession): s
   return null
 }
 
-export function sessionNeedsRenderableHtmlRecovery(session: ValuationSession): boolean {
-  if (!session?.valuationResult) return false
-  if (!valuationSnapshotHasRange(session.valuationResult)) return false
-  return sessionUsableHtmlMissing(session)
-}
+export { sessionNeedsRenderableHtmlRecovery } from '../../utils/reportHtmlRecovery'
 
 function sessionNeedsHtmlRecovery(session: ValuationSession): boolean {
   return sessionNeedsRenderableHtmlRecovery(session)
@@ -155,7 +181,6 @@ async function executeEnsureHtmlRefetch(params: {
           reportId: reportId?.substring(0, 24),
         }
       )
-      markEnsureHtmlFailure(dedupeKey)
       return null
     }
     if (isPayloadTooLargeStatus(res)) {
@@ -180,14 +205,43 @@ async function executeEnsureHtmlRefetch(params: {
       }
       return null
     }
-    if ((res as { success?: boolean }).success === false) {
+
+    const ensureResponse = res as Record<string, unknown>
+    const inlineHtml = extractRenderableHtmlFromEnsureResponse(ensureResponse)
+
+    if ((ensureResponse as { success?: boolean }).success === false) {
+      if (inlineHtml) {
+        clearEnsureHtmlFailure(dedupeKey)
+        logger.info('HTML self-heal applying inline html from ensure-html response (success=false)', {
+          reportId: reportId?.substring(0, 24),
+          htmlLength: inlineHtml.length,
+        })
+        return buildSessionResponseWithInlineHtml(mergedSession, inlineHtml, reportId)
+      }
       markEnsureHtmlFailure(dedupeKey)
       return null
     }
-    if (!shouldRefetchAfterEnsureResponse(res)) {
+
+    if (!shouldRefetchAfterEnsureResponse(ensureResponse)) {
+      if (inlineHtml) {
+        clearEnsureHtmlFailure(dedupeKey)
+        logger.info('HTML self-heal applying inline html from ensure-html response', {
+          reportId: reportId?.substring(0, 24),
+          status: typeof ensureResponse.status === 'string' ? ensureResponse.status : undefined,
+          htmlLength: inlineHtml.length,
+        })
+        return buildSessionResponseWithInlineHtml(mergedSession, inlineHtml, reportId)
+      }
+      if (isTransientEnsureHtmlSkipStatus(ensureResponse)) {
+        logger.debug('ensureReportHtml skipped by Titan render cooldown; allowing retry', {
+          reportId: reportId?.substring(0, 24),
+          status: ensureResponse.status,
+        })
+        return null
+      }
       logger.debug('ensureReportHtml did not recover usable HTML yet; skipping refetch', {
         reportId: reportId?.substring(0, 24),
-        status: typeof res.status === 'string' ? res.status : undefined,
+        status: typeof ensureResponse.status === 'string' ? ensureResponse.status : undefined,
       })
       markEnsureHtmlFailure(dedupeKey)
       return null
@@ -195,34 +249,38 @@ async function executeEnsureHtmlRefetch(params: {
     clearEnsureHtmlFailure(dedupeKey)
 
     const lookupIds = orderedValuationSessionLookupIds({
-      ensureResponseReportId: (res as { reportId?: unknown }).reportId,
+      ensureResponseReportId: ensureResponse.reportId,
       sessionKeyFallback: sessionKeyBody,
       mergedSessionReportId: mergedSession.reportId,
       urlReportId: reportId,
     })
     for (const id of lookupIds) {
-      const next = await backendAPI.getValuationSession(id)
-      if (!next?.session) continue
+      for (let pass = 0; pass < REFETCH_AFTER_ENSURE_MAX_PASSES; pass++) {
+        if (pass > 0) {
+          await sleep(REFETCH_AFTER_ENSURE_RETRY_DELAY_MS)
+        }
+        const next = await backendAPI.getValuationSession(id)
+        if (!next?.session) continue
 
-      const renderableHtml = getFirstRenderableReportHtml(
-        next.session.htmlReport,
-        (next.session.valuationResult as { html_report?: string } | null | undefined)
-          ?.html_report,
-        (
-          next.session.valuationResult as
-            | { details?: { html_report?: string } }
-            | null
-            | undefined
-        )?.details?.html_report
-      )
-      if (renderableHtml) {
-        return next
+        const renderableHtml = extractRenderableHtmlFromSessionPayload(next.session)
+        if (renderableHtml) {
+          return next
+        }
       }
 
       logger.warn('HTML self-heal refetch returned session without renderable HTML', {
         reportId: reportId?.substring(0, 24),
         lookupId: id?.substring(0, 24),
       })
+    }
+
+    if (inlineHtml) {
+      clearEnsureHtmlFailure(dedupeKey)
+      logger.info('HTML self-heal applying inline html after refetch miss', {
+        reportId: reportId?.substring(0, 24),
+        htmlLength: inlineHtml.length,
+      })
+      return buildSessionResponseWithInlineHtml(mergedSession, inlineHtml, reportId)
     }
 
     markEnsureHtmlFailure(dedupeKey)
@@ -232,7 +290,6 @@ async function executeEnsureHtmlRefetch(params: {
       reportId,
       error: getErrorMessage(error),
     })
-    markEnsureHtmlFailure(dedupeKey)
     return null
   }
 }
@@ -243,7 +300,8 @@ async function executeEnsureHtmlRefetch(params: {
  */
 export async function tryRefetchAfterEnsureHtml(
   reportId: string,
-  mergedSession: ValuationSession
+  mergedSession: ValuationSession,
+  options?: { bypassCooldown?: boolean }
 ): Promise<ValuationSessionResponse | null> {
   if (!sessionNeedsHtmlRecovery(mergedSession)) {
     return null
@@ -271,7 +329,7 @@ export async function tryRefetchAfterEnsureHtml(
   })
   const dedupeKey = `${ensureTargetId}|${sessionKeyBody ?? ''}|${alternateReportId ?? ''}`
 
-  if (hasRecentEnsureHtmlFailure(dedupeKey)) {
+  if (!options?.bypassCooldown && hasRecentEnsureHtmlFailure(dedupeKey)) {
     logger.debug('HTML self-heal skipped: recent render attempt failed', {
       reportId: reportId?.substring(0, 24),
       cooldownMs: ENSURE_HTML_FAILURE_COOLDOWN_MS,
@@ -279,9 +337,11 @@ export async function tryRefetchAfterEnsureHtml(
     return null
   }
 
-  const coalesced = ensureHtmlCoalesced.get(dedupeKey)
-  if (coalesced) {
-    return coalesced
+  if (!options?.bypassCooldown) {
+    const coalesced = ensureHtmlCoalesced.get(dedupeKey)
+    if (coalesced) {
+      return coalesced
+    }
   }
 
   const run = executeEnsureHtmlRefetch({

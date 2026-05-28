@@ -2,6 +2,7 @@ import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback 
 import { toast } from 'sonner'
 import { reportService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
+import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
@@ -192,7 +193,6 @@ export function useManualCalculationCompletion({
           reportId: idForApi,
           session: useSessionStore.getState().session,
           result: resultForUi,
-          setResult,
         })
         if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
       }
@@ -206,6 +206,7 @@ export function useManualCalculationCompletion({
             reportId: idForApi,
             session: useSessionStore.getState().session,
             result: resultForUi,
+            standaloneHtmlReport: useManualResultsStore.getState().htmlReport,
           })
         if (recoveryStillMissing) {
           toast.warning(translate('reportHtmlRecoveryFailed'))

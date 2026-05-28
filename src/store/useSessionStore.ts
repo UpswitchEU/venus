@@ -24,10 +24,12 @@ import { isLegacyReturnUrl } from '../lib/return-url'
 import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
+import { useManualResultsStore } from './manual/useManualResultsStore'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import { sessionEnvelopeHasIdentitySignals } from '../utils/mergeOptionalSessionPrefillFields'
+import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 /**
@@ -143,6 +145,22 @@ function stripOptimisticShellFromSession(session: ValuationSession): ValuationSe
   return { ...session, sessionData: next as ValuationSession['sessionData'] }
 }
 
+function preserveRecoveredHtmlOnSessionCommit(
+  incoming: ValuationSession,
+  previous: ValuationSession | null | undefined
+): ValuationSession {
+  return preserveClientRecoveredHtmlWhenServerSessionStale(
+    incoming,
+    previous,
+    previous
+      ? {
+          htmlReport: useManualResultsStore.getState().htmlReport,
+          valuationResult: useManualResultsStore.getState().result,
+        }
+      : undefined
+  )
+}
+
 /** Drop the optimistic Mercury stub marker on incoming hydrate patches. */
 function normalizeHydrateUpdatesRemovingOptimisticShell(
   updates: Partial<ValuationSession>
@@ -170,7 +188,7 @@ export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
  * it on the session store lets the report viewer show a specific message
  * instead of the generic "report not available" fallback.
  */
-export type SessionRenderError = 'payload_too_large'
+export type SessionRenderError = 'payload_too_large' | 'html_recovery_failed'
 
 interface SessionStore {
   // Core state (explicit state machine)
@@ -492,38 +510,41 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }
         }
 
-        const nextSession = current.session
-          ? {
-              ...current.session,
-              ...updates,
-              sessionData: updates.sessionData
-                ? mergeSessionDataStrippingOptimisticShell(
-                    asSessionDataRecord(current.session?.sessionData),
-                    asSessionDataRecord(updates.sessionData)
-                  )
-                : current.session?.sessionData,
-              partialData: updates.partialData
-                ? {
-                    ...(current.session?.partialData || {}),
-                    ...updates.partialData,
-                  }
-                : current.session?.partialData,
-            }
-          : ({
-              reportId,
-              currentView: updates.currentView || 'manual',
-              dataSource: updates.dataSource || 'manual',
-              createdAt: updates.createdAt || new Date(),
-              updatedAt: updates.updatedAt || updates.createdAt || new Date(),
-              sessionData: updates.sessionData || {},
-              partialData: updates.partialData || {},
-              ...(updates.status && { status: updates.status }),
-              ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-              ...(updates.name && { name: updates.name }),
-              ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-              ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-              ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
-            } as ValuationSession)
+        const nextSession = preserveRecoveredHtmlOnSessionCommit(
+          current.session
+            ? {
+                ...current.session,
+                ...updates,
+                sessionData: updates.sessionData
+                  ? mergeSessionDataStrippingOptimisticShell(
+                      asSessionDataRecord(current.session?.sessionData),
+                      asSessionDataRecord(updates.sessionData)
+                    )
+                  : current.session?.sessionData,
+                partialData: updates.partialData
+                  ? {
+                      ...(current.session?.partialData || {}),
+                      ...updates.partialData,
+                    }
+                  : current.session?.partialData,
+              }
+            : ({
+                reportId,
+                currentView: updates.currentView || 'manual',
+                dataSource: updates.dataSource || 'manual',
+                createdAt: updates.createdAt || new Date(),
+                updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+                sessionData: updates.sessionData || {},
+                partialData: updates.partialData || {},
+                ...(updates.status && { status: updates.status }),
+                ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+                ...(updates.name && { name: updates.name }),
+                ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+                ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+                ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
+              } as ValuationSession),
+          current.session
+        )
 
         return {
           session: nextSession,
@@ -541,11 +562,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
+    const previousSession = state.session
     state.engine.hydrateSession(updates)
 
     const updatedSession = state.engine.getSession()
     if (updatedSession) {
-      const sessionToCommit = stripOptimisticShellFromSession(updatedSession)
+      const sessionToCommit = preserveRecoveredHtmlOnSessionCommit(
+        stripOptimisticShellFromSession(updatedSession),
+        previousSession
+      )
       set({
         session: sessionToCommit,
         status: 'loaded' as SessionStatus,
@@ -694,6 +719,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             } as ValuationSession['sessionData'],
           }
         }
+
+        session = preserveClientRecoveredHtmlWhenServerSessionStale(
+          session,
+          get().session ?? state.session,
+          {
+            htmlReport: useManualResultsStore.getState().htmlReport,
+            valuationResult: useManualResultsStore.getState().result,
+          }
+        )
 
         // ✅ WORLD-CLASS: Detect new vs existing session
         // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
@@ -931,38 +965,41 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }
         }
 
-        const nextSession = current.session
-          ? {
-              ...current.session,
-              ...updates,
-              sessionData: updates.sessionData
-                ? mergeSessionDataStrippingOptimisticShell(
-                    asSessionDataRecord(current.session?.sessionData),
-                    asSessionDataRecord(updates.sessionData)
-                  )
-                : current.session?.sessionData,
-              partialData: updates.partialData
-                ? {
-                    ...(current.session?.partialData || {}),
-                    ...updates.partialData,
-                  }
-                : current.session?.partialData,
-            }
-          : ({
-              reportId,
-              currentView: updates.currentView || 'manual',
-              dataSource: updates.dataSource || 'manual',
-              createdAt: updates.createdAt || new Date(),
-              updatedAt: updates.updatedAt || updates.createdAt || new Date(),
-              sessionData: updates.sessionData || {},
-              partialData: updates.partialData || {},
-              ...(updates.status && { status: updates.status }),
-              ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-              ...(updates.name && { name: updates.name }),
-              ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-              ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-              ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
-            } as ValuationSession)
+        const nextSession = preserveRecoveredHtmlOnSessionCommit(
+          current.session
+            ? {
+                ...current.session,
+                ...updates,
+                sessionData: updates.sessionData
+                  ? mergeSessionDataStrippingOptimisticShell(
+                      asSessionDataRecord(current.session?.sessionData),
+                      asSessionDataRecord(updates.sessionData)
+                    )
+                  : current.session?.sessionData,
+                partialData: updates.partialData
+                  ? {
+                      ...(current.session?.partialData || {}),
+                      ...updates.partialData,
+                    }
+                  : current.session?.partialData,
+              }
+            : ({
+                reportId,
+                currentView: updates.currentView || 'manual',
+                dataSource: updates.dataSource || 'manual',
+                createdAt: updates.createdAt || new Date(),
+                updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+                sessionData: updates.sessionData || {},
+                partialData: updates.partialData || {},
+                ...(updates.status && { status: updates.status }),
+                ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+                ...(updates.name && { name: updates.name }),
+                ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+                ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+                ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
+              } as ValuationSession),
+          current.session
+        )
 
         return {
           session: nextSession,
@@ -974,12 +1011,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
+    const previousSession = state.session
     state.engine.hydrateSession(updates)
 
     const updatedSession = state.engine.getSession()
     if (updatedSession) {
       set({
-        session: stripOptimisticShellFromSession(updatedSession),
+        session: preserveRecoveredHtmlOnSessionCommit(
+          stripOptimisticShellFromSession(updatedSession),
+          previousSession
+        ),
         hasUnsavedChanges: state.hasUnsavedChanges,
         dirtyVersion: state.dirtyVersion,
       })

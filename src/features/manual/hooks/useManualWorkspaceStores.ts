@@ -11,6 +11,7 @@ export function useManualWorkspaceStores() {
     useShallow((s) => ({
       isCalculating: s.isCalculating,
       result: s.result,
+      htmlReport: s.htmlReport,
       selectedMethod: s.selectedMethod,
       setSelectedMethod: s.setSelectedMethod,
       preSelectedMethod: s.preSelectedMethod,

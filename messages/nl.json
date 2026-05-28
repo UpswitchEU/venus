@@ -3390,6 +3390,8 @@
 		"failedToLoadReport": "Rapport laden mislukt",
 		"renderPayloadTooLarge": "Rapport is te groot om weer te geven",
 		"renderPayloadTooLargeDesc": "De waardering is voltooid, maar het rapport overschrijdt de groottelimiet van onze rendering-service. Het probleem is gelogd — neem contact op met support.",
+		"reportHtmlRecoveryFailed": "Rapportvoorbeeld laadt nog",
+		"reportHtmlRecoveryFailedDesc": "Het rapportvoorbeeld laadt nog. Vernieuw de pagina of bereken opnieuw als het niet verschijnt.",
 		"enterpriseBridgeToggle": "Toon Enterprise-to-Equity Bridge (Waterfall)",
 		"enterpriseBridgeToggleDescription": "Bepaalt of de bridge verschijnt in deze rapportpreview en opgeslagen rapportinstellingen.",
 		"date": "Datum",

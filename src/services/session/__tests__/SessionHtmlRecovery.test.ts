@@ -56,6 +56,30 @@ describe('tryRefetchAfterEnsureHtml', () => {
     expect(getValuationSession).not.toHaveBeenCalled()
   })
 
+  it('does not mark client cooldown when ensure-html returns null (transient upstream error)', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const getValuationSession = vi.mocked(backendAPI.getValuationSession)
+    const reportId = 'val_html_recovery_null_response'
+    const session = recoveryCandidate(reportId)
+    const inlineHtml = '<main>Recovered after null</main>'
+
+    ensureReportHtml.mockResolvedValueOnce(null)
+    ensureReportHtml.mockResolvedValueOnce({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: inlineHtml,
+    })
+
+    const first = await tryRefetchAfterEnsureHtml(reportId, session)
+    const second = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(first).toBeNull()
+    expect(second?.session?.htmlReport).toBe(inlineHtml)
+    expect(ensureReportHtml).toHaveBeenCalledTimes(2)
+    expect(getValuationSession).not.toHaveBeenCalled()
+  })
+
   it('marks payload_too_large as a permanent failure and stops retrying', async () => {
     const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
     const getValuationSession = vi.mocked(backendAPI.getValuationSession)
@@ -139,6 +163,60 @@ describe('tryRefetchAfterEnsureHtml', () => {
     expect(ensureReportHtml).toHaveBeenCalledOnce()
   })
 
+  it('triggers ensure-html when valuation_midpoint exists without equity fields', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const reportId = 'val_html_recovery_midpoint_only'
+    const session = {
+      reportId,
+      currentView: 'manual',
+      dataSource: 'manual',
+      sessionData: {},
+      valuationResult: { valuation_midpoint: 750_000 },
+      htmlReport: '',
+    } as unknown as ValuationSession
+    const inlineHtml = '<main>Midpoint-only recovery</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: inlineHtml,
+    })
+
+    const result = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(ensureReportHtml).toHaveBeenCalledOnce()
+    expect(result?.session?.htmlReport).toBe(inlineHtml)
+  })
+
+  it('applies inline html from ensure-html when refetch still lacks renderable HTML', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const getValuationSession = vi.mocked(backendAPI.getValuationSession)
+    const reportId = 'val_html_recovery_inline_fallback'
+    const session = recoveryCandidate(reportId)
+    const inlineHtml = '<main>Inline recovered full report</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: inlineHtml,
+    })
+    getValuationSession.mockResolvedValue({
+      success: true,
+      session: {
+        ...session,
+        htmlReport: '',
+        valuationResult: { equity_value_mid: 1_000_000 },
+      },
+    })
+
+    const result = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(result?.session?.htmlReport).toBe(inlineHtml)
+    expect(getValuationSession).not.toHaveBeenCalled()
+  })
+
   it('does not treat refetched safety-net-only session as recovered', async () => {
     const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
     const getValuationSession = vi.mocked(backendAPI.getValuationSession)
@@ -162,6 +240,34 @@ describe('tryRefetchAfterEnsureHtml', () => {
     const result = await tryRefetchAfterEnsureHtml(reportId, session)
 
     expect(result).toBeNull()
+    expect(getValuationSession).toHaveBeenCalled()
+  })
+
+  it('applies inline html after recovered ensure-html when session refetch is still empty', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const getValuationSession = vi.mocked(backendAPI.getValuationSession)
+    const reportId = 'val_html_recovery_inline_after_refetch'
+    const session = recoveryCandidate(reportId)
+    const inlineHtml = '<main>Inline after refetch miss</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'recovered',
+      reportId,
+      html_report: inlineHtml,
+    })
+    getValuationSession.mockResolvedValue({
+      success: true,
+      session: {
+        ...session,
+        htmlReport: '',
+        valuationResult: { equity_value_mid: 1_000_000 },
+      },
+    })
+
+    const result = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(result?.session?.htmlReport).toBe(inlineHtml)
     expect(getValuationSession).toHaveBeenCalled()
   })
 
@@ -233,5 +339,106 @@ describe('tryRefetchAfterEnsureHtml', () => {
 
     expect(result?.session?.htmlReport).toContain('Recovered full report')
     expect(getValuationSession).toHaveBeenCalledWith(reportId)
+  })
+
+  it('allows bypassCooldown retries after a recent failure', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const reportId = 'val_html_recovery_bypass_cooldown'
+    const session = recoveryCandidate(reportId)
+    const inlineHtml = '<main>Bypass cooldown report</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+    })
+
+    const first = await tryRefetchAfterEnsureHtml(reportId, session)
+    const blocked = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(first).toBeNull()
+    expect(blocked).toBeNull()
+    expect(ensureReportHtml).toHaveBeenCalledTimes(1)
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: inlineHtml,
+    })
+
+    const recovered = await tryRefetchAfterEnsureHtml(reportId, session, { bypassCooldown: true })
+
+    expect(recovered?.session?.htmlReport).toBe(inlineHtml)
+    expect(ensureReportHtml).toHaveBeenCalledTimes(2)
+  })
+
+  it('prefers html_report_view over html_report when both are renderable', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const reportId = 'val_html_recovery_viewer_overlay'
+    const session = recoveryCandidate(reportId)
+    const viewerHtml = '<main>Viewer overlay report</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: '<main>Base report</main>',
+      html_report_view: viewerHtml,
+    })
+
+    const result = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(result?.session?.htmlReport).toBe(viewerHtml)
+    expect(ensureReportHtml).toHaveBeenCalledOnce()
+  })
+
+  it('treats sessionData html as recovered after refetch', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const getValuationSession = vi.mocked(backendAPI.getValuationSession)
+    const reportId = 'val_html_recovery_session_data_html'
+    const session = recoveryCandidate(reportId)
+    const fullHtml = '<main>Full report in sessionData</main>'
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'recovered',
+      reportId,
+    })
+    getValuationSession.mockResolvedValue({
+      success: true,
+      session: {
+        ...session,
+        htmlReport: '',
+        valuationResult: { equity_value_mid: 1_000_000 },
+        sessionData: { _htmlReport: fullHtml },
+      },
+    })
+
+    const result = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(result?.session?.sessionData).toEqual(
+      expect.objectContaining({ _htmlReport: fullHtml })
+    )
+    expect(getValuationSession).toHaveBeenCalledWith(reportId)
+  })
+
+  it('does not mark client cooldown when Titan returns skipped_recent_failure', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const reportId = 'val_html_recovery_skipped_recent'
+    const session = recoveryCandidate(reportId)
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'skipped_recent_failure',
+      reportId,
+    })
+
+    const first = await tryRefetchAfterEnsureHtml(reportId, session)
+    const second = await tryRefetchAfterEnsureHtml(reportId, session)
+
+    expect(first).toBeNull()
+    expect(second).toBeNull()
+    expect(ensureReportHtml).toHaveBeenCalledTimes(2)
   })
 })

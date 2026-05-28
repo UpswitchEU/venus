@@ -28,6 +28,7 @@ describe('recoverManualReportHtmlIfNeeded (integration)', () => {
     const reportId = 'val_recovery_util_1'
     const session = {
       reportId,
+      sessionData: { _htmlReport: safetyNetHtml },
       valuationResult: { equity_value_mid: 750_000, html_report: safetyNetHtml },
       htmlReport: safetyNetHtml,
     } as unknown as ValuationSession
@@ -55,9 +56,65 @@ describe('recoverManualReportHtmlIfNeeded (integration)', () => {
     expect(backendAPI.ensureReportHtml).toHaveBeenCalled()
     expect(useSessionStore.getState().session?.htmlReport).toBe('<main>Recovered report</main>')
     expect(
+      (useSessionStore.getState().session?.sessionData as { _htmlReport?: string } | undefined)
+        ?._htmlReport
+    ).toBe('<main>Recovered report</main>')
+    expect(
       (useSessionStore.getState().session?.valuationResult as { html_report?: string } | undefined)
         ?.html_report
     ).toBe('<main>Recovered report</main>')
     expect(useSessionStore.getState().renderError).toBeNull()
+  })
+
+  it('recovers via inline html when ensure-html returns failed with html_report', async () => {
+    const reportId = 'val_recovery_util_inline'
+    const session = {
+      reportId,
+      valuationResult: { equity_value_mid: 750_000 },
+      htmlReport: '',
+    } as unknown as ValuationSession
+    const inlineHtml = '<main>Inline recovered report</main>'
+
+    vi.mocked(backendAPI.ensureReportHtml).mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: inlineHtml,
+    })
+
+    const out = await recoverManualReportHtmlIfNeeded({ reportId, session, result: null })
+
+    expect(out.status).toBe('recovered')
+    expect(out.result?.html_report).toBe(inlineHtml)
+    expect(backendAPI.getValuationSession).not.toHaveBeenCalled()
+  })
+
+  it('retries ensure-html once after a transient failure', async () => {
+    const reportId = 'val_recovery_util_retry'
+    const session = {
+      reportId,
+      valuationResult: { equity_value_mid: 750_000 },
+      htmlReport: '',
+    } as unknown as ValuationSession
+    const inlineHtml = '<main>Recovered on retry</main>'
+
+    vi.mocked(backendAPI.ensureReportHtml)
+      .mockResolvedValueOnce({
+        success: true,
+        status: 'failed',
+        reportId,
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        status: 'failed',
+        reportId,
+        html_report: inlineHtml,
+      })
+
+    const out = await recoverManualReportHtmlIfNeeded({ reportId, session, result: null })
+
+    expect(out.status).toBe('recovered')
+    expect(out.result?.html_report).toBe(inlineHtml)
+    expect(backendAPI.ensureReportHtml).toHaveBeenCalledTimes(2)
   })
 })

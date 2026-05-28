@@ -3390,6 +3390,8 @@
 		"failedToLoadReport": "Failed to load report",
 		"renderPayloadTooLarge": "Report is too large to render",
 		"renderPayloadTooLargeDesc": "The valuation completed but the report exceeds the rendering service size limit. The issue has been logged — please contact support.",
+		"reportHtmlRecoveryFailed": "Report preview still loading",
+		"reportHtmlRecoveryFailedDesc": "The report preview is still loading. Refresh the page or recalculate if it does not appear.",
 		"enterpriseBridgeToggle": "Show Enterprise-to-Equity Bridge (Waterfall)",
 		"enterpriseBridgeToggleDescription": "Controls whether the bridge appears in this report preview and saved report settings.",
 		"date": "Date",

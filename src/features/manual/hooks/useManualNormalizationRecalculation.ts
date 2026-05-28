@@ -175,7 +175,6 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
             reportId: idForApi,
             session: useSessionStore.getState().session,
             result: calcResult,
-            setResult,
           })
           if (!isStillRelevant()) {
             durableSaveInFlightRef.current = false

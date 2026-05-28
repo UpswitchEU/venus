@@ -36,6 +36,7 @@ import {
   buildIdentityFingerprint,
   readNewValuationPrefill,
 } from '../utils/newValuationPrefillStorage'
+import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 const logger = createContextLogger('BootstrapSync')
@@ -733,7 +734,11 @@ function syncSession(state: SessionBootstrapState): void {
         }
 
         const topLevelPatch: Partial<ValuationSession> = {}
-        if (hasPackage && packageRenderableHtml && !currentSession.htmlReport) {
+        if (
+          hasPackage &&
+          packageRenderableHtml &&
+          !extractRenderableHtmlFromSessionPayload(currentSession)
+        ) {
           topLevelPatch.htmlReport = packageRenderableHtml
         }
         if (pkg?.buyerReadiness) {

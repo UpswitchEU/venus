@@ -108,8 +108,18 @@ function HtmlReportSurface({
   )
 }
 
-function ReportRenderErrorPanel() {
+function ReportRenderErrorPanel({ variant }: { variant: 'payload_too_large' | 'html_recovery_failed' }) {
   const t = useTranslations('reportPreview')
+  if (variant === 'html_recovery_failed') {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px] p-4">
+        <ErrorState
+          title={t('reportHtmlRecoveryFailed')}
+          message={t('reportHtmlRecoveryFailedDesc')}
+        />
+      </div>
+    )
+  }
   return (
     <div className="flex items-center justify-center h-full min-h-[400px] p-4">
       <ErrorState
@@ -155,6 +165,8 @@ export function ManualReportWorkspace({
   const isBusy = isGenerating || isCalculating || isRecoveringReportHtml || isDeletingCurrentReport
   const showPayloadTooLarge =
     renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
+  const showHtmlRecoveryFailed =
+    renderError === 'html_recovery_failed' && !report?.htmlReport && !isBusy
 
   return (
     <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
@@ -179,7 +191,9 @@ export function ManualReportWorkspace({
               ) : isBusy ? (
                 <GeneratingPreview translateReport={translateReport} />
               ) : showPayloadTooLarge ? (
-                <ReportRenderErrorPanel />
+                <ReportRenderErrorPanel variant="payload_too_large" />
+              ) : showHtmlRecoveryFailed ? (
+                <ReportRenderErrorPanel variant="html_recovery_failed" />
               ) : (
                 <ReportPlaceholder />
               )}

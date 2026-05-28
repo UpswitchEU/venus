@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { ValuationSession } from '../../../types/valuation'
 import {
   extractRenderableHtmlFromSession,
+  needsManualReportHtmlRecovery,
   resultMissingRenderableHtml,
   sessionNeedsRenderableHtmlFromPayload,
 } from '../manualReportHtmlRecoveryCore'
@@ -40,6 +41,28 @@ describe('manualReportHtmlRecoveryCore', () => {
         equity_value_mid: 1,
         html_report: safetyNetHtml,
       } as never)
+    ).toBe(true)
+  })
+
+  it('treats standalone store htmlReport as renderable when full report', () => {
+    expect(
+      needsManualReportHtmlRecovery({
+        reportId: 'val_store_html',
+        session: null,
+        result: { equity_value_mid: 750_000 } as never,
+        standaloneHtmlReport: '<main>Full report from store</main>',
+      })
+    ).toBe(false)
+  })
+
+  it('still needs recovery when standalone htmlReport is safety-net only', () => {
+    expect(
+      needsManualReportHtmlRecovery({
+        reportId: 'val_store_safety',
+        session: null,
+        result: { equity_value_mid: 750_000 } as never,
+        standaloneHtmlReport: safetyNetHtml,
+      })
     ).toBe(true)
   })
 })

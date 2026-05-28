@@ -46,7 +46,7 @@ import {
   clearMercurySessionPrefillSuppression,
   markMercurySessionPrefillSuppressed,
 } from '../../utils/prefillRestorationGate'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { extractRenderableHtmlFromSessionPayload } from '../../utils/reportHtmlRecovery'
 import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 import {
   type NormalizedSessionData,
@@ -524,11 +524,12 @@ class SessionRestorationServiceImpl {
     // 2. Hydrate results store
     // CRITICAL: Restore valuation result AND output assets (htmlReport)
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only
-    const hasOutputAssets = !!getFirstRenderableReportHtml(
-      data.htmlReport,
-      asValuationResultWithAssets(data.valuationResult)?.html_report,
-      asValuationResultWithAssets(data.valuationResult)?.details?.html_report
-    )
+    const sessionHtmlPayload = {
+      htmlReport: data.htmlReport,
+      valuationResult: data.valuationResult,
+      sessionData: data.sessionDataEnvelope,
+    }
+    const hasOutputAssets = !!extractRenderableHtmlFromSessionPayload(sessionHtmlPayload)
     const hasResult = !!data.valuationResult
 
     if (hasResult || hasOutputAssets) {
@@ -545,11 +546,7 @@ class SessionRestorationServiceImpl {
         const normalizedValuationResults =
           hydrateClientValuationResultsMap(vr, mergeHydrateOpts) ??
           hydrateClientValuationResultsMap(existingResult, mergeHydrateOpts)
-        const renderableMergeHtml = getFirstRenderableReportHtml(
-          data.htmlReport,
-          vr?.html_report,
-          vr?.details?.html_report
-        )
+        const renderableMergeHtml = extractRenderableHtmlFromSessionPayload(sessionHtmlPayload)
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
@@ -576,15 +573,20 @@ class SessionRestorationServiceImpl {
           const manualStore = useManualResultsStore.getState()
           manualStore.setResult(fullResult as unknown as ValuationResponse)
           // Explicitly set HTML assets so components reading htmlReport directly get them
-          const renderableHtmlReport = getFirstRenderableReportHtml(
-            fullResult.html_report,
-            data.htmlReport
-          )
+          const renderableHtmlReport = extractRenderableHtmlFromSessionPayload({
+            htmlReport: data.htmlReport,
+            valuationResult: fullResult,
+            sessionData: data.sessionDataEnvelope,
+          })
           if (renderableHtmlReport) manualStore.setHtmlReport(renderableHtmlReport)
         }
 
         restoredValuationResult = !!data.valuationResult
-        restoredHtmlReport = !!getFirstRenderableReportHtml(fullResult.html_report, data.htmlReport)
+        restoredHtmlReport = !!extractRenderableHtmlFromSessionPayload({
+          htmlReport: data.htmlReport,
+          valuationResult: fullResult,
+          sessionData: data.sessionDataEnvelope,
+        })
         restoredPricingRange = !!data.pricingRange
 
         generalLogger.debug('[SessionRestoration] Results hydrated', {
@@ -834,10 +836,10 @@ class SessionRestorationServiceImpl {
       } else {
         const resultsStore = useManualResultsStore.getState()
         const hasResult = !!resultsStore.result
-        const hasHtmlReport = !!getFirstRenderableReportHtml(
-          resultsStore.result?.html_report,
-          resultsStore.htmlReport
-        )
+        const hasHtmlReport = !!extractRenderableHtmlFromSessionPayload({
+          htmlReport: resultsStore.htmlReport,
+          valuationResult: resultsStore.result,
+        })
 
         if (manifest.valuationResult && !hasResult) {
           warnings.push('Valuation result missing from store')
@@ -955,6 +957,15 @@ class SessionRestorationServiceImpl {
    */
   clearPendingRestoration(reportId: string): void {
     this.pendingRestorationIds.delete(reportId)
+  }
+
+  /**
+   * After client-side HTML self-heal, mark restoration complete so session
+   * managers stop forcing loadSession on reportReady: false / pending flags.
+   */
+  acknowledgeHtmlRecoveryComplete(reportId: string): void {
+    this.restoredReportIds.add(reportId)
+    this.clearPendingRestoration(reportId)
   }
 }
 
