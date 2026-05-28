@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
@@ -122,10 +123,10 @@ export function ManualInputMethodSections({
     if (nextCount >= 2 && previousCount < 2) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          synthesisPanelAnchorRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          })
+          const anchor = synthesisPanelAnchorRef.current
+          if (anchor) {
+            scrollElementIntoManualLayout(anchor, { behavior: 'smooth', block: 'nearest' })
+          }
         })
       })
     }

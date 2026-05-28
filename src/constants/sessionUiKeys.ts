@@ -76,6 +76,14 @@ export function sanitizePreSelectedValuationMethod(
   return lower === 'upswitch_adaptive' ? null : lower
 }
 
+/** Multi-method selection persisted on session / form JSONB (not sent to ValuationIQ). */
+export function readPreSelectedValuationMethods(source: object): string[] | undefined {
+  const raw = (source as Record<string, unknown>)[SESSION_PRE_SELECTED_METHODS_KEY]
+  if (!Array.isArray(raw)) return undefined
+  const methods = raw.filter((method): method is string => typeof method === 'string')
+  return methods.length > 0 ? methods : undefined
+}
+
 /**
  * JSONB payload for `_pre_selected_valuation_method`: `null` means AI adaptive.
  */

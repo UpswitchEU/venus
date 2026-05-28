@@ -48,6 +48,22 @@ describe('stripReportBlobsFromSessionPatch', () => {
     expect(det.foo).toBe(1)
   })
 
+  it('preserves academic_validation_issues when stripping report blobs', () => {
+    const out = stripReportBlobsFromValuationResult({
+      equity_value_mid: 568_000,
+      html_report: '<div>huge</div>',
+      academic_validation_issues: ['WACC outside SME band'],
+      details: {
+        html_report: '<p>inner</p>',
+        academic_validation_issues: ['WACC outside SME band'],
+      },
+    }) as Record<string, unknown>
+
+    expect(out.academic_validation_issues).toEqual(['WACC outside SME band'])
+    const details = out.details as Record<string, unknown>
+    expect(details.academic_validation_issues).toEqual(['WACC outside SME band'])
+  })
+
   it('strips transport-heavy blobs from a valuation result while preserving metrics', () => {
     const out = stripReportBlobsFromValuationResult({
       equity_value_mid: 1_100_000,

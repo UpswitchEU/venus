@@ -661,7 +661,7 @@ export class HttpClient {
     config: AxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
-    const timeout = options?.timeout || 30000 // Default 30 seconds for faster failure detection
+    const timeout = options?.timeout ?? 30000 // Default 30 seconds for faster failure detection
     const correlationId = generateCorrelationId()
 
     // BANK-GRADE: Attach custom config for interceptor access
@@ -703,6 +703,7 @@ export class HttpClient {
       const response = await this.client.request({
         ...config,
         signal,
+        timeout: requestTimeout,
       })
 
       // 204 No Content: Return success without parsing (belt-and-suspenders for Axios empty-body bug)

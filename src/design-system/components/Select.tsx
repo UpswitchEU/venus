@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, Check, ChevronDown, Search, X } from 'lucide-react'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { cn } from '../../lib/utils'
 import { springDefault } from './motion'
 
@@ -341,15 +342,20 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     // Focus search input when opened
     React.useEffect(() => {
       if (isOpen && searchable && searchInputRef.current) {
-        searchInputRef.current.focus()
+        searchInputRef.current.focus({ preventScroll: true })
       }
     }, [isOpen, searchable])
 
-    // Scroll focused option into view
+    // Scroll focused option into view inside the list container (not the document).
     React.useEffect(() => {
       if (focusedIndex >= 0 && listRef.current) {
         const focusedEl = listRef.current.querySelector(`[data-index="${focusedIndex}"]`)
-        focusedEl?.scrollIntoView({ block: 'nearest' })
+        if (focusedEl instanceof HTMLElement) {
+          scrollElementIntoContainer(focusedEl, listRef.current, {
+            block: 'nearest',
+            behavior: 'auto',
+          })
+        }
       }
     }, [focusedIndex])
 

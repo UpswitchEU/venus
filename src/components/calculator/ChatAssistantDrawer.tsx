@@ -16,7 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
-import { useScrollLock } from '@/hooks/useScrollLock'
+import { MANUAL_LAYOUT_SCROLL_SELECTOR, useScrollLock } from '@/hooks/useScrollLock'
+import { useVisualViewportDrawerInsets } from '@/hooks/useVisualViewportDrawerInsets'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
 import { AiConsentModal } from './AiConsentModal'
 import { AttentionSummary } from './AttentionSummary'
@@ -26,6 +27,7 @@ import type { ChatAssistantDrawerProps } from './ChatAssistantDrawer.types'
 import {
   getChatAssistantMessageRenderKey,
   hasAssistantRenderableContent,
+  scrollMessagesContainerToBottom,
 } from './ChatAssistantDrawer.utils'
 import { EmptyState, MessageBubble } from './ChatAssistantMessageBubble'
 import {
@@ -72,6 +74,7 @@ export type {
 
 export function ChatAssistantDrawer({
   open,
+  lockScroll = false,
   onOpenChange,
   messages,
   onSendMessage,
@@ -130,21 +133,15 @@ export function ChatAssistantDrawer({
     onRetry,
   })
 
-  // Handler for command pill clicks - auto-fills and sends
+  // Handler for inline command pill clicks in assistant replies — auto-send.
   const handleCommandPillClick = useCallback(
     (command: string) => {
       if (onCommandPillClick) {
         onCommandPillClick(command)
-      } else {
-        // Fallback: set input and trigger submit
-        setInput(command)
-        // Use setTimeout to ensure state is updated before submitting
-        setTimeout(() => {
-          const commands = parseNormalizationCommands(command)
-          onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined)
-          setInput('')
-        }, 0)
+        return
       }
+      const commands = parseNormalizationCommands(command)
+      onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined)
     },
     [onCommandPillClick, onSendMessage]
   )
@@ -163,10 +160,17 @@ export function ChatAssistantDrawer({
     const key = item.key as ChatAssistantTranslationKey
     return item.params ? ca(key, item.params as ChatAssistantTranslationValues) : ca(key)
   })
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  // Robust scroll lock when drawer is open (iOS Safari + Android)
-  useScrollLock(open)
+  // Scroll lock only on mobile full-screen drawer; desktop layout is already overflow-hidden.
+  useScrollLock(open && lockScroll, lockScroll ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined)
+  const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll)
+  const viewportStyle = viewportInsets
+    ? { top: viewportInsets.top, height: viewportInsets.height }
+    : undefined
+  const viewportScrollKey = viewportInsets
+    ? `${viewportInsets.top}:${viewportInsets.height}`
+    : ''
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Suggestion-chip insertion (paste-and-wait): seeds the draft instead of
@@ -189,17 +193,24 @@ export function ChatAssistantDrawer({
     })
     const el = textareaRef.current
     if (!el) return
-    el.focus()
+    el.focus({ preventScroll: true })
     el.setSelectionRange(nextValue.length, nextValue.length)
   }, [])
 
-  // Scroll to bottom on new messages and during streaming content updates
+  // Scroll to bottom on new messages and during streaming content updates.
+  // Use the messages container directly — scrollIntoView can shift the document
+  // viewport when body scroll lock is active (Mercury AI dock pattern).
   const messageRenderKey = getChatAssistantMessageRenderKey(messages)
+  const visibleMessages = messages.filter(hasAssistantRenderableContent)
+  const isEmpty = visibleMessages.length === 0
+  const lastVisible = visibleMessages[visibleMessages.length - 1]
+  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant')
+  const attentionRailsKey = `${pendingUpdates.length}:${startupIssues.length}:${qualityWarnings.length}`
+
   useEffect(() => {
-    void messageRenderKey
     if (!open) return
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messageRenderKey, open])
+    scrollMessagesContainerToBottom(messagesContainerRef.current)
+  }, [messageRenderKey, open, showLoadingSkeleton, isGenerating, attentionRailsKey, viewportScrollKey])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -231,11 +242,15 @@ export function ChatAssistantDrawer({
   }, [input])
 
   useEffect(() => {
-    if (open) {
-      trackAIAssistantOpen()
-      setTimeout(() => textareaRef.current?.focus(), 100)
-    }
+    if (!open) return
+    trackAIAssistantOpen()
   }, [open])
+
+  useEffect(() => {
+    if (!open || lockScroll) return
+    const timer = setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 100)
+    return () => clearTimeout(timer)
+  }, [open, lockScroll])
 
   // Global keyboard shortcuts: Escape to close, Cmd+Shift+L for new conversation
   useEffect(() => {
@@ -288,13 +303,6 @@ export function ChatAssistantDrawer({
     }
   }
 
-  // Filter out truly empty streaming placeholders, but keep tool-card-only turns.
-  const visibleMessages = messages.filter(hasAssistantRenderableContent)
-  const isEmpty = visibleMessages.length === 0
-  // Only show the loading skeleton when there's no assistant message actively receiving content
-  const lastVisible = visibleMessages[visibleMessages.length - 1]
-  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant')
-
   // Track focus state for premium glow effect
   const [isInputFocused, setIsInputFocused] = useState(false)
 
@@ -310,7 +318,11 @@ export function ChatAssistantDrawer({
             transition={springDefault}
             onClick={() => onOpenChange(false)}
             onTouchMove={(e) => e.preventDefault()}
-            className="fixed inset-0 z-40 bg-black/30 touch-none overscroll-none"
+            style={viewportStyle}
+            className={cn(
+              'fixed left-0 right-0 z-40 bg-black/30 touch-none overscroll-none',
+              !viewportStyle && 'inset-0'
+            )}
           />
 
           {/* Drawer Panel — plain surface, no decorative border. */}
@@ -319,9 +331,11 @@ export function ChatAssistantDrawer({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={springDefault}
+            style={viewportStyle}
             className={cn(
-              'fixed right-0 top-0 bottom-0 z-50',
-              'w-full h-full p-0 flex flex-col',
+              'fixed right-0 z-50',
+              'w-full p-0 flex flex-col min-h-0',
+              !viewportStyle && 'top-0 bottom-0 h-full',
               'sm:w-[440px] md:w-[480px] lg:w-[520px]',
               'bg-background',
               'pb-[env(safe-area-inset-bottom)]'
@@ -379,6 +393,7 @@ export function ChatAssistantDrawer({
 
             {/* Messages Area - Scrollable with momentum */}
             <div
+              ref={messagesContainerRef}
               className="flex-1 overflow-y-auto overscroll-contain"
               role="log"
               aria-live="polite"
@@ -471,8 +486,6 @@ export function ChatAssistantDrawer({
                       )}
                     </motion.div>
                   )}
-
-                  <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
@@ -494,7 +507,7 @@ export function ChatAssistantDrawer({
               onKeyDown={handleKeyDown}
               onRemoveAttachment={removeAttachment}
               onSubmit={() => handleSubmit()}
-              onSuggestionClick={handleCommandPillClick}
+              onSuggestionClick={insertSuggestion}
             />
           </motion.div>
 

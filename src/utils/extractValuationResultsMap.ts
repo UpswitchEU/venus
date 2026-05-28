@@ -9,7 +9,8 @@
  * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
  * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
-import type { ValuationMethodResult } from '@/types/valuation'
+import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation'
+import { normalizeValuationResultEnvelope } from '@/utils/resolveAcademicValidationIssues'
 
 type UnknownRecord = Record<string, unknown>
 type MethodResultRow = ValuationMethodResult & UnknownRecord
@@ -810,9 +811,9 @@ export function normalizeValuationResultWithMethodMap(
   const map = extractValuationResultsMap(value, null)
   if (!map) return value
 
-  if (hasNonEmptyValuationResults(value)) {
-    return value
-  }
+  const withMap = hasNonEmptyValuationResults(value)
+    ? value
+    : { ...value, valuation_results: map }
 
-  return { ...value, valuation_results: map }
+  return normalizeValuationResultEnvelope(withMap as unknown as ValuationResponse) as unknown as UnknownRecord
 }

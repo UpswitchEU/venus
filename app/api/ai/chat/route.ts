@@ -13,6 +13,7 @@
  * - POST /api/v2/ai/chat (JSON fallback)
  */
 
+import { withAiStreamTurnRecoveryHeader } from '@upswitch/ai-actions'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getTitanAccessTokenFromCookieHeader,
@@ -92,11 +93,16 @@ export async function POST(request: NextRequest) {
       ? { ...streamHeaders, Accept: 'application/json' }
       : streamHeaders
 
+    const titanRequestHeaders = withAiStreamTurnRecoveryHeader(
+      streamHeaders,
+      !plan.useStream && plan.streamTurnRecovery
+    )
+
     const titanResponse = await fetchWithTimeout(
       plan.useStream ? titanStreamEndpoint : titanChatEndpoint,
       {
         method: 'POST',
-        headers: streamHeaders,
+        headers: titanRequestHeaders,
         body: JSON.stringify(plan.payload),
       },
       AI_CHAT_PROXY_TIMEOUT_MS
@@ -116,7 +122,6 @@ export async function POST(request: NextRequest) {
 
     if (plan.useStream && titanResponse.body) {
       const responseCorrelationId = getTitanResponseCorrelationId(titanResponse, correlationId)
-      const nonStreamingPayload = { ...plan.payload }
       const wrapped = wrapAiSseBodyForObservability(titanResponse.body, {
         correlationId: responseCorrelationId,
         upstreamStatus: titanResponse.status,
@@ -125,8 +130,8 @@ export async function POST(request: NextRequest) {
             titanChatEndpoint,
             {
               method: 'POST',
-              headers: chatHeaders,
-              body: JSON.stringify(nonStreamingPayload),
+              headers: withAiStreamTurnRecoveryHeader(chatHeaders, true),
+              body: JSON.stringify(plan.payload),
             },
             AI_CHAT_PROXY_TIMEOUT_MS
           ),

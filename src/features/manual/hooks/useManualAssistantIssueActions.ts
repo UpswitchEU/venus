@@ -3,6 +3,10 @@ import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssue
 import { applyStartupIssueQuickFix } from '@/lib/methods/startup_valuation/startupIssueQuickFix'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { getManualStartupIssueAnchor } from '../utils/manualStartupAssistantSurface'
+import {
+  scheduleAfterScrollLockRelease,
+  scrollAnchorIntoManualLayout,
+} from '../utils/manualLayoutScroll'
 
 type AcknowledgementSetter = Dispatch<SetStateAction<Set<string>>>
 
@@ -41,8 +45,7 @@ function jumpToIssue(startupIssueById: ReadonlyMap<string, StartupIssueAnchor>, 
   if (!issue || typeof window === 'undefined') return
   const anchor = getManualStartupIssueAnchor(issue.step)
   if (!anchor) return
-  const el = document.getElementById(anchor)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  scrollAnchorIntoManualLayout(anchor, { behavior: 'smooth', block: 'start' })
 }
 
 export function useManualAssistantIssueActions({
@@ -106,16 +109,18 @@ export function useManualAssistantIssueActions({
       const applied = applyStartupIssueQuickFix(issueId, useStartupValuationStore.getState())
       if (!applied) return
       acknowledge(setAcknowledgedStartupIssues, issueId)
-      jumpToIssue(startupIssueById, issueId)
+      setChatDrawerOpen(false)
+      scheduleAfterScrollLockRelease(() => jumpToIssue(startupIssueById, issueId))
     },
-    [setAcknowledgedStartupIssues, startupIssueById]
+    [setAcknowledgedStartupIssues, setChatDrawerOpen, startupIssueById]
   )
 
   const handleJumpToStartupIssue = useCallback(
     (issueId: string) => {
-      jumpToIssue(startupIssueById, issueId)
+      setChatDrawerOpen(false)
+      scheduleAfterScrollLockRelease(() => jumpToIssue(startupIssueById, issueId))
     },
-    [startupIssueById]
+    [setChatDrawerOpen, startupIssueById]
   )
 
   return {

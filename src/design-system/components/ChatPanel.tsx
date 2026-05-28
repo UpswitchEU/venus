@@ -9,6 +9,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, Mic, Paperclip, Send } from 'lucide-react'
 import * as React from 'react'
+import { scrollContainerToBottom } from '@/utils/scrollContainer'
 import { cn } from '../../lib/utils'
 import { fadeInUp, springDefault } from './motion'
 
@@ -296,12 +297,12 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
   className,
   showAuroraBackground = true,
 }) => {
-  const messagesEndRef = React.useRef<HTMLDivElement>(null)
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom on new messages
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+    scrollContainerToBottom(messagesContainerRef.current)
+  }, [messages.length, isLoading])
 
   return (
     <div className={cn('aurora-theme relative flex flex-col h-full bg-background', className)}>
@@ -309,7 +310,7 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
       {showAuroraBackground && <AuroraBackground />}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 relative z-10">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4 relative z-10">
         <AnimatePresence mode="popLayout">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
@@ -318,8 +319,6 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
 
         {/* Typing indicator */}
         <AnimatePresence>{isLoading && <TypingIndicator />}</AnimatePresence>
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input area */}

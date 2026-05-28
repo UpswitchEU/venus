@@ -115,6 +115,63 @@
     0 8px 48px -8px rgba(0, 0, 0, 0.08);
 }
 
+/* Page header — defensive fallback when inline template CSS is stripped */
+.valuation-report .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 32pt;
+  padding-bottom: 12pt;
+  margin-bottom: 16pt;
+  border-bottom: 1pt solid hsl(var(--report-slate-200));
+}
+
+.valuation-report .page-header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-height: 28pt;
+  text-align: right;
+}
+
+.valuation-report .page-header-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8pt;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.valuation-report .page-header-method {
+  display: inline-block;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 2pt 7pt;
+  border-radius: 999px;
+  background: hsl(var(--report-teal-light));
+  color: hsl(var(--report-teal-dark));
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.valuation-report .page-header-ref {
+  margin: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9pt;
+}
+
+.valuation-report .page-header-date {
+  margin: 0;
+  font-size: 8pt;
+  color: hsl(var(--report-text-muted));
+}
+
 /* Cover page — dark slate so it stands out from white panel (match Clarity design) */
 .valuation-report .cover-page {
   width: 210mm;

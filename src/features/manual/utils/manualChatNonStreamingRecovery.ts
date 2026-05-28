@@ -28,24 +28,28 @@ export type ManualChatNonStreamingRecoveryOutcome =
   | { status: 'terminal_error'; patch: ManualChatTerminalErrorPatch }
   | { status: 'miss' }
 
-export type ManualChatBffStreamRecoverySource = 'bff-fallback' | 'bff-fallback-failed' | null
+export type ManualChatBffStreamRecoverySource =
+  | 'bff-fallback'
+  | 'bff-fallback-failed'
+  | 'bff-stream-incomplete'
+  | null
 
-/**
- * Whether layer-3 client recovery should run. Skips duplicate `/chat` when the
- * BFF already recovered on the wire (`bff-fallback`), but still allows one FE
- * retry after `bff-fallback-failed` (staging 499 disconnect scenario).
- */
 export function shouldAttemptManualChatNonStreamingRecovery({
   nonStreamingRecoveryStarted,
   didObserveToolActivity,
   bffStreamRecoverySource,
+  streamEndedWithoutCompletion,
 }: {
   nonStreamingRecoveryStarted: boolean
   didObserveToolActivity: boolean
   bffStreamRecoverySource: ManualChatBffStreamRecoverySource
+  streamEndedWithoutCompletion?: boolean
 }): boolean {
-  if (nonStreamingRecoveryStarted || didObserveToolActivity) return false
+  if (nonStreamingRecoveryStarted) return false
   if (bffStreamRecoverySource === 'bff-fallback') return false
+  if (bffStreamRecoverySource === 'bff-stream-incomplete') return true
+  if (streamEndedWithoutCompletion) return true
+  if (didObserveToolActivity) return false
   return true
 }
 
@@ -61,7 +65,7 @@ export async function requestManualChatNonStreamingRecovery({
   createId,
 }: ManualChatNonStreamingRecoveryParams): Promise<ManualChatNonStreamingRecoveryOutcome> {
   try {
-    const aiResponse = await sendMessage({ ...aiRequest, stream: false })
+    const aiResponse = await sendMessage({ ...aiRequest, stream: false, recoverFromStreamTurn: true })
 
     const terminalErrorPatch = buildManualChatTerminalErrorPatchFromAIResponse(aiResponse, translate)
     if (terminalErrorPatch) {

@@ -15,6 +15,7 @@ import type { ManualValuationFormData as ValuationFormData } from '../../../type
 import type { ManualInitialPrefillData } from '../utils/manualInputPrefill'
 import { useManualFilingYearAutoConfirm } from './useManualFilingYearAutoConfirm'
 import { useManualInitialPrefillBootstrap } from './useManualInitialPrefillBootstrap'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { useManualOptionalSessionPrefillSync } from './useManualOptionalSessionPrefillSync'
 
 type StoreFormPatch = Record<string, unknown>
@@ -164,7 +165,10 @@ export function useManualInputPrefillSync({
 
     const timer = setTimeout(() => {
       if (hasPrefilledCompany && financialsStepRef.current) {
-        financialsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        scrollElementIntoManualLayout(financialsStepRef.current, {
+          behavior: 'smooth',
+          block: 'start',
+        })
       }
     }, 500)
 

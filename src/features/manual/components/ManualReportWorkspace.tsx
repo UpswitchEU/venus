@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Suspense, useRef } from 'react'
+import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
+import { SectorMismatchNotice } from '../../../components/calculator/sections/SectorMismatchNotice'
 import {
   HistoryPanel,
   type HistoryPanelProps,
@@ -86,6 +88,10 @@ function HtmlReportSurface({
       {liveMultipleReportPreview && (
         <LiveMultiplePreviewBanner preview={liveMultipleReportPreview} translate={translate} />
       )}
+      <div className="sticky top-0 z-[5] mx-4 mt-3 space-y-2 bg-background/95 backdrop-blur-sm">
+        <SectorMismatchNotice />
+        <AcademicValidationNotice className="border-b-0" />
+      </div>
       <div className="valuation-report">
         <div
           dangerouslySetInnerHTML={{

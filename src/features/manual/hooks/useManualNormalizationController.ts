@@ -47,6 +47,7 @@ interface UseManualNormalizationControllerParams {
   resultMultiplesValuation?: ValuationResponse['multiples_valuation']
   selectedMethod?: string | null
   sessionName?: string | null
+  durableSaveInFlightRef: MutableRefObject<boolean>
   setChatDrawerOpen: Dispatch<SetStateAction<boolean>>
   setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>
   setDraftStatus: (status: 'draft' | 'saved' | 'saving') => void
@@ -96,6 +97,7 @@ export function useManualNormalizationController({
   resultMultiplesValuation,
   selectedMethod,
   sessionName,
+  durableSaveInFlightRef,
   setChatDrawerOpen,
   setChatMessages,
   setDraftStatus,
@@ -139,6 +141,7 @@ export function useManualNormalizationController({
       resultMultiplesValuation,
       selectedMethod,
       sessionName,
+      durableSaveInFlightRef,
       setDraftStatus,
       setLastSaved,
       setResult,

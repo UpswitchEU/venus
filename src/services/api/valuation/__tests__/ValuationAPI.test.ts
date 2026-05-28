@@ -48,6 +48,20 @@ describe('ValuationAPI validation handling', () => {
     )
   })
 
+  it('hoists academic_validation_issues on calculate responses', async () => {
+    const api = new ValuationAPI()
+    vi.spyOn(api as any, 'executeRequest').mockResolvedValue({
+      valuation_id: 'val-1',
+      equity_value_mid: 568_000,
+      details: { academic_validation_issues: ['WACC below SME guidance'] },
+    })
+
+    const out = await api.calculateManualValuation({} as never)
+
+    expect(out.academic_validation_issues).toEqual(['WACC below SME guidance'])
+    expect(out.details?.academic_validation_issues).toEqual(['WACC below SME guidance'])
+  })
+
   it('forwards preparer multiple edits on the method PATCH request', async () => {
     const api = new ValuationAPI()
     const executeRequest = vi.spyOn(api as any, 'executeRequest').mockResolvedValue({

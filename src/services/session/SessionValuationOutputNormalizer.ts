@@ -1,6 +1,7 @@
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationResponse } from '../../types/valuation'
 import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
 type SessionRecord = Record<string, unknown>
@@ -82,9 +83,10 @@ export function extractValuationResult(
     return score
   }
 
-  return candidates.reduce((best, candidate) =>
-    scoreCandidate(candidate) > scoreCandidate(best) ? candidate : best
+  const best = candidates.reduce((winner, candidate) =>
+    scoreCandidate(candidate) > scoreCandidate(winner) ? candidate : winner
   )
+  return normalizeValuationResultEnvelope(best)
 }
 
 export function extractHtmlReport(

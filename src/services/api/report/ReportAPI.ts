@@ -15,6 +15,7 @@ import {
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
+import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { apiLogger } from '../../../utils/logger'
 import { createRandomId } from '../../../utils/secureRandom'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
@@ -88,7 +89,7 @@ export class ReportAPI extends HttpClient {
         await new Promise((r) => setTimeout(r, BY_SESSION_404_BACKOFF_MS[attempt]))
       }
       try {
-        return await this.executeRequest<ValuationResponse>(
+        const response = await this.executeRequest<ValuationResponse>(
           {
             method: 'GET',
             url,
@@ -96,6 +97,7 @@ export class ReportAPI extends HttpClient {
           },
           requestOptions
         )
+        return normalizeValuationResultEnvelope(response)
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status
         if (isBySession && status === 404 && attempt < maxAttempts - 1) {
@@ -176,7 +178,7 @@ export class ReportAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      return await this.executeRequest<ValuationResponse>(
+      const response = await this.executeRequest<ValuationResponse>(
         {
           method: 'PUT',
           url: `/api/v2/valuations/reports/${reportId}`,
@@ -185,6 +187,7 @@ export class ReportAPI extends HttpClient {
         },
         options
       )
+      return normalizeValuationResultEnvelope(response)
     } catch (error) {
       this.handleReportError(error, 'update report')
     }

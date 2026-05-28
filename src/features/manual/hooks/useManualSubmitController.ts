@@ -55,6 +55,7 @@ export interface UseManualSubmitControllerParams {
   result: ValuationResponse | null
   selectedMethod: string
   sessionName?: string
+  durableSaveInFlightRef: MutableRefObject<boolean>
   setCalculating: (calculating: boolean) => void
   setCollectedData: Dispatch<SetStateAction<CollectedData>>
   setDraftStatus: Dispatch<SetStateAction<'draft' | 'saved' | 'saving'>>
@@ -97,6 +98,7 @@ export function useManualSubmitController({
   result,
   selectedMethod,
   sessionName,
+  durableSaveInFlightRef,
   setCalculating,
   setCollectedData,
   setDraftStatus,
@@ -138,6 +140,7 @@ export function useManualSubmitController({
     lastSubmittedFinancialSnapshotRef,
     postValuationListingHandoffPendingRef,
     sessionName,
+    durableSaveInFlightRef,
     setDraftStatus,
     setIsDirty,
     setLastSaved,

@@ -44,6 +44,33 @@ describe('ReportAPI', () => {
   })
 
   describe('getReport', () => {
+    it('hoists academic_validation_issues from nested details', async () => {
+      executeRequestSpy.mockResolvedValue({
+        valuation: 568_000,
+        details: {
+          academic_validation_issues: ['SME WACC outside advisory band'],
+        },
+      })
+
+      const report = await api.getReport('report-uuid-1')
+
+      expect(report.academic_validation_issues).toEqual(['SME WACC outside advisory band'])
+      expect(report.details?.academic_validation_issues).toEqual(['SME WACC outside advisory band'])
+    })
+
+    it('hoists academic_validation_issues on updateReport', async () => {
+      executeRequestSpy.mockResolvedValue({
+        valuation_id: 'val_updated',
+        details: {
+          academic_validation_issues: ['Terminal growth above GDP guidance'],
+        },
+      })
+
+      const report = await api.updateReport('report-uuid-1', { company_name: 'Creatief bureau' })
+
+      expect(report.academic_validation_issues).toEqual(['Terminal growth above GDP guidance'])
+    })
+
     it('treats by-session 404s as expected debug noise while preserving the 404 signal', async () => {
       executeRequestSpy.mockRejectedValue({
         config: {

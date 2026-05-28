@@ -17,7 +17,9 @@ import {
 } from '../../../types/errors'
 import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { apiLogger } from '../../../utils/logger'
+import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
+import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 
 /**
  * BANK-GRADE TIMEOUT CHAIN
@@ -32,7 +34,7 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
  * - If Titan times out at 100s, Venus catches it
  * - Venus never times out before backend completes
  */
-const VALUATION_TIMEOUT_MS = 120000 // 120 seconds for complex calculations
+const VALUATION_TIMEOUT_MS = VALUATION_OPERATION_TIMEOUT_MS
 type UnknownRecord = Record<string, unknown>
 type ValuationDataSource = 'manual' | 'ai-guided' | 'instant'
 type ValuationCalculateRequest = ValuationRequest & { dataSource: ValuationDataSource }
@@ -134,6 +136,10 @@ function extractValidationMessage(responseData: unknown, fallback: string): stri
   return explicitMessage || issueSummary || fallback
 }
 
+function finalizeValuationCalculateResponse(response: ValuationResponse): ValuationResponse {
+  return normalizeValuationResultEnvelope(response)
+}
+
 export class ValuationAPI extends HttpClient {
   /**
    * Calculate manual valuation (traditional form-based)
@@ -144,7 +150,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      return await this.executeRequest<ValuationResponse>(
+      const response = await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -158,13 +164,10 @@ export class ValuationAPI extends HttpClient {
           // Retrying on 503/network amplifies load and log noise; ValuationIQ
           // now ships a safety-net report so a 503 here is genuinely a hard
           // failure worth surfacing once, not masking with 2–3 silent retries.
-          retry: {
-            maxRetries: 0,
-            initialDelay: 0,
-            ...options?.retry,
-          },
+          retry: { ...options?.retry, ...VALUATION_NO_RETRY },
         }
       )
+      return finalizeValuationCalculateResponse(response)
     } catch (error) {
       this.handleValuationError(error, 'manual valuation')
     }
@@ -179,7 +182,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      return await this.executeRequest<ValuationResponse>(
+      const response = await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -191,13 +194,10 @@ export class ValuationAPI extends HttpClient {
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           // See calculateManualValuation() — same /calculate endpoint, same
           // non-idempotent contract, same no-retry policy.
-          retry: {
-            maxRetries: 0,
-            initialDelay: 0,
-            ...options?.retry,
-          },
+          retry: { ...options?.retry, ...VALUATION_NO_RETRY },
         }
       )
+      return finalizeValuationCalculateResponse(response)
     } catch (error) {
       this.handleValuationError(error, 'AI-guided valuation')
     }
@@ -212,7 +212,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      return await this.executeRequest<ValuationResponse>(
+      const response = await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -224,13 +224,10 @@ export class ValuationAPI extends HttpClient {
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           // See calculateManualValuation() — same /calculate endpoint, same
           // non-idempotent contract, same no-retry policy.
-          retry: {
-            maxRetries: 0,
-            initialDelay: 0,
-            ...options?.retry,
-          },
+          retry: { ...options?.retry, ...VALUATION_NO_RETRY },
         }
       )
+      return finalizeValuationCalculateResponse(response)
     } catch (error) {
       this.handleValuationError(error, 'instant valuation')
     }
@@ -250,7 +247,7 @@ export class ValuationAPI extends HttpClient {
       const backendData = toCalculateRequest(data, dataSource)
 
       // Use unified endpoint - backend determines credit cost based on dataSource
-      return await this.executeRequest<ValuationResponse>(
+      const response = await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -264,13 +261,10 @@ export class ValuationAPI extends HttpClient {
           // don't retry. ValuationIQ guarantees a response (with safety-net
           // report when templating fails); a 503 here means the caller
           // should surface the issue, not spawn a retry storm.
-          retry: {
-            maxRetries: 0,
-            initialDelay: 0,
-            ...options?.retry,
-          },
+          retry: { ...options?.retry, ...VALUATION_NO_RETRY },
         }
       )
+      return finalizeValuationCalculateResponse(response)
     } catch (error) {
       this.handleValuationError(error, 'unified valuation')
     }

@@ -29,12 +29,15 @@ function makeResult(partial: Partial<ValuationResponse> = {}): ValuationResponse
 function makeParams(
   override: Partial<UseResultToReportBridgeParams> = {}
 ): UseResultToReportBridgeParams {
+  const durableSaveInFlightRef = { current: false }
   return {
     result: makeResult(),
     selectedMethod: 'dcf',
     reportId: 'route-id',
     canDownloadPdf: true,
     isMobile: false,
+    draftStatus: 'draft',
+    durableSaveInFlightRef,
     tReport: (key) => `t:${key}`,
     onComplete: vi.fn(),
     setReport: vi.fn(),
@@ -87,6 +90,25 @@ describe('useResultToReportBridge', () => {
       expect(params.setDraftStatus).toHaveBeenCalledWith('saved')
       expect(params.setLastSaved).toHaveBeenCalledTimes(1)
       expect(params.setRightPanelView).toHaveBeenCalledWith('preview')
+    })
+
+    it('does not mark the draft saved while a durable save is in flight', () => {
+      const params = makeParams({ draftStatus: 'saving' })
+      renderHook(() => useResultToReportBridge(params))
+
+      expect(params.setReport).toHaveBeenCalledTimes(1)
+      expect(params.setDraftStatus).not.toHaveBeenCalled()
+      expect(params.setLastSaved).not.toHaveBeenCalled()
+    })
+
+    it('does not mark the draft saved when durableSaveInFlightRef is set synchronously', () => {
+      const durableSaveInFlightRef = { current: true }
+      const params = makeParams({ durableSaveInFlightRef })
+      renderHook(() => useResultToReportBridge(params))
+
+      expect(params.setReport).toHaveBeenCalledTimes(1)
+      expect(params.setDraftStatus).not.toHaveBeenCalled()
+      expect(params.setLastSaved).not.toHaveBeenCalled()
     })
 
     it('calls generatePdf in the background when PDF is stale', () => {

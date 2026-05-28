@@ -24,7 +24,10 @@ function encodeSseChunk(chunk: AiStreamChunk): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`)
 }
 
-export type BffStreamRecoverySource = 'bff-fallback' | 'bff-fallback-failed'
+export type BffStreamRecoverySource =
+  | 'bff-fallback'
+  | 'bff-fallback-failed'
+  | 'bff-stream-incomplete'
 
 /** Wire-only SSE meta chunk so the FE skips duplicate non-stream recovery. */
 export function encodeStreamRecoveryMetaSseBytes(source: BffStreamRecoverySource): Uint8Array[] {
@@ -37,6 +40,21 @@ export function encodeStreamFallbackErrorSseBytes(
   message = 'AI stream fallback failed'
 ): Uint8Array[] {
   return [encodeSseChunk({ type: 'error', error: message })]
+}
+
+function readSseFrameJson(frame: string): unknown | null {
+  const dataLines = frame
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+  if (dataLines.length === 0) return null
+  const json = dataLines.join('\n')
+  if (!json || json === '[DONE]') return null
+  try {
+    return JSON.parse(json) as unknown
+  } catch {
+    return null
+  }
 }
 
 export function isVisibleAiStreamChunk(chunk: unknown): boolean {
@@ -59,22 +77,71 @@ export function isVisibleAiStreamChunk(chunk: unknown): boolean {
   }
 }
 
-export function sseBytesContainVisibleContent(bytes: Uint8Array): boolean {
-  const text = new TextDecoder().decode(bytes)
-  for (const frame of text.split(/\r?\n\r?\n/)) {
-    const trimmed = frame.trim()
-    if (!trimmed) continue
-    const dataLine = trimmed.split(/\r?\n/).find((line) => line.startsWith('data:'))
-    if (!dataLine) continue
-    const json = dataLine.slice(5).trim()
-    if (!json || json === '[DONE]') continue
-    try {
-      if (isVisibleAiStreamChunk(JSON.parse(json))) return true
-    } catch {
-      continue
-    }
+export function isTerminalAiStreamChunk(chunk: unknown): boolean {
+  if (!chunk || typeof chunk !== 'object') return false
+  const typed = chunk as {
+    type?: string
+    toolResult?: unknown
+    error?: string
+  }
+  if (typed.type === 'done') return true
+  if (typed.type === 'tool_result' && typed.toolResult !== undefined) return true
+  if (typed.type === 'error' && typeof typed.error === 'string' && typed.error.trim()) {
+    return true
   }
   return false
+}
+
+export function createSseStreamContentScanner() {
+  let buffer = ''
+  let sawVisibleStreamContent = false
+  let sawStreamCompletion = false
+  const decoder = new TextDecoder()
+
+  const ingestFrame = (frame: string) => {
+    const chunk = readSseFrameJson(frame)
+    if (!chunk) return
+    if (isVisibleAiStreamChunk(chunk)) sawVisibleStreamContent = true
+    if (isTerminalAiStreamChunk(chunk)) sawStreamCompletion = true
+  }
+
+  return {
+    push(bytes: Uint8Array) {
+      buffer += decoder.decode(bytes, { stream: true })
+      while (true) {
+        const separatorMatch = /\r?\n\r?\n/.exec(buffer)
+        if (!separatorMatch) break
+        const frame = buffer.slice(0, separatorMatch.index)
+        buffer = buffer.slice(separatorMatch.index + separatorMatch[0].length)
+        ingestFrame(frame)
+      }
+    },
+    flush() {
+      const trimmed = buffer.trim()
+      buffer = ''
+      if (trimmed) ingestFrame(trimmed)
+    },
+    get sawVisibleStreamContent() {
+      return sawVisibleStreamContent
+    },
+    get sawStreamCompletion() {
+      return sawStreamCompletion
+    },
+  }
+}
+
+export function sseBytesContainVisibleContent(bytes: Uint8Array): boolean {
+  const scanner = createSseStreamContentScanner()
+  scanner.push(bytes)
+  scanner.flush()
+  return scanner.sawVisibleStreamContent
+}
+
+export function sseBytesContainCompletionSignals(bytes: Uint8Array): boolean {
+  const scanner = createSseStreamContentScanner()
+  scanner.push(bytes)
+  scanner.flush()
+  return scanner.sawStreamCompletion
 }
 
 export function encodeTitanChatResponseAsSseBytes(response: TitanChatJsonResponse): Uint8Array[] {

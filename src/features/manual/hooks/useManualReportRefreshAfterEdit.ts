@@ -10,6 +10,10 @@ import {
   getRenderableReportHtml,
   getRenderableReportHtmlFromCurrentOrFallback,
 } from '../../../utils/safetyNetReportHtml'
+import {
+  resolveSynthesisAwarePresentation,
+  shouldAlignRecommendedAskingWithSynthesis,
+} from '../components/manualReportPresentation'
 import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 
@@ -63,6 +67,17 @@ export function useManualReportRefreshAfterEdit({
         }
 
         setResult(mergedResult)
+
+        const storeSnap = useManualResultsStore.getState()
+        const presentation = resolveSynthesisAwarePresentation(
+          mergedResult,
+          storeSnap.selectedMethod,
+          {
+            preSelectedMethods: storeSnap.preSelectedMethods,
+            userWeights: storeSnap.userWeights,
+          }
+        )
+
         const htmlForPreview = getFirstRenderableReportHtml(htmlFromPatch, fresh.html_report)
         setReport((prev) => {
           if (!prev) return prev
@@ -89,7 +104,24 @@ export function useManualReportRefreshAfterEdit({
             pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
 
-          return { ...prev, htmlReport: nextHtmlReport, ...pdfMeta }
+          const storeSnap = useManualResultsStore.getState()
+          const alignAsk = shouldAlignRecommendedAskingWithSynthesis(
+            mergedResult as ValuationResponse,
+            {
+              preSelectedMethods: storeSnap.preSelectedMethods,
+              userWeights: storeSnap.userWeights,
+            }
+          )
+
+          return {
+            ...prev,
+            htmlReport: nextHtmlReport,
+            valuation: presentation.valuation,
+            valuationLow: presentation.valuationLow,
+            valuationHigh: presentation.valuationHigh,
+            ...(alignAsk ? { recommendedAskingPrice: presentation.valuation } : {}),
+            ...pdfMeta,
+          }
         })
 
         if (htmlForPreview) {

@@ -1,3 +1,4 @@
+import { readPreSelectedValuationMethods } from '../constants/sessionUiKeys'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 
 interface BuildValuationBusinessContextOptions {
@@ -73,16 +74,7 @@ export function buildValuationBusinessContext({
     }
   }
 
-  const userConfiguredDcf =
-    fd.dcf_wacc_pct != null ||
-    fd.dcf_terminal_growth_pct != null ||
-    fd.dcf_exit_multiple != null ||
-    fd.dcf_revenue_growth_pct != null ||
-    fd.dcf_ebitda_margin_pct != null ||
-    fd.dcf_discounting_convention != null ||
-    dcfTaxShieldProjections.length > 0 ||
-    (Array.isArray(formData.forecast_years_data) && formData.forecast_years_data.length > 0) ||
-    (Array.isArray(rawForecastData) && rawForecastData.length > 0)
+  const userConfiguredDcf = isExplicitUserDcfIntent(fd, formData, dcfTaxShieldProjections.length)
 
   if (
     fd.nav_real_estate_adjustment != null &&
@@ -248,6 +240,47 @@ function copyDefinedAdaptiveFields(
   for (const key of keys) {
     if (source[key] != null) target[key] = source[key]
   }
+}
+
+/** True when the advisor deliberately chose DCF (not auto-seeded defaults alone). */
+export function isExplicitUserDcfIntent(
+  fd: Record<string, unknown>,
+  formData: ValuationFormData,
+  dcfTaxShieldProjectionCount = 0
+): boolean {
+  if (fd.dcf_input_mode === 'fcff_only') return true
+  if (fd.dcf_exit_multiple != null && Number.isFinite(Number(fd.dcf_exit_multiple))) return true
+  if (fd.dcf_discounting_convention === 'year_end') return true
+  if (dcfTaxShieldProjectionCount > 0) return true
+
+  const weights = formData.user_weights
+  if (weights && typeof weights === 'object' && !Array.isArray(weights)) {
+    for (const [key, raw] of Object.entries(weights)) {
+      const weight = Number(raw)
+      if (key.toLowerCase().includes('dcf') && Number.isFinite(weight) && weight > 0) {
+        return true
+      }
+    }
+  }
+
+  const selected = formData.selected_method ?? fd.selected_method
+  if (typeof selected === 'string' && selected.toLowerCase().includes('dcf')) {
+    return true
+  }
+
+  const preSelected =
+    (Array.isArray(fd._pre_selected_valuation_methods)
+      ? fd._pre_selected_valuation_methods
+      : undefined) ?? readPreSelectedValuationMethods(formData)
+  if (Array.isArray(preSelected)) {
+    for (const method of preSelected) {
+      if (typeof method === 'string' && method.toLowerCase().includes('dcf')) {
+        return true
+      }
+    }
+  }
+
+  return false
 }
 
 function asNonEmptyString(value: unknown): string | undefined {

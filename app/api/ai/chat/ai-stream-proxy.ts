@@ -1,10 +1,10 @@
 import { apiLogger } from '@/utils/logger'
 import {
+  createSseStreamContentScanner,
   encodeStreamFallbackErrorSseBytes,
   encodeStreamRecoveryMetaSseBytes,
   encodeTitanChatResponseAsSseBytes,
   hasVisibleTitanChatPayload,
-  sseBytesContainVisibleContent,
   type TitanChatJsonResponse,
 } from './chat-to-sse'
 
@@ -16,7 +16,12 @@ function releaseAiSseReader(reader: ReadableStreamDefaultReader<Uint8Array>) {
   }
 }
 
-type StreamRecoveryOutcome = 'none' | 'bff-fallback' | 'bff-fallback-failed' | 'error-sse-emitted'
+type StreamRecoveryOutcome =
+  | 'none'
+  | 'bff-fallback'
+  | 'bff-fallback-failed'
+  | 'bff-stream-incomplete'
+  | 'error-sse-emitted'
 
 interface AiSseProxyOptions {
   correlationId: string
@@ -32,140 +37,183 @@ export function wrapAiSseBodyForObservability(
   const startedAt = Date.now()
   let chunkCount = 0
   let byteCount = 0
-  let sawVisibleStreamContent = false
   let streamRecovery: StreamRecoveryOutcome = 'none'
+  const contentScanner = createSseStreamContentScanner()
+
+  const logProxyIssue = (
+    message: string,
+    extra?: Record<string, unknown> & { streamRecovery?: StreamRecoveryOutcome }
+  ) => {
+    apiLogger.warn(message, {
+      route: '/api/ai/chat',
+      correlationId,
+      upstreamStatus,
+      chunkCount,
+      byteCount,
+      totalMs: Date.now() - startedAt,
+      ...(extra?.streamRecovery ? { streamRecovery: extra.streamRecovery } : {}),
+      ...extra,
+    })
+  }
+
+  const enqueueBytes = (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    bytes: Uint8Array[]
+  ) => {
+    for (const chunk of bytes) {
+      chunkCount += 1
+      byteCount += chunk.byteLength
+      controller.enqueue(chunk)
+    }
+  }
+
+  const emitStreamRecoveryMeta = (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    source: 'bff-fallback' | 'bff-fallback-failed' | 'bff-stream-incomplete'
+  ) => {
+    enqueueBytes(controller, encodeStreamRecoveryMetaSseBytes(source))
+  }
+
+  const emitTerminalError = (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    enqueueBytes(controller, encodeStreamFallbackErrorSseBytes())
+    streamRecovery = 'error-sse-emitted'
+    logProxyIssue('[ai.chat] emitted terminal error SSE for client recovery', {
+      streamRecovery,
+    })
+  }
+
+  const attemptNonStreamingFallback = async (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    recoveryContext: 'empty' | 'incomplete' = 'empty'
+  ): Promise<boolean> => {
+    if (!fetchNonStreamingFallback) return false
+
+    streamRecovery = 'bff-fallback'
+    try {
+      const fallbackResponse = await fetchNonStreamingFallback()
+      if (fallbackResponse.ok) {
+        const fallbackPayload = (await fallbackResponse.json()) as TitanChatJsonResponse
+        if (hasVisibleTitanChatPayload(fallbackPayload)) {
+          emitStreamRecoveryMeta(controller, 'bff-fallback')
+          enqueueBytes(controller, encodeTitanChatResponseAsSseBytes(fallbackPayload))
+          logProxyIssue(
+            recoveryContext === 'incomplete'
+              ? '[ai.chat] recovered incomplete SSE via non-streaming chat'
+              : '[ai.chat] recovered empty SSE via non-streaming chat',
+            {
+              streamRecovery: 'bff-fallback',
+            }
+          )
+          return true
+        }
+        streamRecovery = 'bff-fallback-failed'
+        logProxyIssue('[ai.chat] empty SSE non-streaming fallback had no visible payload', {
+          streamRecovery,
+          fallbackStatus: fallbackResponse.status,
+        })
+        return false
+      }
+      streamRecovery = 'bff-fallback-failed'
+      logProxyIssue('[ai.chat] empty SSE non-streaming fallback failed', {
+        streamRecovery,
+        fallbackStatus: fallbackResponse.status,
+      })
+      return false
+    } catch (error) {
+      streamRecovery = 'bff-fallback-failed'
+      logProxyIssue('[ai.chat] empty SSE non-streaming fallback failed', {
+        streamRecovery,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return false
+    }
+  }
+
+  const finalizeStream = async (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    contentScanner.flush()
+    const sawVisibleStreamContent = contentScanner.sawVisibleStreamContent
+    const sawStreamCompletion = contentScanner.sawStreamCompletion
+
+    if (sawVisibleStreamContent && !sawStreamCompletion) {
+      const recovered = await attemptNonStreamingFallback(controller, 'incomplete')
+      if (!recovered) {
+        streamRecovery = 'bff-stream-incomplete'
+        emitStreamRecoveryMeta(controller, 'bff-stream-incomplete')
+        logProxyIssue('[ai.chat] upstream SSE ended incomplete after visible content', {
+          streamRecovery,
+        })
+      }
+    } else if (!sawVisibleStreamContent) {
+      logProxyIssue('[ai.chat] upstream SSE had no visible content', {
+        noVisibleContent: byteCount > 0,
+      })
+
+      const recovered = await attemptNonStreamingFallback(controller)
+      if (!recovered) {
+        if (streamRecovery === 'bff-fallback-failed') {
+          emitStreamRecoveryMeta(controller, 'bff-fallback-failed')
+        }
+        emitTerminalError(controller)
+      }
+    }
+
+    controller.close()
+    releaseAiSseReader(reader)
+  }
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         const { done, value } = await reader.read()
         if (done) {
-          if (!sawVisibleStreamContent) {
-            apiLogger.warn('[ai.chat] upstream SSE had no visible content', {
-              route: '/api/ai/chat',
-              correlationId,
-              upstreamStatus,
-              chunkCount,
-              byteCount,
-              noVisibleContent: byteCount > 0,
-              totalMs: Date.now() - startedAt,
-            })
-
-            if (fetchNonStreamingFallback) {
-              streamRecovery = 'bff-fallback'
-              try {
-                const fallbackResponse = await fetchNonStreamingFallback()
-                if (fallbackResponse.ok) {
-                  const fallbackPayload =
-                    (await fallbackResponse.json()) as TitanChatJsonResponse
-                  if (hasVisibleTitanChatPayload(fallbackPayload)) {
-                    for (const chunk of encodeStreamRecoveryMetaSseBytes('bff-fallback')) {
-                      chunkCount += 1
-                      byteCount += chunk.byteLength
-                      controller.enqueue(chunk)
-                    }
-                    for (const chunk of encodeTitanChatResponseAsSseBytes(fallbackPayload)) {
-                      chunkCount += 1
-                      byteCount += chunk.byteLength
-                      sawVisibleStreamContent = true
-                      controller.enqueue(chunk)
-                    }
-                    apiLogger.warn('[ai.chat] recovered empty SSE via non-streaming chat', {
-                      route: '/api/ai/chat',
-                      correlationId,
-                      upstreamStatus,
-                      streamRecovery: 'bff-fallback',
-                      chunkCount,
-                      byteCount,
-                      totalMs: Date.now() - startedAt,
-                    })
-                  } else {
-                    streamRecovery = 'bff-fallback-failed'
-                    apiLogger.warn('[ai.chat] empty SSE non-streaming fallback had no visible payload', {
-                      route: '/api/ai/chat',
-                      correlationId,
-                      upstreamStatus,
-                      streamRecovery,
-                      fallbackStatus: fallbackResponse.status,
-                      chunkCount,
-                      byteCount,
-                      totalMs: Date.now() - startedAt,
-                    })
-                  }
-                } else {
-                  streamRecovery = 'bff-fallback-failed'
-                  apiLogger.warn('[ai.chat] empty SSE non-streaming fallback failed', {
-                    route: '/api/ai/chat',
-                    correlationId,
-                    upstreamStatus,
-                    streamRecovery,
-                    fallbackStatus: fallbackResponse.status,
-                    chunkCount,
-                    byteCount,
-                    totalMs: Date.now() - startedAt,
-                  })
-                }
-              } catch (error) {
-                streamRecovery = 'bff-fallback-failed'
-                apiLogger.warn('[ai.chat] empty SSE non-streaming fallback failed', {
-                  route: '/api/ai/chat',
-                  correlationId,
-                  upstreamStatus,
-                  streamRecovery,
-                  chunkCount,
-                  byteCount,
-                  totalMs: Date.now() - startedAt,
-                  error: error instanceof Error ? error.message : String(error),
-                })
-              }
-            }
-
-            if (!sawVisibleStreamContent) {
-              if (streamRecovery === 'bff-fallback-failed') {
-                for (const chunk of encodeStreamRecoveryMetaSseBytes('bff-fallback-failed')) {
-                  chunkCount += 1
-                  byteCount += chunk.byteLength
-                  controller.enqueue(chunk)
-                }
-              }
-              for (const chunk of encodeStreamFallbackErrorSseBytes()) {
-                chunkCount += 1
-                byteCount += chunk.byteLength
-                controller.enqueue(chunk)
-              }
-              streamRecovery = 'error-sse-emitted'
-              apiLogger.warn('[ai.chat] emitted terminal error SSE for client recovery', {
-                route: '/api/ai/chat',
-                correlationId,
-                upstreamStatus,
-                streamRecovery,
-                chunkCount,
-                byteCount,
-                totalMs: Date.now() - startedAt,
-              })
-            }
-          }
-          controller.close()
-          releaseAiSseReader(reader)
+          await finalizeStream(controller)
           return
         }
 
         if (value) {
           chunkCount += 1
           byteCount += value.byteLength
-          if (!sawVisibleStreamContent && sseBytesContainVisibleContent(value)) {
-            sawVisibleStreamContent = true
-          }
+          contentScanner.push(value)
           controller.enqueue(value)
         }
       } catch (error) {
-        apiLogger.warn('[ai.chat] SSE proxy stream failed', {
-          route: '/api/ai/chat',
-          correlationId,
-          upstreamStatus,
-          chunkCount,
-          byteCount,
-          totalMs: Date.now() - startedAt,
+        contentScanner.flush()
+        const sawVisibleStreamContent = contentScanner.sawVisibleStreamContent
+        const sawStreamCompletion = contentScanner.sawStreamCompletion
+
+        if (!sawStreamCompletion) {
+          if (sawVisibleStreamContent) {
+            const recovered = await attemptNonStreamingFallback(controller, 'incomplete')
+            if (!recovered) {
+              streamRecovery = 'bff-stream-incomplete'
+              emitStreamRecoveryMeta(controller, 'bff-stream-incomplete')
+              logProxyIssue('[ai.chat] upstream SSE ended incomplete after visible content', {
+                streamRecovery,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            }
+            controller.close()
+            releaseAiSseReader(reader)
+            return
+          }
+
+          logProxyIssue('[ai.chat] upstream SSE had no visible content', {
+            noVisibleContent: byteCount > 0,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          const recovered = await attemptNonStreamingFallback(controller)
+          if (!recovered) {
+            if (streamRecovery === 'bff-fallback-failed') {
+              emitStreamRecoveryMeta(controller, 'bff-fallback-failed')
+            }
+            emitTerminalError(controller)
+          }
+          controller.close()
+          releaseAiSseReader(reader)
+          return
+        }
+
+        logProxyIssue('[ai.chat] SSE proxy stream failed', {
           error: error instanceof Error ? error.message : String(error),
         })
         controller.error(error)
@@ -176,13 +224,7 @@ export function wrapAiSseBodyForObservability(
       try {
         await reader.cancel(reason)
       } catch (error) {
-        apiLogger.warn('[ai.chat] SSE proxy cancel failed', {
-          route: '/api/ai/chat',
-          correlationId,
-          upstreamStatus,
-          chunkCount,
-          byteCount,
-          totalMs: Date.now() - startedAt,
+        logProxyIssue('[ai.chat] SSE proxy cancel failed', {
           error: error instanceof Error ? error.message : String(error),
         })
       } finally {

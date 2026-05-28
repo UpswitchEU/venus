@@ -18,7 +18,8 @@ import type { ValuationResponse } from '../../../types/valuation'
 import { getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../../utils/logger'
 import type { ManualStarterPaywallReason } from '../components/ManualStarterPaywallModal'
-import { deriveManualReportPresentation } from '../components/manualReportPresentation'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
+import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
 import {
   getManualHydratedValuationResults,
   getManualModalEditPersistToast,
@@ -126,7 +127,11 @@ export function useManualMethodPersistenceController({
     const rawVal = methodData?.value
     const n = rawVal == null ? NaN : Number(rawVal)
     if (!methodData?.available || !Number.isFinite(n)) return
-    const presentation = deriveManualReportPresentation(result, selectedMethod)
+    const { preSelectedMethods, userWeights } = useManualResultsStore.getState()
+    const presentation = resolveSynthesisAwarePresentation(result, selectedMethod, {
+      preSelectedMethods,
+      userWeights,
+    })
 
     setReport((prev) =>
       prev

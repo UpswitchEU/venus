@@ -685,7 +685,8 @@ export function buildValuationRequest(
     formData.recurring_revenue_percentage != null &&
     Number.isFinite(formData.recurring_revenue_percentage)
   ) {
-    recurringRevenueInput = formData.recurring_revenue_percentage
+    const rawPct = formData.recurring_revenue_percentage
+    recurringRevenueInput = rawPct > 1 ? rawPct / 100 : rawPct
   } else if (
     formData.rev_recurring_amount != null &&
     Number.isFinite(formData.rev_recurring_amount) &&

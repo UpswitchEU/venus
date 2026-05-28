@@ -33,6 +33,7 @@ import { generalLogger } from '../../../utils/logger'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
+import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import {
   areChangesSignificant,
@@ -462,12 +463,11 @@ export const useValuationFormSubmission = (
               useSessionStore.getState().markSaved(saveStartDirtyVersion)
               durableSaveSucceeded = true
             } catch (saveError) {
-              const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
               generalLogger.error('[Manual] Failed to save complete report package', {
                 reportId,
-                error: errMsg,
+                error: saveError instanceof Error ? saveError.message : String(saveError),
               })
-              toast.error(tReport('saveReportFailed'), { description: errMsg })
+              toastSaveFailure(saveError, tReport)
             }
           } else {
             generalLogger.debug('[Manual] No reportId, skipping save')
@@ -592,10 +592,10 @@ export const useValuationFormSubmission = (
           rawMsg.toLowerCase().includes('timeout')
         const isValidationError = error instanceof ValidationError
         const userMessage = isNetworkError
-          ? 'The valuation service is temporarily unavailable. Please try again in a moment.'
+          ? t('serviceUnavailable')
           : isValidationError
             ? rawMsg
-            : 'The valuation could not be completed. Please review your inputs and try again.'
+            : t('calculationFailedReview')
 
         toast.error(userMessage, { duration: 6000 })
         setEmployeeCountError(isValidationError ? rawMsg : null)

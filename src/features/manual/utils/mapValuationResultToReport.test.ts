@@ -157,6 +157,42 @@ describe('mapValuationResultToReport', () => {
   })
 
   describe('multipleRange', () => {
+    it('uses Waarderingssynthese headline when clientBlendedValue is supplied', () => {
+      const report = mapValuationResultToReport({
+        result: {
+          valuation_results: {
+            upswitch_adaptive: { available: true, value: 384_000, details: {} },
+          },
+        } as ValuationResponse,
+        selectedMethod: 'upswitch_adaptive',
+        reportId: 'r1',
+        canDownloadPdf: false,
+        tReport: translate,
+        clientBlendedValue: 567_771,
+      })
+
+      expect(report.valuation).toBe(567_771)
+    })
+
+    it('sets recommendedAskingPrice to synthesis headline when weighted_valuation is present', () => {
+      const report = mapValuationResultToReport({
+        result: {
+          recommended_asking_price: 384_000,
+          weighted_valuation: { blended_equity_value: 567_771 },
+          valuation_results: {
+            upswitch_adaptive: { available: true, value: 384_000, details: {} },
+          },
+        } as ValuationResponse,
+        selectedMethod: 'upswitch_adaptive',
+        reportId: 'r1',
+        canDownloadPdf: false,
+        tReport: translate,
+      })
+
+      expect(report.valuation).toBe(567_771)
+      expect(report.recommendedAskingPrice).toBe(567_771)
+    })
+
     it('uses presentation.multipleRange when present (via deriveManualReportPresentation)', () => {
       const report = mapValuationResultToReport({
         result: makeResult({

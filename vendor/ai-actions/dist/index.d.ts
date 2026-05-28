@@ -79,6 +79,16 @@ export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
  * the discriminant above.
  */
 export declare const AI_STREAM_KEEPALIVE_CHUNK_JSON = "{\"type\":\"_keepalive\"}";
+/**
+ * BFF → Titan request header for stream-turn recovery. Set only by Mercury/Venus
+ * BFF on trusted recovery paths — Titan ignores recovery flags in the JSON body
+ * and requires this header plus a matching persisted user turn.
+ */
+export declare const AI_STREAM_TURN_RECOVERY_HEADER = "X-Ai-Stream-Recovery";
+export declare const AI_STREAM_TURN_RECOVERY_HEADER_VALUE = "1";
+type AiStreamTurnRecoveryHeaderBag = Record<string, string | string[] | undefined> | null | undefined;
+export declare function readAiStreamTurnRecoveryHeader(headers: AiStreamTurnRecoveryHeaderBag): boolean;
+export declare function withAiStreamTurnRecoveryHeader(headers: Record<string, string>, enabled?: boolean): Record<string, string>;
 export interface AiToolResultEnvelope<TType extends AiToolResultEnvelopeType = AiToolResultEnvelopeType> {
     type: TType;
     toolName?: AiActionToolName | string;
@@ -126,9 +136,10 @@ export type AiStreamChunk = {
     type: '_keepalive';
 } | {
     type: 'stream_recovery';
-    source: 'bff-fallback' | 'bff-fallback-failed';
+    source: 'bff-fallback' | 'bff-fallback-failed' | 'bff-stream-incomplete';
 };
 export declare function isAiActionToolName(value: unknown): value is AiActionToolName;
 export declare function isAiActionToolResultType(value: unknown): value is AiActionToolResultType;
 export declare function classifyAiActionToolResultType(toolName: string): AiToolResultEnvelopeType;
+export {};
 //# sourceMappingURL=index.d.ts.map

@@ -98,4 +98,23 @@ describe('HttpClient valuation result transport guard', () => {
       equity_value_mid: 900000,
     })
   })
+
+  it('passes extended timeout to axios for long-running valuation operations', async () => {
+    const requests: AxiosRequestConfig[] = []
+    client.setRequestStub(async (config) => {
+      requests.push(config)
+      return { status: 200, data: { success: true } }
+    })
+
+    await client.request(
+      {
+        method: 'PUT',
+        url: '/api/v2/valuations/sessions/val_slow/result',
+        data: { htmlReport: '<html>slow</html>' },
+      },
+      { timeout: 120_000, retry: { maxRetries: 0 } }
+    )
+
+    expect(requests[0].timeout).toBe(120_000)
+  })
 })

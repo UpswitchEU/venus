@@ -13,6 +13,8 @@ const translations: Record<string, string> = {
   'fields.dcfTaxShieldPct': 'Tax shield (%)',
   'waccBreakdown.expand': 'Show inputs',
   'waccBreakdown.collapse': 'Hide inputs',
+  'waccBreakdown.manualOverride':
+    'WACC {wacc}% — manual / sector median (CAPM build-up below differs)',
 }
 
 vi.mock('next-intl', () => ({
@@ -74,6 +76,23 @@ describe('WaccBreakdownPanel', () => {
     expect(handleFieldChange).toHaveBeenCalledWith('dcf_wacc_pct', 7.3)
     expect(screen.getByLabelText('WACC (%)')).toHaveValue('7.3')
     expect(screen.getByLabelText('WACC (%)')).toHaveAttribute('readonly')
+  })
+
+  it('shows manual override message when headline WACC diverges from CAPM chip', () => {
+    render(
+      <WaccBreakdownPanel
+        currentWaccPct={10.5}
+        riskFreeRatePct={3}
+        equityRiskPremiumPct={5.5}
+        beta={1.1}
+        costOfDebtPct={4.5}
+        debtEquityPct={30}
+        taxShieldPct={25}
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/manual \/ sector median/i)).toBeInTheDocument()
   })
 
   it('toggle button text switches between expand and collapse', () => {

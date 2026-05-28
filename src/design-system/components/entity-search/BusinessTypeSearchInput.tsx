@@ -6,6 +6,7 @@ import { Building2, Check, ChevronDown, Loader2, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { looksLikeNaceCode, naceBusinessTypeService } from '@/services/naceBusinessTypeService'
 import { cn, safeString } from '../../utils'
 import { categoryEmojis, defaultBusinessTypes } from './BusinessTypeData'
@@ -287,6 +288,19 @@ export const BusinessTypeSearchInput = React.forwardRef<
       }
     }
 
+    React.useEffect(() => {
+      if (focusedIndex < 0 || !dropdownRef.current) return
+      const type = combinedFilteredTypes[focusedIndex]
+      if (!type) return
+      const focusedEl = dropdownRef.current.querySelector(`#biztype-option-${type.id}`)
+      if (focusedEl instanceof HTMLElement) {
+        scrollElementIntoContainer(focusedEl, dropdownRef.current, {
+          block: 'nearest',
+          behavior: 'auto',
+        })
+      }
+    }, [focusedIndex, combinedFilteredTypes])
+
     const handleClear = (e: React.MouseEvent) => {
       e.stopPropagation()
       onChange('')
@@ -474,11 +488,6 @@ export const BusinessTypeSearchInput = React.forwardRef<
                     key={type.id}
                     id={`biztype-option-${type.id}`}
                     type="button"
-                    ref={
-                      index === focusedIndex
-                        ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
-                        : undefined
-                    }
                     onClick={() => handleSelect(type)}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',

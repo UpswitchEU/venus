@@ -15,12 +15,14 @@
  *   - Close button fires `onOpenChange(false)`
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const aiConsentMocks = vi.hoisted(() => ({
   grant: vi.fn(),
 }))
+
+const useScrollLockMock = vi.hoisted(() => vi.fn())
 
 // Mock heavy presentation deps so the drawer can mount fast in jsdom.
 vi.mock('next-intl', () => ({
@@ -67,7 +69,12 @@ vi.mock('framer-motion', () => {
 vi.mock('@/design-system/components/motion', () => ({ springDefault: {} }))
 
 vi.mock('@/hooks/useScrollLock', () => ({
-  useScrollLock: () => undefined,
+  MANUAL_LAYOUT_SCROLL_SELECTOR: '[data-manual-layout-scroll]',
+  useScrollLock: (...args: unknown[]) => useScrollLockMock(...args),
+}))
+
+vi.mock('@/hooks/useVisualViewportDrawerInsets', () => ({
+  useVisualViewportDrawerInsets: () => null,
 }))
 
 vi.mock('@/lib/analytics', () => ({
@@ -128,9 +135,7 @@ beforeEach(() => {
   onOpenChange = vi.fn()
   aiConsentMocks.grant.mockReset()
   aiConsentMocks.grant.mockResolvedValue(true)
-  // jsdom doesn't implement scrollIntoView; the drawer uses it for
-  // message-list auto-scroll on render.
-  Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView']
+  useScrollLockMock.mockReset()
 })
 
 afterEach(() => {
@@ -313,7 +318,7 @@ describe('message rendering', () => {
     expect(screen.queryByText('emptyBody')).not.toBeInTheDocument()
   })
 
-  it('scrolls again when a streamed assistant message receives content', () => {
+  it('does not call scrollIntoView when messages update (avoids document viewport jump)', async () => {
     const scrollIntoView = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoView as unknown as Element['scrollIntoView']
 
@@ -321,22 +326,25 @@ describe('message rendering', () => {
       <ChatAssistantDrawer
         open={true}
         onOpenChange={onOpenChange}
-        messages={[makeAssistantMessage('', 'streaming')]}
+        messages={[makeUserMessage('hello'), makeAssistantMessage('', 'streaming')]}
         onSendMessage={onSendMessage}
       />
     )
 
     scrollIntoView.mockClear()
-    rerender(
-      <ChatAssistantDrawer
-        open={true}
-        onOpenChange={onOpenChange}
-        messages={[makeAssistantMessage('streamed answer', 'streaming')]}
-        onSendMessage={onSendMessage}
-      />
-    )
 
-    expect(scrollIntoView).toHaveBeenCalled()
+    await act(async () => {
+      rerender(
+        <ChatAssistantDrawer
+          open={true}
+          onOpenChange={onOpenChange}
+          messages={[makeUserMessage('hello'), makeAssistantMessage('streamed answer', 'streaming')]}
+          onSendMessage={onSendMessage}
+        />
+      )
+    })
+
+    expect(scrollIntoView).not.toHaveBeenCalled()
   })
 
   it('opens the AI consent modal and retries the blocked turn after consent', async () => {
@@ -462,6 +470,52 @@ describe('input + send', () => {
     fireEvent.click(sendButton)
 
     expect(onSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('inserts starter chip text into the textarea without auto-sending', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        hasReport={true}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    const chip = screen.getByTestId('assistant-starter-chips').querySelector('button')
+    expect(chip).toBeTruthy()
+    fireEvent.click(chip!)
+
+    const textarea = screen.getByLabelText('chatInput') as HTMLTextAreaElement
+    expect(textarea.value).toBe('suggestions.explainValue ')
+    expect(onSendMessage).not.toHaveBeenCalled()
+  })
+
+  it('enables scroll lock only when lockScroll is true', () => {
+    const { rerender } = render(
+      <ChatAssistantDrawer
+        open={true}
+        lockScroll={false}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(useScrollLockMock).toHaveBeenCalledWith(false, undefined)
+
+    rerender(
+      <ChatAssistantDrawer
+        open={true}
+        lockScroll={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(useScrollLockMock).toHaveBeenCalledWith(true, '[data-manual-layout-scroll]')
   })
 })
 

@@ -6,6 +6,7 @@ import { Building2, Check, Loader2, Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { cn, safeString } from '../../utils'
@@ -235,6 +236,19 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
+
+    React.useEffect(() => {
+      if (focusedIndex < 0 || !dropdownRef.current) return
+      const company = results[focusedIndex]
+      if (!company) return
+      const focusedEl = dropdownRef.current.querySelector(`#kbo-option-${company.id}`)
+      if (focusedEl instanceof HTMLElement) {
+        scrollElementIntoContainer(focusedEl, dropdownRef.current, {
+          block: 'nearest',
+          behavior: 'auto',
+        })
+      }
+    }, [focusedIndex, results])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (!showDropdown) return
@@ -495,11 +509,6 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     key={company.id}
                     id={`kbo-option-${company.id}`}
                     type="button"
-                    ref={
-                      index === focusedIndex
-                        ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
-                        : undefined
-                    }
                     onClick={() => handleSelect(company)}
                     className={cn(
                       'w-full flex items-start gap-3 px-3 py-3 text-left transition-colors',

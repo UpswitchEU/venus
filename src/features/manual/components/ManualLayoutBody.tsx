@@ -23,7 +23,7 @@ export function ManualLayoutBody({
   if (isMobile) {
     return (
       <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto" data-manual-layout-scroll>
           <StartupAwareInputPanel key={reportId} {...manualInputProps} />
         </div>
       </div>
@@ -35,7 +35,7 @@ export function ManualLayoutBody({
       <ResizablePanelGroup className="h-full w-full">
         <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
           <div className="h-full flex flex-col min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto" data-manual-layout-scroll>
               <StartupAwareInputPanel key={reportId} {...manualInputProps} />
             </div>
           </div>

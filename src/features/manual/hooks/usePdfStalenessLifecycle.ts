@@ -34,6 +34,10 @@ import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResult
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
 import { getRenderableReportHtmlFromCurrentOrFallback } from '@/utils/safetyNetReportHtml'
+import {
+  resolveSynthesisAwarePresentation,
+  shouldAlignRecommendedAskingWithSynthesis,
+} from '../components/manualReportPresentation'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
 
@@ -123,7 +127,22 @@ function mergePolledResultWithExisting(
 function reportPatchFromFreshResponse(
   fresh: ValuationResponse,
   canDownloadPdf: boolean
-): Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'> {
+): Pick<
+  ValuationReportData,
+  | 'reportUpdatedAt'
+  | 'pdfGeneratedAt'
+  | 'pdfUrl'
+  | 'valuation'
+  | 'valuationLow'
+  | 'valuationHigh'
+  | 'recommendedAskingPrice'
+> {
+  const storeSnap = useManualResultsStore.getState()
+  const presentation = resolveSynthesisAwarePresentation(fresh, storeSnap.selectedMethod, {
+    preSelectedMethods: storeSnap.preSelectedMethods,
+    userWeights: storeSnap.userWeights,
+  })
+
   return {
     reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : undefined,
     pdfGeneratedAt:
@@ -131,6 +150,15 @@ function reportPatchFromFreshResponse(
         ? new Date(String(fresh.pdf_generated_at))
         : null,
     pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+    valuation: presentation.valuation,
+    valuationLow: presentation.valuationLow,
+    valuationHigh: presentation.valuationHigh,
+    ...(shouldAlignRecommendedAskingWithSynthesis(fresh, {
+      preSelectedMethods: storeSnap.preSelectedMethods,
+      userWeights: storeSnap.userWeights,
+    })
+      ? { recommendedAskingPrice: presentation.valuation }
+      : {}),
   }
 }
 

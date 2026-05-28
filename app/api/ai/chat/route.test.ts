@@ -248,6 +248,31 @@ describe('stream routing', () => {
     expect((init.headers as Record<string, string>).Accept).toBe('application/json')
   })
 
+  it('forwards X-Ai-Stream-Recovery to Titan for FE non-stream recovery without body flag', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(titanJsonResponse(200, { success: true, content: 'recovered' }))
+    )
+
+    await POST(
+      request({
+        message: 'Voeg Decostere toe',
+        stream: false,
+        recoverFromStreamTurn: true,
+        conversationId: 'conv-recovery',
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const headers = init.headers as Record<string, string>
+    const body = JSON.parse(String(init.body))
+    expect(headers['X-Ai-Stream-Recovery']).toBe('1')
+    expect(body).not.toHaveProperty('recoverFromStreamTurn')
+  })
+
   it('uses the local Titan URL for localhost Venus requests when no explicit env is set', async () => {
     await POST(request({ message: 'hi' }, {}, 'http://localhost:3001/api/ai/chat'))
 
@@ -719,10 +744,14 @@ describe('response shape', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/v2/ai/stream')
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/api/v2/ai/chat')
-    expect(
-      (fetchMock.mock.calls[1]?.[1] as { headers?: Record<string, string> } | undefined)
-        ?.headers?.Accept
-    ).toBe('application/json')
+    const fallbackInit = fetchMock.mock.calls[1]?.[1] as
+      | { headers?: Record<string, string>; body?: string }
+      | undefined
+    expect(fallbackInit?.headers?.Accept).toBe('application/json')
+    expect(fallbackInit?.headers?.['X-Ai-Stream-Recovery']).toBe('1')
+    expect(JSON.parse(fallbackInit?.body ?? '{}')).not.toHaveProperty(
+      'recoverFromStreamTurn'
+    )
     expect(text).toContain('Welk bedrijf wil je toevoegen?')
     expect(text).toContain('"type":"stream_recovery"')
     expect(mocks.apiLogger.warn).toHaveBeenCalledWith(

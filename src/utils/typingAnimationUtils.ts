@@ -113,17 +113,14 @@ export const getContentSpeed = (
   return config.normal
 }
 
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
+
 /**
  * Smooth scroll to element during typing
  */
 export const smoothScrollToElement = (element: HTMLElement | null) => {
   if (!element) return
-
-  element.scrollIntoView({
-    behavior: 'smooth',
-    block: 'end',
-    inline: 'nearest',
-  })
+  scrollElementIntoManualLayout(element, { behavior: 'smooth', block: 'end' })
 }
 
 /**

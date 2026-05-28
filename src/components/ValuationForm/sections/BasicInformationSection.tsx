@@ -26,6 +26,8 @@ import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
+import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
+import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
 import { buildBusinessTypeFormData } from '../utils/businessTypeFormData'
 
 interface BasicInformationSectionProps {
@@ -85,6 +87,19 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     formData.country_code ||
     getStringValue(formData.business_context, 'country_code') ||
     'BE'
+
+  const sectorMismatchFromNace = useSectorMismatchWarning({
+    business_type_id: formData.business_type_id,
+    nace_code:
+      selectedCompany?.nace_code ||
+      selectedCompany?.activity_code ||
+      selectedCompany?.canonical_nace_code ||
+      formData.nace_code,
+    activity_code: formData.activity_code,
+    canonical_nace_code: formData.canonical_nace_code,
+    country_code: effectiveCountryCode,
+    industry: formData.industry,
+  })
 
   // Construct initial selected company from stored KBO data if available
   // This allows the company summary card to show when restoring a previously verified company
@@ -251,12 +266,15 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         business_context: updatedBusinessContext,
       }
 
-      // Pre-populate business_type_id from Titan's server-side enrichment
-      // (resolved from NACE/SBI in the sector DB). Avoids the user having to
-      // pick the sector manually after KBO/KVK selection. Only set when the
-      // form doesn't already have a value — never overwrite a user choice.
+      // Pre-populate business type from Titan enrichment (NACE/SBI). Only when
+      // the form has no type yet — never overwrite a manual choice.
       if (selectedCompany.business_type_id && !currentFormData.business_type_id) {
-        updates.business_type_id = selectedCompany.business_type_id
+        const enriched = await fetchBusinessTypeById(selectedCompany.business_type_id)
+        if (enriched) {
+          Object.assign(updates, buildBusinessTypeFormData(enriched))
+        } else {
+          updates.business_type_id = selectedCompany.business_type_id
+        }
       }
 
       // Fetch financial data if available
@@ -317,6 +335,18 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
   return (
     <AuroraFormSection title={t('forms.sections.basicInformation')}>
+      {sectorMismatchFromNace && (
+        <AuroraFullWidthField>
+          <AuroraFormAlert type="warning">
+            {t('forms.warnings.sectorMismatch', {
+              naceType: sectorMismatchFromNace.naceTypeTitle,
+              selected:
+                businessTypes.find((bt) => bt.id === formData.business_type_id)?.title ??
+                sectorMismatchFromNace.selectedTitle,
+            })}
+          </AuroraFormAlert>
+        </AuroraFullWidthField>
+      )}
       <AuroraFormGrid columns={2}>
         {/* Business Type Selector - replaces Industry, Sub-Industry, and Business Model */}
         {/* MOVED TO TOP: Aligns with AI-guided flow & enables intelligent triage from question 1 */}

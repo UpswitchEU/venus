@@ -221,13 +221,14 @@ class BackendAPI {
 
   async updateValuationSession(
     reportId: string,
-    updates: Partial<ValuationSession>
+    updates: Partial<ValuationSession>,
+    options?: APIRequestConfig
   ): Promise<UpdateValuationSessionResponse> {
     const request: UpdateValuationSessionRequest = {
       reportId,
       updates,
     }
-    return this.sessionAPI.updateValuationSession(reportId, request)
+    return this.sessionAPI.updateValuationSession(reportId, request, options)
   }
 
   async switchValuationView(

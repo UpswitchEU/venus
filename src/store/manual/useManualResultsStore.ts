@@ -28,6 +28,7 @@ import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
 } from '../../utils/extractValuationResultsMap'
+import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { storeLogger } from '../../utils/logger'
 import {
   getFirstRenderableReportHtml,
@@ -247,9 +248,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
+        const normalizedResult = normalizeValuationResultEnvelope(result)
         const selectedForCtx =
-          resolveSelectedValuationMethodForExtraction(result) ?? result.selected_valuation_method
-        const hydratedValuationResults = hydrateClientValuationResultsMap(result)
+          resolveSelectedValuationMethodForExtraction(normalizedResult) ??
+          normalizedResult.selected_valuation_method
+        const hydratedValuationResults = hydrateClientValuationResultsMap(normalizedResult)
         const hydratedMethodFromPayload =
           typeof selectedForCtx === 'string' && selectedForCtx.trim() ? selectedForCtx.trim() : null
         const hydratedSelectedMethod =
@@ -267,7 +270,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
                   ? Object.keys(hydratedValuationResults)[0]
                   : state.selectedMethod
 
-        const resultWithLegacyAliases = result as ValuationResponse & {
+        const resultWithLegacyAliases = normalizedResult as ValuationResponse & {
           htmlReport?: string | null
           details?: { html_report?: string | null }
         }
@@ -285,17 +288,17 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         )
 
         storeLogger.info('[Manual] Valuation result set', {
-          valuationId: result.valuation_id,
+          valuationId: normalizedResult.valuation_id,
           hasHtmlReport: !!renderableHtmlReport,
-          htmlReportLength: result.html_report?.length || 0,
+          htmlReportLength: normalizedResult.html_report?.length || 0,
           selectedMethod: hydratedSelectedMethod,
         })
 
         // Warn if html_report is missing
         if (!renderableHtmlReport) {
           storeLogger.error('[Manual] CRITICAL: renderable html_report missing or empty', {
-            valuationId: result.valuation_id,
-            resultKeys: Object.keys(result),
+            valuationId: normalizedResult.valuation_id,
+            resultKeys: Object.keys(normalizedResult),
           })
         }
 
@@ -306,11 +309,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
             const session = useSessionStore.getState().session
             if (session) {
               useSessionStore.getState().updateSession({
-                valuationResult: result,
+                valuationResult: normalizedResult,
                 htmlReport: renderableHtmlReport,
               })
               storeLogger.debug('[Manual] Session cache updated optimistically', {
-                valuationId: result.valuation_id,
+                valuationId: normalizedResult.valuation_id,
               })
             }
           }
@@ -324,7 +327,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         const keepSessionMulti =
           state.preSelectedMethods.length > 1 &&
           !state.preSelectedMethods.includes('upswitch_adaptive')
-        const blendHydration = hydrateBlendFromWeightedValuation(result)
+        const blendHydration = hydrateBlendFromWeightedValuation(normalizedResult)
 
         let nextPreSelectedMethods: string[]
         let nextUserWeights: Record<string, number>
@@ -355,7 +358,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
         return {
           ...state,
-          result,
+          result: normalizedResult,
           htmlReport: renderableHtmlReport || null,
           selectedMethod: nextSelectedMethod,
           preSelectedMethod: nextPreSelectedMethodSlot,

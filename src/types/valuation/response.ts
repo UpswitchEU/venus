@@ -65,6 +65,9 @@ export interface ValuationResponse {
   // Validation warnings (from backend sanity checks)
   validation_warnings?: ValidationWarning[]
 
+  /** Academic guardrail failures (e.g. WACC range) — also rendered on report disclaimers page. */
+  academic_validation_issues?: string[]
+
   // Transparency data
   transparency?: TransparencyData
 

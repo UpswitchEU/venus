@@ -23,9 +23,11 @@ export interface ChunkDispatchCallbacks {
   onText?: (text: string) => void
   onToolStart?: (toolName: string) => void
   onToolResult?: (toolName: string, result: unknown) => void
-  onDone?: (conversationId?: string) => void
+  onDone?: (conversationId?: string, meta?: { incomplete?: boolean }) => void
   onError?: (error: string) => void
-  onBffStreamRecovery?: (source: 'bff-fallback' | 'bff-fallback-failed') => void
+  onBffStreamRecovery?: (
+    source: 'bff-fallback' | 'bff-fallback-failed' | 'bff-stream-incomplete'
+  ) => void
 }
 
 /**
@@ -67,7 +69,8 @@ export function dispatchAIChatChunk(
       callbacks.onDone?.(
         typeof c.conversationId === 'string' && c.conversationId.length > 0
           ? c.conversationId
-          : state.resolvedConversationId || undefined
+          : state.resolvedConversationId || undefined,
+        { incomplete: false }
       )
       break
     case 'error':
@@ -81,7 +84,11 @@ export function dispatchAIChatChunk(
       // never becomes visible content or a terminal event in the chat UI.
       break
     case 'stream_recovery':
-      if (c.source === 'bff-fallback' || c.source === 'bff-fallback-failed') {
+      if (
+        c.source === 'bff-fallback' ||
+        c.source === 'bff-fallback-failed' ||
+        c.source === 'bff-stream-incomplete'
+      ) {
         callbacks.onBffStreamRecovery?.(c.source)
       }
       break

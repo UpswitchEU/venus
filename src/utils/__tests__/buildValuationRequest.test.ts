@@ -136,6 +136,7 @@ describe('buildValuationRequest', () => {
         dcf_wacc_pct: 10.5,
         dcf_terminal_growth_pct: 1.5,
         dcf_input_mode: 'ebitda',
+        user_weights: { dcf: 70, ebitda_multiple: 30 },
       }),
       []
     )

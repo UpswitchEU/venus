@@ -27,6 +27,27 @@ describe('shouldAttemptManualChatNonStreamingRecovery', () => {
     ).toBe(false)
   })
 
+  it('allows recovery after BFF partial stream signal', () => {
+    expect(
+      shouldAttemptManualChatNonStreamingRecovery({
+        nonStreamingRecoveryStarted: false,
+        didObserveToolActivity: false,
+        bffStreamRecoverySource: 'bff-stream-incomplete',
+      })
+    ).toBe(true)
+  })
+
+  it('allows recovery when the stream ended without completion even after tool activity', () => {
+    expect(
+      shouldAttemptManualChatNonStreamingRecovery({
+        nonStreamingRecoveryStarted: false,
+        didObserveToolActivity: true,
+        bffStreamRecoverySource: null,
+        streamEndedWithoutCompletion: true,
+      })
+    ).toBe(true)
+  })
+
   it('skips recovery after tool activity or when already started', () => {
     expect(
       shouldAttemptManualChatNonStreamingRecovery({
@@ -62,7 +83,11 @@ describe('requestManualChatNonStreamingRecovery', () => {
     })
 
     expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Leg de waarde uit', stream: false })
+      expect.objectContaining({
+        message: 'Leg de waarde uit',
+        stream: false,
+        recoverFromStreamTurn: true,
+      })
     )
     expect(outcome).toMatchObject({
       status: 'recovered',

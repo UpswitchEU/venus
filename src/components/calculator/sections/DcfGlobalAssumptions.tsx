@@ -18,6 +18,7 @@ import {
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
 } from './dcfEngineDefaults'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
+import { AcademicValidationNotice } from './AcademicValidationNotice'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
@@ -135,6 +136,7 @@ export function DcfGlobalAssumptions({
   waccSectorBand,
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
+  const tManual = useTranslations('manualInput')
   // Collapsed by default — the four FCFF drivers (CapEx, D&A, ΔNWC, tax) are
   // shown in the summary line and are typically left on sector defaults. Keeping
   // them open by default greets the user with six percent inputs and reads as overload.
@@ -413,8 +415,8 @@ export function DcfGlobalAssumptions({
             />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               {dcfInputMode === 'fcff_only'
-                ? t('dcfInputMode.fcffOnlyHint')
-                : t('dcfInputMode.ebitdaHint')}
+                ? tManual('dcfInputMode.fcffOnlyHint')
+                : tManual('dcfInputMode.ebitdaHint')}
             </p>
           </div>
         )}
@@ -562,6 +564,7 @@ export function DcfGlobalAssumptions({
                 disabled={disabled}
                 sectorBand={waccSectorBand}
               />
+              <AcademicValidationNotice />
             </div>
           </div>
 

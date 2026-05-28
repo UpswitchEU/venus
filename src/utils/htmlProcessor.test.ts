@@ -128,6 +128,31 @@ describe('HTMLProcessor', () => {
     expect(sanitized).toContain('hsl(')
   })
 
+  it('preserves page-header meta row structure (chip + ref on one row)', () => {
+    const sanitized = HTMLProcessor.sanitize(
+      `<style>
+        .page-header-meta-row { display: flex; flex-wrap: nowrap; }
+        .page-header-method { white-space: nowrap; }
+      </style>
+      <div class="page-header">
+        <div class="page-header-meta">
+          <div class="page-header-meta-row">
+            <span class="page-header-method">Upswitch Adaptive · Marktbenadering</span>
+            <p class="page-header-ref">VAL-2026-EEC8</p>
+          </div>
+          <p class="page-header-date">28 mei 2026</p>
+        </div>
+      </div>`
+    )
+
+    expect(sanitized).toContain('class="page-header-meta-row"')
+    expect(sanitized).toContain('class="page-header-method"')
+    expect(sanitized).toContain('class="page-header-ref"')
+    expect(sanitized).toContain('Upswitch Adaptive · Marktbenadering')
+    expect(sanitized).toContain('VAL-2026-EEC8')
+    expect(sanitized).toContain('.page-header-meta-row { display: flex')
+  })
+
   it('preserves the cover-page SVG logo (path/fill/d/viewBox)', () => {
     // The cover page embeds an Upswitch wordmark as inline SVG. DOMPurify must
     // keep <svg>/<path>/<g> + viewBox/fill/d attributes — the user's pasted

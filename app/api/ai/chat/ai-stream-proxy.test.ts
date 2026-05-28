@@ -107,4 +107,65 @@ describe('wrapAiSseBodyForObservability', () => {
     expect(text).toContain('AI stream fallback failed')
     expect(text).not.toContain('Recovered after invisible stream')
   })
+
+  it('recovers incomplete streams via non-streaming chat when the fallback hook succeeds', async () => {
+    mockFetchNonStreamingFallback.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          content: 'KBO-resultaat voor Decostere',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"type":"text","content":"Partial announcement"}\n\n'
+          )
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-incomplete-recovered',
+      upstreamStatus: 200,
+      fetchNonStreamingFallback: mockFetchNonStreamingFallback,
+    })
+
+    const text = await readResponseText(wrapped)
+    expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
+    expect(text).toContain('Partial announcement')
+    expect(text).toContain('bff-fallback')
+    expect(text).toContain('KBO-resultaat voor Decostere')
+    expect(text).not.toContain('bff-stream-incomplete')
+  })
+
+  it('emits bff-stream-incomplete when visible content arrives without done and fallback fails', async () => {
+    mockFetchNonStreamingFallback.mockResolvedValue(new Response(null, { status: 503 }))
+
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'data: {"type":"text","content":"Partial announcement"}\n\n'
+          )
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-incomplete',
+      upstreamStatus: 200,
+      fetchNonStreamingFallback: mockFetchNonStreamingFallback,
+    })
+
+    const text = await readResponseText(wrapped)
+    expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
+    expect(text).toContain('bff-stream-incomplete')
+  })
 })

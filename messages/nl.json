@@ -324,6 +324,9 @@
 			"operations": "Operaties",
 			"assets": "Activa & Passiva"
 		},
+		"warnings": {
+			"sectorMismatch": "KBO/NACE-activiteit wijst op «{naceType}», maar u koos «{selected}». Benchmarks, WACC-band en margecontroles volgen uw keuze — stem het bedrijfstype af vóór externe verspreiding."
+		},
 		"fields": {
 			"businessType": "Bedrijfstype",
 			"industry": "Sector",
@@ -592,6 +595,8 @@
 	},
 	"report": {
 		"saveReportFailed": "Rapport opslaan mislukt. Probeer het opnieuw.",
+		"saveStillInProgress": "Waardering berekend — opslaan duurt langer dan verwacht",
+		"saveStillInProgressDesc": "De berekening is gelukt, maar het opslaan van het rapport duurt nog. Wacht even en probeer opnieuw te berekenen als het rapport niet verschijnt.",
 		"deleteReportFailed": "Rapport verwijderen mislukt. Probeer het opnieuw.",
 		"saveStatus": {
 			"saving": "Opslaan...",
@@ -1124,6 +1129,10 @@
 		}
 	},
 	"manualInput": {
+		"academicValidation": {
+			"title": "Academische kruiscontrole",
+			"footnote": "Deze punten staan ook op de disclaimerpagina van het rapport. Los op of documenteer vóór externe verspreiding."
+		},
 		"audit": {
 			"titleFor": "{method} — audit trail"
 		},
@@ -2040,6 +2049,7 @@
 				"sectorBand": "Sectorbandbreedte: {min}%–{max}% (mediaan {median}%, {sector})",
 				"sectorBandSource": "Damodaran 2026, EU SMB-cohort",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
+				"manualOverride": "WACC {wacc}% — handmatig / sector mediaan (CAPM-opbouw hieronder wijkt af)",
 				"outOfBandHigh": "Boven de sectorbandbreedte — laat reviewer dit aftekenen.",
 				"outOfBandLow": "Onder de sectorbandbreedte — laat reviewer dit aftekenen."
 			},
@@ -2098,6 +2108,8 @@
 		"financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
 		"calculationFailed": "Berekening mislukt",
 		"calculationFailedNoResult": "Geen resultaat ontvangen.",
+		"serviceUnavailable": "De waarderingsservice is tijdelijk niet beschikbaar. Probeer het over een ogenblik opnieuw.",
+		"calculationFailedReview": "De waardering kon niet worden voltooid. Controleer uw invoer en probeer het opnieuw.",
 		"calculationComplete": "Indicatieve bedrijfsschatting voltooid",
 		"synthesisBlendSkippedTitle": "Gewogen waardering niet beschikbaar",
 		"synthesisBlendSkippedDesc": "{method} leverde geen waarde voor de synthese: {reason}. Pas invoer of weging aan en bereken opnieuw.",

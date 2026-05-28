@@ -19,6 +19,7 @@ import { Modal, ModalContent } from '@/design-system/components/Modal'
 import { trackNormalizationAdd, trackNormalizationEdit } from '@/lib/analytics'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import {
@@ -212,14 +213,16 @@ export function UnifiedNormalizationModal({
   // Year grouping: collapsed state for each year
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set())
 
-  // Scroll add form into view when it appears
+  // Scroll add form into view when it appears (inside modal scroll container).
   useEffect(() => {
-    if (showAddForm && addFormRef.current) {
-      // Small delay to allow animation to start
-      setTimeout(() => {
-        addFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 50)
-    }
+    if (!showAddForm || !addFormRef.current) return
+    const timer = setTimeout(() => {
+      const form = addFormRef.current
+      const container = listContainerRef.current
+      if (!form || !container) return
+      scrollElementIntoContainer(form, container, { behavior: 'smooth', block: 'start' })
+    }, 50)
+    return () => clearTimeout(timer)
   }, [showAddForm])
 
   // Derive available years from user-entered financial data, falling back to 4-year range
@@ -728,7 +731,7 @@ export function UnifiedNormalizationModal({
     setDropdownSource('ledger')
     setShowLedgerDropdown(true)
     requestAnimationFrame(() => {
-      searchInputRef.current?.focus()
+      searchInputRef.current?.focus({ preventScroll: true })
     })
   }, [selectedLedger])
 
@@ -845,7 +848,7 @@ export function UnifiedNormalizationModal({
   )
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={open} onOpenChange={onOpenChange} coordinatedScrollLock>
       <ModalContent
         className="sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] min-h-0 flex flex-col p-0"
         size="full"

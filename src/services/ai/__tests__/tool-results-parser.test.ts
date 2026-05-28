@@ -1882,7 +1882,7 @@ describe('dispatchAIChatChunk — terminal chunks', () => {
     const state = makeChunkDispatchState()
     state.resolvedConversationId = 'cv-from-earlier-text'
     dispatchAIChatChunk({ type: 'done', conversationId: 'cv-from-done' }, state, cb)
-    expect(cb.onDone).toHaveBeenCalledWith('cv-from-done')
+    expect(cb.onDone).toHaveBeenCalledWith('cv-from-done', { incomplete: false })
     expect(state.doneReceived).toBe(true)
   })
 
@@ -1891,13 +1891,13 @@ describe('dispatchAIChatChunk — terminal chunks', () => {
     const state = makeChunkDispatchState()
     state.resolvedConversationId = 'cv-from-earlier-text'
     dispatchAIChatChunk({ type: 'done' }, state, cb)
-    expect(cb.onDone).toHaveBeenCalledWith('cv-from-earlier-text')
+    expect(cb.onDone).toHaveBeenCalledWith('cv-from-earlier-text', { incomplete: false })
   })
 
   it('passes undefined to onDone when neither chunk nor state has a conversationId', () => {
     const cb = freshCallbacks()
     dispatchAIChatChunk({ type: 'done' }, makeChunkDispatchState(), cb)
-    expect(cb.onDone).toHaveBeenCalledWith(undefined)
+    expect(cb.onDone).toHaveBeenCalledWith(undefined, { incomplete: false })
   })
 
   it('flips doneReceived to true on done (caller skips fallback onDone)', () => {
@@ -1936,7 +1936,7 @@ describe('dispatchAIChatChunk — state threading across multiple chunks', () =>
     dispatchAIChatChunk({ type: 'text', content: 'more text' }, state, cb)
     dispatchAIChatChunk({ type: 'done' }, state, cb)
 
-    expect(cb.onDone).toHaveBeenCalledWith('cv-x')
+    expect(cb.onDone).toHaveBeenCalledWith('cv-x', { incomplete: false })
   })
 
   it("handles missing optional callbacks gracefully (consumer didn't wire them)", () => {

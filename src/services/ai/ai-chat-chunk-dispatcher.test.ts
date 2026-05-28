@@ -95,7 +95,7 @@ describe('dispatchAIChatChunk', () => {
     )
 
     expect(state.doneReceived).toBe(true)
-    expect(spies.onDone).toHaveBeenCalledWith('done-conv')
+    expect(spies.onDone).toHaveBeenCalledWith('done-conv', { incomplete: false })
   })
 
   it('done falls back to state.resolvedConversationId when chunk omits it', () => {
@@ -105,7 +105,7 @@ describe('dispatchAIChatChunk', () => {
 
     dispatchAIChatChunk({ type: 'done' }, state, callbacks)
 
-    expect(spies.onDone).toHaveBeenCalledWith('state-conv')
+    expect(spies.onDone).toHaveBeenCalledWith('state-conv', { incomplete: false })
   })
 
   it('error fires onError with the chunk message and flips doneReceived', () => {
@@ -187,14 +187,24 @@ describe('dispatchAIChatChunk', () => {
     const state = makeChunkDispatchState()
 
     dispatchAIChatChunk(
-      { type: 'stream_recovery', source: 'bff-fallback-failed' },
+      { type: 'stream_recovery', source: 'bff-stream-incomplete' },
       state,
       callbacks
     )
 
-    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
+    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-stream-incomplete')
     expect(spies.onError).not.toHaveBeenCalled()
     expect(spies.onDone).not.toHaveBeenCalled()
     expect(state.doneReceived).toBe(false)
+  })
+
+  it('passes explicit completion metadata on done chunks', () => {
+    const { callbacks, spies } = makeCallbacks()
+    const state = makeChunkDispatchState()
+
+    dispatchAIChatChunk({ type: 'done', conversationId: 'conv-1' }, state, callbacks)
+
+    expect(spies.onDone).toHaveBeenCalledWith('conv-1', { incomplete: false })
+    expect(state.doneReceived).toBe(true)
   })
 })

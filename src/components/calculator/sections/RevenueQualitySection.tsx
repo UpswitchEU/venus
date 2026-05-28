@@ -10,6 +10,7 @@ import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { PreviewMetricCard } from './previewMetricCards'
+import { isFiniteNumeric } from '@/utils/isFiniteNumeric'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 const SAAS_BUSINESS_TYPE_IDS = new Set([
@@ -98,11 +99,10 @@ export function RevenueQualitySection({
   const coreFilledCount = useMemo(() => {
     const coreFields = [revRecurringAmount, revTopClientAmount]
     if (isEbitdaOnly) {
-      return coreFields.filter((value) => value != null && Number.isFinite(value)).length
+      return coreFields.filter((value) => isFiniteNumeric(value)).length
     }
     const thirdField = isTechSaas ? revGrossChurnPct : revContractBacklog
-    return [...coreFields, thirdField].filter((value) => value != null && Number.isFinite(value))
-      .length
+    return [...coreFields, thirdField].filter((value) => isFiniteNumeric(value)).length
   }, [
     isEbitdaOnly,
     isTechSaas,
@@ -114,11 +114,11 @@ export function RevenueQualitySection({
 
   const sectionComplete = useMemo(
     () =>
-      revRecurringAmount != null ||
-      revTopClientAmount != null ||
-      (revContractBacklog != null && Number.isFinite(revContractBacklog)) ||
-      revGrossChurnPct != null ||
-      (revCapitalizedRdAmount != null && Number.isFinite(revCapitalizedRdAmount)),
+      isFiniteNumeric(revRecurringAmount) ||
+      isFiniteNumeric(revTopClientAmount) ||
+      isFiniteNumeric(revContractBacklog) ||
+      isFiniteNumeric(revGrossChurnPct) ||
+      isFiniteNumeric(revCapitalizedRdAmount),
     [
       revRecurringAmount,
       revTopClientAmount,
@@ -132,8 +132,8 @@ export function RevenueQualitySection({
   const progressPct = (coreFilledCount / totalFields) * 100
 
   const recurringRevenuePct = useMemo(() => {
-    if (latestRevenue == null || !Number.isFinite(latestRevenue) || latestRevenue <= 0) return null
-    if (revRecurringAmount == null || !Number.isFinite(revRecurringAmount)) return null
+    if (!isFiniteNumeric(latestRevenue) || latestRevenue <= 0) return null
+    if (!isFiniteNumeric(revRecurringAmount)) return null
     return (revRecurringAmount / latestRevenue) * 100
   }, [latestRevenue, revRecurringAmount])
 

@@ -33,6 +33,43 @@ describe('manualVersionNav', () => {
     ])
   })
 
+  it('uses weighted_valuation blend for version nav when synthesis is stored', () => {
+    const createdAt = new Date('2026-03-01T00:00:00.000Z')
+    const [navItem] = buildManualVersionHistoryForNav({
+      report: null,
+      selectedMethod: 'upswitch_adaptive',
+      currentVersionLabel: 'Current',
+      versions: [
+        {
+          id: 'v-synth',
+          versionLabel: 'Synthesis',
+          createdAt,
+          isActive: true,
+          formData: { selected_method: 'upswitch_adaptive' },
+          valuationResult: {
+            weighted_valuation: {
+              blended_equity_value: 567_771,
+              contributions: [
+                { method_key: 'dcf', equity_value: 616_744, weight: 0.7 },
+                { method_key: 'ebitda_multiple', equity_value: 453_502, weight: 0.3 },
+              ],
+            },
+            valuation_results: {
+              upswitch_adaptive: {
+                available: true,
+                value: 384_000,
+                details: { equity_range_low: 300_000, equity_range_high: 450_000 },
+              },
+            },
+          },
+        } as unknown as ValuationVersion,
+      ],
+    })
+
+    expect(navItem.askPrice).toBe(567_771)
+    expect(navItem.priceRange).toEqual({ min: 453_502, max: 616_744 })
+  })
+
   it('maps persisted versions through method-aware nav pricing', () => {
     const createdAt = new Date('2026-02-01T00:00:00.000Z')
     const [navItem] = buildManualVersionHistoryForNav({

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import {
   applyGrootboekCountryOverrides,
   DEFAULT_LEDGER_ACCOUNTS,
@@ -594,10 +595,8 @@ export function TaxLatencySection({
       const focusAmountInput = () => {
         const input = amountInputRef.current
         if (!input) return
-        if (typeof input.scrollIntoView === 'function') {
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-        input.focus()
+        scrollElementIntoManualLayout(input, { behavior: 'smooth', block: 'center' })
+        input.focus({ preventScroll: true })
       }
       if (typeof window.requestAnimationFrame === 'function') {
         window.requestAnimationFrame(focusAmountInput)

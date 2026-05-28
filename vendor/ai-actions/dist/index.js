@@ -147,6 +147,30 @@ export const AI_STREAM_CHUNK_TYPES = [
  * the discriminant above.
  */
 export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
+/**
+ * BFF → Titan request header for stream-turn recovery. Set only by Mercury/Venus
+ * BFF on trusted recovery paths — Titan ignores recovery flags in the JSON body
+ * and requires this header plus a matching persisted user turn.
+ */
+export const AI_STREAM_TURN_RECOVERY_HEADER = 'X-Ai-Stream-Recovery';
+export const AI_STREAM_TURN_RECOVERY_HEADER_VALUE = '1';
+export function readAiStreamTurnRecoveryHeader(headers) {
+    if (!headers)
+        return false;
+    const raw = headers[AI_STREAM_TURN_RECOVERY_HEADER] ??
+        headers[AI_STREAM_TURN_RECOVERY_HEADER.toLowerCase()] ??
+        headers['x-ai-stream-recovery'];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return (value === AI_STREAM_TURN_RECOVERY_HEADER_VALUE || value === 'true');
+}
+export function withAiStreamTurnRecoveryHeader(headers, enabled) {
+    if (!enabled)
+        return headers;
+    return {
+        ...headers,
+        [AI_STREAM_TURN_RECOVERY_HEADER]: AI_STREAM_TURN_RECOVERY_HEADER_VALUE,
+    };
+}
 const AI_ACTION_TOOL_NAME_SET = new Set(AI_ACTION_TOOL_NAMES);
 const AI_ACTION_TOOL_RESULT_TYPE_SET = new Set(AI_ACTION_TOOL_RESULT_TYPES);
 export function isAiActionToolName(value) {

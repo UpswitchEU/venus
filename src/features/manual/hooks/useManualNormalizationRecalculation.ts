@@ -1,4 +1,5 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
 import type { SynthesisWeightSelection } from '../../../lib/synthesis/synthesisWeights'
@@ -12,6 +13,7 @@ import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
+import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import {
   buildAcceptedNormalizationSignature,
@@ -49,6 +51,7 @@ export interface UseManualNormalizationRecalculationParams<TCollectedData extend
   resultMultiplesValuation?: Parameters<typeof shouldBlockExtremePreparerMultiple>[1]
   selectedMethod?: string | null
   sessionName?: string | null
+  durableSaveInFlightRef: MutableRefObject<boolean>
   setDraftStatus: (status: DraftStatus) => void
   setLastSaved: (date: Date | undefined) => void
   setResult: (result: ValuationResponse | null) => void
@@ -77,6 +80,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
   resultMultiplesValuation,
   selectedMethod,
   sessionName,
+  durableSaveInFlightRef,
   setDraftStatus,
   setLastSaved,
   setResult,
@@ -84,6 +88,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
   translate,
   translatePreparer,
 }: UseManualNormalizationRecalculationParams<TCollectedData>): UseManualNormalizationRecalculationResult {
+  const translateReport = useTranslations('report')
   const recalcMountedRef = useIsMountedRef()
   const recalcLookupIdRef = useLatestRef<string | undefined>(resolvedReportId || reportId)
 
@@ -133,9 +138,10 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         if (!isStillRelevant()) return
         if (!calcResult) return
 
+        durableSaveInFlightRef.current = true
+        setDraftStatus('saving')
         setResult(calcResult)
-        setDraftStatus('saved')
-        setLastSaved(new Date())
+        let durableSaveSucceeded = true
         try {
           await reportService.saveReportAssets(
             idForApi,
@@ -148,6 +154,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
             })
           )
         } catch (saveError) {
+          durableSaveSucceeded = false
           generalLogger.warn(
             '[ManualLayout] Failed to sync recalculated normalization report assets',
             {
@@ -155,11 +162,22 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
               error: saveError instanceof Error ? saveError.message : String(saveError),
             }
           )
+          toastSaveFailure(saveError, translateReport)
         }
-        if (!isStillRelevant()) return
-        toast.success(translate('recalculatedWithNorms'), {
-          description: translate('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
-        })
+        if (!isStillRelevant()) {
+          durableSaveInFlightRef.current = false
+          return
+        }
+        if (durableSaveSucceeded) {
+          setDraftStatus('saved')
+          setLastSaved(new Date())
+          toast.success(translate('recalculatedWithNorms'), {
+            description: translate('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
+          })
+        } else {
+          setDraftStatus('draft')
+        }
+        durableSaveInFlightRef.current = false
       } catch (error) {
         if (!isStillRelevant()) return
         generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
@@ -185,12 +203,14 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       resultMultiplesValuation,
       selectedMethod,
       sessionName,
+      durableSaveInFlightRef,
       setDraftStatus,
       setLastSaved,
       setResult,
       synthesisSelection,
       translate,
       translatePreparer,
+      translateReport,
     ]
   )
 

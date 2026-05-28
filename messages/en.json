@@ -324,6 +324,9 @@
 			"operations": "Operations",
 			"assets": "Assets & Liabilities"
 		},
+		"warnings": {
+			"sectorMismatch": "KBO/NACE activity suggests «{naceType}», but you selected «{selected}». Benchmarks, WACC band, and margin checks follow your selection — align the business type before sharing externally."
+		},
 		"fields": {
 			"businessType": "Business Type",
 			"industry": "Industry",
@@ -592,6 +595,8 @@
 	},
 	"report": {
 		"saveReportFailed": "Failed to save report. Please try again.",
+		"saveStillInProgress": "Valuation calculated — saving is taking longer than expected",
+		"saveStillInProgressDesc": "The calculation succeeded, but saving the report is still in progress. Wait a moment and try calculating again if the report does not appear.",
 		"deleteReportFailed": "Failed to delete report. Please try again.",
 		"saveStatus": {
 			"saving": "Saving...",
@@ -1124,6 +1129,10 @@
 		}
 	},
 	"manualInput": {
+		"academicValidation": {
+			"title": "Academic cross-check",
+			"footnote": "These items also appear on the report disclaimers page. Resolve or document before external distribution."
+		},
 		"audit": {
 			"titleFor": "{method} — audit trail"
 		},
@@ -2040,6 +2049,7 @@
 				"sectorBand": "Sector range: {min}%–{max}% (median {median}%, {sector})",
 				"sectorBandSource": "Damodaran 2026, EU SMB cohort",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
+				"manualOverride": "WACC {wacc}% — manual / sector median (CAPM build-up below differs)",
 				"outOfBandHigh": "Above sector range — flag for reviewer.",
 				"outOfBandLow": "Below sector range — flag for reviewer."
 			},
@@ -2098,6 +2108,8 @@
 		"financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
 		"calculationFailed": "Calculation failed",
 		"calculationFailedNoResult": "No result received.",
+		"serviceUnavailable": "The valuation service is temporarily unavailable. Please try again in a moment.",
+		"calculationFailedReview": "The valuation could not be completed. Please review your inputs and try again.",
 		"calculationComplete": "Indicative estimate completed",
 		"synthesisBlendSkippedTitle": "Blended valuation unavailable",
 		"synthesisBlendSkippedDesc": "{method} did not produce a value for synthesis: {reason}. Adjust inputs or weights and recalculate.",

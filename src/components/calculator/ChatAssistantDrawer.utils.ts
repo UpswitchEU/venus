@@ -1,4 +1,5 @@
 import type { ChatMessage } from './ChatAssistantTypes'
+import { scrollContainerToBottom } from '@/utils/scrollContainer'
 
 const renderableCardCollections: Array<keyof ChatMessage> = [
   'fieldUpdates',
@@ -84,4 +85,9 @@ export function getChatAssistantMessageRenderKey(messages: ChatMessage[]): strin
         }:${message.registrySearchResults?.length ?? 0}:${message.tasks?.length ?? 0}`
     )
     .join('|')
+}
+
+/** Scroll the assistant messages panel without touching document scroll position. */
+export function scrollMessagesContainerToBottom(container: HTMLElement | null | undefined): void {
+  scrollContainerToBottom(container)
 }

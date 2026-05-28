@@ -14,6 +14,7 @@ import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import type { ValuationMethodResult } from '@/types/valuation'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
@@ -263,7 +264,10 @@ export function SynthesisWeightingSection({
     if (!hasScrolledRef.current && sectionRef.current && methods.length >= 2) {
       hasScrolledRef.current = true
       const timer = setTimeout(() => {
-        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        const section = sectionRef.current
+        if (section) {
+          scrollElementIntoManualLayout(section, { behavior: 'smooth', block: 'nearest' })
+        }
       }, 300)
       return () => clearTimeout(timer)
     }

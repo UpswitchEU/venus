@@ -72,6 +72,8 @@ export interface TitanAiChatProxyPlan {
   context: Record<string, unknown>
   payload: Record<string, unknown>
   useStream: boolean
+  /** Server-side only: BFF sets X-Ai-Stream-Recovery on the Titan request. */
+  streamTurnRecovery?: boolean
 }
 
 export type TitanAiChatProxyPlanResult =
@@ -182,12 +184,16 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
   if (formData) payload.formData = formData
   if (Array.isArray(body.normalizations)) payload.normalizations = body.normalizations
 
+  const streamTurnRecovery =
+    body.stream === false && body.recoverFromStreamTurn === true
+
   return {
     ok: true,
     plan: {
       useStream: body.stream !== false,
       context,
       payload,
+      streamTurnRecovery,
     },
   }
 }

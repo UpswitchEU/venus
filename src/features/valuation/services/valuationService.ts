@@ -22,6 +22,7 @@ import {
 } from '../../../services/manualValuationStreamService'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
+import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { IValuationService } from './interfaces'
 
 /**
@@ -47,11 +48,11 @@ export class ValuationService implements IValuationService {
         manualValuationStreamService
           .streamManualValuation(request, {
             onComplete: (htmlReport: string, valuationId: string, fullResponse?: StreamEvent) => {
-              finalResult = {
+              finalResult = normalizeValuationResultEnvelope({
                 ...fullResponse,
                 html_report: htmlReport,
                 valuation_id: valuationId,
-              } as ValuationResponse
+              } as ValuationResponse)
               resolve(finalResult)
             },
             onError: (error: string) => {
@@ -109,11 +110,11 @@ export class ValuationService implements IValuationService {
       const stream = await manualValuationStreamService.streamManualValuation(request, {
         onProgress,
         onComplete: (htmlReport: string, valuationId: string, fullResponse?: StreamEvent) => {
-          const result: ValuationResponse = {
+          const result = normalizeValuationResultEnvelope({
             ...fullResponse,
             html_report: htmlReport,
             valuation_id: valuationId,
-          } as ValuationResponse
+          } as ValuationResponse)
           onComplete?.(result)
         },
         onError,

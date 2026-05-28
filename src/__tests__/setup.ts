@@ -126,19 +126,23 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+// Mock ResizeObserver (must be constructable — `new ResizeObserver()` in components).
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(_callback: ResizeObserverCallback) {}
+}
+global.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+class IntersectionObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(_callback: IntersectionObserverCallback) {}
+}
+global.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver
 
 // Mock fetch
 global.fetch = vi.fn()

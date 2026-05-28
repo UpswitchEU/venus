@@ -204,6 +204,49 @@ describe('AIChatService', () => {
     expect(recoveredContent).toBe('Recovered after BFF fallback failure')
   })
 
+  it('completes on the wire when BFF recovers an announcement-only incomplete stream', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        streamResponse([
+          'data: {"type":"text","content":"Even kijken in het KBO-register voor Decostere…"}\n\n',
+          'data: {"type":"stream_recovery","source":"bff-fallback"}\n\n',
+          'data: {"type":"text","content":"KBO match gevonden"}\n\n',
+          'data: {"type":"done","conversationId":"conv-bff-recovered"}\n\n',
+        ])
+      )
+    )
+
+    const onBffStreamRecovery = vi.fn()
+    const onDone = vi.fn()
+    const onText = vi.fn()
+
+    await withTimeout(
+      new Promise<void>((resolve) => {
+        aiChatService.streamMessage(
+          {
+            message: 'Voeg een nieuwe klant toe Decostere',
+            locale: 'nl',
+          },
+          {
+            onText,
+            onBffStreamRecovery,
+            onDone: (conversationId, meta) => {
+              onDone(conversationId, meta)
+              resolve()
+            },
+          }
+        )
+      })
+    )
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback')
+    expect(onText).toHaveBeenCalledWith('Even kijken in het KBO-register voor Decostere…')
+    expect(onText).toHaveBeenCalledWith('KBO match gevonden')
+    expect(onDone).toHaveBeenCalledWith('conv-bff-recovered', { incomplete: false })
+  })
+
   it('returns a consent-required envelope on Titan 412 without local fallback', async () => {
     vi.stubGlobal(
       'fetch',
@@ -524,8 +567,8 @@ describe('AIChatService', () => {
               onError(error)
               reject(new Error(error))
             },
-            onDone: (conversationId) => {
-              onDone(conversationId)
+            onDone: (conversationId, meta) => {
+              onDone(conversationId, meta)
               resolve()
             },
           }
@@ -535,7 +578,7 @@ describe('AIChatService', () => {
 
     expect(onError).not.toHaveBeenCalled()
     expect(onText).toHaveBeenCalledWith('Hello')
-    expect(onDone).toHaveBeenCalledWith('cv-1')
+    expect(onDone).toHaveBeenCalledWith('cv-1', { incomplete: true })
   })
 
   it('parses complete SSE frames with CRLF comments and multi-line data payloads', async () => {
@@ -571,8 +614,8 @@ describe('AIChatService', () => {
               onError(error)
               reject(new Error(error))
             },
-            onDone: (conversationId) => {
-              onDone(conversationId)
+            onDone: (conversationId, meta) => {
+              onDone(conversationId, meta)
               resolve()
             },
           }
@@ -582,7 +625,7 @@ describe('AIChatService', () => {
 
     expect(onError).not.toHaveBeenCalled()
     expect(onText).toHaveBeenCalledWith('Split frame')
-    expect(onDone).toHaveBeenCalledWith('cv-frame')
+    expect(onDone).toHaveBeenCalledWith('cv-frame', { incomplete: false })
   })
 
   it('does not double-fire onDone when a final done chunk has no trailing newline', async () => {
@@ -613,8 +656,8 @@ describe('AIChatService', () => {
               onError(error)
               reject(new Error(error))
             },
-            onDone: (conversationId) => {
-              onDone(conversationId)
+            onDone: (conversationId, meta) => {
+              onDone(conversationId, meta)
               resolve()
             },
           }
@@ -625,6 +668,6 @@ describe('AIChatService', () => {
     await Promise.resolve()
     expect(onError).not.toHaveBeenCalled()
     expect(onDone).toHaveBeenCalledTimes(1)
-    expect(onDone).toHaveBeenCalledWith('cv-done')
+    expect(onDone).toHaveBeenCalledWith('cv-done', { incomplete: false })
   })
 })

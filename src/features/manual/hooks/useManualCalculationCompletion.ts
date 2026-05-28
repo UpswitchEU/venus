@@ -13,6 +13,7 @@ import type {
 } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT } from '../utils/manualAgentNextHandoff'
 import {
   buildSubmittedFinancialSnapshot,
@@ -62,6 +63,7 @@ export interface UseManualCalculationCompletionParams {
   lastSubmittedFinancialSnapshotRef: MutableRefObject<SubmittedFinancialSnapshot | null>
   postValuationListingHandoffPendingRef: MutableRefObject<boolean>
   sessionName?: string
+  durableSaveInFlightRef: MutableRefObject<boolean>
   setDraftStatus: Dispatch<SetStateAction<'draft' | 'saved' | 'saving'>>
   setIsDirty: (isDirty: boolean) => void
   setLastSaved: Dispatch<SetStateAction<Date | undefined>>
@@ -86,6 +88,7 @@ export function useManualCalculationCompletion({
   lastSubmittedFinancialSnapshotRef,
   postValuationListingHandoffPendingRef,
   sessionName,
+  durableSaveInFlightRef,
   setDraftStatus,
   setIsDirty,
   setLastSaved,
@@ -108,11 +111,14 @@ export function useManualCalculationCompletion({
       submitRun,
       valuationResult,
     }: CompleteManualCalculationParams): Promise<CompleteManualCalculationResult> => {
+      const willPersist = Boolean(idForApi)
+      if (willPersist) {
+        durableSaveInFlightRef.current = true
+        setDraftStatus('saving')
+      }
+
       setResult(valuationResult)
       submitRun.endLoading()
-      setDraftStatus('saved')
-      setLastSaved(new Date())
-      setIsDirty(false)
       lastSubmittedFinancialSnapshotRef.current = buildSubmittedFinancialSnapshot(request)
 
       const saveResult = await saveManualCalculationReportAssets({
@@ -130,20 +136,32 @@ export function useManualCalculationCompletion({
         },
       })
 
-      if (saveResult.aborted) return { aborted: true, versionCreationFailed: false }
+      if (saveResult.aborted) {
+        if (willPersist) durableSaveInFlightRef.current = false
+        return { aborted: true, versionCreationFailed: false }
+      }
 
       if (saveResult.saveError) {
-        const errMsg =
-          saveResult.saveError instanceof Error
-            ? saveResult.saveError.message
-            : String(saveResult.saveError)
         generalLogger.error('[ManualLayout] Failed to save report assets', {
           reportId: idForApi,
-          error: errMsg,
+          error:
+            saveResult.saveError instanceof Error
+              ? saveResult.saveError.message
+              : String(saveResult.saveError),
         })
-        toast.error(translateReport('saveReportFailed'), {
-          description: errMsg,
-        })
+        toastSaveFailure(saveResult.saveError, translateReport)
+      }
+
+      if (saveResult.durableSaveSucceeded) {
+        setDraftStatus('saved')
+        setLastSaved(new Date())
+        setIsDirty(false)
+      } else if (!saveResult.aborted && willPersist) {
+        setDraftStatus('draft')
+      }
+
+      if (willPersist) {
+        durableSaveInFlightRef.current = false
       }
 
       const versionCreationFailed = await completeManualVersioning({
@@ -183,6 +201,7 @@ export function useManualCalculationCompletion({
       lastSubmittedFinancialSnapshotRef,
       postValuationListingHandoffPendingRef,
       sessionName,
+      durableSaveInFlightRef,
       setDraftStatus,
       setIsDirty,
       setLastSaved,

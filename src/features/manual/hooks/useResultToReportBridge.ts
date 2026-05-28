@@ -12,8 +12,10 @@
  *      state machine, etc.).
  *   3. `setReport(mappedReport)` — drops the projected report into panel
  *      state for the right-rail render.
- *   4. `setDraftStatus('saved')` — marks the draft as persisted.
- *   5. `setLastSaved(new Date())` — stamps the last-saved indicator.
+ *   4. `setDraftStatus('saved')` — marks the draft as persisted when not
+ *      mid-save (`draftStatus !== 'saving'`). Durable save hooks own status
+ *      during PUT /result.
+ *   5. `setLastSaved(new Date())` — stamps the last-saved indicator (same guard).
  *   6. `setRightPanelView('preview')` — switches the right panel to the
  *      preview tab. **Note: this overrides prior user navigation on every
  *      result-arrival — preserved verbatim per Phase 4c.2 product call.**
@@ -35,7 +37,7 @@
  * re-extracting the bridge.
  */
 
-import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react'
+import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect, useRef } from 'react'
 import type { RightPanelView, ValuationReportData } from '@/components/calculator'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
@@ -53,6 +55,8 @@ export interface UseResultToReportBridgeParams {
   result: ValuationResponse | null | undefined
   /** Active selected method (passed through to the mapper). */
   selectedMethod: string
+  /** Live Waarderingssynthese blend for report headline (optional). */
+  clientBlendedValue?: number | null
   /** Route reportId (fallback id when result omits one). */
   reportId: string | undefined
   /** Plan/firm PDF gate. */
@@ -61,6 +65,10 @@ export interface UseResultToReportBridgeParams {
   isMobile: boolean
   /** Narrowed `useTranslations('reportPanel')` consumer. */
   tReport: ReportTranslator
+  /** Live draft status — skip persisted hints while a durable save is in flight. */
+  draftStatus: 'draft' | 'saved' | 'saving'
+  /** Synchronous guard set before Zustand result updates during PUT /result. */
+  durableSaveInFlightRef: MutableRefObject<boolean>
   /** Parent-callback fired after the bridge maps the result. */
   onComplete: (result: ValuationResponse) => void
   setReport: Dispatch<SetStateAction<ValuationReportData | null>>
@@ -92,9 +100,12 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
   const {
     result,
     selectedMethod,
+    clientBlendedValue,
     reportId,
     canDownloadPdf,
     isMobile,
+    draftStatus,
+    durableSaveInFlightRef,
     tReport,
     onComplete,
     setReport,
@@ -125,15 +136,18 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
       const mappedReport = mapValuationResultToReport({
         result,
         selectedMethod,
+        clientBlendedValue,
         reportId,
         canDownloadPdf,
         tReport,
       })
 
-      // 3-5. Drop into panel state.
+      // 3-5. Drop into panel state. Durable-save flows set status after PUT /result.
       setReport(mappedReport)
-      setDraftStatus('saved')
-      setLastSaved(new Date())
+      if (draftStatus !== 'saving' && !durableSaveInFlightRef.current) {
+        setDraftStatus('saved')
+        setLastSaved(new Date())
+      }
 
       // 6. Switch panel view to preview. PRESERVED: overrides prior user
       //    navigation; documented as intentional pending product review.
@@ -177,6 +191,8 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     reportId,
     generatePdfRef,
     isMobile,
+    draftStatus,
+    durableSaveInFlightRef,
     selectedMethod,
     canDownloadPdf,
     setDraftStatus,

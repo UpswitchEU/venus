@@ -1,5 +1,14 @@
 import type { YearDataInput } from '../types/valuation'
 
+/** True when a year row is marked as forecast (camelCase UI or snake_case API). */
+export function isYearRowForecast(row: {
+  isForecast?: boolean
+  is_forecast?: boolean
+} | null | undefined): boolean {
+  if (!row) return false
+  return row.isForecast === true || row.is_forecast === true
+}
+
 export const OPTIONAL_YEAR_DATA_FIELDS: Array<keyof YearDataInput> = [
   'cogs',
   'gross_profit',

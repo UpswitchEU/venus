@@ -2,6 +2,30 @@
 
 import { RevenueQualitySection } from '@/components/calculator/sections/RevenueQualitySection'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
+import { isYearRowForecast } from '@/utils/yearData'
+
+/** Revenue denominator for quality ratios — prefer latest complete year, else any booked revenue. */
+export function resolveLatestRevenueForQuality(
+  latestCompleteYearlyFinancial: YearlyFinancials | undefined,
+  formData: ManualValuationFormData
+): number | undefined {
+  if (latestCompleteYearlyFinancial?.revenue != null) {
+    const rev = Number(latestCompleteYearlyFinancial.revenue)
+    if (Number.isFinite(rev) && rev > 0) return rev
+  }
+  const historical = (formData.yearlyFinancials ?? []).filter((row) => !isYearRowForecast(row))
+  if (historical.length > 0) {
+    const latestRow = historical.reduce((a, b) => (b.year > a.year ? b : a))
+    const rev = Number(latestRow.revenue)
+    if (Number.isFinite(rev) && rev > 0) return rev
+  }
+  const current = formData.current_year_data?.revenue
+  if (current != null) {
+    const rev = Number(current)
+    if (Number.isFinite(rev) && rev > 0) return rev
+  }
+  return undefined
+}
 
 export interface RevenueQualitySectionStackProps {
   step: number
@@ -27,14 +51,15 @@ export function RevenueQualitySectionStack({
   return (
     <RevenueQualitySection
       step={step}
-      revContractBacklog={formData.rev_contract_backlog as number | undefined}
-      revRecurringAmount={formData.rev_recurring_amount as number | undefined}
-      revTopClientAmount={formData.rev_top_client_amount as number | undefined}
-      revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
-      revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
-      latestRevenue={
-        latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
-      }
+      revContractBacklog={coerceFiniteNumber(formData.rev_contract_backlog)}
+      revRecurringAmount={coerceFiniteNumber(formData.rev_recurring_amount)}
+      revTopClientAmount={coerceFiniteNumber(formData.rev_top_client_amount)}
+      revGrossChurnPct={coerceFiniteNumber(formData.rev_gross_churn_pct)}
+      revCapitalizedRdAmount={coerceFiniteNumber(formData.rev_capitalized_rd_amount)}
+      latestRevenue={resolveLatestRevenueForQuality(
+        latestCompleteYearlyFinancial,
+        formData
+      )}
       effectiveMethods={[...methods]}
       businessTypeId={businessTypeId}
       businessCategory={businessCategory}

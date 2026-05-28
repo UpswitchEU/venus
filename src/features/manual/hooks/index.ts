@@ -227,6 +227,10 @@ export {
   useManualSynthesisController,
 } from './useManualSynthesisController'
 export {
+  type UseSynthesisReportHeadlineSyncParams,
+  useSynthesisReportHeadlineSync,
+} from './useSynthesisReportHeadlineSync'
+export {
   type UseManualSynthesisSkippedWarningsParams,
   type UseManualSynthesisSkippedWarningsResult,
   useManualSynthesisSkippedWarnings,

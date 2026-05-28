@@ -33,6 +33,7 @@ import {
   stripReportsFromValuationSessionPatchUpdates,
 } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
+import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 import {
   isHttpStatus,
   isTimeoutLikeError,
@@ -1134,7 +1135,11 @@ export class SessionAPI extends HttpClient {
           },
           headers: {},
         }),
-        options
+        {
+          ...options,
+          timeout: options?.timeout ?? VALUATION_OPERATION_TIMEOUT_MS,
+          retry: { ...options?.retry, ...VALUATION_NO_RETRY },
+        }
       )
 
       apiLogger.info('Complete valuation package saved to session', {

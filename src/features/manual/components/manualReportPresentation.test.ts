@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
+  resolveSynthesisAwarePresentation,
+  shouldAlignRecommendedAskingWithSynthesis,
 } from './manualReportPresentation'
 
 describe('deriveManualReportPresentation', () => {
@@ -58,6 +60,49 @@ describe('deriveManualReportPresentation', () => {
     expect(presentation.multipleRange).toEqual({ low: 2.59, high: 4.6 })
   })
 
+  it('prefers weighted_valuation blend over upswitch_adaptive for Waarderingssynthese (VAL-2026 70/30)', () => {
+    const result: any = {
+      selected_valuation_method: 'upswitch_adaptive',
+      weighted_valuation: {
+        blended_equity_value: 567_771.4,
+        contributions: [
+          { method_key: 'dcf', equity_value: 616_744, weight: 0.7 },
+          { method_key: 'ebitda_multiple', equity_value: 453_502, weight: 0.3 },
+        ],
+      },
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: 384_000,
+          details: { equity_range_low: 300_000, equity_range_high: 450_000 },
+        },
+        dcf: { available: true, value: 616_744, details: {} },
+        ebitda_multiple: { available: true, value: 453_502, details: {} },
+      },
+    }
+
+    const presentation = deriveManualReportPresentation(result, 'upswitch_adaptive')
+
+    expect(presentation.valuation).toBe(567_771.4)
+    expect(presentation.valuationLow).toBe(453_502)
+    expect(presentation.valuationHigh).toBe(616_744)
+  })
+
+  it('prefers live client blend over server weighted_valuation', () => {
+    const result: any = {
+      weighted_valuation: { blended_equity_value: 500_000 },
+      valuation_results: {
+        upswitch_adaptive: { available: true, value: 384_000, details: {} },
+      },
+    }
+
+    const presentation = deriveManualReportPresentation(result, 'upswitch_adaptive', {
+      clientBlendedValue: 568_000,
+    })
+
+    expect(presentation.valuation).toBe(568_000)
+  })
+
   it('falls back to report payload multiple when no method-specific multiple exists', () => {
     const result: any = {
       valuation_result: { multiple: 4.2 },
@@ -81,7 +126,79 @@ describe('deriveManualReportPresentation', () => {
   })
 })
 
+describe('resolveSynthesisAwarePresentation', () => {
+  it('matches VAL-2026 70/30 client blend', () => {
+    const presentation = resolveSynthesisAwarePresentation(
+      {
+        valuation_results: {
+          dcf: { available: true, value: 616_744, details: {} },
+          ebitda_multiple: { available: true, value: 453_502, details: {} },
+        },
+      } as any,
+      'upswitch_adaptive',
+      {
+        preSelectedMethods: ['dcf', 'ebitda_multiple'],
+        userWeights: { dcf: 70, ebitda_multiple: 30 },
+      }
+    )
+
+    expect(presentation.valuation).toBe(567_771)
+  })
+})
+
+describe('shouldAlignRecommendedAskingWithSynthesis', () => {
+  it('returns true when server persisted weighted_valuation is present', () => {
+    expect(
+      shouldAlignRecommendedAskingWithSynthesis(
+        { weighted_valuation: { blended_equity_value: 567_771 } } as any,
+        { preSelectedMethods: ['upswitch_adaptive'], userWeights: {} }
+      )
+    ).toBe(true)
+  })
+
+  it('returns true for live 70/30 blend before server synthesis is stored', () => {
+    expect(
+      shouldAlignRecommendedAskingWithSynthesis(
+        {
+          valuation_results: {
+            dcf: { available: true, value: 616_744, details: {} },
+            ebitda_multiple: { available: true, value: 453_502, details: {} },
+          },
+        } as any,
+        {
+          preSelectedMethods: ['dcf', 'ebitda_multiple'],
+          userWeights: { dcf: 70, ebitda_multiple: 30 },
+        }
+      )
+    ).toBe(true)
+  })
+
+  it('returns false for adaptive-only selection', () => {
+    expect(
+      shouldAlignRecommendedAskingWithSynthesis(
+        {
+          valuation_results: {
+            upswitch_adaptive: { available: true, value: 384_000, details: {} },
+          },
+        } as any,
+        { preSelectedMethods: ['upswitch_adaptive'], userWeights: {} }
+      )
+    ).toBe(false)
+  })
+})
+
 describe('deriveNavPricesForVersionNav', () => {
+  it('prefers weighted_valuation over adaptive for version dropdown', () => {
+    const result: any = {
+      weighted_valuation: { blended_equity_value: 567_771 },
+      valuation_results: {
+        upswitch_adaptive: { available: true, value: 384_000, details: {} },
+      },
+    }
+
+    const nav = deriveNavPricesForVersionNav(result, 'upswitch_adaptive')
+    expect(nav.askPrice).toBe(567_771)
+  })
   it('resolves range/ask from valuation_results details when top-level equity fields are absent (nav parity)', () => {
     const result: any = {
       selected_valuation_method: 'upswitch_adaptive',

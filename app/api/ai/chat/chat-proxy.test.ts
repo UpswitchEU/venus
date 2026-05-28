@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   AI_CHAT_PROXY_TIMEOUT_MS,
+  buildTitanAiChatProxyPlan,
   fetchWithTimeout,
   getOrCreateCorrelationId,
   isTitanAiProxyTimeoutError,
@@ -44,6 +45,23 @@ describe('fetchWithTimeout', () => {
     expect(isTitanAiProxyTimeoutError(Object.assign(new Error('aborted'), { name: 'AbortError' }))).toBe(
       true
     )
+  })
+})
+
+describe('buildTitanAiChatProxyPlan stream recovery', () => {
+  it('sets streamTurnRecovery without forwarding recoverFromStreamTurn to Titan payload', () => {
+    const result = buildTitanAiChatProxyPlan({
+      message: 'Voeg Decostere toe',
+      stream: false,
+      recoverFromStreamTurn: true,
+      sessionId: 'advisor_u1_workspace',
+      conversationId: 'conv-1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected successful plan')
+    expect(result.plan.streamTurnRecovery).toBe(true)
+    expect(result.plan.payload).not.toHaveProperty('recoverFromStreamTurn')
   })
 })
 

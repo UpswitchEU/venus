@@ -3,15 +3,13 @@
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ValuationReportData } from '@/components/calculator'
-import {
-  bestBlendedValue,
-  evaluateSynthesisBlend,
-  type SynthesisEvaluation,
-} from '@/lib/synthesis/synthesisEngine'
+import { bestBlendedValue, evaluateSynthesisBlend, type SynthesisEvaluation } from '@/lib/synthesis/synthesisEngine'
 import type { SynthesisWeightSelection } from '@/lib/synthesis/synthesisWeights'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation'
 import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResultsMap'
+import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
+import { resultHasWeightedSynthesisSignal } from '../utils/weightedSynthesisSignals'
 
 export interface ManualSynthesisController {
   preSelectedMethods: string[]
@@ -34,9 +32,11 @@ export interface ManualSynthesisController {
 export function useManualSynthesisController({
   result,
   report,
+  selectedMethod,
 }: {
   result: ValuationResponse | null
   report: ValuationReportData | null
+  selectedMethod: string
 }): ManualSynthesisController {
   const {
     preSelectedMethods,
@@ -71,18 +71,31 @@ export function useManualSynthesisController({
   const valuationResults = useMemo(() => hydrateClientValuationResultsMap(result) ?? null, [result])
 
   const navValuationSummary = useMemo(() => {
-    if (!report) return undefined
-    const primaryValue =
-      bestBlendedValue(evaluation) ?? report.recommendedAskingPrice ?? report.valuation
+    if (!report || !result) return undefined
+    const blend = bestBlendedValue(evaluation)
+    const presentation = resolveSynthesisAwarePresentation(result, selectedMethod, {
+      preSelectedMethods,
+      userWeights,
+    })
+    const hasSynthesis = resultHasWeightedSynthesisSignal(result as unknown as Record<string, unknown>)
+    const primaryValue = hasSynthesis || blend != null
+      ? (blend ?? presentation.valuation)
+      : (report.recommendedAskingPrice ?? presentation.valuation)
     return {
       priceRange: {
-        min: report.valuationLow ?? Math.round(report.valuation * 0.85),
-        max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
+        min:
+          presentation.valuationLow ??
+          report.valuationLow ??
+          Math.round(primaryValue * 0.85),
+        max:
+          presentation.valuationHigh ??
+          report.valuationHigh ??
+          Math.round(primaryValue * 1.15),
       },
       askPrice: primaryValue,
       confidence: 'high' as const,
     }
-  }, [evaluation, report])
+  }, [evaluation, preSelectedMethods, report, result, selectedMethod, userWeights])
 
   return {
     preSelectedMethods,

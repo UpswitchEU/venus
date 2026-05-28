@@ -131,6 +131,8 @@ export interface AIChatRequest {
   normalizations?: unknown[]
   formData?: unknown
   stream?: boolean
+  /** When true, completes a stream turn that already charged + persisted the user message. */
+  recoverFromStreamTurn?: boolean
   /** Titan tool-scope claim. Venus defaults to owner-scope in the BFF. */
   audience?: 'advisor' | 'owner'
   /** Locale for fallback responses when AI is unavailable (en | nl) */
@@ -264,7 +266,7 @@ export interface StreamCallbacks {
   onText?: (text: string) => void
   onToolStart?: (toolName: string) => void
   onToolResult?: (toolName: string, result: unknown) => void
-  onDone?: (conversationId?: string) => void
+  onDone?: (conversationId?: string, meta?: { incomplete?: boolean }) => void
   onError?: (error: string) => void
   /** Called instead of onError when the server returns 402 (quota exhausted). */
   onQuotaExhausted?: (credits: { remaining: number; limit: number }) => void
@@ -277,7 +279,9 @@ export interface StreamCallbacks {
   /** Called instead of onError when the BFF returns 401. */
   onAuthRequired?: (payload: { message: string }) => void
   /** BFF-only meta chunk — skip duplicate client recovery when fallback succeeded. */
-  onBffStreamRecovery?: (source: 'bff-fallback' | 'bff-fallback-failed') => void
+  onBffStreamRecovery?: (
+    source: 'bff-fallback' | 'bff-fallback-failed' | 'bff-stream-incomplete'
+  ) => void
 }
 
 // ─────────────────────────────────────────
@@ -320,6 +324,7 @@ class AIChatServiceImpl {
           normalizations: request.normalizations,
           formData: request.formData,
           stream: request.stream === true ? true : false,
+          ...(request.recoverFromStreamTurn ? { recoverFromStreamTurn: true } : {}),
           audience: request.audience,
           locale: request.locale,
           history: request.history,
@@ -660,7 +665,9 @@ class AIChatServiceImpl {
           dispatchSseFrame(buffer)
         }
 
-        if (!state.doneReceived) callbacks.onDone?.(state.resolvedConversationId || undefined)
+        if (!state.doneReceived) {
+          callbacks.onDone?.(state.resolvedConversationId || undefined, { incomplete: true })
+        }
       } catch (error) {
         if (controller.signal.aborted) return
         callbacks.onError?.(error instanceof Error ? error.message : 'Stream failed')

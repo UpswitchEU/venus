@@ -272,7 +272,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     return (
       <div
-        className={`flex h-screen w-screen flex-col overflow-hidden bg-background ${isEmbedded ? 'embedded-mode' : ''}`}
+        className={`flex h-[100dvh] w-screen flex-col overflow-hidden bg-background ${isEmbedded ? 'embedded-mode' : ''}`}
       >
         <Suspense
           fallback={null}

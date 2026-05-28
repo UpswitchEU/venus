@@ -21,6 +21,7 @@ import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import type { ValuationResponse } from '@/types/valuation'
 import { getFirstRenderableReportHtml } from '@/utils/safetyNetReportHtml'
 import { deriveManualReportPresentation } from '../components/manualReportPresentation'
+import { resultHasWeightedSynthesisSignal } from './weightedSynthesisSignals'
 
 /** Translation keys consumed by the mapper. Narrowed for type safety. */
 export type ReportTranslationKey =
@@ -43,6 +44,8 @@ export interface MapValuationResultToReportOpts {
   canDownloadPdf: boolean
   /** Narrowed translator from `useTranslations('reportPanel')`. */
   tReport: ReportTranslator
+  /** Live Waarderingssynthese blend (current weights); wins over single-method headline. */
+  clientBlendedValue?: number | null
 }
 
 type ReportResultRecord = Record<string, unknown> & {
@@ -73,10 +76,12 @@ function readOptionalString(value: unknown): string | undefined {
 export function mapValuationResultToReport(
   opts: MapValuationResultToReportOpts
 ): ValuationReportData {
-  const { result, selectedMethod, reportId, canDownloadPdf, tReport } = opts
+  const { result, selectedMethod, reportId, canDownloadPdf, tReport, clientBlendedValue } = opts
   const r = result as unknown as ReportResultRecord
 
-  const presentation = deriveManualReportPresentation(result, selectedMethod)
+  const presentation = deriveManualReportPresentation(result, selectedMethod, {
+    clientBlendedValue,
+  })
   const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
   const latestNormRaw = r.latest_normalized_ebitda
   const normalizedEbitda =
@@ -93,6 +98,11 @@ export function mapValuationResultToReport(
   const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
   const askingPrice =
     askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
+  const hasSynthesisHeadline =
+    clientBlendedValue != null || resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
+  const recommendedAskingPrice = hasSynthesisHeadline
+    ? presentation.valuation
+    : askingPrice ?? presentation.valuation
   const htmlReport = getFirstRenderableReportHtml(
     readOptionalString(r.html_report),
     readOptionalString(r.details?.html_report)
@@ -134,7 +144,7 @@ export function mapValuationResultToReport(
     htmlReport: htmlReport || undefined,
     dcfHistoricalFcfReadiness:
       dcfHistoricalFcfReadiness as ValuationReportData['dcfHistoricalFcfReadiness'],
-    recommendedAskingPrice: askingPrice,
+    recommendedAskingPrice,
     metrics: [
       {
         label: tReport('metrics.avgRevenue'),
@@ -183,30 +193,4 @@ export function isDcfOrHybridMethodSignal(value: unknown): boolean {
   )
 }
 
-/**
- * True when any depth of the result carries a weighted-synthesis signal
- * (a `has_weighted_synthesis: true` flag, or any `blended_equity_value`
- * field). The DCF readiness panel is also exposed when synthesis is
- * present, because the synthesis often includes a DCF leg.
- */
-export function resultHasWeightedSynthesisSignal(result: Record<string, unknown>): boolean {
-  const details = result.details as Record<string, unknown> | undefined
-  const valuationResult = result.valuation_result as Record<string, unknown> | undefined
-  const valuationResultDetails = valuationResult?.details as Record<string, unknown> | undefined
-  const candidates = [
-    result,
-    result.weighted_valuation,
-    details,
-    result.report_context,
-    details?.report_context,
-    valuationResult,
-    valuationResultDetails,
-    valuationResult?.report_context,
-  ]
-
-  return candidates.some((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
-    const obj = candidate as Record<string, unknown>
-    return obj.has_weighted_synthesis === true || obj.blended_equity_value != null
-  })
-}
+export { resultHasWeightedSynthesisSignal } from './weightedSynthesisSignals'

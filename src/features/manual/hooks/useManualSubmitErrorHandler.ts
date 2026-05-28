@@ -3,11 +3,13 @@ import { toast } from 'sonner'
 import {
   AuthenticationError,
   CreditError,
+  NetworkError,
   RateLimitError,
   ValidationError,
 } from '../../../types/errors'
 import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
+import { isSlowSaveError } from '../../../utils/saveErrorHandling'
 import type { ManualSubmitRun } from './useManualSubmitRunGuard'
 
 type ManualSubmitToastTranslator = (key: string) => string
@@ -76,9 +78,12 @@ export function useManualSubmitErrorHandler({
       }
 
       const isSessionExpired = error instanceof AuthenticationError || isAuthError(error)
+      const isNetworkFailure = error instanceof NetworkError || isSlowSaveError(error)
       const title = isSessionExpired
         ? translateErrors('session.expired')
-        : translate('calculationFailed')
+        : isNetworkFailure
+          ? translate('serviceUnavailable')
+          : translate('calculationFailed')
       const description = isSessionExpired
         ? translateErrors('authentication.expired')
         : error instanceof Error

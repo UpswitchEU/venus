@@ -53,6 +53,7 @@ import {
   useManualSessionPersistenceLifecycles,
   useManualSubmitController,
   useManualSynthesisController,
+  useSynthesisReportHeadlineSync,
   useManualSynthesisSkippedWarnings,
   useManualToastMessageLifecycle,
   useManualVersionNavigation,
@@ -219,6 +220,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
 
   const {
     draftStatus,
+    durableSaveInFlightRef,
     isDirty,
     isGenerating,
     lastSaved,
@@ -243,7 +245,15 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     evaluation: synthesisEvaluation,
     valuationResults: synthesisValuationResults,
     navValuationSummary,
-  } = useManualSynthesisController({ result, report })
+  } = useManualSynthesisController({ result, report, selectedMethod })
+
+  useSynthesisReportHeadlineSync({
+    result,
+    report,
+    selectedMethod,
+    setReport,
+  })
+
   // `isMethodSwitchRendering` comes from `useManualMethodPersistenceController`
   // (coordinator `isPersisting` — only true during user-initiated method/preparer persist).
   const liveMultipleReportPreview = useMemo(() => {
@@ -475,9 +485,12 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   useResultToReportBridge({
     result,
     selectedMethod,
+    clientBlendedValue: navValuationSummary?.askPrice ?? null,
     reportId,
     canDownloadPdf,
     isMobile,
+    draftStatus,
+    durableSaveInFlightRef,
     tReport,
     onComplete,
     setReport,
@@ -550,6 +563,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
     sessionName,
+    durableSaveInFlightRef,
     setCalculating,
     setCollectedData,
     setDraftStatus,
@@ -721,6 +735,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     resultMultiplesValuation: result?.multiples_valuation,
     selectedMethod,
     sessionName,
+    durableSaveInFlightRef,
     setChatDrawerOpen,
     setChatMessages,
     setDraftStatus,
@@ -821,8 +836,8 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     <div
       className={
         isMobile
-          ? 'aurora-theme flex flex-col h-[100dvh] bg-background'
-          : 'aurora-theme flex flex-col h-screen bg-background overflow-hidden'
+          ? 'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
+          : 'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
       }
     >
       <ManualLayoutNav
@@ -926,7 +941,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       />
 
       <Suspense fallback={null}>
-        <ChatAssistantDrawer {...chatDrawerProps} />
+        <ChatAssistantDrawer {...chatDrawerProps} lockScroll={isMobile} />
       </Suspense>
 
       <ManualLayoutModals

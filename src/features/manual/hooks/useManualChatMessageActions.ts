@@ -214,7 +214,12 @@ export function useManualChatMessageActions<TCollectedData extends object>({
         let hasReceivedAnyContent = false
         let didObserveToolActivity = false
         let nonStreamingRecoveryStarted = false
-        let bffStreamRecoverySource: 'bff-fallback' | 'bff-fallback-failed' | null = null
+        let bffStreamRecoverySource:
+          | 'bff-fallback'
+          | 'bff-fallback-failed'
+          | 'bff-stream-incomplete'
+          | null = null
+        let receivedToolCards = false
         const clearActiveStream = () => {
           streamCleanupRef.current?.()
           streamCleanupRef.current = null
@@ -228,12 +233,13 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           setIsChatGenerating(false)
           patchAssistantMessage(buildManualChatTerminalErrorPatch(state, translate))
         }
-        const recoverViaNonStreamingChat = () => {
+        const recoverViaNonStreamingChat = (streamEndedWithoutCompletion = false) => {
           if (
             !shouldAttemptManualChatNonStreamingRecovery({
               nonStreamingRecoveryStarted,
               didObserveToolActivity,
               bffStreamRecoverySource,
+              streamEndedWithoutCompletion,
             })
           ) {
             return
@@ -319,6 +325,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             // stream guard in onDone — even a turn with no prose has happened
             // if a tool card landed.
             hasReceivedAnyContent = true
+            receivedToolCards = true
             setChatMessages((prev) =>
               appendManualChatToolCardsToMessages(prev, streamingMsgId, cards)
             )
@@ -332,20 +339,17 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               handleNormalisationSuggestions(normalisationSuggestions)
             }
           },
-          onDone: (responseConversationId) => {
-            // Empty-stream guard: Titan closed the SSE cleanly but emitted
-            // no text and no rendered tool cards. Without this branch the
-            // assistant bubble silently stays blank — the same failure mode
-            // the Mercury dock used to hit. Patch with the generic terminal
-            // error so the user sees a real, localised message instead of
-            // a frozen empty placeholder. Mirrors the FE's
-            // `streamFailureFallback` on `apps/mercury/shared/components/ai-dock`.
+          onDone: (responseConversationId, meta) => {
+            const streamEndedIncomplete =
+              meta?.incomplete === true ||
+              bffStreamRecoverySource === 'bff-stream-incomplete'
+
+            if (streamEndedIncomplete) {
+              recoverViaNonStreamingChat(true)
+              return
+            }
             if (!hasReceivedAnyContent) {
-              if (!didObserveToolActivity) {
-                recoverViaNonStreamingChat()
-                return
-              }
-              finishWithTerminalError({ kind: 'generic' })
+              recoverViaNonStreamingChat(false)
               return
             }
             clearActiveStream()
@@ -377,11 +381,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           },
           onError: (error) => {
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
-            if (didObserveToolActivity) {
-              finishWithTerminalError({ kind: 'generic' })
-              return
-            }
-            recoverViaNonStreamingChat()
+            recoverViaNonStreamingChat(true)
           },
         })
       } catch {

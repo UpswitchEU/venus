@@ -47,6 +47,7 @@
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react'
+import { scrollAnchorIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { ValuationSectionHeader } from '@/components/calculator/sections/ValuationSectionHeader'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
 import { CompanyCardStep } from '@/features/startup-studio/components/CompanyCardStep'
@@ -431,8 +432,7 @@ export function StartupValuationPanel({
     if (typeof window === 'undefined') return
     const def = SECTIONS.find((s) => s.id === id)
     if (!def) return
-    const el = document.getElementById(def.anchor)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollAnchorIntoManualLayout(def.anchor, { behavior: 'smooth', block: 'start' })
   }
 
   return (

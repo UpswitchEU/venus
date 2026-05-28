@@ -11,6 +11,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { X } from 'lucide-react'
 import * as React from 'react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 import { cn } from '../utils'
 
 // ─────────────────────────────────────────
@@ -51,10 +52,9 @@ const modalVariants = cva(
 // COMPONENT TYPES
 // ─────────────────────────────────────────
 
-export interface ModalProps extends VariantProps<typeof modalVariants> {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  children: React.ReactNode
+export interface ModalProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root> {
+  /** Use ref-counted app scroll lock instead of Radix RemoveScroll (safe with stacked overlays). */
+  coordinatedScrollLock?: boolean
 }
 
 export interface ModalContentProps
@@ -73,7 +73,22 @@ export interface ModalContentProps
 // ROOT COMPONENT
 // ─────────────────────────────────────────
 
-const Modal = DialogPrimitive.Root
+function Modal({
+  coordinatedScrollLock = false,
+  modal,
+  open,
+  ...props
+}: ModalProps) {
+  useScrollLock(Boolean(open && coordinatedScrollLock))
+
+  return (
+    <DialogPrimitive.Root
+      open={open}
+      modal={coordinatedScrollLock ? false : modal ?? true}
+      {...props}
+    />
+  )
+}
 
 const ModalTrigger = DialogPrimitive.Trigger
 

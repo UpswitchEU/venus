@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  readPreSelectedValuationMethods,
   sanitizePreSelectedValuationMethod,
   sessionHasStoredPreSelectedMethod,
   toSessionPreSelectedFieldValue,
@@ -95,6 +96,21 @@ describe('toSessionPreSelectedFieldValue', () => {
   it('stores null for adaptive', () => {
     expect(toSessionPreSelectedFieldValue(null, 'upswitch_adaptive')).toBeNull()
     expect(toSessionPreSelectedFieldValue(null, 'dcf')).toBe('dcf')
+  })
+})
+
+describe('readPreSelectedValuationMethods', () => {
+  it('returns string methods from session JSONB and ignores invalid entries', () => {
+    expect(
+      readPreSelectedValuationMethods({
+        _pre_selected_valuation_methods: ['dcf', 42, 'adjusted_nav'],
+      })
+    ).toEqual(['dcf', 'adjusted_nav'])
+  })
+
+  it('returns undefined for missing or empty arrays', () => {
+    expect(readPreSelectedValuationMethods({})).toBeUndefined()
+    expect(readPreSelectedValuationMethods({ _pre_selected_valuation_methods: [] })).toBeUndefined()
   })
 })
 

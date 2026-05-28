@@ -15,6 +15,8 @@ export interface PendingAssistantUpdate {
 
 export interface ChatAssistantDrawerProps {
   open: boolean
+  /** Lock document scroll when drawer is open (mobile full-screen only). */
+  lockScroll?: boolean
   onOpenChange: (open: boolean) => void
   messages: ChatMessage[]
   onSendMessage: (

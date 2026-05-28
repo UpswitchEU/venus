@@ -34,6 +34,25 @@ vi.mock('../../../../stores/clientContext', () => ({
   },
 }))
 
+vi.mock('../../../../services/backendApi', () => ({
+  backendAPI: {},
+}))
+
+vi.mock('../../../../services/session/SessionService', () => ({
+  SessionService: class SessionService {},
+  sessionService: {},
+}))
+
+vi.mock('../../../../services/report/ReportService', () => ({
+  pendingAssetSaves: new Map<string, Promise<void>>(),
+  ReportService: class ReportService {
+    static getInstance() {
+      return new ReportService()
+    }
+  },
+  reportService: {},
+}))
+
 type ExecuteRequestTarget = {
   executeRequest: (config: AxiosRequestConfig, options?: APIRequestConfig) => Promise<unknown>
 }
@@ -494,6 +513,60 @@ describe('SessionAPI', () => {
       expect(resultDetails.html_report).toBeUndefined()
       expect(resultDetails.pdf_html_report).toBeUndefined()
       expect(resultDetails.method).toBe('dcf')
+    })
+
+    it('uses extended timeout for PUT /result to match valuation calculate', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        message: 'saved',
+        reportReady: true,
+      })
+
+      await api.saveValuationResult('val_timeout', {
+        valuationResult: {
+          equity_value_mid: 900000,
+        } satisfies Partial<ValuationResponse>,
+      })
+
+      expect(executeRequestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'PUT',
+          url: '/api/v2/valuations/sessions/val_timeout/result',
+        }),
+        expect.objectContaining({
+          timeout: 120_000,
+          retry: expect.objectContaining({ maxRetries: 0 }),
+        })
+      )
+    })
+
+    it('ignores caller retry overrides for PUT /result', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        message: 'saved',
+        reportReady: true,
+      })
+
+      await api.saveValuationResult(
+        'val_no_retry',
+        {
+          valuationResult: {
+            equity_value_mid: 900000,
+          } satisfies Partial<ValuationResponse>,
+        },
+        { retry: { maxRetries: 3 } }
+      )
+
+      expect(executeRequestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'PUT',
+          url: '/api/v2/valuations/sessions/val_no_retry/result',
+        }),
+        expect.objectContaining({
+          timeout: 120_000,
+          retry: expect.objectContaining({ maxRetries: 0 }),
+        })
+      )
     })
 
     it('surfaces oversized PUT /result instead of marking a partial report save durable', async () => {

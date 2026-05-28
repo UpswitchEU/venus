@@ -4,6 +4,7 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import { backendAPI } from '../backendApi'
+import { VALUATION_OPERATION_TIMEOUT_MS } from '../api/valuationTimeouts'
 
 const logger = createContextLogger('SessionService')
 
@@ -63,7 +64,9 @@ export async function saveCompleteValuationSession(
       const sessionUpdates: Partial<ValuationSession> = {
         sessionData: sessionUpdate,
       }
-      await backendAPI.updateValuationSession(reportId, sessionUpdates)
+      await backendAPI.updateValuationSession(reportId, sessionUpdates, {
+        timeout: VALUATION_OPERATION_TIMEOUT_MS,
+      })
       logger.debug('Session data updated', { reportId })
     }
 

@@ -40,6 +40,7 @@
 import { AlertCircle, Check, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo } from 'react'
+import { scrollAnchorIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { getRegionalBaseline } from '@/components/calculator/sections/startup/regionalBaseline'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
@@ -215,8 +216,7 @@ export function ReviewDefaultsModal({
         return
       }
       if (typeof window === 'undefined') return
-      const el = document.getElementById(anchorId)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollAnchorIntoManualLayout(anchorId, { behavior: 'smooth', block: 'start' })
     },
     [onJumpTo]
   )

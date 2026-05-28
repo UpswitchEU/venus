@@ -103,6 +103,20 @@ export function WaccBreakdownPanel({
   ])
   const computedWaccPct = waccBuildup.wacc
 
+  const waccOverridesCapm = useMemo(() => {
+    if (expanded) return false
+    if (typeof currentWaccPct !== 'number' || !Number.isFinite(currentWaccPct)) return false
+    return Math.abs(currentWaccPct - computedWaccPct) >= 0.15
+  }, [expanded, currentWaccPct, computedWaccPct])
+
+  const displayWaccPct = useMemo(() => {
+    if (expanded) return computedWaccPct
+    if (typeof currentWaccPct === 'number' && Number.isFinite(currentWaccPct)) {
+      return currentWaccPct
+    }
+    return computedWaccPct
+  }, [expanded, currentWaccPct, computedWaccPct])
+
   useEffect(() => {
     if (!expanded) return
     onFieldChange('dcf_wacc_pct', computedWaccPct)
@@ -191,14 +205,16 @@ export function WaccBreakdownPanel({
           consistent with what the engine receives (no silent placeholder/value drift). */}
       {!expanded && (
         <p className="mt-1 font-mono text-[10px] leading-snug text-foreground/55 tabular-nums">
-          {t('waccBreakdown.liveFormula', {
-            equityWeight: round1(waccBuildup.equityWeight * 100).toFixed(1),
-            costOfEquity: waccBuildup.costOfEquityPct.toFixed(1),
-            debtWeight: round1(waccBuildup.debtWeight * 100).toFixed(1),
-            costOfDebt: resolvedCostOfDebtPct.toFixed(1),
-            taxShield: resolvedTaxShieldPct.toFixed(0),
-            wacc: waccBuildup.wacc.toFixed(1),
-          })}
+          {waccOverridesCapm
+            ? t('waccBreakdown.manualOverride', { wacc: displayWaccPct.toFixed(1) })
+            : t('waccBreakdown.liveFormula', {
+                equityWeight: round1(waccBuildup.equityWeight * 100).toFixed(1),
+                costOfEquity: waccBuildup.costOfEquityPct.toFixed(1),
+                debtWeight: round1(waccBuildup.debtWeight * 100).toFixed(1),
+                costOfDebt: resolvedCostOfDebtPct.toFixed(1),
+                taxShield: resolvedTaxShieldPct.toFixed(0),
+                wacc: displayWaccPct.toFixed(1),
+              })}
         </p>
       )}
       <button

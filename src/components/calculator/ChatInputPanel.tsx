@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, FileText, Image as ImageIcon, Loader2, Paperclip, Send, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
+import { scrollContainerToBottom } from '@/utils/scrollContainer'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
@@ -57,12 +58,12 @@ export function ChatInputPanel({
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+    scrollContainerToBottom(messagesContainerRef.current)
+  }, [messages.length, isGenerating])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -112,7 +113,7 @@ export function ChatInputPanel({
       />
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
         {isEmpty ? (
           <EmptyState
             suggestions={suggestions}
@@ -154,7 +155,7 @@ export function ChatInputPanel({
               </motion.div>
             )}
 
-            <div ref={messagesEndRef} />
+            <div aria-hidden="true" />
           </div>
         )}
       </div>
