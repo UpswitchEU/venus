@@ -63,7 +63,7 @@ export declare const AI_ACTION_TOOL_NAMES: readonly ("suggest_normalization" | "
 export declare const AI_ACTION_TOOL_RESULT_TYPES: readonly ["normalization_suggestion", "field_update", "valuation_run_request", "bulk_valuation_run_request", "report_generation_request", "sellability_run_request", "owner_profile_answer_request", "integration_connect_request", "integration_sync_request", "owner_reminder_request", "owner_invite_accountant_request", "listing_visibility_request", "listing_field_update_request", "share_token_request", "share_token_revoke_request", "valuation_method_preference_request", "valuation_defaults_request", "acknowledge_warning_request", "secure_credential_request", "csv_upload_request", "multi_select_request", "single_select_request", "client_create_request", "belgian_company_bootstrap", "valuation_session_request", "client_data_readiness", "import_review_request", "method_readiness", "sync_status", "valuation_defaults", "workspace_clients", "listing_preview", "listing_create_request", "buyer_profile_preview", "business_type_search_results", "registry_search_results", "normalization_suggestion_batch", "normalization_dismiss_request", "buyer_ready_package_status", "buyer_ready_package_generation_request", "dd_checklist", "data_room_manifest", "legal_readiness", "data_room_upload_request", "dd_override_request", "im_regenerate_request", "buyer_invitation_request", "package_publish_request", "lawyer_handoff_request", "add_client_widget"];
 export type AiActionToolResultType = (typeof AI_ACTION_TOOL_RESULT_TYPES)[number];
 export type AiToolResultEnvelopeType = AiActionToolResultType | 'data';
-export declare const AI_STREAM_CHUNK_TYPES: readonly ["text", "tool_start", "tool_result", "done", "error", "_keepalive"];
+export declare const AI_STREAM_CHUNK_TYPES: readonly ["text", "tool_start", "tool_result", "done", "error", "_keepalive", "stream_recovery"];
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
 /**
  * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
@@ -124,6 +124,9 @@ export type AiStreamChunk = {
     conversationId?: string;
 } | {
     type: '_keepalive';
+} | {
+    type: 'stream_recovery';
+    source: 'bff-fallback' | 'bff-fallback-failed';
 };
 export declare function isAiActionToolName(value: unknown): value is AiActionToolName;
 export declare function isAiActionToolResultType(value: unknown): value is AiActionToolResultType;

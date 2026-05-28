@@ -128,6 +128,10 @@ export const AI_STREAM_CHUNK_TYPES = [
     // hide behind the keepalive and skip the user-facing empty-stream
     // fallback. See `AI_STREAM_KEEPALIVE_CHUNK_JSON` for the wire literal.
     '_keepalive',
+    // BFF-only meta chunk — emitted by Mercury/Venus chat BFF when the
+    // streaming route falls back to non-streaming sync. The FE uses this to
+    // dedupe duplicate client-side recovery. Not produced by Titan.
+    'stream_recovery',
 ];
 /**
  * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
