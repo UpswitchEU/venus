@@ -579,6 +579,11 @@ export class SessionBootstrapService {
     this.lastSuccessfulCacheKey = null
   }
 
+  /** Drop in-flight bootstrap promises (e.g. after deleting the active report). */
+  clearInflightCache(): void {
+    this.bootstrapPromiseCache.clear()
+  }
+
   /**
    * Reset the circuit breaker. Only for explicit user-triggered retry —
    * never call this from automated code paths.

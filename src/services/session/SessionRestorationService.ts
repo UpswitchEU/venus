@@ -32,7 +32,10 @@ import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
 } from '../../utils/extractValuationResultsMap'
-import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
+import {
+  buildNormalizationItemsFromImportedLedgerAnalysis,
+  buildReportedEbitdaByYearFromFormRecords,
+} from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
 import {
@@ -710,7 +713,25 @@ class SessionRestorationServiceImpl {
       )
       if (analysis) {
         if (normStore.items.length === 0) {
-          const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
+          const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+            ...analysis,
+            reported_ebitda_by_year: buildReportedEbitdaByYearFromFormRecords({
+              currentYearData: asRecord(formData?.current_year_data) as {
+                year?: number
+                ebitda?: number
+              },
+              historicalYearsData: Array.isArray(formData?.historical_years_data)
+                ? (formData.historical_years_data as Array<{ year?: number; ebitda?: number }>)
+                : undefined,
+              yearlyFinancials: Array.isArray(formData?.yearlyFinancials)
+                ? (formData.yearlyFinancials as Array<{
+                    year?: number | string
+                    ebitda?: number
+                    isForecast?: boolean
+                  }>)
+                : undefined,
+            }),
+          })
           if (items.length > 0) {
             normStore.addItems(items)
             restoredEbitdaNormalizations = true

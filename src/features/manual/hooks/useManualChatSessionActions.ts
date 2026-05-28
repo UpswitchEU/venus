@@ -7,13 +7,13 @@ import {
 } from '../utils/manualChatCommandHandling'
 import { mapStoredMessagesToManualChatMessages } from '../utils/manualChatHistory'
 
-type ManualChatMessageSender = (content: string) => void | Promise<void>
+import type { ManualChatSendHandler } from './useManualChatMessageActions'
 
 export interface UseManualChatSessionActionsParams {
   chatDrawerOpen: boolean
   chatMessages: readonly ChatMessage[]
   clearConversationMessages: () => void
-  handleChatMessage: ManualChatMessageSender
+  handleChatMessage: ManualChatSendHandler
   isChatGenerating: boolean
   isLoadingHistory: boolean
   lastLoadedReportId?: string | null

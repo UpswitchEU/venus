@@ -168,6 +168,7 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
   ]
 
   const surfaceIntentFromBody = nonEmptyString(body.surfaceIntent)
+  const assistantIntentFromBody = nonEmptyString(body.assistantIntent)
   const sessionId = nonEmptyString(body.sessionId)
   const isWorkspaceClientIntent = isAdvisorWorkspaceClientTurn({
     surfaceIntent: surfaceIntentFromBody,
@@ -189,6 +190,7 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
     viewingClientId: isWorkspaceClientIntent ? undefined : body.viewingClientId,
     pageRoute: isWorkspaceClientIntent ? undefined : body.pageRoute,
     surfaceIntent: resolvedSurfaceIntent ?? undefined,
+    assistantIntent: isWorkspaceClientIntent ? undefined : assistantIntentFromBody ?? undefined,
     industry: isWorkspaceClientIntent ? undefined : formData?.industry,
     countryCode: isWorkspaceClientIntent
       ? nonEmptyString(body.countryCode) || formData?.country_code || formData?.country

@@ -181,5 +181,49 @@ export function isAiActionToolResultType(value) {
 export function classifyAiActionToolResultType(toolName) {
     return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
 }
+export function aiRecordValue(value) {
+    return value && typeof value === 'object'
+        ? value
+        : null;
+}
+export function aiOptionalString(value) {
+    return typeof value === 'string' ? value : undefined;
+}
+export function aiOptionalStringList(value) {
+    return Array.isArray(value)
+        ? value.filter((item) => typeof item === 'string')
+        : undefined;
+}
+export function aiStringValue(value, fallback = '') {
+    return typeof value === 'string' ? value : fallback;
+}
+export function aiNumberValue(value, fallback) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+export function aiNullableString(value) {
+    return typeof value === 'string' ? value : null;
+}
+export function aiNullableNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+export function aiStringArray(value) {
+    return Array.isArray(value)
+        ? value.filter((item) => typeof item === 'string')
+        : [];
+}
+export function aiArrayRecords(value) {
+    return Array.isArray(value)
+        ? value.filter((item) => typeof item === 'object' && item !== null)
+        : [];
+}
+export function aiRequestRecord(data) {
+    return aiRecordValue(data.request);
+}
+export function aiCardRecord(data) {
+    return aiRecordValue(data.card);
+}
+export function aiPendingRequestRecord(data) {
+    return data.status === 'pending_approval' ? aiRequestRecord(data) : null;
+}
 export { deriveAdvisorWorkspaceSessionKey, deriveClientScopedSessionKey, isAdvisorWorkspaceClientTurn, isAdvisorWorkspaceSessionKey, isAdvisorWorkspaceSurfaceIntent, } from './conversation-keys.js';
 //# sourceMappingURL=index.js.map

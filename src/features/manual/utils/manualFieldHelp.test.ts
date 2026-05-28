@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { FieldHelpContext } from '@/components/calculator'
+import { detectAssistantIntent } from '@/services/ai/local-chat-fallback'
 import { buildManualFieldContext, buildManualFieldHelpQuestion } from './manualFieldHelp'
 
 describe('manualFieldHelp', () => {
@@ -38,9 +39,14 @@ describe('manualFieldHelp', () => {
     ).toBe('Hoeveel privégebruik kan genormaliseerd worden voor autokosten?')
   })
 
+  it('routes EBITDA field-help prompts to explain_ebitda intent', () => {
+    const question = buildManualFieldHelpQuestion({ field: 'ebitda', label: 'EBITDA 2023' }, 'nl')
+    expect(detectAssistantIntent(question)).toBe('explain_ebitda')
+  })
+
   it('builds field-specific and ledger fallback questions', () => {
     expect(buildManualFieldHelpQuestion({ field: 'ebitda', label: '2025' }, 'en')).toBe(
-      'Which normalizations are relevant for the EBITDA of 2025?'
+      'Explain the EBITDA bridge for 2025 — reported vs normalized and applied addbacks.'
     )
     expect(
       buildManualFieldHelpQuestion({ field: 'other', label: 'Rent', grootboekCode: '610' }, 'en')

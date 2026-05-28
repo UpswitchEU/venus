@@ -41,6 +41,47 @@ export interface ImportedLedgerAnalysisLike {
   sde_flags?: ImportedLedgerSdeFlag[]
   ev_equity_bridge?: Record<string, number>
   dcf_defaults?: { average_depreciation?: number; suggested_capex?: number }
+  /** Reported EBITDA by fiscal year — used to keep extreme auto-addbacks pending for review. */
+  reported_ebitda_by_year?: Record<number, number>
+}
+
+const AUTO_NORM_DEFENSIBILITY_CAP_RATIO = 0.5
+
+export function buildReportedEbitdaByYearFromFormRecords(options: {
+  currentYearData?: { year?: number; ebitda?: number }
+  historicalYearsData?: Array<{ year?: number; ebitda?: number }>
+  yearlyFinancials?: Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
+}): Record<number, number> {
+  const map: Record<number, number> = {}
+
+  const add = (year: unknown, ebitda: unknown) => {
+    const y = Number(year)
+    const e = Number(ebitda)
+    if (Number.isFinite(y) && Number.isFinite(e)) map[y] = e
+  }
+
+  if (options.currentYearData) {
+    add(options.currentYearData.year, options.currentYearData.ebitda)
+  }
+  for (const row of options.historicalYearsData ?? []) {
+    add(row.year, row.ebitda)
+  }
+  for (const row of options.yearlyFinancials ?? []) {
+    if (row.isForecast) continue
+    add(row.year, row.ebitda)
+  }
+
+  return map
+}
+
+function resolveAutoImportedNormStatus(
+  adjustment: number,
+  year: number,
+  reportedEbitdaByYear?: Record<number, number>
+): NormalizationItem['status'] {
+  const reported = reportedEbitdaByYear?.[year]
+  if (reported == null || !(reported > 0) || !(adjustment > 0)) return 'accepted'
+  return adjustment / reported > AUTO_NORM_DEFENSIBILITY_CAP_RATIO ? 'pending' : 'accepted'
 }
 
 function mapImportedLedgerCategory(category?: string): NormalizationItem['category'] {
@@ -100,6 +141,8 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
         ? `${baseReason} Default ${flag.default_private_use_pct.toFixed(0)}% private-use share applied; adjust as needed.`
         : baseReason
 
+    const year = flag.year || getCurrentFilingYear()
+
     return {
       id: `imported_sde_${flag.year ?? 'y'}_${flag.ledger_code}_${index}`,
       ledgerCode: flag.ledger_code,
@@ -112,10 +155,10 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
       reason,
       source: 'auto' as const,
       sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
-      status: 'accepted' as const,
+      status: resolveAutoImportedNormStatus(seededAmount, year, analysis.reported_ebitda_by_year),
       applyAllYears: false,
       applyYears: flag.year ? [flag.year] : undefined,
-      year: flag.year || getCurrentFilingYear(),
+      year,
       confidence: mapImportedLedgerConfidence(flag.confidence),
       marketBenchmark: flag.benchmark_median_pct,
     }

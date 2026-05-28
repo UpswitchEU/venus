@@ -198,6 +198,29 @@ describe('dispatchAIChatChunk', () => {
     expect(state.doneReceived).toBe(false)
   })
 
+  it('documents bff-fallback-failed wire sequence: recovery meta then terminal error', () => {
+    const onBffStreamRecovery = vi.fn()
+    const { callbacks, spies } = makeCallbacks()
+    callbacks.onBffStreamRecovery = onBffStreamRecovery
+    const state = makeChunkDispatchState()
+
+    dispatchAIChatChunk(
+      { type: 'stream_recovery', source: 'bff-fallback-failed' },
+      state,
+      callbacks
+    )
+    dispatchAIChatChunk(
+      { type: 'error', error: 'AI stream fallback failed' },
+      state,
+      callbacks
+    )
+
+    expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
+    expect(spies.onError).toHaveBeenCalledWith('AI stream fallback failed')
+    expect(spies.onDone).not.toHaveBeenCalled()
+    expect(state.doneReceived).toBe(true)
+  })
+
   it('passes explicit completion metadata on done chunks', () => {
     const { callbacks, spies } = makeCallbacks()
     const state = makeChunkDispatchState()

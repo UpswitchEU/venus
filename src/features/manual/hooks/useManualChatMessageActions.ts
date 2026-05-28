@@ -1,5 +1,12 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useRef,
+} from 'react'
 import { toast } from 'sonner'
+import { isOfflineFallbackContent, type AssistantIntent } from '@/services/ai/local-chat-fallback'
 import type {
   ChatMessage,
   FieldContext,
@@ -28,16 +35,21 @@ import {
   buildManualUserChatMessage,
   patchManualChatMessage,
 } from '../utils/manualChatMessages'
+import { requestManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
 import {
   buildManualAIChatRequest,
   getManualChatVersionCount,
   type ManualChatFinancialContext,
 } from '../utils/manualChatRequestContext'
 import {
+  resolveManualChatOnDoneAction,
+  resolveManualChatOnErrorAction,
+  resolveManualChatRecoverySkipAction,
+} from '../utils/manualChatStreamTurnHandlers'
+import {
   buildManualChatTerminalErrorPatch,
   type ManualChatTerminalErrorState,
 } from '../utils/manualChatTerminalErrors'
-import { requestManualChatNonStreamingRecovery, shouldAttemptManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
 import {
   appendManualChatToolCardsToMessages,
   parseManualChatStreamToolResult,
@@ -59,6 +71,7 @@ export interface UseManualChatMessageActionsParams<TCollectedData extends object
   fieldContext?: FieldContext
   handleApplyFieldUpdate: ApplyManualFieldUpdate
   isAccountantMode: boolean
+  isChatGenerating: boolean
   isLoadingHistory: boolean
   latestFormDataRef: MutableRefObject<Partial<TCollectedData>>
   manualChatReportId?: string | null
@@ -77,13 +90,16 @@ export interface UseManualChatMessageActionsParams<TCollectedData extends object
   addNormalizationItems: AddNormalizationItems
 }
 
+export type ManualChatSendHandler = (
+  content: string,
+  attachments?: File[],
+  detectedValues?: ParsedValue[],
+  parsedCommands?: ParsedCommand[],
+  assistantIntent?: AssistantIntent
+) => Promise<void>
+
 export interface UseManualChatMessageActionsResult {
-  handleChatMessage: (
-    content: string,
-    attachments?: File[],
-    detectedValues?: ParsedValue[],
-    parsedCommands?: ParsedCommand[]
-  ) => Promise<void>
+  handleChatMessage: ManualChatSendHandler
 }
 
 export function useManualChatMessageActions<TCollectedData extends object>({
@@ -95,6 +111,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
   fieldContext,
   handleApplyFieldUpdate,
   isAccountantMode,
+  isChatGenerating,
   isLoadingHistory,
   latestFormDataRef,
   manualChatReportId,
@@ -112,6 +129,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
   translate,
 }: UseManualChatMessageActionsParams<TCollectedData>): UseManualChatMessageActionsResult {
   const clientUserId = useClientContext((state) => state.client?.id ?? null)
+  const activeChatTurnIdRef = useRef<string | null>(null)
 
   const handleNormalisationSuggestions = useCallback(
     (suggestions: unknown[] | undefined) => {
@@ -140,11 +158,13 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       content: string,
       attachments?: File[],
       detectedValues?: ParsedValue[],
-      parsedCommands?: ParsedCommand[]
+      parsedCommands?: ParsedCommand[],
+      assistantIntent?: AssistantIntent
     ) => {
       // Allow non-empty user messages (e.g. quality-warning CTAs) while
       // history hydrates; only block empty triggers during load.
       if (isLoadingHistory && !content.trim()) return
+      if (isChatGenerating && !parsedCommands?.length) return
 
       const userMessage = buildManualUserChatMessage({
         id: crypto.randomUUID(),
@@ -154,6 +174,8 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       })
       setChatMessages((prev) => [...prev, userMessage])
       setIsChatGenerating(true)
+
+      const streamingMsgId = crypto.randomUUID()
 
       try {
         // Handle parsed commands locally, no AI call needed.
@@ -205,9 +227,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           ),
           audience: isAccountantMode ? 'advisor' : 'owner',
           clientUserId: isAccountantMode ? clientUserId : null,
+          assistantIntent,
         })
 
-        const streamingMsgId = crypto.randomUUID()
+        const turnId = crypto.randomUUID()
+        activeChatTurnIdRef.current = turnId
         let streamedContent = ''
         // Track whether the stream produced anything user-visible. Either
         // text or a rendered tool card counts; neither one means Titan closed
@@ -223,7 +247,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           | 'bff-fallback-failed'
           | 'bff-stream-incomplete'
           | null = null
-        let receivedToolCards = false
         const clearActiveStream = () => {
           streamCleanupRef.current?.()
           streamCleanupRef.current = null
@@ -237,19 +260,31 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           setIsChatGenerating(false)
           patchAssistantMessage(buildManualChatTerminalErrorPatch(state, translate))
         }
-        const recoverViaNonStreamingChat = (streamEndedWithoutCompletion = false) => {
-          if (
-            !shouldAttemptManualChatNonStreamingRecovery({
-              nonStreamingRecoveryStarted,
-              didObserveToolActivity,
-              bffStreamRecoverySource,
-              streamEndedWithoutCompletion,
-            })
-          ) {
-            return
+        const recoverViaNonStreamingChat = (
+          streamEndedWithoutCompletion = false,
+          emptyStream = false
+        ): boolean => {
+          const skipAction = resolveManualChatRecoverySkipAction({
+            nonStreamingRecoveryStarted,
+            didObserveToolActivity,
+            bffStreamRecoverySource,
+            streamEndedWithoutCompletion,
+            emptyStream,
+            hasReceivedAnyContent,
+          })
+          if (skipAction.kind === 'terminal_error') {
+            finishWithTerminalError({ kind: 'generic' })
+            return false
+          }
+          if (skipAction.kind === 'finish_with_content') {
+            clearActiveStream()
+            setIsChatGenerating(false)
+            return false
           }
           nonStreamingRecoveryStarted = true
-          clearActiveStream()
+          // Do not abort the streaming fetch here — aborting Venus /api/ai/chat while
+          // the BFF is still running Titan inline chat recovery causes 499s and forces
+          // the offline template. Let the stream request finish; abort only after recovery.
           setIsChatGenerating(true)
           generalLogger.warn('Streaming produced no visible content, falling back to non-streaming')
           void requestManualChatNonStreamingRecovery({
@@ -259,6 +294,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             createId: () => crypto.randomUUID(),
           })
             .then((outcome) => {
+              if (activeChatTurnIdRef.current !== turnId) return
               switch (outcome.status) {
                 case 'terminal_error':
                   patchAssistantMessage(outcome.patch)
@@ -283,8 +319,9 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                       duration: 4000,
                     })
                   }
-                  if (outcome.fieldUpdates) {
-                    setPendingUpdates((prev) => [...prev, ...outcome.fieldUpdates!])
+                  const recoveredFieldUpdates = outcome.fieldUpdates
+                  if (recoveredFieldUpdates) {
+                    setPendingUpdates((prev) => [...prev, ...recoveredFieldUpdates])
                   }
                   handleNormalisationSuggestions(outcome.normalisationSuggestions)
                   return
@@ -292,8 +329,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               }
             })
             .finally(() => {
+              if (activeChatTurnIdRef.current !== turnId) return
+              clearActiveStream()
               setIsChatGenerating(false)
             })
+          return true
         }
 
         setChatMessages((prev) => [
@@ -329,7 +369,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             // stream guard in onDone — even a turn with no prose has happened
             // if a tool card landed.
             hasReceivedAnyContent = true
-            receivedToolCards = true
             setChatMessages((prev) =>
               appendManualChatToolCardsToMessages(prev, streamingMsgId, cards)
             )
@@ -344,17 +383,26 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
           },
           onDone: (responseConversationId, meta) => {
-            const streamEndedIncomplete =
-              meta?.incomplete === true ||
-              bffStreamRecoverySource === 'bff-stream-incomplete'
+            const doneAction = resolveManualChatOnDoneAction({
+              hasReceivedAnyContent,
+              bffStreamRecoverySource,
+              streamIncomplete: meta?.incomplete === true,
+            })
 
-            if (streamEndedIncomplete) {
-              recoverViaNonStreamingChat(true)
+            if (doneAction.kind === 'recover') {
+              recoverViaNonStreamingChat(
+                doneAction.streamEndedWithoutCompletion,
+                doneAction.emptyStream
+              )
               return
             }
-            if (!hasReceivedAnyContent) {
-              recoverViaNonStreamingChat(false)
-              return
+
+            if (isOfflineFallbackContent(streamedContent)) {
+              patchAssistantMessage({ isOfflineFallback: true })
+              toast.info(translate('aiUnavailable'), {
+                description: translate('aiUnavailableDesc'),
+                duration: 4000,
+              })
             }
             clearActiveStream()
             setIsChatGenerating(false)
@@ -385,19 +433,35 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           },
           onError: (error) => {
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
-            recoverViaNonStreamingChat(true)
+            const errorAction = resolveManualChatOnErrorAction({ hasReceivedAnyContent })
+            if (errorAction.kind === 'finish_with_content') {
+              if (isOfflineFallbackContent(streamedContent)) {
+                patchAssistantMessage({ isOfflineFallback: true })
+              }
+              clearActiveStream()
+              setIsChatGenerating(false)
+              return
+            }
+            recoverViaNonStreamingChat(errorAction.streamEndedWithoutCompletion)
           },
         })
       } catch {
+        streamCleanupRef.current?.()
+        streamCleanupRef.current = null
         setToolInProgress(null)
-        setChatMessages((prev) => [
-          ...prev,
-          buildManualAssistantChatMessage({
-            id: crypto.randomUUID(),
-            content: translate('chatError'),
-            isError: true,
-          }),
-        ])
+        const errorPatch = buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
+        setChatMessages((prev) =>
+          streamingMsgId
+            ? patchManualChatMessage(prev, streamingMsgId, errorPatch)
+            : [
+                ...prev,
+                buildManualAssistantChatMessage({
+                  id: crypto.randomUUID(),
+                  content: errorPatch.content ?? translate('chatError'),
+                  isError: errorPatch.isError,
+                }),
+              ]
+        )
         setIsChatGenerating(false)
       }
     },
@@ -411,6 +475,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       handleNormalisationSuggestions,
       isAccountantMode,
       clientUserId,
+      isChatGenerating,
       isLoadingHistory,
       latestFormDataRef,
       manualChatReportId,

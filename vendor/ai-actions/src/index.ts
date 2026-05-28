@@ -275,6 +275,72 @@ export function classifyAiActionToolResultType(
   return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName as AiActionToolName] ?? 'data';
 }
 
+/**
+ * Shared loose-value coercion helpers for Titan tool-result envelopes.
+ * Mercury and Venus intentionally parse these envelopes defensively because
+ * future tools can add fields before every frontend card catches up.
+ */
+export type AiToolResultRecord = Record<string, unknown>;
+
+export function aiRecordValue(value: unknown): AiToolResultRecord | null {
+  return value && typeof value === 'object'
+    ? (value as AiToolResultRecord)
+    : null;
+}
+
+export function aiOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+export function aiOptionalStringList(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : undefined;
+}
+
+export function aiStringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+export function aiNumberValue(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export function aiNullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+export function aiNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function aiStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+export function aiArrayRecords(value: unknown): AiToolResultRecord[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is AiToolResultRecord =>
+          typeof item === 'object' && item !== null,
+      )
+    : [];
+}
+
+export function aiRequestRecord(data: AiToolResultRecord): AiToolResultRecord | null {
+  return aiRecordValue(data.request);
+}
+
+export function aiCardRecord(data: AiToolResultRecord): AiToolResultRecord | null {
+  return aiRecordValue(data.card);
+}
+
+export function aiPendingRequestRecord(data: AiToolResultRecord): AiToolResultRecord | null {
+  return data.status === 'pending_approval' ? aiRequestRecord(data) : null;
+}
+
 export {
   deriveAdvisorWorkspaceSessionKey,
   deriveClientScopedSessionKey,

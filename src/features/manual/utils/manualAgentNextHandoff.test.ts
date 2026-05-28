@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isManualAgentNextCheckIntegrations,
+  isManualAgentNextDeepenReport,
   isManualAgentNextPrepareListing,
   isManualAgentNextProfileBuyers,
   isManualAgentNextRunValuation,
+  MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT,
+  MANUAL_AGENT_NEXT_DEEPEN_REPORT_PROMPT,
   MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT,
   MANUAL_AGENT_NEXT_PROFILE_BUYERS_PROMPT,
   MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT,
@@ -34,6 +38,17 @@ describe('manualAgentNextHandoff', () => {
     expect(isManualAgentNextPrepareListing(undefined)).toBe(false)
   })
 
+  it('recognizes report-deepening and integration-check handoff intents', () => {
+    expect(isManualAgentNextDeepenReport('deepen_report')).toBe(true)
+    expect(isManualAgentNextDeepenReport('deepen-report')).toBe(true)
+    expect(isManualAgentNextDeepenReport('deepenReport')).toBe(true)
+    expect(isManualAgentNextDeepenReport('prepare_listing')).toBe(false)
+    expect(isManualAgentNextCheckIntegrations('check_integrations')).toBe(true)
+    expect(isManualAgentNextCheckIntegrations('check-integrations')).toBe(true)
+    expect(isManualAgentNextCheckIntegrations('checkIntegrations')).toBe(true)
+    expect(isManualAgentNextCheckIntegrations('deepen_report')).toBe(false)
+  })
+
   it('uses a stable prompt for the Venus assistant handoff', () => {
     expect(MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT).toBe('Run the valuation for this client.')
   })
@@ -53,6 +68,16 @@ describe('manualAgentNextHandoff', () => {
     expect(MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT).toContain('Do not publish')
   })
 
+  it('uses broad M&A copilot prompts for report deepening and integrations', () => {
+    expect(MANUAL_AGENT_NEXT_DEEPEN_REPORT_PROMPT).toContain('registry context')
+    expect(MANUAL_AGENT_NEXT_DEEPEN_REPORT_PROMPT).toContain('buyer-readiness')
+    expect(MANUAL_AGENT_NEXT_DEEPEN_REPORT_PROMPT).toContain('Propose approvals')
+    expect(MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT).toContain('Silverfin')
+    expect(MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT).toContain('Yuki')
+    expect(MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT).toContain('Exact')
+    expect(MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT).toContain('Octopus')
+  })
+
   it('resolves URL handoff intents to the prompt sent into the assistant drawer', () => {
     expect(resolveManualAgentNextPrompt('run_valuation')).toBe(
       MANUAL_AGENT_NEXT_RUN_VALUATION_PROMPT
@@ -65,6 +90,12 @@ describe('manualAgentNextHandoff', () => {
     )
     expect(resolveManualAgentNextPrompt('prepare_listing')).toBe(
       MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT
+    )
+    expect(resolveManualAgentNextPrompt('deepen_report')).toBe(
+      MANUAL_AGENT_NEXT_DEEPEN_REPORT_PROMPT
+    )
+    expect(resolveManualAgentNextPrompt('check_integrations')).toBe(
+      MANUAL_AGENT_NEXT_CHECK_INTEGRATIONS_PROMPT
     )
     expect(resolveManualAgentNextPrompt('unknown')).toBeNull()
   })

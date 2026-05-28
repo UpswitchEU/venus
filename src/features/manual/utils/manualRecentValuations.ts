@@ -1,5 +1,5 @@
 import type { RecentValuation } from '@/components/calculator'
-import { valuationIdsReferToSameReport } from '@/utils/identifiers'
+import { isSessionKey, valuationIdsReferToSameReport } from '@/utils/identifiers'
 
 interface BuildManualRecentValuationsParams {
   rawRecentValuations: RecentValuation[]
@@ -150,13 +150,16 @@ export function buildManualRecentValuations({
     readDate(currentReport?.generatedAt) ??
     now
 
+  // Draft `val_*` sessions without a linked report row must use session DELETE, not report DELETE.
+  const isSessionOnly = isSessionKey(prependedId) && !sessionReportId
+
   return [
     {
       id: prependedId,
       companyName,
       updatedAt,
-      isDraft: !currentReport,
-      deleteMode: !currentReport ? 'session' : 'report',
+      isDraft: isSessionOnly || !currentReport,
+      deleteMode: isSessionOnly ? 'session' : 'report',
     },
     ...rawRecentValuations,
   ]

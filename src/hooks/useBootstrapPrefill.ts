@@ -32,7 +32,10 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
-import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
+import {
+  buildNormalizationItemsFromImportedLedgerAnalysis,
+  buildReportedEbitdaByYearFromFormRecords,
+} from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
@@ -585,9 +588,18 @@ function applyPrefillToForm(
         _imported_ledger_analysis: financials.importedLedgerAnalysis,
       }
 
-      const importedNormalizationItems = buildNormalizationItemsFromImportedLedgerAnalysis(
-        financials.importedLedgerAnalysis
-      )
+      const importedNormalizationItems = buildNormalizationItemsFromImportedLedgerAnalysis({
+        ...financials.importedLedgerAnalysis,
+        reported_ebitda_by_year: buildReportedEbitdaByYearFromFormRecords({
+          currentYearData: allData.current_year_data as { year?: number; ebitda?: number },
+          historicalYearsData: allData.historical_years_data as
+            | Array<{ year?: number; ebitda?: number }>
+            | undefined,
+          yearlyFinancials: allData.yearlyFinancials as
+            | Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
+            | undefined,
+        }),
+      })
       if (importedNormalizationItems.length > 0) {
         useNormalizationStore.getState().addItems(importedNormalizationItems)
       }

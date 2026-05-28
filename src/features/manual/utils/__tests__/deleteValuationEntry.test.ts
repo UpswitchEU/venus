@@ -50,57 +50,85 @@ describe('deleteValuationEntry', () => {
     expect(deleteReport).toHaveBeenCalledWith('report-123')
     expect(deleteDraftSession).not.toHaveBeenCalled()
   })
+
+  it('falls back to session delete when report delete fails for a val_* id', async () => {
+    const deleteDraftSession = vi.fn().mockResolvedValue(undefined)
+    const deleteReport = vi.fn().mockRejectedValue(new Error('not found'))
+
+    await deleteValuationEntry({
+      valuation: {
+        id: 'val_1779964007757_vfb7661671',
+        companyName: 'Draft Co',
+        updatedAt: new Date(),
+        isDraft: false,
+        deleteMode: 'report',
+      },
+      deleteDraftSession,
+      deleteReport,
+    })
+
+    expect(deleteReport).toHaveBeenCalledWith('val_1779964007757_vfb7661671')
+    expect(deleteDraftSession).toHaveBeenCalledWith('val_1779964007757_vfb7661671')
+  })
 })
 
 describe('buildPostDeleteNewValuationUrl', () => {
   it('preserves client context and company identity after deleting the current report', () => {
-    expect(
-      buildPostDeleteNewValuationUrl({
-        locale: 'nl',
-        clientId: 'client-123',
-        companyName: 'Metaalbewerking Upswitch',
-        currentSearch: '?source=mercury&flow=advisor',
-      })
-    ).toBe(
-      '/nl/reports/new?clientId=client-123&prefilledQuery=Metaalbewerking+Upswitch&flow=advisor&source=mercury'
-    )
+    const url = buildPostDeleteNewValuationUrl({
+      locale: 'nl',
+      clientId: 'client-123',
+      companyName: 'Metaalbewerking Upswitch',
+      currentSearch: '?source=mercury&flow=advisor',
+    })
+    const params = new URLSearchParams(url.split('?')[1] ?? '')
+    expect(url.startsWith('/nl/reports/new?')).toBe(true)
+    expect(params.get('clientId')).toBe('client-123')
+    expect(params.get('prefilledQuery')).toBe('Metaalbewerking Upswitch')
+    expect(params.get('flow')).toBe('advisor')
+    expect(params.get('source')).toBe('mercury')
+    expect(params.get('_ts')).toMatch(/^\d+$/)
   })
 
   it('falls back to KBO or VAT when no company name is available', () => {
-    expect(
-      buildPostDeleteNewValuationUrl({
-        locale: 'nl',
-        kboNumber: '0123.456.789',
-      })
-    ).toBe('/nl/reports/new?prefilledQuery=0123.456.789')
+    const kboUrl = buildPostDeleteNewValuationUrl({
+      locale: 'nl',
+      kboNumber: '0123.456.789',
+    })
+    expect(kboUrl).toContain('/nl/reports/new?')
+    expect(new URLSearchParams(kboUrl.split('?')[1] ?? '').get('prefilledQuery')).toBe(
+      '0123.456.789'
+    )
 
-    expect(
-      buildPostDeleteNewValuationUrl({
-        locale: 'nl',
-        vatNumber: 'BE0123456789',
-      })
-    ).toBe('/nl/reports/new?prefilledQuery=BE0123456789')
+    const vatUrl = buildPostDeleteNewValuationUrl({
+      locale: 'nl',
+      vatNumber: 'BE0123456789',
+    })
+    expect(new URLSearchParams(vatUrl.split('?')[1] ?? '').get('prefilledQuery')).toBe(
+      'BE0123456789'
+    )
   })
 
   it('copies only safe passthrough params and rejects unsafe return URLs', () => {
-    expect(
-      buildPostDeleteNewValuationUrl({
-        locale: 'en',
-        companyName: 'Safe Co',
-        currentSearch:
-          '?clientToken=tok_123&return_url=javascript:alert(1)&source=mercury&unknown=drop',
-      })
-    ).toBe('/en/reports/new?prefilledQuery=Safe+Co&clientToken=tok_123&source=mercury')
+    const unsafeReturnUrl = buildPostDeleteNewValuationUrl({
+      locale: 'en',
+      companyName: 'Safe Co',
+      currentSearch:
+        '?clientToken=tok_123&return_url=javascript:alert(1)&source=mercury&unknown=drop',
+    })
+    const unsafeParams = new URLSearchParams(unsafeReturnUrl.split('?')[1] ?? '')
+    expect(unsafeParams.get('prefilledQuery')).toBe('Safe Co')
+    expect(unsafeParams.get('clientToken')).toBe('tok_123')
+    expect(unsafeParams.get('source')).toBe('mercury')
+    expect(unsafeParams.get('return_url')).toBeNull()
+    expect(unsafeParams.get('unknown')).toBeNull()
 
-    expect(
-      buildPostDeleteNewValuationUrl({
-        locale: 'en',
-        companyName: 'Safe Co',
-        currentSearch: '?return_url=%2Fen%2Fadvisor%2Fclients%2Fclient-123',
-      })
-    ).toBe(
-      '/en/reports/new?prefilledQuery=Safe+Co&return_url=%2Fen%2Fadvisor%2Fclients%2Fclient-123'
-    )
+    const safeReturnUrl = buildPostDeleteNewValuationUrl({
+      locale: 'en',
+      companyName: 'Safe Co',
+      currentSearch: '?return_url=%2Fen%2Fadvisor%2Fclients%2Fclient-123',
+    })
+    const safeParams = new URLSearchParams(safeReturnUrl.split('?')[1] ?? '')
+    expect(safeParams.get('return_url')).toBe('/en/advisor/clients/client-123')
   })
 })
 

@@ -48,7 +48,17 @@ describe('shouldAttemptManualChatNonStreamingRecovery', () => {
     ).toBe(true)
   })
 
-  it('skips recovery after tool activity or when already started', () => {
+  it('still allows recovery after tool activity when BFF fallback failed', () => {
+    expect(
+      shouldAttemptManualChatNonStreamingRecovery({
+        nonStreamingRecoveryStarted: false,
+        didObserveToolActivity: true,
+        bffStreamRecoverySource: 'bff-fallback-failed',
+      })
+    ).toBe(true)
+  })
+
+  it('skips recovery after tool activity on a normal failed stream or when already started', () => {
     expect(
       shouldAttemptManualChatNonStreamingRecovery({
         nonStreamingRecoveryStarted: true,
@@ -60,7 +70,7 @@ describe('shouldAttemptManualChatNonStreamingRecovery', () => {
       shouldAttemptManualChatNonStreamingRecovery({
         nonStreamingRecoveryStarted: false,
         didObserveToolActivity: true,
-        bffStreamRecoverySource: 'bff-fallback-failed',
+        bffStreamRecoverySource: null,
       })
     ).toBe(false)
   })
@@ -95,6 +105,48 @@ describe('requestManualChatNonStreamingRecovery', () => {
       conversationId: 'conv-1',
       showAiUnavailableToast: false,
     })
+  })
+
+  it('marks offline fallback when content includes the offline banner without fallback flag', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({
+      success: true,
+      content: '> **AI tijdelijk niet beschikbaar** — beperkt antwoord\n\nBridge',
+      fallback: false,
+    })
+
+    const outcome = await requestManualChatNonStreamingRecovery({
+      aiRequest: { message: 'Verklaar deze EBITDA', sessionId: 'sess-1' },
+      sendMessage,
+      translate,
+      createId: () => 'card-1',
+    })
+
+    expect(outcome.status).toBe('recovered')
+    if (outcome.status === 'recovered') {
+      expect(outcome.patch.isOfflineFallback).toBe(true)
+      expect(outcome.showAiUnavailableToast).toBe(true)
+    }
+  })
+
+  it('marks offline fallback on the assistant patch when the server sets fallback', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({
+      success: true,
+      content: '> **AI tijdelijk niet beschikbaar**\n\nBridge summary',
+      fallback: true,
+    })
+
+    const outcome = await requestManualChatNonStreamingRecovery({
+      aiRequest: { message: 'Verklaar deze EBITDA', sessionId: 'sess-1' },
+      sendMessage,
+      translate,
+      createId: () => 'card-1',
+    })
+
+    expect(outcome.status).toBe('recovered')
+    if (outcome.status === 'recovered') {
+      expect(outcome.patch.isOfflineFallback).toBe(true)
+      expect(outcome.showAiUnavailableToast).toBe(true)
+    }
   })
 
   it('returns terminal_error for quota and consent envelopes', async () => {

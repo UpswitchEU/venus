@@ -214,9 +214,15 @@ export function MessageBubble({
                 'bg-foreground/[0.03]',
                 'border border-foreground/[0.08]',
                 'text-foreground',
+                message.isOfflineFallback && 'border-amber-500/25 bg-amber-500/[0.04]',
               ]
         )}
       >
+        {!isUser && message.isOfflineFallback ? (
+          <p className="text-[11px] font-medium text-amber-700/90 dark:text-amber-400/95 mb-2.5 tracking-wide">
+            {ca('offlineFallbackBadge')}
+          </p>
+        ) : null}
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 sm:gap-1.5 mb-3 sm:mb-2">

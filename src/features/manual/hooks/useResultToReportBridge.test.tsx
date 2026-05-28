@@ -12,6 +12,10 @@ import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStor
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import {
+  clearReportsDeleting,
+  markReportsDeleting,
+} from '../utils/manualReportDeleteGuard'
+import {
   type UseResultToReportBridgeParams,
   useResultToReportBridge,
 } from './useResultToReportBridge'
@@ -67,16 +71,32 @@ describe('useResultToReportBridge', () => {
   })
 
   describe('null result', () => {
-    it('no-ops entirely when result is null', () => {
+    it('clears report presentation when result is null', () => {
       const params = makeParams({ result: null })
       renderHook(() => useResultToReportBridge(params))
       expect(params.onComplete).not.toHaveBeenCalled()
-      expect(params.setReport).not.toHaveBeenCalled()
+      expect(params.setReport).toHaveBeenCalledWith(null)
       expect(params.setDraftStatus).not.toHaveBeenCalled()
       expect(params.setLastSaved).not.toHaveBeenCalled()
       expect(params.setRightPanelView).not.toHaveBeenCalled()
       expect(params.setShowFullscreenModal).not.toHaveBeenCalled()
       expect(params.generatePdf).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('delete guard', () => {
+    afterEach(() => {
+      clearReportsDeleting()
+    })
+
+    it('does not map result into report while that report is being deleted', () => {
+      markReportsDeleting(['val_xyz', 'route-id'])
+      const params = makeParams()
+      renderHook(() => useResultToReportBridge(params))
+
+      expect(params.onComplete).not.toHaveBeenCalled()
+      expect(params.setReport).not.toHaveBeenCalled()
+      expect(params.setRightPanelView).not.toHaveBeenCalled()
     })
   })
 

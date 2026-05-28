@@ -1,3 +1,4 @@
+import type { AssistantIntent } from '@/services/ai/local-chat-fallback'
 import type { ParsedCommand, ParsedValue } from './ChatAssistantParsing'
 import type {
   AgentChoiceSelection,
@@ -17,13 +18,16 @@ export interface ChatAssistantDrawerProps {
   open: boolean
   /** Lock document scroll when drawer is open (mobile full-screen only). */
   lockScroll?: boolean
+  /** Desktop can embed the assistant as a workspace panel instead of a modal drawer. */
+  presentation?: 'drawer' | 'panel'
   onOpenChange: (open: boolean) => void
   messages: ChatMessage[]
   onSendMessage: (
     content: string,
     attachments?: File[],
     detectedValues?: ParsedValue[],
-    parsedCommands?: ParsedCommand[]
+    parsedCommands?: ParsedCommand[],
+    assistantIntent?: AssistantIntent
   ) => void
   isGenerating?: boolean
   companyName?: string
@@ -31,6 +35,8 @@ export interface ChatAssistantDrawerProps {
   hasReport?: boolean
   hasEbitda?: boolean
   pendingNormalizationsCount?: number
+  acceptedNormalizationsCount?: number
+  hasCapBreach?: boolean
   qualityWarnings?: QualityWarning[]
   startupIssues?: StartupAssistantIssue[]
   onDismissQualityWarning?: (warningType: string) => void

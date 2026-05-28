@@ -48,6 +48,7 @@ import {
   mapValuationResultToReport,
   type ReportTranslator,
 } from '../utils/mapValuationResultToReport'
+import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import { useLatestRef } from './useNavigationCancellation'
 
 export interface UseResultToReportBridgeParams {
@@ -125,7 +126,20 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- setter and `tReport` references are stable in practice; including them re-fires this expensive effect on every parent render.
   useEffect(() => {
-    if (!result) return
+    if (!result) {
+      // Keep panel in sync when results store is cleared (delete, company change, list delete).
+      setReport(null)
+      return
+    }
+
+    const resultReportId =
+      (result as { valuation_id?: string; id?: string }).valuation_id ??
+      (result as { valuation_id?: string; id?: string }).id ??
+      reportId
+    if (isReportDeleteInProgress(resultReportId) || isReportDeleteInProgress(reportId)) {
+      return
+    }
+
     try {
       // 1. Preparer-multiple store sync.
       usePreparerMultipleStore.getState().syncFromValuationResult(result)

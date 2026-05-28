@@ -16,6 +16,7 @@ import {
   type ValuationFormData,
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
+import type { NormalizationItem } from '../../../components/calculator/UnifiedNormalizationModal'
 import { useStartupAssistantSurface } from '../../../lib/methods'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { usePreparerMultipleStore } from '../../../store/manual/usePreparerMultipleStore'
@@ -25,6 +26,7 @@ import type {
   ValuationMethodResult,
   ValuationResponse,
 } from '../../../types/valuation'
+import { findAcceptedAutoNormalizationCapBreaches } from '../../../utils/normalizationMath'
 import type { ManualStarterPaywallReason } from '../components/ManualStarterPaywallModal'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import {
@@ -55,9 +57,7 @@ import { useManualAssistantIssueActions } from './useManualAssistantIssueActions
 
 type ChatDrawerProps = ComponentProps<typeof ChatAssistantDrawer>
 type ManualInputProps = ComponentProps<typeof StartupAwareInputPanel>
-type ChatSendHandler = (
-  ...args: Parameters<ChatDrawerProps['onSendMessage']>
-) => void | Promise<void>
+type ChatSendHandler = (...args: Parameters<ChatDrawerProps['onSendMessage']>) => Promise<void>
 
 const CHOICE_FOLLOW_UP_PATHS = new Set(['/api/valuations/scenario', '/api/profile/buyer-profile'])
 
@@ -112,6 +112,7 @@ export interface UseManualAssistantControllerParams {
   mercuryLocale: ManualMercuryLocale
   openStarterPaywall: (reason: ManualStarterPaywallReason) => void
   pendingNormalizationCount: number
+  normalizationItems: NormalizationItem[]
   pendingUpdates: ManualPendingFieldUpdate[]
   postValuationListingHandoffPendingRef: MutableRefObject<boolean>
   readOnlyKbo: boolean
@@ -184,6 +185,7 @@ export function useManualAssistantController({
   mercuryLocale,
   openStarterPaywall,
   pendingNormalizationCount,
+  normalizationItems,
   pendingUpdates,
   postValuationListingHandoffPendingRef,
   readOnlyKbo,
@@ -415,6 +417,33 @@ export function useManualAssistantController({
     [currentLocale, getLiveYearlyFinancials, handleChatMessage, latestFormDataRef]
   )
 
+  const assistantSuggestionContext = useMemo(() => {
+    const yearly = getLiveYearlyFinancials()
+    const availableYears = yearly
+      .filter((row) => !row.isForecast)
+      .map((row) => Number(row.year))
+      .filter((y) => Number.isFinite(y))
+    const reportedByYear: Record<number, number> = {}
+    for (const row of yearly) {
+      if (row.isForecast) continue
+      const y = Number(row.year)
+      if (!Number.isFinite(y)) continue
+      const ebitda = Number(row.ebitda)
+      if (Number.isFinite(ebitda)) reportedByYear[y] = ebitda
+    }
+    const fallbackYear = availableYears[availableYears.length - 1] ?? new Date().getFullYear()
+    const breaches = findAcceptedAutoNormalizationCapBreaches({
+      items: normalizationItems,
+      availableYears,
+      reportedEbitdaByYear: reportedByYear,
+      fallbackYear,
+    })
+    return {
+      acceptedNormalizationsCount: normalizationItems.filter((n) => n.status === 'accepted').length,
+      hasCapBreach: breaches.length > 0,
+    }
+  }, [getLiveYearlyFinancials, normalizationItems])
+
   const chatDrawerProps: ChatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -426,6 +455,8 @@ export function useManualAssistantController({
     hasReport,
     hasEbitda,
     pendingNormalizationsCount: pendingNormalizationCount,
+    acceptedNormalizationsCount: assistantSuggestionContext.acceptedNormalizationsCount,
+    hasCapBreach: assistantSuggestionContext.hasCapBreach,
     onApplyFieldUpdate: handleApplyFieldUpdate,
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,

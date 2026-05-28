@@ -146,4 +146,32 @@ describe('manualChatRequestContext', () => {
     })
     expect(request.normalizations).toHaveLength(1)
   })
+
+  it('resolves assistantIntent from message and explicit chip intent', () => {
+    const explain = buildManualAIChatRequest({
+      message: 'Verklaar deze EBITDA',
+      reportId: 'report-1',
+      currentLocale: 'nl',
+      collectedData: { companyName: 'Acme' },
+      latestFormData: {},
+      normalizationItems: [],
+      chatMessages: [],
+      versionCount: 0,
+      assistantIntent: 'explain_ebitda',
+    })
+    expect(explain.assistantIntent).toBe('explain_ebitda')
+
+    const overridden = buildManualAIChatRequest({
+      message: 'Normaliseer eigenaarssalaris naar €60k',
+      reportId: 'report-1',
+      currentLocale: 'nl',
+      collectedData: { companyName: 'Acme' },
+      latestFormData: {},
+      normalizationItems: [],
+      chatMessages: [],
+      versionCount: 0,
+      assistantIntent: 'explain_value',
+    })
+    expect(overridden.assistantIntent).toBe('suggest_normalizations')
+  })
 })

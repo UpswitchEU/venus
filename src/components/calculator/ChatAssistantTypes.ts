@@ -648,6 +648,8 @@ export interface ChatMessage {
   content: string
   timestamp: Date
   isError?: boolean
+  /** Response came from dossier-aware local fallback while AI was unavailable. */
+  isOfflineFallback?: boolean
   /** Titan rejected the turn until the user grants AI-processing consent. */
   requiresConsent?: boolean
   /** The BFF could not authenticate the browser session. */
@@ -765,6 +767,8 @@ export interface SuggestionContext {
   hasEbitda?: boolean
   hasFinancials?: boolean
   pendingNormalizationsCount?: number
+  acceptedNormalizationsCount?: number
+  hasCapBreach?: boolean
 }
 
 /**

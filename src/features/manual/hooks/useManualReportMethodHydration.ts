@@ -7,6 +7,7 @@ import { isSessionKey } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { getRenderableReportHtmlFromCurrentOrFallback } from '../../../utils/safetyNetReportHtml'
 import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
+import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 
 export type ManualReportMethodHydrationError = 'transient' | 'report_pending' | null
 
@@ -44,6 +45,12 @@ export function useManualReportMethodHydration({
     const id = reportHydrationLookupId
     if (!id || id === 'new') {
       setShowFiscalReferenceForOmni(false)
+      setIsHydratingEditModalData(false)
+      setReportMethodHydrationError(null)
+      return
+    }
+
+    if (isReportDeleteInProgress(id)) {
       setIsHydratingEditModalData(false)
       setReportMethodHydrationError(null)
       return

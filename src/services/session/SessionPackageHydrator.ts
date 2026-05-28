@@ -32,6 +32,7 @@ import {
 } from '../../utils/fiscalYear'
 import {
   buildNormalizationItemsFromImportedLedgerAnalysis,
+  buildReportedEbitdaByYearFromFormRecords,
   type ImportedLedgerAnalysisLike,
 } from '../../utils/importedLedgerNormalization'
 import {
@@ -235,9 +236,22 @@ function seedImportedLedgerAnalysisFromPackage(raw: Record<string, unknown>): vo
     const analysis = bc?._imported_ledger_analysis ?? raw._imported_ledger_analysis
     if (analysis && typeof analysis === 'object') {
       if (ns.items.length === 0) {
-        const items = buildNormalizationItemsFromImportedLedgerAnalysis(
-          analysis as ImportedLedgerAnalysisLike
-        )
+        const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+          ...(analysis as ImportedLedgerAnalysisLike),
+          reported_ebitda_by_year: buildReportedEbitdaByYearFromFormRecords({
+            currentYearData: raw.current_year_data as { year?: number; ebitda?: number },
+            historicalYearsData: Array.isArray(raw.historical_years_data)
+              ? (raw.historical_years_data as Array<{ year?: number; ebitda?: number }>)
+              : undefined,
+            yearlyFinancials: Array.isArray(raw.yearlyFinancials)
+              ? (raw.yearlyFinancials as Array<{
+                  year?: number | string
+                  ebitda?: number
+                  isForecast?: boolean
+                }>)
+              : undefined,
+          }),
+        })
         if (items.length > 0) {
           ns.addItems(items)
         }

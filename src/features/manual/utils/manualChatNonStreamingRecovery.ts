@@ -1,5 +1,6 @@
 import type { ChatMessage } from '@/components/calculator'
 import type { AIChatRequest, AIChatResponse } from '@/services/ai/AIChatService'
+import { isOfflineFallbackContent } from '@/services/ai/local-chat-fallback'
 import {
   buildManualChatTerminalErrorPatch,
   buildManualChatTerminalErrorPatchFromAIResponse,
@@ -47,6 +48,7 @@ export function shouldAttemptManualChatNonStreamingRecovery({
 }): boolean {
   if (nonStreamingRecoveryStarted) return false
   if (bffStreamRecoverySource === 'bff-fallback') return false
+  if (bffStreamRecoverySource === 'bff-fallback-failed') return true
   if (bffStreamRecoverySource === 'bff-stream-incomplete') return true
   if (streamEndedWithoutCompletion) return true
   if (didObserveToolActivity) return false
@@ -85,6 +87,9 @@ export async function requestManualChatNonStreamingRecovery({
       status: 'recovered',
       patch: {
         content: aiResponse.content,
+        ...(aiResponse.fallback || isOfflineFallbackContent(aiResponse.content)
+          ? { isOfflineFallback: true }
+          : {}),
         ...responseCards,
       },
       ...(aiResponse.conversationId ? { conversationId: aiResponse.conversationId } : {}),
@@ -92,7 +97,9 @@ export async function requestManualChatNonStreamingRecovery({
       ...(responseCards.normalisationSuggestions
         ? { normalisationSuggestions: responseCards.normalisationSuggestions }
         : {}),
-      showAiUnavailableToast: Boolean(aiResponse.fallback),
+      showAiUnavailableToast: Boolean(
+        aiResponse.fallback || isOfflineFallbackContent(aiResponse.content)
+      ),
     }
   } catch {
     return {

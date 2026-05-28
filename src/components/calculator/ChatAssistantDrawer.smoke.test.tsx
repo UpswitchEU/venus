@@ -191,6 +191,22 @@ describe('message rendering', () => {
     expect(screen.getByText('How much is my company worth?')).toBeInTheDocument()
   })
 
+  it('renders offline fallback badge on assistant messages flagged as local fallback', () => {
+    const assistant = makeAssistantMessage('Bridge summary from dossier data')
+    assistant.isOfflineFallback = true
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[assistant]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByText('offlineFallbackBadge')).toBeInTheDocument()
+  })
+
   it('renders an assistant message (via the markdown mock)', () => {
     render(
       <ChatAssistantDrawer
@@ -338,7 +354,10 @@ describe('message rendering', () => {
         <ChatAssistantDrawer
           open={true}
           onOpenChange={onOpenChange}
-          messages={[makeUserMessage('hello'), makeAssistantMessage('streamed answer', 'streaming')]}
+          messages={[
+            makeUserMessage('hello'),
+            makeAssistantMessage('streamed answer', 'streaming'),
+          ]}
           onSendMessage={onSendMessage}
         />
       )
@@ -472,6 +491,71 @@ describe('input + send', () => {
     expect(onSendMessage).not.toHaveBeenCalled()
   })
 
+  it('passes explain_ebitda assistantIntent when user submits after EBITDA chip insert', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        hasReport={true}
+        hasEbitda={true}
+        fieldContext={{ field: 'ebitda', label: 'EBITDA 2023' }}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    const chips = screen.getByTestId('assistant-starter-chips').querySelectorAll('button')
+    const ebitdaChip = Array.from(chips).find((btn) =>
+      btn.textContent?.includes('suggestions.explainEbitdaFor')
+    )
+    if (!ebitdaChip) throw new Error('Expected EBITDA suggestion chip')
+    fireEvent.click(ebitdaChip)
+
+    fireEvent.click(screen.getByLabelText('send'))
+
+    expect(onSendMessage).toHaveBeenCalledTimes(1)
+    expect(onSendMessage.mock.calls[0][4]).toBe('explain_ebitda')
+  })
+
+  it('blocks send while isGenerating is true', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        isGenerating={true}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    const textarea = screen.getByLabelText('chatInput') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'Verklaar deze EBITDA' } })
+    fireEvent.click(screen.getByLabelText('send'))
+
+    expect(onSendMessage).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('send')).toBeDisabled()
+  })
+
+  it('shows cap-breach chip when hasCapBreach is true', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        hasReport={true}
+        hasCapBreach={true}
+        acceptedNormalizationsCount={2}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    const chipLabels = Array.from(
+      screen.getByTestId('assistant-starter-chips').querySelectorAll('button')
+    ).map((btn) => btn.textContent)
+    expect(chipLabels.some((label) => label?.includes('suggestions.explainCapBreach'))).toBe(true)
+    expect(chipLabels.some((label) => label?.includes('suggestions.whichNorms'))).toBe(false)
+  })
+
   it('inserts starter chip text into the textarea without auto-sending', () => {
     render(
       <ChatAssistantDrawer
@@ -484,8 +568,8 @@ describe('input + send', () => {
     )
 
     const chip = screen.getByTestId('assistant-starter-chips').querySelector('button')
-    expect(chip).toBeTruthy()
-    fireEvent.click(chip!)
+    if (!chip) throw new Error('Expected assistant starter chip')
+    fireEvent.click(chip)
 
     const textarea = screen.getByLabelText('chatInput') as HTMLTextAreaElement
     expect(textarea.value).toBe('suggestions.explainValue ')
@@ -516,6 +600,22 @@ describe('input + send', () => {
     )
 
     expect(useScrollLockMock).toHaveBeenCalledWith(true, '[data-manual-layout-scroll]')
+  })
+
+  it('renders embedded panel mode without mobile scroll lock', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        lockScroll={true}
+        presentation="panel"
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByText('title')).toBeInTheDocument()
+    expect(useScrollLockMock).toHaveBeenCalledWith(false, undefined)
   })
 })
 

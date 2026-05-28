@@ -56,6 +56,8 @@ interface PreparerMultipleState {
   setNote: (v: string) => void
   setAcknowledgedExtreme: (v: boolean) => void
   resetToBenchmark: () => void
+  /** Clears preparer override state (e.g. after delete / new valuation). */
+  reset: () => void
 }
 
 export const usePreparerMultipleStore = create<PreparerMultipleState>((set, get) => ({
@@ -114,6 +116,15 @@ export const usePreparerMultipleStore = create<PreparerMultipleState>((set, get)
       acknowledgedExtreme: false,
     })
   },
+
+  reset: () =>
+    set({
+      benchmarkMedian: null,
+      appliedMedian: null,
+      reasonKey: '',
+      note: '',
+      acknowledgedExtreme: false,
+    }),
 }))
 
 /**

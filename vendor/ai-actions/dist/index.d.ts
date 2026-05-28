@@ -141,5 +141,23 @@ export type AiStreamChunk = {
 export declare function isAiActionToolName(value: unknown): value is AiActionToolName;
 export declare function isAiActionToolResultType(value: unknown): value is AiActionToolResultType;
 export declare function classifyAiActionToolResultType(toolName: string): AiToolResultEnvelopeType;
+/**
+ * Shared loose-value coercion helpers for Titan tool-result envelopes.
+ * Mercury and Venus intentionally parse these envelopes defensively because
+ * future tools can add fields before every frontend card catches up.
+ */
+export type AiToolResultRecord = Record<string, unknown>;
+export declare function aiRecordValue(value: unknown): AiToolResultRecord | null;
+export declare function aiOptionalString(value: unknown): string | undefined;
+export declare function aiOptionalStringList(value: unknown): string[] | undefined;
+export declare function aiStringValue(value: unknown, fallback?: string): string;
+export declare function aiNumberValue(value: unknown, fallback: number): number;
+export declare function aiNullableString(value: unknown): string | null;
+export declare function aiNullableNumber(value: unknown): number | null;
+export declare function aiStringArray(value: unknown): string[];
+export declare function aiArrayRecords(value: unknown): AiToolResultRecord[];
+export declare function aiRequestRecord(data: AiToolResultRecord): AiToolResultRecord | null;
+export declare function aiCardRecord(data: AiToolResultRecord): AiToolResultRecord | null;
+export declare function aiPendingRequestRecord(data: AiToolResultRecord): AiToolResultRecord | null;
 export { deriveAdvisorWorkspaceSessionKey, deriveClientScopedSessionKey, isAdvisorWorkspaceClientTurn, isAdvisorWorkspaceSessionKey, isAdvisorWorkspaceSurfaceIntent, type AdvisorWorkspaceSurfaceIntent, type ClientScopedKeyArgs, } from './conversation-keys.js';
 //# sourceMappingURL=index.d.ts.map

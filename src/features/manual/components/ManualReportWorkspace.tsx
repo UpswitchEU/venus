@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { useTranslations } from 'next-intl'
 import { Suspense, useRef } from 'react'
+import { ErrorState } from '../../../components/ErrorState'
 import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
 import { SectorMismatchNotice } from '../../../components/calculator/sections/SectorMismatchNotice'
 import {
@@ -11,6 +13,7 @@ import {
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import type { ManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { PanelSkeleton } from './manualLayoutShell'
@@ -20,6 +23,8 @@ type ManualReportWorkspaceTranslator = (key: string) => string
 export interface ManualReportWorkspaceProps {
   isCalculating: boolean
   isGenerating: boolean
+  isRecoveringReportHtml?: boolean
+  isDeletingCurrentReport?: boolean
   isMethodSwitchRendering: boolean
   liveMultipleReportPreview: ManualLiveMultiplePreview | null
   onVersionRestore: HistoryPanelProps['onVersionRestore']
@@ -103,6 +108,18 @@ function HtmlReportSurface({
   )
 }
 
+function ReportRenderErrorPanel() {
+  const t = useTranslations('reportPreview')
+  return (
+    <div className="flex items-center justify-center h-full min-h-[400px] p-4">
+      <ErrorState
+        title={t('renderPayloadTooLarge')}
+        message={t('renderPayloadTooLargeDesc')}
+      />
+    </div>
+  )
+}
+
 function GeneratingPreview({
   translateReport,
 }: {
@@ -122,6 +139,8 @@ function GeneratingPreview({
 export function ManualReportWorkspace({
   isCalculating,
   isGenerating,
+  isRecoveringReportHtml = false,
+  isDeletingCurrentReport = false,
   isMethodSwitchRendering,
   liveMultipleReportPreview,
   onVersionRestore,
@@ -132,7 +151,10 @@ export function ManualReportWorkspace({
   translateReport,
 }: ManualReportWorkspaceProps) {
   const reportPanelRef = useRef<HTMLDivElement>(null)
-  const isBusy = isGenerating || isCalculating
+  const renderError = useSessionStore((state) => state.renderError)
+  const isBusy = isGenerating || isCalculating || isRecoveringReportHtml || isDeletingCurrentReport
+  const showPayloadTooLarge =
+    renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
 
   return (
     <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
@@ -156,6 +178,8 @@ export function ManualReportWorkspace({
                 />
               ) : isBusy ? (
                 <GeneratingPreview translateReport={translateReport} />
+              ) : showPayloadTooLarge ? (
+                <ReportRenderErrorPanel />
               ) : (
                 <ReportPlaceholder />
               )}
@@ -203,6 +227,17 @@ export function ManualReportWorkspace({
               className="h-full bg-background"
             >
               <ReportSkeleton />
+            </motion.div>
+          ) : showPayloadTooLarge ? (
+            <motion.div
+              key="render-error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springDefault}
+              className="h-full bg-background"
+            >
+              <ReportRenderErrorPanel />
             </motion.div>
           ) : (
             <motion.div

@@ -115,6 +115,7 @@ export function useManualChatController({
     fieldContext,
     handleApplyFieldUpdate,
     isAccountantMode,
+    isChatGenerating,
     isLoadingHistory,
     latestFormDataRef,
     manualChatReportId,

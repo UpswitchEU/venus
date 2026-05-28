@@ -1,5 +1,6 @@
 'use client'
 
+import { FormCardShell, type FormCardTone } from '@upswitch/ai-dock-shells'
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'

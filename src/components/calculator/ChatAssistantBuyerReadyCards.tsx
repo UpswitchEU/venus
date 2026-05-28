@@ -1,5 +1,6 @@
 'use client'
 
+import { BuyerReadyCardShell, type BuyerReadyCardTone } from '@upswitch/ai-dock-shells'
 import { motion } from 'framer-motion'
 import { Check, FileText, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -127,6 +128,16 @@ function BuyerReadyCardFrame({
   const canAct =
     decision === 'idle' &&
     (typeof onAction === 'function' || (typeof onSendFollowUp === 'function' && actionPrompt))
+  const shellTone: BuyerReadyCardTone =
+    decision === 'sent'
+      ? 'success'
+      : decision === 'dismissed'
+        ? 'rejected'
+        : tone === 'blocked'
+          ? 'warning'
+          : tone === 'success'
+            ? 'success'
+            : 'idle'
 
   const handleAction = async () => {
     if (!canAct) return
@@ -154,87 +165,68 @@ function BuyerReadyCardFrame({
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className={cn(
-        'rounded-lg border px-3 py-2 text-sm leading-relaxed',
-        decision === 'sent'
-          ? 'border-success/20 bg-success/5'
-          : decision === 'dismissed'
-            ? 'border-foreground/[0.08] bg-foreground/[0.02] opacity-70'
-            : tone === 'blocked'
-              ? 'border-amber-500/25 bg-amber-500/[0.04]'
-              : tone === 'success'
-                ? 'border-success/20 bg-success/[0.04]'
-                : 'border-primary/15 bg-primary/[0.035]'
-      )}
     >
-      <div className="flex items-start gap-2.5">
-        {icon && <div className="mt-0.5 shrink-0 text-primary/80">{icon}</div>}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground/90">{title}</p>
-          {detail && <p className="mt-0.5 text-xs text-foreground/60 leading-snug">{detail}</p>}
-          {meta.length > 0 && (
-            <p className="mt-1 text-xs text-foreground/50 leading-snug">{meta.join(' · ')}</p>
-          )}
-          {children}
-          {decision === 'submitting' && (
-            <p className="mt-1.5 text-xs text-primary/80">
-              {ca('proposalCards.buyerReady.generating')}
-            </p>
-          )}
-          {decision === 'sent' && (
-            <p className="mt-1.5 text-xs text-success/90">
-              {ca('proposalCards.buyerReady.generated')}
-            </p>
-          )}
-          {decision === 'dismissed' && (
-            <p className="mt-1.5 text-xs text-foreground/45">
-              {ca('proposalCards.common.statusCancelled')}
-            </p>
-          )}
-          {error && <p className="mt-1.5 text-xs text-destructive/90">{error}</p>}
-          {decision === 'idle' &&
-            typeof onSendFollowUp === 'function' &&
-            followUpActions.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                {followUpActions.map((action) => (
-                  <button
-                    key={`${id}-${action.label}-${action.prompt}`}
-                    type="button"
-                    onClick={() => onSendFollowUp(action.prompt)}
-                    className={cn(
-                      'transition-colors',
-                      action.primary
-                        ? 'font-medium text-primary/85 hover:text-primary'
-                        : 'text-foreground/55 hover:text-foreground/75'
-                    )}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          {decision === 'idle' && (actionLabel || canAct) && (
-            <div className="mt-2 flex items-center gap-3 text-xs">
-              {canAct && (
-                <button
-                  type="button"
-                  onClick={() => void handleAction()}
-                  className="text-primary/85 hover:text-primary transition-colors font-medium"
-                >
-                  {actionLabel ?? ca('proposalCards.buyerReady.action')}
-                </button>
-              )}
+      <BuyerReadyCardShell
+        title={title}
+        subtitle={detail}
+        tone={shellTone}
+        primaryLabel={
+          decision === 'idle' && canAct
+            ? (actionLabel ?? ca('proposalCards.buyerReady.action'))
+            : undefined
+        }
+        onPrimary={decision === 'idle' && canAct ? handleAction : undefined}
+        rejectLabel={
+          decision === 'idle' && (actionLabel || canAct)
+            ? ca('proposalCards.common.buttonCancel')
+            : undefined
+        }
+        onReject={
+          decision === 'idle' && (actionLabel || canAct)
+            ? () => setDecision('dismissed')
+            : undefined
+        }
+        isInFlight={decision === 'submitting'}
+        successNote={decision === 'sent' ? ca('proposalCards.buyerReady.generated') : undefined}
+        rejectedNote={
+          decision === 'dismissed' ? ca('proposalCards.common.statusCancelled') : undefined
+        }
+        errorMessage={error}
+      >
+        {icon || meta.length > 0 ? (
+          <div className="flex items-start gap-2">
+            {icon ? <div className="mt-0.5 shrink-0 text-primary/80">{icon}</div> : null}
+            {meta.length > 0 ? (
+              <p className="text-foreground/55 leading-snug">{meta.join(' · ')}</p>
+            ) : null}
+          </div>
+        ) : null}
+        {children}
+        {decision === 'submitting' ? (
+          <p className="text-primary/80">{ca('proposalCards.buyerReady.generating')}</p>
+        ) : null}
+        {decision === 'idle' &&
+        typeof onSendFollowUp === 'function' &&
+        followUpActions.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            {followUpActions.map((action) => (
               <button
+                key={`${id}-${action.label}-${action.prompt}`}
                 type="button"
-                onClick={() => setDecision('dismissed')}
-                className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                onClick={() => onSendFollowUp(action.prompt)}
+                className={cn(
+                  'transition-colors',
+                  action.primary
+                    ? 'font-medium text-primary/85 hover:text-primary'
+                    : 'text-foreground/55 hover:text-foreground/75'
+                )}
               >
-                {ca('proposalCards.common.buttonCancel')}
+                {action.label}
               </button>
-            </div>
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        ) : null}
+      </BuyerReadyCardShell>
     </motion.div>
   )
 }

@@ -50,8 +50,8 @@ export function buildManualFieldHelpQuestion(
         : 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
     case 'ebitda':
       return isEN
-        ? `Which normalizations are relevant for the EBITDA of ${context.label}?`
-        : `Welke normalisaties zijn relevant voor de EBITDA van ${context.label}?`
+        ? `Explain the EBITDA bridge for ${context.label} — reported vs normalized and applied addbacks.`
+        : `Verklaar de EBITDA-bridge voor ${context.label} — gerapporteerd vs genormaliseerd en toegepaste addbacks.`
     case 'ownerSalary':
       return isEN
         ? 'What is a market-rate owner salary for this business?'

@@ -6,7 +6,7 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense, useMemo } from 'react'
+import React, { Suspense, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 // Calculator Components (full Clarity parity)
 import { ChatAssistantDrawer } from '../../../components/calculator'
@@ -46,6 +46,7 @@ import {
   useManualNormalizationState,
   useManualPanelStorageReset,
   useManualRecalculateConfirmation,
+  useManualReportHtmlRecovery,
   useManualReportIdentifiers,
   useManualReportMethodHydration,
   useManualReportUiState,
@@ -53,7 +54,6 @@ import {
   useManualSessionPersistenceLifecycles,
   useManualSubmitController,
   useManualSynthesisController,
-  useSynthesisReportHeadlineSync,
   useManualSynthesisSkippedWarnings,
   useManualToastMessageLifecycle,
   useManualVersionNavigation,
@@ -62,8 +62,10 @@ import {
   usePdfStalenessLifecycle,
   useRestorationGate,
   useResultToReportBridge,
+  useSynthesisReportHeadlineSync,
 } from '../hooks'
 import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
+import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import { hasManualRestorableReport } from '../utils/manualRestorableReport'
 import { manualSessionMatchesReport } from '../utils/manualSessionIdentifiers'
 import { ManualLayoutBody } from './ManualLayoutBody'
@@ -73,7 +75,7 @@ import { ManualLayoutNav } from './ManualLayoutNav'
 import { CalculatorShellSkeleton, ManualLayoutSessionError } from './ManualLayoutStatus'
 import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
 import type { CollectedData } from './manualLayoutDataTypes'
-import { useManualLayoutIsMobile } from './manualLayoutShell'
+import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
 
 export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
@@ -120,7 +122,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
-  const isMobile = useManualLayoutIsMobile()
+  const { hasMeasuredViewport, isMobile } = useManualLayoutViewport()
 
   useManualPanelStorageReset()
   useManualToastMessageLifecycle(t)
@@ -278,7 +280,13 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   // is declared (it's one of the hook's params).
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
-    !report && !isGenerating && !!session && hasManualRestorableReport(session)
+    !isReportDeleteInProgress(reportId) &&
+    !isReportDeleteInProgress(resolvedReportId) &&
+    !isReportDeleteInProgress(session?.reportId) &&
+    !report &&
+    !isGenerating &&
+    !!session &&
+    hasManualRestorableReport(session)
   // Unblock UI as soon as SessionRestorationService signals completion.
   // `useRestorationGate` owns the 5s safety-timeout fallback used when the
   // service never emits the completion signal (defense-in-depth).
@@ -295,6 +303,16 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     firmCountryCode: user?.firm_country_code,
     reportHydrationLookupId,
     restorationComplete,
+    setResult,
+  })
+
+  const { isRecoveringReportHtml } = useManualReportHtmlRecovery({
+    reportId,
+    session,
+    result,
+    restorationComplete,
+    isCalculating,
+    isGenerating,
     setResult,
   })
 
@@ -645,6 +663,12 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     updateFormData,
   })
 
+  useEffect(() => {
+    if (hasMeasuredViewport && !isMobile) {
+      setChatDrawerOpen(true)
+    }
+  }, [hasMeasuredViewport, isMobile, setChatDrawerOpen])
+
   useManualKeyboardShortcuts({
     chatDrawerOpen,
     setChatDrawerOpen,
@@ -699,6 +723,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     resolvedReportId,
     session,
     setChatDrawerOpen,
+    setReport,
     setRightPanelView,
     setShowFullscreenModal,
     translate: t,
@@ -793,6 +818,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       mercuryLocale,
       openStarterPaywall,
       pendingNormalizationCount,
+      normalizationItems,
       pendingUpdates,
       postValuationListingHandoffPendingRef,
       readOnlyKbo,
@@ -923,12 +949,21 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       />
 
       <ManualLayoutBody
+        assistantPanel={
+          !isMobile && chatDrawerOpen ? (
+            <Suspense fallback={null}>
+              <ChatAssistantDrawer {...chatDrawerProps} presentation="panel" />
+            </Suspense>
+          ) : undefined
+        }
         isMobile={isMobile}
         manualInputProps={manualInputProps}
         reportId={reportId}
         workspaceProps={{
           isCalculating,
           isGenerating,
+          isRecoveringReportHtml,
+          isDeletingCurrentReport: !!deletingValuationId,
           isMethodSwitchRendering,
           liveMultipleReportPreview,
           onVersionRestore: handleVersionRestore,
@@ -940,9 +975,11 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
         }}
       />
 
-      <Suspense fallback={null}>
-        <ChatAssistantDrawer {...chatDrawerProps} lockScroll={isMobile} />
-      </Suspense>
+      {isMobile ? (
+        <Suspense fallback={null}>
+          <ChatAssistantDrawer {...chatDrawerProps} lockScroll />
+        </Suspense>
+      ) : null}
 
       <ManualLayoutModals
         allowedMethodKeys={allowedMethodKeys}

@@ -9,12 +9,13 @@ import {
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
 import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
 
-/** Deduplicate concurrent self-heal calls per Titan report identifier */
-const ensureHtmlInFlight = new Set<string>()
+/** Coalesce concurrent self-heal calls per Titan report identifier (Strict Mode safe). */
+const ensureHtmlCoalesced = new Map<string, Promise<ValuationSessionResponse | null>>()
 const ensureHtmlRecentFailures = new Map<string, number>()
 // Per-tab permanent failures: dedupeKeys where retry is pointless until the
 // underlying engine config / payload changes (e.g. 413 from ValuationIQ).
@@ -56,7 +57,7 @@ function clearEnsureHtmlFailure(dedupeKey: string): void {
  * pollution. Do NOT call this from production code paths.
  */
 export function __resetEnsureHtmlStateForTests(): void {
-  ensureHtmlInFlight.clear()
+  ensureHtmlCoalesced.clear()
   ensureHtmlRecentFailures.clear()
   ensureHtmlPermanentFailures.clear()
 }
@@ -86,22 +87,22 @@ function valuationSnapshotHasRange(valuationResult: unknown): boolean {
   )
 }
 
-function sessionUsableHtmlMissing(session: ValuationSession): boolean {
-  const htmlReport = session.htmlReport
-  if (typeof htmlReport === 'string' && htmlReport.trim().length >= 100) return false
-
+function sessionHasRenderableHtml(session: ValuationSession): boolean {
   const valuationResult = session.valuationResult as Record<string, unknown> | null | undefined
-  if (!valuationResult) return true
-
-  const topLevelHtml =
-    typeof valuationResult.html_report === 'string' ? valuationResult.html_report : ''
   const detailsHtml =
-    typeof valuationResult.details === 'object' && valuationResult.details !== null
+    typeof valuationResult?.details === 'object' && valuationResult.details !== null
       ? (valuationResult.details as { html_report?: string }).html_report
       : undefined
-  const nestedHtml = typeof detailsHtml === 'string' ? detailsHtml : ''
 
-  return Math.max(topLevelHtml.trim().length, nestedHtml.trim().length) < 100
+  return !!getFirstRenderableReportHtml(
+    session.htmlReport,
+    typeof valuationResult?.html_report === 'string' ? valuationResult.html_report : undefined,
+    detailsHtml
+  )
+}
+
+function sessionUsableHtmlMissing(session: ValuationSession): boolean {
+  return !sessionHasRenderableHtml(session)
 }
 
 function pickTitanReportIdForEnsure(urlId: string, session: ValuationSession): string | null {
@@ -121,10 +122,119 @@ function pickTitanReportIdForEnsure(urlId: string, session: ValuationSession): s
   return null
 }
 
-function sessionNeedsHtmlRecovery(session: ValuationSession): boolean {
+export function sessionNeedsRenderableHtmlRecovery(session: ValuationSession): boolean {
   if (!session?.valuationResult) return false
   if (!valuationSnapshotHasRange(session.valuationResult)) return false
   return sessionUsableHtmlMissing(session)
+}
+
+function sessionNeedsHtmlRecovery(session: ValuationSession): boolean {
+  return sessionNeedsRenderableHtmlRecovery(session)
+}
+
+async function executeEnsureHtmlRefetch(params: {
+  reportId: string
+  mergedSession: ValuationSession
+  ensureTargetId: string
+  sessionKeyBody: string | undefined
+  alternateReportId: string | undefined
+  dedupeKey: string
+}): Promise<ValuationSessionResponse | null> {
+  const { reportId, mergedSession, ensureTargetId, sessionKeyBody, alternateReportId, dedupeKey } =
+    params
+  try {
+    const res = await backendAPI.ensureReportHtml(ensureTargetId, {
+      sync: true,
+      ...(sessionKeyBody ? { sessionKey: sessionKeyBody } : {}),
+      ...(alternateReportId ? { alternateReportId } : {}),
+    })
+    if (res == null) {
+      logger.debug(
+        'ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching',
+        {
+          reportId: reportId?.substring(0, 24),
+        }
+      )
+      markEnsureHtmlFailure(dedupeKey)
+      return null
+    }
+    if (isPayloadTooLargeStatus(res)) {
+      logger.error(
+        'ensureReportHtml aborted — render payload exceeds engine size limit (413). ' +
+          'Operator must raise VALUATION_IQ_MAX_REQUEST_SIZE_MB or trim the report payload. ' +
+          'Suppressing further retries for this report in this tab.',
+        {
+          reportId: reportId?.substring(0, 24),
+          status: typeof res.status === 'string' ? res.status : undefined,
+        }
+      )
+      markEnsureHtmlPermanentFailure(dedupeKey)
+      try {
+        const { useSessionStore } = await import('../../store/useSessionStore')
+        useSessionStore.getState().setRenderError('payload_too_large')
+      } catch (storeError) {
+        logger.warn('Failed to set renderError on session store', {
+          reportId: reportId?.substring(0, 24),
+          error: getErrorMessage(storeError),
+        })
+      }
+      return null
+    }
+    if ((res as { success?: boolean }).success === false) {
+      markEnsureHtmlFailure(dedupeKey)
+      return null
+    }
+    if (!shouldRefetchAfterEnsureResponse(res)) {
+      logger.debug('ensureReportHtml did not recover usable HTML yet; skipping refetch', {
+        reportId: reportId?.substring(0, 24),
+        status: typeof res.status === 'string' ? res.status : undefined,
+      })
+      markEnsureHtmlFailure(dedupeKey)
+      return null
+    }
+    clearEnsureHtmlFailure(dedupeKey)
+
+    const lookupIds = orderedValuationSessionLookupIds({
+      ensureResponseReportId: (res as { reportId?: unknown }).reportId,
+      sessionKeyFallback: sessionKeyBody,
+      mergedSessionReportId: mergedSession.reportId,
+      urlReportId: reportId,
+    })
+    for (const id of lookupIds) {
+      const next = await backendAPI.getValuationSession(id)
+      if (!next?.session) continue
+
+      const renderableHtml = getFirstRenderableReportHtml(
+        next.session.htmlReport,
+        (next.session.valuationResult as { html_report?: string } | null | undefined)
+          ?.html_report,
+        (
+          next.session.valuationResult as
+            | { details?: { html_report?: string } }
+            | null
+            | undefined
+        )?.details?.html_report
+      )
+      if (renderableHtml) {
+        return next
+      }
+
+      logger.warn('HTML self-heal refetch returned session without renderable HTML', {
+        reportId: reportId?.substring(0, 24),
+        lookupId: id?.substring(0, 24),
+      })
+    }
+
+    markEnsureHtmlFailure(dedupeKey)
+    return null
+  } catch (error) {
+    logger.warn('tryRefetchAfterEnsureHtml failed', {
+      reportId,
+      error: getErrorMessage(error),
+    })
+    markEnsureHtmlFailure(dedupeKey)
+    return null
+  }
 }
 
 /**
@@ -169,92 +279,22 @@ export async function tryRefetchAfterEnsureHtml(
     return null
   }
 
-  if (ensureHtmlInFlight.has(dedupeKey)) {
-    return null
+  const coalesced = ensureHtmlCoalesced.get(dedupeKey)
+  if (coalesced) {
+    return coalesced
   }
-  ensureHtmlInFlight.add(dedupeKey)
 
-  try {
-    const res = await backendAPI.ensureReportHtml(ensureTargetId, {
-      sync: true,
-      ...(sessionKeyBody ? { sessionKey: sessionKeyBody } : {}),
-      ...(alternateReportId ? { alternateReportId } : {}),
-    })
-    if (res == null) {
-      logger.debug(
-        'ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching',
-        {
-          reportId: reportId?.substring(0, 24),
-        }
-      )
-      markEnsureHtmlFailure(dedupeKey)
-      return null
-    }
-    // Check the terminal `payload_too_large` status BEFORE the generic
-    // success-flag check. The current Titan contract returns success:true
-    // alongside this status, but we must not depend on that — flipping the
-    // flag later would otherwise downgrade a permanent failure into the
-    // transient 5-minute cooldown path and resume the retry loop.
-    if (isPayloadTooLargeStatus(res)) {
-      logger.error(
-        'ensureReportHtml aborted — render payload exceeds engine size limit (413). ' +
-          'Operator must raise VALUATION_IQ_MAX_REQUEST_SIZE_MB or trim the report payload. ' +
-          'Suppressing further retries for this report in this tab.',
-        {
-          reportId: reportId?.substring(0, 24),
-          status: typeof res.status === 'string' ? res.status : undefined,
-        }
-      )
-      markEnsureHtmlPermanentFailure(dedupeKey)
-      // Surface to the report viewer so it can replace the generic
-      // "report not available" fallback with an actionable message.
-      // Dynamic import avoids a static cycle (store -> services -> store).
-      try {
-        const { useSessionStore } = await import('../../store/useSessionStore')
-        useSessionStore.getState().setRenderError('payload_too_large')
-      } catch (storeError) {
-        logger.warn('Failed to set renderError on session store', {
-          reportId: reportId?.substring(0, 24),
-          error: getErrorMessage(storeError),
-        })
-      }
-      return null
-    }
-    if ((res as { success?: boolean }).success === false) {
-      markEnsureHtmlFailure(dedupeKey)
-      return null
-    }
-    if (!shouldRefetchAfterEnsureResponse(res)) {
-      logger.debug('ensureReportHtml did not recover usable HTML yet; skipping refetch', {
-        reportId: reportId?.substring(0, 24),
-        status: typeof res.status === 'string' ? res.status : undefined,
-      })
-      markEnsureHtmlFailure(dedupeKey)
-      return null
-    }
-    clearEnsureHtmlFailure(dedupeKey)
-
-    const lookupIds = orderedValuationSessionLookupIds({
-      ensureResponseReportId: (res as { reportId?: unknown }).reportId,
-      sessionKeyFallback: sessionKeyBody,
-      mergedSessionReportId: mergedSession.reportId,
-      urlReportId: reportId,
-    })
-    for (const id of lookupIds) {
-      const next = await backendAPI.getValuationSession(id)
-      if (next?.session) {
-        return next
-      }
-    }
-    return null
-  } catch (error) {
-    logger.warn('tryRefetchAfterEnsureHtml failed', {
-      reportId,
-      error: getErrorMessage(error),
-    })
-    markEnsureHtmlFailure(dedupeKey)
-    return null
-  } finally {
-    ensureHtmlInFlight.delete(dedupeKey)
-  }
+  const run = executeEnsureHtmlRefetch({
+    reportId,
+    mergedSession,
+    ensureTargetId,
+    sessionKeyBody,
+    alternateReportId,
+    dedupeKey,
+  })
+  ensureHtmlCoalesced.set(dedupeKey, run)
+  void run.finally(() => {
+    ensureHtmlCoalesced.delete(dedupeKey)
+  })
+  return run
 }

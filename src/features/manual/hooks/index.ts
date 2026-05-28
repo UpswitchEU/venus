@@ -58,6 +58,7 @@ export {
   useManualChatFieldUpdateActions,
 } from './useManualChatFieldUpdateActions'
 export {
+  type ManualChatSendHandler,
   type UseManualChatMessageActionsParams,
   type UseManualChatMessageActionsResult,
   useManualChatMessageActions,
@@ -196,6 +197,10 @@ export {
   type UseManualReportMethodHydrationResult,
   useManualReportMethodHydration,
 } from './useManualReportMethodHydration'
+export {
+  type UseManualReportHtmlRecoveryParams,
+  useManualReportHtmlRecovery,
+} from './useManualReportHtmlRecovery'
 export {
   type UseManualReportRefreshAfterEditParams,
   type UseManualReportRefreshAfterEditResult,

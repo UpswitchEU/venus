@@ -1,5 +1,6 @@
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
 import type { RecentValuation } from '../../../components/calculator'
+import { isSessionKey } from '../../../utils/identifiers'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import {
   buildManualExitClientViewTarget,
@@ -97,6 +98,8 @@ export function buildPostDeleteNewValuationUrl({
       params.set(key, value)
     }
   }
+
+  params.set('_ts', String(Date.now()))
 
   const query = params.toString()
   return query ? `/${locale}/reports/new?${query}` : `/${locale}/reports/new`
@@ -213,5 +216,14 @@ export async function deleteValuationEntry({
     return
   }
 
-  await deleteReport(valuation.id)
+  try {
+    await deleteReport(valuation.id)
+  } catch (err) {
+    // Bootstrapped draft still in recent list with stale deleteMode, or report already gone.
+    if (isSessionKey(valuation.id)) {
+      await deleteDraftSession(valuation.id)
+      return
+    }
+    throw err
+  }
 }

@@ -1,4 +1,8 @@
 import type { ChatMessage, FieldContext, NormalizationItem } from '@/components/calculator'
+import {
+  resolveAssistantIntent,
+  type AssistantIntent,
+} from '@/services/ai/local-chat-fallback'
 import type { AIChatRequest } from '@/services/ai/AIChatService'
 
 export interface ManualChatFinancialContext {
@@ -100,6 +104,7 @@ export function buildManualAIChatRequest(args: {
   audience?: AIChatRequest['audience']
   clientUserId?: string | null
   surfaceIntent?: 'add_client' | 'kbo_lookup'
+  assistantIntent?: AssistantIntent
 }): AIChatRequest {
   const clientScopedSessionId =
     args.audience === 'advisor' && args.clientUserId
@@ -116,6 +121,7 @@ export function buildManualAIChatRequest(args: {
     fieldContext: args.fieldContext || undefined,
     normalizations: args.normalizationItems,
     ...(args.surfaceIntent ? { surfaceIntent: args.surfaceIntent } : {}),
+    assistantIntent: resolveAssistantIntent(args.message, args.assistantIntent),
     formData: buildManualChatEnrichedFormData({
       collectedData: args.collectedData,
       latestFormData: args.latestFormData,

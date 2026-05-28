@@ -4,11 +4,11 @@ import {
   stripAgentNextFromHref,
 } from '../utils/manualAgentNextHandoff'
 
-type ManualChatMessageSender = (content: string) => void | Promise<void>
+import type { ManualChatSendHandler } from './useManualChatMessageActions'
 
 export interface UseManualAgentPromptHandoffParams {
   chatDrawerOpen: boolean
-  handleChatMessage: ManualChatMessageSender
+  handleChatMessage: ManualChatSendHandler
   initialAgentNext?: string | null
   isChatGenerating: boolean
   isLoadingHistory: boolean

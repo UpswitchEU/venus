@@ -11,13 +11,24 @@ export function PanelSkeleton() {
   )
 }
 
-export function useManualLayoutIsMobile() {
-  const [isMobile, setIsMobile] = useState(false)
+export function useManualLayoutViewport() {
+  const [viewport, setViewport] = useState({
+    hasMeasuredViewport: false,
+    isMobile: false,
+  })
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
+    const check = () =>
+      setViewport({
+        hasMeasuredViewport: true,
+        isMobile: window.innerWidth < 768,
+      })
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
-  return isMobile
+  return viewport
+}
+
+export function useManualLayoutIsMobile() {
+  return useManualLayoutViewport().isMobile
 }

@@ -1,13 +1,10 @@
 import { useCallback, useState } from 'react'
-import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
-import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
+import { useManualFormStore } from '../../../store/manual'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
-import { useSessionStore } from '../../../store/useSessionStore'
-import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
-import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { buildManualNewValuationUrl } from '../utils/manualNewValuation'
+import { resetManualWorkspaceState } from '../utils/resetManualWorkspaceState'
 
 export interface UseManualNewValuationFlowParams {
   currentLocale: string
@@ -63,14 +60,10 @@ export function useManualNewValuationFlow({
         // sessionStorage unavailable or serialization failed.
       }
 
-      useSessionStore.getState().clearSession()
-      useManualFormStore.getState().resetForm()
-      useManualResultsStore.getState().clearResults()
-      useManualResultsStore.getState().setCalculating(false)
-      useNormalizationStore.getState().clear()
-      useTaxLatencyStore.getState().clear({ source: 'system' })
-      useNbbPrefillStore.getState().clear()
-      if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
+      resetManualWorkspaceState({
+        preserveForm: false,
+        reportIdsToClearVersions: reportId ? [reportId] : [],
+      })
       setShowNewValuationModal(false)
 
       const ctx = useClientContext.getState()

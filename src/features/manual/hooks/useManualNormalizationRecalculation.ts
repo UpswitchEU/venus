@@ -9,6 +9,7 @@ import {
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
@@ -22,6 +23,7 @@ import {
 import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizationRecalcSource'
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
 import { buildManualReportAssets } from '../utils/manualReportAssets'
+import { applyPostCalculateHtmlRecovery } from '../utils/manualReportHtmlRecoveryUtil'
 import { buildManualTaxLatencySignature } from '../utils/manualTaxLatencySignature'
 import {
   buildManualCalculationRequest,
@@ -169,6 +171,16 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           return
         }
         if (durableSaveSucceeded) {
+          await applyPostCalculateHtmlRecovery({
+            reportId: idForApi,
+            session: useSessionStore.getState().session,
+            result: calcResult,
+            setResult,
+          })
+          if (!isStillRelevant()) {
+            durableSaveInFlightRef.current = false
+            return
+          }
           setDraftStatus('saved')
           setLastSaved(new Date())
           toast.success(translate('recalculatedWithNorms'), {

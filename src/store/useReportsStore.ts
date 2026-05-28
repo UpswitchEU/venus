@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { reportService } from '../services/reports'
 import type { ValuationSession } from '../types/valuation'
+import { isValuationIdSameAsActiveReport, isSessionKey } from '../utils/identifiers'
 import { createContextLogger } from '../utils/logger'
 
 const reportsLogger = createContextLogger('ReportsStore')
@@ -114,10 +115,29 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
         // Also clear from session store if it's the active session
         const { useSessionStore } = await import('./useSessionStore')
         const currentSession = useSessionStore.getState().session
-        if (currentSession?.reportId === reportId) {
-          useSessionStore.getState().clearSession()
+        const activeId = currentSession?.reportId
+        if (
+          activeId &&
+          isValuationIdSameAsActiveReport(reportId, {
+            reportId: activeId,
+            resolvedReportId: activeId,
+            sessionReportId: isSessionKey(activeId) ? undefined : activeId,
+            sessionKey: isSessionKey(activeId) ? activeId : undefined,
+          })
+        ) {
+          const { markReportsDeleting } = await import(
+            '../features/manual/utils/manualReportDeleteGuard'
+          )
+          const { tearDownWorkspaceAfterActiveReportDeleted } = await import(
+            '../features/manual/utils/resetManualWorkspaceState'
+          )
+          const sessionReportIdForGuard = isSessionKey(activeId) ? undefined : activeId
+          const activeSessionKeyForGuard = isSessionKey(activeId) ? activeId : undefined
+          markReportsDeleting([reportId, activeId, sessionReportIdForGuard, activeSessionKeyForGuard])
+          tearDownWorkspaceAfterActiveReportDeleted([reportId, activeId])
           didClearSession = true
           reportsLogger.info('Active session cleared for deleted report', { reportId })
+          // Leave delete guard set until navigation — same as sidebar delete success path.
         }
       } catch (cacheError) {
         // Don't fail delete if cache clear fails

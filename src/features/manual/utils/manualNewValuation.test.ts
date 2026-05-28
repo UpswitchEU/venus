@@ -70,6 +70,8 @@ describe('manualNewValuation', () => {
         clientContextId: 'client-1',
         currentSearch: '?source=mercury&flow=advisor&unknown=drop',
       })
-    ).toBe('/nl/reports/new?clientId=client-1&prefilledQuery=Client+Co&flow=advisor&source=mercury')
+    ).toMatch(
+      /^\/nl\/reports\/new\?clientId=client-1&prefilledQuery=Client\+Co&flow=advisor&source=mercury&_ts=\d+$/
+    )
   })
 })

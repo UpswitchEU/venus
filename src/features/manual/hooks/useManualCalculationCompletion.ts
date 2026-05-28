@@ -20,6 +20,10 @@ import {
   type SubmittedFinancialSnapshot,
 } from '../utils/manualFinancialSnapshot'
 import { saveManualCalculationReportAssets } from '../utils/manualReportAssetSave'
+import {
+  applyPostCalculateHtmlRecovery,
+  needsManualReportHtmlRecovery,
+} from '../utils/manualReportHtmlRecoveryUtil'
 import { scheduleManualVersionHistorySync } from '../utils/manualVersionHistorySync'
 import type { ManualVersionBaseline } from '../utils/manualVersioningDecision'
 import { runManualCalculationVersioning } from '../utils/manualVersioningExecutor'
@@ -118,6 +122,7 @@ export function useManualCalculationCompletion({
       }
 
       setResult(valuationResult)
+      let resultForUi = valuationResult
       submitRun.endLoading()
       lastSubmittedFinancialSnapshotRef.current = buildSubmittedFinancialSnapshot(request)
 
@@ -182,9 +187,31 @@ export function useManualCalculationCompletion({
 
       if (versionCreationFailed.aborted) return versionCreationFailed
 
+      if (saveResult.durableSaveSucceeded && idForApi && submitRun.isStillTarget()) {
+        resultForUi = await applyPostCalculateHtmlRecovery({
+          reportId: idForApi,
+          session: useSessionStore.getState().session,
+          result: resultForUi,
+          setResult,
+        })
+        if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
+      }
+
       if (saveResult.durableSaveSucceeded && !versionCreationFailed.versionCreationFailed) {
         if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
-        toast.success(translate('calculationComplete'))
+
+        const recoveryStillMissing =
+          idForApi &&
+          needsManualReportHtmlRecovery({
+            reportId: idForApi,
+            session: useSessionStore.getState().session,
+            result: resultForUi,
+          })
+        if (recoveryStillMissing) {
+          toast.warning(translate('reportHtmlRecoveryFailed'))
+        } else {
+          toast.success(translate('calculationComplete'))
+        }
         if (postValuationListingHandoffPendingRef.current) {
           postValuationListingHandoffPendingRef.current = false
           if (isAccountantMode) {

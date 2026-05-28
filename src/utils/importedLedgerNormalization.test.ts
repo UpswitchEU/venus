@@ -1,7 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import { buildNormalizationItemsFromImportedLedgerAnalysis } from './importedLedgerNormalization'
+import {
+  buildNormalizationItemsFromImportedLedgerAnalysis,
+  buildReportedEbitdaByYearFromFormRecords,
+} from './importedLedgerNormalization'
+
+describe('buildReportedEbitdaByYearFromFormRecords', () => {
+  it('merges current, historical, and yearly financial rows', () => {
+    expect(
+      buildReportedEbitdaByYearFromFormRecords({
+        currentYearData: { year: 2024, ebitda: 50_000 },
+        historicalYearsData: [{ year: 2023, ebitda: 40_000 }],
+        yearlyFinancials: [
+          { year: 2022, ebitda: 30_000 },
+          { year: 2025, ebitda: 999, isForecast: true },
+        ],
+      })
+    ).toEqual({ 2024: 50_000, 2023: 40_000, 2022: 30_000 })
+  })
+})
 
 describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
+  it('keeps extreme auto-addbacks pending when they exceed the defensibility cap', () => {
+    const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+      reported_ebitda_by_year: { 2023: 100_000 },
+      sde_flags: [
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 300_000,
+          suggested_question: 'Review discretionary spend?',
+          year: 2023,
+        },
+      ],
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0].status).toBe('pending')
+    expect(items[0].adjustment).toBe(300_000)
+  })
+
   it('maps SDE flags to applied normalization items', () => {
     const items = buildNormalizationItemsFromImportedLedgerAnalysis({
       latest_fiscal_year: 2024,

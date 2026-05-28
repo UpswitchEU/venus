@@ -48,6 +48,23 @@ describe('fetchWithTimeout', () => {
   })
 })
 
+describe('buildTitanAiChatProxyPlan assistant intent', () => {
+  it('forwards assistantIntent into Titan context for calculator quicklinks', () => {
+    const result = buildTitanAiChatProxyPlan({
+      message: 'Verklaar deze EBITDA',
+      sessionId: 'report-1',
+      assistantIntent: 'explain_ebitda',
+      formData: { companyName: 'Acme' },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected successful plan')
+    expect(result.plan.payload.context).toMatchObject({
+      assistantIntent: 'explain_ebitda',
+    })
+  })
+})
+
 describe('buildTitanAiChatProxyPlan stream recovery', () => {
   it('sets streamTurnRecovery without forwarding recoverFromStreamTurn to Titan payload', () => {
     const result = buildTitanAiChatProxyPlan({

@@ -1,7 +1,7 @@
 import { useTransitionRouter } from 'next-view-transitions'
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import { trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
-import type { RightPanelView } from '../../../components/calculator'
+import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
 import { useManualMercuryNavigationActions } from './useManualMercuryNavigationActions'
 import { useManualNewValuationFlow } from './useManualNewValuationFlow'
 import {
@@ -40,6 +40,7 @@ export interface UseManualNavigationControllerParams {
   resolvedReportId?: string | null
   session?: ManualNavigationSession | null
   setChatDrawerOpen: Dispatch<SetStateAction<boolean>>
+  setReport: Dispatch<SetStateAction<ValuationReportData | null>>
   setRightPanelView: Dispatch<SetStateAction<RightPanelView>>
   setShowFullscreenModal: Dispatch<SetStateAction<boolean>>
   translate: (key: string) => string
@@ -64,6 +65,7 @@ export function useManualNavigationController({
   resolvedReportId,
   session,
   setChatDrawerOpen,
+  setReport,
   setRightPanelView,
   setShowFullscreenModal,
   translate,
@@ -160,6 +162,9 @@ export function useManualNavigationController({
     router,
     currentLocale,
     deleteReportFailedTitle: translateReport('deleteReportFailed'),
+    setReport,
+    setRightPanelView,
+    setShowFullscreenModal,
   })
 
   const {

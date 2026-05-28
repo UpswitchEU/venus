@@ -101,6 +101,30 @@ describe('manualRecentValuations', () => {
     ).toBe(raw)
   })
 
+  it('uses session delete for val_* even when the right panel still shows a ghost report', () => {
+    const valuations = buildManualRecentValuations({
+      rawRecentValuations: [],
+      reportId: sessionKey,
+      resolvedReportId: null,
+      sessionReportId: null,
+      activeSessionKey: sessionKey,
+      sessionName: 'Draft Session',
+      sessionCreatedAt: now,
+      currentReport: { companyName: 'Ghost EV', generatedAt: now },
+      collectedCompanyName: null,
+      isAccountantFlow: false,
+      clientCompanyName: null,
+      unnamedLabel: 'Unnamed',
+      now,
+    })
+
+    expect(valuations[0]).toMatchObject({
+      id: sessionKey,
+      deleteMode: 'session',
+      isDraft: true,
+    })
+  })
+
   it('uses report and client fallbacks for the prepended row', () => {
     const valuations = buildManualRecentValuations({
       rawRecentValuations: [],

@@ -19,6 +19,7 @@ import { cn } from '@/design-system/utils'
 import { MANUAL_LAYOUT_SCROLL_SELECTOR, useScrollLock } from '@/hooks/useScrollLock'
 import { useVisualViewportDrawerInsets } from '@/hooks/useVisualViewportDrawerInsets'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
+import { type AssistantIntent, resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
 import { AiConsentModal } from './AiConsentModal'
 import { AttentionSummary } from './AttentionSummary'
 import { PendingFieldUpdatesCard } from './ChatAssistantAttentionRails'
@@ -75,6 +76,7 @@ export type {
 export function ChatAssistantDrawer({
   open,
   lockScroll = false,
+  presentation = 'drawer',
   onOpenChange,
   messages,
   onSendMessage,
@@ -84,6 +86,8 @@ export function ChatAssistantDrawer({
   hasReport = false,
   hasEbitda = false,
   pendingNormalizationsCount = 0,
+  acceptedNormalizationsCount = 0,
+  hasCapBreach = false,
   onApplyFieldUpdate,
   pendingUpdates = [],
   onAcceptUpdate,
@@ -117,6 +121,7 @@ export function ChatAssistantDrawer({
   type ChatAssistantTranslationKey = Parameters<typeof ca>[0]
   type ChatAssistantTranslationValues = NonNullable<Parameters<typeof ca>[1]>
   const locale = useLocale()
+  const isPanel = presentation === 'panel'
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const [input, setInput] = useState('')
   const {
@@ -155,6 +160,8 @@ export function ChatAssistantDrawer({
     hasReport,
     hasEbitda,
     pendingNormalizationsCount,
+    acceptedNormalizationsCount,
+    hasCapBreach,
   })
   const suggestions = suggestionItems.map((item) => {
     const key = item.key as ChatAssistantTranslationKey
@@ -162,16 +169,18 @@ export function ChatAssistantDrawer({
   })
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll lock only on mobile full-screen drawer; desktop layout is already overflow-hidden.
-  useScrollLock(open && lockScroll, lockScroll ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined)
-  const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll)
+  // Scroll lock only on mobile full-screen drawer; desktop panel is part of the layout.
+  useScrollLock(
+    open && lockScroll && !isPanel,
+    lockScroll && !isPanel ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined
+  )
+  const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll && !isPanel)
   const viewportStyle = viewportInsets
     ? { top: viewportInsets.top, height: viewportInsets.height }
     : undefined
-  const viewportScrollKey = viewportInsets
-    ? `${viewportInsets.top}:${viewportInsets.height}`
-    : ''
+  const viewportScrollKey = viewportInsets ? `${viewportInsets.top}:${viewportInsets.height}` : ''
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const pendingAssistantIntentRef = useRef<AssistantIntent | undefined>(undefined)
 
   // Suggestion-chip insertion (paste-and-wait): seeds the draft instead of
   // replacing it, appends a trailing space so the next keystroke is a fresh
@@ -182,7 +191,8 @@ export function ChatAssistantDrawer({
   // focus() call stays in the user-initiated event chain (iOS Safari only
   // opens the soft keyboard for focus triggered from an interaction event)
   // and the caret reads the up-to-date value rather than racing the render.
-  const insertSuggestion = useCallback((text: string) => {
+  const insertSuggestion = useCallback((text: string, intent?: AssistantIntent) => {
+    pendingAssistantIntentRef.current = intent
     let nextValue = ''
     flushSync(() => {
       setInput((prev) => {
@@ -197,6 +207,20 @@ export function ChatAssistantDrawer({
     el.setSelectionRange(nextValue.length, nextValue.length)
   }, [])
 
+  const handleSuggestionClick = useCallback(
+    (label: string) => {
+      const item = suggestionItems.find((entry) => {
+        const key = entry.key as ChatAssistantTranslationKey
+        const translated = entry.params
+          ? ca(key, entry.params as ChatAssistantTranslationValues)
+          : ca(key)
+        return translated === label
+      })
+      insertSuggestion(label, item?.intent)
+    },
+    [ca, insertSuggestion, suggestionItems]
+  )
+
   // Scroll to bottom on new messages and during streaming content updates.
   // Use the messages container directly — scrollIntoView can shift the document
   // viewport when body scroll lock is active (Mercury AI dock pattern).
@@ -206,11 +230,13 @@ export function ChatAssistantDrawer({
   const lastVisible = visibleMessages[visibleMessages.length - 1]
   const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant')
   const attentionRailsKey = `${pendingUpdates.length}:${startupIssues.length}:${qualityWarnings.length}`
+  const scrollTriggerKey = `${messageRenderKey}:${showLoadingSkeleton ? '1' : '0'}:${attentionRailsKey}:${viewportScrollKey}`
 
   useEffect(() => {
+    void scrollTriggerKey
     if (!open) return
     scrollMessagesContainerToBottom(messagesContainerRef.current)
-  }, [messageRenderKey, open, showLoadingSkeleton, isGenerating, attentionRailsKey, viewportScrollKey])
+  }, [open, scrollTriggerKey])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -247,10 +273,10 @@ export function ChatAssistantDrawer({
   }, [open])
 
   useEffect(() => {
-    if (!open || lockScroll) return
+    if (!open || lockScroll || isPanel) return
     const timer = setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 100)
     return () => clearTimeout(timer)
-  }, [open, lockScroll])
+  }, [open, lockScroll, isPanel])
 
   // Global keyboard shortcuts: Escape to close, Cmd+Shift+L for new conversation
   useEffect(() => {
@@ -271,20 +297,24 @@ export function ChatAssistantDrawer({
   const handleSubmit = useCallback(
     (e?: React.FormEvent) => {
       e?.preventDefault()
+      if (isGenerating) return
       if (!input.trim() && attachments.length === 0) return
       trackAIAssistantMessage()
+      const intent = resolveAssistantIntent(input, pendingAssistantIntentRef.current)
+      pendingAssistantIntentRef.current = undefined
       onSendMessage(
         input,
         attachments,
         detectedValues.length > 0 ? detectedValues : undefined,
-        detectedCommands.length > 0 ? detectedCommands : undefined
+        detectedCommands.length > 0 ? detectedCommands : undefined,
+        intent
       )
       setInput('')
       setAttachments([])
       setDetectedValues([])
       setDetectedCommands([])
     },
-    [input, attachments, detectedValues, detectedCommands, onSendMessage]
+    [input, attachments, detectedValues, detectedCommands, isGenerating, onSendMessage]
   )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -310,35 +340,41 @@ export function ChatAssistantDrawer({
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop — softer, no blur (matches Cursor/Lovable). */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={springDefault}
-            onClick={() => onOpenChange(false)}
-            onTouchMove={(e) => e.preventDefault()}
-            style={viewportStyle}
-            className={cn(
-              'fixed left-0 right-0 z-40 bg-black/30 touch-none overscroll-none',
-              !viewportStyle && 'inset-0'
-            )}
-          />
+          {!isPanel && (
+            /* Backdrop — softer, no blur (matches Cursor/Lovable). */
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springDefault}
+              onClick={() => onOpenChange(false)}
+              onTouchMove={(e) => e.preventDefault()}
+              style={viewportStyle}
+              className={cn(
+                'fixed left-0 right-0 z-40 bg-black/30 touch-none overscroll-none',
+                !viewportStyle && 'inset-0'
+              )}
+            />
+          )}
 
-          {/* Drawer Panel — plain surface, no decorative border. */}
+          {/* Drawer on mobile, embedded workspace panel on desktop. */}
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={isPanel ? { opacity: 0 } : { x: '100%' }}
+            animate={isPanel ? { opacity: 1 } : { x: 0 }}
+            exit={isPanel ? { opacity: 0 } : { x: '100%' }}
             transition={springDefault}
-            style={viewportStyle}
+            style={isPanel ? undefined : viewportStyle}
             className={cn(
-              'fixed right-0 z-50',
               'w-full p-0 flex flex-col min-h-0',
-              !viewportStyle && 'top-0 bottom-0 h-full',
-              'sm:w-[440px] md:w-[480px] lg:w-[520px]',
-              'bg-background',
-              'pb-[env(safe-area-inset-bottom)]'
+              isPanel
+                ? 'relative h-full'
+                : [
+                    'fixed right-0 z-50',
+                    !viewportStyle && 'top-0 bottom-0 h-full',
+                    'sm:w-[440px] md:w-[480px] lg:w-[520px]',
+                    'pb-[env(safe-area-inset-bottom)]',
+                  ],
+              'bg-background'
             )}
           >
             {/* Header — minimal: title + close. No CTAs.
@@ -402,7 +438,7 @@ export function ChatAssistantDrawer({
             >
               {isEmpty ? (
                 <EmptyState
-                  onSuggestionClick={insertSuggestion}
+                  onSuggestionClick={handleSuggestionClick}
                   companyName={companyName}
                   fieldContext={fieldContext}
                   suggestions={suggestions}
@@ -435,7 +471,13 @@ export function ChatAssistantDrawer({
                         onOpenConsent={handleOpenConsent}
                         onRetry={onRetry}
                         onSendFollowUp={(content) =>
-                          onSendMessage(content, undefined, undefined, undefined)
+                          onSendMessage(
+                            content,
+                            undefined,
+                            undefined,
+                            undefined,
+                            resolveAssistantIntent(content)
+                          )
                         }
                       />
                     ))}
@@ -507,7 +549,7 @@ export function ChatAssistantDrawer({
               onKeyDown={handleKeyDown}
               onRemoveAttachment={removeAttachment}
               onSubmit={() => handleSubmit()}
-              onSuggestionClick={insertSuggestion}
+              onSuggestionClick={handleSuggestionClick}
             />
           </motion.div>
 

@@ -1,12 +1,11 @@
 import { type Dispatch, type SetStateAction, useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { RecentValuation } from '../../../components/calculator'
+import type { RecentValuation, RightPanelView, ValuationReportData } from '../../../components/calculator'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { reportService } from '../../../services'
 import { backendAPI } from '../../../services/backendApi'
 import { useManualFormStore } from '../../../store/manual'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
-import { useSessionStore } from '../../../store/useSessionStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { isValuationIdSameAsActiveReport } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
@@ -23,6 +22,15 @@ import {
   readManualMercuryHandoffFromBrowser,
 } from '../utils/manualMercuryNavigate'
 import { filterRemainingRecentValuationsAfterDelete } from '../utils/manualRecentValuations'
+import { restoreManualWorkspaceAfterDeleteFailure } from '../utils/restoreManualWorkspaceAfterDeleteFailure'
+import {
+  beginOptimisticCurrentReportDelete,
+  resetManualWorkspaceState,
+} from '../utils/resetManualWorkspaceState'
+import {
+  clearReportsDeleting,
+  markReportsDeleting,
+} from '../utils/manualReportDeleteGuard'
 
 interface ManualDeletionRouter {
   push: (href: string) => void
@@ -43,6 +51,9 @@ export interface UseManualRecentValuationDeletionParams {
   router: ManualDeletionRouter
   currentLocale: string
   deleteReportFailedTitle: string
+  setReport: Dispatch<SetStateAction<ValuationReportData | null>>
+  setRightPanelView: Dispatch<SetStateAction<RightPanelView>>
+  setShowFullscreenModal: Dispatch<SetStateAction<boolean>>
 }
 
 export interface UseManualRecentValuationDeletionResult {
@@ -73,6 +84,9 @@ export function useManualRecentValuationDeletion({
   router,
   currentLocale,
   deleteReportFailedTitle,
+  setReport,
+  setRightPanelView,
+  setShowFullscreenModal,
 }: UseManualRecentValuationDeletionParams): UseManualRecentValuationDeletionResult {
   const [deletingValuationId, setDeletingValuationId] = useState<string | null>(null)
   const deleteInProgressRef = useRef<string | null>(null)
@@ -85,16 +99,26 @@ export function useManualRecentValuationDeletion({
       deleteInProgressRef.current = id
       setDeletingValuationId(id)
 
-      try {
-        const isCurrentReport = isValuationIdSameAsActiveReport(id, {
-          reportId,
-          resolvedReportId,
-          sessionReportId,
-          sessionKey: activeSessionKey ?? undefined,
-        })
+      const isCurrentReport = isValuationIdSameAsActiveReport(id, {
+        reportId,
+        resolvedReportId,
+        sessionReportId,
+        sessionKey: activeSessionKey ?? undefined,
+      })
 
+      try {
         let postDeleteNewValuationUrl: string | null = null
+        const cacheAndVersionIds = isCurrentReport
+          ? [id, reportId, resolvedReportId, sessionReportId, activeSessionKey]
+          : []
+
         if (isCurrentReport) {
+          markReportsDeleting(cacheAndVersionIds)
+          beginOptimisticCurrentReportDelete({
+            setReport,
+            setShowFullscreenModal,
+            setRightPanelView,
+          })
           try {
             const formData = useManualFormStore.getState().formData
             const normItems = useNormalizationStore
@@ -129,15 +153,17 @@ export function useManualRecentValuationDeletion({
           deleteReport: (reportIdForDelete) => reportService.deleteReport(reportIdForDelete),
         })
 
-        try {
-          const { globalSessionCache } = await import('../../../utils/sessionCacheManager')
-          globalSessionCache.remove(id)
-        } catch {
-          // Non-fatal cache cleanup.
-        }
-
         if (isCurrentReport) {
-          useSessionStore.getState().clearSession()
+          resetManualWorkspaceState({
+            preserveForm: true,
+            reportIdsToClearVersions: cacheAndVersionIds,
+            cacheIdsToRemove: cacheAndVersionIds,
+            onClearReportUi: () => {
+              setReport(null)
+              setRightPanelView('preview')
+              setShowFullscreenModal(false)
+            },
+          })
           const remaining = filterRemainingRecentValuationsAfterDelete({
             rawRecentValuations,
             deletedId: id,
@@ -157,8 +183,16 @@ export function useManualRecentValuationDeletion({
             )
           }
 
+          // Keep delete guard until navigation unloads the page — avoids brief re-hydration
+          // of the soft-deleted report between clearReportsDeleting and location.replace.
+
           if (remaining.length > 0) {
-            router.push(`/${currentLocale}/reports/${remaining[0].id}`)
+            const nextHref = `/${currentLocale}/reports/${remaining[0].id}`
+            if (typeof window !== 'undefined') {
+              window.location.replace(nextHref)
+            } else {
+              router.push(nextHref)
+            }
           } else {
             const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
             const redirectUrl = buildPostDeleteCurrentReportRedirectUrl({
@@ -169,7 +203,12 @@ export function useManualRecentValuationDeletion({
               clientContextId,
               currentLocale,
             })
-            performManualFlowRedirect(redirectUrl, { routerPush: router.push })
+            // Full navigation — avoids bootstrap/module caches resurrecting deleted report HTML.
+            if (typeof window !== 'undefined' && redirectUrl.startsWith('/')) {
+              window.location.replace(redirectUrl)
+            } else {
+              performManualFlowRedirect(redirectUrl, { routerPush: router.push })
+            }
           }
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
@@ -186,9 +225,18 @@ export function useManualRecentValuationDeletion({
           }
         }
       } catch (err) {
+        clearReportsDeleting()
         toast.error(deleteReportFailedTitle, {
           description: err instanceof Error ? err.message : undefined,
         })
+        if (isCurrentReport) {
+          const restored = await restoreManualWorkspaceAfterDeleteFailure({
+            lookupIds: [id, reportId, resolvedReportId, sessionReportId, activeSessionKey],
+          })
+          if (!restored && typeof window !== 'undefined') {
+            window.location.reload()
+          }
+        }
       } finally {
         deleteInProgressRef.current = null
         setDeletingValuationId(null)
@@ -209,6 +257,9 @@ export function useManualRecentValuationDeletion({
       router,
       sessionReportId,
       setRawRecentValuations,
+      setReport,
+      setRightPanelView,
+      setShowFullscreenModal,
     ]
   )
 

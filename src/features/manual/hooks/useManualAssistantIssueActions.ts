@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
+import type { ManualChatSendHandler } from './useManualChatMessageActions'
 import { applyStartupIssueQuickFix } from '@/lib/methods/startup_valuation/startupIssueQuickFix'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { getManualStartupIssueAnchor } from '../utils/manualStartupAssistantSurface'
@@ -15,7 +16,7 @@ type StartupIssueAnchor = Pick<StudioIssue, 'step'>
 export interface UseManualAssistantIssueActionsParams {
   assistantLocale: 'en' | 'nl'
   formatStartupAssistantPrompt: (prompt: string) => string
-  handleChatMessage: (content: string) => void
+  handleChatMessage: ManualChatSendHandler
   setAcknowledgedQualityWarnings: AcknowledgementSetter
   setAcknowledgedStartupIssues: AcknowledgementSetter
   setChatDrawerOpen: Dispatch<SetStateAction<boolean>>

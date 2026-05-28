@@ -1,5 +1,6 @@
 'use client'
 
+import { ProposalCardShell, type ProposalCardTone } from '@upswitch/ai-dock-shells'
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import type { ChatMessage } from './ChatAssistantTypes'
@@ -10,6 +11,16 @@ interface ChatAssistantRunProposalCardsProps {
   onRejectValuationRun?: (proposalId: string) => void
   onApproveReportGeneration?: (proposalId: string, reportId?: string) => void
   onRejectReportGeneration?: (proposalId: string) => void
+}
+
+function proposalTone(
+  status: 'pending_approval' | 'blocked',
+  decision?: 'approved' | 'rejected'
+): ProposalCardTone {
+  if (decision === 'approved') return 'success'
+  if (decision === 'rejected') return 'rejected'
+  if (status === 'blocked') return 'warning'
+  return 'idle'
 }
 
 export function ChatAssistantRunProposalCards({
@@ -67,55 +78,47 @@ export function ChatAssistantRunProposalCards({
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="text-sm leading-relaxed"
               >
-                <p className="text-foreground">
-                  {isBlocked
-                    ? ca('proposalCards.valuation.titleBlocked')
-                    : summary?.business_name
-                      ? ca('proposalCards.valuation.titlePendingWithName', {
-                          name: summary.business_name,
-                        })
-                      : ca('proposalCards.valuation.titlePending')}
-                </p>
-                {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
-                {isBlocked && req.message && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
-                )}
-                {isBlocked && req.missing && req.missing.length > 0 && (
-                  <p className="text-foreground/55 text-xs mt-0.5 font-mono">
-                    {ca('proposalCards.common.missingPrefix')}
-                    {req.missing.join(', ')}
-                  </p>
-                )}
-                {isPending && summaryBits.length > 0 && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
-                )}
-                {isPending && (
-                  <div className="mt-1.5 flex items-center gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => onApproveValuationRun?.(req.id, req.reportId, req.methods)}
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
-                    >
-                      {ca('proposalCards.valuation.actionLabel')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRejectValuationRun?.(req.id)}
-                      className="text-foreground/45 hover:text-foreground/70 transition-colors"
-                    >
-                      {ca('proposalCards.common.buttonCancel')}
-                    </button>
-                  </div>
-                )}
-                {!isPending && !isBlocked && (
-                  <p className="mt-1 text-xs text-foreground/45">
-                    {isApproved
+                <ProposalCardShell
+                  title={
+                    isBlocked
+                      ? ca('proposalCards.valuation.titleBlocked')
+                      : summary?.business_name
+                        ? ca('proposalCards.valuation.titlePendingWithName', {
+                            name: summary.business_name,
+                          })
+                        : ca('proposalCards.valuation.titlePending')
+                  }
+                  subhead={
+                    req.note ??
+                    (isBlocked ? req.message : undefined) ??
+                    (isPending && summaryBits.length > 0 ? summaryBits.join(' · ') : undefined)
+                  }
+                  reason={req.reason}
+                  tone={proposalTone(req.status, req.decision)}
+                  primaryLabel={isPending ? ca('proposalCards.valuation.actionLabel') : undefined}
+                  onPrimary={
+                    isPending
+                      ? () => onApproveValuationRun?.(req.id, req.reportId, req.methods)
+                      : undefined
+                  }
+                  rejectLabel={isPending ? ca('proposalCards.common.buttonCancel') : undefined}
+                  onReject={isPending ? () => onRejectValuationRun?.(req.id) : undefined}
+                  successNote={
+                    isApproved
                       ? ca('proposalCards.valuation.statusStarted')
-                      : ca('proposalCards.common.statusCancelled')}
-                  </p>
-                )}
+                      : req.decision === 'rejected'
+                        ? ca('proposalCards.common.statusCancelled')
+                        : undefined
+                  }
+                >
+                  {isBlocked && req.missing && req.missing.length > 0 ? (
+                    <p className="text-foreground/55 text-xs mt-1 font-mono">
+                      {ca('proposalCards.common.missingPrefix')}
+                      {req.missing.join(', ')}
+                    </p>
+                  ) : null}
+                </ProposalCardShell>
               </motion.div>
             )
           })}
@@ -154,49 +157,38 @@ export function ChatAssistantRunProposalCards({
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="text-sm leading-relaxed"
               >
-                <p className="text-foreground">
-                  {isBlocked
-                    ? ca('proposalCards.report.titleBlocked')
-                    : result?.business_name
-                      ? ca('proposalCards.report.titlePendingWithName', {
-                          name: result.business_name,
-                        })
-                      : ca('proposalCards.report.titlePending')}
-                </p>
-                {req.note && <p className="text-foreground/55 text-xs mt-0.5">{req.note}</p>}
-                {isBlocked && req.message && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{req.message}</p>
-                )}
-                {isPending && summaryBits.length > 0 && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
-                )}
-                {isPending && (
-                  <div className="mt-1.5 flex items-center gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => onApproveReportGeneration?.(req.id, req.reportId)}
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
-                    >
-                      {ca('proposalCards.report.actionLabel')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRejectReportGeneration?.(req.id)}
-                      className="text-foreground/45 hover:text-foreground/70 transition-colors"
-                    >
-                      {ca('proposalCards.common.buttonCancel')}
-                    </button>
-                  </div>
-                )}
-                {!isPending && !isBlocked && (
-                  <p className="mt-1 text-xs text-foreground/45">
-                    {isApproved
+                <ProposalCardShell
+                  title={
+                    isBlocked
+                      ? ca('proposalCards.report.titleBlocked')
+                      : result?.business_name
+                        ? ca('proposalCards.report.titlePendingWithName', {
+                            name: result.business_name,
+                          })
+                        : ca('proposalCards.report.titlePending')
+                  }
+                  subhead={
+                    req.note ??
+                    (isBlocked ? req.message : undefined) ??
+                    (isPending && summaryBits.length > 0 ? summaryBits.join(' · ') : undefined)
+                  }
+                  reason={req.reason}
+                  tone={proposalTone(req.status, req.decision)}
+                  primaryLabel={isPending ? ca('proposalCards.report.actionLabel') : undefined}
+                  onPrimary={
+                    isPending ? () => onApproveReportGeneration?.(req.id, req.reportId) : undefined
+                  }
+                  rejectLabel={isPending ? ca('proposalCards.common.buttonCancel') : undefined}
+                  onReject={isPending ? () => onRejectReportGeneration?.(req.id) : undefined}
+                  successNote={
+                    isApproved
                       ? ca('proposalCards.report.statusStarted')
-                      : ca('proposalCards.common.statusCancelled')}
-                  </p>
-                )}
+                      : req.decision === 'rejected'
+                        ? ca('proposalCards.common.statusCancelled')
+                        : undefined
+                  }
+                />
               </motion.div>
             )
           })}

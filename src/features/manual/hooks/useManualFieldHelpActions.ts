@@ -1,12 +1,13 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import type { FieldContext, FieldHelpContext } from '../../../components/calculator'
+import type { AssistantIntent } from '@/services/ai/local-chat-fallback'
 import { buildManualFieldContext, buildManualFieldHelpQuestion } from '../utils/manualFieldHelp'
 
-type ManualChatMessageSender = (content: string) => void | Promise<void>
+import type { ManualChatSendHandler } from './useManualChatMessageActions'
 
 export interface UseManualFieldHelpActionsParams {
   currentLocale: string
-  handleChatMessage: ManualChatMessageSender
+  handleChatMessage: ManualChatSendHandler
   setChatDrawerOpen: Dispatch<SetStateAction<boolean>>
   setFieldContext: Dispatch<SetStateAction<FieldContext | undefined>>
 }
@@ -27,7 +28,10 @@ export function useManualFieldHelpActions({
       setChatDrawerOpen(true)
 
       setTimeout(() => {
-        void handleChatMessage(buildManualFieldHelpQuestion(context, currentLocale))
+        const question = buildManualFieldHelpQuestion(context, currentLocale)
+        const assistantIntent: AssistantIntent | undefined =
+          context.field === 'ebitda' ? 'explain_ebitda' : undefined
+        void handleChatMessage(question, undefined, undefined, undefined, assistantIntent)
       }, 300)
     },
     [currentLocale, handleChatMessage, setChatDrawerOpen, setFieldContext]
