@@ -2,6 +2,7 @@
 
 import { RevenueQualitySection } from '@/components/calculator/sections/RevenueQualitySection'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
+import { coerceFiniteNumber } from '@/utils/isFiniteNumeric'
 import { isYearRowForecast } from '@/utils/yearData'
 
 /** Revenue denominator for quality ratios — prefer latest complete year, else any booked revenue. */
