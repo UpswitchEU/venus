@@ -128,4 +128,29 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
 
     expect(items[0].backendCategory).toBe('related_party_transactions')
   })
+
+  it('drops 620000 personnel bucket flags from legacy snapshots', () => {
+    const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+      sde_flags: [
+        {
+          ledger_code: '620000',
+          ledger_name: 'Directors and managers',
+          amount: 480_000,
+          suggested_question: 'Review?',
+          year: 2025,
+        },
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 200_000,
+          suggested_addback_amount: 156_500,
+          suggested_question: 'Review?',
+          year: 2025,
+        },
+      ],
+    })
+
+    expect(items.map((item) => item.ledgerCode)).toEqual(['610000'])
+    expect(items[0].adjustment).toBe(156_500)
+  })
 })

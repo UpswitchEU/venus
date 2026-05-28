@@ -1,3 +1,8 @@
+import {
+  isImportedLedgerDirectorCompCode,
+  isMarPersonnelSocialChargesBucket,
+} from '../mar/marAccountCodes'
+
 /**
  * SDE owner-salary prefill — derive a high-confidence default for the
  * `owner_salary_addback` input from the normalization store.
@@ -77,6 +82,7 @@ export function computeSdeOwnerSalaryPrefill(
   for (const item of items) {
     if (item.status !== 'accepted') continue
     if (item.category !== 'salary') continue
+    if (isMarPersonnelSocialChargesBucket(item.ledgerCode)) continue
     const value = Number(item.value)
     if (!Number.isFinite(value) || value <= 0) continue
     const year = Number(item.year)
@@ -85,7 +91,9 @@ export function computeSdeOwnerSalaryPrefill(
     if (bestYear === null || year > bestYear) {
       bestYear = year
       bestValue = value
-      bestSource = isImportedLedgerLedgerCode(item.ledgerCode) ? 'imported_ledger' : 'manual_entry'
+      bestSource = isImportedLedgerDirectorCompCode(item.ledgerCode)
+        ? 'imported_ledger'
+        : 'manual_entry'
     }
   }
 
@@ -96,20 +104,4 @@ export function computeSdeOwnerSalaryPrefill(
     sourceYear: bestYear,
     source: bestSource,
   }
-}
-
-/** Belgian MAR account codes for owner-director compensation (account
- *  62 family). 620 (Bezoldigingen bestuurders en zaakvoerders) is the
- *  canonical anchor; 618 is used by Titan's auto-normalization service
- *  (Bestuurdersbezoldiging) and we accept both so any provider's
- *  mapping is recognised as imported-from-ledger. */
-function isImportedLedgerLedgerCode(code: string | undefined | null): boolean {
-  if (!code) return false
-  const normalized = code.trim()
-  return (
-    normalized === '620' ||
-    normalized === '618' ||
-    normalized.startsWith('620') ||
-    normalized.startsWith('618')
-  )
 }

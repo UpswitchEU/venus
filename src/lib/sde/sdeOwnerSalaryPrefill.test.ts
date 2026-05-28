@@ -42,13 +42,14 @@ describe('computeSdeOwnerSalaryPrefill', () => {
     expect(out.source).toBe('imported_ledger')
   })
 
-  it('flags imported_ledger when ledgerCode is 620 / 620xxx', () => {
+  it('flags imported_ledger for director-comp codes but not 620000 personnel bucket', () => {
     expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620' })]).source).toBe(
       'imported_ledger'
     )
-    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620000' })]).source).toBe(
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620010' })]).source).toBe(
       'imported_ledger'
     )
+    expect(computeSdeOwnerSalaryPrefill([item({ ledgerCode: '620000' })]).suggestedValue).toBeNull()
   })
 
   it('flags imported_ledger when ledgerCode is 618 / 618xxx (Titan auto-norm)', () => {

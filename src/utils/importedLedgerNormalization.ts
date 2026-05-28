@@ -7,6 +7,7 @@
  */
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
+import { isMarPersonnelSocialChargesBucket } from '../lib/mar/marAccountCodes'
 import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { getCurrentFilingYear } from './fiscalYear'
 
@@ -122,8 +123,10 @@ function mapImportedLedgerConfidence(confidence?: number): NormalizationItem['co
 export function buildNormalizationItemsFromImportedLedgerAnalysis(
   analysis: ImportedLedgerAnalysisLike
 ): NormalizationItem[] {
-  const flags = analysis.sde_flags
-  if (!flags?.length) return []
+  const flags = (analysis.sde_flags ?? []).filter(
+    (flag) => !isMarPersonnelSocialChargesBucket(flag.ledger_code)
+  )
+  if (!flags.length) return []
 
   return flags.map((flag, index) => {
     const rawAmount = coalesceFiniteNumber(flag.amount)

@@ -276,9 +276,10 @@ describe('useBootstrapPrefill', () => {
       latest_fiscal_year: 2024,
       sde_flags: [
         {
-          ledger_code: '620000',
+          ledger_code: '610000',
           ledger_name: 'Related party rent',
-          amount: 12_000,
+          amount: 200_000,
+          suggested_addback_amount: 156_000,
           deviation_pct: 0.18,
           benchmark_median_pct: 0.04,
           benchmark_std_pct: 0.03,
@@ -316,7 +317,7 @@ describe('useBootstrapPrefill', () => {
             code: 'manual_review',
             severity: 'warning' as const,
             message: 'Verify EBITDA classification',
-            source_accounts: ['620000'],
+            source_accounts: ['610000'],
             fiscal_year: 2024,
           },
         ],
@@ -324,7 +325,7 @@ describe('useBootstrapPrefill', () => {
           {
             field: 'ebitda',
             value: 250_000,
-            source_accounts: ['620000'],
+            source_accounts: ['610000'],
             mapping_method: 'direct' as const,
           },
         ],
@@ -377,8 +378,9 @@ describe('useBootstrapPrefill', () => {
 
       expect(useNormalizationStore.getState().items).toEqual([
         expect.objectContaining({
-          ledgerCode: '620000',
+          ledgerCode: '610000',
           ledgerName: 'Related party rent',
+          adjustment: 156_000,
           // Hermes-derived SDE flags from synced accounting data are auto-applied
           // (status='accepted'); buildNormalizationItemsFromImportedLedgerAnalysis
           // owns this default. Editable in UnifiedNormalizationModal with provenance.
