@@ -438,7 +438,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         )
 
         if (updatedSession) {
-          const localSession = this.currentSession
+          const localSession: ValuationSession | null = this.currentSession
           if (
             localSession &&
             (this.savePending || this.localMutationVersion !== mutationVersionAtSend)

@@ -32,7 +32,14 @@ export interface NormalisationReviewStepProps {
   suggestions: SuggestedNormalisation[]
   originalEbitda: number
   companyName: string
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'manual'
+  sourceIntegration?:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'silverfin'
+    | 'accountable'
+    | 'manual'
   onAccept: (id: string) => void
   onReject: (id: string) => void
   onAcceptAll: () => void

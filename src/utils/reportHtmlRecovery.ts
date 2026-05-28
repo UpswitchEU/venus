@@ -102,7 +102,7 @@ export function mergeRecoveredHtmlIntoValuationSnapshot(
     ...baseRecord,
     html_report: html,
     details: existingDetails ? { ...existingDetails, html_report: html } : { html_report: html },
-  } as ValuationResponse
+  } as unknown as ValuationResponse
 }
 
 export function extractRenderableHtmlFromSessionPayload(session: {
@@ -235,7 +235,7 @@ export function preserveClientRecoveredHtmlWhenServerSessionStale(
     htmlReport: clientHtml,
     reportReady: true,
     valuationResult: mergeRecoveredHtmlIntoValuationSnapshot(
-      (asRecord(baseValuation) ?? {}) as ValuationResponse,
+      (asRecord(baseValuation) ?? {}) as unknown as ValuationResponse,
       clientHtml
     ),
     sessionData: sessionData as ValuationSession['sessionData'],

@@ -104,7 +104,7 @@ function buildSessionResponseWithInlineHtml(
   const valuationResult = mergedSession.valuationResult
   const mergedValuationResult = valuationResult
     ? mergeRecoveredHtmlIntoValuationSnapshot(
-        valuationResult as Record<string, unknown>,
+        valuationResult as unknown as Record<string, unknown>,
         html
       )
     : mergeRecoveredHtmlIntoValuationSnapshot({}, html)

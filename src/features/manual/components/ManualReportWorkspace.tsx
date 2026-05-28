@@ -251,7 +251,7 @@ export function ManualReportWorkspace({
               transition={springDefault}
               className="h-full bg-background"
             >
-              <ReportRenderErrorPanel />
+              <ReportRenderErrorPanel variant="payload_too_large" />
             </motion.div>
           ) : (
             <motion.div

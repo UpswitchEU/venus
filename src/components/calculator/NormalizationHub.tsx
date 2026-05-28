@@ -53,7 +53,15 @@ export interface NormalizationHubProps {
   /** Per-year reported EBITDA for multi-year accuracy */
   originalEBITDAByYear?: Record<number, number>
   currentYear?: number
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'csv' | 'manual'
+  sourceIntegration?:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'silverfin'
+    | 'accountable'
+    | 'csv'
+    | 'manual'
   normalizations: NormalizationItem[]
   onNormalizationsChange: (normalizations: NormalizationItem[]) => void
   onContinue: () => void
@@ -76,6 +84,7 @@ const sourceIcons: Record<string, string> = {
   exact: '🔵',
   odoo: '🟠',
   octopus: '🐙',
+  silverfin: '🟢',
   accountable: '📊',
   csv: '📄',
   manual: '✏️',
@@ -146,7 +155,9 @@ export function NormalizationHub({
 
   const sourceKey =
     sourceIntegration &&
-    ['yuki', 'exact', 'odoo', 'octopus', 'accountable', 'csv', 'manual'].includes(sourceIntegration)
+    ['yuki', 'exact', 'odoo', 'octopus', 'silverfin', 'accountable', 'csv', 'manual'].includes(
+      sourceIntegration
+    )
       ? sourceIntegration
       : 'manual'
   const source = {

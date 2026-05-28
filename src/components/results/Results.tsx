@@ -144,9 +144,11 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const htmlReport = getFirstRenderableReportHtml(
     sessionHtmlReport,
     sessionValuationResult?.html_report,
-    sessionValuationResult?.details?.html_report,
+    typeof sessionValuationResult?.details?.html_report === 'string'
+      ? sessionValuationResult.details.html_report
+      : undefined,
     result?.html_report,
-    result?.details?.html_report
+    typeof result?.details?.html_report === 'string' ? result.details.html_report : undefined
   )
   const evEquitySteps = sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
   const showEnterpriseBridge = useMemo(() => {

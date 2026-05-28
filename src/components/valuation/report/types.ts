@@ -82,7 +82,15 @@ export interface EBITDAAdjustment {
   category: 'owner' | 'nonRecurring' | 'accounting' | 'normalization' | 'base' | 'result'
   description?: string
   // Grootboek source tracking for accountant audit trail
-  source?: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'manual' | 'suggestion'
+  source?:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'silverfin'
+    | 'accountable'
+    | 'manual'
+    | 'suggestion'
   sourceRef?: string // e.g., "Yuki 613xxx", "Exact 4000-4999"
   status?: 'approved' | 'pending' | 'rejected'
   approvedBy?: string // Accountant name who approved

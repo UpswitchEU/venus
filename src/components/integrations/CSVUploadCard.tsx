@@ -36,7 +36,14 @@ export interface ParsedCSVData {
   headers: string[]
   rows: string[][]
   totalRows: number
-  detectedType: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'generic'
+  detectedType:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'silverfin'
+    | 'accountable'
+    | 'generic'
   fiscalYears: string[]
 }
 
@@ -105,6 +112,8 @@ const parseCSV = (content: string): ParsedCSVData => {
     detectedType = 'yuki'
   } else if (headerStr.includes('exact')) {
     detectedType = 'exact'
+  } else if (headerStr.includes('silverfin')) {
+    detectedType = 'silverfin'
   } else if (headerStr.includes('octopus')) {
     detectedType = 'octopus'
   } else if (headerStr.includes('accountable')) {
