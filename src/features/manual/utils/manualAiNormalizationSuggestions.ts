@@ -13,7 +13,7 @@ type ManualChatNormalisationSuggestion = NonNullable<
 
 export type ManualNormalizationImportSource = Extract<
   NormalizationSource,
-  'yuki' | 'exact' | 'odoo' | 'octopus' | 'silverfin' | 'accountable'
+  'yuki' | 'exact' | 'odoo' | 'octopus' | 'expertm' | 'silverfin' | 'accountable'
 >
 
 export const MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS: Record<
@@ -24,6 +24,7 @@ export const MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS: Record<
   exact: 'Exact Online',
   odoo: 'Odoo',
   octopus: 'Octopus',
+  expertm: 'Expert/M',
   silverfin: 'Silverfin',
   accountable: 'Accountable',
 }

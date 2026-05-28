@@ -127,7 +127,7 @@ export function getSelectedBelgianAuditEntries({
 interface ManualInputPanelProps {
   onSubmit: (data: ValuationFormData) => void
   onCSVImportComplete?: (
-    source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'silverfin' | 'accountable',
+    source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'expertm' | 'silverfin' | 'accountable',
     fileName?: string
   ) => void
   isCalculating?: boolean

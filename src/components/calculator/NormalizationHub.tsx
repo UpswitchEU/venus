@@ -58,6 +58,7 @@ export interface NormalizationHubProps {
     | 'exact'
     | 'odoo'
     | 'octopus'
+    | 'expertm'
     | 'silverfin'
     | 'accountable'
     | 'csv'
@@ -155,9 +156,17 @@ export function NormalizationHub({
 
   const sourceKey =
     sourceIntegration &&
-    ['yuki', 'exact', 'odoo', 'octopus', 'silverfin', 'accountable', 'csv', 'manual'].includes(
-      sourceIntegration
-    )
+    [
+      'yuki',
+      'exact',
+      'odoo',
+      'octopus',
+      'expertm',
+      'silverfin',
+      'accountable',
+      'csv',
+      'manual',
+    ].includes(sourceIntegration)
       ? sourceIntegration
       : 'manual'
   const source = {

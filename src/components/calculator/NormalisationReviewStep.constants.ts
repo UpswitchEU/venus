@@ -33,6 +33,10 @@ export const sourceLabels: Record<NormalizationSource, { labelKey: string; color
   bizzcontrol: { labelKey: 'sources.bizzcontrol', color: 'bg-cyan-500/10 text-cyan-600' },
   odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
   octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
+  // Expert/M reuses the violet treatment of its sibling Adsolut palette and
+  // a dedicated `sources.expertm` label so the normalisation chip surfaces
+  // the upload origin distinctly from Octopus / Silverfin.
+  expertm: { labelKey: 'sources.expertm', color: 'bg-violet-500/10 text-violet-600' },
   accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },

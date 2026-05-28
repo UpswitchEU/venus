@@ -167,6 +167,7 @@ export function NormalisationReviewStep({
     exact: nh('sources.exact'),
     odoo: nh('sources.odoo'),
     octopus: nh('sources.octopus'),
+    expertm: nh('sources.expertm'),
     accountable: nh('sources.accountable'),
     manual: nh('sources.manual'),
   }

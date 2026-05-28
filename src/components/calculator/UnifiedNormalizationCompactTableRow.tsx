@@ -22,6 +22,7 @@ const sourceConfig: Record<NormalizationSource, { labelKey: string; color: strin
   bizzcontrol: { labelKey: 'sources.bizzcontrol', color: 'bg-cyan-500/10 text-cyan-600' },
   odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
   octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
+  expertm: { labelKey: 'sources.expertm', color: 'bg-violet-500/10 text-violet-600' },
   accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },

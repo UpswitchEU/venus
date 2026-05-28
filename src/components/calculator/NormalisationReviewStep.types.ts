@@ -8,6 +8,7 @@ export type NormalizationSource =
   | 'bizzcontrol'
   | 'odoo'
   | 'octopus'
+  | 'expertm'
   | 'accountable'
   | 'csv'
   | 'ai'
