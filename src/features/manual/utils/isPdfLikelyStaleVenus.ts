@@ -1,6 +1,11 @@
 import type { ValuationReportData } from '../../../components/calculator'
 import { dateLikeToUnixMs } from '../../../utils/date-like'
 
+export type PdfStalenessMeta = Pick<
+  ValuationReportData,
+  'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'
+>
+
 /**
  * True when the stored PDF is older than the last report update (async PDF queue may still be running).
  *
@@ -9,7 +14,7 @@ import { dateLikeToUnixMs } from '../../../utils/date-like'
  *
  * Uses epoch-ms parsing so `Date` / ISO strings from JSON both work at runtime.
  */
-export function isPdfLikelyStaleVenus(r: ValuationReportData | null | undefined): boolean {
+export function isPdfLikelyStaleVenus(r: PdfStalenessMeta | null | undefined): boolean {
   if (!r?.reportUpdatedAt) return false
   const updated = dateLikeToUnixMs(r.reportUpdatedAt)
   if (updated === null) return false

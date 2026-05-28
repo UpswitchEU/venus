@@ -118,7 +118,10 @@ export function usePreSelectedMethodSessionSync({
       store.selectedMethod
     )
 
-    const sd = session.sessionData
+    const sd =
+      session.sessionData && typeof session.sessionData === 'object'
+        ? (session.sessionData as Record<string, unknown>)
+        : undefined
     const storedMethod = sd?.[SESSION_PRE_SELECTED_VALUATION_METHOD_KEY]
     const storedMethods = sd?.[SESSION_PRE_SELECTED_METHODS_KEY]
     const storedWeights = sd?.[SESSION_USER_WEIGHTS_KEY]
