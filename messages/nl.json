@@ -2110,6 +2110,8 @@
 		"calculationFailedNoResult": "Geen resultaat ontvangen.",
 		"serviceUnavailable": "De waarderingsservice is tijdelijk niet beschikbaar. Probeer het over een ogenblik opnieuw.",
 		"calculationFailedReview": "De waardering kon niet worden voltooid. Controleer uw invoer en probeer het opnieuw.",
+		"benchmarkContractRequired": "Geen benchmark beschikbaar voor dit bedrijfstype",
+		"benchmarkContractRequiredDesc": "Upswitch vond geen vertrouwde Delphi-benchmark voor dit bedrijfstype in het geselecteerde land. Kies een ander bedrijfstype of neem contact op met support om dekking toe te voegen.",
 		"calculationComplete": "Indicatieve bedrijfsschatting voltooid",
 		"reportHtmlRecoveryFailed": "Het rapportvoorbeeld laadt nog. Vernieuw de pagina of bereken opnieuw als het niet verschijnt.",
 		"synthesisBlendSkippedTitle": "Gewogen waardering niet beschikbaar",

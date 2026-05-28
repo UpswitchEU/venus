@@ -11,18 +11,28 @@
  * see the `derive*` helpers below.
  */
 
-import { adjustedNavMethodSpec } from './adjusted_nav'
-import { arrMultipleMethodSpec } from './arr_multiple'
-import { dcfMethodSpec } from './dcf'
-import { ebitdaMultipleMethodSpec } from './ebitda_multiple'
-import { fiscal4xMethodSpec } from './fiscal_4x'
-import { liquidationAnalysisMethodSpec } from './liquidation_analysis'
-import { omzetMultipleMethodSpec } from './omzet_multiple'
-import { revenueMultipleMethodSpec } from './revenue_multiple'
-import { sdeMultipleMethodSpec } from './sde_multiple'
-import { startupValuationMethodSpec } from './startup_valuation'
+// Import each spec from its leaf `./<method>/spec` module, NOT from the
+// method's `index.ts` barrel. The barrels re-export React section stacks,
+// hooks, and adapters whose transitive deps eventually pull
+// `useManualResultsStore`, which itself imports `@/constants/methodFieldConfig`
+// — and that file calls `deriveMethodFieldConfig()` at top level. Loading the
+// barrels during registry init therefore re-enters this module before
+// `ORDERED_SPECS` is bound and trips a TDZ ReferenceError that kills ~9 test
+// suites at module-eval time. The leaf `./*/spec` modules only import
+// `type MethodSpec from '../types'` so they are side-effect-free for this
+// graph.
+import { adjustedNavMethodSpec } from './adjusted_nav/spec'
+import { arrMultipleMethodSpec } from './arr_multiple/spec'
+import { dcfMethodSpec } from './dcf/spec'
+import { ebitdaMultipleMethodSpec } from './ebitda_multiple/spec'
+import { fiscal4xMethodSpec } from './fiscal_4x/spec'
+import { liquidationAnalysisMethodSpec } from './liquidation_analysis/spec'
+import { omzetMultipleMethodSpec } from './omzet_multiple/spec'
+import { revenueMultipleMethodSpec } from './revenue_multiple/spec'
+import { sdeMultipleMethodSpec } from './sde_multiple/spec'
+import { startupValuationMethodSpec } from './startup_valuation/spec'
 import type { InputSectionKey, MethodKey, MethodSpec } from './types'
-import { upswitchAdaptiveMethodSpec } from './upswitch_adaptive'
+import { upswitchAdaptiveMethodSpec } from './upswitch_adaptive/spec'
 
 /**
  * Canonical order — drives `PRE_SELECTABLE_METHODS` order and any

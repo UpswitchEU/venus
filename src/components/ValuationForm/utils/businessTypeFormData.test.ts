@@ -28,6 +28,7 @@ describe('buildBusinessTypeFormData', () => {
 
     expect(result).toEqual({
       business_type_id: 'recycling',
+      business_type_title: 'Recycling Services',
       business_model: 'recycling',
       industry: 'Environmental Services',
       subIndustry: 'environmental',

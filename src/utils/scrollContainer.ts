@@ -81,6 +81,11 @@ export function scrollElementIntoScrollParent(
   }
 
   if (!isDocumentScrollLocked()) {
+    // JSDOM (and a handful of older mobile browsers) don't implement
+    // scrollIntoView on Element. Treat its absence as "scroll not available"
+    // rather than letting a TypeError tear down the React commit — the
+    // caller's focus / state work should still proceed.
+    if (typeof element.scrollIntoView !== 'function') return false
     element.scrollIntoView({
       behavior: options?.behavior ?? 'smooth',
       block: options?.block ?? 'start',

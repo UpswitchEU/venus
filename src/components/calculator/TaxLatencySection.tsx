@@ -386,6 +386,13 @@ export function TaxLatencySection({
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
   const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
   const amountInputRef = useRef<HTMLInputElement | null>(null)
+  // One-shot intent flag so the candidate-driven editor-open flow focuses the
+  // input AFTER React commits the editor (otherwise the focus runs while the
+  // ref is still null — observable both in JSDOM tests and as a missed focus
+  // when StrictMode delays the commit). The manual toggle button on the
+  // section header opens the editor without setting this flag, so it stays
+  // ergonomic for that case.
+  const focusAmountInputOnNextOpenRef = useRef(false)
 
   useEffect(() => {
     const ac = new AbortController()
@@ -590,22 +597,23 @@ export function TaxLatencySection({
         return
       }
 
+      focusAmountInputOnNextOpenRef.current = true
       setIsEditorOpen(true)
-
-      const focusAmountInput = () => {
-        const input = amountInputRef.current
-        if (!input) return
-        scrollElementIntoManualLayout(input, { behavior: 'smooth', block: 'center' })
-        input.focus({ preventScroll: true })
-      }
-      if (typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(focusAmountInput)
-      } else {
-        window.setTimeout(focusAmountInput, 0)
-      }
     },
     [addItem, dismissCandidate, resetDraft]
   )
+
+  // Focus + scroll the amount input after the editor commit. Keyed on
+  // isEditorOpen so the ref is guaranteed to be attached; gated by the
+  // one-shot intent ref so manual toggles of the editor don't steal focus.
+  useEffect(() => {
+    if (!isEditorOpen || !focusAmountInputOnNextOpenRef.current) return
+    focusAmountInputOnNextOpenRef.current = false
+    const input = amountInputRef.current
+    if (!input) return
+    scrollElementIntoManualLayout(input, { behavior: 'smooth', block: 'center' })
+    input.focus({ preventScroll: true })
+  }, [isEditorOpen])
 
   const handleDismissCandidateGroup = useCallback(
     (candidateIds: string[]) => {

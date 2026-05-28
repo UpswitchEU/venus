@@ -67,15 +67,17 @@ export function useManualSubmitErrorHandler({
         error instanceof ValidationError &&
         error.context?.code === 'BENCHMARK_CONTRACT_REQUIRED'
       ) {
-        toast.error(translate('calculationFailed'), {
-          description: error.message,
+        toast.error(translate('benchmarkContractRequired'), {
+          description: translate('benchmarkContractRequiredDesc'),
           action: {
             label: translate('retry'),
             onClick: retrySubmit,
           },
         })
         generalLogger.warn('[ManualLayout] BENCHMARK_CONTRACT_REQUIRED', {
-          message: error.message,
+          // Keep the server message in logs (English, useful for support /
+          // Cowork sessions) even though we show a localized toast.
+          serverMessage: error.message,
           via503: Boolean((error.context as { via_503_passthrough?: boolean })?.via_503_passthrough),
         })
         return

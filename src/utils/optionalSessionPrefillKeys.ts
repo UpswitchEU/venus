@@ -1,4 +1,14 @@
-import { SESSION_PRE_SELECTED_METHODS_KEY } from '../constants/sessionUiKeys'
+// Inlined to break a circular import: sessionUiKeys.ts pulls in methodFieldConfig
+// (for getPreSelectableMethodsForFirmAndRevenue / isUpfrontMethodAllowedForNav),
+// which calls deriveMethodFieldConfig() at module top-level, which reaches
+// ORDERED_SPECS in lib/methods/registry.ts. Under vitest SSR that cycle resolves
+// SESSION_PRE_SELECTED_METHODS_KEY to `undefined` and the
+// OPTIONAL_SESSION_STRUCT_SYNC_KEYS array below ends up with a hole at position
+// 9, breaking the omniPrefillCoverageContract test. The string value is the
+// authoritative session-data key; sessionUiKeys.ts is left as the canonical
+// declaration, but this file owns its own copy so its own module init never
+// races the registry chain.
+const SESSION_PRE_SELECTED_METHODS_KEY = '_pre_selected_valuation_methods' as const
 
 export const SESSION_CARD_FALLBACK_STRING_KEYS = [
   'company_name',
