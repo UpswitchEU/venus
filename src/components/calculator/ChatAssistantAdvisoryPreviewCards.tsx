@@ -241,6 +241,18 @@ function FollowUpButtons({
   )
 }
 
+function advisoryTone({
+  blocked,
+  ready,
+}: {
+  blocked?: boolean
+  ready?: boolean
+}): FormCardTone {
+  if (blocked) return 'warning'
+  if (ready) return 'success'
+  return 'idle'
+}
+
 export function ChatAssistantAdvisoryPreviewCards({
   message,
   onSendFollowUp,
