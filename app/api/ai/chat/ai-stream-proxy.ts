@@ -38,6 +38,12 @@ export function wrapAiSseBodyForObservability(
   let chunkCount = 0
   let byteCount = 0
   let streamRecovery: StreamRecoveryOutcome = 'none'
+  // Set when the downstream consumer (the browser) hangs up — navigated away,
+  // closed the dock, re-rendered the subtree. Once true, the non-streaming
+  // `/chat` recovery is pointless (no one is listening) and would land on
+  // Titan as an aborted request (the 499 storm). We also stop touching the
+  // controller, which is already being torn down by the cancel path.
+  let clientDisconnected = false
   const contentScanner = createSseStreamContentScanner()
 
   const logProxyIssue = (
@@ -87,6 +93,9 @@ export function wrapAiSseBodyForObservability(
     recoveryContext: 'empty' | 'incomplete' = 'empty'
   ): Promise<boolean> => {
     if (!fetchNonStreamingFallback) return false
+    // The client already hung up — firing the /chat recovery now just burns
+    // a Titan request that aborts (499) with nothing to receive the result.
+    if (clientDisconnected) return false
 
     streamRecovery = 'bff-fallback'
     try {
@@ -130,6 +139,12 @@ export function wrapAiSseBodyForObservability(
   }
 
   const finalizeStream = async (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    // Client gone — the cancel path owns teardown. Don't run recovery or
+    // touch the (already-closing) controller.
+    if (clientDisconnected) {
+      releaseAiSseReader(reader)
+      return
+    }
     contentScanner.flush()
     const sawVisibleStreamContent = contentScanner.sawVisibleStreamContent
     const sawStreamCompletion = contentScanner.sawStreamCompletion
@@ -177,6 +192,13 @@ export function wrapAiSseBodyForObservability(
           controller.enqueue(value)
         }
       } catch (error) {
+        // A read that rejects because the client cancelled is not a stream
+        // failure — there's no one to recover for. Bail without firing the
+        // /chat fallback (avoids the aborted-499) or erroring the controller.
+        if (clientDisconnected) {
+          releaseAiSseReader(reader)
+          return
+        }
         contentScanner.flush()
         const sawVisibleStreamContent = contentScanner.sawVisibleStreamContent
         const sawStreamCompletion = contentScanner.sawStreamCompletion
@@ -221,6 +243,9 @@ export function wrapAiSseBodyForObservability(
       }
     },
     async cancel(reason) {
+      // Set BEFORE awaiting so the pending pull read (which resolves/rejects
+      // as a result of this upstream cancel) sees the flag and skips recovery.
+      clientDisconnected = true
       try {
         await reader.cancel(reason)
       } catch (error) {

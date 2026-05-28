@@ -172,6 +172,8 @@
 		"tooltips": {
 			"save": "Save indicative business estimate",
 			"download": "Download PDF report",
+			"downloadError": "Download failed — try again",
+			"downloadReady": "PDF ready — click to download",
 			"refresh": "Start new indicative business estimate",
 			"fullscreen": "View in fullscreen",
 			"switchFlow": "Switch to {flow} mode",
@@ -609,7 +611,9 @@
 		"toolbar": {
 			"continueToDashboard": "Continue to Dashboard",
 			"backToClient": "Back to Client",
-			"selectVersion": "Select version"
+			"selectVersion": "Select version",
+			"returnToDashboard": "Return to dashboard",
+			"close": "Close"
 		},
 		"clickToChangeStatus": "Click to change status",
 		"finalReport": "Final report",
@@ -884,6 +888,19 @@
 		}
 	},
 	"modals": {
+		"exit": {
+			"titleSave": "Save changes before leaving?",
+			"title": "Leave report?",
+			"messageUnsaved": "You have unsaved changes. Would you like to save them before leaving?",
+			"messageWithResults": "Your estimate has been calculated. You can reopen the report later from your dashboard.",
+			"message": "Are you sure you want to leave this report?",
+			"saveNote": "Unsaved changes will be lost if you exit without saving.",
+			"cancel": "Cancel",
+			"exitWithoutSaving": "Exit without saving",
+			"saving": "Saving...",
+			"saveAndExit": "Save and exit",
+			"confirm": "Go to dashboard"
+		},
 		"flowSwitch": {
 			"title": "Switch Flow Mode",
 			"description": "Switching between Manual and AI modes will save your current progress.",
@@ -1115,6 +1132,14 @@
 		}
 	},
 	"calculator": {
+		"fcfReadiness": {
+			"fields": {
+				"capex": "Capex",
+				"taxes": "Taxes",
+				"working_capital": "Working capital"
+			},
+			"missing": "Missing data for DCF: {fields}"
+		},
 		"businessValuation": "Indicative Business Estimate",
 		"stepOf": "Step {current} of {total}",
 		"contextBar": {
@@ -1129,6 +1154,11 @@
 		}
 	},
 	"manualInput": {
+		"resetToNbb": "Reset to NBB values",
+		"synthesis": {
+			"lockedTitle": "Locked",
+			"lockedDescription": "Add more valuation methods to unlock the synthesis."
+		},
 		"academicValidation": {
 			"title": "Academic cross-check",
 			"footnote": "These items also appear on the report disclaimers page. Resolve or document before external distribution."
@@ -2099,6 +2129,9 @@
 		"csvComingSoonDesc": "Direct import from CSV and accounting packages (Yuki, Exact Online, Octopus, Accountable, Odoo) will be supported in the next release."
 	},
 	"toast": {
+		"loginRequired": "Please log in before calculating.",
+		"preparingSession": "Preparing your session, please wait a moment…",
+		"notReady": "Not ready yet — please wait a moment and try again.",
 		"versionLoaded": "Version \"{label}\" loaded",
 		"companyNameMissing": "Company name missing",
 		"companyNameMissingDesc": "Enter a company name or search via KBO.",
@@ -2122,7 +2155,6 @@
 		"fieldApplied": "✓ {field} has been applied to the form",
 		"normApplied": "✓ Normalization(s) applied!",
 		"aiUnavailable": "AI assistant temporarily unavailable",
-		"offlineFallbackBadge": "Limited answer — AI temporarily offline",
 		"persistFailed": "Adjustments could not be saved",
 		"persistFailedDesc": "EBITDA adjustments could not be saved before calculation. Please try again.",
 		"aiUnavailableDesc": "Local suggestions are being used.",
@@ -2307,6 +2339,7 @@
 		"rangeTo": "to"
 	},
 	"chatAssistant": {
+		"offlineFallbackBadge": "Limited answer — AI temporarily offline",
 		"title": "Assistant",
 		"openLabel": "Open assistant",
 		"fabLabel": "Assistant",
@@ -2362,7 +2395,7 @@
 		"addFile": "Add file",
 		"askAboutField": "Ask about {field}...",
 		"askOrCommand": "Give an instruction, e.g. 'normalize owner salary'…",
-		"inputPlaceholder": "Give an instruction, e.g. 'value METANOUS'…",
+		"inputPlaceholder": "Give an instruction, e.g. 'value this company'…",
 		"chatInput": "Chat input",
 		"send": "Send",
 		"sendHint": "↵ to send",
@@ -2783,6 +2816,14 @@
 		}
 	},
 	"normalizationHub": {
+		"formats": {
+			"yuki": "Yuki",
+			"exact": "Exact",
+			"octopus": "Octopus",
+			"accountable": "Accountable",
+			"odoo": "Odoo",
+			"generic": "CSV"
+		},
 		"title": "Normalization Hub",
 		"original": "Original",
 		"adjustment": "Adjustment",

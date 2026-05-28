@@ -168,4 +168,49 @@ describe('wrapAiSseBodyForObservability', () => {
     expect(mockFetchNonStreamingFallback).toHaveBeenCalledTimes(1)
     expect(text).toContain('bff-stream-incomplete')
   })
+
+  it('does not fire the non-streaming fallback after the client disconnects', async () => {
+    // The 499 storm: Titan opens the SSE (keepalive) and is still doing slow
+    // consent/credit/DB setup when the client hangs up (navigated away, closed
+    // the dock). The old code then fired the /chat recovery into the void — it
+    // aborted on Titan as a 499. With the disconnect guard, no fallback fires.
+    mockFetchNonStreamingFallback.mockResolvedValue(
+      new Response(
+        JSON.stringify({ success: true, content: 'must never be sent to a gone client' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+
+    let upstreamCancelled = false
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"_keepalive"}\n\n'))
+        // Deliberately left open — Titan is mid-setup, no visible token yet.
+      },
+      cancel() {
+        upstreamCancelled = true
+      },
+    })
+
+    const wrapped = wrapAiSseBodyForObservability(upstream, {
+      correlationId: 'corr-client-disconnect',
+      upstreamStatus: 200,
+      fetchNonStreamingFallback: mockFetchNonStreamingFallback,
+    })
+
+    const reader = wrapped.getReader()
+    const first = await reader.read()
+    expect(new TextDecoder().decode(first.value)).toContain('_keepalive')
+
+    // Pending read puts the proxy's pull() in its awaiting-upstream state —
+    // the exact moment the fallback used to fire when the client then leaves.
+    const pending = reader.read()
+    await Promise.resolve()
+    await reader.cancel('client navigated away')
+    await pending.catch(() => {})
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(upstreamCancelled).toBe(true)
+    expect(mockFetchNonStreamingFallback).not.toHaveBeenCalled()
+  })
 })

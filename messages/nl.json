@@ -172,6 +172,8 @@
 		"tooltips": {
 			"save": "Indicatieve bedrijfsschatting opslaan",
 			"download": "PDF-rapport downloaden",
+			"downloadError": "Download mislukt — probeer opnieuw",
+			"downloadReady": "PDF klaar — klik om te downloaden",
 			"refresh": "Nieuwe schatting starten",
 			"fullscreen": "Bekijken in volledig scherm",
 			"switchFlow": "Overschakelen naar {flow} modus",
@@ -609,7 +611,9 @@
 		"toolbar": {
 			"continueToDashboard": "Doorgaan naar Dashboard",
 			"backToClient": "Terug naar Klant",
-			"selectVersion": "Selecteer versie"
+			"selectVersion": "Selecteer versie",
+			"returnToDashboard": "Terug naar dashboard",
+			"close": "Sluiten"
 		},
 		"clickToChangeStatus": "Klik om status te wijzigen",
 		"finalReport": "Definitief rapport",
@@ -884,6 +888,19 @@
 		}
 	},
 	"modals": {
+		"exit": {
+			"titleSave": "Wijzigingen opslaan voordat u afsluit?",
+			"title": "Rapport afsluiten?",
+			"messageUnsaved": "U heeft niet-opgeslagen wijzigingen. Wilt u deze opslaan voordat u afsluit?",
+			"messageWithResults": "Uw schatting is berekend. U kunt het rapport later opnieuw openen vanuit uw dashboard.",
+			"message": "Weet u zeker dat u dit rapport wilt afsluiten?",
+			"saveNote": "Niet-opgeslagen wijzigingen gaan verloren als u afsluit zonder op te slaan.",
+			"cancel": "Annuleren",
+			"exitWithoutSaving": "Afsluiten zonder opslaan",
+			"saving": "Opslaan...",
+			"saveAndExit": "Opslaan en afsluiten",
+			"confirm": "Naar dashboard"
+		},
 		"flowSwitch": {
 			"title": "Flow Modus Wisselen",
 			"description": "Het wisselen tussen Handmatige en AI modi slaat uw huidige voortgang op.",
@@ -1115,6 +1132,14 @@
 		}
 	},
 	"calculator": {
+		"fcfReadiness": {
+			"fields": {
+				"capex": "Capex",
+				"taxes": "Belastingen",
+				"working_capital": "Werkkapitaal"
+			},
+			"missing": "Ontbrekende gegevens voor DCF: {fields}"
+		},
 		"businessValuation": "Indicatieve bedrijfsschatting",
 		"stepOf": "Stap {current} van {total}",
 		"contextBar": {
@@ -1129,6 +1154,11 @@
 		}
 	},
 	"manualInput": {
+		"resetToNbb": "Herstel naar NBB-waarden",
+		"synthesis": {
+			"lockedTitle": "Vergrendeld",
+			"lockedDescription": "Voeg meer waarderingsmethodes toe om de synthese te ontgrendelen."
+		},
 		"academicValidation": {
 			"title": "Academische kruiscontrole",
 			"footnote": "Deze punten staan ook op de disclaimerpagina van het rapport. Los op of documenteer vóór externe verspreiding."
@@ -2099,6 +2129,9 @@
 		"csvComingSoonDesc": "Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Octopus, Accountable, Odoo) wordt in de volgende release ondersteund."
 	},
 	"toast": {
+		"loginRequired": "Meld u aan voordat u berekent.",
+		"preparingSession": "Uw sessie wordt voorbereid, een moment geduld…",
+		"notReady": "Nog niet gereed — wacht een moment en probeer opnieuw.",
 		"versionLoaded": "Versie \"{label}\" geladen",
 		"companyNameMissing": "Bedrijfsnaam ontbreekt",
 		"companyNameMissingDesc": "Vul een bedrijfsnaam in of zoek via KBO.",
@@ -2122,7 +2155,6 @@
 		"fieldApplied": "✓ {field} is toegepast in het formulier",
 		"normApplied": "✓ Normalisatie(s) toegepast!",
 		"aiUnavailable": "AI-assistent tijdelijk niet beschikbaar",
-		"offlineFallbackBadge": "Beperkt antwoord — AI tijdelijk offline",
 		"persistFailed": "Correcties konden niet worden opgeslagen",
 		"persistFailedDesc": "EBITDA-correcties konden niet worden opgeslagen vóór berekening. Probeer het opnieuw.",
 		"aiUnavailableDesc": "Lokale suggesties worden gebruikt.",
@@ -2307,6 +2339,7 @@
 		"rangeTo": "tot"
 	},
 	"chatAssistant": {
+		"offlineFallbackBadge": "Beperkt antwoord — AI tijdelijk offline",
 		"title": "Assistent",
 		"openLabel": "Open assistent",
 		"fabLabel": "Assistent",
@@ -2362,7 +2395,7 @@
 		"addFile": "Bestand toevoegen",
 		"askAboutField": "Vraag over {field}...",
 		"askOrCommand": "Geef een opdracht, bv. 'normaliseer eigenaarssalaris'…",
-		"inputPlaceholder": "Geef een opdracht, bv. 'waardeer METANOUS'…",
+		"inputPlaceholder": "Geef een opdracht, bv. 'waardeer dit bedrijf'…",
 		"chatInput": "Chat invoer",
 		"send": "Verzenden",
 		"sendHint": "↵ om te verzenden",
@@ -2783,6 +2816,14 @@
 		}
 	},
 	"normalizationHub": {
+		"formats": {
+			"yuki": "Yuki",
+			"exact": "Exact",
+			"octopus": "Octopus",
+			"accountable": "Accountable",
+			"odoo": "Odoo",
+			"generic": "CSV"
+		},
 		"title": "Normalisatie Hub",
 		"original": "Origineel",
 		"adjustment": "Aanpassing",
