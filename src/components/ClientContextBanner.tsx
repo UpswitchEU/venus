@@ -3,10 +3,9 @@
 import { X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useEffect, useId, useRef, useState } from 'react'
-import { getSafeMercuryReturnUrl } from '@/lib/return-url'
+import { navigateToMercuryFromManualHandoff } from '@/features/manual/utils/manualMercuryNavigate'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { generalLogger } from '@/utils/logger'
-import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 
@@ -23,7 +22,6 @@ export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isAuthenticated } = useAuth()
   const { isActingAsClient, client, clearClientContext, relationshipId } = useClientContext()
-  const { isEmbedded, closeEmbedded } = useEmbeddedMode()
   const locale = useLocale()
   const t = useTranslations() // ✅ Venus pattern: NO namespace
 
@@ -50,79 +48,15 @@ export function ClientContextBanner() {
 
   const handleExitClientView = () => {
     try {
-      // Clear client context first
       clearClientContext()
-
-      // BANK-GRADE: Always try to close embedded mode first
-      // The closeEmbedded() function now always sends postMessage to parent,
-      // which handles both true embedded mode and edge cases where detection failed
-      generalLogger.debug('[ClientContextBanner] Closing embedded session', { isEmbedded })
-      closeEmbedded()
-
-      // If embedded in Mercury modal, the modal will close and we're done
-      if (isEmbedded) {
-        generalLogger.debug('[ClientContextBanner] Embedded mode detected, modal should close')
-        // Give the parent a moment to receive the message and close
-        // If we're truly embedded, the modal will close before navigation happens
-        setTimeout(() => {
-          // If we're still here after 500ms, we might not be embedded - navigate
-          generalLogger.debug('[ClientContextBanner] Fallback: navigating to Mercury')
-          navigateToMercury()
-        }, 500)
-        return
-      }
-
-      // If not embedded, navigate back to accountant dashboard in Mercury
-      navigateToMercury()
+      const validLocale = locale && ['en', 'nl', 'fr', 'de'].includes(locale) ? locale : 'en'
+      navigateToMercuryFromManualHandoff({
+        currentLocale: validLocale,
+        clientContextId: relationshipId ?? client?.id,
+        hasCompletedValuation: false,
+      })
     } catch (error) {
       generalLogger.error('[ClientContextBanner] Error in handleExitClientView', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      // Fallback: try to navigate to Mercury home page
-      try {
-        const mercuryUrl = getMercuryUrl()
-        const loc = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
-        window.location.href = `${mercuryUrl}/${loc}/advisor/dashboard`
-      } catch (fallbackError) {
-        generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
-          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-        })
-      }
-    }
-  }
-
-  /**
-   * Navigate back to Mercury (accountant dashboard or return URL).
-   * Uses getSafeMercuryReturnUrl to avoid legacy routes (e.g. accountant_listings) that 404.
-   */
-  const navigateToMercury = () => {
-    if (typeof window === 'undefined') {
-      generalLogger.warn('[ClientContextBanner] window is undefined, cannot navigate')
-      return
-    }
-
-    try {
-      let returnUrl: string | null = null
-      let sourceApp: string | null = null
-      try {
-        returnUrl = sessionStorage.getItem('upswitch_return_url')
-        sourceApp = sessionStorage.getItem('upswitch_source')
-      } catch (error) {
-        generalLogger.warn('[ClientContextBanner] Failed to read sessionStorage', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-
-      const validLocale = locale && ['en', 'nl', 'fr', 'de'].includes(locale) ? locale : 'en'
-      const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-        clientContextId: relationshipId ?? client?.id,
-        locale: validLocale,
-        sourceApp: sourceApp ?? undefined,
-      })
-      generalLogger.debug('[ClientContextBanner] Navigating to Mercury', { targetUrl })
-      window.location.href = targetUrl
-    } catch (error) {
-      generalLogger.error('[ClientContextBanner] Error in navigateToMercury', {
         error: error instanceof Error ? error.message : String(error),
       })
       try {

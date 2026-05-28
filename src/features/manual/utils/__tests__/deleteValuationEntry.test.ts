@@ -128,13 +128,24 @@ describe('buildPostDeleteCurrentReportRedirectUrl', () => {
     ).toContain('/nl/advisor/settings')
   })
 
-  it('returns a local new-report URL for non-accountant deletes', () => {
+  it('returns a local new-report URL for non-accountant deletes without Mercury handoff', () => {
     expect(
       buildPostDeleteCurrentReportRedirectUrl({
         isAccountantMode: false,
         currentLocale: 'en',
       })
     ).toBe('/en/reports/new')
+  })
+
+  it('returns seller business dashboard when Mercury handoff is present', () => {
+    const url = buildPostDeleteCurrentReportRedirectUrl({
+      isAccountantMode: false,
+      returnUrl: 'https://preview.upswitch.app/nl/business/dashboard',
+      sourceApp: 'business_dashboard_orphaned_seller',
+      currentLocale: 'nl',
+    })
+    expect(url).toContain('/nl/business/dashboard')
+    expect(url).not.toContain('/advisor/')
   })
 })
 

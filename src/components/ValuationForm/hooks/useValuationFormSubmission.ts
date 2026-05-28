@@ -24,6 +24,7 @@ import type { ValuationVersion, VersionChanges } from '../../../types/ValuationV
 import type { ValuationRequest } from '../../../types/valuation'
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { validateBusinessTypeSelection } from '../../../utils/validateBusinessTypeSelection'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -173,6 +174,19 @@ export const useValuationFormSubmission = (
 
         // Clear validation error
         setEmployeeCountError(null)
+
+        const businessTypeMismatch = validateBusinessTypeSelection({
+          businessTypeId: formData.business_type_id,
+          businessTypeTitle:
+            (formData as ValuationFormData & { business_type_title?: string }).business_type_title ??
+            null,
+          industry: formData.industry,
+        })
+        if (businessTypeMismatch) {
+          setEmployeeCountError(businessTypeMismatch)
+          setCalculating(false)
+          return
+        }
 
         // Validate required fields.
         // Use explicit null/undefined checks for numeric fields (revenue, ebitda) so that

@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
+import { isYearRowForecast } from '@/utils/yearData'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
@@ -96,7 +97,7 @@ export function ManualInputMethodSections({
     if (Number.isFinite(currentYear)) years.add(currentYear)
     for (const yearData of formData.historical_years_data ?? []) {
       const year = Number(yearData.year)
-      if (!yearData.is_forecast && Number.isFinite(year)) years.add(year)
+      if (!isYearRowForecast(yearData) && Number.isFinite(year)) years.add(year)
     }
     return Array.from(years).sort((a, b) => a - b)
   }, [formData.current_year_data?.year, formData.historical_years_data, historicalCardRows])

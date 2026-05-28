@@ -20,7 +20,8 @@ import {
 } from '../lib/mercury/sessionReadiness'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
-import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../lib/return-url'
+import { isLegacyReturnUrl } from '../lib/return-url'
+import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
@@ -314,6 +315,9 @@ type PaywallLoadError = Error & {
   current?: number
   limit?: number
 }
+
+const SESSION_NOT_READY_MESSAGE =
+  'Session not ready. Please wait for initialization or retry.'
 
 /**
  * Unified Session Store
@@ -611,6 +615,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
+    // ENGINE GATE: Bootstrap must call setEngine before any load. Without this,
+    // a race can flip status to 'loading' and surface "Session engine not initialized".
+    if (!state.engine) {
+      storeLogger.warn('[Session] loadSession blocked — engine not initialized', { reportId })
+      throw new Error(SESSION_NOT_READY_MESSAGE)
+    }
+
     // PROMISE CACHE: Reuse existing load promise
     if (loadingPromises.has(reportId)) {
       storeLogger.debug('[Session] Reusing existing load promise', { reportId })
@@ -649,7 +660,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
         const currentState = get()
         if (!currentState.engine) {
-          throw new Error('Session engine not initialized. Call setEngine() first.')
+          throw new Error(SESSION_NOT_READY_MESSAGE)
         }
 
         const loadedSession = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
@@ -834,11 +845,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               const returnUrl = sessionStorage.getItem('upswitch_return_url')
               const sourceApp = sessionStorage.getItem('upswitch_source')
               if (returnUrl && !isLegacyReturnUrl(returnUrl) && sourceApp?.includes('mercury')) {
-                const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-                  locale,
-                  sourceApp,
+                navigateToMercuryFromManualHandoff({
+                  currentLocale: locale,
+                  hasCompletedValuation: false,
                 })
-                window.location.href = targetUrl
                 return
               }
             } catch {

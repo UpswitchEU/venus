@@ -26,4 +26,16 @@ describe('isExplicitUserDcfIntent', () => {
       isExplicitUserDcfIntent({ dcf_input_mode: 'fcff_only' }, {} as ValuationFormData, 0)
     ).toBe(true)
   })
+
+  it('returns true when session JSONB pre-selected methods include DCF', () => {
+    expect(
+      isExplicitUserDcfIntent(
+        {},
+        {
+          _pre_selected_valuation_methods: ['ebitda_multiple', 'dcf'],
+        } as ValuationFormData,
+        0
+      )
+    ).toBe(true)
+  })
 })

@@ -107,6 +107,32 @@ export function useEmbeddedMode() {
   const closeEmbedded = () => {
     if (typeof window === 'undefined') return
 
+    // When a Mercury handoff exists, navigate the parent shell instead of only
+    // closing the iframe (seller dashboard Doorgaan / close parity).
+    if (isEmbedded) {
+      try {
+        const localeMatch = window.location.pathname.match(/^\/(en|nl)/)
+        const locale = localeMatch?.[1] ?? 'en'
+        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        const sourceApp = sessionStorage.getItem('upswitch_source')
+        if (returnUrl || sourceApp) {
+          void import('../features/manual/utils/manualMercuryNavigate').then(
+            ({ navigateToMercuryFromManualHandoff }) => {
+              navigateToMercuryFromManualHandoff({
+                currentLocale: locale,
+                hasCompletedValuation: false,
+              })
+            }
+          )
+          return
+        }
+      } catch (error) {
+        generalLogger.warn('[useEmbeddedMode] Mercury handoff close failed, falling back', {
+          error,
+        })
+      }
+    }
+
     // Clear persisted embedded state
     try {
       sessionStorage.removeItem(EMBEDDED_STORAGE_KEY)

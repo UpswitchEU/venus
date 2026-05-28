@@ -1,7 +1,5 @@
 import { useCallback } from 'react'
 import { trackReturnToMercury } from '@/lib/analytics'
-import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
-import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useAuthStore } from '../../../lib/auth'
 import { useClientContext } from '../../../stores/clientContext'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
@@ -23,6 +21,11 @@ import {
   hasCompletedManualValuation,
   type ManualMercuryLocale,
 } from '../utils/manualMercuryNavigation'
+import {
+  navigateToMercuryFromManualHandoff,
+  performManualMercuryNavigation,
+  readManualMercuryHandoffFromBrowser,
+} from '../utils/manualMercuryNavigate'
 
 interface ManualNavigationRouter {
   back: () => void
@@ -75,34 +78,11 @@ export function useManualMercuryNavigationActions({
         })
       }
 
-      try {
-        window.parent?.postMessage(
-          { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
-          '*'
-        )
-      } catch {
-        // Cross-window messaging can fail in hardened browser contexts.
-      }
-
-      let returnUrl: string | null = null
-      let sourceApp: string | null = null
-      try {
-        const urlParams = new URLSearchParams(window.location.search)
-        returnUrl = sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
-        sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
-      } catch {
-        // sessionStorage unavailable; helper will choose its safe fallback.
-      }
-
-      const targetUrl = buildManualExitClientViewTarget({
-        returnUrl,
-        clientContextId,
+      navigateToMercuryFromManualHandoff({
         currentLocale,
-        sourceApp,
-        mercuryUrl: getMercuryUrl(),
+        clientContextId,
         hasCompletedValuation: hasCompletedManualValuation(report, session),
       })
-      window.location.href = targetUrl
     } catch (error) {
       generalLogger.error('[ManualLayout] handleExitClientView failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -114,11 +94,14 @@ export function useManualMercuryNavigationActions({
         } catch {
           // sessionStorage unavailable; helper will choose its safe fallback.
         }
-        window.location.href = buildManualExitClientViewFallbackUrl({
-          clientContextId,
-          currentLocale,
-          sourceApp,
-          mercuryUrl: getMercuryUrl(),
+        performManualMercuryNavigation({
+          targetUrl: buildManualExitClientViewFallbackUrl({
+            clientContextId,
+            currentLocale,
+            sourceApp,
+            mercuryUrl: getMercuryUrl(),
+          }),
+          postEngineCloseOnEmbedFailure: true,
         })
       } catch {
         // Last-ditch navigation failed; nothing useful left to do.
@@ -129,10 +112,7 @@ export function useManualMercuryNavigationActions({
   const handleBack = useCallback(() => {
     if (typeof window !== 'undefined') {
       try {
-        const urlParams = new URLSearchParams(window.location.search)
-        const returnUrl =
-          sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url')
-        const sourceApp = sessionStorage.getItem('upswitch_source') ?? urlParams.get('source')
+        const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
         const decision = getManualBackNavigationDecision({
           returnUrl,
           clientContextId,
@@ -146,7 +126,7 @@ export function useManualMercuryNavigationActions({
           return
         }
         if (decision.kind === 'redirect') {
-          window.location.href = decision.url
+          performManualMercuryNavigation({ targetUrl: decision.url })
           return
         }
       } catch {
@@ -169,30 +149,8 @@ export function useManualMercuryNavigationActions({
       resolvedReportId,
       mercuryUrl: getMercuryUrl(),
     })
-    let isEmbedded = false
-    try {
-      isEmbedded =
-        sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
-    } catch {
-      isEmbedded = true
-    }
 
-    if (isEmbedded) {
-      window.parent.postMessage(
-        {
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
-          source: 'venus',
-          data: { url: targetPath },
-        },
-        '*'
-      )
-      window.setTimeout(() => {
-        window.location.href = targetUrl
-      }, 750)
-      return
-    }
-
-    window.location.href = targetUrl
+    performManualMercuryNavigation({ targetUrl, targetPath })
   }, [
     clientContextId,
     contextRelationshipId,
@@ -202,13 +160,35 @@ export function useManualMercuryNavigationActions({
   ])
 
   const handleContinueToListing = useCallback(() => {
+    if (typeof window === 'undefined') return
+
     trackReturnToMercury()
-    window.location.href = buildManualContinueToListingUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: mercuryLocale,
-      clientContextId,
-      hasCompletedValuation: hasCompletedManualValuation(report, session),
-    })
+
+    try {
+      const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
+      const targetUrl = buildManualContinueToListingUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+        clientContextId,
+        returnUrl,
+        sourceApp,
+        hasCompletedValuation: hasCompletedManualValuation(report, session),
+      })
+      performManualMercuryNavigation({ targetUrl, postEngineCloseOnEmbedFailure: true })
+    } catch (error) {
+      generalLogger.error('[ManualLayout] handleContinueToListing failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      try {
+        navigateToMercuryFromManualHandoff({
+          currentLocale: mercuryLocale,
+          clientContextId,
+          hasCompletedValuation: hasCompletedManualValuation(report, session),
+        })
+      } catch {
+        // Last-ditch navigation failed; nothing useful left to do.
+      }
+    }
   }, [clientContextId, mercuryLocale, report, session])
 
   const handleLogout = useCallback(() => {

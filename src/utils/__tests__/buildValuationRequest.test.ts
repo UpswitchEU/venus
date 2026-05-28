@@ -4,7 +4,7 @@ import {
   deriveDcfProjectionPreview,
 } from '../../components/calculator/sections/dcfProjectionPreview'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import type { ValuationFormData } from '../../types/valuation'
+import type { ValuationFormData, YearDataInput } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
 import { getCompleteYearlyFinancialsDesc } from '../yearlyFinancials'
@@ -633,6 +633,28 @@ describe('buildValuationRequest', () => {
     expect(result.historical_years_data).toHaveLength(1)
     expect(result.historical_years_data[0].year).toBe(lastFullYear - 1)
     expect(result.historical_years_data.every((y: any) => !y.is_forecast)).toBe(true)
+  })
+
+  it('strips camelCase forecast rows from historical_years_data', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 },
+          {
+            year: lastFullYear + 1,
+            revenue: 500_000,
+            ebitda: 50_000,
+            isForecast: true,
+          } as YearDataInput,
+        ],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toHaveLength(1)
+    expect(result.historical_years_data[0].year).toBe(lastFullYear - 1)
+    expect(result.forecast_years_data?.some((y) => y.year === lastFullYear + 1)).toBe(true)
   })
 
   it('still produces valid output when all historical rows are forecast-only', () => {

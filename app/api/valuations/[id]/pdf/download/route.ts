@@ -25,6 +25,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { buildPdfPaywall402JsonBody } from '@/utils/pdfPaywall402'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -90,14 +91,7 @@ async function titanLookupPdfUrl(
       const errBody = await titanResponse.json().catch(() => ({}))
       return {
         pdfUrl: null,
-        errorResponse: pdfErrorJson(
-          {
-            success: false,
-            error: errBody.message || 'PDF download requires a Starter plan or above.',
-            upgradeRequired: true,
-          },
-          402
-        ),
+        errorResponse: pdfErrorJson(buildPdfPaywall402JsonBody(errBody), 402),
       }
     }
     if (titanResponse.status === 404) {
@@ -147,14 +141,7 @@ async function titanGeneratePdf(
       const errBody = await postRes.json().catch(() => ({}))
       return {
         pdfUrl: null,
-        errorResponse: pdfErrorJson(
-          {
-            success: false,
-            error: errBody.message || 'PDF download requires a Starter plan or above.',
-            upgradeRequired: true,
-          },
-          402
-        ),
+        errorResponse: pdfErrorJson(buildPdfPaywall402JsonBody(errBody), 402),
       }
     }
     if (postRes.status === 401) {

@@ -1,6 +1,10 @@
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
 import type { RecentValuation } from '../../../components/calculator'
-import { buildManualSafeMercuryReturnUrl } from './manualMercuryNavigation'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import {
+  buildManualExitClientViewTarget,
+  buildManualSafeMercuryReturnUrl,
+} from './manualMercuryNavigation'
 
 interface DeleteValuationEntryParams {
   valuation: RecentValuation
@@ -114,6 +118,17 @@ export function buildPostDeleteCurrentReportRedirectUrl({
       clientContextId,
       currentLocale,
       sourceApp,
+    })
+  }
+
+  if (returnUrl || sourceApp) {
+    return buildManualExitClientViewTarget({
+      returnUrl: returnUrl ?? null,
+      clientContextId: null,
+      currentLocale,
+      sourceApp,
+      mercuryUrl: getMercuryUrl(),
+      hasCompletedValuation: false,
     })
   }
 

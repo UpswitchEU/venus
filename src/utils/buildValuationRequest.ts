@@ -23,6 +23,7 @@ import {
 } from './fiscalYear'
 import { generalLogger } from './logger'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
+import { isYearRowForecast } from './yearData'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import {
   applyCapitalHistoryInputs,
@@ -325,14 +326,14 @@ export function buildValuationRequest(
 
   // Separate historical actuals from explicit forecast projections.
   const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
-    formData.historical_years_data?.filter((y) => !y.is_forecast),
+    formData.historical_years_data?.filter((y) => !isYearRowForecast(y)),
     formData.filing_year_confirmed
   )
   const actualHistoricalData = normalizedHistoricalData
   const rawForecastData =
     formData.forecast_years_data && formData.forecast_years_data.length > 0
       ? formData.forecast_years_data
-      : (formData.historical_years_data?.filter((y) => y.is_forecast) ?? [])
+      : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
 
   const historicalYears = actualHistoricalData
     .filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)

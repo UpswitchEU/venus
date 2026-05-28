@@ -28,6 +28,7 @@ import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
 import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
 import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
+import { useManualResultsStore } from '../../../store/manual'
 import { buildBusinessTypeFormData } from '../utils/businessTypeFormData'
 
 interface BasicInformationSectionProps {
@@ -391,6 +392,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 )
               }
 
+              useManualResultsStore.getState().clearResults()
               updateFormData(buildBusinessTypeFormData(businessType))
             }}
             onSuggest={async (suggestion) => {

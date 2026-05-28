@@ -28,7 +28,7 @@ import {
   useValuationToolbarTabs,
   type ValuationTab,
 } from '../hooks/valuationToolbar'
-import { getSafeMercuryReturnUrl } from '../lib/return-url'
+import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { APIError } from '../types/errors'
@@ -232,7 +232,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const handleFullScreen = onFullScreen ?? handleHookFullscreen
 
   // Embedded mode detection for iframe integration
-  const { isEmbedded, closeEmbedded } = useEmbeddedMode()
+  const { isEmbedded } = useEmbeddedMode()
 
   // Return URL for Mercury integration (for direct access, not embedded)
   const [returnUrl, setReturnUrl] = React.useState<string | null>(null)
@@ -299,16 +299,10 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       typeof window !== 'undefined'
         ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
         : 'en'
-    const fallbackPath = sourceApp?.includes('mercury')
-      ? `/${currentLocale}/advisor/dashboard`
-      : `/${currentLocale}/my-business/overview`
-    const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? fallbackPath, {
-      locale: currentLocale,
-      sourceApp: sourceApp ?? undefined,
+    navigateToMercuryFromManualHandoff({
+      currentLocale,
+      hasCompletedValuation: hasValuationPrice,
     })
-
-    // Navigate back to Mercury
-    window.location.href = targetUrl
   }
 
   return (
@@ -536,7 +530,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                       className=""
                     >
                       <button
-                        onClick={closeEmbedded}
+                        onClick={handleReturnToMercury}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium"
                       >
                         <X className="w-4 h-4" />

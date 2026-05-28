@@ -1,4 +1,10 @@
 export const AI_CHAT_PROXY_TIMEOUT_MS = 60_000
+export const AI_CHAT_ADD_CLIENT_PROXY_TIMEOUT_MS = 120_000
+
+import {
+  isAdvisorWorkspaceClientTurn,
+  isAdvisorWorkspaceSurfaceIntent,
+} from '@upswitch/ai-actions'
 
 const MAX_CORRELATION_ID_LENGTH = 128
 
@@ -72,6 +78,7 @@ export interface TitanAiChatProxyPlan {
   context: Record<string, unknown>
   payload: Record<string, unknown>
   useStream: boolean
+  proxyTimeoutMs?: number
   /** Server-side only: BFF sets X-Ai-Stream-Recovery on the Titan request. */
   streamTurnRecovery?: boolean
 }
@@ -160,32 +167,63 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
     { role: 'user', content: message },
   ]
 
+  const surfaceIntentFromBody = nonEmptyString(body.surfaceIntent)
+  const sessionId = nonEmptyString(body.sessionId)
+  const isWorkspaceClientIntent = isAdvisorWorkspaceClientTurn({
+    surfaceIntent: surfaceIntentFromBody,
+    sessionId,
+  })
+  const resolvedSurfaceIntent =
+    isWorkspaceClientIntent && isAdvisorWorkspaceSurfaceIntent(surfaceIntentFromBody)
+      ? surfaceIntentFromBody
+      : surfaceIntentFromBody
+
+  const workspaceMessages: TitanChatMessage[] = isWorkspaceClientIntent
+    ? [{ role: 'user', content: message }]
+    : messages
+
   const context = {
-    sessionId: nonEmptyString(body.sessionId) ?? '',
-    companyName: body.companyName,
-    industry: formData?.industry,
-    countryCode: formData?.country_code || formData?.country,
+    sessionId: sessionId ?? '',
+    companyName: isWorkspaceClientIntent ? undefined : body.companyName,
+    viewingCompanyName: isWorkspaceClientIntent ? undefined : body.viewingCompanyName,
+    viewingClientId: isWorkspaceClientIntent ? undefined : body.viewingClientId,
+    pageRoute: isWorkspaceClientIntent ? undefined : body.pageRoute,
+    surfaceIntent: resolvedSurfaceIntent ?? undefined,
+    industry: isWorkspaceClientIntent ? undefined : formData?.industry,
+    countryCode: isWorkspaceClientIntent
+      ? nonEmptyString(body.countryCode) || formData?.country_code || formData?.country
+      : formData?.country_code || formData?.country,
     locale: normalizeLocale(body.locale),
-    focusedField: fieldContext?.field,
-    reportId: body.reportId || body.sessionId,
-    hasRevenue: hasProvidedValue(formData?.revenue),
-    hasEbitda: hasProvidedValue(formData?.ebitda),
-    hasOwnerSalary: normalizations.some((item) => item.category === 'salary'),
-    needsNormalization: normalizations.some((item) => item.status === 'pending'),
+    focusedField: isWorkspaceClientIntent ? undefined : fieldContext?.field,
+    reportId: isWorkspaceClientIntent ? sessionId ?? '' : body.reportId || body.sessionId,
+    hasRevenue: isWorkspaceClientIntent ? false : hasProvidedValue(formData?.revenue),
+    hasEbitda: isWorkspaceClientIntent ? false : hasProvidedValue(formData?.ebitda),
+    hasOwnerSalary: isWorkspaceClientIntent
+      ? false
+      : normalizations.some((item) => item.category === 'salary'),
+    needsNormalization: isWorkspaceClientIntent
+      ? false
+      : normalizations.some((item) => item.status === 'pending'),
   }
 
   const payload: Record<string, unknown> = {
-    messages,
+    messages: workspaceMessages,
     context,
     audience: resolveAudience(body.audience),
   }
   const conversationId = nonEmptyString(body.conversationId)
-  if (conversationId) payload.conversationId = conversationId
-  if (formData) payload.formData = formData
-  if (Array.isArray(body.normalizations)) payload.normalizations = body.normalizations
+  if (conversationId && !isWorkspaceClientIntent) payload.conversationId = conversationId
+  if (formData && !isWorkspaceClientIntent) payload.formData = formData
+  if (Array.isArray(body.normalizations) && !isWorkspaceClientIntent) {
+    payload.normalizations = body.normalizations
+  }
 
   const streamTurnRecovery =
     body.stream === false && body.recoverFromStreamTurn === true
+
+  const proxyTimeoutMs = isWorkspaceClientIntent
+    ? AI_CHAT_ADD_CLIENT_PROXY_TIMEOUT_MS
+    : AI_CHAT_PROXY_TIMEOUT_MS
 
   return {
     ok: true,
@@ -194,6 +232,7 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
       context,
       payload,
       streamTurnRecovery,
+      proxyTimeoutMs,
     },
   }
 }

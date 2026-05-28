@@ -69,4 +69,40 @@ describe('deriveDcfReadinessInsight', () => {
     expect(result.status).toBe('manual_fallback')
     expect(result.missingSignals).toEqual(['capex', 'taxes', 'working_capital'])
   })
+
+  it('excludes camelCase forecast rows from actual-year readiness counts', () => {
+    const result = deriveDcfReadinessInsight({
+      historicalYearsData: [
+        {
+          year: 2023,
+          revenue: 900_000,
+          ebitda: 90_000,
+          capex: 30_000,
+          tax_expense: 20_000,
+          accounts_receivable: 100_000,
+          inventory: 50_000,
+          accounts_payable: 40_000,
+        },
+        {
+          year: 2024,
+          revenue: 1_050_000,
+          ebitda: 110_000,
+          isForecast: true,
+        },
+      ],
+      currentYearData: {
+        year: 2024,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        capex: 35_000,
+        tax_expense: 22_000,
+        accounts_receivable: 120_000,
+        inventory: 60_000,
+        accounts_payable: 55_000,
+      },
+    })
+
+    expect(result.actualYearsCount).toBe(2)
+    expect(result.status).toBe('imported_ready')
+  })
 })

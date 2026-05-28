@@ -659,6 +659,8 @@ export function parseManualChatStreamToolResult(
       case 'search_kbo_registry':
       case 'search_kvk_registry':
         return { type: 'registry_search_results', data }
+      case 'advisor_add_client_widget':
+        return { type: 'add_client_widget', data }
       case 'get_buyer_ready_package':
         return { type: 'buyer_ready_package_status', data }
       case 'generate_buyer_ready_package':

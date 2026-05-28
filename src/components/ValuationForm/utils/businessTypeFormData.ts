@@ -11,6 +11,7 @@ export function buildBusinessTypeFormData(
 
   return {
     business_type_id: businessType.id,
+    business_type_title: businessType.title,
     business_model: businessType.id,
     industry,
     subIndustry: businessType.category,

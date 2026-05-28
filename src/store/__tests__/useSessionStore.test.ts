@@ -71,6 +71,14 @@ describe('useSessionStore', () => {
       expect(state.errorMessage).toBeNull()
     })
 
+    it('should reject loadSession when engine is not initialized', async () => {
+      await expect(useSessionStore.getState().loadSession('val_no_engine')).rejects.toThrow(
+        'Session not ready'
+      )
+      expect(useSessionStore.getState().status).toBe('idle')
+      expect(mockLoadSession).not.toHaveBeenCalled()
+    })
+
     it('should hydrate an existing optimistic session into a newly created engine', () => {
       const optimisticShell = {
         reportId: 'val_mercury_shell',

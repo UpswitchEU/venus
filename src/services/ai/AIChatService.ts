@@ -135,6 +135,8 @@ export interface AIChatRequest {
   recoverFromStreamTurn?: boolean
   /** Titan tool-scope claim. Venus defaults to owner-scope in the BFF. */
   audience?: 'advisor' | 'owner'
+  /** Advisor workspace turn routing (add client / registry lookup). */
+  surfaceIntent?: 'add_client' | 'kbo_lookup'
   /** Locale for fallback responses when AI is unavailable (en | nl) */
   locale?: 'en' | 'nl'
   /** Previous messages for conversation context (used as fallback if server history unavailable) */

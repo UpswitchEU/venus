@@ -6,7 +6,7 @@ import {
   normalizeCurrentYearForFiling,
 } from '@/utils/fiscalYear'
 import { hasUsableOfficialFinancialsContent } from '@/utils/officialFinancialsContent'
-import { buildCurrentYearData, mergeYearDataRows } from '@/utils/yearData'
+import { buildCurrentYearData, isYearRowForecast, mergeYearDataRows } from '@/utils/yearData'
 import { getCompleteYearlyFinancialsDesc } from '@/utils/yearlyFinancials'
 
 export interface ManualPanelYearlyFinancial {
@@ -17,6 +17,7 @@ export interface ManualPanelYearlyFinancial {
   nwc_change?: number
   free_cash_flow?: number
   isForecast?: boolean
+  is_forecast?: boolean
 }
 
 type ManualFormMapperRaw = Partial<ManualValuationFormData>
@@ -48,9 +49,9 @@ export function mapClarityFormToVenusStore(
     ''
 
   const yearlyFinancials = (data.yearlyFinancials || []) as ManualPanelYearlyFinancial[]
-  const historicalRows = yearlyFinancials.filter((yf) => !yf.isForecast)
+  const historicalRows = yearlyFinancials.filter((yf) => !isYearRowForecast(yf))
   const latestHistorical = [...historicalRows].sort((a, b) => Number(b.year) - Number(a.year))[0]
-  const forecastRows = yearlyFinancials.filter((yf) => yf.isForecast)
+  const forecastRows = yearlyFinancials.filter((yf) => isYearRowForecast(yf))
 
   const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
   const current = completeHistorical[0]

@@ -145,8 +145,15 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
               '*'
             )
             if (didClearSession) {
-              const { closeEmbeddedIfActive } = await import('../hooks/useEmbeddedMode')
-              closeEmbeddedIfActive()
+              const localeMatch = window.location.pathname.match(/^\/(en|nl)/)
+              const locale = localeMatch?.[1] ?? 'en'
+              const { navigateToMercuryFromManualHandoff } = await import(
+                '../features/manual/utils/manualMercuryNavigate'
+              )
+              navigateToMercuryFromManualHandoff({
+                currentLocale: locale,
+                hasCompletedValuation: false,
+              })
             }
           }
         }

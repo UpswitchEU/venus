@@ -9,6 +9,7 @@ import type {
   SuggestedNormalisation,
 } from '../../../components/calculator'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { useClientContext } from '../../../stores/clientContext'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { buildManualAiNormalizationSuggestions } from '../utils/manualAiNormalizationSuggestions'
@@ -110,6 +111,8 @@ export function useManualChatMessageActions<TCollectedData extends object>({
   streamCleanupRef,
   translate,
 }: UseManualChatMessageActionsParams<TCollectedData>): UseManualChatMessageActionsResult {
+  const clientUserId = useClientContext((state) => state.client?.id ?? null)
+
   const handleNormalisationSuggestions = useCallback(
     (suggestions: unknown[] | undefined) => {
       if (!suggestions?.length) return
@@ -201,6 +204,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             manualChatReportId || resolvedReportId || reportId
           ),
           audience: isAccountantMode ? 'advisor' : 'owner',
+          clientUserId: isAccountantMode ? clientUserId : null,
         })
 
         const streamingMsgId = crypto.randomUUID()
@@ -406,6 +410,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       handleApplyFieldUpdate,
       handleNormalisationSuggestions,
       isAccountantMode,
+      clientUserId,
       isLoadingHistory,
       latestFormDataRef,
       manualChatReportId,

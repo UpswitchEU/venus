@@ -1,5 +1,5 @@
 import type { YearDataInput } from '../../../types/valuation'
-import { calculateWorkingCapitalBase } from '../../../utils/yearData'
+import { calculateWorkingCapitalBase, isYearRowForecast } from '../../../utils/yearData'
 
 export interface DcfReadinessInsight {
   status: 'imported_ready' | 'partial' | 'manual_fallback'
@@ -20,7 +20,7 @@ export function deriveDcfReadinessInsight(args: {
   historicalYearsData?: YearDataInput[] | null
 }): DcfReadinessInsight {
   const actualYears = [
-    ...(args.historicalYearsData ?? []).filter((year) => !year.is_forecast),
+    ...(args.historicalYearsData ?? []).filter((year) => !isYearRowForecast(year)),
     ...(args.currentYearData ? [args.currentYearData] : []),
   ]
     .filter((year) => typeof year.year === 'number' && Number.isFinite(year.year))

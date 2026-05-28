@@ -292,4 +292,131 @@ describe('sessionReadiness Mercury report URL contract', () => {
     )
     expect(source).toMatch(/url\.searchParams\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
   })
+
+  /** preview.valuation handoff (2026-05-28): report d3f4e162 + client f93ff269 */
+  const PREVIEW_D3F4_REPORT_ID = 'd3f4e162-ecb2-4112-8be8-ba426e0d92fd'
+  const PREVIEW_F93FF_CLIENT_ID = 'f93ff269-0e86-4053-9c64-717e85194401'
+
+  it('preview.valuation host incident: delegated handoff for d3f4e162 / f93ff269', () => {
+    const ctx = {
+      sourceApp: 'mercury' as const,
+      reportId: PREVIEW_D3F4_REPORT_ID,
+      clientId: PREVIEW_F93FF_CLIENT_ID,
+      mercuryPersonaMode: 'accountant',
+    }
+    expect(shouldWaitForMercuryClientContextBeforeBootstrap(ctx)).toBe(true)
+    expect(
+      isDelegatedMercuryAccountantHandoff(buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx))
+    ).toBe(true)
+  })
+
+  it('SessionBootstrapService sends partial delegated headers (accountant + relationship)', () => {
+    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/hasPartialDelegatedHeaderSet/)
+    expect(source).toMatch(
+      /hasFullDelegatedHeaderSet \|\| hasPartialDelegatedHeaderSet/
+    )
+    expect(source).not.toMatch(
+      /Partial client context in store - skipping delegated headers for bootstrap/
+    )
+  })
+
+  it('SessionBootstrapService does not retry Venus BFF 504', () => {
+    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/504 from Venus BFF|503\/504/)
+    expect(source).toMatch(/response\.status !== 503/)
+    expect(source).toMatch(/response\.status !== 504/)
+    expect(source).not.toMatch(/response\.status === 504\) && attempt/)
+  })
+
+  it('ValuationSessionManager clears session store before bootstrap retry', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/bootstrap\?\.bootstrapError && bootstrap\.refreshBootstrap/)
+    expect(source).toMatch(
+      /refreshBootstrap[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*errorMessage: null/
+    )
+    expect(source).toMatch(
+      /} else {[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*loadSession\(reportId/
+    )
+  })
+
+  it('ValuationSessionManager skips loadSession when bootstrap failed', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Session load SKIPPED: bootstrap failed/)
+    expect(source).toMatch(/bootstrap\?\.bootstrapError/)
+    expect(source).toMatch(
+      /status === 'idle' \|\| status === 'loading' \|\| isInitializing/
+    )
+  })
+
+  it('Venus bootstrap BFF timeout allows slow staging Titan bootstrap', () => {
+    const routePath = join(__dirname, '../../../app/api/bootstrap/route.ts')
+    const routeSource = readFileSync(routePath, 'utf8')
+    expect(routeSource).toMatch(/bootstrapProxyTimeouts/)
+    expect(routeSource).toMatch(/bootstrapTitanCallTimeoutMs/)
+
+    const constantsPath = join(__dirname, '../../lib/bootstrap/bootstrapProxyTimeouts.ts')
+    const constantsSource = readFileSync(constantsPath, 'utf8')
+    expect(constantsSource).toMatch(/VENUS_BOOTSTRAP_BFF_TIMEOUT_MS = 28_000/)
+  })
+
+  it('SessionBootstrapService surfaces actionable message on BFF timeout', () => {
+    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/response\.status === 504 \|\| response\.status === 408 \|\| response\.status === 503/)
+    expect(source).toMatch(/BOOTSTRAP_TIMEOUT_USER_MESSAGE/)
+    expect(source).toMatch(/AbortError[\s\S]*BOOTSTRAP_TIMEOUT_USER_MESSAGE/)
+    expect(source).toMatch(/Invalid response from bootstrap service/)
+  })
+
+  it('useSessionStore blocks loadSession without engine', () => {
+    const path = join(__dirname, '../../store/useSessionStore.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/loadSession blocked — engine not initialized/)
+  })
+
+  it('ValuationSessionManager session load timeout uses status and errorMessage', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Session load timeout \(30 seconds\)/)
+    expect(source).toMatch(
+      /Session load timeout[\s\S]*useSessionStore\.setState\([\s\S]*status: 'error'[\s\S]*errorMessage:/
+    )
+  })
+
+  it('AdvisorAIDock reuses TanStack client detail cache', () => {
+    const path = join(
+      __dirname,
+      mercuryRootFromVenusTests,
+      'shared/components/ai-dock/AdvisorAIDock.tsx'
+    )
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/queryClient\.getQueryData/)
+    expect(source).toMatch(/accountantClientQueryKeys\.detail\(clientId\)/)
+    expect(source).toMatch(/fetchAccountantClientDetail/)
+  })
+
+  it('BootstrapProvider force refresh shows loading immediately on retry', () => {
+    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const source = readFileSync(path, 'utf8')
+    const block = source.slice(
+      source.indexOf('const forceRefreshBootstrap = useCallback'),
+      source.indexOf('const needsMercuryClientContext = useMemo')
+    )
+    expect(block).toMatch(/setBootstrapError\(null\)/)
+    expect(block).toMatch(/setIsBootstrapping\(true\)/)
+  })
+
+  it('bootstrap route has integration tests for timeout and partial headers', () => {
+    const path = join(__dirname, '../../../app/api/bootstrap/route.test.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/returns 504 when Titan bootstrap times out/)
+    expect(source).toMatch(/forwards partial delegated headers/)
+    expect(source).toMatch(/refreshes token and retries bootstrap/)
+    expect(source).toMatch(/not JSON/)
+  })
 })

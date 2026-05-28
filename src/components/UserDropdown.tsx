@@ -5,7 +5,12 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
-import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '@/lib/return-url'
+import {
+  hasUsableMercuryHandoffReturnUrl,
+  isManualMercuryEmbeddedContext,
+  navigateToMercuryFromManualHandoff,
+  readManualMercuryHandoffFromBrowser,
+} from '@/features/manual/utils/manualMercuryNavigate'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
@@ -161,30 +166,55 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     }
   }
 
+  const broadcastReportUpdateBeforeMercuryReturn = () => {
+    if (!reportId) return
+    try {
+      const event = new CustomEvent('upswitch-report-updated', {
+        detail: {
+          reportId,
+          reportName: session?.name,
+          updatedAt: session?.updatedAt || new Date(),
+          source: 'valuation.upswitch.app',
+        },
+      })
+      window.dispatchEvent(event)
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('upswitch-report-sync')
+        channel.postMessage({
+          type: 'upswitch-report-updated',
+          data: {
+            reportId,
+            reportName: session?.name,
+            updatedAt: session?.updatedAt || new Date(),
+          },
+          source: 'valuation.upswitch.app',
+        })
+        channel.close()
+      }
+    } catch (error) {
+      generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
+    }
+  }
+
+  const shouldReturnToMercuryHandoff = () => {
+    const { sourceApp } = readManualMercuryHandoffFromBrowser()
+    return (
+      hasUsableMercuryHandoffReturnUrl() ||
+      Boolean(sourceApp?.trim()) ||
+      isManualMercuryEmbeddedContext()
+    )
+  }
+
   const handleBackToDashboard = () => {
     setIsOpen(false)
-
-    const returnUrl =
-      typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_return_url') : null
-    const sourceApp =
-      typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
     const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-
-    if (!returnUrl || isLegacyReturnUrl(returnUrl)) {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: 'NAVIGATE_TO_DASHBOARD' }, '*')
-        return
-      }
-    }
-
     const { relationshipId } = useClientContext.getState()
-    const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-      clientContextId: relationshipId ?? undefined,
-      locale,
-      sourceApp: sourceApp ?? undefined,
-      celebrateMercuryReturn,
+    broadcastReportUpdateBeforeMercuryReturn()
+    navigateToMercuryFromManualHandoff({
+      currentLocale: locale,
+      clientContextId: relationshipId,
+      hasCompletedValuation: celebrateMercuryReturn,
     })
-    window.location.href = targetUrl
   }
 
   const handleAccountSettings = () => {
@@ -225,61 +255,23 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
     setIsOpen(false)
 
-    // If embedded in iframe (Mercury modal), close the embedded view
-    if (isEmbedded) {
-      generalLogger.info('[UserDropdown] Embedded mode detected, closing embedded view')
-      closeEmbedded()
+    if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
+      generalLogger.info('[UserDropdown] Returning to Mercury via handoff')
+      const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+      broadcastReportUpdateBeforeMercuryReturn()
+      const { relationshipId: relId } = useClientContext.getState()
+      navigateToMercuryFromManualHandoff({
+        currentLocale: locale,
+        clientContextId: relId,
+        hasCompletedValuation: celebrateMercuryReturn,
+      })
       return
     }
 
-    // Check for return URL (Mercury integration - skip legacy routes to avoid 404)
-    if (typeof window !== 'undefined') {
-      const returnUrl = sessionStorage.getItem('upswitch_return_url')
-      const sourceApp = sessionStorage.getItem('upswitch_source')
-      const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-
-      if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
-        generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
-          returnUrl,
-        })
-        if (reportId) {
-          try {
-            const event = new CustomEvent('upswitch-report-updated', {
-              detail: {
-                reportId,
-                reportName: session?.name,
-                updatedAt: session?.updatedAt || new Date(),
-                source: 'valuation.upswitch.app',
-              },
-            })
-            window.dispatchEvent(event)
-            if (typeof BroadcastChannel !== 'undefined') {
-              const channel = new BroadcastChannel('upswitch-report-sync')
-              channel.postMessage({
-                type: 'upswitch-report-updated',
-                data: {
-                  reportId,
-                  reportName: session?.name,
-                  updatedAt: session?.updatedAt || new Date(),
-                },
-                source: 'valuation.upswitch.app',
-              })
-              channel.close()
-            }
-          } catch (error) {
-            generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
-          }
-        }
-        const { relationshipId: relId } = useClientContext.getState()
-        const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-          clientContextId: relId ?? undefined,
-          locale,
-          sourceApp: sourceApp ?? undefined,
-          celebrateMercuryReturn,
-        })
-        window.location.href = targetUrl
-        return
-      }
+    if (isEmbedded) {
+      generalLogger.info('[UserDropdown] Embedded mode without handoff, closing embedded view')
+      closeEmbedded()
+      return
     }
 
     // If not on a report page, just navigate to home
@@ -337,33 +329,20 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       // Close modal first
       setShowExitModal(false)
 
-      // If embedded in iframe (Mercury modal), close the embedded view
-      if (isEmbedded) {
-        generalLogger.info('[UserDropdown] Embedded mode detected, closing embedded view')
-        closeEmbedded()
+      if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
+        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        const { relationshipId: relId2 } = useClientContext.getState()
+        navigateToMercuryFromManualHandoff({
+          currentLocale: locale,
+          clientContextId: relId2,
+          hasCompletedValuation: celebrateMercuryReturn,
+        })
         return
       }
 
-      // Check for return URL (Mercury integration - skip legacy routes to avoid 404)
-      if (typeof window !== 'undefined') {
-        const returnUrl = sessionStorage.getItem('upswitch_return_url')
-        const sourceApp = sessionStorage.getItem('upswitch_source')
-        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-
-        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
-          generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
-            returnUrl,
-          })
-          const { relationshipId: relId2 } = useClientContext.getState()
-          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-            clientContextId: relId2 ?? undefined,
-            locale,
-            sourceApp: sourceApp ?? undefined,
-            celebrateMercuryReturn,
-          })
-          window.location.href = targetUrl
-          return
-        }
+      if (isEmbedded) {
+        closeEmbedded()
+        return
       }
 
       // Navigate to home
@@ -378,29 +357,20 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       // Still navigate even if cleanup fails
       setShowExitModal(false)
 
-      // If embedded, try to close even on error
-      if (isEmbedded) {
-        closeEmbedded()
+      if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
+        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        const { relationshipId: relId3 } = useClientContext.getState()
+        navigateToMercuryFromManualHandoff({
+          currentLocale: locale,
+          clientContextId: relId3,
+          hasCompletedValuation: celebrateMercuryReturn,
+        })
         return
       }
 
-      // Check for return URL even on error (skip legacy routes)
-      if (typeof window !== 'undefined') {
-        const returnUrl = sessionStorage.getItem('upswitch_return_url')
-        const sourceApp = sessionStorage.getItem('upswitch_source')
-        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-
-        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
-          const { relationshipId: relId3 } = useClientContext.getState()
-          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-            clientContextId: relId3 ?? undefined,
-            locale,
-            sourceApp: sourceApp ?? undefined,
-            celebrateMercuryReturn,
-          })
-          window.location.href = targetUrl
-          return
-        }
+      if (isEmbedded) {
+        closeEmbedded()
+        return
       }
 
       router.push(UrlGeneratorService.root())

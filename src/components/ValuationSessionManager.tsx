@@ -33,6 +33,10 @@ import {
   isClientPremiumUpgradePath,
   useBootstrapSafe,
 } from '../lib/bootstrap'
+import {
+  BOOTSTRAP_TIMEOUT_USER_MESSAGE,
+  SESSION_NOT_READY_USER_MESSAGE,
+} from '../lib/bootstrap/bootstrapUserMessages'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -504,10 +508,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       if (status === 'error' && !isBootstrapping) {
         return 'error'
       }
-      // SAFEGUARD: Bootstrap failed and session store is still idle — nothing will ever
-      // load the session (the engine is not set). Surface error immediately instead of
-      // staying stuck on the loading screen until the 30 s timer fires.
-      if (bootstrap?.bootstrapError && !isBootstrapping && status === 'idle') {
+      // SAFEGUARD: Bootstrap failed — engine is not set and loadSession must not run.
+      // Surface error immediately instead of waiting for the loading timeout or
+      // hitting "Session engine not initialized".
+      if (
+        bootstrap?.bootstrapError &&
+        !isBootstrapping &&
+        (status === 'idle' || status === 'loading' || isInitializing)
+      ) {
         return 'error'
       }
       // Default: loading until everything is ready
@@ -561,6 +569,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         generalLogger.debug('[SessionManager] Session load SKIPPED: waiting for bootstrap', {
           reportId,
         })
+        return
+      }
+
+      // Bootstrap failed — engine was never set; loadSession would throw.
+      if (bootstrap?.bootstrapError) {
+        generalLogger.debug('[SessionManager] Session load SKIPPED: bootstrap failed', {
+          reportId,
+          error: bootstrap.bootstrapError,
+        })
+        loadingInitiatedRef.current = null
         return
       }
 
@@ -761,9 +779,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // This prevents infinite loading when API calls hang
           generalLogger.warn('[SessionManager] Session load timeout, resetting state', { reportId })
           useSessionStore.setState({
-            isInitializing: false,
-            isLoading: false,
-            error: 'Session load timeout (30 seconds). Please refresh the page or try again.',
+            status: 'error',
+            errorMessage:
+              'Session load timeout (30 seconds). Please refresh the page or try again.',
           })
           reject(new Error('Session load timeout (30 seconds)'))
         }, 30000)
@@ -838,9 +856,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             })
             // Set error state and stop - don't retry validation errors
             useSessionStore.setState({
-              isInitializing: false,
-              isLoading: false,
-              error:
+              status: 'error',
+              errorMessage:
                 'Cannot create session. Please ensure you are logged in or try creating a new valuation.',
             })
             return // Don't continue - stop the retry loop
@@ -858,9 +875,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized')
           const isForbidden = errorMessage.includes('403') || errorMessage.includes('Forbidden')
 
+          const isSessionNotReady =
+            errorMessage.includes('Session not ready') ||
+            errorMessage.includes('Session engine not initialized')
+
+          const isBootstrapTimeout =
+            errorMessage.includes(BOOTSTRAP_TIMEOUT_USER_MESSAGE) ||
+            errorMessage.includes('Bootstrap request timed out')
+
           // Set user-friendly error message
           let userFriendlyError = 'Failed to load session. Please try again.'
-          if (isTimeout) {
+          if (isBootstrapTimeout) {
+            userFriendlyError = BOOTSTRAP_TIMEOUT_USER_MESSAGE
+          } else if (isSessionNotReady) {
+            userFriendlyError = SESSION_NOT_READY_USER_MESSAGE
+          } else if (isTimeout) {
             userFriendlyError =
               'Session load timeout (30 seconds). Please refresh the page or try again.'
           } else if (isNetworkError) {
@@ -913,6 +942,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrap?.report.reportReady,
       bootstrap?.report.mode,
       bootstrapComplete,
+      bootstrap?.bootstrapError,
       bootstrapHasExistingSession,
       bootstrapHasNewReport,
       bootstrapMismatch,
@@ -935,10 +965,22 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // ✅ RACE CONDITION FIX: Reset refs to allow retry
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
-      // When bootstrap failed, refresh bootstrap first (engine not set yet)
+      // When bootstrap failed, refresh bootstrap first (engine not set yet).
+      // Clear stale session-store errors from a race (e.g. loadSession timeout)
+      // so the UI follows bootstrap state during retry.
       if (bootstrap?.bootstrapError && bootstrap.refreshBootstrap) {
+        useSessionStore.setState({
+          status: 'idle',
+          errorMessage: null,
+          renderError: null,
+        })
         await bootstrap.refreshBootstrap()
       } else {
+        useSessionStore.setState({
+          status: 'idle',
+          errorMessage: null,
+          renderError: null,
+        })
         loadSession(reportId, detectedFlow, prefilledQueryRef.current)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -142,7 +142,7 @@ export function mergeYearDataRows(
         ...(typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)
           ? { free_cash_flow: row.free_cash_flow }
           : {}),
-        ...((row.isForecast || row.is_forecast) && { is_forecast: true }),
+        ...(isYearRowForecast(row) && { is_forecast: true }),
       }
     })
     .filter((row): row is YearDataInput => row !== null)

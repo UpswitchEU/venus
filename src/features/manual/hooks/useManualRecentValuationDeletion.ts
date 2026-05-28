@@ -18,6 +18,10 @@ import {
   buildSidebarReportDeletedMercuryMessage,
   deleteValuationEntry,
 } from '../utils/deleteValuationEntry'
+import {
+  performManualFlowRedirect,
+  readManualMercuryHandoffFromBrowser,
+} from '../utils/manualMercuryNavigate'
 import { filterRemainingRecentValuationsAfterDelete } from '../utils/manualRecentValuations'
 
 interface ManualDeletionRouter {
@@ -52,18 +56,6 @@ function isEmbeddedAccountantMode(isAccountantMode: boolean): boolean {
     typeof window !== 'undefined' &&
     sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
   )
-}
-
-function readMercuryReturnStorage(): { returnUrl: string | null; sourceApp: string | null } {
-  try {
-    return {
-      returnUrl:
-        typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_return_url') : null,
-      sourceApp: typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null,
-    }
-  } catch {
-    return { returnUrl: null, sourceApp: null }
-  }
 }
 
 export function useManualRecentValuationDeletion({
@@ -168,8 +160,8 @@ export function useManualRecentValuationDeletion({
           if (remaining.length > 0) {
             router.push(`/${currentLocale}/reports/${remaining[0].id}`)
           } else {
-            const { returnUrl, sourceApp } = readMercuryReturnStorage()
-            window.location.href = buildPostDeleteCurrentReportRedirectUrl({
+            const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
+            const redirectUrl = buildPostDeleteCurrentReportRedirectUrl({
               postDeleteNewValuationUrl,
               isAccountantMode,
               returnUrl,
@@ -177,6 +169,7 @@ export function useManualRecentValuationDeletion({
               clientContextId,
               currentLocale,
             })
+            performManualFlowRedirect(redirectUrl, { routerPush: router.push })
           }
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))

@@ -21,6 +21,8 @@ import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
 import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
+import { VENUS_BOOTSTRAP_CLIENT_ABORT_MS } from './bootstrapProxyTimeouts'
+import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from './bootstrapUserMessages'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
@@ -476,7 +478,9 @@ export class SessionBootstrapService {
    * is genuinely expired and retrying from the client would just
    * compound requests (each attempt triggers another proxy-level retry).
    *
-   * Only 5xx, 408/504 timeout, and network errors are retried.
+   * Only retryable 5xx (excluding 503/504) and 408 timeout errors are retried.
+   * 503/504 are excluded — upstream pool pressure or BFF budget exhaustion;
+   * a client retry would compound load and double total wait.
    */
   private async makeBootstrapRequest(
     requestBody: Record<string, unknown>,
@@ -485,10 +489,11 @@ export class SessionBootstrapService {
   ): Promise<Response> {
     const maxRetries = 2
     const baseDelay = 500
+    const clientAbortMs = VENUS_BOOTSTRAP_CLIENT_ABORT_MS
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const timeoutId = setTimeout(() => controller.abort(), clientAbortMs)
 
       try {
         const response = await fetch('/api/bootstrap', {
@@ -501,8 +506,13 @@ export class SessionBootstrapService {
 
         clearTimeout(timeoutId)
 
-        // 5xx server errors — retryable
-        if (response.status >= 500 && attempt < maxRetries - 1) {
+        // 5xx server errors — retryable except 503/504 (pool pressure / BFF timeout)
+        if (
+          response.status >= 500 &&
+          response.status !== 503 &&
+          response.status !== 504 &&
+          attempt < maxRetries - 1
+        ) {
           const delay = baseDelay * Math.pow(2, attempt)
           this.logger.warn(
             `[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
@@ -511,8 +521,9 @@ export class SessionBootstrapService {
           continue
         }
 
-        // 408/504 timeout errors — retryable
-        if ((response.status === 408 || response.status === 504) && attempt < maxRetries - 1) {
+        // 408 timeout — retryable. 504 from Venus BFF means Titan already exceeded
+        // the proxy budget; a client retry would double total wait (~56s+).
+        if (response.status === 408 && attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt)
           this.logger.warn(
             `[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
@@ -526,7 +537,7 @@ export class SessionBootstrapService {
         clearTimeout(timeoutId)
 
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Bootstrap request timed out after 30 seconds')
+          throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
         }
 
         if (attempt < maxRetries - 1) {
@@ -799,24 +810,25 @@ export class SessionBootstrapService {
         const relationshipHeader = contextHeaders['X-Relationship-Id']
         const hasAnyContextHeader = !!(clientHeader || accountantHeader || relationshipHeader)
         const hasFullDelegatedHeaderSet = !!(clientHeader && accountantHeader && relationshipHeader)
+        const hasPartialDelegatedHeaderSet = !!(accountantHeader && relationshipHeader)
 
-        if (hasFullDelegatedHeaderSet) {
+        if (hasFullDelegatedHeaderSet || hasPartialDelegatedHeaderSet) {
           Object.assign(headers, contextHeaders)
           this.logger.info('[Bootstrap] Added delegated client context headers from store', {
             headerCount: Object.keys(contextHeaders).length,
+            hasClientUserId: !!clientHeader,
             hasClientToken: hints.hasClientToken || !!context.clientToken,
+            partialDelegated: hasPartialDelegatedHeaderSet && !hasFullDelegatedHeaderSet,
           })
-        } else {
-          if (hasAnyContextHeader) {
-            this.logger.warn(
-              '[Bootstrap] Partial client context in store - skipping delegated headers for bootstrap',
-              {
-                hasClientUserId: !!clientHeader,
-                hasAccountantUserId: !!accountantHeader,
-                hasRelationshipId: !!relationshipHeader,
-              }
-            )
-          }
+        } else if (hasAnyContextHeader) {
+          this.logger.warn(
+            '[Bootstrap] Incomplete client context in store - cannot send delegated headers',
+            {
+              hasClientUserId: !!clientHeader,
+              hasAccountantUserId: !!accountantHeader,
+              hasRelationshipId: !!relationshipHeader,
+            }
+          )
           if (!requestBody['clientId'] && contextState.relationshipId) {
             requestBody['clientId'] = contextState.relationshipId
           }
@@ -878,12 +890,20 @@ export class SessionBootstrapService {
             redirectUrl
           )
         }
+        if (response.status === 504 || response.status === 408 || response.status === 503) {
+          throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+        }
         throw new Error(
           `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
         )
       }
 
-      const data = (await response.json()) as TitanBootstrapResponsePayload
+      let data: TitanBootstrapResponsePayload
+      try {
+        data = (await response.json()) as TitanBootstrapResponsePayload
+      } catch {
+        throw new Error('Invalid response from bootstrap service')
+      }
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {

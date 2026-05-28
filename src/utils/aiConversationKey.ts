@@ -39,6 +39,11 @@ export interface ClientScopedKeyArgs {
   clientUserId?: string | null
 }
 
+export {
+  deriveClientScopedSessionKey as deriveClientScopedSessionKeyFromPackage,
+  deriveAdvisorWorkspaceSessionKey,
+} from '@upswitch/ai-actions'
+
 /**
  * Returns `client_<clientUserId>` when the customer is in scope,
  * `null` otherwise. Callers fall back to their existing key when

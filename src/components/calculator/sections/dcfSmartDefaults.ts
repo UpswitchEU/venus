@@ -1,10 +1,12 @@
 import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
+import { isYearRowForecast } from '@/utils/yearData'
 
 export interface DcfYearlyFinancialsLike {
   year: string
   revenue: number
   ebitda: number
   isForecast?: boolean
+  is_forecast?: boolean
 }
 
 export interface DcfSmartDefaults {
@@ -93,7 +95,7 @@ export function deriveDcfSmartDefaults(args: {
   businessCategory?: unknown
 }): DcfSmartDefaults | null {
   const historical = (args.yearlyFinancials ?? [])
-    .filter((row) => !row.isForecast)
+    .filter((row) => !isYearRowForecast(row))
     .map((row) => {
       const revenue = toFinite(row.revenue)
       const ebitda = toFinite(row.ebitda)

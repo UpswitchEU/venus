@@ -306,6 +306,23 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
       case 'registry_search_results':
         out.registrySearchResults.push(...parseRegistrySearchResults(data))
         break
+      case 'add_client_widget': {
+        const subject = typeof data.subject === 'string' ? data.subject : ''
+        const registryRaw = typeof data.registry === 'string' ? data.registry : 'KBO'
+        const registry = registryRaw === 'KVK' ? 'KVK' : 'KBO'
+        const note = typeof data.message === 'string' ? data.message : undefined
+        out.registrySearchResults.push(
+          ...parseRegistrySearchResults({
+            registry,
+            query: subject,
+            totalFound: 0,
+            hits: [],
+            status: 'failed',
+            ...(note ? { note } : {}),
+          })
+        )
+        break
+      }
 
       case 'buyer_ready_package_status':
       case 'buyer_ready_package_generation_request':

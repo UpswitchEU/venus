@@ -2,7 +2,7 @@ import { LockKeyhole } from 'lucide-react'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import {
-  buildManualMercuryBusinessDashboardUrl,
+  buildManualMercuryInviteAdvisorUrl,
   buildManualMercuryPricingUrl,
 } from '../utils/manualMercuryNavigation'
 
@@ -35,14 +35,14 @@ function getManualStarterPaywallTitle({
   if (reason === 'methods') {
     if (isDutch)
       return isBusinessOwnerAudience
-        ? 'Meer methodes via uw adviseur'
+        ? 'Meer methodes via je adviseur'
         : 'Upgrade voor alle methodes'
     return isBusinessOwnerAudience ? 'More methods via your advisor' : 'Upgrade for all methods'
   }
   if (reason === 'normalization') {
     if (isDutch) {
       return isBusinessOwnerAudience
-        ? 'Normalisaties via uw adviseur'
+        ? 'Normalisaties via je adviseur'
         : 'EBITDA-normalisatie & belastinglatenties'
     }
     return isBusinessOwnerAudience
@@ -52,7 +52,7 @@ function getManualStarterPaywallTitle({
   if (reason === 'version_history') {
     if (isDutch) {
       return isBusinessOwnerAudience
-        ? 'Versiebeheer via uw adviseur'
+        ? 'Versiebeheer via je adviseur'
         : 'Overschrijven, verfijnen & auditspoor'
     }
     return isBusinessOwnerAudience
@@ -61,14 +61,14 @@ function getManualStarterPaywallTitle({
   }
   if (reason === 'synthesis') {
     if (isDutch) {
-      return isBusinessOwnerAudience ? 'Waarderingssynthese via uw adviseur' : 'Waarderingssynthese'
+      return isBusinessOwnerAudience ? 'Waarderingssynthese via je adviseur' : 'Waarderingssynthese'
     }
     return isBusinessOwnerAudience ? 'Valuation synthesis via your advisor' : 'Valuation Synthesis'
   }
 
   if (isDutch) {
     return isBusinessOwnerAudience
-      ? 'Krijg uw merkrapport — deel met uw adviseur'
+      ? 'Krijg je merkrapport — deel met je adviseur'
       : 'PDF-download vanaf Starter'
   }
   return isBusinessOwnerAudience
@@ -90,8 +90,8 @@ function getManualStarterPaywallBody({
   if (isBusinessOwnerAudience) {
     if (isDutch) {
       return reason === 'pdf_download'
-        ? 'Uw gratis rapport blijft online beschikbaar met watermerk. Voor een merkversie zonder watermerk in PDF: nodig uw boekhouder of M&A-adviseur uit. Zij beheren het abonnement — voor u blijft alles gratis.'
-        : 'Deze functie is onderdeel van het Starter-abonnement van uw adviseur. Nodig uw boekhouder of M&A-adviseur uit zodat zij deze functies voor uw rapport kunnen ontgrendelen — voor u blijft het gebruik gratis.'
+        ? 'Je gratis rapport blijft online beschikbaar met watermerk. Voor een merkversie zonder watermerk in PDF: nodig je boekhouder of M&A-adviseur uit. Zij beheren het abonnement — voor jou blijft alles gratis.'
+        : 'Deze functie is onderdeel van het Starter-abonnement van je adviseur. Nodig je boekhouder of M&A-adviseur uit zodat zij deze functies voor je rapport kunnen ontgrendelen — voor jou blijft het gebruik gratis.'
     }
     return reason === 'pdf_download'
       ? 'Your free report stays available online with a watermark. For a branded watermark-free PDF, invite your accountant or M&A advisor. They manage the subscription — your access stays free.'
@@ -141,12 +141,12 @@ export function ManualStarterPaywallModal({
   const isBusinessOwnerAudience = !isAdvisorAudience
   const mercuryUrl = getMercuryUrl()
   const ctaHref = isBusinessOwnerAudience
-    ? buildManualMercuryBusinessDashboardUrl({ mercuryUrl, locale: currentLocale })
+    ? buildManualMercuryInviteAdvisorUrl({ mercuryUrl, locale: currentLocale })
     : buildManualMercuryPricingUrl({ mercuryUrl, locale: currentLocale })
   const ctaLabel = isBusinessOwnerAudience
     ? currentLocale === 'nl'
-      ? 'Open mijn dashboard'
-      : 'Open my dashboard'
+      ? 'Nodig je adviseur uit'
+      : 'Invite your advisor'
     : getStarterPlanSummary(currentLocale)
 
   return (

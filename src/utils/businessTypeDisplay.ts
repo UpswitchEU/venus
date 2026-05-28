@@ -15,6 +15,22 @@ interface BusinessTypeInfo {
   description?: string
 }
 
+type BusinessTypeLabelSource = {
+  id?: string
+  name?: string
+  title?: string
+}
+
+/** Human-readable label across design-system (`name`) and API (`title`) business types. */
+export function resolveBusinessTypeLabel(
+  source: BusinessTypeLabelSource | null | undefined,
+  fallback = 'Business'
+): string {
+  if (!source) return fallback
+  const label = source.name ?? source.title ?? source.id
+  return label && label.trim().length > 0 ? label : fallback
+}
+
 function findFallbackType(businessTypeId: string) {
   return BUSINESS_TYPES_FALLBACK.find((bt) => bt.value === businessTypeId)
 }

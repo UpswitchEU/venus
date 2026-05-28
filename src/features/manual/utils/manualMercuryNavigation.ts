@@ -12,6 +12,51 @@ function normalizeMercuryBaseUrl(mercuryUrl: string): string {
   return mercuryUrl.replace(/\/$/, '')
 }
 
+const SELLER_DASHBOARD_PATH_RE = /\/(?:en|nl)\/business\/dashboard(?:\/|$)/
+
+/**
+ * Drop stale `?phase=` from seller dashboard return URLs so Mercury lands on the
+ * active lifecycle step instead of a pinned timeline revisit.
+ */
+export function stripStaleSellerDashboardPhaseFromReturnUrl(
+  returnUrl: string | null | undefined
+): string | null {
+  const raw = returnUrl?.trim()
+  if (!raw) return returnUrl ?? null
+
+  const stripPhaseFromSearch = (search: string): string => {
+    if (!search) return ''
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+    if (!params.has('phase')) return search
+    params.delete('phase')
+    const qs = params.toString()
+    return qs ? `?${qs}` : ''
+  }
+
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      const url = new URL(raw)
+      if (!SELLER_DASHBOARD_PATH_RE.test(url.pathname)) return raw
+      url.search = stripPhaseFromSearch(url.search)
+      return url.toString()
+    } catch {
+      return raw
+    }
+  }
+
+  if (!raw.includes('business/dashboard') || !raw.includes('phase=')) {
+    return raw
+  }
+
+  const hashIdx = raw.indexOf('#')
+  const beforeHash = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw
+  const hash = hashIdx >= 0 ? raw.slice(hashIdx) : ''
+  const qIdx = beforeHash.indexOf('?')
+  const path = qIdx >= 0 ? beforeHash.slice(0, qIdx) : beforeHash
+  if (!SELLER_DASHBOARD_PATH_RE.test(path)) return raw
+  return `${path}${stripPhaseFromSearch(qIdx >= 0 ? beforeHash.slice(qIdx) : '')}${hash}`
+}
+
 export function getManualMercuryLocale(locale: string | null | undefined): ManualMercuryLocale {
   return locale === 'nl' || locale === 'en' ? locale : 'en'
 }
@@ -54,6 +99,15 @@ export function buildManualMercuryBusinessDashboardUrl({
   locale,
 }: BuildManualMercuryUrlParams): string {
   return `${normalizeMercuryBaseUrl(mercuryUrl)}/${getManualMercuryLocale(locale)}/business/dashboard`
+}
+
+/** Seller PLG: opens invite-advisor flow (same handler on business + client dashboard). */
+export function buildManualMercuryInviteAdvisorUrl({
+  mercuryUrl,
+  locale,
+}: BuildManualMercuryUrlParams): string {
+  const base = buildManualMercuryBusinessDashboardUrl({ mercuryUrl, locale })
+  return `${base}?action=invite_accountant`
 }
 
 export function buildManualMercuryPricingUrl({
@@ -214,8 +268,9 @@ export function buildManualExitClientViewTarget({
   const clientDetailFallback = clientContextId
     ? `${mercuryBaseUrl}/${locale}/advisor/clients/${clientContextId}`
     : null
+  const normalizedReturnUrl = stripStaleSellerDashboardPhaseFromReturnUrl(returnUrl)
 
-  return getSafeMercuryReturnUrl(returnUrl ?? clientDetailFallback, {
+  return getSafeMercuryReturnUrl(normalizedReturnUrl ?? clientDetailFallback, {
     clientContextId: clientContextId ?? undefined,
     locale,
     sourceApp: sourceApp ?? undefined,
@@ -338,25 +393,21 @@ export interface BuildManualContinueToListingUrlParams {
   mercuryUrl: string
   locale: string | null | undefined
   clientContextId?: string | null
+  returnUrl?: string | null
+  sourceApp?: string | null
   hasCompletedValuation: boolean
 }
 
-export function buildManualContinueToListingUrl({
-  mercuryUrl,
-  locale,
-  clientContextId,
-  hasCompletedValuation,
-}: BuildManualContinueToListingUrlParams): string {
-  const mercuryBaseUrl = normalizeMercuryBaseUrl(mercuryUrl)
-  const mercuryLocale = getManualMercuryLocale(locale)
-  const basePath = clientContextId
-    ? `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
-    : `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients`
-
-  return getSafeMercuryReturnUrl(basePath, {
-    clientContextId: clientContextId ?? undefined,
-    locale: mercuryLocale,
-    sourceApp: 'mercury',
-    celebrateMercuryReturn: hasCompletedValuation,
+/** Same targeting as exit — honors handoff return_url/source for all personas. */
+export function buildManualContinueToListingUrl(
+  params: BuildManualContinueToListingUrlParams
+): string {
+  return buildManualExitClientViewTarget({
+    returnUrl: params.returnUrl ?? null,
+    clientContextId: params.clientContextId,
+    currentLocale: params.locale,
+    sourceApp: params.sourceApp,
+    mercuryUrl: params.mercuryUrl,
+    hasCompletedValuation: params.hasCompletedValuation,
   })
 }

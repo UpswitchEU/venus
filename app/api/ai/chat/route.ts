@@ -13,7 +13,7 @@
  * - POST /api/v2/ai/chat (JSON fallback)
  */
 
-import { withAiStreamTurnRecoveryHeader } from '@upswitch/ai-actions'
+import { withAiStreamTurnRecoveryHeader, isAdvisorWorkspaceClientTurn } from '@upswitch/ai-actions'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getTitanAccessTokenFromCookieHeader,
@@ -81,13 +81,17 @@ export async function POST(request: NextRequest) {
     const titanChatEndpoint = `${titanApiUrl}/api/v2/ai/chat`
 
     const clientContextHeaders = getTitanClientContextHeaders(request)
+    const omitClientContextHeaders = isAdvisorWorkspaceClientTurn({
+      surfaceIntent: plan.context.surfaceIntent,
+      sessionId: String(plan.context.sessionId ?? ''),
+    })
     const streamHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: plan.useStream ? 'text/event-stream' : 'application/json',
       'X-Correlation-ID': correlationId,
       ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
       ...(cookieHeader && { Cookie: cookieHeader }),
-      ...clientContextHeaders,
+      ...(omitClientContextHeaders ? {} : clientContextHeaders),
     }
     const chatHeaders = plan.useStream
       ? { ...streamHeaders, Accept: 'application/json' }
@@ -98,6 +102,8 @@ export async function POST(request: NextRequest) {
       !plan.useStream && plan.streamTurnRecovery
     )
 
+    const proxyTimeoutMs = plan.proxyTimeoutMs ?? AI_CHAT_PROXY_TIMEOUT_MS
+
     const titanResponse = await fetchWithTimeout(
       plan.useStream ? titanStreamEndpoint : titanChatEndpoint,
       {
@@ -105,7 +111,7 @@ export async function POST(request: NextRequest) {
         headers: titanRequestHeaders,
         body: JSON.stringify(plan.payload),
       },
-      AI_CHAT_PROXY_TIMEOUT_MS
+      proxyTimeoutMs
     )
 
     if (!titanResponse.ok) {
@@ -133,7 +139,7 @@ export async function POST(request: NextRequest) {
               headers: withAiStreamTurnRecoveryHeader(chatHeaders, true),
               body: JSON.stringify(plan.payload),
             },
-            AI_CHAT_PROXY_TIMEOUT_MS
+            proxyTimeoutMs
           ),
       })
       return new Response(wrapped, {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { fetchBusinessTypeById } from '@/services/fetchBusinessTypeById'
 import { naceBusinessTypeService } from '@/services/naceBusinessTypeService'
 import type { ValuationFormData } from '@/types/valuation'
+import { buildSectorMismatchWarning } from './sectorMismatchWarning'
 
 export type SectorMismatchWarning = {
   naceTypeTitle: string
@@ -56,10 +57,15 @@ export function useSectorMismatchWarning(formData: SectorMismatchFormSlice): Sec
       const selected = await fetchBusinessTypeById(businessTypeId)
       if (cancelled) return
 
-      setWarning({
-        naceTypeTitle: resolved.name ?? resolved.id,
-        selectedTitle: selected?.title ?? formData.industry ?? businessTypeId,
-      })
+      setWarning(
+        buildSectorMismatchWarning({
+          naceResolvedId: resolved.id,
+          naceResolvedName: resolved.name,
+          businessTypeId,
+          selectedTitle: selected?.title,
+          industry: formData.industry,
+        })
+      )
     })()
 
     return () => {

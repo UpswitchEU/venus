@@ -23,6 +23,7 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
+import { isYearRowForecast } from './yearData'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import {
   OPTIONAL_SCALAR_KEYS,
@@ -188,7 +189,7 @@ function sortedFinancialRowsFingerprint(rows: unknown): string {
     const r = row as Record<string, unknown>
     const y = Number(r.year)
     if (!Number.isFinite(y)) continue
-    const forecast = r.is_forecast ?? r.isForecast ?? ''
+    const forecast = isYearRowForecast(r) ? '1' : ''
     parts.push(`${y}:${r.revenue ?? ''}:${r.ebitda ?? ''}:${r.free_cash_flow ?? ''}:${forecast}`)
   }
   parts.sort((a, b) => Number(a.split(':')[0]) - Number(b.split(':')[0]))
@@ -204,7 +205,7 @@ function sortedYearlyGridFingerprint(rows: unknown): string {
     const r = row as Record<string, unknown>
     const y = Number.parseInt(String(r.year ?? ''), 10)
     if (!Number.isFinite(y) || y < 2000 || y > 2100) continue
-    const forecast = r.isForecast ?? r.is_forecast ?? ''
+    const forecast = isYearRowForecast(r) ? '1' : ''
     parts.push(`${y}:${r.revenue ?? ''}:${r.ebitda ?? ''}:${r.free_cash_flow ?? ''}:${forecast}`)
   }
   parts.sort((a, b) => Number(a.split(':')[0]) - Number(b.split(':')[0]))

@@ -98,15 +98,24 @@ export function buildManualAIChatRequest(args: {
   chatMessages: ChatMessage[]
   versionCount: number
   audience?: AIChatRequest['audience']
+  clientUserId?: string | null
+  surfaceIntent?: 'add_client' | 'kbo_lookup'
 }): AIChatRequest {
+  const clientScopedSessionId =
+    args.audience === 'advisor' && args.clientUserId
+      ? `client_${args.clientUserId}`
+      : null
+  const sessionId = clientScopedSessionId ?? args.reportId ?? undefined
+
   return {
     message: args.message,
-    sessionId: args.reportId || undefined,
-    reportId: args.reportId || undefined,
+    sessionId,
+    reportId: sessionId,
     companyName: args.collectedData.companyName,
     conversationId: args.conversationId || undefined,
     fieldContext: args.fieldContext || undefined,
     normalizations: args.normalizationItems,
+    ...(args.surfaceIntent ? { surfaceIntent: args.surfaceIntent } : {}),
     formData: buildManualChatEnrichedFormData({
       collectedData: args.collectedData,
       latestFormData: args.latestFormData,

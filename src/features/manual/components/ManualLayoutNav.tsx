@@ -171,7 +171,7 @@ export function ManualLayoutNav({
       valuationVersions={isMobile ? undefined : versionHistoryForNav}
       selectedVersionId={isMobile ? undefined : selectedVersionId}
       onSelectVersion={isMobile ? undefined : handleSelectVersion}
-      onContinueToListing={isMobile ? undefined : handleContinueToListing}
+      onContinueToListing={handleContinueToListing}
       recentValuations={recentValuations}
       activeReportId={activeReportId}
       onNewValuation={handleNewValuation}

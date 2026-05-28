@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { buildCurrentYearData, mergeYearDataRows, pickDefinedYearDataFields } from '../yearData'
+import { buildCurrentYearData, isYearRowForecast, mergeYearDataRows, pickDefinedYearDataFields } from '../yearData'
+
+describe('isYearRowForecast', () => {
+  it('detects camelCase and snake_case forecast flags', () => {
+    expect(isYearRowForecast({ isForecast: true })).toBe(true)
+    expect(isYearRowForecast({ is_forecast: true })).toBe(true)
+    expect(isYearRowForecast({ isForecast: false, is_forecast: false })).toBe(false)
+    expect(isYearRowForecast(null)).toBe(false)
+  })
+})
 
 describe('yearData helpers', () => {
   it('preserves zero-valued optional fields on current year data', () => {

@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildManualContinueToListingUrl,
+  stripStaleSellerDashboardPhaseFromReturnUrl,
   buildManualExitClientViewFallbackUrl,
   buildManualExitClientViewTarget,
   buildManualImportReviewTarget,
@@ -227,22 +228,70 @@ describe('manualMercuryNavigation', () => {
     ).toBe('https://mercury.test/en/business/listing/new?report_id=report-1')
   })
 
-  it('builds continue-to-listing return urls for Mercury clients', () => {
-    expect(
-      buildManualContinueToListingUrl({
-        mercuryUrl: 'https://mercury.test/',
-        locale: 'nl',
-        clientContextId: 'client-1',
-        hasCompletedValuation: true,
-      })
-    ).toContain('/nl/advisor/clients/client-1')
+  it('builds continue-to-listing return urls for advisor clients with celebration', () => {
+    const url = buildManualContinueToListingUrl({
+      mercuryUrl: 'https://mercury.test/',
+      locale: 'nl',
+      clientContextId: 'client-1',
+      hasCompletedValuation: true,
+    })
+    expect(url).toContain('/nl/advisor/clients/client-1')
+    expect(url).toContain('from=valuation')
+  })
 
+  it('builds continue-to-listing return urls for sellers via stored return_url', () => {
+    const url = buildManualContinueToListingUrl({
+      mercuryUrl: 'https://mercury.test/',
+      locale: 'nl',
+      returnUrl: 'https://mercury.test/nl/business/dashboard',
+      sourceApp: 'business_dashboard_orphaned_seller',
+      hasCompletedValuation: true,
+    })
+    expect(url).toContain('/nl/business/dashboard')
+    expect(url).toContain('from=valuation')
+    expect(url).not.toContain('/advisor/')
+  })
+
+  it('builds continue-to-listing fallback for sellers without return_url', () => {
+    const url = buildManualContinueToListingUrl({
+      mercuryUrl: 'https://mercury.test/',
+      locale: 'nl',
+      sourceApp: 'business_dashboard_orphaned_seller',
+      hasCompletedValuation: true,
+    })
+    expect(url).toContain('/nl/business/dashboard')
+    expect(url).toContain('from=valuation')
+  })
+
+  it('strips stale phase= from seller dashboard return URLs before continue navigation', () => {
+    const url = buildManualContinueToListingUrl({
+      mercuryUrl: 'https://mercury.test/',
+      locale: 'nl',
+      returnUrl: 'https://mercury.test/nl/business/dashboard?phase=valuation',
+      sourceApp: 'business_dashboard_orphaned_seller',
+      hasCompletedValuation: true,
+    })
+    expect(url).toContain('/nl/business/dashboard')
+    expect(url).toContain('from=valuation')
+    expect(url).not.toContain('phase=valuation')
+  })
+
+  it('stripStaleSellerDashboardPhaseFromReturnUrl preserves non-phase query params', () => {
     expect(
-      buildManualContinueToListingUrl({
-        mercuryUrl: 'https://mercury.test/',
-        locale: 'fr',
-        hasCompletedValuation: false,
-      })
-    ).toContain('/en/advisor/dashboard')
+      stripStaleSellerDashboardPhaseFromReturnUrl(
+        'https://mercury.test/nl/business/dashboard?phase=valuation&action=invite_accountant'
+      )
+    ).toBe('https://mercury.test/nl/business/dashboard?action=invite_accountant')
+  })
+
+  it('builds continue-to-listing fallback for ambiguous source to advisor dashboard', () => {
+    const url = buildManualContinueToListingUrl({
+      mercuryUrl: 'https://mercury.test/',
+      locale: 'fr',
+      sourceApp: 'mercury',
+      hasCompletedValuation: false,
+    })
+    expect(url).toContain('/en/advisor/dashboard')
+    expect(url).not.toContain('from=valuation')
   })
 })

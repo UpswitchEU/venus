@@ -44,6 +44,18 @@ describe('deriveDcfSmartDefaults', () => {
     })
   })
 
+  it('ignores snake_case forecast rows from legacy session payloads', () => {
+    const defaults = deriveDcfSmartDefaults({
+      businessCategory: 'retail',
+      yearlyFinancials: [
+        { year: '2024', revenue: 800_000, ebitda: 64_000 },
+        { year: '2025', revenue: 900_000, ebitda: 90_000, is_forecast: true },
+      ],
+    })
+
+    expect(defaults?.historicalYearsUsed).toBe(1)
+  })
+
   it('returns null when no usable historical rows exist', () => {
     expect(
       deriveDcfSmartDefaults({

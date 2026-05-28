@@ -529,7 +529,10 @@ export function BootstrapProvider({
     lastGlobalContextKey = null
     bootstrapService.clearCache()
     bootstrapService.resetCircuitBreaker()
-    if (mountedRef.current) setBootstrapError(null)
+    if (mountedRef.current) {
+      setBootstrapError(null)
+      setIsBootstrapping(true)
+    }
     await runBootstrap()
   }, [runBootstrap, mountedRef])
 

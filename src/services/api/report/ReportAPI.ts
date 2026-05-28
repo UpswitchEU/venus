@@ -307,8 +307,18 @@ export class ReportAPI extends HttpClient {
 
       if (axiosError?.response?.status === 402) {
         const msg = await parsePlanGateErrorMessage(axiosError)
-        apiLogger.warn('PDF download blocked by plan', { ...errorContext, message: msg })
-        throw new APIError(msg, 402, undefined, true, { upgradeRequired: true })
+        const data = axiosError.response?.data
+        const code =
+          data && typeof data === 'object' && !(data instanceof Blob)
+            ? (data as { code?: string }).code
+            : undefined
+        const inviteAdvisorRequired = code === 'INVITE_ADVISOR_REQUIRED'
+        apiLogger.warn('PDF download blocked by plan', { ...errorContext, message: msg, code })
+        throw new APIError(msg, 402, undefined, true, {
+          upgradeRequired: !inviteAdvisorRequired,
+          inviteAdvisorRequired,
+          code,
+        })
       }
 
       if (axiosError?.response?.status === 403 || axiosError?.response?.status === 401) {
