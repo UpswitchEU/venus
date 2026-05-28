@@ -21,7 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@upswitch/ai-actions": ["./vendor/ai-actions/src/index.ts"],
+      "@upswitch/ai-actions": ["./vendor/ai-actions/dist/index.d.ts"],
       "@upswitch/types": ["./vendor/types/src/index.ts"],
       "@upswitch/types/*": ["./vendor/types/src/*"],
       "@/components/*": ["./src/components/*"],

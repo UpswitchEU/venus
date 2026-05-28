@@ -81,8 +81,8 @@ export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
 export declare const AI_STREAM_KEEPALIVE_CHUNK_JSON = "{\"type\":\"_keepalive\"}";
 /**
  * BFF → Titan request header for stream-turn recovery. Set only by Mercury/Venus
- * BFF on trusted recovery paths — Titan ignores recovery flags in the JSON body
- * and requires this header plus a matching persisted user turn.
+ * BFF on trusted recovery paths — Titan ignores `recoverFromStreamTurn` in the
+ * JSON body and requires this header plus a matching persisted user turn.
  */
 export declare const AI_STREAM_TURN_RECOVERY_HEADER = "X-Ai-Stream-Recovery";
 export declare const AI_STREAM_TURN_RECOVERY_HEADER_VALUE = "1";
@@ -141,5 +141,5 @@ export type AiStreamChunk = {
 export declare function isAiActionToolName(value: unknown): value is AiActionToolName;
 export declare function isAiActionToolResultType(value: unknown): value is AiActionToolResultType;
 export declare function classifyAiActionToolResultType(toolName: string): AiToolResultEnvelopeType;
-export {};
+export { deriveAdvisorWorkspaceSessionKey, deriveClientScopedSessionKey, isAdvisorWorkspaceClientTurn, isAdvisorWorkspaceSessionKey, isAdvisorWorkspaceSurfaceIntent, type AdvisorWorkspaceSurfaceIntent, type ClientScopedKeyArgs, } from './conversation-keys.js';
 //# sourceMappingURL=index.d.ts.map

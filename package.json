@@ -56,6 +56,7 @@
     "verify:valuation-method-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:valuation-method-contracts",
     "verify:brand-favicons": "upswitch-platform verify:brand-favicons",
     "sync:shared-contracts": "upswitch-platform sync:shared-contracts",
+    "sync:ai-actions-contracts": "upswitch-platform sync:ai-actions-contracts",
     "sync:valuation-method-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:valuation-method-contracts",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",

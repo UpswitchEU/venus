@@ -42,7 +42,7 @@ export default defineConfig({
       '@/lib': path.resolve(__dirname, './src/lib'),
       '@/utils': path.resolve(__dirname, './src/utils'),
       '@/types': path.resolve(__dirname, './src/types'),
-      '@upswitch/ai-actions': path.resolve(__dirname, '../../packages/ai-actions/src/index.ts'),
+      '@upswitch/ai-actions': path.resolve(__dirname, './vendor/ai-actions/dist/index.js'),
       '@upswitch/types/valuation-methods': path.resolve(
         __dirname,
         '../../packages/types/src/valuation-methods.ts'

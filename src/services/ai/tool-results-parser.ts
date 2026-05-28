@@ -307,10 +307,15 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         out.registrySearchResults.push(...parseRegistrySearchResults(data))
         break
       case 'add_client_widget': {
-        const subject = typeof data.subject === 'string' ? data.subject : ''
-        const registryRaw = typeof data.registry === 'string' ? data.registry : 'KBO'
+        const widgetData =
+          data && typeof data === 'object' ? (data as Record<string, unknown>) : null
+        const subject =
+          typeof widgetData?.subject === 'string' ? widgetData.subject : ''
+        const registryRaw =
+          typeof widgetData?.registry === 'string' ? widgetData.registry : 'KBO'
         const registry = registryRaw === 'KVK' ? 'KVK' : 'KBO'
-        const note = typeof data.message === 'string' ? data.message : undefined
+        const note =
+          typeof widgetData?.message === 'string' ? widgetData.message : undefined
         out.registrySearchResults.push(
           ...parseRegistrySearchResults({
             registry,

@@ -58,8 +58,7 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     request_lawyer_handoff: 'lawyer_handoff_request',
     // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
     // as an inline CompanyNameInput widget; Venus intentionally ignores it
-    // (Venus is the wizard surface, not the dock). Listed here so the contract
-    // hash matches and the verify:ai-tool-result-contracts gate stays green.
+    // (see `venusIgnoredRenderableEnvelopeTypes` in the contract JSON).
     advisor_add_client_widget: 'add_client_widget',
 };
 export const AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
@@ -149,8 +148,8 @@ export const AI_STREAM_CHUNK_TYPES = [
 export const AI_STREAM_KEEPALIVE_CHUNK_JSON = '{"type":"_keepalive"}';
 /**
  * BFF → Titan request header for stream-turn recovery. Set only by Mercury/Venus
- * BFF on trusted recovery paths — Titan ignores recovery flags in the JSON body
- * and requires this header plus a matching persisted user turn.
+ * BFF on trusted recovery paths — Titan ignores `recoverFromStreamTurn` in the
+ * JSON body and requires this header plus a matching persisted user turn.
  */
 export const AI_STREAM_TURN_RECOVERY_HEADER = 'X-Ai-Stream-Recovery';
 export const AI_STREAM_TURN_RECOVERY_HEADER_VALUE = '1';
@@ -182,4 +181,5 @@ export function isAiActionToolResultType(value) {
 export function classifyAiActionToolResultType(toolName) {
     return AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
 }
+export { deriveAdvisorWorkspaceSessionKey, deriveClientScopedSessionKey, isAdvisorWorkspaceClientTurn, isAdvisorWorkspaceSessionKey, isAdvisorWorkspaceSurfaceIntent, } from './conversation-keys.js';
 //# sourceMappingURL=index.js.map

@@ -464,6 +464,8 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
 
   // NEW: Primary business type ID from PostgreSQL
   business_type_id?: string
+  /** Display label for sector mismatch validation (not sent to Titan). */
+  business_type_title?: string
 
   // Phase 2: Sub-industry granularity
   subIndustry?: string

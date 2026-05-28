@@ -409,6 +409,16 @@ describe('sessionReadiness Mercury report URL contract', () => {
     )
     expect(block).toMatch(/setBootstrapError\(null\)/)
     expect(block).toMatch(/setIsBootstrapping\(true\)/)
+    expect(block).toMatch(/resetBootstrapSyncGateForRetry\(\)/)
+  })
+
+  it('useBootstrapSync re-runs setEngine when global gate matches but engine is missing', () => {
+    const path = join(__dirname, '../../hooks/useBootstrapSync.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/engineReady/)
+    expect(source).toMatch(/useSessionStore\.getState\(\)\.engine/)
+    expect(source).toMatch(/resetBootstrapSyncGateForRetry/)
+    expect(source).toMatch(/bootstrap\.bootstrapError[\s\S]*resetBootstrapSyncGateForRetry/)
   })
 
   it('bootstrap route has integration tests for timeout and partial headers', () => {

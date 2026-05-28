@@ -58,9 +58,7 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
   propose_package_publish: 'package_publish_request',
   request_lawyer_handoff: 'lawyer_handoff_request',
   // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
-  // as an inline CompanyNameInput widget; Venus intentionally ignores it
-  // (Venus is the wizard surface, not the dock). Listed here so the contract
-  // hash matches and the verify:ai-tool-result-contracts gate stays green.
+  // as an inline CompanyNameInput widget; Venus intentionally ignores it.
   advisor_add_client_widget: 'add_client_widget',
 } as const;
 
@@ -139,6 +137,10 @@ export const AI_STREAM_CHUNK_TYPES = [
   // hide behind the keepalive and skip the user-facing empty-stream
   // fallback. See `AI_STREAM_KEEPALIVE_CHUNK_JSON` for the wire literal.
   '_keepalive',
+  // BFF-only meta chunk — emitted by Mercury/Venus chat BFF when the
+  // streaming route falls back to non-streaming sync. The FE uses this to
+  // dedupe duplicate client-side recovery. Not produced by Titan.
+  'stream_recovery',
 ] as const;
 export type AiStreamChunkType = (typeof AI_STREAM_CHUNK_TYPES)[number];
 
@@ -210,6 +212,11 @@ export type AiStreamChunk =
       // pattern-match this as a no-op and never let it satisfy
       // "received content" gates.
       type: '_keepalive';
+    }
+  | {
+      // BFF-only — see `stream_recovery` in `AI_STREAM_CHUNK_TYPES`.
+      type: 'stream_recovery';
+      source: 'bff-fallback' | 'bff-fallback-failed' | 'bff-stream-incomplete';
     };
 
 const AI_ACTION_TOOL_NAME_SET = new Set<string>(AI_ACTION_TOOL_NAMES);

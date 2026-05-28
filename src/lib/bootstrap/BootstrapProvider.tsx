@@ -27,6 +27,7 @@ import { setBootstrapState } from '../sessionInitialization'
 import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
+import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { bootstrapService } from './SessionBootstrapService'
 import type {
   BootstrapContext as BootstrapContextShape,
@@ -527,6 +528,7 @@ export function BootstrapProvider({
     bootstrapCompletedGlobally = false
     lastGlobalResult = null
     lastGlobalContextKey = null
+    resetBootstrapSyncGateForRetry()
     bootstrapService.clearCache()
     bootstrapService.resetCircuitBreaker()
     if (mountedRef.current) {

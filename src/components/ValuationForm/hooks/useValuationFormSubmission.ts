@@ -175,17 +175,17 @@ export const useValuationFormSubmission = (
         // Clear validation error
         setEmployeeCountError(null)
 
-        const businessTypeMismatch = validateBusinessTypeSelection({
-          businessTypeId: formData.business_type_id,
-          businessTypeTitle:
-            (formData as ValuationFormData & { business_type_title?: string }).business_type_title ??
-            null,
-          industry: formData.industry,
-        })
-        if (businessTypeMismatch) {
-          setEmployeeCountError(businessTypeMismatch)
-          setCalculating(false)
-          return
+        if (formData.business_type_id) {
+          const businessTypeMismatch = validateBusinessTypeSelection({
+            businessTypeId: formData.business_type_id,
+            businessTypeTitle: formData.business_type_title ?? null,
+            industry: formData.industry,
+          })
+          if (businessTypeMismatch) {
+            setEmployeeCountError(businessTypeMismatch)
+            setCalculating(false)
+            return
+          }
         }
 
         // Validate required fields.

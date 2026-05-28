@@ -7,13 +7,17 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { resetGlobalBootstrapSyncGateForTests } from '../useBootstrapSync'
+import { resetBootstrapSyncGateForRetry, resetGlobalBootstrapSyncGateForTests } from '../useBootstrapSync'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 describe('useBootstrapSync module gate', () => {
   it('exports a test reset for global dedupe state', () => {
     expect(() => resetGlobalBootstrapSyncGateForTests()).not.toThrow()
+  })
+
+  it('exports a force reset for bootstrap retry', () => {
+    expect(() => resetBootstrapSyncGateForRetry()).not.toThrow()
   })
 
   it('tracks globalBootstrapSyncScheduledKey in source', () => {

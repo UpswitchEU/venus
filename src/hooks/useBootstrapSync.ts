@@ -443,6 +443,13 @@ function resetGlobalBootstrapSyncGate(nextReportId?: string | null): void {
   globalBootstrapSyncScheduledKey = null
 }
 
+/** Force-clear sync dedupe after bootstrap retry (same reportId must re-run setEngine). */
+export function resetBootstrapSyncGateForRetry(): void {
+  globalBootstrapSyncReportId = null
+  globalBootstrapSyncSignature = null
+  globalBootstrapSyncScheduledKey = null
+}
+
 /** @internal Vitest-only — clears module dedupe between cases */
 export function resetGlobalBootstrapSyncGateForTests(): void {
   resetGlobalBootstrapSyncGate()
@@ -492,8 +499,13 @@ export function useBootstrapSync(): {
       return
     }
 
-    // Skip if bootstrap failed
+    // Skip if bootstrap failed — clear dedupe so a successful retry re-runs setEngine.
     if (bootstrap.bootstrapError) {
+      hasSyncedRef.current = false
+      lastSyncSignatureRef.current = undefined
+      syncScheduledForSignatureRef.current = undefined
+      resetBootstrapSyncGateForRetry()
+      setIsSynced(false)
       logger.warn('Bootstrap failed, skipping sync', {
         error: bootstrap.bootstrapError,
       })
@@ -504,9 +516,11 @@ export function useBootstrapSync(): {
     const syncSignature = stableBootstrapSyncSignature(state)
     const syncKey = `${reportId ?? 'none'}:${syncSignature}`
 
+    const engineReady = !!useSessionStore.getState().engine
     if (
       globalBootstrapSyncReportId === reportId &&
-      globalBootstrapSyncSignature === syncSignature
+      globalBootstrapSyncSignature === syncSignature &&
+      engineReady
     ) {
       if (!hasSyncedRef.current) {
         hasSyncedRef.current = true
