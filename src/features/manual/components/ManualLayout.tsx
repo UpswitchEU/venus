@@ -10,6 +10,10 @@ import React, { Suspense, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 // Calculator Components (full Clarity parity)
 import { ChatAssistantDrawer } from '../../../components/calculator'
+import {
+  shouldShowVenusAiDockFab,
+  venusAiDockShellClassName,
+} from '../../../components/calculator/venus-ai-dock-layout'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useCredits } from '../../../hooks/useCredits'
@@ -122,7 +126,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
-  const { hasMeasuredViewport, isMobile } = useManualLayoutViewport()
+  const { isMobile } = useManualLayoutViewport()
 
   useManualPanelStorageReset()
   useManualToastMessageLifecycle(t)
@@ -663,12 +667,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     updateFormData,
   })
 
-  useEffect(() => {
-    if (hasMeasuredViewport && !isMobile) {
-      setChatDrawerOpen(true)
-    }
-  }, [hasMeasuredViewport, isMobile, setChatDrawerOpen])
-
   useManualKeyboardShortcuts({
     chatDrawerOpen,
     setChatDrawerOpen,
@@ -858,13 +856,26 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   // divergence (desktop-only download-history / version-list /
   // continue-to-listing affordances) is `isMobile`-gated inside
   // `calculatorNavEl` above.
+  const showAssistantFab = shouldShowVenusAiDockFab({
+    isStartupAssistantRoute,
+    isAssistantOpen: chatDrawerOpen,
+    isFullscreenModalOpen: showFullscreenModal,
+    isBlockingModalOpen:
+      showUnifiedNormalizationModal ||
+      showValuationEditModal ||
+      methodPaywallOpen ||
+      showNewValuationModal ||
+      showRecalculateConfirmation,
+  })
+
   return (
+    <>
     <div
-      className={
-        isMobile
-          ? 'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
-          : 'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
-      }
+      className={venusAiDockShellClassName(
+        chatDrawerOpen,
+        isMobile,
+        'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
+      )}
     >
       <ManualLayoutNav
         accountantDisplayName={accountantDisplayName}
@@ -949,13 +960,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       />
 
       <ManualLayoutBody
-        assistantPanel={
-          !isMobile && chatDrawerOpen ? (
-            <Suspense fallback={null}>
-              <ChatAssistantDrawer {...chatDrawerProps} presentation="panel" />
-            </Suspense>
-          ) : undefined
-        }
         isMobile={isMobile}
         manualInputProps={manualInputProps}
         reportId={reportId}
@@ -974,12 +978,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           translateReport: tReport,
         }}
       />
-
-      {isMobile ? (
-        <Suspense fallback={null}>
-          <ChatAssistantDrawer {...chatDrawerProps} lockScroll />
-        </Suspense>
-      ) : null}
 
       <ManualLayoutModals
         allowedMethodKeys={allowedMethodKeys}
@@ -1043,5 +1041,14 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
         userFirmCountryCode={user?.firm_country_code}
       />
     </div>
+
+      <Suspense fallback={null}>
+        <ChatAssistantDrawer
+          {...chatDrawerProps}
+          lockScroll={isMobile}
+          showFabWhenClosed={showAssistantFab}
+        />
+      </Suspense>
+    </>
   )
 }

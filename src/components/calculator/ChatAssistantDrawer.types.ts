@@ -18,8 +18,8 @@ export interface ChatAssistantDrawerProps {
   open: boolean
   /** Lock document scroll when drawer is open (mobile full-screen only). */
   lockScroll?: boolean
-  /** Desktop can embed the assistant as a workspace panel instead of a modal drawer. */
-  presentation?: 'drawer' | 'panel'
+  /** Show Mercury-style FAB when the dock is closed. */
+  showFabWhenClosed?: boolean
   onOpenChange: (open: boolean) => void
   messages: ChatMessage[]
   onSendMessage: (

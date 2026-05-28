@@ -2306,6 +2306,9 @@
 	},
 	"chatAssistant": {
 		"title": "Assistant",
+		"openLabel": "Open assistant",
+		"fabLabel": "Assistant",
+		"panelLabel": "Assistant panel",
 		"close": "Close",
 		"suggestedUpdates": "Suggested updates",
 		"qualityWarningsTitle": "Resolve before sharing the report",
@@ -2357,6 +2360,7 @@
 		"addFile": "Add file",
 		"askAboutField": "Ask about {field}...",
 		"askOrCommand": "Give an instruction, e.g. 'normalize owner salary'…",
+		"inputPlaceholder": "Give an instruction, e.g. 'value METANOUS'…",
 		"chatInput": "Chat input",
 		"send": "Send",
 		"sendHint": "↵ to send",
@@ -2402,6 +2406,7 @@
 		"retry": "Retry",
 		"signInAgain": "Sign in again",
 		"newConversation": "New conversation",
+		"newConversationShort": "New",
 		"aiConsent": {
 			"title": "Enable AI processing",
 			"subhead": "Before the assistant can process your inputs, we need your explicit consent.",

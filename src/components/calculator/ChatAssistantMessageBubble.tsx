@@ -16,43 +16,26 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { springGentle } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
 import type { AgentChoiceSelection, ChatMessage, FieldContext } from './ChatAssistantTypes'
 
-// Empty State Component - Premium minimal design (no redundant icons)
-export function EmptyState({
-  onSuggestionClick,
-  companyName,
-  fieldContext,
-  suggestions,
-}: {
-  onSuggestionClick: (text: string) => void
-  companyName?: string
-  fieldContext?: FieldContext
-  suggestions: string[]
-}) {
+// Empty state — matches Mercury AdvisorAIDockPanel (dot + title + description).
+export function EmptyState({ fieldContext }: { fieldContext?: FieldContext }) {
   const ca = useTranslations('chatAssistant')
   return (
-    <div className="flex flex-col items-center justify-center h-full px-5 sm:px-6 py-8 sm:py-10">
-      <div className="max-w-md w-full space-y-8 sm:space-y-6">
-        {/* Minimal Header - World-class typography hierarchy */}
-        <div className="text-center space-y-3 sm:space-y-2">
-          <h2 className="text-xl sm:text-lg font-semibold text-foreground tracking-tight">
-            {fieldContext
-              ? ca('helpWithField', { field: fieldContext.label || '' })
-              : companyName
-                ? ca('analysisFor', { company: companyName })
-                : ca('howCanIHelp')}
-          </h2>
-          <p className="text-base sm:text-sm text-foreground/50 max-w-xs mx-auto">
-            {fieldContext?.hint || ca('askOrUpload')}
-          </p>
-        </div>
-
-        {/* Suggestions moved to input area pills */}
-      </div>
+    <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
+      <div className="w-1.5 h-1.5 rounded-full bg-primary mb-4" />
+      <h3 className="text-sm font-semibold text-foreground mb-1">
+        {fieldContext
+          ? ca('helpWithField', { field: fieldContext.label || '' })
+          : ca('howCanIHelp')}
+      </h3>
+      <p className="text-xs text-foreground/50 max-w-xs">
+        {fieldContext?.hint || ca('askOrUpload')}
+      </p>
     </div>
   )
 }
@@ -187,9 +170,9 @@ export function MessageBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      transition={springGentle}
       className={cn('flex group/msg', isUser ? 'justify-end' : 'justify-start')}
     >
       {/* No avatar — bubble shape + alignment carry the role distinction

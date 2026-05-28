@@ -63,10 +63,15 @@ vi.mock('framer-motion', () => {
   return {
     motion: Motion,
     AnimatePresence: passThrough,
+    useReducedMotion: () => false,
   }
 })
 
-vi.mock('@/design-system/components/motion', () => ({ springDefault: {} }))
+vi.mock('@/design-system/components/motion', () => ({
+  springDefault: {},
+  springSnappy: {},
+  springGentle: {},
+}))
 
 vi.mock('@/hooks/useScrollLock', () => ({
   MANUAL_LAYOUT_SCROLL_SELECTOR: '[data-manual-layout-scroll]',
@@ -602,26 +607,66 @@ describe('input + send', () => {
     expect(useScrollLockMock).toHaveBeenCalledWith(true, '[data-manual-layout-scroll]')
   })
 
-  it('renders embedded panel mode without mobile scroll lock', () => {
+  it('shows FAB when closed and showFabWhenClosed is true', () => {
     render(
       <ChatAssistantDrawer
-        open={true}
-        lockScroll={true}
-        presentation="panel"
+        open={false}
+        showFabWhenClosed
         onOpenChange={onOpenChange}
         messages={[]}
         onSendMessage={onSendMessage}
       />
     )
 
+    expect(screen.getByTestId('venus-ai-dock-fab')).toBeInTheDocument()
+    expect(screen.queryByTestId('venus-ai-dock-drawer')).not.toBeInTheDocument()
+  })
+
+  it('renders slide-over drawer when open', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByTestId('venus-ai-dock-drawer')).toBeInTheDocument()
     expect(screen.getByText('title')).toBeInTheDocument()
-    expect(useScrollLockMock).toHaveBeenCalledWith(false, undefined)
   })
 })
 
 // ---------------------------------------------------------------------
 // Close button
 // ---------------------------------------------------------------------
+
+describe('escape key', () => {
+  it('closes the consent modal before closing the dock', () => {
+    const assistant = makeAssistantMessage('AI processing consent is required.', 'consent-msg')
+    assistant.isError = true
+    assistant.requiresConsent = true
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[makeUserMessage('hello'), assistant]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    fireEvent.click(screen.getByText('aiConsent.openCta'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+})
 
 describe('close button', () => {
   it('clicking the close button fires onOpenChange(false)', () => {

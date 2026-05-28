@@ -3,19 +3,22 @@
 /**
  * Chat Assistant Drawer
  *
- * Slide-in drawer for the AI co-pilot. Always available, contextual to current field.
- * Implements bi-directional sync: Chat commands update form fields, and vice versa.
+ * Mercury-style fixed right dock for the AI co-pilot (spring slide-in at xl: 420px).
+ * Contextual to the current field; bi-directional sync with the valuation form.
  *
  * YC Advisor Pattern: "The Chat is the Navigator, not the Pilot"
  */
 
-import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, X } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { Loader2, MessageCircle, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { springDefault } from '@/design-system/components/motion'
+import { springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
+import { useVenusAiDockFocus } from './useVenusAiDockFocus'
+import { VenusAiDockPortal } from './VenusAiDockPortal'
+import { VENUS_AI_DOCK_DRAWER_WIDTH_CLASS, VENUS_AI_DOCK_LAYER_Z_CLASS } from './venus-ai-dock-layout'
 import { MANUAL_LAYOUT_SCROLL_SELECTOR, useScrollLock } from '@/hooks/useScrollLock'
 import { useVisualViewportDrawerInsets } from '@/hooks/useVisualViewportDrawerInsets'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
@@ -73,10 +76,17 @@ export type {
   ValuationSessionRequest,
 } from './ChatAssistantTypes'
 
+const dockDrawerTransition = {
+  type: 'spring',
+  stiffness: 180,
+  damping: 28,
+  mass: 0.9,
+} as const
+
 export function ChatAssistantDrawer({
   open,
   lockScroll = false,
-  presentation = 'drawer',
+  showFabWhenClosed = false,
   onOpenChange,
   messages,
   onSendMessage,
@@ -121,7 +131,7 @@ export function ChatAssistantDrawer({
   type ChatAssistantTranslationKey = Parameters<typeof ca>[0]
   type ChatAssistantTranslationValues = NonNullable<Parameters<typeof ca>[1]>
   const locale = useLocale()
-  const isPanel = presentation === 'panel'
+  const shouldReduceMotion = useReducedMotion()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const [input, setInput] = useState('')
   const {
@@ -169,12 +179,8 @@ export function ChatAssistantDrawer({
   })
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll lock only on mobile full-screen drawer; desktop panel is part of the layout.
-  useScrollLock(
-    open && lockScroll && !isPanel,
-    lockScroll && !isPanel ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined
-  )
-  const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll && !isPanel)
+  useScrollLock(open && lockScroll, lockScroll ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined)
+  const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll)
   const viewportStyle = viewportInsets
     ? { top: viewportInsets.top, height: viewportInsets.height }
     : undefined
@@ -272,18 +278,21 @@ export function ChatAssistantDrawer({
     trackAIAssistantOpen()
   }, [open])
 
-  useEffect(() => {
-    if (!open || lockScroll || isPanel) return
-    const timer = setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 100)
-    return () => clearTimeout(timer)
-  }, [open, lockScroll, isPanel])
+  useVenusAiDockFocus(open, textareaRef, lockScroll)
 
-  // Global keyboard shortcuts: Escape to close, Cmd+Shift+L for new conversation
+  // Global keyboard shortcuts: Escape (consent first), Cmd+Shift+L for new conversation
   useEffect(() => {
     if (!open) return
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (consentModalOpen) {
+          setConsentModalOpen(false)
+          e.preventDefault()
+          return
+        }
         onOpenChange(false)
+        e.preventDefault()
+        return
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'l') {
         e.preventDefault()
@@ -292,7 +301,7 @@ export function ChatAssistantDrawer({
     }
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [open, onOpenChange, onNewConversation])
+  }, [open, consentModalOpen, onOpenChange, onNewConversation, setConsentModalOpen])
 
   const handleSubmit = useCallback(
     (e?: React.FormEvent) => {
@@ -336,68 +345,117 @@ export function ChatAssistantDrawer({
   // Track focus state for premium glow effect
   const [isInputFocused, setIsInputFocused] = useState(false)
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {!isPanel && (
-            /* Backdrop — softer, no blur (matches Cursor/Lovable). */
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={springDefault}
-              onClick={() => onOpenChange(false)}
-              onTouchMove={(e) => e.preventDefault()}
-              style={viewportStyle}
-              className={cn(
-                'fixed left-0 right-0 z-40 bg-black/30 touch-none overscroll-none',
-                !viewportStyle && 'inset-0'
-              )}
-            />
-          )}
+  const headerSubtitle = fieldContext
+    ? fieldContext.label || ''
+    : companyName
+      ? ca('analysisFor', { company: companyName })
+      : null
 
-          {/* Drawer on mobile, embedded workspace panel on desktop. */}
-          <motion.div
-            initial={isPanel ? { opacity: 0 } : { x: '100%' }}
-            animate={isPanel ? { opacity: 1 } : { x: 0 }}
-            exit={isPanel ? { opacity: 0 } : { x: '100%' }}
-            transition={springDefault}
-            style={isPanel ? undefined : viewportStyle}
+  return (
+    <VenusAiDockPortal>
+      <AnimatePresence>
+        {!open && showFabWhenClosed && (
+          <motion.button
+            type="button"
+            key="venus-ai-dock-fab"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 8, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.96 }}
+            transition={shouldReduceMotion ? { duration: 0 } : springSnappy}
+            whileHover={shouldReduceMotion ? undefined : { y: -2 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            onClick={() => onOpenChange(true)}
+            aria-label={ca('openLabel')}
+            data-testid="venus-ai-dock-fab"
             className={cn(
-              'w-full p-0 flex flex-col min-h-0',
-              isPanel
-                ? 'relative h-full'
-                : [
-                    'fixed right-0 z-50',
-                    !viewportStyle && 'top-0 bottom-0 h-full',
-                    'sm:w-[440px] md:w-[480px] lg:w-[520px]',
-                    'pb-[env(safe-area-inset-bottom)]',
-                  ],
-              'bg-background'
+              'fixed bottom-20 right-4 md:bottom-6 md:right-6',
+              VENUS_AI_DOCK_LAYER_Z_CLASS,
+              'inline-flex h-11 items-center gap-2 rounded-full px-4',
+              'border border-primary/20 bg-background/90 text-sm font-semibold text-foreground backdrop-blur-xl',
+              'shadow-[0_18px_50px_-24px_rgba(15,23,42,0.42)]',
+              'transition-[border-color,box-shadow,background-color] duration-300',
+              'hover:border-primary/35 hover:bg-background',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'touch-manipulation'
             )}
           >
-            {/* Header — minimal: title + close. No CTAs.
-                The normalisation modal stays reachable from the main form UI;
-                if the assistant needs to surface "review normalisations" it
-                does so via an insight, not via permanent header chrome. */}
-            <div className="shrink-0 px-5 py-3 flex items-center gap-3">
+            <MessageCircle className="h-4 w-4 text-primary" aria-hidden="true" />
+            <span>{ca('fabLabel')}</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {open && (
+          <motion.aside
+            key="venus-ai-dock-drawer"
+            initial={
+              shouldReduceMotion ? false : { opacity: 0, x: 32, scale: 0.985 }
+            }
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={
+              shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28, scale: 0.99 }
+            }
+            transition={shouldReduceMotion ? { duration: 0 } : dockDrawerTransition}
+            style={viewportStyle}
+            data-testid="venus-ai-dock-drawer"
+            className={cn(
+              'fixed top-0 right-0 flex flex-col min-h-0 w-full p-0',
+              VENUS_AI_DOCK_LAYER_Z_CLASS,
+              VENUS_AI_DOCK_DRAWER_WIDTH_CLASS,
+              !viewportStyle && 'bottom-0 h-full',
+              viewportStyle && 'h-auto',
+              'bg-background border-l border-primary/10',
+              'shadow-[-4px_0_40px_-8px_rgba(0,0,0,0.15)]',
+              'pb-[env(safe-area-inset-bottom)]'
+            )}
+            aria-label={ca('panelLabel')}
+          >
+            <header
+              className={cn(
+                'shrink-0 flex items-center justify-between',
+                'px-4 sm:px-5 py-3.5',
+                'border-b border-primary/10 bg-gradient-to-r from-primary/[0.06] via-background to-transparent'
+              )}
+            >
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-medium text-foreground/80">{ca('title')}</h2>
-                {fieldContext && (
-                  <p className="text-xs text-foreground/45 truncate mt-0.5">
-                    {fieldContext.label || ''}
-                  </p>
-                )}
+                <h2 className="text-sm font-semibold text-foreground truncate">{ca('title')}</h2>
+                {headerSubtitle ? (
+                  <p className="text-xs text-foreground/70 truncate mt-0.5">{headerSubtitle}</p>
+                ) : null}
               </div>
-              <button
-                onClick={() => onOpenChange(false)}
-                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04] transition-colors touch-manipulation"
-                aria-label={ca('close')}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {visibleMessages.length > 0 && !isGenerating && onNewConversation ? (
+                  <button
+                    type="button"
+                    onClick={onNewConversation}
+                    aria-label={ca('newConversation')}
+                    title={ca('newConversation')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md',
+                      'text-foreground/40 hover:text-foreground/70',
+                      'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
+                      'transition-colors touch-manipulation text-[11px] font-medium'
+                    )}
+                  >
+                    <span className="text-[11px] font-medium">{ca('newConversationShort')}</span>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className={cn(
+                    'w-8 h-8 rounded-md flex items-center justify-center',
+                    'text-foreground/50 hover:text-foreground',
+                    'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
+                    'transition-colors touch-manipulation'
+                  )}
+                  aria-label={ca('close')}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </header>
 
             {/* Hidden file input */}
             <input
@@ -430,21 +488,16 @@ export function ChatAssistantDrawer({
             {/* Messages Area - Scrollable with momentum */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto overscroll-contain"
+              className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 py-4"
               role="log"
               aria-live="polite"
               aria-busy={isGenerating}
               aria-label={ca('title')}
             >
               {isEmpty ? (
-                <EmptyState
-                  onSuggestionClick={handleSuggestionClick}
-                  companyName={companyName}
-                  fieldContext={fieldContext}
-                  suggestions={suggestions}
-                />
+                <EmptyState fieldContext={fieldContext} />
               ) : (
-                <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+                <div className="space-y-3">
                   <AnimatePresence>
                     {visibleMessages.map((message, idx) => (
                       <MessageBubble
@@ -551,23 +604,23 @@ export function ChatAssistantDrawer({
               onSubmit={() => handleSubmit()}
               onSuggestionClick={handleSuggestionClick}
             />
-          </motion.div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
-          <AiConsentModal
-            open={consentModalOpen}
-            error={aiConsentError}
-            isSubmitting={isGrantingConsent}
-            policyVersion={
-              aiConsentStatus?.currentPolicyVersion ||
-              visibleMessages.find((message) => message.id === consentRetryMessageId)
-                ?.consentPolicyVersion
-            }
-            onClose={() => setConsentModalOpen(false)}
-            onAgree={handleGrantConsent}
-          />
-        </>
-      )}
-    </AnimatePresence>
+      <AiConsentModal
+        open={consentModalOpen}
+        error={aiConsentError}
+        isSubmitting={isGrantingConsent}
+        policyVersion={
+          aiConsentStatus?.currentPolicyVersion ||
+          visibleMessages.find((message) => message.id === consentRetryMessageId)
+            ?.consentPolicyVersion
+        }
+        onClose={() => setConsentModalOpen(false)}
+        onAgree={handleGrantConsent}
+      />
+    </VenusAiDockPortal>
   )
 }
 

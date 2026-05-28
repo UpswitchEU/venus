@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { FileText, Image as ImageIcon, Loader2, Paperclip, Send, X } from 'lucide-react'
+import { ArrowUp, FileText, Image as ImageIcon, Loader2, Paperclip, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { KeyboardEvent, Ref } from 'react'
 import { cn } from '@/design-system/utils'
@@ -157,7 +157,7 @@ export function ChatAssistantComposer({
           'border border-foreground/[0.08]',
           'transition-[border-color,box-shadow] duration-300',
           'focus-within:border-primary/40',
-          'focus-within:shadow-[0_0_40px_-12px_hsl(var(--primary)/0.18)]',
+          'input-primary-focus-glow',
           isInputFocused ? 'border-primary/40' : 'hover:border-foreground/[0.12]',
           'shadow-sm'
         )}
@@ -172,14 +172,15 @@ export function ChatAssistantComposer({
           placeholder={
             fieldContext
               ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
-              : ca('askOrCommand')
+              : ca('inputPlaceholder')
           }
           rows={3}
           className={cn(
-            'w-full bg-transparent border-0 outline-none resize-none',
-            'focus:outline-none focus:ring-0 focus:border-0',
-            'text-base sm:text-sm min-h-[88px] leading-relaxed px-3 py-2',
-            'text-foreground placeholder:text-foreground/35'
+            'aurora-glass-textarea w-full resize-none min-h-[88px]',
+            'px-3 py-2 bg-transparent border-0 outline-none',
+            'text-base sm:text-sm leading-relaxed',
+            'text-foreground placeholder:text-foreground/40',
+            'disabled:opacity-60'
           )}
           disabled={isGenerating}
           aria-label={ca('chatInput')}
@@ -201,16 +202,16 @@ export function ChatAssistantComposer({
             disabled={(!input.trim() && attachments.length === 0) || isGenerating}
             className={cn(
               'shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-colors touch-manipulation',
-              (input.trim() || attachments.length > 0) && !isGenerating
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85'
-                : 'bg-foreground/[0.06] text-foreground/30 cursor-not-allowed'
+              'bg-primary text-primary-foreground',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+              'hover:bg-primary/90 active:bg-primary/85'
             )}
             aria-label={ca('send')}
           >
             {isGenerating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <ArrowUp className="w-4 h-4" aria-hidden="true" />
             )}
           </button>
         </div>

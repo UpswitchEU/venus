@@ -2306,6 +2306,9 @@
 	},
 	"chatAssistant": {
 		"title": "Assistent",
+		"openLabel": "Open assistent",
+		"fabLabel": "Assistent",
+		"panelLabel": "Assistentpaneel",
 		"close": "Sluiten",
 		"suggestedUpdates": "Voorgestelde aanpassingen",
 		"qualityWarningsTitle": "Los op voordat u het rapport deelt",
@@ -2357,6 +2360,7 @@
 		"addFile": "Bestand toevoegen",
 		"askAboutField": "Vraag over {field}...",
 		"askOrCommand": "Geef een opdracht, bv. 'normaliseer eigenaarssalaris'…",
+		"inputPlaceholder": "Geef een opdracht, bv. 'waardeer METANOUS'…",
 		"chatInput": "Chat invoer",
 		"send": "Verzenden",
 		"sendHint": "↵ om te verzenden",
@@ -2402,6 +2406,7 @@
 		"retry": "Opnieuw proberen",
 		"signInAgain": "Opnieuw inloggen",
 		"newConversation": "Nieuw gesprek",
+		"newConversationShort": "Nieuw",
 		"aiConsent": {
 			"title": "AI-verwerking activeren",
 			"subhead": "Voordat de assistent uw invoer kan verwerken, hebben we uw expliciete toestemming nodig.",
