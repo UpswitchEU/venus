@@ -35,7 +35,13 @@ vi.mock('../../../services/ai/AIChatService', () => ({
       return streamHarness.cleanup
     }),
     sendMessage: sendMessageMock,
+    loadHistory: vi.fn().mockResolvedValue({ conversationId: null, messages: [] }),
   },
+}))
+
+const pollHistoryMock = vi.hoisted(() => vi.fn(() => Promise.resolve(null)))
+vi.mock('../utils/manualChatPersistedAnswerRecovery', () => ({
+  pollHistoryForPersistedAnswer: pollHistoryMock,
 }))
 
 vi.mock('../../../store/useVersionHistoryStore', () => ({
@@ -45,8 +51,7 @@ vi.mock('../../../store/useVersionHistoryStore', () => ({
 }))
 
 vi.mock('../../../stores/clientContext', () => ({
-  useClientContext: (selector: (state: { client: null }) => unknown) =>
-    selector({ client: null }),
+  useClientContext: (selector: (state: { client: null }) => unknown) => selector({ client: null }),
 }))
 
 vi.mock('../utils/manualChatAttachments', () => ({
@@ -54,7 +59,9 @@ vi.mock('../utils/manualChatAttachments', () => ({
   appendManualChatAttachmentContext: (message: string) => message,
 }))
 
-function makeHookParams(overrides: Partial<Parameters<typeof useManualChatMessageActions>[0]> = {}) {
+function makeHookParams(
+  overrides: Partial<Parameters<typeof useManualChatMessageActions>[0]> = {}
+) {
   const chatMessages: ChatMessage[] = []
   const latestFormDataRef = { current: {} }
   const streamCleanupRef = { current: null as (() => void) | null }
@@ -105,6 +112,8 @@ describe('useManualChatMessageActions stream recovery', () => {
       conversationId: 'conv-recovered',
       fallback: false,
     })
+    pollHistoryMock.mockClear()
+    pollHistoryMock.mockResolvedValue(null)
   })
 
   it('recovers via non-streaming chat after BFF stream_recovery failed + error SSE', async () => {
@@ -154,7 +163,13 @@ describe('useManualChatMessageActions stream recovery', () => {
     const { result } = renderHook(() => useManualChatMessageActions(params))
 
     await act(async () => {
-      await result.current.handleChatMessage('Verklaar deze EBITDA', undefined, undefined, undefined, 'explain_ebitda')
+      await result.current.handleChatMessage(
+        'Verklaar deze EBITDA',
+        undefined,
+        undefined,
+        undefined,
+        'explain_ebitda'
+      )
     })
 
     await act(async () => {
@@ -195,7 +210,13 @@ describe('useManualChatMessageActions stream recovery', () => {
     const { result } = renderHook(() => useManualChatMessageActions(params))
 
     await act(async () => {
-      await result.current.handleChatMessage('Verklaar deze EBITDA', undefined, undefined, undefined, 'explain_ebitda')
+      await result.current.handleChatMessage(
+        'Verklaar deze EBITDA',
+        undefined,
+        undefined,
+        undefined,
+        'explain_ebitda'
+      )
     })
 
     await act(async () => {
@@ -221,5 +242,34 @@ describe('useManualChatMessageActions stream recovery', () => {
 
     expect(streamHarness.callbacks).toBeNull()
     expect(params.setChatMessages).not.toHaveBeenCalled()
+  })
+
+  it('self-heals from persisted history when stream + /chat recovery both fail', async () => {
+    // /chat recovery connection dies (the staging 499) → recovery resolves
+    // terminal_error, but Titan already persisted the answer server-side.
+    sendMessageMock.mockRejectedValueOnce(new Error('proxy 499 — connection died'))
+    pollHistoryMock.mockResolvedValueOnce({
+      content: 'Transactieklaar-stappenplan (server-side persisted).',
+    })
+
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await result.current.handleChatMessage('Help mij dit bedrijf transactieklaar maken')
+    })
+
+    await act(async () => {
+      streamHarness.callbacks?.onBffStreamRecovery?.('bff-fallback-failed')
+      streamHarness.callbacks?.onError?.('AI stream fallback failed')
+    })
+
+    await waitFor(() => {
+      const assistant = params.chatMessages.find((m) => m.role === 'assistant')
+      expect(assistant?.content).toContain('Transactieklaar-stappenplan (server-side persisted).')
+    })
+    expect(pollHistoryMock).toHaveBeenCalledTimes(1)
+    const assistant = params.chatMessages.find((m) => m.role === 'assistant')
+    expect(assistant?.isError).toBeFalsy()
   })
 })

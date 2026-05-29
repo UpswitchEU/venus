@@ -243,6 +243,24 @@ export function wrapAiSseBodyForObservability(
       }
     },
     async cancel(reason) {
+      // Client/consumer hung up. Stamp WHEN (totalMs via logProxyIssue) and
+      // whether any visible content had arrived. This is the missing signal for
+      // the staging "~100ms disconnect": a cancel at totalMs≈100 with
+      // sawVisibleStreamContent=false confirms the browser/edge drops the SSE
+      // before Titan's first token, which is what forces the empty-stream →
+      // /chat fallback (and the 499 storm). Logged unconditionally (the existing
+      // log below only fires when reader.cancel itself throws).
+      logProxyIssue('[ai.chat] client cancelled SSE proxy stream', {
+        sawVisibleStreamContent: contentScanner.sawVisibleStreamContent,
+        cancelReason:
+          typeof reason === 'string'
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : reason === undefined
+                ? undefined
+                : String(reason),
+      })
       // Set BEFORE awaiting so the pending pull read (which resolves/rejects
       // as a result of this upstream cancel) sees the flag and skips recovery.
       clientDisconnected = true

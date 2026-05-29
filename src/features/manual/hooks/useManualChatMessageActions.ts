@@ -6,7 +6,7 @@ import {
   useRef,
 } from 'react'
 import { toast } from 'sonner'
-import { isOfflineFallbackContent, type AssistantIntent } from '@/services/ai/local-chat-fallback'
+import { type AssistantIntent, isOfflineFallbackContent } from '@/services/ai/local-chat-fallback'
 import type {
   ChatMessage,
   FieldContext,
@@ -36,6 +36,7 @@ import {
   patchManualChatMessage,
 } from '../utils/manualChatMessages'
 import { requestManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
+import { pollHistoryForPersistedAnswer } from '../utils/manualChatPersistedAnswerRecovery'
 import {
   buildManualAIChatRequest,
   getManualChatVersionCount,
@@ -293,17 +294,37 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             translate,
             createId: () => crypto.randomUUID(),
           })
-            .then((outcome) => {
+            .then(async (outcome) => {
               if (activeChatTurnIdRef.current !== turnId) return
               switch (outcome.status) {
                 case 'terminal_error':
-                  patchAssistantMessage(outcome.patch)
-                  return
-                case 'miss':
+                case 'miss': {
+                  // Self-healing last resort. Titan runs the Claude turn on an
+                  // internal timeout (not the inbound request signal), so it
+                  // finishes and PERSISTS the answer even when the stream +
+                  // /chat connections both died ~100ms in (the staging
+                  // client/edge disconnect). Poll conversation history for that
+                  // persisted answer before surfacing a dead "verbinding
+                  // verbroken" — the answer simply landed a few seconds late.
+                  const persisted = await pollHistoryForPersistedAnswer({
+                    loadHistory: aiChatService.loadHistory.bind(aiChatService),
+                    reportId: manualChatReportId || resolvedReportId || reportId || '',
+                    userContent: aiRequest.message,
+                    isCancelled: () => activeChatTurnIdRef.current !== turnId,
+                  })
+                  if (activeChatTurnIdRef.current !== turnId) return
+                  if (persisted) {
+                    hasReceivedAnyContent = true
+                    patchAssistantMessage({ content: persisted.content })
+                    return
+                  }
                   patchAssistantMessage(
-                    buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
+                    outcome.status === 'terminal_error'
+                      ? outcome.patch
+                      : buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
                   )
                   return
+                }
                 case 'recovered': {
                   const nextConversationId = resolveReturnedConversationIdUpdate(
                     conversationId,
