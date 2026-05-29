@@ -95,6 +95,26 @@ describe('pollHistoryForPersistedAnswer', () => {
     expect(loadHistory).toHaveBeenCalledTimes(2)
   })
 
+  it('uses a snappy first poll then the steady interval', async () => {
+    const delays: number[] = []
+    const loadHistory = vi.fn().mockResolvedValue({ messages: [] })
+
+    await pollHistoryForPersistedAnswer({
+      loadHistory,
+      reportId: 'report-1',
+      userContent: 'vraag',
+      attempts: 3,
+      delayMs: 2500,
+      firstDelayMs: 1000,
+      sleep: (ms) => {
+        delays.push(ms)
+        return Promise.resolve()
+      },
+    })
+
+    expect(delays).toEqual([1000, 2500, 2500])
+  })
+
   it('returns null after attempts are exhausted', async () => {
     const loadHistory = vi
       .fn()

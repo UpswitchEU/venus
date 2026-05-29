@@ -75,8 +75,10 @@ export interface PollHistoryForPersistedAnswerParams {
   isCancelled?: () => boolean
   /** Number of history fetches. Spans Claude's typical first-to-final latency. */
   attempts?: number
-  /** Delay before each fetch; the first fetch waits one delay so Titan can persist. */
+  /** Steady delay between fetches after the first. */
   delayMs?: number
+  /** Snappy first delay — catches a fast answer in ~1s without a long wait. */
+  firstDelayMs?: number
   /** Injectable for tests. */
   sleep?: (ms: number) => Promise<void>
 }
@@ -95,13 +97,17 @@ export async function pollHistoryForPersistedAnswer({
   userContent,
   isCancelled,
   attempts = 8,
-  delayMs = 3000,
+  delayMs = 2500,
+  firstDelayMs = 1200,
   sleep = defaultSleep,
 }: PollHistoryForPersistedAnswerParams): Promise<PersistedAnswerRecovery | null> {
   if (!reportId || userContent.trim().length === 0) return null
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await sleep(delayMs)
+    // Snappy first poll, then a steady interval. Stops on the first hit, so the
+    // common (recoverable) turn resolves in 2-3 polls; only genuine failures
+    // walk the full window (~19s) before giving up.
+    await sleep(attempt === 0 ? firstDelayMs : delayMs)
     if (isCancelled?.()) return null
 
     let messages: PersistedHistoryMessage[] = []
