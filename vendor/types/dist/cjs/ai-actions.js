@@ -23,6 +23,7 @@ exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     propose_integration_sync: 'integration_sync_request',
     propose_owner_reminder: 'owner_reminder_request',
     propose_owner_invite_accountant: 'owner_invite_accountant_request',
+    propose_client_owner_invite: 'client_owner_invite_request',
     propose_listing_visibility: 'listing_visibility_request',
     propose_listing_field_update: 'listing_field_update_request',
     propose_share_token: 'share_token_request',
@@ -63,9 +64,7 @@ exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     propose_package_publish: 'package_publish_request',
     request_lawyer_handoff: 'lawyer_handoff_request',
     // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
-    // as an inline CompanyNameInput widget; Venus intentionally ignores it
-    // (Venus is the wizard surface, not the dock). Listed here so the contract
-    // hash matches and the verify:ai-tool-result-contracts gate stays green.
+    // as an inline CompanyNameInput widget; Venus intentionally ignores it.
     advisor_add_client_widget: 'add_client_widget',
 };
 exports.AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
@@ -81,6 +80,7 @@ exports.AI_ACTION_TOOL_RESULT_TYPES = [
     'integration_sync_request',
     'owner_reminder_request',
     'owner_invite_accountant_request',
+    'client_owner_invite_request',
     'listing_visibility_request',
     'listing_field_update_request',
     'share_token_request',
@@ -134,6 +134,10 @@ exports.AI_STREAM_CHUNK_TYPES = [
     // hide behind the keepalive and skip the user-facing empty-stream
     // fallback. See `AI_STREAM_KEEPALIVE_CHUNK_JSON` for the wire literal.
     '_keepalive',
+    // BFF-only meta chunk — emitted by Mercury/Venus chat BFF when the
+    // streaming route falls back to non-streaming sync. The FE uses this to
+    // dedupe duplicate client-side recovery. Not produced by Titan.
+    'stream_recovery',
 ];
 /**
  * Exact SSE `data:` payload for a keepalive frame. Pinned as a literal so
