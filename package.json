@@ -115,7 +115,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/eventsource": "^1.1.15",
     "@types/minimatch": "^5.1.2",
-    "@types/node": "^24.3.0",
+    "@types/node": "^25.9.1",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@upswitch/platform-scripts": "file:./vendor/platform-scripts",
