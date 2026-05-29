@@ -92,8 +92,8 @@
     "pino": "^10.0.0",
     "pino-pretty": "^13.1.2",
     "posthog-js": "^1.374.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "react-dropzone": "^14.2.3",
     "react-hot-toast": "^2.4.1",
     "react-markdown": "^10.1.0",
@@ -116,7 +116,7 @@
     "@types/eventsource": "^1.1.15",
     "@types/minimatch": "^5.1.2",
     "@types/node": "^24.3.0",
-    "@types/react": "^18.2.0",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^18.2.0",
     "@upswitch/platform-scripts": "file:./vendor/platform-scripts",
     "@vitejs/plugin-react": "^5.1.2",
@@ -166,7 +166,7 @@
     }
   },
   "resolutions": {
-    "@types/react": "^18.2.0",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^18.2.0"
   }
 }
