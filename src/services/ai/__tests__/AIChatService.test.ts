@@ -79,6 +79,27 @@ describe('AIChatService', () => {
     expect(body.locale).toBe('nl')
   })
 
+  it('forwards surfaceIntent on non-streaming AI BFF requests', async () => {
+    await aiChatService.sendMessage({
+      message: 'Voeg een nieuwe klant toe',
+      locale: 'nl',
+      stream: false,
+      audience: 'advisor',
+      surfaceIntent: 'add_client',
+    })
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body).toMatchObject({
+      audience: 'advisor',
+      surfaceIntent: 'add_client',
+      stream: false,
+    })
+  })
+
   it('forwards a correlation id on every AI BFF request', async () => {
     await aiChatService.sendMessage({
       message: 'Leg de waarde uit',
@@ -97,12 +118,14 @@ describe('AIChatService', () => {
   it('routes stream_recovery meta chunks to onBffStreamRecovery during streaming', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        streamResponse([
-          'data: {"type":"stream_recovery","source":"bff-fallback-failed"}\n\n',
-          'data: {"type":"error","error":"AI stream fallback failed"}\n\n',
-        ])
-      )
+      vi
+        .fn()
+        .mockResolvedValue(
+          streamResponse([
+            'data: {"type":"stream_recovery","source":"bff-fallback-failed"}\n\n',
+            'data: {"type":"error","error":"AI stream fallback failed"}\n\n',
+          ])
+        )
     )
 
     const onBffStreamRecovery = vi.fn()
@@ -122,12 +145,41 @@ describe('AIChatService', () => {
     expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
   })
 
+  it('forwards surfaceIntent on streaming AI BFF requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse(['data: {"type":"done"}\n\n'])))
+
+    await withTimeout(
+      new Promise<void>((resolve) => {
+        aiChatService.streamMessage(
+          {
+            message: 'Zoek Colruyt op',
+            locale: 'nl',
+            audience: 'advisor',
+            surfaceIntent: 'kbo_lookup',
+          },
+          {
+            onDone: () => resolve(),
+          }
+        )
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+    expect(body).toMatchObject({
+      audience: 'advisor',
+      surfaceIntent: 'kbo_lookup',
+      stream: true,
+    })
+  })
+
   it('does not treat _keepalive as visible stream content', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        streamResponse(['data: {"type":"_keepalive"}\n\n'])
-      )
+      vi.fn().mockResolvedValue(streamResponse(['data: {"type":"_keepalive"}\n\n']))
     )
 
     const onText = vi.fn()
@@ -207,14 +259,16 @@ describe('AIChatService', () => {
   it('completes on the wire when BFF recovers an announcement-only incomplete stream', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValueOnce(
-        streamResponse([
-          'data: {"type":"text","content":"Even kijken in het KBO-register voor Decostere…"}\n\n',
-          'data: {"type":"stream_recovery","source":"bff-fallback"}\n\n',
-          'data: {"type":"text","content":"KBO match gevonden"}\n\n',
-          'data: {"type":"done","conversationId":"conv-bff-recovered"}\n\n',
-        ])
-      )
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          streamResponse([
+            'data: {"type":"text","content":"Even kijken in het KBO-register voor Decostere…"}\n\n',
+            'data: {"type":"stream_recovery","source":"bff-fallback"}\n\n',
+            'data: {"type":"text","content":"KBO match gevonden"}\n\n',
+            'data: {"type":"done","conversationId":"conv-bff-recovered"}\n\n',
+          ])
+        )
     )
 
     const onBffStreamRecovery = vi.fn()

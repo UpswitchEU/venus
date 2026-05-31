@@ -221,6 +221,18 @@ describe('manualChatRequestContext', () => {
     })
     expect(explain.assistantIntent).toBe('explain_ebitda')
 
+    const explainValuation = buildManualAIChatRequest({
+      message: 'Explain the valuation',
+      reportId: 'report-1',
+      currentLocale: 'en',
+      collectedData: { companyName: 'Acme' },
+      latestFormData: {},
+      normalizationItems: [],
+      chatMessages: [],
+      versionCount: 0,
+    })
+    expect(explainValuation.assistantIntent).toBe('explain_value')
+
     const overridden = buildManualAIChatRequest({
       message: 'Normaliseer eigenaarssalaris naar €60k',
       reportId: 'report-1',

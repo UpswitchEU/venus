@@ -36,7 +36,8 @@ type ValuationSummary = {
 
 const EXPLAIN_EBITDA_RE =
   /verklaar.*ebitda|explain.*ebitda|ebitda.*uitleg|uitleg.*ebitda|leg.*ebitda.*uit|verdedigbaarheid|defensibility/i
-const EXPLAIN_VALUE_RE = /leg.*waarde.*uit|explain.*value|wat.*waard|what.*worth|waarde.*uitleg/i
+const EXPLAIN_VALUE_RE =
+  /leg.*waard(?:e|ering|ebepaling).*uit|explain.*(?:value|valuation)|wat.*waard|what.*worth|waard(?:e|ering|ebepaling).*uitleg/i
 const SUGGEST_NORMS_RE = /normalis|stel.*voor|which norm/i
 
 export function detectAssistantIntent(message: string): AssistantIntent {

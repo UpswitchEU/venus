@@ -857,6 +857,28 @@ describe('buildValuationRequest', () => {
     expect(result.recurring_revenue_percentage).toBe(0.65)
   })
 
+  it('passes raw revenue-quality amounts through business_context', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        recurring_revenue_percentage: undefined,
+        revenue: 1_000_000,
+        rev_recurring_amount: 400_000,
+        rev_top_client_amount: 150_000,
+        rev_contract_backlog: 250_000,
+      }),
+      []
+    )
+
+    expect(result.recurring_revenue_percentage).toBe(0.4)
+    expect(result.business_context).toMatchObject({
+      rev_recurring_amount: 400_000,
+      rev_recurring_pct: 40,
+      rev_top_client_amount: 150_000,
+      rev_top_client_concentration_pct: 15,
+      rev_contract_backlog: 250_000,
+    })
+  })
+
   it('forwards owner_salary_addback on the valuation request for SDE', () => {
     const result = buildValuationRequest(makeFormData({ owner_salary_addback: 85_000 }), [])
     expect(result.owner_salary_addback).toBe(85_000)

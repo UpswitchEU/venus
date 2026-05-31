@@ -796,6 +796,53 @@ describe('response shape', () => {
     )
   })
 
+  it('preserves valuation report context when BFF stream fallback retries non-streaming chat', async () => {
+    const valuationReportId = '48d52144-1fa9-44e7-b077-8dc22310c2ac'
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(titanEmptyStreamResponse())
+      .mockResolvedValueOnce(
+        titanJsonResponse(200, {
+          success: true,
+          conversationId: 'conv-fallback',
+          content: 'De waardering bedraagt €560K.',
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(
+      request({
+        message: 'Leg de waarde uit',
+        sessionId: 'client_client-123',
+        reportId: valuationReportId,
+        companyName: 'Bakkerij Klaas',
+        formData: { revenue: 1000000, ebitda: 100000, industry: 'bakery' },
+        normalizations: [{ category: 'owner_salary', status: 'accepted' }],
+        audience: 'advisor',
+        assistantIntent: 'explain_value',
+      })
+    )
+    const text = await res.text()
+
+    expect(text).toContain('De waardering bedraagt €560K.')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const fallbackInit = fetchMock.mock.calls[1]?.[1] as
+      | { headers?: Record<string, string>; body?: string }
+      | undefined
+    const fallbackBody = JSON.parse(fallbackInit?.body ?? '{}')
+    expect(fallbackInit?.headers?.['X-Ai-Stream-Recovery']).toBe('1')
+    expect(fallbackBody.context).toMatchObject({
+      sessionId: 'client_client-123',
+      reportId: valuationReportId,
+      companyName: 'Bakkerij Klaas',
+      assistantIntent: 'explain_value',
+      industry: 'bakery',
+    })
+    expect(fallbackBody.formData).toMatchObject({ revenue: 1000000, ebitda: 100000 })
+    expect(fallbackBody.normalizations).toEqual([{ category: 'owner_salary', status: 'accepted' }])
+    expect(fallbackBody.audience).toBe('advisor')
+  })
+
   it('retries non-streaming chat when upstream SSE only contained keepalive frames', async () => {
     const fetchMock = vi
       .fn()

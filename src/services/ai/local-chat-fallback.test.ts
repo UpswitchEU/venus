@@ -21,6 +21,8 @@ describe('detectAssistantIntent', () => {
   it('detects explain EBITDA quicklink text', () => {
     expect(detectAssistantIntent('Verklaar deze EBITDA')).toBe('explain_ebitda')
     expect(detectAssistantIntent('Leg de waarde uit')).toBe('explain_value')
+    expect(detectAssistantIntent('Leg de waardering uit')).toBe('explain_value')
+    expect(detectAssistantIntent('Explain the valuation')).toBe('explain_value')
   })
 })
 

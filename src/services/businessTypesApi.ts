@@ -181,7 +181,7 @@ export interface BusinessTypeBenchmarksResponse extends Record<string, unknown> 
   year?: string | number
 }
 
-/** Titan caps `limit` at 200 per request — one call loads the full ~168-type catalog. */
+/** Titan caps `limit` at 200 per request — one call loads the full active catalog. */
 const BUSINESS_TYPES_PAGE_LIMIT = 200
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -482,7 +482,7 @@ class BusinessTypesApiService {
               '[BusinessTypesAPI] Cached data appears incomplete, clearing cache',
               {
                 cachedCount: cachedData.businessTypes.length,
-                expected: '168+',
+                expected: '100+ fresh catalog entries',
               }
             )
             businessTypesCache.clearBusinessTypes()

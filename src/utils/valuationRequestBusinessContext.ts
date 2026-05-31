@@ -66,10 +66,7 @@ export function buildValuationBusinessContext({
     adaptiveFields.dcf_tax_shield_source = resolvedDcfInputSource
     adaptiveFields.dcf_bridge_policy = 'apv_tax_shield_inside_dcf'
     adaptiveFields.dcf_double_counting_guard = true
-    if (
-      fd.dcf_input_mode === 'fcff_only' &&
-      fd.dcf_discounting_convention === 'year_end'
-    ) {
+    if (fd.dcf_input_mode === 'fcff_only' && fd.dcf_discounting_convention === 'year_end') {
       adaptiveFields.dcf_benchmark_case = 'henk_customer_dcf_template'
     }
   }
@@ -169,6 +166,9 @@ export function buildValuationBusinessContext({
     'saas_sm_spend',
   ])
 
+  if (fd.rev_recurring_amount != null && Number.isFinite(fd.rev_recurring_amount)) {
+    adaptiveFields.rev_recurring_amount = fd.rev_recurring_amount
+  }
   if (
     fd.rev_recurring_amount != null &&
     Number.isFinite(fd.rev_recurring_amount) &&
@@ -181,6 +181,9 @@ export function buildValuationBusinessContext({
     )
   } else if (fd.rev_recurring_pct != null && Number.isFinite(fd.rev_recurring_pct)) {
     adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
+  }
+  if (fd.rev_top_client_amount != null && Number.isFinite(fd.rev_top_client_amount)) {
+    adaptiveFields.rev_top_client_amount = fd.rev_top_client_amount
   }
   if (
     fd.rev_top_client_amount != null &&
