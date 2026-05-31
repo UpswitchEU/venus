@@ -2,6 +2,7 @@ import { Building2 } from 'lucide-react'
 import { categoryIcons } from '@/design-system/components/entity-search/BusinessTypeData'
 import type { BusinessType as EntitySearchBusinessType } from '@/design-system/components/entity-search/EntitySearchTypes'
 import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { businessTypeCategoryStrings } from './businessTypeCategory'
 
 type ApiBusinessTypeForEntitySearch = Pick<ApiBusinessType, 'id' | 'title'> &
@@ -54,9 +55,10 @@ export function mapApiBusinessTypeForEntitySearch(
   bt: ApiBusinessTypeForEntitySearch
 ): EntitySearchBusinessType {
   const category = resolveBusinessTypeSearchCategory(bt.category, bt.category_id)
+  const id = normalizeBusinessTypeId(bt.id) ?? bt.id
   return {
-    id: bt.id,
-    code: bt.industryMapping || bt.id,
+    id,
+    code: normalizeBusinessTypeId(bt.industryMapping) ?? bt.industryMapping ?? id,
     name: bt.title,
     category,
     icon: categoryIcons[category] ?? categoryIcons.other ?? Building2,

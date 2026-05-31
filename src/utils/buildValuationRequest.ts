@@ -14,6 +14,7 @@ import type { DataResponse } from '../types/data-collection'
 import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaNormalization'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
@@ -310,14 +311,15 @@ export function buildValuationRequest(
   // by BasicInformationSection.tsx, but we ensure it's not empty here
   let industry = formData.industry
   let businessModel = formData.business_model
+  const businessTypeId = normalizeBusinessTypeId(formData.business_type_id)
 
   // If industry is missing but business_type_id is present, log warning
   // (industry should have been set when business type was selected)
-  if (!industry && formData.business_type_id) {
+  if (!industry && businessTypeId) {
     generalLogger.warn(
       '[buildValuationRequest] Industry missing despite business_type_id being set',
       {
-        business_type_id: formData.business_type_id,
+        business_type_id: businessTypeId,
       }
     )
   }
@@ -956,7 +958,7 @@ export function buildValuationRequest(
     projection_years: projectionYears,
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
-    business_type_id: formData.business_type_id,
+    ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,

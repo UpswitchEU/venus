@@ -16,6 +16,7 @@
 
 import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
 import type { ValuationRequest } from '../types/valuation'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { getCurrentFilingYear } from './fiscalYear'
 import { getMercuryUrl } from './getMercuryUrl'
@@ -80,8 +81,11 @@ export function buildStartupValuationRequest({
 }: BuildStartupValuationRequestOptions): ValuationRequest {
   const cleanCompanyName = (companyName || 'Unknown Startup').trim() || 'Unknown Startup'
   const cleanCountry = coerceIso2OrNull(countryCode) ?? 'BE'
+  const normalizedBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
   const cleanBusinessTypeId =
-    businessTypeId && !isLegalFormBusinessTypeValue(businessTypeId) ? businessTypeId : undefined
+    normalizedBusinessTypeId && !isLegalFormBusinessTypeValue(normalizedBusinessTypeId)
+      ? normalizedBusinessTypeId
+      : undefined
   const filingYear = getCurrentFilingYear()
   const cleanFoundingYear = (() => {
     const year = Number(foundingYear)

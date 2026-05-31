@@ -11,6 +11,7 @@ import { useBusinessTypes } from '../../../hooks/useBusinessTypes'
 import { registryService } from '../../../services/registry/registryService'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import type { ManualValuationFormData as ValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapApiBusinessTypeForEntitySearch } from '../../../utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { pickLegalFormFromRegistryHit } from '../../../utils/registryUtils'
@@ -172,16 +173,21 @@ export function useManualCompanyIdentificationController({
 
   const handleBusinessTypeSelect = useCallback(
     (value: string, businessType?: BusinessType) => {
-      setSelectedBusinessType(businessType || null)
+      const normalizedValue = normalizeBusinessTypeId(value)
+      const normalizedBusinessType =
+        businessType && normalizedValue && normalizedValue !== businessType.id
+          ? { ...businessType, id: normalizedValue }
+          : businessType
+      setSelectedBusinessType(normalizedBusinessType || null)
       clearNacePrefillError()
       setFormData((prev) => ({
         ...prev,
-        businessType: value,
-        businessTypeCode: businessType ? businessType.code : '',
-        industry: businessType ? businessType.category : '',
+        businessType: normalizedValue ?? '',
+        businessTypeCode: normalizedBusinessType ? normalizedBusinessType.code : '',
+        industry: normalizedBusinessType ? normalizedBusinessType.category : '',
       }))
-      if (businessType) {
-        updateFormData({ business_type_id: value, industry: businessType.category })
+      if (normalizedBusinessType && normalizedValue) {
+        updateFormData({ business_type_id: normalizedValue, industry: normalizedBusinessType.category })
       } else {
         updateFormData({ business_type_id: undefined, industry: undefined })
       }
@@ -257,7 +263,7 @@ function mapRegistryResultToKboCompany(
   const displayActivity = activity && canonical && activity !== canonical ? activity : undefined
   const btIdRaw = raw['business_type_id']
   const btTitleRaw = raw['business_type_title']
-  const businessTypeId = typeof btIdRaw === 'string' && btIdRaw.trim() ? btIdRaw.trim() : undefined
+  const businessTypeId = normalizeBusinessTypeId(btIdRaw)
   const businessTypeTitle =
     typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
 

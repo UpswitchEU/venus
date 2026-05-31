@@ -3,6 +3,7 @@ import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, use
 import type { BusinessType, KBOCompany } from '@/design-system'
 import { naceBusinessTypeService } from '../../../services/naceBusinessTypeService'
 import type { ManualValuationFormData as ValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 
 type StoreFormPatch = Record<string, unknown>
 
@@ -91,17 +92,18 @@ export function useManualNaceBusinessTypePrefill({
       .then((type) => {
         if (controller.signal.aborted) return
         if (type) {
-          setSelectedBusinessType((prev) => prev ?? type)
+          const mapped = normalizeBusinessTypeForForm(type)
+          setSelectedBusinessType((prev) => prev ?? mapped)
           setFormData((prev) => {
             if (prev.businessType?.trim()) return prev
             return {
               ...prev,
-              businessType: type.id,
-              businessTypeCode: type.code || prev.businessTypeCode,
-              industry: type.category || prev.industry,
+              businessType: mapped.id,
+              businessTypeCode: mapped.code || prev.businessTypeCode,
+              industry: mapped.category || prev.industry,
             }
           })
-          updateFormData({ business_type_id: type.id, industry: type.category })
+          updateFormData({ business_type_id: mapped.id, industry: mapped.category })
           setNacePrefillError(null)
         } else {
           setNacePrefillError(localizeActivityCodeCopy(translate('errors.noBusinessTypeForNace')))
@@ -174,8 +176,10 @@ export function useManualNaceBusinessTypePrefill({
         )
         if (controller.signal.aborted) return
         if (type) {
+          const normalizedType = normalizeBusinessTypeForForm(type)
           const mapped =
-            businessTypesForSearch.find((candidate) => candidate.id === type.id) ?? type
+            businessTypesForSearch.find((candidate) => candidate.id === normalizedType.id) ??
+            normalizedType
           applyBusinessType(
             mapped,
             baseUpdates,
@@ -221,7 +225,7 @@ function resolveSeededBusinessType(
   company: KBOCompany,
   businessTypesForSearch: BusinessType[]
 ): BusinessType | null {
-  const seededBtId = company.businessTypeId?.trim()
+  const seededBtId = normalizeBusinessTypeId(company.businessTypeId)
   if (!seededBtId) return null
   return (
     businessTypesForSearch.find((type) => type.id === seededBtId) ??
@@ -244,15 +248,23 @@ function applyBusinessType(
   setSelectedBusinessType: Dispatch<SetStateAction<BusinessType | null>>,
   updateFormData: (patch: StoreFormPatch) => void
 ) {
-  setSelectedBusinessType(businessType)
+  const mapped = normalizeBusinessTypeForForm(businessType)
+  setSelectedBusinessType(mapped)
   setFormData((prev) => ({
     ...prev,
     ...baseUpdates,
-    businessType: businessType.id,
-    businessTypeCode: businessType.code || businessType.id,
-    industry: businessType.category || 'services',
+    businessType: mapped.id,
+    businessTypeCode: mapped.code || mapped.id,
+    industry: mapped.category || 'services',
   }))
-  updateFormData({ business_type_id: businessType.id, industry: businessType.category })
+  updateFormData({ business_type_id: mapped.id, industry: mapped.category })
+}
+
+function normalizeBusinessTypeForForm(businessType: BusinessType): BusinessType {
+  const id = normalizeBusinessTypeId(businessType.id) ?? businessType.id
+  const code = normalizeBusinessTypeId(businessType.code) ?? businessType.code
+  if (id === businessType.id && code === businessType.code) return businessType
+  return { ...businessType, id, code }
 }
 
 function toNacePrefillError(

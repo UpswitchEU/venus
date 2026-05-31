@@ -53,6 +53,7 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { parseFoundingYear, parseRoundSize } from './useStartupPrefill.helpers'
 import { markStartupPrefilled } from './useStartupPrefilledKeys'
 
@@ -158,9 +159,10 @@ export function useStartupPrefill(): void {
     // surface; they are not enrichment ids and must not block the KBO/NACE id.
     const incomingBtIdCandidate =
       pf.businessType?.id || kbo?.businessTypeId || company?.businessTypeId
+    const normalizedIncomingBtId = normalizeBusinessTypeId(incomingBtIdCandidate)
     const incomingBtId =
-      incomingBtIdCandidate && !isLegalFormBusinessTypeValue(incomingBtIdCandidate)
-        ? incomingBtIdCandidate
+      normalizedIncomingBtId && !isLegalFormBusinessTypeValue(normalizedIncomingBtId)
+        ? normalizedIncomingBtId
         : undefined
     const currentBusinessTypeId =
       typeof currentForm.business_type_id === 'string' ? currentForm.business_type_id : ''

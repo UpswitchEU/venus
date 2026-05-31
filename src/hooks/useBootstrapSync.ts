@@ -38,6 +38,7 @@ import {
 } from '../utils/newValuationPrefillStorage'
 import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 
 const logger = createContextLogger('BootstrapSync')
 
@@ -207,9 +208,10 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
     fields.activity_label = prefillData.companyInfo.activityLabel
   else if (prefillData.kboData?.activityLabel)
     fields.activity_label = prefillData.kboData.activityLabel
-  if (prefillData.businessType?.id) fields.business_type_id = prefillData.businessType.id
+  if (prefillData.businessType?.id)
+    fields.business_type_id = normalizeBusinessTypeId(prefillData.businessType.id)
   else if (prefillData.companyInfo?.businessTypeId)
-    fields.business_type_id = prefillData.companyInfo.businessTypeId
+    fields.business_type_id = normalizeBusinessTypeId(prefillData.companyInfo.businessTypeId)
   if (prefillData.businessType?.industry) fields.industry = prefillData.businessType.industry
   if (prefillData.businessType?.category) fields.subIndustry = prefillData.businessType.category
   if (prefillData.financials?.revenue !== undefined) fields.revenue = prefillData.financials.revenue

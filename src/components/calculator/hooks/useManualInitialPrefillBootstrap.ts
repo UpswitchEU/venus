@@ -13,6 +13,7 @@ import {
   buildManualPrefillCompany,
   type ManualInitialPrefillData,
 } from '../utils/manualInputPrefill'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 
 type StoreFormPatch = Record<string, unknown>
 
@@ -62,13 +63,14 @@ export function useManualInitialPrefillBootstrap({
         )
         if (!isCurrent()) return
         if (resolved?.id) {
-          businessTypeToApply = resolved.id
+          businessTypeToApply = normalizeBusinessTypeId(resolved.id) ?? resolved.id
           industryToApply = resolved.category || initialPrefill.industry
-          updateFormData({ business_type_id: resolved.id, industry: industryToApply })
+          updateFormData({ business_type_id: businessTypeToApply, industry: industryToApply })
         } else {
           businessTypeToApply = ''
         }
       }
+      businessTypeToApply = normalizeBusinessTypeId(businessTypeToApply) ?? businessTypeToApply
       if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
         businessTypeToApply = ''
       }
@@ -139,7 +141,7 @@ export function useManualInitialPrefillBootstrap({
         prefillCompanyRef.current = { name, kbo: initialPrefill.kboNumber || '' }
       }
       return buildManualPrefillCompany({
-        businessTypeToApply: initialPrefill.businessType,
+        businessTypeToApply: normalizeBusinessTypeId(initialPrefill.businessType),
         companyName: name,
         prefill: initialPrefill,
       })

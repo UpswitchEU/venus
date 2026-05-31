@@ -54,6 +54,7 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { mapApiBusinessTypeForEntitySearch } from '@/utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PrefillBadge } from './PrefillBadge'
@@ -385,8 +386,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           activity && canonical && activity !== canonical ? activity : undefined
         const btIdRaw = raw.business_type_id
         const btTitleRaw = raw.business_type_title
-        const businessTypeId =
-          typeof btIdRaw === 'string' && btIdRaw.trim() ? btIdRaw.trim() : undefined
+        const businessTypeId = normalizeBusinessTypeId(btIdRaw)
         const businessTypeTitle =
           typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
         // Founding year — prefer the explicit numeric field, fall back
@@ -461,9 +461,10 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         nace_code: canonical || undefined,
         nace_description: company.naceDescription || undefined,
       }
-      if (company.businessTypeId) {
-        const mapped = businessTypesForSearch.find((bt) => bt.id === company.businessTypeId)
-        updates.business_type_id = company.businessTypeId
+      const businessTypeId = normalizeBusinessTypeId(company.businessTypeId)
+      if (businessTypeId) {
+        const mapped = businessTypesForSearch.find((bt) => bt.id === businessTypeId)
+        updates.business_type_id = businessTypeId
         if (mapped) {
           updates.industry = mapped.category
         }
@@ -529,8 +530,9 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
   const handleBusinessTypeSelect = useCallback(
     (value: string, businessType?: BusinessType) => {
+      const businessTypeId = normalizeBusinessTypeId(value)
       updateFormData({
-        business_type_id: value,
+        business_type_id: businessTypeId,
         industry: businessType?.category,
       } as Record<string, unknown>)
     },

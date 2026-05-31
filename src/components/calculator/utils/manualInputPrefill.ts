@@ -1,5 +1,6 @@
 import type { KBOCompany } from '@/design-system'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { hasMeaningfulYearlyFinancials } from './manualFinancialSeeds'
 
@@ -28,8 +29,9 @@ export function buildManualInitialPrefillData(
   return {
     address: initialData.address,
     businessStructure: initialData.businessStructure,
-    businessType: initialData.businessType,
-    businessTypeCode: initialData.businessTypeCode,
+    businessType: normalizeBusinessTypeId(initialData.businessType),
+    businessTypeCode:
+      normalizeBusinessTypeId(initialData.businessTypeCode) ?? initialData.businessTypeCode,
     canonicalNaceCode: initialData.canonicalNaceCode,
     companyName: initialData.companyName,
     country: initialData.country,

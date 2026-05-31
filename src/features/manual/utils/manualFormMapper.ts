@@ -1,4 +1,5 @@
 import type { ManualValuationFormData, ValuationFormData as VenusFormData } from '@/types/valuation'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { coerceIso2OrNull } from '@/utils/coerceIso2Country'
 import {
   getCurrentFilingYear,
@@ -75,6 +76,7 @@ export function mapClarityFormToVenusStore(
     (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
     (typeof data.naceCode === 'string' && data.naceCode.trim()) ||
     ''
+  const businessTypeId = normalizeBusinessTypeId(data.businessType || data.businessTypeCode)
   const displayNace = typeof data.naceCode === 'string' ? data.naceCode.trim() : ''
   const activityPresentation =
     canonicalNace && displayNace && displayNace !== canonicalNace ? displayNace : ''
@@ -166,9 +168,7 @@ export function mapClarityFormToVenusStore(
           activity_code: (activityPresentation || undefined) as VenusFormData['activity_code'],
         }
       : {}),
-    ...((data.businessType || data.businessTypeCode) && {
-      business_type_id: data.businessType || data.businessTypeCode,
-    }),
+    ...(businessTypeId && { business_type_id: businessTypeId }),
     ...(data.dcf_revenue_growth_pct != null && {
       dcf_revenue_growth_pct: data.dcf_revenue_growth_pct,
     }),

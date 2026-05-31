@@ -39,6 +39,7 @@ import {
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import {
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
@@ -759,9 +760,10 @@ function applyPrefillToForm(
   // 4. Apply business type — use buildBusinessTypeFormData so all downstream fields
   // (business_model, _internal_dcf_preference, etc.) are set consistently.
   if (businessType?.id) {
+    const businessTypeId = normalizeBusinessTypeId(businessType.id) ?? businessType.id
     const btFormData = buildBusinessTypeFormData(
       {
-        id: businessType.id,
+        id: businessTypeId,
         // industryMapping is required by BusinessType interface; fall back to industry or category
         industryMapping: businessType.industry || businessType.category || 'services',
         industry: businessType.industry,
@@ -774,7 +776,7 @@ function applyPrefillToForm(
     Object.assign(allData, btFormData)
 
     logger.debug('Applied buildBusinessTypeFormData in bootstrap prefill', {
-      business_type_id: businessType.id,
+      business_type_id: businessTypeId,
       industry: allData.industry,
       business_model: allData.business_model,
     })
@@ -823,9 +825,11 @@ function applyPrefillToForm(
     }
 
     const businessTypeId =
-      getRecordString(mergedSession, 'business_type_id') ??
-      getRecordString(mergedSession, 'businessTypeId') ??
-      getRecordString(mergedSession, 'business_type')
+      normalizeBusinessTypeId(
+        getRecordString(mergedSession, 'business_type_id') ??
+          getRecordString(mergedSession, 'businessTypeId') ??
+          getRecordString(mergedSession, 'business_type')
+      )
     if (
       !allData.business_type_id &&
       businessTypeId &&

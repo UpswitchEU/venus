@@ -8,6 +8,7 @@
 
 import { Building2 } from 'lucide-react'
 import type { BusinessType } from '@/design-system/components/EntitySearch'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 
 /** NACE-BEL pattern: division/group/class/subclass, compact or dotted (e.g. 84, 6201, 56.101, 62.01). */
 export function looksLikeNaceCode(value: string): boolean {
@@ -128,10 +129,11 @@ function parseBusinessTypePayload(value: unknown): TitanBusinessTypeResponse | n
 
 function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
   const category = bt.category_id ? categoryMap[bt.category_id] || bt.category_id : 'other'
+  const id = normalizeBusinessTypeId(bt.id) ?? bt.id
 
   return {
-    id: bt.id,
-    code: bt.code || '',
+    id,
+    code: normalizeBusinessTypeId(bt.code) ?? bt.code ?? '',
     name: bt.title,
     category,
     description: bt.description,
