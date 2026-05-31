@@ -69,4 +69,40 @@ describe('useManualInputFormDataSync', () => {
       owner_role: 'working',
     })
   })
+
+  it('keeps the live submit ref on the latest complete financial year, not a newer placeholder', () => {
+    const latestCompleteYearlyFinancial: YearlyFinancials = {
+      year: '2024',
+      revenue: 900_000,
+      ebitda: 90_000,
+    }
+    const formData = {
+      companyName: 'Upswitch',
+      businessType: 'fintech-lending-credit',
+      country: 'BE',
+      ownerManagers: 1,
+      fteEmployees: 5,
+      current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+      yearlyFinancials: [
+        { year: '2025', revenue: 0, ebitda: 0 },
+        latestCompleteYearlyFinancial,
+        { year: '2023', revenue: 800_000, ebitda: 80_000 },
+      ],
+    } as ManualValuationFormData
+    const formDataRef = { current: {} as Record<string, unknown> }
+
+    renderHook(() =>
+      useManualInputFormDataSync({
+        formData,
+        latestCompleteYearlyFinancial,
+        formDataRef,
+      })
+    )
+
+    expect(formDataRef.current.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 900_000,
+      ebitda: 90_000,
+    })
+  })
 })

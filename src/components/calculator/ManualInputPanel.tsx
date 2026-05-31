@@ -565,7 +565,10 @@ export function ManualInputPanel({
 
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
-  const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
+  const hasBusinessType =
+    !!selectedBusinessType ||
+    formData.businessType.length > 0 ||
+    !!resolvedBusinessTypeIdForBonusSections
   const hasFinancials = !!latestCompleteYearlyFinancial
   const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
   const totalYearsWithEbitda = formData.yearlyFinancials.filter((yf) =>

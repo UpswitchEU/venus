@@ -101,6 +101,7 @@ export function useManualNaceBusinessTypePrefill({
               industry: type.category || prev.industry,
             }
           })
+          updateFormData({ business_type_id: type.id, industry: type.category })
           setNacePrefillError(null)
         } else {
           setNacePrefillError(localizeActivityCodeCopy(translate('errors.noBusinessTypeForNace')))
@@ -128,6 +129,7 @@ export function useManualNaceBusinessTypePrefill({
     setFormData,
     setSelectedBusinessType,
     translate,
+    updateFormData,
   ])
 
   useEffect(() => {

@@ -27,7 +27,19 @@ export const MANUAL_SUBMIT_VALIDATION_TOAST_KEYS = {
 export interface ManualSubmitValidationData {
   companyName?: string | null
   businessType?: string | null
+  businessTypeCode?: string | null
+  businessTypeId?: string | null
+  business_type_id?: string | null
   yearlyFinancials?: YearlyFinancialLike[] | null
+}
+
+function hasResolvedBusinessType(data: ManualSubmitValidationData): boolean {
+  return Boolean(
+    data.businessType?.trim() ||
+      data.businessTypeCode?.trim() ||
+      data.businessTypeId?.trim() ||
+      data.business_type_id?.trim()
+  )
 }
 
 /**
@@ -42,7 +54,7 @@ export function getManualSubmitValidationIssue(
 
   if (isVenturePathMethodKey(effectiveMethod)) return null
 
-  if (!data.businessType?.trim()) return 'businessTypeMissing'
+  if (!hasResolvedBusinessType(data)) return 'businessTypeMissing'
   if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials ?? [])) {
     return 'financialDataIncomplete'
   }

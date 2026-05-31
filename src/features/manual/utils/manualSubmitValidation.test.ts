@@ -30,6 +30,48 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBe('businessTypeMissing')
   })
 
+  it('accepts restored canonical business type ids for SME methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Upswitch',
+          businessType: '',
+          businessTypeId: 'fintech-lending-credit',
+          yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
+  it('accepts restored business type codes for SME methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Upswitch',
+          businessType: '',
+          businessTypeCode: 'fintech-lending-credit',
+          yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
+  it('accepts restored snake_case business type ids for SME methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Upswitch',
+          businessType: '',
+          business_type_id: 'fintech-lending-credit',
+          yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
   it('requires a complete financial year for SME methods', () => {
     expect(
       getManualSubmitValidationIssue(

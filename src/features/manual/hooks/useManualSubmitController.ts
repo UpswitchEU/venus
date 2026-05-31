@@ -168,7 +168,20 @@ export function useManualSubmitController({
       const effectiveMethod =
         useManualResultsStore.getState().preSelectedMethod ??
         useManualResultsStore.getState().selectedMethod
-      const validationIssue = getManualSubmitValidationIssue(data, effectiveMethod)
+      const storeFormDataBeforeSubmit = useManualFormStore.getState().formData
+      const submittedBusinessTypeId =
+        data.business_type_id?.trim() || storeFormDataBeforeSubmit.business_type_id?.trim() || ''
+      const submittedBusinessType =
+        data.businessType?.trim() ||
+        (typeof data.businessTypeCode === 'string' ? data.businessTypeCode.trim() : '') ||
+        submittedBusinessTypeId
+      const validationIssue = getManualSubmitValidationIssue(
+        {
+          ...data,
+          businessTypeId: submittedBusinessTypeId,
+        },
+        effectiveMethod
+      )
       if (validationIssue) {
         const toastKeys = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[validationIssue]
         toast.warning(translate(toastKeys.title), { description: translate(toastKeys.description) })
@@ -184,7 +197,7 @@ export function useManualSubmitController({
 
       setCollectedData({
         companyName: data.companyName,
-        businessType: data.businessType,
+        businessType: submittedBusinessType,
         industry: data.industry,
         businessModel:
           (typeof data.business_model === 'string' && data.business_model) ||

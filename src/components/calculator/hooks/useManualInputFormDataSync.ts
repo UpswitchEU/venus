@@ -21,9 +21,7 @@ export function useManualInputFormDataSync({
   onFormDataChangeRef.current = onFormDataChange
 
   if (formDataRef?.current != null) {
-    const latestHistorical = [...formData.yearlyFinancials]
-      .filter((year) => !year.isForecast)
-      .sort((a, b) => Number(b.year) - Number(a.year))[0]
+    const current = latestCompleteYearlyFinancial
 
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
@@ -32,11 +30,11 @@ export function useManualInputFormDataSync({
       real_estate_market_value: formData.real_estate_market_value,
       real_estate_book_value: formData.real_estate_book_value,
       estimated_market_rent: formData.estimated_market_rent,
-      current_year_data: latestHistorical
+      current_year_data: current
         ? buildCurrentYearData({
-            year: Number.parseInt(latestHistorical.year, 10),
-            revenue: latestHistorical.revenue,
-            ebitda: latestHistorical.ebitda,
+            year: Number.parseInt(current.year, 10),
+            revenue: current.revenue,
+            ebitda: current.ebitda,
             currentYearData: formData.current_year_data,
           })
         : formData.current_year_data,
