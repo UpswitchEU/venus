@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { isYearRowForecast } from '@/utils/yearData'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
@@ -14,6 +15,11 @@ import { AdaptiveSections } from './AdaptiveSections'
 import { AdvisorControlsTrigger, type AdvisorDefaultAppliedField } from './AdvisorControlsTrigger'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
+
+function hasPositiveRevenue(row: { revenue?: unknown }): boolean {
+  const revenue = parseFlexibleNumber(row.revenue)
+  return revenue !== undefined && revenue > 0
+}
 
 interface ManualInputMethodSectionsProps {
   adaptiveHeaderSteps: ManualInputAdaptiveHeaderSteps
@@ -94,13 +100,21 @@ export function ManualInputMethodSections({
   const advisorWeightingYears = useMemo(() => {
     const years = new Set<number>()
     const currentYear = Number(formData.current_year_data?.year ?? historicalCardRows[0]?.year)
-    if (Number.isFinite(currentYear)) years.add(currentYear)
+    const currentYearSource =
+      formData.current_year_data ??
+      historicalCardRows.find((row) => Number(row.year) === currentYear) ??
+      {}
+    if (Number.isFinite(currentYear) && hasPositiveRevenue(currentYearSource)) {
+      years.add(currentYear)
+    }
     for (const yearData of formData.historical_years_data ?? []) {
       const year = Number(yearData.year)
-      if (!isYearRowForecast(yearData) && Number.isFinite(year)) years.add(year)
+      if (!isYearRowForecast(yearData) && Number.isFinite(year) && hasPositiveRevenue(yearData)) {
+        years.add(year)
+      }
     }
     return Array.from(years).sort((a, b) => a - b)
-  }, [formData.current_year_data?.year, formData.historical_years_data, historicalCardRows])
+  }, [formData.current_year_data, formData.historical_years_data, historicalCardRows])
   const sectorAverageMultiple = useMemo(() => {
     const context = formData.business_context as Record<string, unknown> | undefined
     const distribution = context?.ev_ebitda_multiple as Record<string, unknown> | undefined

@@ -24,7 +24,6 @@ import {
 import { parseFlexibleNumber } from './isFiniteNumeric'
 import { generalLogger } from './logger'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
-import { isYearRowForecast } from './yearData'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import {
   applyCapitalHistoryInputs,
@@ -32,7 +31,7 @@ import {
   applyLiquidationInputs,
   applyTaxLatencyBalanceSheetAdjustments,
 } from './valuationRequestSpecialInputs'
-import { deriveNwcChangesForActualYears } from './yearData'
+import { deriveNwcChangesForActualYears, isYearRowForecast } from './yearData'
 
 interface NormYearEntry {
   totalAdjustment: number
@@ -101,7 +100,10 @@ function parsePostalCityFromAddress(value: unknown): {
   const raw = toNonEmptyString(value)
   if (!raw) return { postalCode: null, city: null }
 
-  const normalized = raw.replace(/\s+/g, ' ').replace(/^[,;\s]+|[,;\s]+$/g, '').trim()
+  const normalized = raw
+    .replace(/\s+/g, ' ')
+    .replace(/^[,;\s]+|[,;\s]+$/g, '')
+    .trim()
   const candidates = [
     normalized,
     ...normalized
@@ -120,7 +122,7 @@ function parsePostalCityFromAddress(value: unknown): {
       }
     }
 
-    const fourDigitMatch = candidate.match(/^(\d{4})(?:\s+|[,;\-]+)(.+)$/)
+    const fourDigitMatch = candidate.match(/^(\d{4})(?:\s+|[,;-]+)(.+)$/)
     if (fourDigitMatch) {
       return {
         postalCode: fourDigitMatch[1],
@@ -218,30 +220,9 @@ function pickOptionalYearDataFields(source: unknown): Record<string, number> {
   return result
 }
 
-function hasNormalizationPayload(source: unknown): boolean {
-  if (source === undefined || source === null || typeof source !== 'object') {
-    return false
-  }
-
-  const record = source as Record<string, unknown>
-  return Boolean(record.ebitda_normalized || record.ebitda_normalization_metadata)
-}
-
-function isBlankHistoricalPlaceholderYear(source: YearDataInput, normalization?: NormYearEntry): boolean {
-  if (normalization || hasNormalizationPayload(source)) {
-    return false
-  }
-
+function hasPositiveHistoricalRevenue(source: YearDataInput): boolean {
   const revenue = toFiniteNumber(source.revenue)
-  const ebitda = toFiniteNumber(source.ebitda)
-  const revenueIsBlank = revenue === null || revenue === 0
-  const ebitdaIsBlank = ebitda === null || ebitda === 0
-
-  if (!revenueIsBlank || !ebitdaIsBlank) {
-    return false
-  }
-
-  return Object.values(pickOptionalYearDataFields(source)).every((value) => value === 0)
+  return revenue !== null && revenue > 0
 }
 
 function mapLegacyNormalizationAdjustment(
@@ -590,7 +571,7 @@ export function buildValuationRequest(
           toFiniteNumber(year.ebitda) != null &&
           year.year >= 2000 &&
           year.year <= 2100 &&
-          !isBlankHistoricalPlaceholderYear(year, normByYear[year.year])
+          hasPositiveHistoricalRevenue(year)
       )
       .map((year) => {
         const clampedYear = Math.min(Math.max(year.year, 2000), 2100)

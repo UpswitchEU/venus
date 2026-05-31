@@ -1,10 +1,11 @@
 import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { isYearRowForecast } from '@/utils/yearData'
 
 export interface DcfYearlyFinancialsLike {
   year: string
-  revenue: number
-  ebitda: number
+  revenue: unknown
+  ebitda: unknown
   isForecast?: boolean
   is_forecast?: boolean
 }
@@ -24,7 +25,7 @@ export interface DcfSmartDefaults {
 }
 
 function toFinite(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  return parseFlexibleNumber(value) ?? null
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -104,7 +105,10 @@ export function deriveDcfSmartDefaults(args: {
         ? null
         : { year, revenue, ebitda }
     })
-    .filter((row): row is { year: number; revenue: number; ebitda: number } => row != null)
+    .filter(
+      (row): row is { year: number; revenue: number; ebitda: number } =>
+        row != null && row.revenue > 0
+    )
     .sort((a, b) => a.year - b.year)
 
   if (historical.length === 0) return null

@@ -174,4 +174,74 @@ describe('deriveDcfProjectionPreview', () => {
       })
     ).toEqual([])
   })
+
+  it('ignores snake_case forecast rows when choosing the actual projection base', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [
+        { year: '2024', revenue: 1_000_000, ebitda: 100_000 },
+        { year: '2025', revenue: 999_000, ebitda: 999_000, is_forecast: true },
+      ],
+      revenueGrowthPct: 10,
+      ebitdaMarginPct: 20,
+    })
+
+    expect(rows[0].year).toBe(2025)
+    expect(rows[0].revenue).toBe(1_100_000)
+    expect(rows[0].ebitda).toBe(220_000)
+  })
+
+  it('ignores non-positive actual rows when choosing the projection base', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [
+        { year: '2024', revenue: 900_000, ebitda: 90_000 },
+        { year: '2025', revenue: 0, ebitda: 0 },
+      ],
+      revenueGrowthPct: 10,
+      ebitdaMarginPct: 20,
+      forecastYears: [2025],
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].year).toBe(2025)
+    expect(rows[0].revenue).toBe(990_000)
+    expect(rows[0].ebitda).toBe(198_000)
+  })
+
+  it('accepts persisted numeric strings when deriving projections', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [{ year: '2024', revenue: '900.000', ebitda: '90.000' }],
+      revenueGrowthPct: 10,
+      ebitdaMarginPct: 20,
+      forecastYears: [2025],
+    })
+
+    expect(rows[0].revenue).toBe(990_000)
+    expect(rows[0].ebitda).toBe(198_000)
+  })
+
+  it('applies projected values onto snake_case forecast rows', () => {
+    const result = applyDcfProjectionPreviewToForecastRows(
+      [{ year: '2026', revenue: 0, ebitda: 0, is_forecast: true }],
+      [
+        {
+          year: 2026,
+          revenue: 1_100_000,
+          ebitda: 220_000,
+          da: 33_000,
+          ebit: 187_000,
+          taxes: 46_750,
+          nopat: 140_250,
+          capex: 44_000,
+          nwcChange: 16_500,
+          fcff: 112_750,
+        },
+      ]
+    )
+
+    expect(result[0].revenue).toBe(1_100_000)
+    expect(result[0].ebitda).toBe(220_000)
+    expect(result[0].capex).toBe(44_000)
+    expect(result[0].depreciation).toBe(33_000)
+    expect(result[0].nwc_change).toBe(16_500)
+  })
 })

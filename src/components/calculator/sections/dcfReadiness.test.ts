@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { YearDataInput } from '../../../types/valuation'
 import { deriveDcfReadinessInsight } from './dcfReadiness'
 
 describe('deriveDcfReadinessInsight', () => {
@@ -104,5 +105,59 @@ describe('deriveDcfReadinessInsight', () => {
 
     expect(result.actualYearsCount).toBe(2)
     expect(result.status).toBe('imported_ready')
+  })
+
+  it('excludes non-positive revenue history from readiness counts', () => {
+    const result = deriveDcfReadinessInsight({
+      historicalYearsData: [
+        {
+          year: 2022,
+          revenue: 0,
+          ebitda: 90_000,
+          capex: 30_000,
+          tax_expense: 20_000,
+        },
+        {
+          year: 2023,
+          revenue: 900_000,
+          ebitda: 90_000,
+          capex: 30_000,
+          tax_expense: 20_000,
+          current_assets: 220_000,
+          current_liabilities: 120_000,
+        },
+      ],
+      currentYearData: {
+        year: 2024,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        capex: 35_000,
+        tax_expense: 22_000,
+        current_assets: 260_000,
+        current_liabilities: 150_000,
+      },
+    })
+
+    expect(result.actualYearsCount).toBe(2)
+    expect(result.actualCapexYears).toBe(2)
+  })
+
+  it('accepts numeric string revenue from restored session data', () => {
+    const result = deriveDcfReadinessInsight({
+      historicalYearsData: [
+        {
+          year: 2023,
+          revenue: '900.000',
+          ebitda: 90_000,
+        } as unknown as YearDataInput,
+      ],
+      currentYearData: {
+        year: 2024,
+        revenue: '1.000.000',
+        ebitda: 100_000,
+      } as unknown as YearDataInput,
+    })
+
+    expect(result.actualYearsCount).toBe(2)
   })
 })

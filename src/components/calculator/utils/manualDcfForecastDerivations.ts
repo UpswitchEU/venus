@@ -1,4 +1,6 @@
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+import { isYearRowForecast } from '../../../utils/yearData'
 import type { DcfSmartDefaults } from '../sections/dcfSmartDefaults'
 
 export interface ImportedLedgerAnalysisSummary {
@@ -22,16 +24,14 @@ export function getManualDcfForecastRows(
   sortedYearlyFinancials: YearlyFinancials[]
 ) {
   if (!hasDcfSelected) return []
-  return [...sortedYearlyFinancials.filter((year) => year.isForecast)].sort(
+  return [...sortedYearlyFinancials.filter((year) => isYearRowForecast(year))].sort(
     (a, b) => Number(a.year) - Number(b.year)
   )
 }
 
 export function getLatestManualDcfHistoricalMetrics(sortedYearlyFinancials: YearlyFinancials[]) {
   const historical = sortedYearlyFinancials.filter(
-    (row) =>
-      !row.isForecast &&
-      (Number.isFinite(Number(row.revenue)) || Number.isFinite(Number(row.ebitda)))
+    (row) => !isYearRowForecast(row) && (parseFlexibleNumber(row.revenue) ?? 0) > 0
   )
   if (historical.length === 0) {
     return {
@@ -42,10 +42,8 @@ export function getLatestManualDcfHistoricalMetrics(sortedYearlyFinancials: Year
 
   const row = historical[0]
   return {
-    latestHistoricalRevenue:
-      typeof row.revenue === 'number' && Number.isFinite(row.revenue) ? row.revenue : undefined,
-    latestHistoricalEbitda:
-      typeof row.ebitda === 'number' && Number.isFinite(row.ebitda) ? row.ebitda : undefined,
+    latestHistoricalRevenue: parseFlexibleNumber(row.revenue),
+    latestHistoricalEbitda: parseFlexibleNumber(row.ebitda),
   }
 }
 

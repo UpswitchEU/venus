@@ -50,15 +50,19 @@ export function mapClarityFormToVenusStore(
 
   const yearlyFinancials = (data.yearlyFinancials || []) as ManualPanelYearlyFinancial[]
   const historicalRows = yearlyFinancials.filter((yf) => !isYearRowForecast(yf))
-  const latestHistorical = [...historicalRows].sort((a, b) => Number(b.year) - Number(a.year))[0]
   const forecastRows = yearlyFinancials.filter((yf) => isYearRowForecast(yf))
 
   const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
   const current = completeHistorical[0]
   const historical = completeHistorical.slice(1)
+  const currentYear = current ? Number.parseInt(String(current.year), 10) : null
   const existingCurrentYearData =
     data.current_year_data && typeof data.current_year_data === 'object'
       ? data.current_year_data
+      : undefined
+  const existingCurrentForMappedYear =
+    existingCurrentYearData && currentYear === Number(existingCurrentYearData.year)
+      ? existingCurrentYearData
       : undefined
   const existingHistoricalYears = Array.isArray(data.historical_years_data)
     ? data.historical_years_data
@@ -103,12 +107,12 @@ export function mapClarityFormToVenusStore(
     business_type: data.businessStructure === 'sole-trader' ? 'sole-trader' : 'company',
     revenue: current?.revenue,
     ebitda: current?.ebitda,
-    current_year_data: latestHistorical
+    current_year_data: current
       ? buildCurrentYearData({
-          year: Number.parseInt(latestHistorical.year, 10),
-          revenue: latestHistorical.revenue,
-          ebitda: latestHistorical.ebitda,
-          currentYearData: existingCurrentYearData,
+          year: currentYear ?? getCurrentFilingYear(),
+          revenue: current.revenue,
+          ebitda: current.ebitda,
+          currentYearData: existingCurrentForMappedYear,
         })
       : existingCurrentYearData
         ? buildCurrentYearData({
@@ -131,10 +135,8 @@ export function mapClarityFormToVenusStore(
             })),
             existingHistoricalYears
           )
-        : latestHistorical
-          ? existingHistoricalYears.filter(
-              (y) => Number(y.year) < Number.parseInt(latestHistorical.year, 10)
-            )
+        : currentYear !== null
+          ? existingHistoricalYears.filter((y) => Number(y.year) < currentYear)
           : existingHistoricalYears,
     forecast_years_data:
       forecastRows.length > 0

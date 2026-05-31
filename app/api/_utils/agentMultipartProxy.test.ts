@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -26,11 +26,11 @@ function multipartRequest(headers: Record<string, string> = {}) {
   const form = new FormData()
   form.append('file', new Blob(['account,amount\n700000,1000'], { type: 'text/csv' }), 'tb.csv')
   form.append('mode', 'single_client_trial_balance')
-  return new NextRequest('https://valuation.upswitch.app/api/import/trial-balance', {
-    method: 'POST',
-    headers,
-    body: form,
-  })
+
+  return {
+    headers: new Headers(headers),
+    formData: vi.fn().mockResolvedValue(form),
+  } as unknown as NextRequest
 }
 
 beforeEach(() => {

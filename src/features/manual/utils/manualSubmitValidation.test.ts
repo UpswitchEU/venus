@@ -68,4 +68,21 @@ describe('getManualSubmitValidationIssue', () => {
       )
     ).toBeNull()
   })
+
+  it('passes one-year SME submissions with zero historical placeholders', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Upswitch',
+          businessType: 'Financial Services',
+          yearlyFinancials: [
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+            { year: '2024', revenue: 0, ebitda: 0 },
+            { year: '2023', revenue: 0, ebitda: 0 },
+          ],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
 })

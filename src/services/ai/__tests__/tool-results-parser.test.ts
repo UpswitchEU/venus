@@ -140,7 +140,9 @@ describe('parseAIChatToolResults — input tolerance', () => {
       ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
     ]
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([])
+    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
+      'client_owner_invite_request',
+    ])
   })
 
   it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {

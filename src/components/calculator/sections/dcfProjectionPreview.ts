@@ -1,3 +1,5 @@
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+import { isYearRowForecast } from '../../../utils/yearData'
 import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
@@ -28,10 +30,11 @@ export interface DcfProjectionAutofillRow {
   nwc_change?: number
   free_cash_flow?: number
   isForecast?: boolean
+  is_forecast?: boolean
 }
 
 function toFinite(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  return parseFlexibleNumber(value) ?? null
 }
 
 function roundCurrency(value: number): number {
@@ -142,7 +145,7 @@ export function deriveDcfProjectionPreview(args: {
   forecastYears?: number[]
 }): DcfProjectionPreviewRow[] {
   const historical = (args.yearlyFinancials ?? [])
-    .filter((row) => !row.isForecast)
+    .filter((row) => !isYearRowForecast(row))
     .map((row) => {
       const revenue = toFinite(row.revenue)
       const ebitda = toFinite(row.ebitda)
@@ -151,11 +154,14 @@ export function deriveDcfProjectionPreview(args: {
         ? null
         : { year, revenue, ebitda }
     })
-    .filter((row): row is { year: number; revenue: number; ebitda: number } => row != null)
+    .filter(
+      (row): row is { year: number; revenue: number; ebitda: number } =>
+        row != null && row.revenue > 0
+    )
     .sort((a, b) => a.year - b.year)
 
   const latest = historical[historical.length - 1]
-  if (!latest || latest.revenue <= 0) return []
+  if (!latest) return []
 
   const revenueGrowthPct = args.revenueGrowthPct ?? args.smartDefaults?.revenueGrowthPct
   const ebitdaMarginPct = args.ebitdaMarginPct ?? args.smartDefaults?.ebitdaMarginPct
@@ -220,7 +226,7 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
 
   const projectionByYear = new Map(projectionRows.map((row) => [String(row.year), row]))
   return yearlyFinancials.map((row) => {
-    if (!row.isForecast) return row
+    if (!isYearRowForecast(row)) return row
 
     const projection = projectionByYear.get(String(row.year))
     if (!projection) return row

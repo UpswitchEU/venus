@@ -255,4 +255,47 @@ describe('buildManualValuationRequest', () => {
     expect(req.current_year_data?.revenue).toBe(910_000)
     expect(req.current_year_data?.ebitda).toBe(120_000)
   })
+
+  it('builds the Upswitch one-year SME request without zero historical placeholders', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: null,
+      selectedMethod: 'upswitch_adaptive',
+    })
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      company_name: 'Upswitch',
+      country_code: 'BE',
+      industry: 'Financial Services',
+      business_model: 'Fintech - Lending & Credit',
+      business_type: 'company',
+      business_type_id: 'fintech-lending-credit',
+      kbo_number: '1033.441.760',
+      legal_form: 'Besloten Vennootschap',
+      postal_code: '9050',
+      city: 'Gent',
+      number_of_owners: 1,
+      number_of_employees: 5,
+      revenue: 1_000_000,
+      ebitda: 100_000,
+      current_year_data: {
+        year: 2025,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+      },
+      historical_years_data: [
+        { year: 2024, revenue: 0, ebitda: 0 },
+        { year: 2023, revenue: 0, ebitda: 0 },
+      ],
+    } as typeof baseFormData)
+
+    expect(req.startup_inputs).toBeUndefined()
+    expect(req.current_year_data).toMatchObject({
+      year: 2025,
+      revenue: 1_000_000,
+      ebitda: 100_000,
+    })
+    expect(req.historical_years_data).toEqual([])
+    expect(req.kbo_number).toBe('1033.441.760')
+  })
 })

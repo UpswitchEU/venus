@@ -59,6 +59,90 @@ describe('mapClarityFormToVenusStore', () => {
     ])
   })
 
+  it('ignores newer zero placeholders when selecting the current valuation year', () => {
+    const mapped = mapClarityFormToVenusStore(
+      {
+        companyName: 'Acme',
+        current_year_data: { year: 2025, revenue: 0, ebitda: 0, total_debt: 999 },
+        yearlyFinancials: [
+          { year: '2025', revenue: 0, ebitda: 0 },
+          { year: '2024', revenue: 900_000, ebitda: 90_000 },
+          { year: '2023', revenue: 800_000, ebitda: 80_000 },
+        ],
+      },
+      storeForm()
+    )
+
+    expect(mapped).toMatchObject({
+      revenue: 900_000,
+      ebitda: 90_000,
+      current_year_data: { year: 2024, revenue: 900_000, ebitda: 90_000 },
+      historical_years_data: [{ year: 2023, revenue: 800_000, ebitda: 80_000 }],
+    })
+    expect(mapped.current_year_data).not.toHaveProperty('total_debt')
+  })
+
+  it('preserves existing current-year data when the panel only carries zero placeholders', () => {
+    const mapped = mapClarityFormToVenusStore(
+      {
+        companyName: 'Acme',
+        current_year_data: { year: 2024, revenue: 900_000, ebitda: 90_000, total_debt: 25_000 },
+        yearlyFinancials: [
+          { year: '2025', revenue: 0, ebitda: 0 },
+          { year: '2024', revenue: 0, ebitda: 0 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+        ],
+      },
+      storeForm()
+    )
+
+    expect(mapped.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 900_000,
+      ebitda: 90_000,
+      total_debt: 25_000,
+    })
+    expect(mapped.historical_years_data).toEqual([])
+  })
+
+  it('maps one-year operating companies without manufacturing historical zero placeholders', () => {
+    const mapped = mapClarityFormToVenusStore(
+      {
+        companyName: 'Upswitch',
+        country: 'BE',
+        industry: 'Financial Services',
+        businessModel: 'Fintech - Lending & Credit',
+        businessType: 'fintech-lending-credit',
+        kboNumber: '1033.441.760',
+        legalForm: 'Besloten Vennootschap',
+        ownerManagers: 1,
+        fteEmployees: 5,
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          { year: '2024', revenue: 0, ebitda: 0 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+        ],
+      },
+      storeForm()
+    )
+
+    expect(mapped).toMatchObject({
+      company_name: 'Upswitch',
+      country_code: 'BE',
+      industry: 'Financial Services',
+      business_model: 'Fintech - Lending & Credit',
+      business_type_id: 'fintech-lending-credit',
+      kbo_number: '1033.441.760',
+      legal_form: 'Besloten Vennootschap',
+      number_of_owners: 1,
+      number_of_employees: 5,
+      revenue: 1_000_000,
+      ebitda: 100_000,
+      current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+      historical_years_data: [],
+    })
+  })
+
   it('keeps canonical NACE separate from display activity code', () => {
     const mapped = mapClarityFormToVenusStore(
       {

@@ -1,4 +1,5 @@
 import type { YearDataInput } from '../../../types/valuation'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { calculateWorkingCapitalBase, isYearRowForecast } from '../../../utils/yearData'
 
 export interface DcfReadinessInsight {
@@ -15,13 +16,22 @@ function hasFinite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function hasPositiveRevenue(year: YearDataInput): boolean {
+  const revenue = parseFlexibleNumber(year.revenue)
+  return revenue !== undefined && revenue > 0
+}
+
 export function deriveDcfReadinessInsight(args: {
   currentYearData?: YearDataInput | null
   historicalYearsData?: YearDataInput[] | null
 }): DcfReadinessInsight {
   const actualYears = [
-    ...(args.historicalYearsData ?? []).filter((year) => !isYearRowForecast(year)),
-    ...(args.currentYearData ? [args.currentYearData] : []),
+    ...(args.historicalYearsData ?? []).filter(
+      (year) => !isYearRowForecast(year) && hasPositiveRevenue(year)
+    ),
+    ...(args.currentYearData && hasPositiveRevenue(args.currentYearData)
+      ? [args.currentYearData]
+      : []),
   ]
     .filter((year) => typeof year.year === 'number' && Number.isFinite(year.year))
     .sort((a, b) => a.year - b.year)

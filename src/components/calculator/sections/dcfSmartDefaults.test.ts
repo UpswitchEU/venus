@@ -63,6 +63,22 @@ describe('deriveDcfSmartDefaults', () => {
       })
     ).toBeNull()
   })
+
+  it('ignores non-positive revenue rows when deriving defaults', () => {
+    const defaults = deriveDcfSmartDefaults({
+      yearlyFinancials: [
+        { year: '2022', revenue: 0, ebitda: 90_000 },
+        { year: '2023', revenue: -1, ebitda: 95_000 },
+        { year: '2024', revenue: 900_000, ebitda: 90_000 },
+      ],
+    })
+
+    expect(defaults).toMatchObject({
+      historicalYearsUsed: 1,
+      revenueGrowthPct: 5,
+      ebitdaMarginPct: 10,
+    })
+  })
 })
 
 describe('deriveWaccSectorBand', () => {

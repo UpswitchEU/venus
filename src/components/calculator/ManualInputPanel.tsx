@@ -48,6 +48,7 @@ import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import { realEstateCarveOutAppliesTo } from '../../utils/realEstateCarveOutDisplay'
 import {} from '../../utils/shareholding'
+import { isYearRowForecast } from '../../utils/yearData'
 import {
   getLatestCompleteYearlyFinancial,
   hasExplicitNumericValue as hasExplicitFinancialValue,
@@ -438,7 +439,7 @@ export function ManualInputPanel({
   const historicalCardRows = useMemo(
     () =>
       hasDcfSelected
-        ? sortedYearlyFinancials.filter((year) => !year.isForecast)
+        ? sortedYearlyFinancials.filter((year) => !isYearRowForecast(year))
         : sortedYearlyFinancials,
     [hasDcfSelected, sortedYearlyFinancials]
   )

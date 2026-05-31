@@ -4,6 +4,7 @@ import {
   deriveDcfProjectionPreview,
 } from '../../components/calculator/sections/dcfProjectionPreview'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { NormalizationCategory } from '../../types/ebitdaNormalization'
 import type { ValuationFormData, YearDataInput } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
@@ -31,6 +32,8 @@ function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationForm
     ...overrides,
   } as ValuationFormData
 }
+
+type ValuationRequestExtras = Record<string, unknown>
 
 describe('buildValuationRequest', () => {
   afterEach(() => {
@@ -648,7 +651,7 @@ describe('buildValuationRequest', () => {
     ])
   })
 
-  it('accepts zero historical revenue when the year is a genuine zero-revenue period', () => {
+  it('drops historical rows without positive revenue before building the request', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
@@ -657,11 +660,94 @@ describe('buildValuationRequest', () => {
       []
     )
 
-    expect(result.historical_years_data[0]).toMatchObject({
-      year: lastFullYear - 1,
-      revenue: 0,
-      ebitda: 90_000,
+    expect(result.historical_years_data).toEqual([])
+  })
+
+  it('builds the Upswitch one-year valuation payload without zero-revenue historical rows', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-31T12:00:00Z'))
+
+    const result = buildValuationRequest(
+      makeFormData({
+        company_name: 'Upswitch',
+        country_code: 'BE',
+        industry: 'Financial Services',
+        business_model: 'Fintech - Lending & Credit',
+        business_type: 'company',
+        business_type_id: 'fintech-lending-credit',
+        kbo_number: '1033.441.760',
+        legal_form: 'Besloten Vennootschap',
+        postal_code: '9050',
+        city: 'Gent',
+        number_of_owners: 1,
+        number_of_employees: 5,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 0, ebitda: 0 },
+          { year: 2023, revenue: 0, ebitda: 0 },
+        ],
+      }),
+      []
+    )
+
+    expect(result).toMatchObject({
+      company_name: 'Upswitch',
+      country_code: 'BE',
+      industry: 'Financial Services',
+      business_model: 'Fintech - Lending & Credit',
+      registration_number: '1033.441.760',
+      kbo_number: '1033.441.760',
+      legal_form: 'Besloten Vennootschap',
+      postal_code: '9050',
+      city: 'Gent',
+      number_of_owners: 1,
+      number_of_employees: 5,
+      current_year_data: {
+        year: 2025,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+      },
     })
+    expect(result.historical_years_data).toEqual([])
+  })
+
+  it('drops zero-revenue historical rows even when normalization metadata targets them', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 0, ebitda: 0 },
+          { year: lastFullYear - 2, revenue: 0, ebitda: 0 },
+        ],
+      }),
+      [
+        {
+          id: 'norm-all-years',
+          title: 'Owner compensation',
+          rationale: 'Normalize owner comp across visible years',
+          category: 'salary',
+          type: 'add',
+          value: 10_000,
+          adjustment: 10_000,
+          year: lastFullYear,
+          applyAllYears: true,
+          status: 'accepted',
+          source: 'manual',
+          confidence: 'high',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(110_000)
+    expect(result.current_year_data.ebitda_normalized).toBe(true)
+    expect(result.historical_years_data).toEqual([])
   })
 
   it('drops all-zero historical placeholders before building a DCF request', () => {
@@ -716,8 +802,8 @@ describe('buildValuationRequest', () => {
 
     expect(result.nace_code).toBe('64.20')
     expect(result.nace_description).toBe('Activiteiten van holdings')
-    expect((result as any).activity_code).toBe('64.20')
-    expect((result as any).canonical_nace_code).toBe('64.20')
+    expect((result as ValuationRequestExtras).activity_code).toBe('64.20')
+    expect((result as ValuationRequestExtras).canonical_nace_code).toBe('64.20')
   })
 
   it('preserves imported SaaS provenance while letting explicit SaaS form fields win', () => {
@@ -739,29 +825,30 @@ describe('buildValuationRequest', () => {
       []
     )
 
-    expect((result.business_context as any).saas_arr).toBe(700_000)
-    expect((result.business_context as any).saas_mrr).toBe(58_333)
-    expect((result.business_context as any)._imported_saas_metrics).toEqual({
+    const businessContext = result.business_context as ValuationRequestExtras
+    expect(businessContext.saas_arr).toBe(700_000)
+    expect(businessContext.saas_mrr).toBe(58_333)
+    expect(businessContext._imported_saas_metrics).toEqual({
       saas_arr: 650_000,
       saas_mrr: 54_166,
     })
-    expect((result.business_context as any)._imported_saas_provenance).toEqual({
+    expect(businessContext._imported_saas_provenance).toEqual({
       source: 'exact',
       confidence: 0.82,
     })
   })
 
-  it('rejects historical revenue only when negative', () => {
+  it('drops negative historical revenue before building the request', () => {
     const lastFullYear = getCurrentFilingYear()
 
-    expect(() =>
-      buildValuationRequest(
-        makeFormData({
-          historical_years_data: [{ year: lastFullYear - 1, revenue: -1, ebitda: 90_000 }],
-        }),
-        []
-      )
-    ).toThrow('Revenue is required and cannot be negative.')
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [{ year: lastFullYear - 1, revenue: -1, ebitda: 90_000 }],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toEqual([])
   })
 
   it('rejects historical years that duplicate the current fiscal year', () => {
@@ -794,7 +881,11 @@ describe('buildValuationRequest', () => {
 
     expect(result.historical_years_data).toHaveLength(1)
     expect(result.historical_years_data[0].year).toBe(lastFullYear - 1)
-    expect(result.historical_years_data.every((y: any) => !y.is_forecast)).toBe(true)
+    expect(
+      result.historical_years_data.every(
+        (yearData: YearDataInput & { is_forecast?: boolean }) => !yearData.is_forecast
+      )
+    ).toBe(true)
   })
 
   it('strips camelCase forecast rows from historical_years_data', () => {
@@ -851,7 +942,7 @@ describe('buildValuationRequest', () => {
           },
           { year: lastFullYear + 2, revenue: 110_000, ebitda: 11_000 },
         ],
-      } as any),
+      }),
       []
     )
     expect(result.historical_years_data).toEqual([
@@ -882,7 +973,7 @@ describe('buildValuationRequest', () => {
           { year: lastFullYear + 1, revenue: 0, ebitda: 0, free_cash_flow: 50_000 },
           { year: lastFullYear + 2, revenue: 0, ebitda: 0, free_cash_flow: 55_000 },
         ],
-      } as any),
+      }),
       []
     )
     expect(result.dcf_input_mode).toBe('fcff_only')
@@ -1572,18 +1663,19 @@ describe('buildValuationRequest', () => {
           reported_ebitda: 0,
           adjustments: [
             {
-              category: 'owner_compensation_adjustment' as any,
+              category: NormalizationCategory.OWNER_COMPENSATION,
               amount: 280_000,
               note: 'orphan legacy',
             },
           ],
           custom_adjustments: [],
           total_adjustments: 280_000,
+          normalized_ebitda: 280_000,
           confidence_score: 'medium',
           updated_at: new Date().toISOString(),
-        } as any,
+        },
       },
-    } as any)
+    })
 
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
@@ -1615,7 +1707,7 @@ describe('buildValuationRequest', () => {
     // Cleanup so other tests don't see this fixture.
     ebitdaStoreModule.useEbitdaNormalizationStore.setState({
       normalizations: {},
-    } as any)
+    })
     warnSpy.mockRestore()
   })
 

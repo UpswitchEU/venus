@@ -20,12 +20,34 @@ describe('manual DCF forecast derivations', () => {
     expect(getManualDcfForecastRows(false, rows)).toEqual([])
   })
 
+  it('recognizes snake_case forecast rows restored from API-shaped session data', () => {
+    const rows = [
+      { year: '2026', revenue: 0, ebitda: 0, is_forecast: true },
+      { year: '2024', revenue: 1_000_000, ebitda: 200_000 },
+    ] as unknown as YearlyFinancials[]
+
+    expect(getManualDcfForecastRows(true, rows).map((row) => row.year)).toEqual(['2026'])
+  })
+
   it('uses the latest sorted historical row as the DCF baseline', () => {
     const rows = [
       { year: '2024', revenue: 1_200_000, ebitda: 240_000 },
       { year: '2023', revenue: 1_000_000, ebitda: 180_000 },
       { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
     ] as YearlyFinancials[]
+
+    expect(getLatestManualDcfHistoricalMetrics(rows)).toEqual({
+      latestHistoricalRevenue: 1_200_000,
+      latestHistoricalEbitda: 240_000,
+    })
+  })
+
+  it('skips non-positive placeholders and parses restored numeric strings for the baseline', () => {
+    const rows = [
+      { year: '2025', revenue: 0, ebitda: 0 },
+      { year: '2024', revenue: '1.200.000', ebitda: '240.000' },
+      { year: '2023', revenue: 1_000_000, ebitda: 180_000 },
+    ] as unknown as YearlyFinancials[]
 
     expect(getLatestManualDcfHistoricalMetrics(rows)).toEqual({
       latestHistoricalRevenue: 1_200_000,
