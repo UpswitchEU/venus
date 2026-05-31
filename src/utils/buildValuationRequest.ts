@@ -218,6 +218,32 @@ function pickOptionalYearDataFields(source: unknown): Record<string, number> {
   return result
 }
 
+function hasNormalizationPayload(source: unknown): boolean {
+  if (source === undefined || source === null || typeof source !== 'object') {
+    return false
+  }
+
+  const record = source as Record<string, unknown>
+  return Boolean(record.ebitda_normalized || record.ebitda_normalization_metadata)
+}
+
+function isBlankHistoricalPlaceholderYear(source: YearDataInput, normalization?: NormYearEntry): boolean {
+  if (normalization || hasNormalizationPayload(source)) {
+    return false
+  }
+
+  const revenue = toFiniteNumber(source.revenue)
+  const ebitda = toFiniteNumber(source.ebitda)
+  const revenueIsBlank = revenue === null || revenue === 0
+  const ebitdaIsBlank = ebitda === null || ebitda === 0
+
+  if (!revenueIsBlank || !ebitdaIsBlank) {
+    return false
+  }
+
+  return Object.values(pickOptionalYearDataFields(source)).every((value) => value === 0)
+}
+
 function mapLegacyNormalizationAdjustment(
   adjustment: NormalizationAdjustment
 ): NormYearEntry['items'][number] {
@@ -563,7 +589,8 @@ export function buildValuationRequest(
         (year) =>
           toFiniteNumber(year.ebitda) != null &&
           year.year >= 2000 &&
-          year.year <= 2100
+          year.year <= 2100 &&
+          !isBlankHistoricalPlaceholderYear(year, normByYear[year.year])
       )
       .map((year) => {
         const clampedYear = Math.min(Math.max(year.year, 2000), 2100)

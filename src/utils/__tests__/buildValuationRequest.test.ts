@@ -664,6 +664,45 @@ describe('buildValuationRequest', () => {
     })
   })
 
+  it('drops all-zero historical placeholders before building a DCF request', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        company_name: 'Sandra Lemmens',
+        country_code: 'BE',
+        industry: 'healthcare',
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 0, ebitda: 0 },
+          { year: lastFullYear - 2, revenue: 0, ebitda: 0 },
+          { year: lastFullYear - 3, revenue: 0, ebitda: 0 },
+        ],
+        dcf_input_mode: 'ebitda',
+        dcf_wacc_pct: 10,
+        dcf_terminal_growth_pct: 2,
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toEqual([])
+    expect(result.current_year_data).toMatchObject({
+      year: lastFullYear,
+      revenue: 1_000_000,
+      ebitda: 100_000,
+    })
+    expect(result.business_context).toMatchObject({
+      dcf_wacc_pct: 10,
+      dcf_terminal_growth_pct: 2,
+    })
+    expect(result.use_dcf).toBe(true)
+  })
+
   it('serializes NACE routing fields when available', () => {
     const result = buildValuationRequest(
       makeFormData({
