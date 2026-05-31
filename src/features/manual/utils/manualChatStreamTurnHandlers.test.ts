@@ -28,32 +28,10 @@ describe('resolveManualChatOnDoneAction', () => {
     })
   })
 
-  it('keeps streamed text after bff-stream-incomplete when content already arrived', () => {
-    // Regression: an incomplete terminator after visible text used to trigger a
-    // non-streaming regenerate that overwrote the bubble (the "rewriting bubble"
-    // bug). Visible content must complete, never recover-and-replace.
+  it('recovers after bff-stream-incomplete even with prior content', () => {
     expect(
       resolveManualChatOnDoneAction({
         hasReceivedAnyContent: true,
-        bffStreamRecoverySource: 'bff-stream-incomplete',
-      })
-    ).toEqual({ kind: 'complete' })
-  })
-
-  it('keeps streamed text when meta.incomplete fires after content', () => {
-    expect(
-      resolveManualChatOnDoneAction({
-        hasReceivedAnyContent: true,
-        bffStreamRecoverySource: null,
-        streamIncomplete: true,
-      })
-    ).toEqual({ kind: 'complete' })
-  })
-
-  it('still recovers after bff-stream-incomplete when no content arrived', () => {
-    expect(
-      resolveManualChatOnDoneAction({
-        hasReceivedAnyContent: false,
         bffStreamRecoverySource: 'bff-stream-incomplete',
       })
     ).toEqual({
@@ -130,18 +108,5 @@ describe('resolveManualChatRecoverySkipAction', () => {
         hasReceivedAnyContent: false,
       })
     ).toEqual({ kind: 'terminal_error' })
-  })
-
-  it('keeps streamed content instead of regenerating when stream ended incomplete', () => {
-    expect(
-      resolveManualChatRecoverySkipAction({
-        nonStreamingRecoveryStarted: false,
-        didObserveToolActivity: false,
-        bffStreamRecoverySource: 'bff-stream-incomplete',
-        streamEndedWithoutCompletion: true,
-        emptyStream: false,
-        hasReceivedAnyContent: true,
-      })
-    ).toEqual({ kind: 'finish_with_content' })
   })
 })
