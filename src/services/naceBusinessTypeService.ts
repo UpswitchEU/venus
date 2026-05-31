@@ -44,6 +44,10 @@ interface CacheEntry {
   timestamp: number
 }
 
+type NaceLookupOptions = {
+  guaranteeResolution?: boolean
+}
+
 const categoryMap: Record<string, string> = {
   technology: 'technology',
   software: 'software',
@@ -146,14 +150,16 @@ class NaceBusinessTypeService {
   async getBusinessTypeForNaceCode(
     naceCode: string,
     signal?: AbortSignal,
-    marketCountryCode?: string
+    marketCountryCode?: string,
+    options?: NaceLookupOptions
   ): Promise<BusinessType | null> {
     if (!naceCode || !naceCode.trim()) return null
 
     const trimmed = naceCode.trim()
     const normalizedCountry = marketCountryCode?.trim().toUpperCase() || ''
     const resolvedCountryCode = normalizedCountry === 'UK' ? 'GB' : normalizedCountry
-    const cacheKey = `bt:nace:${trimmed}:${resolvedCountryCode || 'ANY'}`
+    const guaranteeResolution = options?.guaranteeResolution === true
+    const cacheKey = `bt:nace:${trimmed}:${resolvedCountryCode || 'ANY'}:${guaranteeResolution ? 'g1' : 'g0'}`
 
     const cached = this.cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -173,6 +179,9 @@ class NaceBusinessTypeService {
       const params = new URLSearchParams({ naceCode: trimmed })
       if (resolvedCountryCode) {
         params.set('country_code', resolvedCountryCode)
+      }
+      if (guaranteeResolution) {
+        params.set('guarantee_resolution', '1')
       }
       const response = await fetch(`/api/nace/search?${params}`, {
         method: 'GET',

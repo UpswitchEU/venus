@@ -85,7 +85,8 @@ export function useManualNaceBusinessTypePrefill({
       .getBusinessTypeForNaceCode(
         naceCode,
         controller.signal,
-        formData.country || formData.country_code
+        formData.country || formData.country_code,
+        { guaranteeResolution: true }
       )
       .then((type) => {
         if (controller.signal.aborted) return
@@ -166,7 +167,8 @@ export function useManualNaceBusinessTypePrefill({
         const type = await naceBusinessTypeService.getBusinessTypeForNaceCode(
           code,
           controller.signal,
-          company.countryCode || undefined
+          company.countryCode || undefined,
+          { guaranteeResolution: true }
         )
         if (controller.signal.aborted) return
         if (type) {

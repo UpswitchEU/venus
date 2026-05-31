@@ -80,6 +80,34 @@ describe('naceBusinessTypeService', () => {
     })
   })
 
+  it('passes guaranteed-resolution flag when requested', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          business_type: {
+            id: 'professional-services',
+            title: 'Professional Services',
+            category_id: 'professional',
+          },
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+      '82.99',
+      undefined,
+      'BE',
+      { guaranteeResolution: true }
+    )
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/nace/search?naceCode=82.99&country_code=BE&guarantee_resolution=1',
+      expect.objectContaining({ method: 'GET' })
+    )
+    expect(result?.id).toBe('professional-services')
+  })
+
   it('caches successful lookups by NACE and country', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(

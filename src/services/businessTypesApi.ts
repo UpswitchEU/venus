@@ -596,7 +596,8 @@ class BusinessTypesApiService {
    */
   async getBusinessTypeForNaceCode(
     naceCode: string,
-    countryCode?: string
+    countryCode?: string,
+    options?: { guaranteeResolution?: boolean }
   ): Promise<BusinessType | null> {
     if (!naceCode?.trim()) return null
     const normalizedCountry = countryCode?.trim().toUpperCase() || ''
@@ -606,6 +607,9 @@ class BusinessTypesApiService {
       const params = new URLSearchParams({ naceCode: naceCode.trim() })
       if (marketCountryCode) {
         params.set('country_code', marketCountryCode)
+      }
+      if (options?.guaranteeResolution) {
+        params.set('guarantee_resolution', '1')
       }
       const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(
         naceCode.trim()

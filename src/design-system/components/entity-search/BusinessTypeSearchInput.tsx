@@ -245,7 +245,9 @@ export const BusinessTypeSearchInput = React.forwardRef<
       setIsLoadingNaceSearch(true)
 
       naceBusinessTypeService
-        .getBusinessTypeForNaceCode(trimmedSearch, controller.signal, effectiveCountryCode)
+        .getBusinessTypeForNaceCode(trimmedSearch, controller.signal, effectiveCountryCode, {
+          guaranteeResolution: true,
+        })
         .then((result) => {
           if (!controller.signal.aborted) {
             setNaceSearchResult(result)

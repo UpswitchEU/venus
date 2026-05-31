@@ -619,7 +619,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       try {
         const bt = await businessTypesApiService.getBusinessTypeForNaceCode(
           naceCode,
-          formData.country_code || undefined
+          formData.country_code || undefined,
+          { guaranteeResolution: true }
         )
         if (cancelled || !bt) return
 

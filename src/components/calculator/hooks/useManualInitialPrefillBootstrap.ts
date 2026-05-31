@@ -57,7 +57,8 @@ export function useManualInitialPrefillBootstrap({
         const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
           businessTypeToApply.trim(),
           undefined,
-          initialPrefill.country
+          initialPrefill.country,
+          { guaranteeResolution: true }
         )
         if (!isCurrent()) return
         if (resolved?.id) {

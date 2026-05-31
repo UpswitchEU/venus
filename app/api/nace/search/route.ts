@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
     const naceCode = searchParams.get('naceCode')
     const limit = searchParams.get('limit') || '10'
     const countryCode = searchParams.get('country_code')
+    const guaranteeResolution = searchParams.get('guarantee_resolution')
+    const guarantee = searchParams.get('guarantee')
 
     const titanUrl = getTitanApiUrl(request)
     const controller = new AbortController()
@@ -35,6 +37,12 @@ export async function GET(request: NextRequest) {
         const lookupParams = new URLSearchParams({ naceCode })
         if (countryCode) {
           lookupParams.set('country_code', countryCode.toUpperCase())
+        }
+        if (guaranteeResolution) {
+          lookupParams.set('guarantee_resolution', guaranteeResolution)
+        }
+        if (guarantee) {
+          lookupParams.set('guarantee', guarantee)
         }
         url = `${titanUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type?${lookupParams}`
       } else if (businessTypeId) {
@@ -67,9 +75,12 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json().catch(() => ({ success: false }))
+      const cacheHeader = naceCode
+        ? 'private, no-cache'
+        : 'public, s-maxage=600, stale-while-revalidate=1200'
       return NextResponse.json(data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
+          'Cache-Control': cacheHeader,
         },
       })
     } catch (fetchError) {
