@@ -67,7 +67,7 @@ export function extractRecoveredAnswerFromHistory(
 }
 
 export interface PollHistoryForPersistedAnswerParams {
-  /** Bound `aiChatService.loadHistory` — fetches conversation history by report id. */
+  /** Bound `aiChatService.loadHistory` — fetches conversation history by report/session key. */
   loadHistory: (reportId: string) => Promise<{ messages: PersistedHistoryMessage[] }>
   reportId: string
   userContent: string

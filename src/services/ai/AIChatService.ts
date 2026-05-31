@@ -14,6 +14,7 @@
 
 import { useClientContext } from '../../stores/clientContext'
 import { createContextLogger } from '../../utils/logger'
+import { type AssistantIntent, generateContextAwareLocalResponse } from './local-chat-fallback'
 import {
   type AcknowledgeWarningRequest,
   type BelgianCompanyBootstrap,
@@ -50,8 +51,6 @@ import {
   type ValuationRunRequest,
   type ValuationSessionRequest,
 } from './tool-results-parser'
-
-import { generateContextAwareLocalResponse, type AssistantIntent } from './local-chat-fallback'
 
 const logger = createContextLogger('AIChatService')
 

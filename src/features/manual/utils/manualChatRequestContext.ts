@@ -4,8 +4,8 @@ import type {
   NormalizationItem,
   ValuationReportData,
 } from '@/components/calculator'
-import { resolveAssistantIntent, type AssistantIntent } from '@/services/ai/local-chat-fallback'
 import type { AIChatRequest } from '@/services/ai/AIChatService'
+import { type AssistantIntent, resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
 
 export interface ManualChatFinancialContext {
   revenue?: unknown
@@ -138,6 +138,24 @@ export function buildManualChatValuationSummary(
   }
 }
 
+function normalizeManualChatLookupId(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+export function resolveManualChatSessionId(args: {
+  audience?: AIChatRequest['audience']
+  clientUserId?: string | null
+  reportId?: string | null
+}): string | undefined {
+  const clientUserId = normalizeManualChatLookupId(args.clientUserId)
+  if (args.audience === 'advisor' && clientUserId) {
+    return `client_${clientUserId}`
+  }
+  return normalizeManualChatLookupId(args.reportId)
+}
+
 export function buildManualAIChatRequest(args: {
   message: string
   reportId: string | null | undefined
@@ -155,10 +173,12 @@ export function buildManualAIChatRequest(args: {
   surfaceIntent?: 'add_client' | 'kbo_lookup'
   assistantIntent?: AssistantIntent
 }): AIChatRequest {
-  const clientScopedSessionId =
-    args.audience === 'advisor' && args.clientUserId ? `client_${args.clientUserId}` : null
-  const sessionId = clientScopedSessionId ?? args.reportId ?? undefined
-  const reportId = args.reportId ?? sessionId
+  const sessionId = resolveManualChatSessionId({
+    audience: args.audience,
+    clientUserId: args.clientUserId,
+    reportId: args.reportId,
+  })
+  const reportId = normalizeManualChatLookupId(args.reportId) ?? sessionId
 
   return {
     message: args.message,

@@ -9,6 +9,7 @@ import {
   buildManualChatValuationSummary,
   getManualChatLocale,
   getManualChatVersionCount,
+  resolveManualChatSessionId,
 } from './manualChatRequestContext'
 
 const now = new Date('2026-05-15T10:00:00.000Z')
@@ -146,6 +147,30 @@ describe('manualChatRequestContext', () => {
       },
     })
     expect(request.normalizations).toHaveLength(1)
+  })
+
+  it('resolves advisor chat history to the client-scoped session key', () => {
+    expect(
+      resolveManualChatSessionId({
+        audience: 'advisor',
+        clientUserId: ' client-123 ',
+        reportId: '48d52144-1fa9-44e7-b077-8dc22310c2ac',
+      })
+    ).toBe('client_client-123')
+    expect(
+      resolveManualChatSessionId({
+        audience: 'owner',
+        clientUserId: 'client-123',
+        reportId: ' 48d52144-1fa9-44e7-b077-8dc22310c2ac ',
+      })
+    ).toBe('48d52144-1fa9-44e7-b077-8dc22310c2ac')
+    expect(
+      resolveManualChatSessionId({
+        audience: 'advisor',
+        clientUserId: '   ',
+        reportId: '',
+      })
+    ).toBeUndefined()
   })
 
   it('keeps the valuation report id available when advisor chat uses client-scoped history', () => {

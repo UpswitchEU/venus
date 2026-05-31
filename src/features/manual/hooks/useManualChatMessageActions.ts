@@ -312,7 +312,12 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                   // verbroken" — the answer simply landed a few seconds late.
                   const persisted = await pollHistoryForPersistedAnswer({
                     loadHistory: aiChatService.loadHistory.bind(aiChatService),
-                    reportId: manualChatReportId || resolvedReportId || reportId || '',
+                    reportId:
+                      aiRequest.sessionId ||
+                      manualChatReportId ||
+                      resolvedReportId ||
+                      reportId ||
+                      '',
                     userContent: aiRequest.message,
                     isCancelled: () => activeChatTurnIdRef.current !== turnId,
                   })

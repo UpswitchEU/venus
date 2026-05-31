@@ -75,8 +75,48 @@ function readValuationSummary(formData: unknown): ValuationSummary | undefined {
 }
 
 function readNumber(value: unknown): number | null {
-  const number = Number(value)
-  return Number.isFinite(number) ? number : null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const isAccountingNegative = /^\(.+\)$/.test(trimmed)
+  const cleaned = trimmed
+    .replace(/\u00a0/g, ' ')
+    .replace(/[^\d.,+\-'\s]/g, '')
+    .replace(/['\s]/g, '')
+
+  if (!/\d/.test(cleaned)) return null
+
+  const sign = isAccountingNegative || cleaned.startsWith('-') ? -1 : 1
+  const unsigned = cleaned.replace(/[+-]/g, '')
+  const lastComma = unsigned.lastIndexOf(',')
+  const lastDot = unsigned.lastIndexOf('.')
+  let normalized = unsigned
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.'
+    const groupSeparator = decimalSeparator === ',' ? '.' : ','
+    const withoutGroups = unsigned.replaceAll(groupSeparator, '')
+    const decimalIndex = withoutGroups.lastIndexOf(decimalSeparator)
+    normalized = `${withoutGroups.slice(0, decimalIndex)}.${withoutGroups.slice(decimalIndex + 1)}`
+  } else {
+    const separator = lastComma >= 0 ? ',' : lastDot >= 0 ? '.' : ''
+    if (separator) {
+      const parts = unsigned.split(separator)
+      if (parts.length === 2) {
+        const [whole, decimal] = parts
+        normalized =
+          decimal.length > 0 && decimal.length <= 2 ? `${whole}.${decimal}` : `${whole}${decimal}`
+      } else {
+        normalized = parts.join('')
+      }
+    }
+  }
+
+  const number = Number(normalized)
+  return Number.isFinite(number) ? sign * number : null
 }
 
 function readNormalizations(request: AIChatRequest): NormalizationLike[] {
@@ -159,13 +199,16 @@ function buildExplainValueFallback(request: AIChatRequest, locale: 'en' | 'nl'):
   const valuation = readNumber(valuationSummary?.valuation)
   const valuationLow = readNumber(valuationSummary?.valuationLow)
   const valuationHigh = readNumber(valuationSummary?.valuationHigh)
+  const headlineValue =
+    valuation ??
+    (valuationLow != null && valuationHigh != null ? (valuationLow + valuationHigh) / 2 : null)
   const recommendedAskingPrice = readNumber(valuationSummary?.recommendedAskingPrice)
   const normalizedEbitda = readNumber(valuationSummary?.normalizedEbitda)
   const multiple = readNumber(valuationSummary?.multiple)
   const accepted = summary?.accepted ?? 0
   const pending = summary?.pending ?? 0
 
-  if (valuation != null || valuationLow != null || valuationHigh != null) {
+  if (headlineValue != null || valuationLow != null || valuationHigh != null) {
     const range =
       valuationLow != null && valuationHigh != null
         ? locale === 'en'
@@ -198,8 +241,8 @@ function buildExplainValueFallback(request: AIChatRequest, locale: 'en' | 'nl'):
       content:
         offlineBanner(locale) +
         (locale === 'en'
-          ? `For **${companyName}**, the open report shows an indicative value of **${valuation != null ? formatMoney(locale, valuation) : 'n/a'}**${range}.${ask}${driverLine}\n\nThis is a limited offline summary from the report data already loaded in Venus. Ask again when AI is back for the full method and benchmark walkthrough.`
-          : `Voor **${companyName}** toont het geopende rapport een indicatieve waarde van **${valuation != null ? formatMoney(locale, valuation) : 'n.v.t.'}**${range}.${ask}${driverLine}\n\nDit is een beperkte offline samenvatting op basis van de rapportdata die al in Venus geladen is. Stel de vraag opnieuw wanneer AI terug beschikbaar is voor de volledige methode- en benchmarkuitleg.`),
+          ? `For **${companyName}**, the open report shows an indicative value of **${headlineValue != null ? formatMoney(locale, headlineValue) : 'n/a'}**${range}.${ask}${driverLine}\n\nThis is a limited offline summary from the report data already loaded in Venus. Ask again when AI is back for the full method and benchmark walkthrough.`
+          : `Voor **${companyName}** toont het geopende rapport een indicatieve waarde van **${headlineValue != null ? formatMoney(locale, headlineValue) : 'n.v.t.'}**${range}.${ask}${driverLine}\n\nDit is een beperkte offline samenvatting op basis van de rapportdata die al in Venus geladen is. Stel de vraag opnieuw wanneer AI terug beschikbaar is voor de volledige methode- en benchmarkuitleg.`),
       fallback: true,
     }
   }

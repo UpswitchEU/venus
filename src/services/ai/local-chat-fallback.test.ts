@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import type { AIChatRequest } from './AIChatService'
 import {
   detectAssistantIntent,
   generateContextAwareLocalResponse,
   isOfflineFallbackContent,
   resolveAssistantIntent,
 } from './local-chat-fallback'
-import type { AIChatRequest } from './AIChatService'
 
 describe('isOfflineFallbackContent', () => {
   it('detects offline banner copy in nl and en', () => {
@@ -114,5 +114,51 @@ describe('generateContextAwareLocalResponse', () => {
     expect(res.content).toContain('€428.000-€617.000')
     expect(res.content).toContain('Aanbevolen vraagprijs')
     expect(res.content).not.toContain('Open het rapport voor de waarderingsrange')
+  })
+
+  it('accepts formatted valuation summary values in explain value offline fallback', () => {
+    const res = generateContextAwareLocalResponse({
+      ...base,
+      message: 'Explain the valuation',
+      companyName: 'Bakkerij Klaas',
+      assistantIntent: 'explain_value',
+      formData: {
+        _valuationSummary: {
+          valuation: '€559.986,00',
+          valuationLow: '€428.000,00',
+          valuationHigh: '€617.000,00',
+          recommendedAskingPrice: '€617.000,00',
+          normalizedEbitda: '100 000',
+          multiple: '4,3',
+        },
+      },
+    })
+
+    expect(res.content).toContain('Bakkerij Klaas')
+    expect(res.content).toContain('€559.986')
+    expect(res.content).toContain('€428.000-€617.000')
+    expect(res.content).toContain('Aanbevolen vraagprijs')
+    expect(res.content).toContain('genormaliseerde EBITDA €100.000')
+    expect(res.content).toContain('4.3x multiple')
+    expect(res.content).not.toContain('Open het rapport voor de waarderingsrange')
+  })
+
+  it('derives a headline value from the loaded report range when the midpoint is absent', () => {
+    const res = generateContextAwareLocalResponse({
+      ...base,
+      message: 'Leg de waardering uit',
+      companyName: 'Bakkerij Klaas',
+      assistantIntent: 'explain_value',
+      formData: {
+        _valuationSummary: {
+          valuationLow: '€428.000',
+          valuationHigh: '€618.000',
+        },
+      },
+    })
+
+    expect(res.content).toContain('€523.000')
+    expect(res.content).toContain('€428.000-€618.000')
+    expect(res.content).not.toContain('n.v.t.')
   })
 })

@@ -50,8 +50,12 @@ vi.mock('../../../store/useVersionHistoryStore', () => ({
   },
 }))
 
+const clientContextHarness = vi.hoisted(() => ({
+  state: { client: null as null | { id: string } },
+}))
 vi.mock('../../../stores/clientContext', () => ({
-  useClientContext: (selector: (state: { client: null }) => unknown) => selector({ client: null }),
+  useClientContext: (selector: (state: { client: null | { id: string } }) => unknown) =>
+    selector(clientContextHarness.state),
 }))
 
 vi.mock('../utils/manualChatAttachments', () => ({
@@ -114,6 +118,7 @@ describe('useManualChatMessageActions stream recovery', () => {
     })
     pollHistoryMock.mockClear()
     pollHistoryMock.mockResolvedValue(null)
+    clientContextHarness.state = { client: null }
   })
 
   it('recovers via non-streaming chat after BFF stream_recovery failed + error SSE', async () => {
@@ -271,5 +276,45 @@ describe('useManualChatMessageActions stream recovery', () => {
     expect(pollHistoryMock).toHaveBeenCalledTimes(1)
     const assistant = params.chatMessages.find((m) => m.role === 'assistant')
     expect(assistant?.isError).toBeFalsy()
+  })
+
+  it('polls the client-scoped advisor history key during persisted-answer recovery', async () => {
+    clientContextHarness.state = { client: { id: 'client-123' } }
+    sendMessageMock.mockRejectedValueOnce(new Error('proxy 499 — connection died'))
+    pollHistoryMock.mockResolvedValueOnce({
+      content: 'Waardering: €560K, met range €428K-€617K.',
+    })
+
+    const params = makeHookParams({
+      isAccountantMode: true,
+      manualChatReportId: '48d52144-1fa9-44e7-b077-8dc22310c2ac',
+      reportId: 'route-report-id',
+      resolvedReportId: '48d52144-1fa9-44e7-b077-8dc22310c2ac',
+    })
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await result.current.handleChatMessage(
+        'Explain the valuation',
+        undefined,
+        undefined,
+        undefined,
+        'explain_value'
+      )
+    })
+
+    await act(async () => {
+      streamHarness.callbacks?.onBffStreamRecovery?.('bff-fallback-failed')
+      streamHarness.callbacks?.onError?.('AI stream fallback failed')
+    })
+
+    await waitFor(() => {
+      expect(pollHistoryMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reportId: 'client_client-123',
+          userContent: 'Explain the valuation',
+        })
+      )
+    })
   })
 })
