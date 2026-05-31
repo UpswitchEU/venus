@@ -79,6 +79,12 @@ function toBooleanOrNull(value: unknown): boolean | null {
   return null
 }
 
+function toNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function requireNonNegativeRevenue(value: unknown, field: string): number {
   const revenue = toFiniteNumber(value)
 
@@ -790,6 +796,17 @@ export function buildValuationRequest(
     )
   }
   const showEnterpriseToEquityBridge = toBooleanOrNull(fd.show_enterprise_to_equity_bridge)
+  const kboNumber = toNonEmptyString(fd.kbo_number)
+  const kvkNumber = toNonEmptyString(fd.kvk_number) ?? (countryCode === 'NL' ? kboNumber : null)
+  const registrationNumber =
+    toNonEmptyString(fd.registration_number) ??
+    (countryCode === 'NL' ? kvkNumber : kboNumber) ??
+    kboNumber ??
+    kvkNumber
+  const vatNumber = toNonEmptyString(fd.vat_number)
+  const legalForm = toNonEmptyString(fd.legal_form)
+  const postalCode = toNonEmptyString(fd.postal_code)
+  const city = toNonEmptyString(fd.city)
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -804,6 +821,13 @@ export function buildValuationRequest(
     ...(formData.canonical_nace_code && {
       canonical_nace_code: formData.canonical_nace_code,
     }),
+    ...(registrationNumber && { registration_number: registrationNumber }),
+    ...(kboNumber && { kbo_number: kboNumber }),
+    ...(kvkNumber && { kvk_number: kvkNumber }),
+    ...(vatNumber && { vat_number: vatNumber }),
+    ...(legalForm && { legal_form: legalForm }),
+    ...(postalCode && { postal_code: postalCode }),
+    ...(city && { city }),
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
     forecast_years_data: forecastYearsData,

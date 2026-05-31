@@ -1,4 +1,4 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction, useState } from 'react'
+import { type Dispatch, type MutableRefObject, type SetStateAction, useMemo, useState } from 'react'
 import type {
   ChatMessage,
   FieldContext,
@@ -6,9 +6,11 @@ import type {
   ParsedCommand,
   ParsedValue,
   SuggestedNormalisation,
+  ValuationReportData,
 } from '../../../components/calculator'
 import type { ValuationFormData } from '../../../types/valuation'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
+import { buildManualChatValuationSummary } from '../utils/manualChatRequestContext'
 import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
 import { useManualAgentPromptHandoff } from './useManualAgentPromptHandoff'
 import { useManualChatControllerState } from './useManualChatControllerState'
@@ -29,6 +31,7 @@ export interface UseManualChatControllerParams {
   normalizationActions: Pick<ManualNormalizationActions, 'addItems' | 'persistToSession'>
   normalizationItems: NormalizationItem[]
   pendingPostValuationAgentPrompt?: string | null
+  report?: ValuationReportData | null
   reportId: string
   resolvedReportId?: string | null
   setCollectedData: Dispatch<SetStateAction<CollectedData>>
@@ -73,6 +76,7 @@ export function useManualChatController({
   normalizationActions,
   normalizationItems,
   pendingPostValuationAgentPrompt,
+  report,
   reportId,
   resolvedReportId,
   setCollectedData,
@@ -95,6 +99,7 @@ export function useManualChatController({
   } = useManualChatControllerState({ initialDrawerOpen })
   const [fieldContext, setFieldContext] = useState<FieldContext | undefined>(undefined)
   const [pendingUpdates, setPendingUpdates] = useState<ManualPendingFieldUpdate[]>([])
+  const valuationSummary = useMemo(() => buildManualChatValuationSummary(report), [report])
 
   const { handleApplyFieldUpdate, handleAcceptUpdate, handleRejectUpdate } =
     useManualChatFieldUpdateActions({
@@ -120,6 +125,7 @@ export function useManualChatController({
     latestFormDataRef,
     manualChatReportId,
     normalizationItems,
+    valuationSummary,
     persistNormalizationsToSession: normalizationActions.persistToSession,
     reportId,
     resolvedReportId,

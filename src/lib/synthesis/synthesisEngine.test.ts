@@ -79,6 +79,31 @@ describe('evaluateSynthesisBlend', () => {
       }
     })
 
+    it('uses net multiples equity for synthesis when the method row still contains gross EV', () => {
+      const ev = evaluateSynthesisBlend({
+        result: response({
+          valuation_results: {
+            dcf: method({ value: 616_744, available: true, label: 'DCF' }),
+            ebitda_multiple: method({
+              value: 532_125,
+              available: true,
+              label: 'EBITDA Multiple',
+            }),
+          },
+          multiples_valuation: {
+            adjusted_equity_value: 427_549.555,
+          } as ValuationResponse['multiples_valuation'],
+        }),
+        preSelectedMethods: ['dcf', 'ebitda_multiple'],
+        userWeights: { dcf: 70, ebitda_multiple: 30 },
+      })
+
+      expect(ev.client.kind).toBe('blended')
+      if (ev.client.kind === 'blended') {
+        expect(ev.client.value).toBe(559_986)
+      }
+    })
+
     it('blends three methods with 20/70/10 weights', () => {
       const ev = evaluateSynthesisBlend({
         result: response({

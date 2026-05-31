@@ -41,6 +41,7 @@ import {
   buildManualAIChatRequest,
   getManualChatVersionCount,
   type ManualChatFinancialContext,
+  type ManualChatValuationSummary,
 } from '../utils/manualChatRequestContext'
 import {
   resolveManualChatOnDoneAction,
@@ -77,6 +78,7 @@ export interface UseManualChatMessageActionsParams<TCollectedData extends object
   latestFormDataRef: MutableRefObject<Partial<TCollectedData>>
   manualChatReportId?: string | null
   normalizationItems: NormalizationItem[]
+  valuationSummary?: ManualChatValuationSummary | null
   persistNormalizationsToSession: PersistNormalizationsToSession
   reportId: string
   resolvedReportId?: string | null
@@ -117,6 +119,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
   latestFormDataRef,
   manualChatReportId,
   normalizationItems,
+  valuationSummary,
   persistNormalizationsToSession,
   reportId,
   resolvedReportId,
@@ -220,6 +223,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           latestFormData: latestFormDataRef.current as ManualChatFinancialContext,
           fieldContext,
           normalizationItems,
+          valuationSummary,
           conversationId: conversationId || undefined,
           chatMessages,
           versionCount: getManualChatVersionCount(
@@ -501,6 +505,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       latestFormDataRef,
       manualChatReportId,
       normalizationItems,
+      valuationSummary,
       reportId,
       resolvedReportId,
       setChatMessages,

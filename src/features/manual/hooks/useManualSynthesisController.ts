@@ -3,11 +3,15 @@
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ValuationReportData } from '@/components/calculator'
-import { bestBlendedValue, evaluateSynthesisBlend, type SynthesisEvaluation } from '@/lib/synthesis/synthesisEngine'
+import {
+  bestBlendedValue,
+  evaluateSynthesisBlend,
+  hydrateSynthesisValuationResultsMap,
+  type SynthesisEvaluation,
+} from '@/lib/synthesis/synthesisEngine'
 import type { SynthesisWeightSelection } from '@/lib/synthesis/synthesisWeights'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation'
-import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResultsMap'
 import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
 import { resultHasWeightedSynthesisSignal } from '../utils/weightedSynthesisSignals'
 
@@ -68,7 +72,10 @@ export function useManualSynthesisController({
     [preSelectedMethods, userWeights, userWeightJustification]
   )
 
-  const valuationResults = useMemo(() => hydrateClientValuationResultsMap(result) ?? null, [result])
+  const valuationResults = useMemo(
+    () => hydrateSynthesisValuationResultsMap(result) ?? null,
+    [result]
+  )
 
   const navValuationSummary = useMemo(() => {
     if (!report || !result) return undefined
@@ -77,20 +84,17 @@ export function useManualSynthesisController({
       preSelectedMethods,
       userWeights,
     })
-    const hasSynthesis = resultHasWeightedSynthesisSignal(result as unknown as Record<string, unknown>)
-    const primaryValue = hasSynthesis || blend != null
-      ? (blend ?? presentation.valuation)
-      : (report.recommendedAskingPrice ?? presentation.valuation)
+    const hasSynthesis = resultHasWeightedSynthesisSignal(
+      result as unknown as Record<string, unknown>
+    )
+    const primaryValue =
+      hasSynthesis || blend != null
+        ? (blend ?? presentation.valuation)
+        : (report.recommendedAskingPrice ?? presentation.valuation)
     return {
       priceRange: {
-        min:
-          presentation.valuationLow ??
-          report.valuationLow ??
-          Math.round(primaryValue * 0.85),
-        max:
-          presentation.valuationHigh ??
-          report.valuationHigh ??
-          Math.round(primaryValue * 1.15),
+        min: presentation.valuationLow ?? report.valuationLow ?? Math.round(primaryValue * 0.85),
+        max: presentation.valuationHigh ?? report.valuationHigh ?? Math.round(primaryValue * 1.15),
       },
       askPrice: primaryValue,
       confidence: 'high' as const,

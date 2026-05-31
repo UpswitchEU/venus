@@ -225,7 +225,9 @@ export interface ValuationRequest {
   city?: string
 
   // Phase 1.1: Enhanced KBO registry fields
+  registration_number?: string
   kbo_number?: string
+  kvk_number?: string
   vat_number?: string
   postal_code?: string
   legal_form?: string
@@ -492,7 +494,9 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   city?: string
 
   // Phase 1.1: Enhanced KBO registry fields (inherited from ValuationRequest)
+  registration_number?: string
   kbo_number?: string
+  kvk_number?: string
   vat_number?: string
   postal_code?: string
   legal_form?: string

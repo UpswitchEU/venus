@@ -104,4 +104,25 @@ describe('RevenueQualitySectionStack', () => {
       effectiveMethods: ['revenue_multiple'],
     })
   })
+
+  it('falls back to API historical year data for the ratio denominator', () => {
+    render(
+      <RevenueQualitySectionStack
+        step={7}
+        methods={['revenue_multiple']}
+        formData={formData({
+          historical_years_data: [
+            { year: 2024, revenue: 900_000, ebitda: 90_000 },
+            { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+          ],
+        })}
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(mocks.sectionProps.at(-1)).toMatchObject({
+      latestRevenue: 1_000_000,
+      effectiveMethods: ['revenue_multiple'],
+    })
+  })
 })

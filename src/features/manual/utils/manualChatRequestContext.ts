@@ -1,8 +1,10 @@
-import type { ChatMessage, FieldContext, NormalizationItem } from '@/components/calculator'
-import {
-  resolveAssistantIntent,
-  type AssistantIntent,
-} from '@/services/ai/local-chat-fallback'
+import type {
+  ChatMessage,
+  FieldContext,
+  NormalizationItem,
+  ValuationReportData,
+} from '@/components/calculator'
+import { resolveAssistantIntent, type AssistantIntent } from '@/services/ai/local-chat-fallback'
 import type { AIChatRequest } from '@/services/ai/AIChatService'
 
 export interface ManualChatFinancialContext {
@@ -10,6 +12,7 @@ export interface ManualChatFinancialContext {
   ebitda?: unknown
   yearlyFinancials?: unknown
   current_year_data?: unknown
+  _valuationSummary?: ManualChatValuationSummary
 }
 
 export type ManualChatCollectedData = ManualChatFinancialContext &
@@ -25,10 +28,22 @@ export interface ManualChatNormalizationSummary {
   categories: Array<NormalizationItem['category']>
 }
 
+export interface ManualChatValuationSummary {
+  valuation?: number
+  valuationLow?: number
+  valuationHigh?: number
+  recommendedAskingPrice?: number
+  normalizedEbitda?: number
+  reportedEbitda?: number
+  multiple?: number
+  generatedAt?: string
+}
+
 export type ManualChatEnrichedFormData = ManualChatCollectedData & {
   _normalizationSummary: ManualChatNormalizationSummary
   _formCompleteness: number
   _versionCount: number
+  _valuationSummary?: ManualChatValuationSummary
 }
 
 export function getManualChatLocale(locale: string): 'en' | 'nl' {
@@ -61,6 +76,7 @@ export function buildManualChatEnrichedFormData(args: {
   collectedData: ManualChatCollectedData
   latestFormData: ManualChatFinancialContext
   normalizationItems: NormalizationItem[]
+  valuationSummary?: ManualChatValuationSummary | null
   versionCount: number
 }): ManualChatEnrichedFormData {
   const accepted = args.normalizationItems.filter((item) => item.status === 'accepted')
@@ -78,6 +94,7 @@ export function buildManualChatEnrichedFormData(args: {
     yearlyFinancials: args.latestFormData.yearlyFinancials ?? args.collectedData.yearlyFinancials,
     current_year_data:
       args.latestFormData.current_year_data ?? args.collectedData.current_year_data,
+    ...(args.valuationSummary ? { _valuationSummary: args.valuationSummary } : {}),
     _normalizationSummary: {
       total: args.normalizationItems.length,
       accepted: accepted.length,
@@ -90,6 +107,37 @@ export function buildManualChatEnrichedFormData(args: {
   }
 }
 
+export function buildManualChatValuationSummary(
+  report: ValuationReportData | null | undefined
+): ManualChatValuationSummary | null {
+  if (!report) return null
+  const valuation = Number(report.valuation)
+  const valuationLow = Number(report.valuationLow)
+  const valuationHigh = Number(report.valuationHigh)
+  const recommendedAskingPrice = Number(report.recommendedAskingPrice)
+  const normalizedEbitda = Number(report.normalizedEbitda)
+  const reportedEbitda = Number(
+    (report as ValuationReportData & { reportedEbitda?: number }).reportedEbitda ?? report.ebitda
+  )
+  const multiple = Number(report.multiple)
+  const generatedAtDate = report.generatedAt ? new Date(report.generatedAt) : null
+  const generatedAt =
+    generatedAtDate && Number.isFinite(generatedAtDate.getTime())
+      ? generatedAtDate.toISOString()
+      : undefined
+
+  return {
+    ...(Number.isFinite(valuation) ? { valuation } : {}),
+    ...(Number.isFinite(valuationLow) ? { valuationLow } : {}),
+    ...(Number.isFinite(valuationHigh) ? { valuationHigh } : {}),
+    ...(Number.isFinite(recommendedAskingPrice) ? { recommendedAskingPrice } : {}),
+    ...(Number.isFinite(normalizedEbitda) ? { normalizedEbitda } : {}),
+    ...(Number.isFinite(reportedEbitda) ? { reportedEbitda } : {}),
+    ...(Number.isFinite(multiple) ? { multiple } : {}),
+    ...(generatedAt ? { generatedAt } : {}),
+  }
+}
+
 export function buildManualAIChatRequest(args: {
   message: string
   reportId: string | null | undefined
@@ -98,6 +146,7 @@ export function buildManualAIChatRequest(args: {
   latestFormData: ManualChatFinancialContext
   fieldContext?: FieldContext
   normalizationItems: NormalizationItem[]
+  valuationSummary?: ManualChatValuationSummary | null
   conversationId?: string | null
   chatMessages: ChatMessage[]
   versionCount: number
@@ -107,15 +156,14 @@ export function buildManualAIChatRequest(args: {
   assistantIntent?: AssistantIntent
 }): AIChatRequest {
   const clientScopedSessionId =
-    args.audience === 'advisor' && args.clientUserId
-      ? `client_${args.clientUserId}`
-      : null
+    args.audience === 'advisor' && args.clientUserId ? `client_${args.clientUserId}` : null
   const sessionId = clientScopedSessionId ?? args.reportId ?? undefined
+  const reportId = args.reportId ?? sessionId
 
   return {
     message: args.message,
     sessionId,
-    reportId: sessionId,
+    reportId,
     companyName: args.collectedData.companyName,
     conversationId: args.conversationId || undefined,
     fieldContext: args.fieldContext || undefined,
@@ -126,6 +174,7 @@ export function buildManualAIChatRequest(args: {
       collectedData: args.collectedData,
       latestFormData: args.latestFormData,
       normalizationItems: args.normalizationItems,
+      valuationSummary: args.valuationSummary,
       versionCount: args.versionCount,
     }),
     audience: args.audience,

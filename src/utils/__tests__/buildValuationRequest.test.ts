@@ -47,6 +47,28 @@ describe('buildValuationRequest', () => {
     expect(result.country_code).toBe('GB')
   })
 
+  it('forwards registry identity fields into the valuation request', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        kbo_number: ' 1007.696.970 ',
+        vat_number: ' BE1007696970 ',
+        legal_form: ' Vennootschap onder firma ',
+        postal_code: '8531',
+        city: 'Harelbeke',
+      }),
+      []
+    )
+
+    expect(result).toMatchObject({
+      registration_number: '1007.696.970',
+      kbo_number: '1007.696.970',
+      vat_number: 'BE1007696970',
+      legal_form: 'Vennootschap onder firma',
+      postal_code: '8531',
+      city: 'Harelbeke',
+    })
+  })
+
   it('preserves zero historical years when none were entered', () => {
     const result = buildValuationRequest(
       makeFormData({

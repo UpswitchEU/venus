@@ -12,9 +12,7 @@ describe('isOfflineFallbackContent', () => {
     expect(isOfflineFallbackContent('> **AI tijdelijk niet beschikbaar** — beperkt antwoord')).toBe(
       true
     )
-    expect(isOfflineFallbackContent('> **AI temporarily unavailable** — limited answer')).toBe(
-      true
-    )
+    expect(isOfflineFallbackContent('> **AI temporarily unavailable** — limited answer')).toBe(true)
     expect(isOfflineFallbackContent('Normalised EBITDA bridge')).toBe(false)
   })
 })
@@ -32,9 +30,9 @@ describe('resolveAssistantIntent', () => {
   })
 
   it('drops stale chip intent when the user edits toward another intent', () => {
-    expect(
-      resolveAssistantIntent('Normaliseer eigenaarssalaris naar €60k', 'explain_value')
-    ).toBe('suggest_normalizations')
+    expect(resolveAssistantIntent('Normaliseer eigenaarssalaris naar €60k', 'explain_value')).toBe(
+      'suggest_normalizations'
+    )
   })
 })
 
@@ -89,5 +87,30 @@ describe('generateContextAwareLocalResponse', () => {
     })
     expect(res.content).toContain('Reeds toegepaste addbacks')
     expect(res.content).not.toContain('Eigenaarssalaris - Marktconform')
+  })
+
+  it('uses loaded report valuation summary for explain value offline fallback', () => {
+    const res = generateContextAwareLocalResponse({
+      ...base,
+      message: 'Leg de waarde uit',
+      companyName: 'Bakkerij Klaas',
+      assistantIntent: 'explain_value',
+      formData: {
+        _valuationSummary: {
+          valuation: 559_986,
+          valuationLow: 428_000,
+          valuationHigh: 617_000,
+          recommendedAskingPrice: 617_000,
+          normalizedEbitda: 100_000,
+          multiple: 4.3,
+        },
+      },
+    })
+
+    expect(res.content).toContain('Bakkerij Klaas')
+    expect(res.content).toContain('€559.986')
+    expect(res.content).toContain('€428.000-€617.000')
+    expect(res.content).toContain('Aanbevolen vraagprijs')
+    expect(res.content).not.toContain('Open het rapport voor de waarderingsrange')
   })
 })

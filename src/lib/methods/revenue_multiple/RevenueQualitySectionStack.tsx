@@ -20,11 +20,21 @@ export function resolveLatestRevenueForQuality(
     const rev = Number(latestRow.revenue)
     if (Number.isFinite(rev) && rev > 0) return rev
   }
+  const apiHistorical = (formData.historical_years_data ?? []).filter(
+    (row) => !isYearRowForecast(row)
+  )
+  if (apiHistorical.length > 0) {
+    const latestRow = apiHistorical.reduce((a, b) => (Number(b.year) > Number(a.year) ? b : a))
+    const rev = Number(latestRow.revenue)
+    if (Number.isFinite(rev) && rev > 0) return rev
+  }
   const current = formData.current_year_data?.revenue
   if (current != null) {
     const rev = Number(current)
     if (Number.isFinite(rev) && rev > 0) return rev
   }
+  const topLevelRevenue = Number(formData.revenue)
+  if (Number.isFinite(topLevelRevenue) && topLevelRevenue > 0) return topLevelRevenue
   return undefined
 }
 
@@ -57,10 +67,7 @@ export function RevenueQualitySectionStack({
       revTopClientAmount={coerceFiniteNumber(formData.rev_top_client_amount)}
       revGrossChurnPct={coerceFiniteNumber(formData.rev_gross_churn_pct)}
       revCapitalizedRdAmount={coerceFiniteNumber(formData.rev_capitalized_rd_amount)}
-      latestRevenue={resolveLatestRevenueForQuality(
-        latestCompleteYearlyFinancial,
-        formData
-      )}
+      latestRevenue={resolveLatestRevenueForQuality(latestCompleteYearlyFinancial, formData)}
       effectiveMethods={[...methods]}
       businessTypeId={businessTypeId}
       businessCategory={businessCategory}

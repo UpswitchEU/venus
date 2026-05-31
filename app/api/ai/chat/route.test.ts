@@ -580,6 +580,44 @@ describe('Titan payload', () => {
     expect(body.normalizations).toEqual([{ category: 'x' }])
   })
 
+  it('preserves valuation reportId on advisor client-scoped valuation explanation turns', async () => {
+    const valuationReportId = '48d52144-1fa9-44e7-b077-8dc22310c2ac'
+
+    await POST(
+      request({
+        message: 'Leg de waarde uit',
+        sessionId: 'client_client-123',
+        reportId: valuationReportId,
+        companyName: 'Bakkerij Klaas',
+        conversationId: 'conv-client-123',
+        formData: { revenue: 1000000, ebitda: 100000, industry: 'bakery' },
+        normalizations: [{ category: 'owner_salary', status: 'accepted' }],
+        audience: 'advisor',
+        assistantIntent: 'explain_value',
+      })
+    )
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const body = JSON.parse(init.body as string)
+
+    expect(body.context).toMatchObject({
+      sessionId: 'client_client-123',
+      reportId: valuationReportId,
+      companyName: 'Bakkerij Klaas',
+      assistantIntent: 'explain_value',
+      industry: 'bakery',
+      hasRevenue: true,
+      hasEbitda: true,
+    })
+    expect(body.conversationId).toBe('conv-client-123')
+    expect(body.formData).toMatchObject({ revenue: 1000000, ebitda: 100000 })
+    expect(body.normalizations).toEqual([{ category: 'owner_salary', status: 'accepted' }])
+    expect(body.audience).toBe('advisor')
+  })
+
   it('falls back reportId → sessionId when no explicit reportId', async () => {
     await POST(request({ message: 'hi', sessionId: 'session-xyz' }))
 
@@ -749,9 +787,7 @@ describe('response shape', () => {
       | undefined
     expect(fallbackInit?.headers?.Accept).toBe('application/json')
     expect(fallbackInit?.headers?.['X-Ai-Stream-Recovery']).toBe('1')
-    expect(JSON.parse(fallbackInit?.body ?? '{}')).not.toHaveProperty(
-      'recoverFromStreamTurn'
-    )
+    expect(JSON.parse(fallbackInit?.body ?? '{}')).not.toHaveProperty('recoverFromStreamTurn')
     expect(text).toContain('Welk bedrijf wil je toevoegen?')
     expect(text).toContain('"type":"stream_recovery"')
     expect(mocks.apiLogger.warn).toHaveBeenCalledWith(

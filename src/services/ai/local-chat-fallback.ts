@@ -24,10 +24,19 @@ type NormalizationSummary = {
   totalAdjustment?: number
 }
 
+type ValuationSummary = {
+  valuation?: unknown
+  valuationLow?: unknown
+  valuationHigh?: unknown
+  recommendedAskingPrice?: unknown
+  normalizedEbitda?: unknown
+  reportedEbitda?: unknown
+  multiple?: unknown
+}
+
 const EXPLAIN_EBITDA_RE =
   /verklaar.*ebitda|explain.*ebitda|ebitda.*uitleg|uitleg.*ebitda|leg.*ebitda.*uit|verdedigbaarheid|defensibility/i
-const EXPLAIN_VALUE_RE =
-  /leg.*waarde.*uit|explain.*value|wat.*waard|what.*worth|waarde.*uitleg/i
+const EXPLAIN_VALUE_RE = /leg.*waarde.*uit|explain.*value|wat.*waard|what.*worth|waarde.*uitleg/i
 const SUGGEST_NORMS_RE = /normalis|stel.*voor|which norm/i
 
 export function detectAssistantIntent(message: string): AssistantIntent {
@@ -57,6 +66,18 @@ function readSummary(formData: unknown): NormalizationSummary | undefined {
   return summary as NormalizationSummary
 }
 
+function readValuationSummary(formData: unknown): ValuationSummary | undefined {
+  if (!formData || typeof formData !== 'object') return undefined
+  const summary = (formData as Record<string, unknown>)._valuationSummary
+  if (!summary || typeof summary !== 'object') return undefined
+  return summary as ValuationSummary
+}
+
+function readNumber(value: unknown): number | null {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
 function readNormalizations(request: AIChatRequest): NormalizationLike[] {
   if (!Array.isArray(request.normalizations)) return []
   return request.normalizations as NormalizationLike[]
@@ -78,15 +99,11 @@ export function isOfflineFallbackContent(content: string): boolean {
   return /AI tijdelijk niet beschikbaar|AI temporarily unavailable/i.test(content)
 }
 
-function buildExplainEbitdaFallback(
-  request: AIChatRequest,
-  locale: 'en' | 'nl'
-): AIChatResponse {
+function buildExplainEbitdaFallback(request: AIChatRequest, locale: 'en' | 'nl'): AIChatResponse {
   const norms = readNormalizations(request)
   const accepted = norms.filter((n) => n.status === 'accepted')
   const summary = readSummary(request.formData)
-  const companyName =
-    request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
+  const companyName = request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
   const yearMatch = request.message.match(/\b(20\d{2})\b/)
   const focusYear =
     yearMatch?.[1] ??
@@ -94,15 +111,13 @@ function buildExplainEbitdaFallback(
       ? request.fieldContext.label?.match(/\b(20\d{2})\b/)?.[1]
       : undefined)
 
-  const acceptedLines = accepted
-    .slice(0, 8)
-    .map((n) => {
-      const code = n.ledgerCode ? `${n.ledgerCode} ` : ''
-      const name = n.ledgerName || ''
-      const amt = typeof n.adjustment === 'number' ? formatMoney(locale, n.adjustment) : '—'
-      const yr = n.year ? ` (${n.year})` : ''
-      return `- **${code}${name}**${yr}: +${amt}`
-    })
+  const acceptedLines = accepted.slice(0, 8).map((n) => {
+    const code = n.ledgerCode ? `${n.ledgerCode} ` : ''
+    const name = n.ledgerName || ''
+    const amt = typeof n.adjustment === 'number' ? formatMoney(locale, n.adjustment) : '—'
+    const yr = n.year ? ` (${n.year})` : ''
+    return `- **${code}${name}**${yr}: +${amt}`
+  })
 
   const totalAdj =
     typeof summary?.totalAdjustment === 'number'
@@ -114,12 +129,11 @@ function buildExplainEbitdaFallback(
       ? `**Reported vs normalized EBITDA for ${companyName}**${focusYear ? ` (${focusYear})` : ''}:`
       : `**Gerapporteerde vs genormaliseerde EBITDA voor ${companyName}**${focusYear ? ` (${focusYear})` : ''}:`
 
-  const capNote =
-    /verdedigbaarheid|defensibility/i.test(request.message)
-      ? locale === 'en'
-        ? '\n\n**Defensibility limit (>50% of reported EBITDA):** Large auto-applied ledger addbacks trigger “Review required”. That is a guardrail, not a rejection — substantiate in the dossier or adjust the normalization before sharing externally.'
-        : '\n\n**Verdedigbaarheidslimiet (>50% van gerapporteerde EBITDA):** Grote automatisch toegepaste grootboek-correcties geven “Review vereist”. Dat is een waakhond, geen afwijzing — onderbouw in het dossier of pas de normalisatie aan vóór extern delen.'
-      : ''
+  const capNote = /verdedigbaarheid|defensibility/i.test(request.message)
+    ? locale === 'en'
+      ? '\n\n**Defensibility limit (>50% of reported EBITDA):** Large auto-applied ledger addbacks trigger “Review required”. That is a guardrail, not a rejection — substantiate in the dossier or adjust the normalization before sharing externally.'
+      : '\n\n**Verdedigbaarheidslimiet (>50% van gerapporteerde EBITDA):** Grote automatisch toegepaste grootboek-correcties geven “Review vereist”. Dat is een waakhond, geen afwijzing — onderbouw in het dossier of pas de normalisatie aan vóór extern delen.'
+    : ''
 
   const appliedBlock =
     accepted.length > 0
@@ -137,15 +151,57 @@ function buildExplainEbitdaFallback(
   }
 }
 
-function buildExplainValueFallback(
-  request: AIChatRequest,
-  locale: 'en' | 'nl'
-): AIChatResponse {
-  const companyName =
-    request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
+function buildExplainValueFallback(request: AIChatRequest, locale: 'en' | 'nl'): AIChatResponse {
+  const companyName = request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
   const summary = readSummary(request.formData)
+  const valuationSummary = readValuationSummary(request.formData)
+  const valuation = readNumber(valuationSummary?.valuation)
+  const valuationLow = readNumber(valuationSummary?.valuationLow)
+  const valuationHigh = readNumber(valuationSummary?.valuationHigh)
+  const recommendedAskingPrice = readNumber(valuationSummary?.recommendedAskingPrice)
+  const normalizedEbitda = readNumber(valuationSummary?.normalizedEbitda)
+  const multiple = readNumber(valuationSummary?.multiple)
   const accepted = summary?.accepted ?? 0
   const pending = summary?.pending ?? 0
+
+  if (valuation != null || valuationLow != null || valuationHigh != null) {
+    const range =
+      valuationLow != null && valuationHigh != null
+        ? locale === 'en'
+          ? ` (range ${formatMoney(locale, valuationLow)}-${formatMoney(locale, valuationHigh)})`
+          : ` (range ${formatMoney(locale, valuationLow)}-${formatMoney(locale, valuationHigh)})`
+        : ''
+    const ask =
+      recommendedAskingPrice != null
+        ? locale === 'en'
+          ? `\nRecommended asking price: **${formatMoney(locale, recommendedAskingPrice)}**.`
+          : `\nAanbevolen vraagprijs: **${formatMoney(locale, recommendedAskingPrice)}**.`
+        : ''
+    const drivers = [
+      normalizedEbitda != null
+        ? locale === 'en'
+          ? `normalized EBITDA ${formatMoney(locale, normalizedEbitda)}`
+          : `genormaliseerde EBITDA ${formatMoney(locale, normalizedEbitda)}`
+        : null,
+      multiple != null ? `${multiple.toFixed(1)}x multiple` : null,
+    ].filter(Boolean)
+    const driverLine =
+      drivers.length > 0
+        ? locale === 'en'
+          ? `\nKey driver(s): ${drivers.join(', ')}.`
+          : `\nBelangrijkste driver(s): ${drivers.join(', ')}.`
+        : ''
+
+    return {
+      success: true,
+      content:
+        offlineBanner(locale) +
+        (locale === 'en'
+          ? `For **${companyName}**, the open report shows an indicative value of **${valuation != null ? formatMoney(locale, valuation) : 'n/a'}**${range}.${ask}${driverLine}\n\nThis is a limited offline summary from the report data already loaded in Venus. Ask again when AI is back for the full method and benchmark walkthrough.`
+          : `Voor **${companyName}** toont het geopende rapport een indicatieve waarde van **${valuation != null ? formatMoney(locale, valuation) : 'n.v.t.'}**${range}.${ask}${driverLine}\n\nDit is een beperkte offline samenvatting op basis van de rapportdata die al in Venus geladen is. Stel de vraag opnieuw wanneer AI terug beschikbaar is voor de volledige methode- en benchmarkuitleg.`),
+      fallback: true,
+    }
+  }
 
   const body =
     locale === 'en'
@@ -170,18 +226,14 @@ function buildSuggestNormsFallback(locale: 'en' | 'nl'): AIChatResponse {
   return { success: true, content, fallback: true }
 }
 
-function buildGeneralFallback(
-  request: AIChatRequest,
-  locale: 'en' | 'nl'
-): AIChatResponse {
+function buildGeneralFallback(request: AIChatRequest, locale: 'en' | 'nl'): AIChatResponse {
   const summary = readSummary(request.formData)
   const accepted = summary?.accepted ?? 0
   if (accepted > 0) {
     return buildExplainEbitdaFallback(request, locale)
   }
 
-  const companyName =
-    request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
+  const companyName = request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
   return {
     success: true,
     content:
