@@ -359,6 +359,24 @@ export function getQualityWarningInlineFix(
 }
 
 /**
+ * Warning types whose fix is an existing form control (a "picker gap"): the CTA
+ * scrolls the advisor straight to that control instead of opening a chat turn.
+ * Values are DOM ids rendered by the manual input panel — keep in sync with the
+ * `id={...}` anchors on those sections.
+ */
+export const QUALITY_WARNING_JUMP_CONFIG: Partial<Record<QualityWarningAssistantCtaKey, string>> = {
+  // "Sector controleren" → the business-type / sector picker.
+  thin_comparables_proxy: 'manual-section-company',
+  // "Methodekeuze herstellen" → the method-configuration area.
+  method_substitution: 'manual-section-methods',
+}
+
+/** Scroll-anchor id for a warning's jump-to-control CTA, or undefined. */
+export function getQualityWarningJumpAnchor(type: string | null | undefined): string | undefined {
+  return isActionableQualityWarningType(type) ? QUALITY_WARNING_JUMP_CONFIG[type] : undefined
+}
+
+/**
  * Returns the method that conflicts with the given method, or null.
  */
 export function getConflictingMethod(method: string): string | null {

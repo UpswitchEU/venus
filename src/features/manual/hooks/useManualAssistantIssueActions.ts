@@ -1,13 +1,13 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
-import type { ManualChatSendHandler } from './useManualChatMessageActions'
 import { applyStartupIssueQuickFix } from '@/lib/methods/startup_valuation/startupIssueQuickFix'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
-import { getManualStartupIssueAnchor } from '../utils/manualStartupAssistantSurface'
 import {
   scheduleAfterScrollLockRelease,
   scrollAnchorIntoManualLayout,
 } from '../utils/manualLayoutScroll'
+import { getManualStartupIssueAnchor } from '../utils/manualStartupAssistantSurface'
+import type { ManualChatSendHandler } from './useManualChatMessageActions'
 
 type AcknowledgementSetter = Dispatch<SetStateAction<Set<string>>>
 
@@ -31,6 +31,7 @@ export interface UseManualAssistantIssueActionsResult {
   handleApplyStartupIssueQuickFix: (issueId: string) => void
   handleDismissStartupIssue: (issueId: string) => void
   handleJumpToStartupIssue: (issueId: string) => void
+  handleJumpToQualityWarning: (anchor: string) => void
 }
 
 function acknowledge(setter: AcknowledgementSetter, id: string) {
@@ -124,6 +125,19 @@ export function useManualAssistantIssueActions({
     [setChatDrawerOpen, startupIssueById]
   )
 
+  // Jump-to-control for a quality warning: close the drawer and scroll the
+  // advisor to the form control that fixes it (e.g. the sector or method
+  // picker). No-op if the anchor isn't on screen.
+  const handleJumpToQualityWarning = useCallback(
+    (anchor: string) => {
+      setChatDrawerOpen(false)
+      scheduleAfterScrollLockRelease(() =>
+        scrollAnchorIntoManualLayout(anchor, { behavior: 'smooth', block: 'start' })
+      )
+    },
+    [setChatDrawerOpen]
+  )
+
   return {
     handleResolveStartupLauncherIssue,
     handleResolveQualityWarning,
@@ -132,5 +146,6 @@ export function useManualAssistantIssueActions({
     handleApplyStartupIssueQuickFix,
     handleDismissStartupIssue,
     handleJumpToStartupIssue,
+    handleJumpToQualityWarning,
   }
 }

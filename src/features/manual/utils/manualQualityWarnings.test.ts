@@ -60,8 +60,39 @@ describe('manualQualityWarnings', () => {
         step_number: 7,
         cta_label: 'qualityCtaThinComparablesLabel:Open in chat',
         cta_prompt: 'qualityCtaThinComparablesPrompt:Thin comps Check benchmark.',
+        // "Sector controleren" is a picker gap → jump-to-control, not a chat turn.
+        jump: { anchor: 'manual-section-company' },
       },
     ])
+  })
+
+  it('attaches the inline-fix field spec to the balance (net_debt) warning', () => {
+    const [warning] = buildManualQualityWarnings({
+      acknowledgedTypes: new Set(),
+      translateCta: translate,
+      result: {
+        data_quality_warnings: [{ type: 'net_debt_unavailable', severity: 'high' }],
+      },
+    })
+    expect(warning?.inlineFix?.fields.map((f) => f.key)).toEqual([
+      'cash',
+      'total_debt',
+      'current_liabilities',
+    ])
+    // The balance gap is filled inline, never jumped to.
+    expect(warning?.jump).toBeUndefined()
+  })
+
+  it('attaches a jump anchor (not an inline form) to method_substitution', () => {
+    const [warning] = buildManualQualityWarnings({
+      acknowledgedTypes: new Set(),
+      translateCta: translate,
+      result: {
+        data_quality_warnings: [{ type: 'method_substitution', severity: 'high' }],
+      },
+    })
+    expect(warning?.jump).toEqual({ anchor: 'manual-section-methods' })
+    expect(warning?.inlineFix).toBeUndefined()
   })
 
   it('falls back to the engine title/recommendation verbatim for unknown warning types', () => {

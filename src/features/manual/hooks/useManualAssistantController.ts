@@ -17,6 +17,7 @@ import {
 } from '../../../components/calculator'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
 import type { NormalizationItem } from '../../../components/calculator/UnifiedNormalizationModal'
+import { applyManualCurrentYearBalance } from '../../../components/calculator/utils/manualFinancialRowMutations'
 import { useStartupAssistantSurface } from '../../../lib/methods'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { usePreparerMultipleStore } from '../../../store/manual/usePreparerMultipleStore'
@@ -247,6 +248,7 @@ export function useManualAssistantController({
     handleApplyStartupIssueQuickFix,
     handleDismissStartupIssue,
     handleJumpToStartupIssue,
+    handleJumpToQualityWarning,
   } = useManualAssistantIssueActions({
     assistantLocale,
     formatStartupAssistantPrompt,
@@ -357,15 +359,14 @@ export function useManualAssistantController({
         type: 'set_current_year_balance',
         balance,
       })
-      // 2. Re-run with the balance merged into current_year_data — the engine's
-      //    net-debt source for the EV→Equity bridge. Mirrors handleApproveValuationRun.
-      const submitData = buildLiveValuationSubmitData()
-      const mergedSubmitData: ValuationFormData = submitData.current_year_data
-        ? {
-            ...submitData,
-            current_year_data: { ...submitData.current_year_data, ...balance },
-          }
-        : submitData
+      // 2. Re-run with the balance applied to the latest actual year. The engine
+      //    reads net debt from current_year_data; the shared mutation also keeps
+      //    the matching yearly row in sync and handles the no-current_year case.
+      //    Mirrors handleApproveValuationRun's submit path.
+      const mergedSubmitData = applyManualCurrentYearBalance(
+        buildLiveValuationSubmitData(),
+        balance
+      )
       await Promise.resolve(handleManualSubmit(mergedSubmitData))
     },
     [buildLiveValuationSubmitData, handleManualSubmit]
@@ -502,6 +503,7 @@ export function useManualAssistantController({
     qualityWarnings,
     onResolveQualityWarning: handleResolveQualityWarning,
     onInlineFixQualityWarning: handleInlineFixQualityWarning,
+    onJumpToQualityWarning: handleJumpToQualityWarning,
     onDismissQualityWarning: handleDismissQualityWarning,
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,

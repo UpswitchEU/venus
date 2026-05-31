@@ -111,6 +111,7 @@ export function ChatAssistantDrawer({
   onDismissQualityWarning,
   onResolveQualityWarning,
   onInlineFixQualityWarning,
+  onJumpToQualityWarning,
   onDismissStartupIssue,
   onResolveStartupIssue,
   onApplyStartupIssueQuickFix,
@@ -481,6 +482,7 @@ export function ChatAssistantDrawer({
               onDismissStartupIssue={onDismissStartupIssue}
               onResolveQualityWarning={onResolveQualityWarning}
               onInlineFixQualityWarning={onInlineFixQualityWarning}
+              onJumpToQualityWarning={onJumpToQualityWarning}
               onDismissQualityWarning={onDismissQualityWarning}
             />
             <PendingFieldUpdatesCard

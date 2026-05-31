@@ -44,6 +44,8 @@ interface AttentionItem {
   jumpLabel?: string
   /** When set, the CTA opens an inline fill form (these fields) instead of chat. */
   inlineFix?: QualityWarning['inlineFix']
+  /** When set, the CTA scrolls to this form anchor (a "picker gap") instead of chat. */
+  jumpAnchor?: string
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { block: 0, warn: 1, info: 2 }
@@ -70,6 +72,7 @@ interface AttentionSummaryProps {
   onDismissStartupIssue?: (id: string) => void
   onResolveQualityWarning?: (type: string, prompt: string) => void
   onInlineFixQualityWarning?: (type: string, values: Record<string, number>) => void | Promise<void>
+  onJumpToQualityWarning?: (anchor: string) => void
   onDismissQualityWarning?: (type: string) => void
 }
 
@@ -82,6 +85,7 @@ export function AttentionSummary({
   onDismissStartupIssue,
   onResolveQualityWarning,
   onInlineFixQualityWarning,
+  onJumpToQualityWarning,
   onDismissQualityWarning,
 }: AttentionSummaryProps) {
   const ca = useTranslations('chatAssistant')
@@ -130,6 +134,7 @@ export function AttentionSummary({
         ctaLabel: q.cta_label,
         ctaPrompt: q.cta_prompt,
         inlineFix: q.inlineFix,
+        jumpAnchor: q.jump?.anchor,
       })
     }
     return all.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
@@ -182,6 +187,13 @@ export function AttentionSummary({
     (item: AttentionItem, values: Record<string, number>) =>
       onInlineFixQualityWarning?.(item.sourceId, values),
     [onInlineFixQualityWarning]
+  )
+
+  const handleQualityJump = useCallback(
+    (item: AttentionItem) => {
+      if (item.jumpAnchor) onJumpToQualityWarning?.(item.jumpAnchor)
+    },
+    [onJumpToQualityWarning]
   )
 
   const handleQuickFix = useCallback(
@@ -261,6 +273,7 @@ export function AttentionSummary({
             onInlineFixQualityWarning ? (values) => handleInlineFix(item, values) : undefined
           }
           inlineLabels={inlineLabels}
+          onQualityJump={onJumpToQualityWarning ? () => handleQualityJump(item) : undefined}
           dismissLabel={ca('dismissWarning')}
         />
       </section>
@@ -352,6 +365,9 @@ export function AttentionSummary({
                         : undefined
                     }
                     inlineLabels={inlineLabels}
+                    onQualityJump={
+                      onJumpToQualityWarning ? () => handleQualityJump(item) : undefined
+                    }
                     dismissLabel={ca('dismissWarning')}
                     compact
                   />
@@ -384,6 +400,7 @@ interface AttentionCardProps {
   onDismiss: () => void
   onInlineFix?: (values: Record<string, number>) => void | Promise<void>
   inlineLabels?: InlineFixLabels
+  onQualityJump?: () => void
 }
 
 function AttentionCard({
@@ -398,16 +415,18 @@ function AttentionCard({
   onDismiss,
   onInlineFix,
   inlineLabels,
+  onQualityJump,
 }: AttentionCardProps) {
   const [fillOpen, setFillOpen] = useState(false)
   const hasBody = Boolean(item.body && item.body.trim().length > 0)
   const inlineFixFields = item.inlineFix?.fields ?? []
-  // Inline fix (fill the numbers right here) takes precedence over the chat
-  // CTA: when a warning has structured fields, talking to the assistant is the
-  // slow path, so we hide it and let the advisor fill + recalculate inline.
+  // Resolution precedence for a quality warning: fill-inline (numbers) >
+  // jump-to-control (picker gap) > chat. Whichever applies, the chat CTA is the
+  // slow path and is hidden so the advisor lands on a real action.
   const hasInlineFix = Boolean(inlineFixFields.length > 0 && onInlineFix && inlineLabels)
+  const hasQualityJump = Boolean(item.jumpAnchor && onQualityJump && !hasInlineFix)
   const hasResolve = Boolean(item.ctaLabel && item.ctaPrompt)
-  const showChatResolve = hasResolve && !hasInlineFix
+  const showChatResolve = hasResolve && !hasInlineFix && !hasQualityJump
   const hasQuickFix = Boolean(item.quickFixLabel)
   const hasJump = Boolean(item.jumpLabel)
   // When there is no AI-resolve action, the quick-fix IS the headline action
@@ -492,7 +511,7 @@ function AttentionCard({
         )}
       </AnimatePresence>
 
-      {(hasInlineFix || showChatResolve || hasQuickFix || hasJump) && (
+      {(hasInlineFix || hasQualityJump || showChatResolve || hasQuickFix || hasJump) && (
         <div className="pl-5 flex flex-wrap items-center gap-1.5">
           {hasInlineFix && (
             <button
@@ -501,6 +520,11 @@ function AttentionCard({
               aria-expanded={fillOpen}
               className={primaryButtonClass}
             >
+              {item.ctaLabel}
+            </button>
+          )}
+          {hasQualityJump && (
+            <button type="button" onClick={onQualityJump} className={primaryButtonClass}>
               {item.ctaLabel}
             </button>
           )}

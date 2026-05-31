@@ -62,6 +62,16 @@ const qualityInline: QualityWarning = {
   },
 }
 
+const qualityJump: QualityWarning = {
+  type: 'thin_comparables_proxy',
+  severity: 'high',
+  message: 'Sector multiple is thin',
+  recommendation: 'Confirm the sector classification.',
+  cta_label: 'Check sector',
+  cta_prompt: 'Help me check the sector.',
+  jump: { anchor: 'manual-section-company' },
+}
+
 describe('AttentionSummary', () => {
   it('renders nothing when there are no items', () => {
     const { container } = render(<AttentionSummary startupIssues={[]} qualityWarnings={[]} />)
@@ -177,6 +187,22 @@ describe('AttentionSummary', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Add balance figures' }))
     expect(screen.getByRole('button', { name: 'qualityInlineApply' })).toBeDisabled()
+  })
+
+  it('jumps to the form control for a picker-gap warning instead of opening chat', () => {
+    const onJumpToQualityWarning = vi.fn()
+    const onResolveQualityWarning = vi.fn()
+    render(
+      <AttentionSummary
+        startupIssues={[]}
+        qualityWarnings={[qualityJump]}
+        onJumpToQualityWarning={onJumpToQualityWarning}
+        onResolveQualityWarning={onResolveQualityWarning}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Check sector' }))
+    expect(onJumpToQualityWarning).toHaveBeenCalledWith('manual-section-company')
+    expect(onResolveQualityWarning).not.toHaveBeenCalled()
   })
 
   it('dispatches dismiss to the correct callback for each source', () => {

@@ -802,6 +802,12 @@ export interface QualityWarning {
    * straight to the valuation and recalculates — no chat turn, no live session.
    */
   inlineFix?: { fields: QualityWarningInlineFixField[] }
+  /**
+   * When present, the CTA scrolls to an existing form control (a "picker gap"
+   * like sector or method) instead of opening a chat turn. `anchor` is a DOM id
+   * rendered by the manual input panel.
+   */
+  jump?: { anchor: string }
 }
 
 export interface StartupAssistantIssue {

@@ -95,7 +95,9 @@ export function CompanyIdentificationSection({
   const tKbo = useTranslations('forms.kboLookup')
 
   return (
-    <section className="space-y-4">
+    // `id` is a jump target for the "Sector controleren" quality-warning CTA
+    // (the business-type / sector picker lives in this section).
+    <section id="manual-section-company" className="space-y-4 scroll-mt-24">
       <div className={SECTION_HEADER_ROW_CLASS}>
         <SectionStatusCircle step={1} complete={!!selectedCompany} className="flex" />
         <h3 className="text-sm font-medium text-foreground">{mi('sections.companyDetails')}</h3>

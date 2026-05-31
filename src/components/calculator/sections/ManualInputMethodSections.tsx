@@ -135,6 +135,9 @@ export function ManualInputMethodSections({
 
   return (
     <>
+      {/* Jump target for the "Methodekeuze herstellen" quality-warning CTA —
+          lands the advisor at the method-configuration area. */}
+      <div id="manual-section-methods" aria-hidden className="scroll-mt-24" />
       {showRealEstateCarveOut && (
         <div className="mt-4">
           <RealEstateCarveOutSection

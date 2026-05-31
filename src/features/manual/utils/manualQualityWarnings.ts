@@ -1,6 +1,7 @@
 import type { QualityWarning } from '@/components/calculator'
 import {
   getQualityWarningInlineFix,
+  getQualityWarningJumpAnchor,
   isActionableQualityWarningType,
   QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
 } from '@/constants/methodFieldConfig'
@@ -63,6 +64,11 @@ export function buildManualQualityWarnings({
           }
         : undefined
 
+      // Jump-to-control: a "picker gap" (sector, method) whose fix is an
+      // existing form control — the CTA scrolls there instead of opening chat.
+      const jumpAnchor = getQualityWarningJumpAnchor(type)
+      const jump = jumpAnchor ? { anchor: jumpAnchor } : undefined
+
       return {
         type,
         severity: warning.severity ?? 'high',
@@ -72,6 +78,7 @@ export function buildManualQualityWarnings({
         cta_label: cta ? translateCta(cta.labelKey, labelDefault) : labelDefault,
         cta_prompt: cta ? translateCta(cta.promptKey, promptDefault) : promptDefault,
         inlineFix,
+        jump,
       }
     })
 }

@@ -50,6 +50,8 @@ export interface ChatAssistantDrawerProps {
     warningType: string,
     values: Record<string, number>
   ) => void | Promise<void>
+  /** Jump-to-control: scroll the advisor to the form control that fixes the warning. */
+  onJumpToQualityWarning?: (anchor: string) => void
   onDismissStartupIssue?: (issueId: string) => void
   onResolveStartupIssue?: (issueId: string, prompt: string) => void
   onApplyStartupIssueQuickFix?: (issueId: string) => void
