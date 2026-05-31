@@ -2730,6 +2730,7 @@
 				"openReviewAction": "Review openen",
 				"startValuationAction": "Waardering starten",
 				"connectAccountingAction": "Boekhouding koppelen",
+				"enterFiguresAction": "Omzet + EBITDA invoeren",
 				"resolveDataAction": "Data oplossen"
 			},
 			"methodReadiness": {

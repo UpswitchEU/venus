@@ -238,6 +238,11 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
         name: 'proposalCards.clientDataReadiness.connectAccountingAction',
       })
     )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'proposalCards.clientDataReadiness.enterFiguresAction',
+      })
+    )
 
     expect(onSendFollowUp).toHaveBeenNthCalledWith(
       1,
@@ -250,6 +255,10 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
     expect(onSendFollowUp).toHaveBeenNthCalledWith(
       3,
       'Help me connect or import accounting data for Gamma BV.'
+    )
+    expect(onSendFollowUp).toHaveBeenNthCalledWith(
+      4,
+      'Enter financials manually for Gamma BV: revenue + EBITDA by fiscal year.'
     )
   })
 

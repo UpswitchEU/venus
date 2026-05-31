@@ -151,6 +151,10 @@ function buildClientDataReadinessActions(
       primary: true,
     },
     {
+      label: ca('proposalCards.clientDataReadiness.enterFiguresAction'),
+      prompt: `Enter financials manually for ${subject}: revenue + EBITDA by fiscal year.`,
+    },
+    {
       label: ca('proposalCards.clientDataReadiness.resolveDataAction'),
       prompt: `Help me resolve client data readiness for ${subject}.`,
     },

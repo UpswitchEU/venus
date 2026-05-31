@@ -2730,6 +2730,7 @@
 				"openReviewAction": "Open review",
 				"startValuationAction": "Start valuation",
 				"connectAccountingAction": "Connect accounting",
+				"enterFiguresAction": "Enter revenue + EBITDA",
 				"resolveDataAction": "Resolve data"
 			},
 			"methodReadiness": {
