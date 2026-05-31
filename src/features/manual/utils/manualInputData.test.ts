@@ -37,6 +37,43 @@ describe('manualInputData', () => {
     })
   })
 
+  it('restores advisor control fields from the Venus store into manual input state', () => {
+    expect(
+      buildManualInputInitialData({
+        collectedData: { companyName: 'Acme' },
+        formStoreData: {
+          real_estate_treatment: 'included',
+          exclude_real_estate: false,
+          real_estate_market_value: 900_000,
+          real_estate_book_value: 650_000,
+          estimated_market_rent: 42_000,
+          multiple_calibration_adjustment: -1,
+          multiple_calibration_note: 'Supplier concentration',
+          historical_ebitda_weighting_mode: 'weighted',
+          historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
+          show_enterprise_to_equity_bridge: false,
+          owner_salary_addback: 80_000,
+          owner_role: 'working',
+          dcf_input_mode: 'fcff_only',
+        },
+      })
+    ).toMatchObject({
+      real_estate_treatment: 'included',
+      exclude_real_estate: false,
+      real_estate_market_value: 900_000,
+      real_estate_book_value: 650_000,
+      estimated_market_rent: 42_000,
+      multiple_calibration_adjustment: -1,
+      multiple_calibration_note: 'Supplier concentration',
+      historical_ebitda_weighting_mode: 'weighted',
+      historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
+      show_enterprise_to_equity_bridge: false,
+      owner_salary_addback: 80_000,
+      owner_role: 'working',
+      dcf_input_mode: 'fcff_only',
+    })
+  })
+
   it('falls back to collected owner count when the store count is empty', () => {
     expect(
       buildManualInputInitialData({

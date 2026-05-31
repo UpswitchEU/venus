@@ -13,6 +13,7 @@ export function buildManualInputInitialFormData(
   initialData: Partial<ManualValuationFormData>
 ): ManualValuationFormData {
   return {
+    ...initialData,
     companyName: initialData.companyName || '',
     kboNumber: initialData.kboNumber || '',
     legalForm: initialData.legalForm || '',

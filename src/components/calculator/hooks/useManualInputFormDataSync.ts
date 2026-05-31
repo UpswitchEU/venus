@@ -27,6 +27,11 @@ export function useManualInputFormDataSync({
 
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
+      real_estate_treatment: formData.real_estate_treatment,
+      exclude_real_estate: formData.exclude_real_estate,
+      real_estate_market_value: formData.real_estate_market_value,
+      real_estate_book_value: formData.real_estate_book_value,
+      estimated_market_rent: formData.estimated_market_rent,
       current_year_data: latestHistorical
         ? buildCurrentYearData({
             year: Number.parseInt(latestHistorical.year, 10),
@@ -109,9 +114,16 @@ export function useManualInputFormDataSync({
       saas_customer_concentration_pct: formData.saas_customer_concentration_pct,
       saas_expansion_revenue_pct: formData.saas_expansion_revenue_pct,
       saas_sm_spend: formData.saas_sm_spend,
+      real_estate_treatment: formData.real_estate_treatment,
       exclude_real_estate: formData.exclude_real_estate,
+      real_estate_market_value: formData.real_estate_market_value,
       real_estate_book_value: formData.real_estate_book_value,
       estimated_market_rent: formData.estimated_market_rent,
+      multiple_calibration_adjustment: formData.multiple_calibration_adjustment,
+      multiple_calibration_note: formData.multiple_calibration_note,
+      historical_ebitda_weighting_mode: formData.historical_ebitda_weighting_mode,
+      historical_ebitda_weights: formData.historical_ebitda_weights,
+      show_enterprise_to_equity_bridge: formData.show_enterprise_to_equity_bridge,
       rev_recurring_pct: formData.rev_recurring_pct,
       rev_recurring_amount: formData.rev_recurring_amount,
       rev_top_client_concentration_pct: formData.rev_top_client_concentration_pct,
@@ -119,6 +131,7 @@ export function useManualInputFormDataSync({
       rev_contract_backlog: formData.rev_contract_backlog,
       rev_gross_churn_pct: formData.rev_gross_churn_pct,
       owner_salary_addback: formData.owner_salary_addback,
+      owner_role: formData.owner_role,
     })
   }, [formData, latestCompleteYearlyFinancial, storeBusinessModel])
 
