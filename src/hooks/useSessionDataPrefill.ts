@@ -23,6 +23,7 @@ import {
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { generalLogger } from '../utils/logger'
 import {
   getSessionOptionalPrefillSignature,
@@ -334,13 +335,14 @@ export function useSessionDataPrefill() {
             )
             if (cancelledRef.current) return
             if (resolved?.id) {
-              updates.business_type_id = resolved.id
+              const resolvedBusinessTypeId = normalizeBusinessTypeId(resolved.id) ?? resolved.id
+              updates.business_type_id = resolvedBusinessTypeId
               if (resolved.category) {
                 updates.industry = resolved.category
               }
               generalLogger.debug('[useSessionDataPrefill] Resolved business_type_id from NACE', {
                 nace_code: rawBusinessType,
-                business_type_id: resolved.id,
+                business_type_id: resolvedBusinessTypeId,
               })
             }
           } catch (_err) {
@@ -352,7 +354,10 @@ export function useSessionDataPrefill() {
             )
           }
         } else if (!isLegalFormBusinessTypeValue(rawBusinessType)) {
-          updates.business_type_id = rawBusinessType
+          const normalizedBusinessType = normalizeBusinessTypeId(rawBusinessType)
+          if (normalizedBusinessType) {
+            updates.business_type_id = normalizedBusinessType
+          }
         }
       }
       if (mergedData.founding_year) updates.founding_year = mergedData.founding_year
@@ -490,11 +495,5 @@ export function useSessionDataPrefill() {
     return () => {
       cancelledRef.current = true
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `bootstrap` is the
-    // canonical re-fire trigger (its identity changes when bootstrap settles or
-    // mode/prefill flips); the destructured `bootstrap?.X` paths used inside the
-    // body are read from that captured reference. Adding them as separate deps
-    // would not surface different snapshots — and would add no-op churn. Form
-    // fields are deliberately NOT subscribed (see hook header).
   }, [sessionData, updateFormData, reportId, restorationComplete, bootstrap])
 }

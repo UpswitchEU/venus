@@ -104,5 +104,6 @@ describe('useManualInputFormDataSync', () => {
       revenue: 900_000,
       ebitda: 90_000,
     })
+    expect(formDataRef.current.businessType).toBe('fintech-lending')
   })
 })

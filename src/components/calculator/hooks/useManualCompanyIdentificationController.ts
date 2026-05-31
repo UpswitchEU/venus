@@ -174,20 +174,32 @@ export function useManualCompanyIdentificationController({
   const handleBusinessTypeSelect = useCallback(
     (value: string, businessType?: BusinessType) => {
       const normalizedValue = normalizeBusinessTypeId(value)
+      const normalizedCode = normalizeBusinessTypeId(businessType?.code) ?? businessType?.code
       const normalizedBusinessType =
-        businessType && normalizedValue && normalizedValue !== businessType.id
-          ? { ...businessType, id: normalizedValue }
+        businessType &&
+        ((normalizedValue && normalizedValue !== businessType.id) ||
+          (normalizedCode && normalizedCode !== businessType.code))
+          ? {
+              ...businessType,
+              id: normalizedValue ?? businessType.id,
+              code: normalizedCode ?? businessType.code,
+            }
           : businessType
       setSelectedBusinessType(normalizedBusinessType || null)
       clearNacePrefillError()
       setFormData((prev) => ({
         ...prev,
         businessType: normalizedValue ?? '',
-        businessTypeCode: normalizedBusinessType ? normalizedBusinessType.code : '',
+        businessTypeCode: normalizedBusinessType
+          ? (normalizedCode ?? normalizedBusinessType.code)
+          : '',
         industry: normalizedBusinessType ? normalizedBusinessType.category : '',
       }))
       if (normalizedBusinessType && normalizedValue) {
-        updateFormData({ business_type_id: normalizedValue, industry: normalizedBusinessType.category })
+        updateFormData({
+          business_type_id: normalizedValue,
+          industry: normalizedBusinessType.category,
+        })
       } else {
         updateFormData({ business_type_id: undefined, industry: undefined })
       }

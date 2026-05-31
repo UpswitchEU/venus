@@ -1,6 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PrefillResolver, parsePrefilledQueryIdentifiers } from './PrefillResolver'
 
+type PrefillResolverInternals = {
+  extractSessionPrefill: (sessionData: Record<string, unknown>) => {
+    businessType?: { id?: string }
+  }
+  fetchKBO: (
+    query: string,
+    countryCode?: string
+  ) => Promise<{
+    companyInfo: { businessTypeId?: string }
+    kboData: { businessTypeId?: string }
+  } | null>
+}
+
 describe('PrefillResolver session fallback years', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -22,6 +35,17 @@ describe('PrefillResolver session fallback years', () => {
     expect(result.financials?.yearData).toEqual({
       2024: { revenue: 1_000_000, ebitda: 120_000 },
     })
+  })
+
+  it('canonicalizes session business_type_id aliases during prefill extraction', () => {
+    const resolver = new PrefillResolver() as unknown as PrefillResolverInternals
+    const result = resolver.extractSessionPrefill({
+      company_name: 'Upswitch',
+      business_type_id: 'fintech-lending-credit',
+      industry: 'Financial Services',
+    })
+
+    expect(result.businessType?.id).toBe('fintech-lending')
   })
 })
 
@@ -178,6 +202,30 @@ describe('PrefillResolver KVK lookup routing', () => {
     expect(result.kboData.activityCode).toBe('62011')
     expect(result.kboData.naceCode).toBe('6201')
     expect(result.companyInfo.businessTypeId).toBe('bt_software')
+  })
+
+  it('canonicalizes registry business_type_id aliases before bootstrap state sees them', async () => {
+    const kboPayload = {
+      results: [
+        {
+          kbo_number: '1033.441.760',
+          company_name: 'Upswitch',
+          country_code: 'BE',
+          city: 'Gent',
+          postal_code: '9050',
+          business_type_id: 'fintech_lending_credit',
+          business_type_title: 'Fintech — Lending & Credit',
+        },
+      ],
+    }
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(kboPayload), { status: 200 }))
+
+    const resolver = new PrefillResolver() as unknown as PrefillResolverInternals
+    const result = await resolver.fetchKBO('Upswitch BE 1033.441.760 63910', 'BE')
+
+    expect(result).not.toBeNull()
+    expect(result.companyInfo.businessTypeId).toBe('fintech-lending')
+    expect(result.kboData.businessTypeId).toBe('fintech-lending')
   })
 })
 

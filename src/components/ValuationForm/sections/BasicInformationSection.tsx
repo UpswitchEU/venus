@@ -18,17 +18,18 @@ import {
   AuroraNumberInput,
   AuroraSelect,
 } from '../../../design-system/components'
+import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
 import { suggestionService } from '../../../services/businessTypeSuggestionApi'
 import type { BusinessType } from '../../../services/businessTypesApi'
+import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
 import type { CompanySearchResult } from '../../../services/registry/types'
+import { useManualResultsStore } from '../../../store/manual'
 import type { ValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
-import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
-import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
-import { useManualResultsStore } from '../../../store/manual'
 import { buildBusinessTypeFormData } from '../utils/businessTypeFormData'
 
 interface BasicInformationSectionProps {
@@ -269,12 +270,13 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
       // Pre-populate business type from Titan enrichment (NACE/SBI). Only when
       // the form has no type yet — never overwrite a manual choice.
-      if (selectedCompany.business_type_id && !currentFormData.business_type_id) {
-        const enriched = await fetchBusinessTypeById(selectedCompany.business_type_id)
+      const selectedBusinessTypeId = normalizeBusinessTypeId(selectedCompany.business_type_id)
+      if (selectedBusinessTypeId && !currentFormData.business_type_id) {
+        const enriched = await fetchBusinessTypeById(selectedBusinessTypeId)
         if (enriched) {
           Object.assign(updates, buildBusinessTypeFormData(enriched))
         } else {
-          updates.business_type_id = selectedCompany.business_type_id
+          updates.business_type_id = selectedBusinessTypeId
         }
       }
 

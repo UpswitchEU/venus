@@ -1,3 +1,4 @@
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import type { SectorMismatchWarning } from './useSectorMismatchWarning'
 
 export function buildSectorMismatchWarning(args: {
@@ -7,7 +8,11 @@ export function buildSectorMismatchWarning(args: {
   selectedTitle?: string
   industry?: string
 }): SectorMismatchWarning {
-  if (args.naceResolvedId === args.businessTypeId) return null
+  if (
+    normalizeBusinessTypeId(args.naceResolvedId) === normalizeBusinessTypeId(args.businessTypeId)
+  ) {
+    return null
+  }
 
   return {
     naceTypeTitle: args.naceResolvedName?.trim() || args.naceResolvedId,

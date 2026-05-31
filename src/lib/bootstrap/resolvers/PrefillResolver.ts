@@ -11,6 +11,7 @@
  */
 
 import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
@@ -294,8 +295,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       // Fast path: Titan resolved the business type server-side during the
       // registry search (BE: NACE → mapping; NL: SBI alias → canonical NACE →
       // mapping). Use it directly so we skip the network round-trip below.
-      const serverBtId =
+      const serverBtId = normalizeBusinessTypeId(
         kboResult?.companyInfo?.businessTypeId || kboResult?.kboData?.businessTypeId
+      )
       if (!businessType && serverBtId) {
         const serverBusinessType = await this.fetchBusinessType(serverBtId)
         if (serverBusinessType) {
@@ -434,6 +436,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     if (!kbo) return null
 
     const resolvedKboCountry = resolveCountryCode(kbo.country_code, countryCode) || 'BE'
+    const businessTypeId = normalizeBusinessTypeId(kbo.business_type_id)
 
     const kboData: KBOCompanyEntity = {
       kboNumber: kbo.kbo_number,
@@ -451,7 +454,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       activityLabel: kbo.activity_label,
       foundationDate: kbo.foundation_date,
       isActive: kbo.is_active,
-      businessTypeId: kbo.business_type_id,
+      businessTypeId,
       businessTypeTitle: kbo.business_type_title,
     }
 
@@ -470,7 +473,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       activityLabel: kbo.activity_label,
       foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
       isActive: kbo.is_active,
-      businessTypeId: kbo.business_type_id,
+      businessTypeId,
       businessTypeTitle: kbo.business_type_title,
     }
 
@@ -650,8 +653,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       }
 
       let businessType: BusinessTypeInfo | undefined
-      if (profile.business_type_id) {
-        businessType = await this.fetchBusinessType(profile.business_type_id)
+      const businessTypeId = normalizeBusinessTypeId(profile.business_type_id)
+      if (businessTypeId) {
+        businessType = await this.fetchBusinessType(businessTypeId)
       }
 
       this.logger.info('[PrefillResolver] User profile fetched', {
@@ -702,13 +706,16 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       // Only use mapping if confidence is high enough
       if (!bt?.id || confidence < 0.85) return undefined
 
+      const businessTypeId = normalizeBusinessTypeId(bt.id)
+      if (!businessTypeId) return undefined
+
       return {
-        id: bt.id,
-        code: bt.id,
+        id: businessTypeId,
+        code: businessTypeId,
         title: bt.title || bt.name,
         category: bt.category?.name ?? bt.category?.title ?? bt.category_id,
         industry: bt.industry ?? bt.category_id,
-        industryMapping: bt.industry_mapping ?? bt.id,
+        industryMapping: bt.industry_mapping ?? businessTypeId,
         multiples: bt.multiples,
       }
     } catch {
@@ -721,14 +728,20 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async fetchBusinessType(businessTypeId: string): Promise<BusinessTypeInfo | undefined> {
     try {
+      const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
+      if (!canonicalBusinessTypeId) return undefined
+
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 6000)
-      const response = await fetch(`${API_URL}/api/v2/business-types/${businessTypeId}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
-      })
+      const response = await fetch(
+        `${API_URL}/api/v2/business-types/${encodeURIComponent(canonicalBusinessTypeId)}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        }
+      )
       clearTimeout(timeoutId)
 
       if (!response.ok) {
@@ -737,14 +750,15 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
 
       const data = await response.json()
       const bt = data.data || data
+      const resolvedBusinessTypeId = normalizeBusinessTypeId(bt.id) ?? canonicalBusinessTypeId
 
       return {
-        id: bt.id,
-        code: bt.code,
+        id: resolvedBusinessTypeId,
+        code: normalizeBusinessTypeId(bt.code) ?? resolvedBusinessTypeId,
         title: bt.title || bt.name,
         category: bt.category,
         industry: bt.industry,
-        industryMapping: bt.industry_mapping,
+        industryMapping: bt.industry_mapping ?? resolvedBusinessTypeId,
         multiples: bt.multiples,
       }
     } catch {
@@ -830,9 +844,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     }
 
     let businessType: BusinessTypeInfo | undefined
-    if (merged.business_type_id) {
+    const businessTypeId = normalizeBusinessTypeId(merged.business_type_id)
+    if (businessTypeId) {
       businessType = {
-        id: merged.business_type_id as string,
+        id: businessTypeId,
         title: '', // Will be resolved later if needed
         industry: merged.industry as string,
       }

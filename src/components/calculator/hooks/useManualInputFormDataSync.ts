@@ -1,5 +1,6 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { buildCurrentYearData } from '../../../utils/yearData'
 
 export interface UseManualInputFormDataSyncParams {
@@ -24,6 +25,7 @@ export function useManualInputFormDataSync({
     const current = latestCompleteYearlyFinancial
 
     Object.assign(formDataRef.current, {
+      businessType: normalizeBusinessTypeId(formData.businessType) ?? formData.businessType,
       yearlyFinancials: formData.yearlyFinancials,
       real_estate_treatment: formData.real_estate_treatment,
       exclude_real_estate: formData.exclude_real_estate,
@@ -62,7 +64,7 @@ export function useManualInputFormDataSync({
       yearFounded: formData.yearFounded,
       ownerManagers: formData.ownerManagers,
       fteEmployees: formData.fteEmployees,
-      businessType: formData.businessType,
+      businessType: normalizeBusinessTypeId(formData.businessType) ?? formData.businessType,
       revenue: current?.revenue,
       ebitda: current?.ebitda,
       yearlyFinancials: formData.yearlyFinancials,

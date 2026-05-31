@@ -1,3 +1,4 @@
+import { normalizeBusinessTypeId } from '../businessTypeIdAliases'
 import { generalLogger } from '../logger'
 
 /**
@@ -77,12 +78,13 @@ export async function fetchOwnerProfilePeerBenchmark({
 }: FetchArgs): Promise<VenusOwnerProfileBenchmark | null> {
   const titanUrl = process.env.NEXT_PUBLIC_TITAN_API_URL || ''
   if (!titanUrl) return null
-  if (!businessTypeId.trim()) return null
+  const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
+  if (!canonicalBusinessTypeId) return null
   const cc = countryCode.trim().toUpperCase()
   if (cc.length !== 2) return null
 
   const url = new URL(`${titanUrl}/api/v2/multiples/benchmarks/owner-profile`)
-  url.searchParams.set('business_type_id', businessTypeId.trim())
+  url.searchParams.set('business_type_id', canonicalBusinessTypeId)
   url.searchParams.set('country_code', cc)
 
   try {

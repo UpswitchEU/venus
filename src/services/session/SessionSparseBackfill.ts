@@ -1,4 +1,5 @@
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
@@ -280,13 +281,19 @@ export async function fetchBusinessCardData(
     const data: Record<string, unknown> = {}
 
     if (businessCard.company_name) data.company_name = businessCard.company_name
-    if (businessCard.business_type_id && !data.business_type_id) {
-      data.business_type_id = businessCard.business_type_id
+    const businessTypeId = normalizeBusinessTypeId(businessCard.business_type_id)
+    if (businessTypeId && !data.business_type_id) {
+      data.business_type_id = businessTypeId
     }
     if (businessCard.business_type) {
       data.business_type = businessCard.business_type
-      if (!data.business_type_id && !isLegalFormBusinessTypeValue(businessCard.business_type)) {
-        data.business_type_id = businessCard.business_type
+      const businessTypeAlias = normalizeBusinessTypeId(businessCard.business_type)
+      if (
+        !data.business_type_id &&
+        businessTypeAlias &&
+        !isLegalFormBusinessTypeValue(businessTypeAlias)
+      ) {
+        data.business_type_id = businessTypeAlias
       }
     }
     if (businessCard.industry) data.industry = businessCard.industry

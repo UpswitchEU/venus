@@ -194,6 +194,20 @@ describe('sessionHelpers', () => {
         },
       })
     })
+
+    it('canonicalizes restored business_type_id aliases in session data', () => {
+      const session = createBaseSession('val_alias_session', 'manual')
+      session.sessionData = {
+        company_name: 'Upswitch',
+        business_type_id: 'fintech_lending_credit',
+      } as typeof session.sessionData
+
+      const result = mergeSessionFields(session)
+
+      expect((result.sessionData as Record<string, unknown>)?.business_type_id).toBe(
+        'fintech-lending'
+      )
+    })
   })
 
   describe('resolveEnsureHtmlSessionKey', () => {

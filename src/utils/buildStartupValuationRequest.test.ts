@@ -141,6 +141,16 @@ describe('buildStartupValuationRequest', () => {
     expect(req.business_type).toBe('private_company')
   })
 
+  it('canonicalizes legacy business-type aliases before submit', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Upswitch',
+      businessTypeId: 'fintech_lending_credit',
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.business_type_id).toBe('fintech-lending')
+  })
+
   it('does not send legal forms as business_type_id', () => {
     const req = buildStartupValuationRequest({
       companyName: 'Acme',

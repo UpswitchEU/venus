@@ -20,6 +20,7 @@ import {
   BusinessTypeOption as ConfigBusinessTypeOption,
 } from '../config/businessTypes'
 import { formatBusinessTypeCategory } from '../utils/businessTypeCategory'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import { businessTypesCache } from './cache/businessTypesCache'
@@ -346,7 +347,10 @@ function normalizeQuestionsResponse(
       : options?.flow_type
 
   return {
-    business_type_id: asString(payload.business_type_id, businessTypeId),
+    business_type_id:
+      normalizeBusinessTypeId(payload.business_type_id) ??
+      normalizeBusinessTypeId(businessTypeId) ??
+      businessTypeId,
     flow_type: flowType,
     phase: asString(payload.phase, options?.phase ?? 'initial'),
     questions,
@@ -432,7 +436,10 @@ function normalizeValidationResult(
     : []
 
   return {
-    business_type_id: asString(payload.business_type_id, businessTypeId),
+    business_type_id:
+      normalizeBusinessTypeId(payload.business_type_id) ??
+      normalizeBusinessTypeId(businessTypeId) ??
+      businessTypeId,
     valid: typeof payload.valid === 'boolean' ? payload.valid : errors.length === 0,
     errors,
     warnings,
@@ -467,7 +474,8 @@ function normalizeBusinessTypeFullMetadata(
 ): BusinessTypeFullMetadata | null {
   if (!isRecord(value)) return null
 
-  const id = asString(value.id, businessTypeId)
+  const id =
+    normalizeBusinessTypeId(value.id) ?? normalizeBusinessTypeId(businessTypeId) ?? businessTypeId
   const rangeValue = value.typicalRevenueRange ?? value.typical_revenue_range
   const range = isRecord(rangeValue) ? rangeValue : {}
   const employeeValue = value.typicalEmployeeRange ?? value.typical_employee_range
@@ -484,7 +492,10 @@ function normalizeBusinessTypeFullMetadata(
     icon: asString(value.icon, asString(value.emoji, '🏢')),
     category_id: categoryId,
     sector: asString(value.sector, 'services'),
-    industry: asString(value.industry, asString(value.industryMapping ?? value.industry_mapping, id)),
+    industry: asString(
+      value.industry,
+      asString(value.industryMapping ?? value.industry_mapping, id)
+    ),
     sub_industry: asOptionalString(value.sub_industry ?? value.subIndustry),
     primary_model: asString(value.primary_model ?? value.primaryModel, ''),
     secondary_models: normalizeStringArray(value.secondary_models ?? value.secondaryModels),
@@ -535,7 +546,9 @@ function normalizeBusinessTypeFullMetadata(
     economic_sensitivity: asOptionalString(value.economic_sensitivity ?? value.economicSensitivity),
     relevant_countries: normalizeStringArray(value.relevant_countries ?? value.relevantCountries),
     urban_rural_split: asOptionalString(value.urban_rural_split ?? value.urbanRuralSplit),
-    questions: Array.isArray(value.questions) ? (value.questions as BusinessTypeFullQuestion[]) : [],
+    questions: Array.isArray(value.questions)
+      ? (value.questions as BusinessTypeFullQuestion[])
+      : [],
     validations: Array.isArray(value.validations) ? value.validations : [],
     benchmarks: Array.isArray(value.benchmarks) ? value.benchmarks : [],
     metadata: Array.isArray(value.metadata) ? value.metadata : [],
@@ -762,7 +775,7 @@ class BusinessTypesApiService {
       })
 
       const bt = isRecord(response.data?.business_type) ? response.data.business_type : null
-      const businessTypeId = asOptionalString(bt?.id)
+      const businessTypeId = normalizeBusinessTypeId(asOptionalString(bt?.id))
       if (!bt || !businessTypeId) return null
 
       const category = isRecord(bt.category) ? bt.category : {}
@@ -868,12 +881,9 @@ class BusinessTypesApiService {
         })
       }
 
-      const response = await this.api.get<ApiResponse<unknown>>(
-        `/types/${businessTypeId}/full`,
-        {
-          params: { locale },
-        }
-      )
+      const response = await this.api.get<ApiResponse<unknown>>(`/types/${businessTypeId}/full`, {
+        params: { locale },
+      })
 
       if (response.data.success && response.data.data) {
         const normalized = normalizeBusinessTypeFullMetadata(response.data.data, businessTypeId)

@@ -10,12 +10,13 @@ import {
   useState,
 } from 'react'
 import type { KBOCompany } from '@/design-system'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ManualValuationFormData as ValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import type { ManualInitialPrefillData } from '../utils/manualInputPrefill'
 import { useManualFilingYearAutoConfirm } from './useManualFilingYearAutoConfirm'
 import { useManualInitialPrefillBootstrap } from './useManualInitialPrefillBootstrap'
-import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { useManualOptionalSessionPrefillSync } from './useManualOptionalSessionPrefillSync'
 
 type StoreFormPatch = Record<string, unknown>
@@ -65,8 +66,9 @@ export function useManualInputPrefillSync({
   const financialsStepRef = useRef<HTMLElement>(null)
   const initialAddress = initialData.address
   const initialBusinessStructure = initialData.businessStructure
-  const initialBusinessType = initialData.businessType
-  const initialBusinessTypeCode = initialData.businessTypeCode
+  const initialBusinessType = normalizeBusinessTypeId(initialData.businessType)
+  const initialBusinessTypeCode =
+    normalizeBusinessTypeId(initialData.businessTypeCode) ?? initialData.businessTypeCode
   const initialCanonicalNaceCode = initialData.canonicalNaceCode
   const initialCompanyName = initialData.companyName
   const initialCountry = initialData.country

@@ -48,7 +48,7 @@ describe('useManualNaceBusinessTypePrefill', () => {
 
     await waitFor(() =>
       expect(updateFormData).toHaveBeenCalledWith({
-        business_type_id: 'fintech-lending-credit',
+        business_type_id: 'fintech-lending',
         industry: 'Financial Services',
       })
     )

@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { debounceWithFlush } from '../utils/debounce'
 import {
   isFilingYearConfirmedValue,
@@ -300,7 +301,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           number_of_owners: data.number_of_owners,
           recurring_revenue_percentage: data.recurring_revenue_percentage,
           comparables: data.comparables,
-          business_type_id: data.business_type_id,
+          business_type_id: normalizeBusinessTypeId(data.business_type_id),
           business_type: data.business_type,
           shares_for_sale: 100,
           business_context: data.business_context,
@@ -444,6 +445,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     }
   }, [formData, debouncedSyncToSession, reportId])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changing report ids must clear any pending retry timer from the previous session.
   useEffect(() => {
     return () => {
       if (deferRetryTimerRef.current) {

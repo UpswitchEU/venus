@@ -131,7 +131,7 @@ describe('mapClarityFormToVenusStore', () => {
       country_code: 'BE',
       industry: 'Financial Services',
       business_model: 'Fintech - Lending & Credit',
-      business_type_id: 'fintech-lending-credit',
+      business_type_id: 'fintech-lending',
       kbo_number: '1033.441.760',
       legal_form: 'Besloten Vennootschap',
       number_of_owners: 1,

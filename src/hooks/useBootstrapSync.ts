@@ -21,6 +21,7 @@ import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationFormData, ValuationSession } from '../types/valuation'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
@@ -38,7 +39,6 @@ import {
 } from '../utils/newValuationPrefillStorage'
 import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
-import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 
 const logger = createContextLogger('BootstrapSync')
 

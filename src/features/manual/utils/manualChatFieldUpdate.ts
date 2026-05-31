@@ -1,4 +1,5 @@
 import type { ValuationFormData as VenusFormData } from '@/types/valuation'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { parseEmployeeCount } from '@/utils/employeeCount'
 
 export interface ManualChatFieldUpdateBridge {
@@ -53,7 +54,7 @@ export function buildManualChatFieldUpdateBridge(
   const formPatch: Partial<VenusFormData> = {}
 
   if ((field === 'businessType' || field === 'business_type_id') && hasStr) {
-    formPatch.business_type_id = strVal
+    formPatch.business_type_id = normalizeBusinessTypeId(strVal)
   } else if ((field === 'nace_code' || field === 'naceCode') && hasStr) {
     formPatch.nace_code = strVal
   } else if ((field === 'nace_description' || field === 'naceDescription') && hasStr) {

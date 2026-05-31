@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { fetchBusinessTypeById } from '@/services/fetchBusinessTypeById'
 import { naceBusinessTypeService } from '@/services/naceBusinessTypeService'
 import type { ValuationFormData } from '@/types/valuation'
+import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { buildSectorMismatchWarning } from './sectorMismatchWarning'
 
 export type SectorMismatchWarning = {
@@ -34,7 +35,7 @@ export function useSectorMismatchWarning(formData: SectorMismatchFormSlice): Sec
       formData.nace_code?.trim() ||
       formData.activity_code?.trim() ||
       formData.canonical_nace_code?.trim()
-    const businessTypeId = formData.business_type_id
+    const businessTypeId = normalizeBusinessTypeId(formData.business_type_id)
 
     if (!nace || !businessTypeId) {
       setWarning(null)
@@ -49,7 +50,8 @@ export function useSectorMismatchWarning(formData: SectorMismatchFormSlice): Sec
       )
       if (cancelled) return
 
-      if (!resolved?.id || resolved.id === businessTypeId) {
+      const resolvedBusinessTypeId = normalizeBusinessTypeId(resolved?.id)
+      if (!resolvedBusinessTypeId || resolvedBusinessTypeId === businessTypeId) {
         setWarning(null)
         return
       }
@@ -59,8 +61,8 @@ export function useSectorMismatchWarning(formData: SectorMismatchFormSlice): Sec
 
       setWarning(
         buildSectorMismatchWarning({
-          naceResolvedId: resolved.id,
-          naceResolvedName: resolved.name,
+          naceResolvedId: resolvedBusinessTypeId,
+          naceResolvedName: resolved?.name,
           businessTypeId,
           selectedTitle: selected?.title,
           industry: formData.industry,

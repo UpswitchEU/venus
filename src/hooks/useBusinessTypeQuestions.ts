@@ -13,6 +13,7 @@ import {
   type BusinessTypeQuestionsOptions,
   businessTypesApiService,
 } from '../services/businessTypesApi'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { generalLogger } from '../utils/logger'
 
 // ============================================================================
@@ -84,7 +85,8 @@ export function useBusinessTypeQuestions(
   const [error, setError] = useState<string | null>(null)
 
   const fetchQuestions = useCallback(async () => {
-    if (!businessTypeId) {
+    const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
+    if (!canonicalBusinessTypeId) {
       setMetadata(null)
       setLoading(false)
       setError(null)
@@ -96,11 +98,14 @@ export function useBusinessTypeQuestions(
       setError(null)
 
       generalLogger.debug('[useBusinessTypeQuestions] Fetching questions', {
-        businessTypeId,
+        businessTypeId: canonicalBusinessTypeId,
         options,
       })
 
-      const result = await businessTypesApiService.getBusinessTypeQuestions(businessTypeId, options)
+      const result = await businessTypesApiService.getBusinessTypeQuestions(
+        canonicalBusinessTypeId,
+        options
+      )
 
       if (result) {
         // Ensure questions array exists and matches expected type
@@ -108,7 +113,7 @@ export function useBusinessTypeQuestions(
           questions:
             result.questions?.map((q) => ({
               id: q.id,
-              business_type_id: businessTypeId,
+              business_type_id: canonicalBusinessTypeId,
               question_id: q.id,
               question_text: q.text,
               question_type: 'text',
@@ -123,7 +128,7 @@ export function useBusinessTypeQuestions(
         }
         setMetadata(metadata)
         generalLogger.info('[useBusinessTypeQuestions] Questions loaded', {
-          businessTypeId,
+          businessTypeId: canonicalBusinessTypeId,
           totalQuestions: result.questions.length,
           requiredQuestions: result.total_required,
           estimatedTime: result.estimated_time,
@@ -131,14 +136,14 @@ export function useBusinessTypeQuestions(
       } else {
         setError('No questions found')
         generalLogger.error('[useBusinessTypeQuestions] No questions found', {
-          businessTypeId,
+          businessTypeId: canonicalBusinessTypeId,
         })
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch questions'
       setError(errorMessage)
       generalLogger.error('[useBusinessTypeQuestions] Error:', {
-        businessTypeId,
+        businessTypeId: canonicalBusinessTypeId,
         error: errorMessage,
       })
     } finally {

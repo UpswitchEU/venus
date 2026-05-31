@@ -4,6 +4,7 @@ import {
   looksLikeNaceCode,
 } from '../../../services/naceBusinessTypeService'
 import type { ValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 
@@ -217,9 +218,9 @@ function readManualSessionIdentitySurface(
 
   return {
     address: [postalCode, city].filter(Boolean).join(' '),
-    businessType: (merged.business_type_id || merged.businessTypeId || merged.business_type) as
-      | string
-      | undefined,
+    businessType: normalizeBusinessTypeId(
+      merged.business_type_id || merged.businessTypeId || merged.business_type
+    ),
     canonicalNace,
     city,
     company,
@@ -290,7 +291,7 @@ function buildManualSessionIdentityFormUpdates({
     formUpdates.founding_year = Number(session.year)
   }
   if (shouldUseSessionBusinessType && !form.businessTypeId?.trim()) {
-    formUpdates.business_type_id = session.businessType
+    formUpdates.business_type_id = normalizeBusinessTypeId(session.businessType)
   }
   if (session.industry && !form.industry?.trim()) formUpdates.industry = session.industry
 
@@ -320,7 +321,7 @@ function mergeManualSessionIdentityIntoCollectedData<
   if (session.country && !previous.country) next.country = session.country
   if (session.year != null && !previous.yearFounded) next.yearFounded = String(session.year)
   if (shouldUseSessionBusinessType && !previous.businessType) {
-    next.businessType = session.businessType
+    next.businessType = normalizeBusinessTypeId(session.businessType)
   }
   if (session.industry && !previous.industry) next.industry = session.industry
 

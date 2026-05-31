@@ -175,4 +175,18 @@ describe('useSessionDataPrefill (React #185 feedback-loop guard)', () => {
 
     expect(updateFormDataSpy.mock.calls.length).toBeGreaterThan(callCountBeforeHydration)
   })
+
+  it('canonicalizes legacy business type ids from restored session data', async () => {
+    bootstrapWithoutMeaningfulPrefill('val_business_type_alias')
+    seedExistingReportSession('val_business_type_alias', {
+      company_name: 'Alias Restore BV',
+      business_type_id: 'fintech_lending_credit',
+    })
+
+    renderHook(() => useSessionDataPrefill())
+
+    await waitFor(() => {
+      expect(useManualFormStore.getState().formData.business_type_id).toBe('fintech-lending')
+    })
+  })
 })

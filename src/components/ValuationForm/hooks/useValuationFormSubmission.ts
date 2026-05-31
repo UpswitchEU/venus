@@ -11,6 +11,10 @@ import { useTranslations } from 'next-intl'
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
+import {
+  buildManualCalculationRequest,
+  type ManualCalculationRequest,
+} from '../../../features/manual/utils/manualValuationRequest'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
@@ -21,10 +25,6 @@ import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import type { ValuationVersion, VersionChanges } from '../../../types/ValuationVersion'
-import type { ValuationRequest } from '../../../types/valuation'
-import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
-import { buildValuationRequest } from '../../../utils/buildValuationRequest'
-import { validateBusinessTypeSelection } from '../../../utils/validateBusinessTypeSelection'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -36,6 +36,7 @@ import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSna
 import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
+import { validateBusinessTypeSelection } from '../../../utils/validateBusinessTypeSelection'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -46,12 +47,6 @@ interface UseValuationFormSubmissionReturn {
   handleSubmit: (e?: React.FormEvent) => Promise<void>
   isSubmitting: boolean
   validationError: string | null
-}
-
-type ManualCalculationRequest = ValuationRequest & {
-  dataSource: 'manual'
-  reportId?: string
-  sessionKey?: string
 }
 
 function getStringProperty(value: unknown, key: string): string | undefined {
@@ -296,34 +291,21 @@ export const useValuationFormSubmission = (
           }
         }
 
-        // Build ValuationRequest using unified function
-        const request: ManualCalculationRequest = {
-          ...buildValuationRequest(formData),
-          // Explicitly set dataSource for manual flow so Titan knows this is a manual calculation.
-          dataSource: 'manual',
-        }
-
         const calculationRequestIdentifiers = {
           reportId: reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
           sessionKey: reportId && isSessionKey(reportId) ? reportId : undefined,
         }
 
-        // Preserve the report/session identifier contract used by the manual flow.
-        if (calculationRequestIdentifiers.reportId) {
-          request.reportId = calculationRequestIdentifiers.reportId
-        }
-        if (calculationRequestIdentifiers.sessionKey) {
-          request.sessionKey = calculationRequestIdentifiers.sessionKey
-        }
-
         const methodSnap = useManualResultsStore.getState()
-        if (methodSnap.preSelectedMethod) {
-          request.selected_method = methodSnap.preSelectedMethod
-        }
-        attachSynthesisWeightsToValuationRequest(request, {
-          preSelectedMethods: methodSnap.preSelectedMethods,
-          userWeights: methodSnap.userWeights,
-          userWeightJustification: methodSnap.userWeightJustification,
+        const request: ManualCalculationRequest = buildManualCalculationRequest({
+          formData,
+          selectedMethod: methodSnap.preSelectedMethod ?? methodSnap.selectedMethod,
+          identifiers: calculationRequestIdentifiers,
+          synthesisSelection: {
+            preSelectedMethods: methodSnap.preSelectedMethods,
+            userWeights: methodSnap.userWeights,
+            userWeightJustification: methodSnap.userWeightJustification,
+          },
         })
 
         // M&A Workflow: Check if this is a regeneration

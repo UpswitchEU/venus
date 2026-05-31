@@ -15,6 +15,17 @@ describe('buildSectorMismatchWarning', () => {
     ).toBeNull()
   })
 
+  it('returns null when legacy aliases resolve to the same canonical type', () => {
+    expect(
+      buildSectorMismatchWarning({
+        naceResolvedId: 'fintech-lending',
+        naceResolvedName: 'Fintech - Lending',
+        businessTypeId: 'fintech_lending_credit',
+        selectedTitle: 'Fintech - Lending & Credit',
+      })
+    ).toBeNull()
+  })
+
   it('uses design-system name for NACE-resolved label', () => {
     expect(
       buildSectorMismatchWarning({

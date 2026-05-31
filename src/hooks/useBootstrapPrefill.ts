@@ -27,6 +27,7 @@ import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import {
   getCurrentFilingYear,
   normalizeCurrentYearForFiling,
@@ -39,7 +40,6 @@ import {
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
-import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import {
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
@@ -824,12 +824,11 @@ function applyPrefillToForm(
       allData.legal_form = legalForm
     }
 
-    const businessTypeId =
-      normalizeBusinessTypeId(
-        getRecordString(mergedSession, 'business_type_id') ??
-          getRecordString(mergedSession, 'businessTypeId') ??
-          getRecordString(mergedSession, 'business_type')
-      )
+    const businessTypeId = normalizeBusinessTypeId(
+      getRecordString(mergedSession, 'business_type_id') ??
+        getRecordString(mergedSession, 'businessTypeId') ??
+        getRecordString(mergedSession, 'business_type')
+    )
     if (
       !allData.business_type_id &&
       businessTypeId &&

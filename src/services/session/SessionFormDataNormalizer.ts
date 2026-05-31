@@ -1,4 +1,5 @@
 import type { ValuationRequest } from '../../types/valuation'
+import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -399,6 +400,10 @@ export function extractFormData(sessionData: SessionRecord): Partial<ValuationRe
   }
 
   const fd = formData as Record<string, unknown>
+  const businessTypeId = normalizeBusinessTypeId(fd.business_type_id)
+  if (businessTypeId) {
+    fd.business_type_id = businessTypeId
+  }
   const yearRowsFromMap = buildYearRowsFromMap(sessionData.year_data ?? sessionData.yearData)
   normalizeFinancialRows(fd, yearRowsFromMap)
   normalizeActivityFields(fd)

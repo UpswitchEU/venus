@@ -297,5 +297,6 @@ describe('buildManualValuationRequest', () => {
     })
     expect(req.historical_years_data).toEqual([])
     expect(req.kbo_number).toBe('1033.441.760')
+    expect(req.business_type_id).toBe('fintech-lending')
   })
 })

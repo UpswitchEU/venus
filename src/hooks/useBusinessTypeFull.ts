@@ -16,6 +16,7 @@ import {
   type BusinessTypeFullMetadata,
   businessTypesApiService,
 } from '../services/businessTypesApi'
+import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { logger as generalLogger } from '../utils/loggers'
 
 // ============================================================================
@@ -43,7 +44,8 @@ export function useBusinessTypeFull(
   const [error, setError] = useState<string | null>(null)
 
   const fetchBusinessTypeFull = useCallback(async () => {
-    if (!businessTypeId) {
+    const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
+    if (!canonicalBusinessTypeId) {
       setBusinessType(null)
       setLoading(false)
       setError(null)
@@ -54,26 +56,33 @@ export function useBusinessTypeFull(
       setLoading(true)
       setError(null)
 
-      generalLogger.debug('[useBusinessTypeFull] Fetching full metadata', { businessTypeId })
+      generalLogger.debug('[useBusinessTypeFull] Fetching full metadata', {
+        businessTypeId: canonicalBusinessTypeId,
+      })
 
-      const result = await businessTypesApiService.getBusinessTypeFull(businessTypeId)
+      const result = await businessTypesApiService.getBusinessTypeFull(canonicalBusinessTypeId)
 
       if (result) {
         setBusinessType(result)
         generalLogger.info('[useBusinessTypeFull] Loaded successfully', {
-          businessTypeId,
+          businessTypeId: canonicalBusinessTypeId,
           questionsCount: result.questions?.length || 0,
           validationsCount: result.validations?.length || 0,
           benchmarksCount: result.benchmarks?.length || 0,
         })
       } else {
         setError('Business type not found')
-        generalLogger.error('[useBusinessTypeFull] Not found', { businessTypeId })
+        generalLogger.error('[useBusinessTypeFull] Not found', {
+          businessTypeId: canonicalBusinessTypeId,
+        })
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch business type'
       setError(errorMessage)
-      generalLogger.error('[useBusinessTypeFull] Error:', { businessTypeId, error: errorMessage })
+      generalLogger.error('[useBusinessTypeFull] Error:', {
+        businessTypeId: canonicalBusinessTypeId,
+        error: errorMessage,
+      })
     } finally {
       setLoading(false)
     }

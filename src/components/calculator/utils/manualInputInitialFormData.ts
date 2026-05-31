@@ -1,4 +1,5 @@
 import type { ManualValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import {
   isFilingYearConfirmedValue,
   normalizeHistoricalYearsForFiling,
@@ -21,8 +22,9 @@ export function buildManualInputInitialFormData(
     naceCode: initialData.naceCode || '',
     canonicalNaceCode: initialData.canonicalNaceCode?.trim() || initialData.naceCode?.trim() || '',
     naceDescription: initialData.naceDescription || '',
-    businessType: initialData.businessType || '',
-    businessTypeCode: initialData.businessTypeCode || '',
+    businessType: normalizeBusinessTypeId(initialData.businessType) || '',
+    businessTypeCode:
+      normalizeBusinessTypeId(initialData.businessTypeCode) || initialData.businessTypeCode || '',
     industry: initialData.industry || '',
     country: initialData.country || '',
     yearFounded: initialData.yearFounded || '',

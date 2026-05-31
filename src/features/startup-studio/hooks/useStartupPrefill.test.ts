@@ -126,7 +126,7 @@ describe('useStartupPrefill', () => {
     renderHook(() => useStartupPrefill())
 
     await waitFor(() => {
-      expect(useManualFormStore.getState().formData.business_type_id).toBe('fintech_lending_credit')
+      expect(useManualFormStore.getState().formData.business_type_id).toBe('fintech-lending')
     })
     expect(useManualFormStore.getState().formData.industry).toBe('financial_services')
     expect(useManualFormStore.getState().formData.business_type).toBe('company')

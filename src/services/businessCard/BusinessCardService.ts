@@ -7,6 +7,7 @@
  */
 
 import type { IndustryCode, ValuationRequest, YearDataInput } from '../../types/valuation'
+import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
@@ -104,8 +105,9 @@ class BusinessCardServiceImpl implements BusinessCardService {
       valuationRequest.industry = businessCard.industry as IndustryCode
     }
 
-    if (businessCard.business_type_id) {
-      valuationRequest.business_type_id = businessCard.business_type_id
+    const businessTypeId = normalizeBusinessTypeId(businessCard.business_type_id)
+    if (businessTypeId) {
+      valuationRequest.business_type_id = businessTypeId
     }
 
     if (businessCard.country_code) {

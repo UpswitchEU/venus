@@ -2,8 +2,8 @@ import { Building2 } from 'lucide-react'
 import { categoryIcons } from '@/design-system/components/entity-search/BusinessTypeData'
 import type { BusinessType as EntitySearchBusinessType } from '@/design-system/components/entity-search/EntitySearchTypes'
 import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
-import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { businessTypeCategoryStrings } from './businessTypeCategory'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 
 type ApiBusinessTypeForEntitySearch = Pick<ApiBusinessType, 'id' | 'title'> &
   Partial<Pick<ApiBusinessType, 'icon' | 'industryMapping' | 'popular'>> & {

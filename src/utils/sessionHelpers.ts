@@ -9,6 +9,7 @@
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { dateLikeToUnixMs } from './date-like'
 import { is409Conflict } from './errorDetection'
 import { isRetryable } from './errors/errorGuards'
@@ -185,11 +186,15 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   const priceRange =
     sessionRecord.priceRange || existingSessionData.priceRange || existingSessionData._pricingRange
 
-  const mergedSessionData = {
+  const mergedSessionData: UnknownRecord = {
     ...existingSessionData,
     ...(valuationResult && { valuation_result: valuationResult }),
     ...(htmlReport && { html_report: htmlReport }),
     ...(priceRange ? { _pricingRange: priceRange } : {}),
+  }
+  const businessTypeId = normalizeBusinessTypeId(mergedSessionData.business_type_id)
+  if (businessTypeId) {
+    mergedSessionData.business_type_id = businessTypeId
   }
 
   return {

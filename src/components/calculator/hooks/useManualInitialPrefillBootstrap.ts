@@ -7,13 +7,13 @@ import {
   naceBusinessTypeService,
 } from '../../../services/naceBusinessTypeService'
 import type { ManualValuationFormData } from '../../../types/valuation'
+import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { shouldSuppressMercurySessionPrefill } from '../../../utils/prefillRestorationGate'
 import {
   applyManualInitialPrefill,
   buildManualPrefillCompany,
   type ManualInitialPrefillData,
 } from '../utils/manualInputPrefill'
-import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 
 type StoreFormPatch = Record<string, unknown>
 

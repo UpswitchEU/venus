@@ -708,6 +708,7 @@ describe('buildValuationRequest', () => {
       city: 'Gent',
       number_of_owners: 1,
       number_of_employees: 5,
+      business_type_id: 'fintech-lending',
       current_year_data: {
         year: 2025,
         revenue: 1_000_000,
