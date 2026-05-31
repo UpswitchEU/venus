@@ -1,5 +1,6 @@
 import { readPreSelectedValuationMethods } from '../constants/sessionUiKeys'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import { parseFlexibleNumber } from './isFiniteNumeric'
 
 interface BuildValuationBusinessContextOptions {
   formData: ValuationFormData
@@ -22,27 +23,23 @@ export function buildValuationBusinessContext({
   const fd = formData as ValuationFormData & Record<string, unknown>
   const adaptiveFields: Record<string, unknown> = {}
 
-  if (fd.dcf_revenue_growth_pct != null)
-    adaptiveFields.dcf_revenue_growth_pct = fd.dcf_revenue_growth_pct
-  if (fd.dcf_ebitda_margin_pct != null)
-    adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
-  if (fd.dcf_capex_pct != null) adaptiveFields.dcf_capex_pct = fd.dcf_capex_pct
-  if (fd.dcf_da_pct != null) adaptiveFields.dcf_da_pct = fd.dcf_da_pct
-  if (fd.dcf_nwc_pct != null) adaptiveFields.dcf_nwc_pct = fd.dcf_nwc_pct
-  if (fd.dcf_tax_rate_pct != null) adaptiveFields.dcf_tax_rate_pct = fd.dcf_tax_rate_pct
-  if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
-  if (fd.dcf_terminal_growth_pct != null)
-    adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
-  if (fd.dcf_exit_multiple != null) adaptiveFields.dcf_exit_multiple = fd.dcf_exit_multiple
-  if (fd.dcf_risk_free_rate_pct != null)
-    adaptiveFields.dcf_risk_free_rate_pct = fd.dcf_risk_free_rate_pct
-  if (fd.dcf_equity_risk_premium_pct != null) {
-    adaptiveFields.dcf_equity_risk_premium_pct = fd.dcf_equity_risk_premium_pct
-  }
-  if (fd.dcf_beta != null) adaptiveFields.dcf_beta = fd.dcf_beta
-  if (fd.dcf_cost_of_debt_pct != null) adaptiveFields.dcf_cost_of_debt_pct = fd.dcf_cost_of_debt_pct
-  if (fd.dcf_debt_equity_pct != null) adaptiveFields.dcf_debt_equity_pct = fd.dcf_debt_equity_pct
-  if (fd.dcf_tax_shield_pct != null) adaptiveFields.dcf_tax_shield_pct = fd.dcf_tax_shield_pct
+  copyFiniteAdaptiveFields(adaptiveFields, fd, [
+    'dcf_revenue_growth_pct',
+    'dcf_ebitda_margin_pct',
+    'dcf_capex_pct',
+    'dcf_da_pct',
+    'dcf_nwc_pct',
+    'dcf_tax_rate_pct',
+    'dcf_wacc_pct',
+    'dcf_terminal_growth_pct',
+    'dcf_exit_multiple',
+    'dcf_risk_free_rate_pct',
+    'dcf_equity_risk_premium_pct',
+    'dcf_beta',
+    'dcf_cost_of_debt_pct',
+    'dcf_debt_equity_pct',
+    'dcf_tax_shield_pct',
+  ])
   if (
     fd.dcf_discounting_convention === 'mid_year' ||
     fd.dcf_discounting_convention === 'year_end'
@@ -51,8 +48,8 @@ export function buildValuationBusinessContext({
   }
   const dcfTaxShieldProjections = Array.isArray(fd.dcf_tax_shield_projections)
     ? fd.dcf_tax_shield_projections
-        .map((value) => Number(value))
-        .filter((value) => Number.isFinite(value))
+        .map((value) => parseFlexibleNumber(value))
+        .filter((value): value is number => value !== undefined)
     : []
   if (dcfTaxShieldProjections.length > 0) {
     adaptiveFields.dcf_tax_shield_projections = dcfTaxShieldProjections
@@ -73,86 +70,62 @@ export function buildValuationBusinessContext({
 
   const userConfiguredDcf = isExplicitUserDcfIntent(fd, formData, dcfTaxShieldProjections.length)
 
-  if (
-    fd.nav_real_estate_adjustment != null &&
-    Number.isFinite(Number(fd.nav_real_estate_adjustment))
-  )
-    adaptiveFields.nav_real_estate_adjustment = Number(fd.nav_real_estate_adjustment)
-  if (fd.nav_inventory_adjustment != null && Number.isFinite(Number(fd.nav_inventory_adjustment)))
-    adaptiveFields.nav_inventory_adjustment = Number(fd.nav_inventory_adjustment)
-  if (fd.nav_hidden_reserves != null && Number.isFinite(Number(fd.nav_hidden_reserves)))
-    adaptiveFields.nav_hidden_reserves = Number(fd.nav_hidden_reserves)
-  if (fd.nav_goodwill_writeoff != null && Number.isFinite(Number(fd.nav_goodwill_writeoff)))
-    adaptiveFields.nav_goodwill_writeoff = Number(fd.nav_goodwill_writeoff)
-  if (
-    fd.nav_receivables_adjustment != null &&
-    Number.isFinite(Number(fd.nav_receivables_adjustment))
-  )
-    adaptiveFields.nav_receivables_adjustment = Number(fd.nav_receivables_adjustment)
-  if (fd.nav_other_revaluations != null && Number.isFinite(Number(fd.nav_other_revaluations)))
-    adaptiveFields.nav_other_revaluations = Number(fd.nav_other_revaluations)
-  if (fd.nav_tax_latency_pct != null && Number.isFinite(Number(fd.nav_tax_latency_pct))) {
-    adaptiveFields.nav_tax_latency_pct = Math.min(Math.max(Number(fd.nav_tax_latency_pct), 0), 100)
+  copyFiniteAdaptiveFields(adaptiveFields, fd, [
+    'nav_real_estate_adjustment',
+    'nav_inventory_adjustment',
+    'nav_hidden_reserves',
+    'nav_goodwill_writeoff',
+    'nav_receivables_adjustment',
+    'nav_other_revaluations',
+    'nav_off_balance_items',
+    'nav_real_estate_book_value',
+    'nav_real_estate_appraisal_value',
+  ])
+  const navTaxLatencyPct = parseFlexibleNumber(fd.nav_tax_latency_pct)
+  if (navTaxLatencyPct !== undefined) {
+    adaptiveFields.nav_tax_latency_pct = Math.min(Math.max(navTaxLatencyPct, 0), 100)
   } else if (countryCode === 'BE') {
     adaptiveFields.nav_tax_latency_pct = 25
   }
-  if (fd.nav_off_balance_items != null && Number.isFinite(Number(fd.nav_off_balance_items)))
-    adaptiveFields.nav_off_balance_items = Number(fd.nav_off_balance_items)
-  if (
-    fd.nav_real_estate_book_value != null &&
-    Number.isFinite(Number(fd.nav_real_estate_book_value))
-  )
-    adaptiveFields.nav_real_estate_book_value = Number(fd.nav_real_estate_book_value)
-  if (
-    fd.nav_real_estate_appraisal_value != null &&
-    Number.isFinite(Number(fd.nav_real_estate_appraisal_value))
-  )
-    adaptiveFields.nav_real_estate_appraisal_value = Number(fd.nav_real_estate_appraisal_value)
   if (fd.nav_per_asset_tax_rates && typeof fd.nav_per_asset_tax_rates === 'object') {
     const cleaned: Record<string, number> = {}
     for (const [k, v] of Object.entries(fd.nav_per_asset_tax_rates)) {
-      if (v != null && Number.isFinite(Number(v))) {
-        cleaned[k] = Math.min(Math.max(Number(v), 0), 100)
+      const numericValue = parseFlexibleNumber(v)
+      if (numericValue !== undefined) {
+        cleaned[k] = Math.min(Math.max(numericValue, 0), 100)
       }
     }
     if (Object.keys(cleaned).length > 0) adaptiveFields.nav_per_asset_tax_rates = cleaned
   }
-  if (
-    fd.nav_equipment_revaluation &&
-    typeof fd.nav_equipment_revaluation === 'object' &&
-    Object.values(fd.nav_equipment_revaluation).some((v) => v != null && Number.isFinite(Number(v)))
-  ) {
-    adaptiveFields.nav_equipment_revaluation = fd.nav_equipment_revaluation
+  if (fd.nav_equipment_revaluation && typeof fd.nav_equipment_revaluation === 'object') {
+    const cleanedEquipmentRevaluation: Record<string, number> = {}
+    for (const [key, value] of Object.entries(fd.nav_equipment_revaluation)) {
+      const numericValue = parseFlexibleNumber(value)
+      if (numericValue !== undefined) cleanedEquipmentRevaluation[key] = numericValue
+    }
+    if (Object.keys(cleanedEquipmentRevaluation).length > 0) {
+      adaptiveFields.nav_equipment_revaluation = cleanedEquipmentRevaluation
+    }
   }
 
-  if (fd.taxable_profit != null && Number.isFinite(Number(fd.taxable_profit)))
-    adaptiveFields.taxable_profit = Number(fd.taxable_profit)
-  if (fd.director_remuneration != null && Number.isFinite(Number(fd.director_remuneration)))
-    adaptiveFields.director_remuneration = Number(fd.director_remuneration)
+  copyFiniteAdaptiveFields(adaptiveFields, fd, ['taxable_profit', 'director_remuneration'])
   if (fd.is_financial_company != null)
     adaptiveFields.is_financial_company = Boolean(fd.is_financial_company)
   if (fd.is_holding_more_than_50pct_shares != null)
     adaptiveFields.is_holding_more_than_50pct_shares = Boolean(fd.is_holding_more_than_50pct_shares)
   if (fd.sme_rate_override != null) adaptiveFields.sme_rate_override = Boolean(fd.sme_rate_override)
   if (fd.deal_type) adaptiveFields.deal_type = fd.deal_type
-  if (fd.deal_goodwill_amount != null && Number.isFinite(Number(fd.deal_goodwill_amount)))
-    adaptiveFields.deal_goodwill_amount = Number(fd.deal_goodwill_amount)
-  if (fd.deal_seller_share_basis != null && Number.isFinite(Number(fd.deal_seller_share_basis)))
-    adaptiveFields.deal_seller_share_basis = Number(fd.deal_seller_share_basis)
+  copyFiniteAdaptiveFields(adaptiveFields, fd, ['deal_goodwill_amount', 'deal_seller_share_basis'])
   if (fd.deal_seller_is_individual != null)
     adaptiveFields.deal_seller_is_individual = Boolean(fd.deal_seller_is_individual)
-  if (
-    fd.deal_buyer_discount_rate_pct != null &&
-    Number.isFinite(Number(fd.deal_buyer_discount_rate_pct))
-  )
-    adaptiveFields.deal_buyer_discount_rate_pct = Number(fd.deal_buyer_discount_rate_pct)
-  if (
-    fd.deal_registration_duty_pct != null &&
-    Number.isFinite(Number(fd.deal_registration_duty_pct))
-  )
-    adaptiveFields.deal_registration_duty_pct = Number(fd.deal_registration_duty_pct)
+  const dealBuyerDiscountRatePct = parseFlexibleNumber(fd.deal_buyer_discount_rate_pct)
+  if (dealBuyerDiscountRatePct !== undefined)
+    adaptiveFields.deal_buyer_discount_rate_pct = dealBuyerDiscountRatePct
+  const dealRegistrationDutyPct = parseFlexibleNumber(fd.deal_registration_duty_pct)
+  if (dealRegistrationDutyPct !== undefined)
+    adaptiveFields.deal_registration_duty_pct = dealRegistrationDutyPct
 
-  copyDefinedAdaptiveFields(adaptiveFields, fd, [
+  copyFiniteAdaptiveFields(adaptiveFields, fd, [
     'saas_arr',
     'saas_mrr',
     'saas_arr_growth_pct',
@@ -166,46 +139,40 @@ export function buildValuationBusinessContext({
     'saas_sm_spend',
   ])
 
-  if (fd.rev_recurring_amount != null && Number.isFinite(fd.rev_recurring_amount)) {
-    adaptiveFields.rev_recurring_amount = fd.rev_recurring_amount
+  const revRecurringAmount = parseFlexibleNumber(fd.rev_recurring_amount)
+  const revRecurringPct = parseFlexibleNumber(fd.rev_recurring_pct)
+  const revTopClientAmount = parseFlexibleNumber(fd.rev_top_client_amount)
+  const revTopClientConcentrationPct = parseFlexibleNumber(fd.rev_top_client_concentration_pct)
+  const revContractBacklog = parseFlexibleNumber(fd.rev_contract_backlog)
+  const revGrossChurnPct = parseFlexibleNumber(fd.rev_gross_churn_pct)
+  const revCapitalizedRdAmount = parseFlexibleNumber(fd.rev_capitalized_rd_amount)
+
+  if (revRecurringAmount !== undefined) {
+    adaptiveFields.rev_recurring_amount = revRecurringAmount
   }
-  if (
-    fd.rev_recurring_amount != null &&
-    Number.isFinite(fd.rev_recurring_amount) &&
-    latestRevenue &&
-    latestRevenue > 0
-  ) {
+  if (revRecurringAmount !== undefined && latestRevenue && latestRevenue > 0) {
     adaptiveFields.rev_recurring_pct = Math.min(
-      Math.max((fd.rev_recurring_amount / latestRevenue) * 100, 0),
+      Math.max((revRecurringAmount / latestRevenue) * 100, 0),
       100
     )
-  } else if (fd.rev_recurring_pct != null && Number.isFinite(fd.rev_recurring_pct)) {
-    adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
+  } else if (revRecurringPct !== undefined) {
+    adaptiveFields.rev_recurring_pct = revRecurringPct
   }
-  if (fd.rev_top_client_amount != null && Number.isFinite(fd.rev_top_client_amount)) {
-    adaptiveFields.rev_top_client_amount = fd.rev_top_client_amount
+  if (revTopClientAmount !== undefined) {
+    adaptiveFields.rev_top_client_amount = revTopClientAmount
   }
-  if (
-    fd.rev_top_client_amount != null &&
-    Number.isFinite(fd.rev_top_client_amount) &&
-    latestRevenue &&
-    latestRevenue > 0
-  ) {
+  if (revTopClientAmount !== undefined && latestRevenue && latestRevenue > 0) {
     adaptiveFields.rev_top_client_concentration_pct = Math.min(
-      Math.max((fd.rev_top_client_amount / latestRevenue) * 100, 0),
+      Math.max((revTopClientAmount / latestRevenue) * 100, 0),
       100
     )
-  } else if (
-    fd.rev_top_client_concentration_pct != null &&
-    Number.isFinite(fd.rev_top_client_concentration_pct)
-  ) {
-    adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
+  } else if (revTopClientConcentrationPct !== undefined) {
+    adaptiveFields.rev_top_client_concentration_pct = revTopClientConcentrationPct
   }
-  if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
-  if (fd.rev_gross_churn_pct != null) adaptiveFields.rev_gross_churn_pct = fd.rev_gross_churn_pct
-  if (fd.rev_capitalized_rd_amount != null && Number.isFinite(fd.rev_capitalized_rd_amount)) {
-    adaptiveFields.rev_capitalized_rd_amount = fd.rev_capitalized_rd_amount
-  }
+  if (revContractBacklog !== undefined) adaptiveFields.rev_contract_backlog = revContractBacklog
+  if (revGrossChurnPct !== undefined) adaptiveFields.rev_gross_churn_pct = revGrossChurnPct
+  if (revCapitalizedRdAmount !== undefined)
+    adaptiveFields.rev_capitalized_rd_amount = revCapitalizedRdAmount
 
   const existingBusinessContext =
     formData.business_context && typeof formData.business_context === 'object'
@@ -235,13 +202,14 @@ export function buildValuationBusinessContext({
   return { businessContext, userConfiguredDcf }
 }
 
-function copyDefinedAdaptiveFields(
+function copyFiniteAdaptiveFields(
   target: Record<string, unknown>,
   source: Record<string, unknown>,
   keys: string[]
 ): void {
   for (const key of keys) {
-    if (source[key] != null) target[key] = source[key]
+    const value = parseFlexibleNumber(source[key])
+    if (value !== undefined) target[key] = value
   }
 }
 
@@ -252,15 +220,15 @@ export function isExplicitUserDcfIntent(
   dcfTaxShieldProjectionCount = 0
 ): boolean {
   if (fd.dcf_input_mode === 'fcff_only') return true
-  if (fd.dcf_exit_multiple != null && Number.isFinite(Number(fd.dcf_exit_multiple))) return true
+  if (parseFlexibleNumber(fd.dcf_exit_multiple) !== undefined) return true
   if (fd.dcf_discounting_convention === 'year_end') return true
   if (dcfTaxShieldProjectionCount > 0) return true
 
   const weights = formData.user_weights
   if (weights && typeof weights === 'object' && !Array.isArray(weights)) {
     for (const [key, raw] of Object.entries(weights)) {
-      const weight = Number(raw)
-      if (key.toLowerCase().includes('dcf') && Number.isFinite(weight) && weight > 0) {
+      const weight = parseFlexibleNumber(raw)
+      if (key.toLowerCase().includes('dcf') && weight !== undefined && weight > 0) {
         return true
       }
     }

@@ -6,6 +6,12 @@ import {
 } from './naceBusinessTypeService'
 
 describe('looksLikeNaceCode', () => {
+  it('accepts division and group-level NACE codes from primary mappings', () => {
+    expect(looksLikeNaceCode('84')).toBe(true)
+    expect(looksLikeNaceCode('82.9')).toBe(true)
+    expect(looksLikeNaceCode('10.7')).toBe(true)
+  })
+
   it('accepts dotted NACE codes', () => {
     expect(looksLikeNaceCode('56.101')).toBe(true)
     expect(looksLikeNaceCode('62.01')).toBe(true)

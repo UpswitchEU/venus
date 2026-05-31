@@ -11,30 +11,30 @@ export function resolveLatestRevenueForQuality(
   formData: ManualValuationFormData
 ): number | undefined {
   if (latestCompleteYearlyFinancial?.revenue != null) {
-    const rev = Number(latestCompleteYearlyFinancial.revenue)
-    if (Number.isFinite(rev) && rev > 0) return rev
+    const rev = coerceFiniteNumber(latestCompleteYearlyFinancial.revenue)
+    if (rev !== undefined && rev > 0) return rev
   }
   const historical = (formData.yearlyFinancials ?? []).filter((row) => !isYearRowForecast(row))
   if (historical.length > 0) {
     const latestRow = historical.reduce((a, b) => (b.year > a.year ? b : a))
-    const rev = Number(latestRow.revenue)
-    if (Number.isFinite(rev) && rev > 0) return rev
+    const rev = coerceFiniteNumber(latestRow.revenue)
+    if (rev !== undefined && rev > 0) return rev
   }
   const apiHistorical = (formData.historical_years_data ?? []).filter(
     (row) => !isYearRowForecast(row)
   )
   if (apiHistorical.length > 0) {
     const latestRow = apiHistorical.reduce((a, b) => (Number(b.year) > Number(a.year) ? b : a))
-    const rev = Number(latestRow.revenue)
-    if (Number.isFinite(rev) && rev > 0) return rev
+    const rev = coerceFiniteNumber(latestRow.revenue)
+    if (rev !== undefined && rev > 0) return rev
   }
   const current = formData.current_year_data?.revenue
   if (current != null) {
-    const rev = Number(current)
-    if (Number.isFinite(rev) && rev > 0) return rev
+    const rev = coerceFiniteNumber(current)
+    if (rev !== undefined && rev > 0) return rev
   }
-  const topLevelRevenue = Number(formData.revenue)
-  if (Number.isFinite(topLevelRevenue) && topLevelRevenue > 0) return topLevelRevenue
+  const topLevelRevenue = coerceFiniteNumber(formData.revenue)
+  if (topLevelRevenue !== undefined && topLevelRevenue > 0) return topLevelRevenue
   return undefined
 }
 

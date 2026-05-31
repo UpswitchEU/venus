@@ -125,4 +125,29 @@ describe('RevenueQualitySectionStack', () => {
       effectiveMethods: ['revenue_multiple'],
     })
   })
+
+  it('normalizes persisted locale-formatted amounts before rendering the section', () => {
+    render(
+      <RevenueQualitySectionStack
+        step={7}
+        methods={['revenue_multiple']}
+        formData={
+          formData({
+            rev_contract_backlog: '250.000',
+            rev_recurring_amount: '400.000',
+            rev_top_client_amount: '150.000',
+            revenue: '1.000.000',
+          } as unknown as Partial<ManualValuationFormData>)
+        }
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(mocks.sectionProps.at(-1)).toMatchObject({
+      revContractBacklog: 250_000,
+      revRecurringAmount: 400_000,
+      revTopClientAmount: 150_000,
+      latestRevenue: 1_000_000,
+    })
+  })
 })

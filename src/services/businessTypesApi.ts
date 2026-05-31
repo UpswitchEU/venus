@@ -196,12 +196,53 @@ function asOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
+function parseDecimalEnvelope(value: Record<string, unknown>): number | undefined {
+  const sign = value.s
+  const exponent = value.e
+  const digits = value.d
+  if (
+    typeof sign !== 'number' ||
+    typeof exponent !== 'number' ||
+    !Array.isArray(digits) ||
+    digits.length === 0 ||
+    !digits.every((part) => typeof part === 'number' && Number.isFinite(part))
+  ) {
+    return undefined
+  }
+
+  const compactDigits = digits.map((part, index) => {
+    const text = Math.trunc(Math.abs(part)).toString()
+    return index === 0 ? text : text.padStart(7, '0')
+  })
+  const intDigits = compactDigits.join('').replace(/^0+(?=\d)/, '')
+  const decimalIndex = exponent + 1
+  const numericText =
+    decimalIndex <= 0
+      ? `0.${'0'.repeat(Math.abs(decimalIndex))}${intDigits}`
+      : decimalIndex >= intDigits.length
+        ? `${intDigits}${'0'.repeat(decimalIndex - intDigits.length)}`
+        : `${intDigits.slice(0, decimalIndex)}.${intDigits.slice(decimalIndex)}`
+
+  const parsed = Number(`${sign < 0 ? '-' : ''}${numericText}`)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 function asNumber(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  if (isRecord(value)) {
+    const parsed = parseDecimalEnvelope(value)
+    if (parsed !== undefined) return parsed
+  }
+  return fallback
 }
 
 function asOptionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  const parsed = asNumber(value, Number.NaN)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 function asStringArray(value: unknown): string[] {
@@ -401,6 +442,107 @@ function normalizeValidationResult(
         ? payload.checked_fields
         : undefined,
     source: asOptionalString(payload.source),
+  }
+}
+
+function normalizeMetricList(value: unknown): BusinessTypeFullMetric[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (typeof item === 'string' && item.trim().length > 0) {
+      return [{ name: item, label: item }]
+    }
+    return isRecord(item) ? [item as BusinessTypeFullMetric] : []
+  })
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function normalizeBusinessTypeFullMetadata(
+  value: unknown,
+  businessTypeId: string
+): BusinessTypeFullMetadata | null {
+  if (!isRecord(value)) return null
+
+  const id = asString(value.id, businessTypeId)
+  const rangeValue = value.typicalRevenueRange ?? value.typical_revenue_range
+  const range = isRecord(rangeValue) ? rangeValue : {}
+  const employeeValue = value.typicalEmployeeRange ?? value.typical_employee_range
+  const employees = isRecord(employeeValue) ? employeeValue : {}
+  const categoryId = asString(value.category_id ?? value.categoryId, 'other')
+  const now = new Date().toISOString()
+
+  return {
+    ...value,
+    id,
+    title: asString(value.title, id),
+    short_title: asOptionalString(value.short_title ?? value.shortTitle),
+    description: asString(value.description),
+    icon: asString(value.icon, asString(value.emoji, '🏢')),
+    category_id: categoryId,
+    sector: asString(value.sector, 'services'),
+    industry: asString(value.industry, asString(value.industryMapping ?? value.industry_mapping, id)),
+    sub_industry: asOptionalString(value.sub_industry ?? value.subIndustry),
+    primary_model: asString(value.primary_model ?? value.primaryModel, ''),
+    secondary_models: normalizeStringArray(value.secondary_models ?? value.secondaryModels),
+    revenue_streams: Array.isArray(value.revenue_streams ?? value.revenueStreams)
+      ? ((value.revenue_streams ?? value.revenueStreams) as unknown[])
+      : [],
+    color_hex: asOptionalString(value.color_hex ?? value.colorHex),
+    dcf_preference: asNumber(value.dcf_preference ?? value.dcfPreference, 0.5),
+    multiples_preference: asNumber(value.multiples_preference ?? value.multiplesPreference, 0.5),
+    owner_dependency_impact: asNumber(
+      value.owner_dependency_impact ?? value.ownerDependencyImpact,
+      0.5
+    ),
+    typical_revenue_min: asOptionalNumber(
+      value.typical_revenue_min ?? value.typicalRevenueMin ?? range.min
+    ),
+    typical_revenue_max: asOptionalNumber(
+      value.typical_revenue_max ?? value.typicalRevenueMax ?? range.max
+    ),
+    typical_revenue_median: asOptionalNumber(
+      value.typical_revenue_median ?? value.typicalRevenueMedian ?? range.median
+    ),
+    typical_ebitda_margin_min: asOptionalNumber(
+      value.typical_ebitda_margin_min ?? value.typicalEbitdaMarginMin
+    ),
+    typical_ebitda_margin_max: asOptionalNumber(
+      value.typical_ebitda_margin_max ?? value.typicalEbitdaMarginMax
+    ),
+    typical_ebitda_margin_median: asOptionalNumber(
+      value.typical_ebitda_margin_median ?? value.typicalEbitdaMarginMedian
+    ),
+    typical_employee_min: asOptionalNumber(
+      value.typical_employee_min ?? value.typicalEmployeeMin ?? employees.min
+    ),
+    typical_employee_max: asOptionalNumber(
+      value.typical_employee_max ?? value.typicalEmployeeMax ?? employees.max
+    ),
+    typical_employee_median: asOptionalNumber(
+      value.typical_employee_median ?? value.typicalEmployeeMedian ?? employees.median
+    ),
+    key_metrics: normalizeMetricList(value.key_metrics ?? value.keyMetrics),
+    risk_factors: Array.isArray(value.risk_factors ?? value.riskFactors)
+      ? ((value.risk_factors ?? value.riskFactors) as unknown[])
+      : [],
+    market_maturity: asOptionalString(value.market_maturity ?? value.marketMaturity),
+    market_trend: asOptionalString(value.market_trend ?? value.marketTrend),
+    seasonality_impact: asOptionalString(value.seasonality_impact ?? value.seasonalityImpact),
+    economic_sensitivity: asOptionalString(value.economic_sensitivity ?? value.economicSensitivity),
+    relevant_countries: normalizeStringArray(value.relevant_countries ?? value.relevantCountries),
+    urban_rural_split: asOptionalString(value.urban_rural_split ?? value.urbanRuralSplit),
+    questions: Array.isArray(value.questions) ? (value.questions as BusinessTypeFullQuestion[]) : [],
+    validations: Array.isArray(value.validations) ? value.validations : [],
+    benchmarks: Array.isArray(value.benchmarks) ? value.benchmarks : [],
+    metadata: Array.isArray(value.metadata) ? value.metadata : [],
+    status: asString(value.status, 'active'),
+    version: asNumber(value.version, 1),
+    created_at: asString(value.created_at ?? value.createdAt, now),
+    updated_at: asString(value.updated_at ?? value.updatedAt, now),
   }
 }
 
@@ -726,7 +868,7 @@ class BusinessTypesApiService {
         })
       }
 
-      const response = await this.api.get<ApiResponse<BusinessTypeFullMetadata>>(
+      const response = await this.api.get<ApiResponse<unknown>>(
         `/types/${businessTypeId}/full`,
         {
           params: { locale },
@@ -734,15 +876,18 @@ class BusinessTypesApiService {
       )
 
       if (response.data.success && response.data.data) {
+        const normalized = normalizeBusinessTypeFullMetadata(response.data.data, businessTypeId)
+        if (!normalized) return null
+
         if (process.env.NODE_ENV === 'development') {
           generalLogger.debug(`[BusinessTypesApi] Full metadata loaded`, {
             businessTypeId,
-            questionsCount: response.data.data.questions?.length || 0,
-            validationsCount: response.data.data.validations?.length || 0,
-            benchmarksCount: response.data.data.benchmarks?.length || 0,
+            questionsCount: normalized.questions?.length || 0,
+            validationsCount: normalized.validations?.length || 0,
+            benchmarksCount: normalized.benchmarks?.length || 0,
           })
         }
-        return response.data.data
+        return normalized
       }
 
       return null

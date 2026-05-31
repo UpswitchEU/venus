@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import aiConversationKeyContract from '../../../../../tests/contracts/ai-conversation-key-contract.json'
-import { deriveClientScopedSessionKey } from '../aiConversationKey'
+import {
+  deriveAdvisorWorkspaceSessionKey,
+  deriveClientScopedSessionKey,
+} from '../aiConversationKey'
 
 /**
  * Contract pin for cross-app AI conversation key.
@@ -36,5 +39,15 @@ describe('deriveClientScopedSessionKey (Venus side)', () => {
     // string — that's what makes the Titan conversation row align.
     const { clientUserId: id, expected } = aiConversationKeyContract.clientScopedCases[1]
     expect(deriveClientScopedSessionKey({ clientUserId: id })).toBe(expected)
+  })
+})
+
+describe('deriveAdvisorWorkspaceSessionKey (Venus side)', () => {
+  it('returns the shared advisor workspace key for every contract case', () => {
+    for (const testCase of aiConversationKeyContract.workspaceCases) {
+      expect(
+        deriveAdvisorWorkspaceSessionKey(testCase.advisorUserId, testCase.pathname)
+      ).toBe(testCase.expected)
+    }
   })
 })

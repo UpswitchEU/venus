@@ -9,9 +9,9 @@
 import { Building2 } from 'lucide-react'
 import type { BusinessType } from '@/design-system/components/EntitySearch'
 
-/** NACE-BEL pattern: digits-only or dotted forms (e.g. 56101, 56.101, 62.01). */
+/** NACE-BEL pattern: division/group/class/subclass, compact or dotted (e.g. 84, 6201, 56.101, 62.01). */
 export function looksLikeNaceCode(value: string): boolean {
-  return /^(?:\d{4,6}|\d{2}\.\d{2,3})$/.test(String(value || '').trim())
+  return /^(?:\d{2,6}|\d{2}(?:\.\d{1,4})?)$/.test(String(value || '').trim())
 }
 
 const LEGAL_FORM_BUSINESS_TYPE_VALUES = new Set([

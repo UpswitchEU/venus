@@ -57,10 +57,10 @@ describe('businessTypesApiService', () => {
                 industry_mapping: 'vertical_ai_software',
                 key_metrics: ['arr', 'nrr'],
                 popular: true,
-                dcf_preference: 0.7,
-                multiples_preference: 0.3,
-                owner_dependency_impact: 0.2,
-                typical_revenue_range: { min: 100000, max: 5000000 },
+                dcfPreference: { s: 1, e: -1, d: [7000000] },
+                multiplesPreference: { s: 1, e: -1, d: [3000000] },
+                ownerDependencyImpact: { s: 1, e: -1, d: [2000000] },
+                typical_revenue_range: { min: { s: 1, e: 5, d: [100000] }, max: '5000000' },
                 typical_employee_range: { min: 2, max: 40 },
                 status: 'active',
                 created_at: '2026-01-01T00:00:00.000Z',
@@ -111,6 +111,62 @@ describe('businessTypesApiService', () => {
       localStorage.getItem('upswitch_valuation_tester_business_types_cache') ?? '{}'
     )
     expect(cached.data.businessTypes).toEqual(result)
+  })
+
+  it('normalizes full metadata from Titan camelCase and Decimal.js fields', async () => {
+    const { businessTypesApiService } = await import('./businessTypesApi')
+    mockApiGet.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          id: 'accounting',
+          title: 'Accounting & Finance',
+          description: 'Accounting firm',
+          icon: '\u{1F4CA}',
+          categoryId: 'professional-services',
+          industryMapping: 'Professional Services',
+          sector: 'services',
+          industry: 'professional-services',
+          dcfPreference: { s: 1, e: -1, d: [6000000] },
+          multiplesPreference: { s: 1, e: -1, d: [4000000] },
+          ownerDependencyImpact: { s: 1, e: -1, d: [5500000] },
+          keyMetrics: ['revenue', 'client_retention'],
+          typicalRevenueMin: { s: 1, e: 5, d: [180000] },
+          typicalRevenueMax: { s: 1, e: 6, d: [3000000] },
+          typicalRevenueMedian: { s: 1, e: 5, d: [600000] },
+          typicalEbitdaMarginMedian: { s: 1, e: 1, d: [28] },
+          typicalEmployeeRange: { min: 1, max: 50 },
+          questions: [{ id: 'clients', text: 'Clients?', required: true }],
+          validations: [],
+          benchmarks: [],
+          metadata: [],
+          status: 'active',
+          version: 2,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        },
+      },
+    })
+
+    const result = await businessTypesApiService.getBusinessTypeFull('accounting')
+
+    expect(result).toMatchObject({
+      id: 'accounting',
+      category_id: 'professional-services',
+      dcf_preference: 0.6,
+      multiples_preference: 0.4,
+      owner_dependency_impact: 0.55,
+      typical_revenue_min: 180000,
+      typical_revenue_max: 3000000,
+      typical_revenue_median: 600000,
+      typical_ebitda_margin_median: 28,
+      typical_employee_min: 1,
+      typical_employee_max: 50,
+      key_metrics: [
+        { name: 'revenue', label: 'revenue' },
+        { name: 'client_retention', label: 'client_retention' },
+      ],
+    })
   })
 
   it('serializes question context and normalizes Titan question metadata', async () => {

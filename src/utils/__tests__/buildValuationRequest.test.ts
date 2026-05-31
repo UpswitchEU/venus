@@ -69,6 +69,107 @@ describe('buildValuationRequest', () => {
     })
   })
 
+  it('forwards registry identity fields from business_context aliases', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        kbo_number: undefined,
+        registration_number: undefined,
+        legal_form: undefined,
+        postal_code: undefined,
+        city: undefined,
+        business_context: {
+          kbo_registration_number: ' 1007.696.970 ',
+          legal_form: ' Vennootschap onder firma ',
+          vat_number: ' BE1007696970 ',
+          postal_code: '8531',
+          city: 'Harelbeke',
+        },
+      }),
+      []
+    )
+
+    expect(result).toMatchObject({
+      registration_number: '1007.696.970',
+      kbo_number: '1007.696.970',
+      vat_number: 'BE1007696970',
+      legal_form: 'Vennootschap onder firma',
+      postal_code: '8531',
+      city: 'Harelbeke',
+    })
+  })
+
+  it('maps business_context registry aliases to KVK fields for Dutch companies', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'NL',
+        kbo_number: undefined,
+        kvk_number: undefined,
+        registration_number: undefined,
+        business_context: {
+          kbo_registration_number: ' 12345678 ',
+          legal_form: ' Vennootschap onder firma ',
+          company_city: 'Amsterdam',
+        },
+      }),
+      []
+    )
+
+    expect(result.registration_number).toBe('12345678')
+    expect(result.kvk_number).toBe('12345678')
+    expect(result.kbo_number).toBeUndefined()
+    expect(result.legal_form).toBe('Vennootschap onder firma')
+    expect(result.city).toBe('Amsterdam')
+  })
+
+  it('derives Belgian postal code and city from selected company address fallback', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        postal_code: undefined,
+        city: undefined,
+        business_context: {
+          company_address: '8531 Harelbeke,',
+        },
+      }),
+      []
+    )
+
+    expect(result.postal_code).toBe('8531')
+    expect(result.city).toBe('Harelbeke')
+  })
+
+  it('derives Dutch postcode and city from selected company address fallback', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'NL',
+        postal_code: undefined,
+        city: undefined,
+        business_context: {
+          company_address: '1012AB Amsterdam',
+        },
+      }),
+      []
+    )
+
+    expect(result.postal_code).toBe('1012 AB')
+    expect(result.city).toBe('Amsterdam')
+  })
+
+  it('keeps explicit postal code and city ahead of parsed address fallback', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        postal_code: '8531',
+        city: 'Harelbeke',
+        business_context: {
+          company_address: '9999 Anderlecht,',
+        },
+      }),
+      []
+    )
+
+    expect(result.postal_code).toBe('8531')
+    expect(result.city).toBe('Harelbeke')
+  })
+
   it('preserves zero historical years when none were entered', () => {
     const result = buildValuationRequest(
       makeFormData({
@@ -876,6 +977,54 @@ describe('buildValuationRequest', () => {
       rev_top_client_amount: 150_000,
       rev_top_client_concentration_pct: 15,
       rev_contract_backlog: 250_000,
+    })
+  })
+
+  it('normalizes Belgian/Dutch formatted numeric strings before building the API payload', () => {
+    const filingYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        recurring_revenue_percentage: undefined,
+        revenue: '1.000.000',
+        ebitda: '100.000',
+        current_year_data: {
+          year: filingYear,
+          revenue: '1.000.000',
+          ebitda: '100.000',
+        },
+        historical_years_data: [
+          {
+            year: filingYear - 1,
+            revenue: '900.000',
+            ebitda: '90.000',
+          },
+        ],
+        rev_recurring_amount: '400.000',
+        rev_top_client_amount: '150.000',
+        rev_contract_backlog: '250.000',
+        dcf_wacc_pct: '10,5',
+      } as unknown as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.current_year_data.revenue).toBe(1_000_000)
+    expect(result.current_year_data.ebitda).toBe(100_000)
+    expect(result.historical_years_data).toEqual([
+      {
+        year: filingYear - 1,
+        revenue: 900_000,
+        ebitda: 90_000,
+        ebitda_normalized: false,
+      },
+    ])
+    expect(result.recurring_revenue_percentage).toBe(0.4)
+    expect(result.business_context).toMatchObject({
+      rev_recurring_amount: 400_000,
+      rev_recurring_pct: 40,
+      rev_top_client_amount: 150_000,
+      rev_top_client_concentration_pct: 15,
+      rev_contract_backlog: 250_000,
+      dcf_wacc_pct: 10.5,
     })
   })
 

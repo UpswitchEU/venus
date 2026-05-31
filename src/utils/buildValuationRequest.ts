@@ -21,6 +21,7 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
+import { parseFlexibleNumber } from './isFiniteNumeric'
 import { generalLogger } from './logger'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { isYearRowForecast } from './yearData'
@@ -52,12 +53,7 @@ interface NormYearEntry {
 type FormDataRecord = ValuationFormData & Record<string, unknown>
 
 function toFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null
-  }
-
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+  return parseFlexibleNumber(value) ?? null
 }
 
 function hasValidHistoricalEbitdaWeights(weights: Record<number, number>): boolean {
@@ -80,9 +76,60 @@ function toBooleanOrNull(value: unknown): boolean | null {
 }
 
 function toNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+  const trimmed = String(value).trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const cleaned = toNonEmptyString(value)
+    if (cleaned) return cleaned
+  }
+  return null
+}
+
+function cleanParsedCity(value: string | undefined): string | null {
+  const cleaned = value?.replace(/^[,;\-\s]+|[,;\s]+$/g, '').trim()
+  return cleaned ? cleaned : null
+}
+
+function parsePostalCityFromAddress(value: unknown): {
+  postalCode: string | null
+  city: string | null
+} {
+  const raw = toNonEmptyString(value)
+  if (!raw) return { postalCode: null, city: null }
+
+  const normalized = raw.replace(/\s+/g, ' ').replace(/^[,;\s]+|[,;\s]+$/g, '').trim()
+  const candidates = [
+    normalized,
+    ...normalized
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .reverse(),
+  ]
+
+  for (const candidate of candidates) {
+    const nlMatch = candidate.match(/^(\d{4})\s*([A-Za-z]{2})(?:\s+(.+))?$/)
+    if (nlMatch) {
+      return {
+        postalCode: `${nlMatch[1]} ${nlMatch[2].toUpperCase()}`,
+        city: cleanParsedCity(nlMatch[3]),
+      }
+    }
+
+    const fourDigitMatch = candidate.match(/^(\d{4})(?:\s+|[,;\-]+)(.+)$/)
+    if (fourDigitMatch) {
+      return {
+        postalCode: fourDigitMatch[1],
+        city: cleanParsedCity(fourDigitMatch[2]),
+      }
+    }
+  }
+
+  return { postalCode: null, city: null }
 }
 
 function requireNonNegativeRevenue(value: unknown, field: string): number {
@@ -277,21 +324,21 @@ export function buildValuationRequest(
   // current_year_data when the form field is truly absent (null/undefined).
   const rawRevenue =
     formData.revenue != null
-      ? Number(formData.revenue)
+      ? formData.revenue
       : formData.current_year_data?.revenue != null
-        ? Number(formData.current_year_data.revenue)
+        ? formData.current_year_data.revenue
         : null
   const revenue = requireNonNegativeRevenue(rawRevenue, 'current_year_data.revenue')
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
-  const rawEbitdaNum =
+  const rawEbitdaInput =
     formData.ebitda !== undefined && formData.ebitda !== null
-      ? Number(formData.ebitda)
+      ? formData.ebitda
       : formData.current_year_data?.ebitda !== undefined &&
           formData.current_year_data?.ebitda !== null
-        ? Number(formData.current_year_data.ebitda)
+        ? formData.current_year_data.ebitda
         : null
-  const rawEbitda = rawEbitdaNum !== null && !Number.isFinite(rawEbitdaNum) ? null : rawEbitdaNum
+  const rawEbitda = toFiniteNumber(rawEbitdaInput)
   if (rawEbitda === null) {
     generalLogger.warn(
       '[buildValuationRequest] EBITDA is missing or non-numeric — using 0. Ensure the form validates EBITDA before submission.',
@@ -342,14 +389,15 @@ export function buildValuationRequest(
       : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
 
   const historicalYears = actualHistoricalData
-    .filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+    .filter((y) => toFiniteNumber(y.ebitda) != null && y.year >= 2000 && y.year <= 2100)
     .map((y) => y.year)
   const allDataYears = Array.from(new Set([currentFiscalYear, ...historicalYears]))
 
   const yearEbitdaMap: Record<number, number> = {}
   yearEbitdaMap[currentFiscalYear] = ebitda
   actualHistoricalData.forEach((y) => {
-    if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
+    const numericEbitda = toFiniteNumber(y.ebitda)
+    if (numericEbitda != null) yearEbitdaMap[y.year] = numericEbitda
   })
 
   const allDataYearsSet = new Set(allDataYears)
@@ -513,8 +561,7 @@ export function buildValuationRequest(
     actualHistoricalData
       .filter(
         (year) =>
-          year.ebitda !== undefined &&
-          year.ebitda !== null &&
+          toFiniteNumber(year.ebitda) != null &&
           year.year >= 2000 &&
           year.year <= 2100
       )
@@ -524,7 +571,7 @@ export function buildValuationRequest(
         const normalization = normByYear[year.year]
 
         if (normalization) {
-          const reportedEbitda = Number(year.ebitda)
+          const reportedEbitda = toFiniteNumber(year.ebitda) ?? 0
           const normalizedRevenue = requireNonNegativeRevenue(
             year.revenue,
             `historical_years_data.${year.year}.revenue`
@@ -555,7 +602,7 @@ export function buildValuationRequest(
         return {
           year: clampedYear,
           revenue: normalizedRevenue,
-          ebitda: Number(year.ebitda),
+          ebitda: toFiniteNumber(year.ebitda) ?? 0,
           ...pickOptionalYearDataFields(year),
           ebitda_normalized: false,
         }
@@ -687,22 +734,17 @@ export function buildValuationRequest(
   // Priority: explicit percentage > currency amount (new UX) > legacy pct > default 0.
   // When rev_recurring_amount is set, it always wins over rev_recurring_pct to
   // stay consistent with adaptiveFields derivation and the UI badge.
+  const recurringRevenuePctInput = toFiniteNumber(formData.recurring_revenue_percentage)
+  const revRecurringAmountInput = toFiniteNumber(formData.rev_recurring_amount)
+  const revRecurringPctInput = toFiniteNumber(formData.rev_recurring_pct)
   let recurringRevenueInput: number
-  if (
-    formData.recurring_revenue_percentage != null &&
-    Number.isFinite(formData.recurring_revenue_percentage)
-  ) {
-    const rawPct = formData.recurring_revenue_percentage
+  if (recurringRevenuePctInput != null) {
+    const rawPct = recurringRevenuePctInput
     recurringRevenueInput = rawPct > 1 ? rawPct / 100 : rawPct
-  } else if (
-    formData.rev_recurring_amount != null &&
-    Number.isFinite(formData.rev_recurring_amount) &&
-    latestRevenue != null &&
-    latestRevenue > 0
-  ) {
-    recurringRevenueInput = formData.rev_recurring_amount / latestRevenue
-  } else if (formData.rev_recurring_pct != null && Number.isFinite(formData.rev_recurring_pct)) {
-    recurringRevenueInput = formData.rev_recurring_pct / 100
+  } else if (revRecurringAmountInput != null && latestRevenue != null && latestRevenue > 0) {
+    recurringRevenueInput = revRecurringAmountInput / latestRevenue
+  } else if (revRecurringPctInput != null) {
+    recurringRevenueInput = revRecurringPctInput / 100
   } else {
     recurringRevenueInput = 0
   }
@@ -796,17 +838,83 @@ export function buildValuationRequest(
     )
   }
   const showEnterpriseToEquityBridge = toBooleanOrNull(fd.show_enterprise_to_equity_bridge)
-  const kboNumber = toNonEmptyString(fd.kbo_number)
-  const kvkNumber = toNonEmptyString(fd.kvk_number) ?? (countryCode === 'NL' ? kboNumber : null)
+  const ownerSalaryAddback = toFiniteNumber(fd.owner_salary_addback)
+  const businessContextRecord =
+    businessContext && typeof businessContext === 'object'
+      ? (businessContext as Record<string, unknown>)
+      : {}
+  const contextGenericRegistration = firstNonEmptyString(
+    businessContextRecord.registration_number,
+    businessContextRecord.company_registration_number,
+    businessContextRecord.company_id
+  )
+  const contextKboAlias = firstNonEmptyString(
+    businessContextRecord.kbo_number,
+    businessContextRecord.kbo_registration_number,
+    businessContextRecord.kbo_registration,
+    countryCode === 'BE' ? contextGenericRegistration : null
+  )
+  const contextKvkAlias = firstNonEmptyString(
+    businessContextRecord.kvk_number,
+    businessContextRecord.kvk_registration_number,
+    businessContextRecord.kvk_registration,
+    // BasicInformationSection stores the selected registry number under the
+    // legacy KBO alias even for NL/KVK searches.
+    countryCode === 'NL'
+      ? firstNonEmptyString(
+          businessContextRecord.kbo_registration_number,
+          businessContextRecord.kbo_registration,
+          contextGenericRegistration
+        )
+      : null
+  )
+  const kboNumber = firstNonEmptyString(
+    fd.kbo_number,
+    fd.kbo_registration_number,
+    fd.kbo_registration,
+    countryCode === 'BE' ? contextKboAlias : null
+  )
+  const kvkNumber =
+    firstNonEmptyString(fd.kvk_number, fd.kvk_registration_number, fd.kvk_registration) ??
+    (countryCode === 'NL' ? firstNonEmptyString(contextKvkAlias, kboNumber) : null)
   const registrationNumber =
-    toNonEmptyString(fd.registration_number) ??
+    firstNonEmptyString(
+      fd.registration_number,
+      businessContextRecord.registration_number,
+      businessContextRecord.company_registration_number
+    ) ??
     (countryCode === 'NL' ? kvkNumber : kboNumber) ??
     kboNumber ??
     kvkNumber
-  const vatNumber = toNonEmptyString(fd.vat_number)
-  const legalForm = toNonEmptyString(fd.legal_form)
-  const postalCode = toNonEmptyString(fd.postal_code)
-  const city = toNonEmptyString(fd.city)
+  const vatNumber = firstNonEmptyString(
+    fd.vat_number,
+    businessContextRecord.vat_number,
+    businessContextRecord.vat,
+    businessContextRecord.btw_number
+  )
+  const legalForm = firstNonEmptyString(fd.legal_form, businessContextRecord.legal_form)
+  const parsedAddressLocation = parsePostalCityFromAddress(
+    firstNonEmptyString(
+      businessContextRecord.company_address,
+      businessContextRecord.registered_address,
+      businessContextRecord.address,
+      businessContextRecord.company_location,
+      businessContextRecord.location
+    )
+  )
+  const postalCode = firstNonEmptyString(
+    fd.postal_code,
+    businessContextRecord.postal_code,
+    businessContextRecord.company_postal_code,
+    parsedAddressLocation.postalCode
+  )
+  const city = firstNonEmptyString(
+    fd.city,
+    businessContextRecord.city,
+    businessContextRecord.company_city,
+    businessContextRecord.municipality,
+    parsedAddressLocation.city
+  )
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -875,10 +983,9 @@ export function buildValuationRequest(
     ...(showEnterpriseToEquityBridge != null && {
       show_enterprise_to_equity_bridge: showEnterpriseToEquityBridge,
     }),
-    ...(fd.owner_salary_addback != null &&
-      Number.isFinite(Number(fd.owner_salary_addback)) && {
-        owner_salary_addback: Number(fd.owner_salary_addback),
-      }),
+    ...(ownerSalaryAddback != null && {
+      owner_salary_addback: ownerSalaryAddback,
+    }),
     // SDE working-owner vs passive-investor flag — drives full vs delta add-back
     ...((fd as { owner_role?: 'working' | 'passive' }).owner_role && {
       owner_role: (fd as { owner_role?: 'working' | 'passive' }).owner_role,
