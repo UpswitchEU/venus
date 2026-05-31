@@ -16,10 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
-import { useVenusAiDockFocus } from './useVenusAiDockFocus'
-import { VenusAiDockPortal } from './VenusAiDockPortal'
-import { VENUS_AI_DOCK_DRAWER_WIDTH_CLASS, VENUS_AI_DOCK_LAYER_Z_CLASS } from './venus-ai-dock-layout'
 import { MANUAL_LAYOUT_SCROLL_SELECTOR, useScrollLock } from '@/hooks/useScrollLock'
+import { useStickToBottom } from '@/hooks/useStickToBottom'
 import { useVisualViewportDrawerInsets } from '@/hooks/useVisualViewportDrawerInsets'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
 import { type AssistantIntent, resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
@@ -42,6 +40,12 @@ import {
 } from './ChatAssistantParsing'
 import { getContextualSuggestionKeys } from './ChatAssistantSuggestions'
 import { useChatAssistantConsentFlow } from './useChatAssistantConsentFlow'
+import { useVenusAiDockFocus } from './useVenusAiDockFocus'
+import { VenusAiDockPortal } from './VenusAiDockPortal'
+import {
+  VENUS_AI_DOCK_DRAWER_WIDTH_CLASS,
+  VENUS_AI_DOCK_LAYER_Z_CLASS,
+} from './venus-ai-dock-layout'
 
 export type { ParsedCommand, ParsedValue } from './ChatAssistantParsing'
 export { parseFinancialValues, parseNormalizationCommands } from './ChatAssistantParsing'
@@ -106,6 +110,7 @@ export function ChatAssistantDrawer({
   startupIssues = [],
   onDismissQualityWarning,
   onResolveQualityWarning,
+  onInlineFixQualityWarning,
   onDismissStartupIssue,
   onResolveStartupIssue,
   onApplyStartupIssueQuickFix,
@@ -178,6 +183,10 @@ export function ChatAssistantDrawer({
     return item.params ? ca(key, item.params as ChatAssistantTranslationValues) : ca(key)
   })
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const messagesContentRef = useRef<HTMLDivElement>(null)
+  // Pin to the bottom as the smoothing buffer reveals text between state
+  // updates, so streamed lines stay in view without snapping.
+  useStickToBottom(messagesContainerRef, messagesContentRef, open)
 
   useScrollLock(open && lockScroll, lockScroll ? MANUAL_LAYOUT_SCROLL_SELECTOR : undefined)
   const viewportInsets = useVisualViewportDrawerInsets(open && lockScroll)
@@ -389,13 +398,9 @@ export function ChatAssistantDrawer({
         {open && (
           <motion.aside
             key="venus-ai-dock-drawer"
-            initial={
-              shouldReduceMotion ? false : { opacity: 0, x: 32, scale: 0.985 }
-            }
+            initial={shouldReduceMotion ? false : { opacity: 0, x: 32, scale: 0.985 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={
-              shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28, scale: 0.99 }
-            }
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28, scale: 0.99 }}
             transition={shouldReduceMotion ? { duration: 0 } : dockDrawerTransition}
             style={viewportStyle}
             data-testid="venus-ai-dock-drawer"
@@ -475,6 +480,7 @@ export function ChatAssistantDrawer({
               onJumpToStartupIssue={onJumpToStartupIssue}
               onDismissStartupIssue={onDismissStartupIssue}
               onResolveQualityWarning={onResolveQualityWarning}
+              onInlineFixQualityWarning={onInlineFixQualityWarning}
               onDismissQualityWarning={onDismissQualityWarning}
             />
             <PendingFieldUpdatesCard
@@ -497,7 +503,7 @@ export function ChatAssistantDrawer({
               {isEmpty ? (
                 <EmptyState fieldContext={fieldContext} />
               ) : (
-                <div className="space-y-3">
+                <div ref={messagesContentRef} className="space-y-3">
                   <AnimatePresence>
                     {visibleMessages.map((message, idx) => (
                       <MessageBubble

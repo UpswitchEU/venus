@@ -46,11 +46,25 @@ const qualityWarn2: QualityWarning = {
   cta_prompt: 'Help me restore the original method.',
 }
 
+const qualityInline: QualityWarning = {
+  type: 'net_debt_unavailable',
+  severity: 'high',
+  message: 'Equity value is still an estimate',
+  recommendation: 'Add cash, debt and current liabilities.',
+  cta_label: 'Add balance figures',
+  cta_prompt: 'Help me add balance data.',
+  inlineFix: {
+    fields: [
+      { key: 'cash', label: 'Cash & bank' },
+      { key: 'total_debt', label: 'Total financial debt' },
+      { key: 'current_liabilities', label: 'Current liabilities' },
+    ],
+  },
+}
+
 describe('AttentionSummary', () => {
   it('renders nothing when there are no items', () => {
-    const { container } = render(
-      <AttentionSummary startupIssues={[]} qualityWarnings={[]} />
-    )
+    const { container } = render(<AttentionSummary startupIssues={[]} qualityWarnings={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -120,6 +134,51 @@ describe('AttentionSummary', () => {
     )
   })
 
+  it('opens an inline fill form for a warning with inlineFix and applies parsed values', () => {
+    const onInlineFixQualityWarning = vi.fn()
+    const onResolveQualityWarning = vi.fn()
+    render(
+      <AttentionSummary
+        startupIssues={[]}
+        qualityWarnings={[qualityInline]}
+        onInlineFixQualityWarning={onInlineFixQualityWarning}
+        onResolveQualityWarning={onResolveQualityWarning}
+      />
+    )
+
+    // The inline-fix CTA replaces the chat CTA: clicking it reveals the fields
+    // and must NOT fire a chat turn.
+    fireEvent.click(screen.getByRole('button', { name: 'Add balance figures' }))
+    expect(onResolveQualityWarning).not.toHaveBeenCalled()
+
+    // 3 labelled euro inputs appear (one per balance field).
+    expect(screen.getAllByPlaceholderText('0')).toHaveLength(3)
+    // Non-digits are stripped; a blank field counts as 0.
+    fireEvent.change(screen.getByLabelText('Cash & bank'), { target: { value: '5.000' } })
+    fireEvent.change(screen.getByLabelText('Total financial debt'), {
+      target: { value: '30000' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'qualityInlineApply' }))
+    expect(onInlineFixQualityWarning).toHaveBeenCalledWith('net_debt_unavailable', {
+      cash: 5000,
+      total_debt: 30000,
+      current_liabilities: 0,
+    })
+  })
+
+  it('disables the inline apply until at least one field is filled', () => {
+    render(
+      <AttentionSummary
+        startupIssues={[]}
+        qualityWarnings={[qualityInline]}
+        onInlineFixQualityWarning={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Add balance figures' }))
+    expect(screen.getByRole('button', { name: 'qualityInlineApply' })).toBeDisabled()
+  })
+
   it('dispatches dismiss to the correct callback for each source', () => {
     const onDismissStartupIssue = vi.fn()
     const onDismissQualityWarning = vi.fn()
@@ -141,12 +200,7 @@ describe('AttentionSummary', () => {
   })
 
   it('toggling a title opens the body for that item only', () => {
-    render(
-      <AttentionSummary
-        startupIssues={[startupBlock]}
-        qualityWarnings={[qualityWarn]}
-      />
-    )
+    render(<AttentionSummary startupIssues={[startupBlock]} qualityWarnings={[qualityWarn]} />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     // Body text is not shown by default
     expect(screen.queryByText('Set a target raise so dilution is shown.')).not.toBeInTheDocument()
@@ -215,9 +269,7 @@ describe('AttentionSummary', () => {
       ctaPrompt: '',
       quickFixLabel: 'Use stage default',
     }
-    render(
-      <AttentionSummary startupIssues={[startupQuickFixOnly]} qualityWarnings={[]} />
-    )
+    render(<AttentionSummary startupIssues={[startupQuickFixOnly]} qualityWarnings={[]} />)
     const button = screen.getByRole('button', { name: 'Use stage default' })
     expect(button).toHaveAttribute('data-primary', 'true')
   })

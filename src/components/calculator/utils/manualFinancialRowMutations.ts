@@ -111,6 +111,53 @@ export function removeManualForecastYears(
   }
 }
 
+export interface ManualCurrentYearBalance {
+  cash?: number
+  total_debt?: number
+  current_liabilities?: number
+}
+
+/**
+ * Write balance-sheet figures (cash / total debt / current liabilities) onto the
+ * most recent actual year — both `current_year_data` (the engine's net-debt
+ * source for the EV→Equity bridge) and the matching non-forecast
+ * `yearlyFinancials` row, so the form table and the live preview agree.
+ *
+ * Powers the assistant's inline net-debt fix. Only finite values are written;
+ * blanks are skipped (the caller treats a blank as 0 at submit time).
+ */
+export function applyManualCurrentYearBalance(
+  formData: ManualValuationFormData,
+  balance: ManualCurrentYearBalance
+): ManualValuationFormData {
+  const patch: ManualCurrentYearBalance = {}
+  if (Number.isFinite(balance.cash)) patch.cash = balance.cash
+  if (Number.isFinite(balance.total_debt)) patch.total_debt = balance.total_debt
+  if (Number.isFinite(balance.current_liabilities)) {
+    patch.current_liabilities = balance.current_liabilities
+  }
+  if (Object.keys(patch).length === 0) return formData
+
+  const rows = formData.yearlyFinancials ?? []
+  const latestActualYear =
+    formData.current_year_data?.year ??
+    rows.reduce<number | undefined>((max, row) => {
+      const year = Number(row.year)
+      if (!Number.isFinite(year) || row.isForecast) return max
+      return max === undefined || year > max ? year : max
+    }, undefined)
+
+  return {
+    ...formData,
+    current_year_data: formData.current_year_data
+      ? { ...formData.current_year_data, ...patch }
+      : formData.current_year_data,
+    yearlyFinancials: rows.map((row) =>
+      !row.isForecast && Number(row.year) === latestActualYear ? { ...row, ...patch } : row
+    ),
+  }
+}
+
 export function getManualPartialHistoricalYears(
   yearlyFinancials: ManualValuationFormData['yearlyFinancials']
 ) {

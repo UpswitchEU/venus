@@ -1,5 +1,6 @@
 import type { QualityWarning } from '@/components/calculator'
 import {
+  getQualityWarningInlineFix,
   isActionableQualityWarningType,
   QUALITY_WARNING_ASSISTANT_CTA_CONFIG,
 } from '@/constants/methodFieldConfig'
@@ -43,12 +44,24 @@ export function buildManualQualityWarnings({
       // "engine said nothing" apart from "engine said empty string".
       const engineMessage = warning.message
       const engineRecommendation = warning.recommendation
-      const title = cta
-        ? translateCta(cta.titleKey, (engineMessage ?? '').trim())
-        : engineMessage
+      const title = cta ? translateCta(cta.titleKey, (engineMessage ?? '').trim()) : engineMessage
       const recommendation = cta
         ? translateCta(cta.bodyKey, (engineRecommendation ?? '').trim())
         : engineRecommendation
+
+      // Inline fix: a small set of known financial fields the user fills right
+      // in the chip (no chat turn). Labels/hints are localized here so the
+      // renderer stays presentational.
+      const inlineFixFields = getQualityWarningInlineFix(type)
+      const inlineFix = inlineFixFields
+        ? {
+            fields: inlineFixFields.map((field) => ({
+              key: field.key,
+              label: translateCta(field.labelKey, field.key),
+              hint: field.hintKey ? translateCta(field.hintKey, '') || undefined : undefined,
+            })),
+          }
+        : undefined
 
       return {
         type,
@@ -58,6 +71,7 @@ export function buildManualQualityWarnings({
         step_number: warning.step_number,
         cta_label: cta ? translateCta(cta.labelKey, labelDefault) : labelDefault,
         cta_prompt: cta ? translateCta(cta.promptKey, promptDefault) : promptDefault,
+        inlineFix,
       }
     })
 }

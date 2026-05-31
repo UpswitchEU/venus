@@ -41,6 +41,15 @@ export interface ChatAssistantDrawerProps {
   startupIssues?: StartupAssistantIssue[]
   onDismissQualityWarning?: (warningType: string) => void
   onResolveQualityWarning?: (warningType: string, prompt: string) => void
+  /**
+   * Inline fix for a quality warning: the user filled the warning's structured
+   * fields (e.g. balance figures) and the values are written to the valuation +
+   * recalculated — no chat turn. Resolves when the recalculation settles.
+   */
+  onInlineFixQualityWarning?: (
+    warningType: string,
+    values: Record<string, number>
+  ) => void | Promise<void>
   onDismissStartupIssue?: (issueId: string) => void
   onResolveStartupIssue?: (issueId: string, prompt: string) => void
   onApplyStartupIssueQuickFix?: (issueId: string) => void

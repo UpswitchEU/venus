@@ -318,6 +318,47 @@ export function isActionableQualityWarningType(
 }
 
 /**
+ * Engine warning types whose fix is a small set of known financial fields the
+ * advisor can fill inline — no chat round-trip, no live session needed. Each
+ * field maps to a key on `current_year_data` (the engine's balance source for
+ * the EV→Equity bridge) plus i18n label/hint keys under `chatAssistant`.
+ *
+ * Only the balance gap ships today; the other actionable warnings stay on the
+ * guided-chat CTA until their own inline forms land.
+ */
+export interface QualityWarningInlineFixFieldConfig {
+  /** Key on `current_year_data` that is written to the form and sent to the engine. */
+  key: 'cash' | 'total_debt' | 'current_liabilities'
+  labelKey: string
+  hintKey?: string
+}
+
+export const QUALITY_WARNING_INLINE_FIX_CONFIG: Partial<
+  Record<QualityWarningAssistantCtaKey, QualityWarningInlineFixFieldConfig[]>
+> = {
+  net_debt_unavailable: [
+    { key: 'cash', labelKey: 'qualityFieldCashLabel', hintKey: 'qualityFieldCashHint' },
+    {
+      key: 'total_debt',
+      labelKey: 'qualityFieldTotalDebtLabel',
+      hintKey: 'qualityFieldTotalDebtHint',
+    },
+    {
+      key: 'current_liabilities',
+      labelKey: 'qualityFieldCurrentLiabilitiesLabel',
+      hintKey: 'qualityFieldCurrentLiabilitiesHint',
+    },
+  ],
+}
+
+/** Inline-fix field spec for a warning type, or undefined when it has no inline form. */
+export function getQualityWarningInlineFix(
+  type: string | null | undefined
+): QualityWarningInlineFixFieldConfig[] | undefined {
+  return isActionableQualityWarningType(type) ? QUALITY_WARNING_INLINE_FIX_CONFIG[type] : undefined
+}
+
+/**
  * Returns the method that conflicts with the given method, or null.
  */
 export function getConflictingMethod(method: string): string | null {

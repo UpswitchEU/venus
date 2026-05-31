@@ -779,6 +779,14 @@ export interface SuggestionContext {
  * advisors resolve issues IN the assistant — not on the final report. The
  * goal is a clean, defensible PDF; the assistant catches the problems first.
  */
+/** One field in a warning's inline fix form (label/hint already localized). */
+export interface QualityWarningInlineFixField {
+  /** Key on `current_year_data` written to the form + sent to the engine. */
+  key: string
+  label: string
+  hint?: string
+}
+
 export interface QualityWarning {
   type: string
   severity: 'high' | 'medium' | 'low' | string
@@ -789,6 +797,11 @@ export interface QualityWarning {
   cta_label?: string
   /** Optional command the CTA sends to the assistant verbatim. */
   cta_prompt?: string
+  /**
+   * When present, the CTA opens a small inline form (these fields) that writes
+   * straight to the valuation and recalculates — no chat turn, no live session.
+   */
+  inlineFix?: { fields: QualityWarningInlineFixField[] }
 }
 
 export interface StartupAssistantIssue {

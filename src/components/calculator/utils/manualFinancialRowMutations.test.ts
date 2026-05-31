@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import {
+  applyManualCurrentYearBalance,
   applyManualFilingYearSelection,
   applyManualFinancialYearSelection,
   getManualPartialHistoricalYears,
@@ -132,5 +133,81 @@ describe('manual financial row mutations', () => {
         { year: '2023', revenue: 100, ebitda: 20 },
       ])
     ).toEqual(['2024'])
+  })
+})
+
+describe('applyManualCurrentYearBalance', () => {
+  it('writes balance onto current_year_data and the latest actual yearly row', () => {
+    const form = {
+      ...makeForm([
+        { year: '2024', revenue: 100, ebitda: 20 },
+        { year: '2023', revenue: 90, ebitda: 18 },
+        { year: '2025', revenue: 110, ebitda: 22, isForecast: true },
+      ]),
+      current_year_data: { year: 2024, revenue: 100, ebitda: 20 },
+    } as ManualValuationFormData
+
+    const next = applyManualCurrentYearBalance(form, {
+      cash: 5000,
+      total_debt: 30000,
+      current_liabilities: 12000,
+    })
+
+    expect(next.current_year_data).toMatchObject({
+      year: 2024,
+      cash: 5000,
+      total_debt: 30000,
+      current_liabilities: 12000,
+    })
+    // Only the latest non-forecast row (2024) carries the balance.
+    expect(next.yearlyFinancials).toEqual([
+      {
+        year: '2024',
+        revenue: 100,
+        ebitda: 20,
+        cash: 5000,
+        total_debt: 30000,
+        current_liabilities: 12000,
+      },
+      { year: '2023', revenue: 90, ebitda: 18 },
+      { year: '2025', revenue: 110, ebitda: 22, isForecast: true },
+    ])
+  })
+
+  it('keeps an explicit zero but skips blank (undefined) fields', () => {
+    const form = {
+      ...makeForm([{ year: '2024', revenue: 100, ebitda: 20 }]),
+      current_year_data: { year: 2024, revenue: 100, ebitda: 20 },
+    } as ManualValuationFormData
+
+    const next = applyManualCurrentYearBalance(form, { total_debt: 0 })
+    expect(next.current_year_data).toMatchObject({ total_debt: 0 })
+    expect(next.current_year_data).not.toHaveProperty('cash')
+    expect(next.current_year_data).not.toHaveProperty('current_liabilities')
+  })
+
+  it('is a no-op when no finite values are provided', () => {
+    const form = {
+      ...makeForm([{ year: '2024', revenue: 100, ebitda: 20 }]),
+      current_year_data: { year: 2024, revenue: 100, ebitda: 20 },
+    } as ManualValuationFormData
+    expect(applyManualCurrentYearBalance(form, {})).toBe(form)
+    expect(applyManualCurrentYearBalance(form, { cash: undefined })).toBe(form)
+  })
+
+  it('targets the max non-forecast year when current_year_data is absent', () => {
+    const form = makeForm([
+      { year: '2022', revenue: 80, ebitda: 16 },
+      { year: '2024', revenue: 100, ebitda: 20 },
+      { year: '2026', revenue: 120, ebitda: 24, isForecast: true },
+    ])
+    const next = applyManualCurrentYearBalance(form, { cash: 7000 })
+    expect(next.yearlyFinancials).toEqual([
+      { year: '2022', revenue: 80, ebitda: 16 },
+      { year: '2024', revenue: 100, ebitda: 20, cash: 7000 },
+      { year: '2026', revenue: 120, ebitda: 24, isForecast: true },
+    ])
+    // We never fabricate a current_year_data when none exists.
+    expect(next.current_year_data).toBeUndefined()
   })
 })

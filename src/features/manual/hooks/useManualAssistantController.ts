@@ -338,6 +338,39 @@ export function useManualAssistantController({
     setChatMessages,
   })
 
+  // Inline quality-warning fix: the advisor filled the warning's structured
+  // fields in the chip. Write them to the form and re-run — no chat turn, no
+  // live session. Today only the balance gap (net_debt_unavailable) has fields;
+  // the corrected result drops the warning so the chip clears itself.
+  const handleInlineFixQualityWarning = useCallback(
+    async (warningType: string, values: Record<string, number>): Promise<void> => {
+      if (warningType !== 'net_debt_unavailable') return
+      const balance = {
+        cash: values.cash,
+        total_debt: values.total_debt,
+        current_liabilities: values.current_liabilities,
+      }
+      // 1. Reflect the figures in the form so they persist and show in the
+      //    financial inputs (id keyed on the values so a re-edit re-applies).
+      setAssistantInputPatch({
+        id: `net-debt:${balance.cash}:${balance.total_debt}:${balance.current_liabilities}`,
+        type: 'set_current_year_balance',
+        balance,
+      })
+      // 2. Re-run with the balance merged into current_year_data — the engine's
+      //    net-debt source for the EV→Equity bridge. Mirrors handleApproveValuationRun.
+      const submitData = buildLiveValuationSubmitData()
+      const mergedSubmitData: ValuationFormData = submitData.current_year_data
+        ? {
+            ...submitData,
+            current_year_data: { ...submitData.current_year_data, ...balance },
+          }
+        : submitData
+      await Promise.resolve(handleManualSubmit(mergedSubmitData))
+    },
+    [buildLiveValuationSubmitData, handleManualSubmit]
+  )
+
   const handleApplyAgentChoice = useCallback(
     async (choice: AgentChoiceSelection): Promise<boolean> => {
       const submitPath = choice.submitPath?.trim()
@@ -468,6 +501,7 @@ export function useManualAssistantController({
     onJumpToStartupIssue: handleJumpToStartupIssue,
     qualityWarnings,
     onResolveQualityWarning: handleResolveQualityWarning,
+    onInlineFixQualityWarning: handleInlineFixQualityWarning,
     onDismissQualityWarning: handleDismissQualityWarning,
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,

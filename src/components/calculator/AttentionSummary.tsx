@@ -25,7 +25,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ChevronDown, ChevronUp, Info, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import type { QualityWarning, StartupAssistantIssue } from './ChatAssistantTypes'
 
@@ -42,6 +42,8 @@ interface AttentionItem {
   ctaPrompt?: string
   quickFixLabel?: string
   jumpLabel?: string
+  /** When set, the CTA opens an inline fill form (these fields) instead of chat. */
+  inlineFix?: QualityWarning['inlineFix']
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { block: 0, warn: 1, info: 2 }
@@ -67,6 +69,7 @@ interface AttentionSummaryProps {
   onJumpToStartupIssue?: (id: string) => void
   onDismissStartupIssue?: (id: string) => void
   onResolveQualityWarning?: (type: string, prompt: string) => void
+  onInlineFixQualityWarning?: (type: string, values: Record<string, number>) => void | Promise<void>
   onDismissQualityWarning?: (type: string) => void
 }
 
@@ -78,9 +81,20 @@ export function AttentionSummary({
   onJumpToStartupIssue,
   onDismissStartupIssue,
   onResolveQualityWarning,
+  onInlineFixQualityWarning,
   onDismissQualityWarning,
 }: AttentionSummaryProps) {
   const ca = useTranslations('chatAssistant')
+
+  const inlineLabels = useMemo(
+    () => ({
+      apply: ca('qualityInlineApply'),
+      applying: ca('qualityInlineApplying'),
+      cancel: ca('qualityInlineCancel'),
+      note: ca('qualityInlineNote'),
+    }),
+    [ca]
+  )
 
   const items = useMemo<AttentionItem[]>(() => {
     const all: AttentionItem[] = []
@@ -115,6 +129,7 @@ export function AttentionSummary({
         body: q.recommendation,
         ctaLabel: q.cta_label,
         ctaPrompt: q.cta_prompt,
+        inlineFix: q.inlineFix,
       })
     }
     return all.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
@@ -161,6 +176,12 @@ export function AttentionSummary({
       }
     },
     [onResolveStartupIssue, onResolveQualityWarning]
+  )
+
+  const handleInlineFix = useCallback(
+    (item: AttentionItem, values: Record<string, number>) =>
+      onInlineFixQualityWarning?.(item.sourceId, values),
+    [onInlineFixQualityWarning]
   )
 
   const handleQuickFix = useCallback(
@@ -236,6 +257,10 @@ export function AttentionSummary({
           onQuickFix={() => handleQuickFix(item)}
           onJump={() => handleJump(item)}
           onDismiss={() => handleDismiss(item)}
+          onInlineFix={
+            onInlineFixQualityWarning ? (values) => handleInlineFix(item, values) : undefined
+          }
+          inlineLabels={inlineLabels}
           dismissLabel={ca('dismissWarning')}
         />
       </section>
@@ -321,6 +346,12 @@ export function AttentionSummary({
                     onQuickFix={() => handleQuickFix(item)}
                     onJump={() => handleJump(item)}
                     onDismiss={() => handleDismiss(item)}
+                    onInlineFix={
+                      onInlineFixQualityWarning
+                        ? (values) => handleInlineFix(item, values)
+                        : undefined
+                    }
+                    inlineLabels={inlineLabels}
                     dismissLabel={ca('dismissWarning')}
                     compact
                   />
@@ -334,6 +365,13 @@ export function AttentionSummary({
   )
 }
 
+interface InlineFixLabels {
+  apply: string
+  applying: string
+  cancel: string
+  note: string
+}
+
 interface AttentionCardProps {
   item: AttentionItem
   isOpen: boolean
@@ -344,6 +382,8 @@ interface AttentionCardProps {
   onQuickFix: () => void
   onJump: () => void
   onDismiss: () => void
+  onInlineFix?: (values: Record<string, number>) => void | Promise<void>
+  inlineLabels?: InlineFixLabels
 }
 
 function AttentionCard({
@@ -356,9 +396,18 @@ function AttentionCard({
   onQuickFix,
   onJump,
   onDismiss,
+  onInlineFix,
+  inlineLabels,
 }: AttentionCardProps) {
+  const [fillOpen, setFillOpen] = useState(false)
   const hasBody = Boolean(item.body && item.body.trim().length > 0)
+  const inlineFixFields = item.inlineFix?.fields ?? []
+  // Inline fix (fill the numbers right here) takes precedence over the chat
+  // CTA: when a warning has structured fields, talking to the assistant is the
+  // slow path, so we hide it and let the advisor fill + recalculate inline.
+  const hasInlineFix = Boolean(inlineFixFields.length > 0 && onInlineFix && inlineLabels)
   const hasResolve = Boolean(item.ctaLabel && item.ctaPrompt)
+  const showChatResolve = hasResolve && !hasInlineFix
   const hasQuickFix = Boolean(item.quickFixLabel)
   const hasJump = Boolean(item.jumpLabel)
   // When there is no AI-resolve action, the quick-fix IS the headline action
@@ -388,7 +437,9 @@ function AttentionCard({
     <div
       className={cn(
         'group flex flex-col gap-1.5',
-        compact ? 'px-3.5 py-2.5' : 'rounded-2xl border border-foreground/[0.08] bg-foreground/[0.02] px-3.5 py-2.5'
+        compact
+          ? 'px-3.5 py-2.5'
+          : 'rounded-2xl border border-foreground/[0.08] bg-foreground/[0.02] px-3.5 py-2.5'
       )}
       data-testid={`attention-item-${item.key}`}
       data-severity={item.severity}
@@ -441,9 +492,19 @@ function AttentionCard({
         )}
       </AnimatePresence>
 
-      {(hasResolve || hasQuickFix || hasJump) && (
+      {(hasInlineFix || showChatResolve || hasQuickFix || hasJump) && (
         <div className="pl-5 flex flex-wrap items-center gap-1.5">
-          {hasResolve && (
+          {hasInlineFix && (
+            <button
+              type="button"
+              onClick={() => setFillOpen((v) => !v)}
+              aria-expanded={fillOpen}
+              className={primaryButtonClass}
+            >
+              {item.ctaLabel}
+            </button>
+          )}
+          {showChatResolve && (
             <button type="button" onClick={onResolve} className={primaryButtonClass}>
               {item.ctaLabel}
             </button>
@@ -465,6 +526,121 @@ function AttentionCard({
           )}
         </div>
       )}
+
+      <AnimatePresence initial={false}>
+        {hasInlineFix && fillOpen && onInlineFix && inlineLabels && (
+          <InlineFixForm
+            key="inline-fix"
+            fields={inlineFixFields}
+            labels={inlineLabels}
+            onApply={onInlineFix}
+            onCancel={() => setFillOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  )
+}
+
+interface InlineFixFormProps {
+  fields: NonNullable<QualityWarning['inlineFix']>['fields']
+  labels: InlineFixLabels
+  onApply: (values: Record<string, number>) => void | Promise<void>
+  onCancel: () => void
+}
+
+/**
+ * The inline fill: a labelled euro input per field. Apply writes the numbers
+ * straight to the valuation and recalculates (the parent clears the warning on
+ * the corrected result). Blanks count as 0, so a partial fill still resolves
+ * the gap. Digits-only — balance figures are whole euros.
+ */
+function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps) {
+  const [raw, setRaw] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const mountedRef = useRef(true)
+  useEffect(() => () => void (mountedRef.current = false), [])
+
+  const anyFilled = fields.some((field) => (raw[field.key] ?? '').length > 0)
+
+  const handleApply = async () => {
+    if (submitting || !anyFilled) return
+    const values: Record<string, number> = {}
+    for (const field of fields) {
+      const digits = (raw[field.key] ?? '').replace(/\D/g, '')
+      values[field.key] = digits ? Number.parseInt(digits, 10) : 0
+    }
+    setSubmitting(true)
+    try {
+      await onApply(values)
+    } finally {
+      // On success the corrected result drops the warning and this card
+      // unmounts; if it failed (or the warning persists) re-enable for a retry.
+      if (mountedRef.current) setSubmitting(false)
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.16 }}
+      className="pl-5 overflow-hidden"
+    >
+      <div className="mt-1 space-y-2 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] p-3">
+        {fields.map((field) => (
+          <label key={field.key} className="block">
+            <span className="text-xs font-medium text-foreground/80">{field.label}</span>
+            {field.hint && (
+              <span className="ml-1.5 text-[11px] text-foreground/45">{field.hint}</span>
+            )}
+            <div className="mt-1 flex items-center rounded-lg border border-foreground/[0.10] bg-background focus-within:border-primary/40 transition-colors">
+              <span className="pl-2.5 pr-1 text-sm text-foreground/40 select-none">€</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label={field.label}
+                value={raw[field.key] ?? ''}
+                onChange={(e) =>
+                  setRaw((prev) => ({ ...prev, [field.key]: e.target.value.replace(/\D/g, '') }))
+                }
+                disabled={submitting}
+                placeholder="0"
+                className="w-full bg-transparent py-1.5 pr-2.5 text-sm text-foreground tabular-nums outline-none disabled:opacity-50"
+              />
+            </div>
+          </label>
+        ))}
+        <p className="text-[11px] leading-relaxed text-foreground/45">{labels.note}</p>
+        <div className="flex items-center gap-1.5 pt-0.5">
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={submitting || !anyFilled}
+            className={cn(
+              'rounded-full px-3 py-1 text-xs font-medium transition-colors touch-manipulation',
+              'bg-primary text-primary-foreground hover:bg-primary/90',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            {submitting ? labels.applying : labels.apply}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className={cn(
+              'rounded-full px-2.5 py-1 text-xs text-foreground/55',
+              'hover:text-foreground/85 hover:bg-foreground/[0.04] transition-colors touch-manipulation',
+              'disabled:opacity-50'
+            )}
+          >
+            {labels.cancel}
+          </button>
+        </div>
+      </div>
+    </motion.div>
   )
 }

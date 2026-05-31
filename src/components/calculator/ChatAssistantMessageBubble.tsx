@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import {
   CheckCheck,
   Copy,
-  ExternalLink,
   FileText,
   Image as ImageIcon,
   LogIn,
@@ -12,15 +11,14 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { ReactNode } from 'react'
 import { useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { springGentle } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
+import { useSmoothStreamedText } from '@/hooks/useSmoothStreamedText'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
 import type { AgentChoiceSelection, ChatMessage, FieldContext } from './ChatAssistantTypes'
+import { CommandPillProvider, StreamingMarkdown } from './StreamingMarkdown'
 
 // Empty state — matches Mercury AdvisorAIDockPanel (dot + title + description).
 export function EmptyState({ fieldContext }: { fieldContext?: FieldContext }) {
@@ -40,45 +38,16 @@ export function EmptyState({ fieldContext }: { fieldContext?: FieldContext }) {
   )
 }
 
-// Code Block with copy button
-function CodeBlock({ children, className }: { children: ReactNode; className?: string }) {
-  const [copied, setCopied] = useState(false)
-  const ca = useTranslations('chatAssistant')
-  const lang = className?.replace(/^language-/, '') || ''
-  const codeText = (
-    Array.isArray(children) ? children.map(String).join('') : String(children)
-  ).replace(/\n$/, '')
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(codeText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
+// Smooth streaming caret — a soft, gently pulsing block that trails the
+// revealed text. Calmer than a hard blinking bar, which itself reads as jitter.
+function StreamingCursor() {
   return (
-    <div className="relative group/code my-3 rounded-xl overflow-hidden border border-foreground/[0.08]">
-      <div className="flex items-center justify-between px-4 py-2 bg-foreground/[0.06] border-b border-foreground/[0.06]">
-        <span className="text-[11px] font-mono text-foreground/40 uppercase tracking-wider">
-          {lang || 'code'}
-        </span>
-        <button
-          onClick={handleCopy}
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-            copied
-              ? 'text-primary bg-primary/10'
-              : 'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]'
-          )}
-          aria-label={ca('copyCode')}
-        >
-          {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? ca('copied') : ca('copy')}
-        </button>
-      </div>
-      <pre className="p-4 overflow-x-auto bg-foreground/[0.03]">
-        <code className="text-sm font-mono text-foreground/80 leading-relaxed">{codeText}</code>
-      </pre>
-    </div>
+    <motion.span
+      aria-hidden
+      className="inline-block w-1.5 h-4 ml-0.5 rounded-full bg-primary/80 align-[-2px]"
+      animate={{ opacity: [1, 0.25, 1] }}
+      transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+    />
   )
 }
 
@@ -148,6 +117,13 @@ export function MessageBubble({
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
+
+  // Smoothing buffer: reveals streamed text at an even, eased rate so bursty
+  // SSE delivery reads like fluid typing instead of jumping in chunks.
+  const { text: streamedContent, isAnimating } = useSmoothStreamedText(
+    message.content,
+    isStreaming && !isUser && !isSystem
+  )
 
   const handleCopyMessage = async () => {
     await navigator.clipboard.writeText(message.content)
@@ -237,135 +213,12 @@ export function MessageBubble({
           </p>
         ) : (
           <div className="prose prose-sm prose-invert max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => (
-                  <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">
-                    {children}
-                  </h1>
-                ),
-                h2: ({ children }) => (
-                  <h2 className="text-base font-semibold text-foreground mt-3 mb-2 first:mt-0">
-                    {children}
-                  </h2>
-                ),
-                h3: ({ children }) => (
-                  <h3 className="text-sm font-semibold text-foreground mt-2 mb-1 first:mt-0">
-                    {children}
-                  </h3>
-                ),
-                p: ({ children }) => (
-                  <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">
-                    {children}
-                  </p>
-                ),
-                ul: ({ children }) => <ul className="space-y-1.5 mb-3 last:mb-0">{children}</ul>,
-                ol: ({ children }) => (
-                  <ol className="space-y-1.5 mb-3 last:mb-0 list-decimal list-inside">
-                    {children}
-                  </ol>
-                ),
-                li: ({ children }) => (
-                  <li className="flex items-start gap-2 text-[15px] sm:text-sm text-foreground/85">
-                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary/60 mt-2" />
-                    <span>{children}</span>
-                  </li>
-                ),
-                strong: ({ children }) => (
-                  <strong className="font-semibold text-foreground">{children}</strong>
-                ),
-                em: ({ children }) => {
-                  const text = String(children)
-                  if (
-                    text.startsWith('"') ||
-                    text.toLowerCase().startsWith('normalis') ||
-                    text.toLowerCase().startsWith('zet ') ||
-                    text.toLowerCase().startsWith('pas ')
-                  ) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => onCommandPillClick?.(text.replace(/^["']|["']$/g, ''))}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium not-italic cursor-pointer hover:bg-primary/20 hover:border-primary/30 active:scale-[0.98] transition-all touch-manipulation"
-                      >
-                        {children}
-                      </button>
-                    )
-                  }
-                  return <em className="italic text-foreground/70">{children}</em>
-                },
-                // Code: block code lives inside <pre>, inline does not
-                pre: ({ children }) => {
-                  // Extract the inner <code> and render as CodeBlock
-                  const child = Array.isArray(children) ? children[0] : children
-                  if (child && typeof child === 'object' && 'props' in child) {
-                    return (
-                      <CodeBlock className={child.props.className}>
-                        {child.props.children}
-                      </CodeBlock>
-                    )
-                  }
-                  return <pre>{children}</pre>
-                },
-                code: ({ children }) => (
-                  <code className="px-1.5 py-0.5 rounded bg-foreground/[0.08] text-sm font-mono text-foreground/80">
-                    {children}
-                  </code>
-                ),
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-2 border-primary/40 pl-4 my-3 text-foreground/70 italic">
-                    {children}
-                  </blockquote>
-                ),
-                // GFM: Tables
-                table: ({ children }) => (
-                  <div className="my-3 overflow-x-auto rounded-lg border border-foreground/[0.08]">
-                    <table className="w-full text-sm">{children}</table>
-                  </div>
-                ),
-                thead: ({ children }) => (
-                  <thead className="bg-foreground/[0.04] border-b border-foreground/[0.08]">
-                    {children}
-                  </thead>
-                ),
-                th: ({ children }) => (
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-                    {children}
-                  </th>
-                ),
-                td: ({ children }) => (
-                  <td className="px-3 py-2 text-sm text-foreground/80 border-t border-foreground/[0.04]">
-                    {children}
-                  </td>
-                ),
-                // GFM: Links
-                a: ({ children, href }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60 transition-colors"
-                  >
-                    {children}
-                    <ExternalLink className="w-3 h-3 shrink-0" />
-                  </a>
-                ),
-                // GFM: Horizontal rule
-                hr: () => <hr className="my-4 border-foreground/[0.08]" />,
-                // GFM: Strikethrough handled automatically
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-            {/* Streaming cursor */}
-            {isStreaming && (
-              <motion.span
-                className="inline-block w-2 h-4 ml-0.5 bg-primary rounded-sm align-middle"
-                animate={{ opacity: [0.2, 1, 0.2] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              />
-            )}
+            {/* Block-memoized markdown fed by the smoothing buffer — only the
+                final growing block re-parses while streaming. */}
+            <CommandPillProvider onCommandPillClick={onCommandPillClick}>
+              <StreamingMarkdown content={streamedContent} />
+            </CommandPillProvider>
+            {(isStreaming || isAnimating) && <StreamingCursor />}
           </div>
         )}
 

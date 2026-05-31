@@ -66,7 +66,11 @@ import { CompanyIdentificationSection } from './sections/CompanyIdentificationSe
 import { FinancialHistorySection } from './sections/FinancialHistorySection'
 import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
-import { applyManualFinancialYearSelection } from './utils/manualFinancialRowMutations'
+import {
+  applyManualCurrentYearBalance,
+  applyManualFinancialYearSelection,
+  type ManualCurrentYearBalance,
+} from './utils/manualFinancialRowMutations'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
@@ -86,11 +90,17 @@ import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
 export type { ManualValuationFormData, YearlyFinancials }
 /** Back-compat name used throughout this file and `calculator` exports. */
 export type ValuationFormData = ManualValuationFormData
-export interface ManualInputAssistantPatch {
-  id: string
-  type: 'select_financial_years'
-  years: number[]
-}
+export type ManualInputAssistantPatch =
+  | {
+      id: string
+      type: 'select_financial_years'
+      years: number[]
+    }
+  | {
+      id: string
+      type: 'set_current_year_balance'
+      balance: ManualCurrentYearBalance
+    }
 export { venusLiveBatchImportProvider } from './hooks/useManualAccountingImportController'
 export {
   getSeedBaseFilingYear,
@@ -208,6 +218,10 @@ export function ManualInputPanel({
 
     if (assistantPatch.type === 'select_financial_years') {
       setFormData((prev) => applyManualFinancialYearSelection(prev, assistantPatch.years).next)
+    }
+
+    if (assistantPatch.type === 'set_current_year_balance') {
+      setFormData((prev) => applyManualCurrentYearBalance(prev, assistantPatch.balance))
     }
   }, [assistantPatch])
   const { appliedFields: advisorDefaultsAppliedFields } = useApplyAdvisorValuationDefaults({
