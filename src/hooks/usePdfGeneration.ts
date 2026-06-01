@@ -135,7 +135,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         }
 
         try {
-          const response = await fetch(`/api/valuations/pdf/status/${jobId}`, {
+          const response = await fetch(`/api/valuations/pdf/status/${encodeURIComponent(jobId)}`, {
             credentials: 'include',
           })
 

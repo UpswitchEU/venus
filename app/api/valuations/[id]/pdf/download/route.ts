@@ -23,7 +23,11 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
-import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { buildPdfPaywall402JsonBody } from '@/utils/pdfPaywall402'
 
@@ -34,7 +38,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const TITAN_PDF_GET_MS = 10_000
-const TITAN_PDF_POST_MS = 75_000
+const TITAN_PDF_POST_MS = 110_000
 const STORAGE_FETCH_MS = 30_000
 
 /** Titan + VIQ reject tiny PDFs; mirror so we never stream HTML/error bodies as PDF. */
@@ -53,6 +57,18 @@ function pdfDownloadNoStoreHeaders(base: Record<string, string> = {}): Record<st
 
 function pdfErrorJson(body: Record<string, unknown>, status: number): NextResponse {
   return NextResponse.json(body, { status, headers: pdfDownloadNoStoreHeaders() })
+}
+
+function titanAuthHeaders(
+  cookieHeader: string,
+  extra: Record<string, string> = {}
+): Record<string, string> {
+  const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
+  return {
+    ...extra,
+    Cookie: cookieHeader,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  }
 }
 
 function bufferLooksLikePdf(buffer: ArrayBuffer): boolean {
@@ -82,7 +98,8 @@ async function titanLookupPdfUrl(
 ): Promise<{ pdfUrl: string | null; errorResponse: NextResponse | null }> {
   const titanResponse = await fetch(titanPdfUrl, {
     method: 'GET',
-    headers: { Cookie: cookieHeader },
+    headers: titanAuthHeaders(cookieHeader),
+    credentials: 'include',
     signal: AbortSignal.timeout(TITAN_PDF_GET_MS),
   })
 
@@ -128,10 +145,8 @@ async function titanGeneratePdf(
 ): Promise<{ pdfUrl: string | null; errorResponse: NextResponse | null }> {
   const postRes = await fetch(titanPdfUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader,
-    },
+    headers: titanAuthHeaders(cookieHeader, { 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify({}),
     signal: AbortSignal.timeout(TITAN_PDF_POST_MS),
   })
@@ -182,7 +197,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return pdfErrorJson({ success: false, error: 'Report ID is required' }, 400)
     }
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {

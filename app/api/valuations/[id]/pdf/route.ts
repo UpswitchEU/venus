@@ -8,18 +8,37 @@
  * GET /api/valuations/:id/pdf - Get existing PDF or check status
  *
  * **Embedded preview (e.g. Mercury iframe → Venus on `preview.valuation.upswitch.app`):** the browser may
- * not send `upswitch_access_token` as a first-party cookie (third-party / SameSite), so POST can return
- * **401**. Fixing that requires infra (BFF, short-lived token, or cookie scope alignment), not only UI.
+ * omit auth cookies from the raw `Cookie` header. This route merges Next's server cookie store before
+ * proxying to Titan, matching the newer BFF routes.
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
-import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { buildPdfPaywall402JsonBody } from '@/utils/pdfPaywall402'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
+
+const TITAN_PDF_GENERATE_MS = 110_000
+const TITAN_PDF_STATUS_MS = 10_000
+
+function titanAuthHeaders(
+  cookieHeader: string,
+  extra: Record<string, string> = {}
+): Record<string, string> {
+  const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
+  return {
+    ...extra,
+    Cookie: cookieHeader,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  }
+}
 
 /**
  * Trigger PDF generation
@@ -32,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: 'Report ID is required' }, { status: 400 })
     }
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
@@ -43,15 +62,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const TITAN_API_URL = getTitanApiUrl(request)
-    const titanUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`
+    const titanUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${encodeURIComponent(id)}/pdf/async`
 
     const response = await fetch(titanUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: cookieHeader,
-      },
-      signal: AbortSignal.timeout(75000),
+      headers: titanAuthHeaders(cookieHeader, { 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      signal: AbortSignal.timeout(TITAN_PDF_GENERATE_MS),
     })
 
     if (!response.ok) {
@@ -95,7 +112,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: 'Report ID is required' }, { status: 400 })
     }
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const hasAuth = hasTitanAccessCookie(cookieHeader)
 
     if (!hasAuth) {
@@ -106,14 +123,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const TITAN_API_URL_GET = getTitanApiUrl(request)
-    const titanUrl = `${TITAN_API_URL_GET}/api/v2/valuations/reports/${id}/pdf`
+    const titanUrl = `${TITAN_API_URL_GET}/api/v2/valuations/reports/${encodeURIComponent(id)}/pdf`
 
     const response = await fetch(titanUrl, {
       method: 'GET',
-      headers: {
-        Cookie: cookieHeader,
-      },
-      signal: AbortSignal.timeout(5000),
+      headers: titanAuthHeaders(cookieHeader),
+      credentials: 'include',
+      signal: AbortSignal.timeout(TITAN_PDF_STATUS_MS),
     })
 
     if (!response.ok) {

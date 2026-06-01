@@ -7,12 +7,26 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
-import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
+import {
+  getTitanAccessTokenFromCookieHeader,
+  hasTitanAccessCookie,
+} from '@/utils/auth/cookieHeader'
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+
+const TITAN_PDF_STATUS_MS = 10_000
+
+function titanAuthHeaders(cookieHeader: string): Record<string, string> {
+  const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
+  return {
+    Cookie: cookieHeader,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +39,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Job ID is required' }, { status: 400 })
     }
 
-    const cookieHeader = request.headers.get('cookie') || ''
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
     if (!hasTitanAccessCookie(cookieHeader)) {
       return NextResponse.json(
@@ -34,14 +48,13 @@ export async function GET(
       )
     }
 
-    const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${jobId}`
+    const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${encodeURIComponent(jobId)}`
 
     const response = await fetch(titanUrl, {
       method: 'GET',
-      headers: {
-        Cookie: cookieHeader,
-      },
-      signal: AbortSignal.timeout(5000),
+      headers: titanAuthHeaders(cookieHeader),
+      credentials: 'include',
+      signal: AbortSignal.timeout(TITAN_PDF_STATUS_MS),
     })
 
     if (!response.ok) {
