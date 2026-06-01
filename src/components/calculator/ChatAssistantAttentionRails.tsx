@@ -71,7 +71,7 @@ export function StartupIssueRail({
                 <button
                   type="button"
                   onClick={() => onApplyStartupIssueQuickFix?.(issue.id)}
-                  className="min-h-[40px] rounded-full bg-primary/10 hover:bg-primary/15 border border-primary/15 hover:border-primary/25 px-3.5 py-1.5 text-xs font-medium text-primary/90 hover:text-primary transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+                  className="min-h-11 rounded-full bg-primary/10 hover:bg-primary/15 border border-primary/15 hover:border-primary/25 px-3.5 py-1.5 text-xs font-medium text-primary/90 hover:text-primary transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
                 >
                   {issue.quickFixLabel}
                 </button>
@@ -79,7 +79,7 @@ export function StartupIssueRail({
               <button
                 type="button"
                 onClick={() => onResolveStartupIssue?.(issue.id, issue.ctaPrompt)}
-                className="min-h-[40px] rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3.5 py-1.5 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+                className="min-h-11 rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3.5 py-1.5 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
               >
                 {issue.ctaLabel}
               </button>
@@ -87,7 +87,7 @@ export function StartupIssueRail({
                 <button
                   type="button"
                   onClick={() => onJumpToStartupIssue?.(issue.id)}
-                  className="min-h-[40px] rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/55 hover:text-foreground/80 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+                  className="min-h-11 rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/55 hover:text-foreground/80 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
                 >
                   {issue.jumpLabel}
                 </button>
@@ -95,7 +95,7 @@ export function StartupIssueRail({
               <button
                 type="button"
                 onClick={() => onDismissStartupIssue?.(issue.id)}
-                className="min-h-[40px] rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+                className="min-h-11 rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
               >
                 {ca('dismissWarning')}
               </button>
@@ -162,7 +162,7 @@ export function QualityWarningRail({
               <button
                 type="button"
                 onClick={() => onResolveQualityWarning?.(warning.type, warning.cta_prompt || '')}
-                className="min-h-[40px] rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3.5 py-1.5 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+                className="min-h-11 rounded-full bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.08] hover:border-foreground/[0.14] px-3.5 py-1.5 text-xs text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
               >
                 {warning.cta_label}
               </button>
@@ -170,7 +170,7 @@ export function QualityWarningRail({
             <button
               type="button"
               onClick={() => onDismissQualityWarning?.(warning.type)}
-              className="min-h-[40px] rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
+              className="min-h-11 rounded-full hover:bg-foreground/[0.04] px-3.5 py-1.5 text-xs text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1"
             >
               {ca('dismissWarning')}
             </button>
@@ -225,7 +225,7 @@ export function PendingFieldUpdatesCard({
                     onApplyFieldUpdate?.(update.field, update.value)
                     onAcceptUpdate?.(update.field)
                   }}
-                  className="inline-flex min-h-[36px] items-center rounded-full px-2.5 text-primary/85 hover:text-primary transition-colors touch-manipulation sm:min-h-0 sm:px-0"
+                  className="inline-flex min-h-11 items-center rounded-full px-2.5 text-primary/85 hover:text-primary transition-colors touch-manipulation sm:min-h-0 sm:px-0"
                 >
                   {ca('accept')}
                 </button>
@@ -233,7 +233,7 @@ export function PendingFieldUpdatesCard({
                 <button
                   type="button"
                   onClick={() => onRejectUpdate?.(update.field)}
-                  className="inline-flex min-h-[36px] items-center rounded-full px-2.5 text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-0"
+                  className="inline-flex min-h-11 items-center rounded-full px-2.5 text-foreground/45 hover:text-foreground/70 transition-colors touch-manipulation sm:min-h-0 sm:px-0"
                 >
                   {ca('dismissWarning')}
                 </button>

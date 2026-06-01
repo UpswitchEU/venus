@@ -1,5 +1,7 @@
+import { render, screen } from '@testing-library/react'
+import { createElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { splitMarkdownBlocks } from './StreamingMarkdown'
+import { StreamingMarkdown, splitMarkdownBlocks } from './StreamingMarkdown'
 
 describe('splitMarkdownBlocks', () => {
   it('returns no blocks for empty input', () => {
@@ -48,5 +50,13 @@ describe('splitMarkdownBlocks', () => {
     expect(c[0]).toBe('Enterprise value')
     expect(b[1]).toBe('Minus net debt')
     expect(c[1]).toBe('Minus net debt')
+  })
+
+  it('renders inline command pills with a mobile-safe tap target', () => {
+    render(createElement(StreamingMarkdown, { content: '*"normaliseer dit"*' }))
+
+    const commandPill = screen.getByRole('button', { name: '"normaliseer dit"' })
+    expect(commandPill).toHaveClass('min-h-11')
+    expect(commandPill).toHaveClass('sm:min-h-0')
   })
 })

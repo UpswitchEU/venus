@@ -125,7 +125,7 @@ function CodeBlock({ children, className }: { children: ReactNode; className?: s
         <button
           onClick={handleCopy}
           className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+            'flex min-h-11 items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium transition-all touch-manipulation sm:min-h-0 sm:px-2',
             copied
               ? 'text-primary bg-primary/10'
               : 'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]'
@@ -159,7 +159,7 @@ function EmRenderer({ children }: { children?: ReactNode }) {
       <button
         type="button"
         onClick={() => onCommandPillClick?.(text.replace(/^["']|["']$/g, ''))}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium not-italic cursor-pointer hover:bg-primary/20 hover:border-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-3.5 py-2 text-primary text-sm font-medium not-italic cursor-pointer hover:bg-primary/20 hover:border-primary/30 active:scale-[0.98] transition-all touch-manipulation sm:min-h-0 sm:px-2.5 sm:py-1"
       >
         {children}
       </button>

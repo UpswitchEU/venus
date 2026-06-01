@@ -73,7 +73,7 @@ export function ChatAssistantComposer({
                 className={cn(
                   'inline-flex items-center rounded-full',
                   'border border-primary/10 bg-primary/[0.04]',
-                  'min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-foreground/70 sm:min-h-0 sm:px-3 sm:py-1',
+                  'min-h-11 px-3.5 py-1.5 text-xs font-medium text-foreground/70 sm:min-h-0 sm:px-3 sm:py-1',
                   'hover:border-primary/20 hover:bg-primary/[0.07] hover:text-foreground/90',
                   'active:scale-[0.97] transition-all touch-manipulation',
                   'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -138,7 +138,7 @@ export function ChatAssistantComposer({
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(index)}
-                  className="-mr-1 flex h-8 w-8 items-center justify-center rounded-full text-foreground/40 hover:bg-foreground/[0.06] hover:text-foreground/70 touch-manipulation sm:mr-0 sm:h-auto sm:w-auto sm:rounded-none sm:hover:bg-transparent"
+                  className="-mr-1 flex h-11 w-11 items-center justify-center rounded-full text-foreground/40 hover:bg-foreground/[0.06] hover:text-foreground/70 touch-manipulation sm:mr-0 sm:h-auto sm:w-auto sm:rounded-none sm:hover:bg-transparent"
                   aria-label="Remove attachment"
                 >
                   <X className="w-3 h-3" />
