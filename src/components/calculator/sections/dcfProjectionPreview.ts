@@ -64,6 +64,7 @@ export function buildProjectionRowFromForecastRow(
     capexPct: number
     nwcPct: number
     taxRatePct: number
+    previousRevenue?: number
   }
 ): DcfProjectionPreviewRow {
   if (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)) {
@@ -86,7 +87,11 @@ export function buildProjectionRowFromForecastRow(
   const ebitda = row.ebitda
   const da = row.depreciation ?? Math.round(revenue * (globals.daPct / 100))
   const capex = row.capex ?? Math.round(revenue * (globals.capexPct / 100))
-  const nwcChange = row.nwc_change ?? Math.round(revenue * (globals.nwcPct / 100))
+  const nwcChange =
+    row.nwc_change ??
+    (Number.isFinite(globals.previousRevenue)
+      ? Math.round((revenue - (globals.previousRevenue ?? revenue)) * (globals.nwcPct / 100))
+      : 0)
   const ebit = ebitda - da
   const taxes = Math.round(Math.max(0, ebit) * taxRate)
   const nopat = ebit - taxes
@@ -107,6 +112,7 @@ export function buildProjectionRowFromForecastRow(
 
 function computeFcffRow(
   revenue: number,
+  previousRevenue: number,
   ebitda: number,
   daPct: number,
   capexPct: number,
@@ -116,19 +122,28 @@ function computeFcffRow(
   DcfProjectionPreviewRow,
   'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'
 > {
-  const da = roundCurrency(revenue * (daPct / 100))
-  const ebit = ebitda - da
-  const taxes = roundCurrency(Math.max(0, ebit) * taxRate)
-  const nopat = ebit - taxes
-  const capex = roundCurrency(revenue * (capexPct / 100))
-  const nwcChange = roundCurrency(revenue * (nwcPct / 100))
-  const fcff = roundCurrency(nopat + da - capex - nwcChange)
-  return { da, ebit, taxes, nopat, capex, nwcChange, fcff }
+  const daRaw = revenue * (daPct / 100)
+  const ebitRaw = ebitda - daRaw
+  const taxesRaw = Math.max(0, ebitRaw) * taxRate
+  const nopatRaw = ebitRaw - taxesRaw
+  const capexRaw = revenue * (capexPct / 100)
+  const nwcChangeRaw = (revenue - previousRevenue) * (nwcPct / 100)
+  const fcffRaw = nopatRaw + daRaw - capexRaw - nwcChangeRaw
+  return {
+    da: roundCurrency(daRaw),
+    ebit: roundCurrency(ebitRaw),
+    taxes: roundCurrency(taxesRaw),
+    nopat: roundCurrency(nopatRaw),
+    capex: roundCurrency(capexRaw),
+    nwcChange: roundCurrency(nwcChangeRaw),
+    fcff: roundCurrency(fcffRaw),
+  }
 }
 
 /**
  * Preview rows from the latest historical revenue: one YoY growth % and one EBITDA margin % apply to
- * every projected year; bridge drivers (CapEx, D&A, ΔNWC, tax) are global % of revenue.
+ * every projected year; CapEx and D&A are global % of revenue, while ΔNWC is the NWC-to-revenue
+ * ratio applied to the year-over-year revenue change.
  * Per-year differences only after users save overrides (see DcfForecastWorkspace merge). User copy:
  * `manualInput.dcfForecastWorkspace` / `forecastDefaultsLead` in messages.
  */
@@ -186,17 +201,20 @@ export function deriveDcfProjectionPreview(args: {
   if (explicitForecastYears.length > 0) {
     let projectedYear = latest.year
     for (const forecastYear of explicitForecastYears) {
+      let previousRevenue = revenue
       while (projectedYear < forecastYear) {
         projectedYear += 1
+        previousRevenue = revenue
         revenue = revenue * (1 + growthRate)
       }
       const rev = roundCurrency(revenue)
-      const ebitda = roundCurrency(revenue * marginRate)
+      const ebitdaRaw = revenue * marginRate
+      const ebitda = roundCurrency(ebitdaRaw)
       rows.push({
         year: forecastYear,
         revenue: rev,
         ebitda,
-        ...computeFcffRow(rev, ebitda, daPct, capexPct, nwcPct, taxRate),
+        ...computeFcffRow(revenue, previousRevenue, ebitdaRaw, daPct, capexPct, nwcPct, taxRate),
       })
     }
     return rows
@@ -204,14 +222,16 @@ export function deriveDcfProjectionPreview(args: {
 
   const years = Math.max(1, args.years ?? 3)
   for (let offset = 1; offset <= years; offset += 1) {
+    const previousRevenue = revenue
     revenue = revenue * (1 + growthRate)
     const rev = roundCurrency(revenue)
-    const ebitda = roundCurrency(revenue * marginRate)
+    const ebitdaRaw = revenue * marginRate
+    const ebitda = roundCurrency(ebitdaRaw)
     rows.push({
       year: latest.year + offset,
       revenue: rev,
       ebitda,
-      ...computeFcffRow(rev, ebitda, daPct, capexPct, nwcPct, taxRate),
+      ...computeFcffRow(revenue, previousRevenue, ebitdaRaw, daPct, capexPct, nwcPct, taxRate),
     })
   }
   return rows

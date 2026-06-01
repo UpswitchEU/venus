@@ -8,7 +8,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import {
   AuroraFormAlert,
@@ -60,6 +60,54 @@ function getFirstStringValue(value: unknown, keys: string[]): string | undefined
   return undefined
 }
 
+function selectedCompanySyncKey(company: CompanySearchResult): string {
+  return (
+    company.company_id?.trim() ||
+    company.registration_number?.trim() ||
+    company.company_name?.trim() ||
+    'selected-company'
+  )
+}
+
+function removeRegistryContextFields(
+  value: ValuationFormData['business_context']
+): ValuationFormData['business_context'] | undefined {
+  const context = asRecord(value)
+  const next = { ...context }
+  for (const key of [
+    'kbo_registration',
+    'kbo_registration_number',
+    'kboNumber',
+    'kboRegistration',
+    'kboRegistrationNumber',
+    'kvk_registration',
+    'kvk_registration_number',
+    'kvkNumber',
+    'kvkRegistration',
+    'kvkRegistrationNumber',
+    'registration_number',
+    'registrationNumber',
+    'company_registration_number',
+    'companyRegistrationNumber',
+    'company_number',
+    'companyNumber',
+    'enterprise_number',
+    'enterpriseNumber',
+    'company_id',
+    'companyId',
+    'company_address',
+    'companyAddress',
+    'registeredAddress',
+    'company_status',
+    'companyStatus',
+    'legal_form',
+    'legalForm',
+  ]) {
+    delete next[key]
+  }
+  return Object.keys(next).length > 0 ? (next as ValuationFormData['business_context']) : undefined
+}
+
 /**
  * BasicInformationSection Component
  *
@@ -80,6 +128,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   const t = useTranslations()
   // Track which fields were auto-filled from registry
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([])
+  const registryBusinessTypeSyncRef = useRef<{
+    companyKey: string
+    businessTypeId: string | null
+  } | null>(null)
 
   // LinkedIn pattern: Form owns selected company state
   const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
@@ -112,12 +164,35 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     // Check for KBO data in business_context first (preferred source - from previous verification)
     const businessContext = formData.business_context
     let kboRegistration =
-      getFirstStringValue(businessContext, ['kbo_registration', 'kbo_registration_number']) ??
-      formData.kbo_number
-    let legalForm = getStringValue(businessContext, 'legal_form') ?? formData.legal_form
-    const companyId = getStringValue(businessContext, 'company_id')
-    let companyAddress = getStringValue(businessContext, 'company_address') ?? ''
-    const companyStatus = getStringValue(businessContext, 'company_status') ?? 'Active'
+      getFirstStringValue(businessContext, [
+        'kbo_registration',
+        'kbo_registration_number',
+        'kboNumber',
+        'kboRegistration',
+        'kboRegistrationNumber',
+        'registration_number',
+        'registrationNumber',
+        'company_registration_number',
+        'companyRegistrationNumber',
+        'company_number',
+        'companyNumber',
+        'enterprise_number',
+        'enterpriseNumber',
+        'company_id',
+        'companyId',
+      ]) ?? formData.kbo_number
+    let legalForm =
+      getFirstStringValue(businessContext, ['legal_form', 'legalForm']) ?? formData.legal_form
+    const companyId = getFirstStringValue(businessContext, ['company_id', 'companyId'])
+    let companyAddress =
+      getFirstStringValue(businessContext, [
+        'company_address',
+        'companyAddress',
+        'registered_address',
+        'registeredAddress',
+      ]) ?? ''
+    const companyStatus =
+      getFirstStringValue(businessContext, ['company_status', 'companyStatus']) ?? 'Active'
 
     // ✅ FIX: Also check top-level formData fields (from Mercury business card prefill)
     // When data comes from Mercury, KBO fields are at top level, not in business_context
@@ -267,16 +342,63 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       const updates: Partial<ValuationFormData> = {
         business_context: updatedBusinessContext,
       }
+      const selectedRegistration = selectedCompany.registration_number?.trim()
+      const selectedCountryCode =
+        selectedCompany.country_code || currentFormData.country_code || effectiveCountryCode
+      if (selectedCompany.company_name) {
+        updates.company_name = selectedCompany.company_name
+      }
+      if (selectedCountryCode) {
+        updates.country_code = selectedCountryCode
+      }
+      if (selectedRegistration) {
+        updates.registration_number = selectedRegistration
+        if (selectedCountryCode === 'NL') {
+          updates.kvk_number = selectedRegistration
+          updates.kbo_number = undefined
+        } else {
+          updates.kbo_number = selectedRegistration
+          updates.kvk_number = undefined
+        }
+      }
+      if (selectedCompany.legal_form) {
+        updates.legal_form = selectedCompany.legal_form
+      }
 
-      // Pre-populate business type from Titan enrichment (NACE/SBI). Only when
-      // the form has no type yet — never overwrite a manual choice.
+      // Pre-populate business type from Titan enrichment (NACE/SBI). When a new
+      // registry company is selected, replace an older type from the previous
+      // company. After this company/type pair has been synced once, later manual
+      // business-type edits win.
       const selectedBusinessTypeId = normalizeBusinessTypeId(selectedCompany.business_type_id)
-      if (selectedBusinessTypeId && !currentFormData.business_type_id) {
+      const companyKey = selectedCompanySyncKey(selectedCompany)
+      const lastSynced = registryBusinessTypeSyncRef.current
+      const alreadySyncedThisCompanyType =
+        lastSynced?.companyKey === companyKey &&
+        lastSynced.businessTypeId === selectedBusinessTypeId
+      const shouldSyncRegistryBusinessType =
+        !!selectedBusinessTypeId &&
+        (!currentFormData.business_type_id ||
+          (!alreadySyncedThisCompanyType &&
+            currentFormData.business_type_id !== selectedBusinessTypeId))
+
+      if (shouldSyncRegistryBusinessType && selectedBusinessTypeId) {
         const enriched = await fetchBusinessTypeById(selectedBusinessTypeId)
         if (enriched) {
           Object.assign(updates, buildBusinessTypeFormData(enriched))
         } else {
           updates.business_type_id = selectedBusinessTypeId
+        }
+        registryBusinessTypeSyncRef.current = {
+          companyKey,
+          businessTypeId: selectedBusinessTypeId,
+        }
+      } else if (
+        selectedBusinessTypeId &&
+        currentFormData.business_type_id === selectedBusinessTypeId
+      ) {
+        registryBusinessTypeSyncRef.current = {
+          companyKey,
+          businessTypeId: selectedBusinessTypeId,
         }
       }
 
@@ -334,7 +456,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     }
 
     saveCompanyData()
-  }, [selectedCompany, formData, updateFormData])
+  }, [selectedCompany, formData, updateFormData, effectiveCountryCode])
 
   return (
     <AuroraFormSection title={t('forms.sections.basicInformation')}>
@@ -459,7 +581,21 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             // Clear selected company but keep the current input value
             // This allows user to edit/change the name without losing what they typed
             setSelectedCompany(null)
-            // Don't clear company_name - let user edit the existing value
+            registryBusinessTypeSyncRef.current = null
+            // Don't clear company_name - let user edit the existing value.
+            // Do clear registry-derived identifiers so an old KBO/KVK cannot
+            // leak into the next valuation payload.
+            updateFormData({
+              registration_number: undefined,
+              kbo_number: undefined,
+              kvk_number: undefined,
+              legal_form: undefined,
+              nace_code: undefined,
+              nace_description: undefined,
+              activity_code: undefined,
+              canonical_nace_code: undefined,
+              business_context: removeRegistryContextFields(formData.business_context),
+            })
             generalLogger.info('[BasicInfo] Clearing company selection', {
               previous_company: selectedCompany?.company_name,
               keeping_input_value: formData.company_name,

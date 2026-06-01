@@ -841,12 +841,12 @@ export function CalculatorNav({
                 aria-haspopup="menu"
                 aria-label={userName ? t('account.accountMenu') : t('account.guestMenu')}
                 className={cn(
-                  'relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden',
+                  'relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full sm:h-8 sm:w-8',
                   'bg-primary/20 border-2 border-foreground/10',
                   'text-foreground/70 font-medium text-xs',
                   'hover:ring-2 hover:ring-primary/30 transition-all',
                   'focus:outline-none focus:ring-2 focus:ring-primary/50',
-                  'p-0.5 flex items-center justify-center'
+                  'p-1.5 sm:p-0.5'
                 )}
               >
                 {showAvatar ? (

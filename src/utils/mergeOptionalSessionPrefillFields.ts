@@ -23,15 +23,17 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
-import { isYearRowForecast } from './yearData'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import {
   OPTIONAL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  SESSION_BUSINESS_CARD_CLEAR_KEYS,
   SESSION_CARD_FALLBACK_NULLISH_SCALARS,
   SESSION_CARD_FALLBACK_STRING_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from './optionalSessionPrefillKeys'
+import { getRegistryIdentityFromRecord, hasConflictingRegistryIdentity } from './registryIdentity'
+import { isYearRowForecast } from './yearData'
 import type { YearlyFinancialLike } from './yearlyFinancials'
 import {
   buildYearlyFinancialsFromCurrentAndHistorical,
@@ -174,8 +176,7 @@ export function sessionEnvelopeHasIdentitySignals(sessionData: unknown): boolean
   const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
   return !!(
     (typeof merged.company_name === 'string' && merged.company_name.trim() !== '') ||
-    merged.kbo_number ||
-    merged.kboNumber ||
+    getRegistryIdentityFromRecord(merged) ||
     merged.vat_number ||
     merged.vatNumber
   )
@@ -479,11 +480,12 @@ export function stableOptionalPrefillSourceSignature(record: Record<string, unkn
         ? record['companyName'].trim().slice(0, 96)
         : ''
   const kb =
-    typeof record['kbo_number'] === 'string'
+    getRegistryIdentityFromRecord(record)?.slice(0, 48) ??
+    (typeof record['kbo_number'] === 'string'
       ? record['kbo_number'].trim().slice(0, 48)
       : typeof record['kboNumber'] === 'string'
         ? record['kboNumber'].trim().slice(0, 48)
-        : ''
+        : '')
   if (co) parts.push(`id_company:${co}`)
   if (kb) parts.push(`id_kbo:${kb}`)
 
@@ -534,6 +536,14 @@ function isEmptyStructSlot(existing: unknown): boolean {
   if (Array.isArray(existing)) return existing.length === 0
   if (typeof existing === 'object') return Object.keys(existing as object).length === 0
   return false
+}
+
+function removeIdentityGapFillFields(out: Partial<ValuationFormData>): Partial<ValuationFormData> {
+  const next = { ...out } as Record<string, unknown>
+  for (const key of SESSION_BUSINESS_CARD_CLEAR_KEYS) {
+    delete next[key]
+  }
+  return next as Partial<ValuationFormData>
 }
 
 export function mergeOptionalSessionPrefillFields(
@@ -947,7 +957,7 @@ export function mergeOptionalSessionPrefillFields(
     }
   }
 
-  return out
+  return hasConflictingRegistryIdentity(fd, mergedData) ? removeIdentityGapFillFields(out) : out
 }
 
 /** Shared by SessionRestorationService and {@link queueOptionalGapFillFlush}. */
@@ -957,5 +967,8 @@ export function buildOptionalSessionGapFillPatch(
 ): Partial<ValuationFormData> {
   if (!rawSessionData || typeof rawSessionData !== 'object') return {}
   const merged = mergeSessionSurfaceForOptionalPrefill(rawSessionData)
-  return mergeOptionalSessionPrefillFields(merged, formData)
+  const patch = mergeOptionalSessionPrefillFields(merged, formData)
+  return hasConflictingRegistryIdentity(formData, merged)
+    ? removeIdentityGapFillFields(patch)
+    : patch
 }

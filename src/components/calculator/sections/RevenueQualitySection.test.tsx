@@ -98,4 +98,28 @@ describe('RevenueQualitySection', () => {
       screen.getByText('fields.revenueQualityBacklogMonths:6 fields.revenueQualityMonthsSuffix')
     ).toBeInTheDocument()
   })
+
+  it('marks the restaurant revenue-quality inputs ready and renders the De Drie Biggen ratios', () => {
+    render(
+      <RevenueQualitySection
+        step={8}
+        effectiveMethods={['ebitda_multiple', 'dcf']}
+        latestRevenue={1_000_000}
+        revRecurringAmount={400_000}
+        revTopClientAmount={150_000}
+        revContractBacklog={250_000}
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('revenueQualityPanels.ready')).toBeInTheDocument()
+    expect(
+      screen.queryByText('revenueQualityPanels.progress:filled=0,total=3')
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('fields.revRecurringPct:40%')).toBeInTheDocument()
+    expect(screen.getByText('fields.revTopClientConcentrationPct:15%')).toBeInTheDocument()
+    expect(
+      screen.getByText('fields.revenueQualityBacklogMonths:3 fields.revenueQualityMonthsSuffix')
+    ).toBeInTheDocument()
+  })
 })

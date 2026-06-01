@@ -101,13 +101,116 @@ describe('buildValuationRequest', () => {
     })
   })
 
+  it('prefers selected-company registry context over stale top-level identifiers', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'BE',
+        registration_number: '0773.520.560',
+        kbo_number: '0773.520.560',
+        kvk_number: '12345678',
+        legal_form: 'Commanditaire vennootschap',
+        postal_code: '1000',
+        city: 'Brussel',
+        business_context: {
+          kbo_registration_number: '1033.441.760',
+          kbo_registration: '1033.441.760',
+          company_id: '1033.441.760',
+          legal_form: 'Besloten Vennootschap',
+          company_address: '9050 Gent',
+        },
+      }),
+      []
+    )
+
+    expect(result.registration_number).toBe('1033.441.760')
+    expect(result.kbo_number).toBe('1033.441.760')
+    expect(result.kvk_number).toBeUndefined()
+    expect(result.legal_form).toBe('Besloten Vennootschap')
+    expect(result.postal_code).toBe('9050')
+    expect(result.city).toBe('Gent')
+  })
+
+  it('uses selected-company company_id as registry fallback before stale top-level fields', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'BE',
+        registration_number: '0773.520.560',
+        kbo_number: '0773.520.560',
+        legal_form: 'Commanditaire vennootschap',
+        postal_code: '1000',
+        city: 'Brussel',
+        business_context: {
+          company_id: '1033.441.760',
+          legal_form: 'Besloten Vennootschap',
+          company_address: '9050 Gent',
+        },
+      }),
+      []
+    )
+
+    expect(result.registration_number).toBe('1033.441.760')
+    expect(result.kbo_number).toBe('1033.441.760')
+    expect(result.legal_form).toBe('Besloten Vennootschap')
+    expect(result.postal_code).toBe('9050')
+    expect(result.city).toBe('Gent')
+  })
+
+  it('accepts camelCase selected-company businessContext aliases', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'BE',
+        registration_number: '0773.520.560',
+        kbo_number: '0773.520.560',
+        legal_form: 'Commanditaire vennootschap',
+        postal_code: '1000',
+        city: 'Brussel',
+        business_context: {
+          kboNumber: '1033.441.760',
+          legalForm: 'Besloten Vennootschap',
+          vatNumber: 'BE1033441760',
+          companyAddress: '9050 Gent',
+        },
+      }),
+      []
+    )
+
+    expect(result.registration_number).toBe('1033.441.760')
+    expect(result.kbo_number).toBe('1033.441.760')
+    expect(result.legal_form).toBe('Besloten Vennootschap')
+    expect(result.vat_number).toBe('BE1033441760')
+    expect(result.postal_code).toBe('9050')
+    expect(result.city).toBe('Gent')
+  })
+
+  it('accepts enterprise number aliases from selected-company context', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'BE',
+        registration_number: '0773.520.560',
+        kbo_number: '0773.520.560',
+        business_context: {
+          enterpriseNumber: '1033.441.760',
+          legalForm: 'Besloten Vennootschap',
+          companyAddress: '9050 Gent',
+        },
+      }),
+      []
+    )
+
+    expect(result.registration_number).toBe('1033.441.760')
+    expect(result.kbo_number).toBe('1033.441.760')
+    expect(result.legal_form).toBe('Besloten Vennootschap')
+    expect(result.postal_code).toBe('9050')
+    expect(result.city).toBe('Gent')
+  })
+
   it('maps business_context registry aliases to KVK fields for Dutch companies', () => {
     const result = buildValuationRequest(
       makeFormData({
         country_code: 'NL',
-        kbo_number: undefined,
+        kbo_number: '0773.520.560',
         kvk_number: undefined,
-        registration_number: undefined,
+        registration_number: '0773.520.560',
         business_context: {
           kbo_registration_number: ' 12345678 ',
           legal_form: ' Vennootschap onder firma ',
@@ -1364,6 +1467,7 @@ describe('buildValuationRequest', () => {
     )
 
     expect(result.business_context).toMatchObject({
+      business_type_id: 'saas',
       dcf_revenue_growth_pct: 12,
       dcf_ebitda_margin_pct: 18,
       dcf_capex_pct: 4,

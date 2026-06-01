@@ -171,6 +171,22 @@ export function switchManualDcfInputMode(
       nwcPct: formData.dcf_nwc_pct ?? DCF_DEFAULT_NWC_PCT,
       taxRatePct: formData.dcf_tax_rate_pct ?? DCF_DEFAULT_TAX_RATE_PCT,
     }
+    const previousRevenueByYear = new Map<string, number>()
+    let previousRevenue: number | undefined
+    for (const row of [...formData.yearlyFinancials].sort(
+      (a, b) => Number(a.year) - Number(b.year)
+    )) {
+      const revenue =
+        typeof row.revenue === 'number' && Number.isFinite(row.revenue) ? row.revenue : undefined
+      if (row.isForecast) {
+        if (previousRevenue != null) {
+          previousRevenueByYear.set(String(row.year), previousRevenue)
+        }
+      }
+      if (revenue != null && revenue > 0) {
+        previousRevenue = revenue
+      }
+    }
 
     return {
       ...formData,
@@ -188,7 +204,7 @@ export function switchManualDcfInputMode(
             nwc_change: row.nwc_change,
             free_cash_flow: row.free_cash_flow,
           },
-          globals
+          { ...globals, previousRevenue: previousRevenueByYear.get(String(row.year)) }
         ).fcff
         return { ...row, revenue: 0, ebitda: 0, free_cash_flow: fcff }
       }),

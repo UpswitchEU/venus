@@ -30,7 +30,9 @@ import {
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
 } from '../utils/mergeOptionalSessionPrefillFields'
+import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
 type SessionPrefillMergedData = Record<string, unknown> & {
@@ -71,6 +73,13 @@ type SessionPrefillMergedData = Record<string, unknown> & {
   taxLatencies?: unknown[]
   _taxLatencies?: unknown[]
   _normalizations?: unknown[]
+}
+
+function deleteIdentityPrefillFields(updates: Partial<ValuationFormData>): void {
+  const record = updates as Record<string, unknown>
+  for (const key of SESSION_BUSINESS_CARD_CLEAR_KEYS) {
+    delete record[key]
+  }
 }
 
 /** Fallback prefill from `session.sessionData` when bootstrap did not paint first. */
@@ -235,6 +244,7 @@ export function useSessionDataPrefill() {
       rawBi && typeof rawBi === 'object' && !Array.isArray(rawBi)
         ? (rawBi as Record<string, unknown>)
         : {}
+    const sessionRegistryConflicts = hasConflictingRegistryIdentity(formData, mergedData)
 
     // Check if merged data has business card fields from Mercury
     const hasBusinessCardData = !!(
@@ -324,7 +334,7 @@ export function useSessionDataPrefill() {
       }
       // Reject NACE-shaped values: resolve via API instead of using raw value
       const rawBusinessType = mergedData.business_type_id || mergedData.business_type
-      if (rawBusinessType && !hasBusinessTypeId) {
+      if (rawBusinessType && !hasBusinessTypeId && !sessionRegistryConflicts) {
         if (looksLikeNaceCode(rawBusinessType)) {
           try {
             const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
@@ -463,6 +473,13 @@ export function useSessionDataPrefill() {
       // Revenue prefill from latest valuation or current year data
       if (mergedData.current_year_data?.revenue) {
         updates.revenue = mergedData.current_year_data.revenue
+      }
+
+      if (sessionRegistryConflicts) {
+        deleteIdentityPrefillFields(updates)
+        generalLogger.debug('[useSessionDataPrefill] Skipped stale identity prefill', {
+          remainingFields: Object.keys(updates),
+        })
       }
 
       // DCF/NAV/SaaS/etc.: coalesced with useSessionOptionalMethodPrefill via queueOptionalGapFillFlush

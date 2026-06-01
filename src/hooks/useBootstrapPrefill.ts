@@ -46,6 +46,8 @@ import {
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
+import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
+import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
 import {
   type BootstrapPrefillPatch,
@@ -59,6 +61,14 @@ import {
 } from './bootstrapPrefillGuards'
 
 const logger = createContextLogger('BootstrapPrefill')
+
+function removeBusinessCardFields<T extends object>(value: T): T {
+  const next = { ...value } as Record<string, unknown>
+  for (const key of SESSION_BUSINESS_CARD_CLEAR_KEYS) {
+    delete next[key]
+  }
+  return next as T
+}
 
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
 let globalPrefillApplied = false
@@ -812,15 +822,26 @@ function applyPrefillToForm(
       string,
       unknown
     >
-    const optional = mergeOptionalSessionPrefillFields(mergedSession as Record<string, unknown>, {
-      ...useManualFormStore.getState().formData,
+    const currentFormData = useManualFormStore.getState().formData
+    const sessionRegistryConflicts = hasConflictingRegistryIdentity(
+      { ...currentFormData, ...allData },
+      mergedSession
+    )
+    let optional = mergeOptionalSessionPrefillFields(mergedSession as Record<string, unknown>, {
+      ...currentFormData,
       ...allData,
     })
+    if (sessionRegistryConflicts) {
+      optional = removeBusinessCardFields(optional)
+      logger.debug('Skipped stale session business-card prefill after registry mismatch', {
+        optionalKeys: Object.keys(optional),
+      })
+    }
     Object.assign(allData, optional)
 
     const legalForm =
       getRecordString(mergedSession, 'legal_form') ?? getRecordString(mergedSession, 'legalForm')
-    if (!allData.legal_form && legalForm) {
+    if (!sessionRegistryConflicts && !allData.legal_form && legalForm) {
       allData.legal_form = legalForm
     }
 
@@ -831,6 +852,7 @@ function applyPrefillToForm(
     )
     if (
       !allData.business_type_id &&
+      !sessionRegistryConflicts &&
       businessTypeId &&
       businessTypeId.trim() &&
       !isLegalFormBusinessTypeValue(businessTypeId)

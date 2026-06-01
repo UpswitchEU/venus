@@ -88,7 +88,7 @@ export function ContextBar({
         {clientName && (
           <button
             onClick={onClientClick}
-            className="flex min-h-[36px] min-w-0 shrink-0 items-center gap-1.5 text-foreground/60 transition-colors hover:text-foreground sm:min-h-0"
+            className="flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 text-foreground/60 transition-colors hover:text-foreground sm:min-h-0"
           >
             <User className="w-3.5 h-3.5 shrink-0" />
             <span className="max-w-[42vw] truncate sm:max-w-[260px]">{clientName}</span>
@@ -100,7 +100,7 @@ export function ContextBar({
         {businessName && (
           <button
             onClick={onBusinessClick}
-            className="flex min-h-[36px] min-w-0 shrink-0 items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary sm:min-h-0"
+            className="flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary sm:min-h-0"
           >
             <Building2 className="w-3.5 h-3.5 shrink-0" />
             <span className="max-w-[48vw] truncate sm:max-w-[260px]">{businessName}</span>
@@ -114,7 +114,7 @@ export function ContextBar({
           <button
             onClick={onShowNormalisationReview}
             className={cn(
-              'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:min-h-0',
+              'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:min-h-0',
               'bg-primary/10 text-primary border border-primary/20',
               'hover:bg-primary/15 transition-colors'
             )}
@@ -131,7 +131,7 @@ export function ContextBar({
         {clientApprovalStatus !== 'none' && (
           <div
             className={cn(
-              'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:min-h-0',
+              'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:min-h-0',
               clientApprovalStatus === 'pending'
                 ? 'bg-foreground/[0.04] text-foreground/60 border-foreground/[0.08]'
                 : clientApprovalStatus === 'approved'
@@ -146,7 +146,7 @@ export function ContextBar({
                 {onResendApproval && (
                   <button
                     onClick={onResendApproval}
-                    className="ml-1 p-0.5 rounded hover:bg-foreground/[0.06] transition-colors"
+                    className="ml-1 flex h-8 w-8 items-center justify-center rounded hover:bg-foreground/[0.06] transition-colors sm:h-auto sm:w-auto sm:p-0.5"
                     title={t('sendReminder')}
                   >
                     <Send className="w-3 h-3" />
@@ -171,7 +171,7 @@ export function ContextBar({
 
         <div
           className={cn(
-            'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
+            'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
             draftStatus === 'saved'
               ? 'bg-success/10 text-success'
               : draftStatus === 'saving'

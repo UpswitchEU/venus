@@ -1,5 +1,6 @@
 import { readPreSelectedValuationMethods } from '../constants/sessionUiKeys'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
 interface BuildValuationBusinessContextOptions {
@@ -178,10 +179,12 @@ export function buildValuationBusinessContext({
     formData.business_context && typeof formData.business_context === 'object'
       ? formData.business_context
       : undefined
+  const businessTypeId = normalizeBusinessTypeId(formData.business_type_id)
 
   const businessContext = formData.business_type_id
     ? {
         ...existingBusinessContext,
+        ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
         dcfPreference: fd._internal_dcf_preference,
         multiplesPreference: fd._internal_multiples_preference,
         ownerDependencyImpact: fd._internal_owner_dependency_impact,

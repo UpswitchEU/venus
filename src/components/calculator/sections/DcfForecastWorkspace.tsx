@@ -91,7 +91,7 @@ export function DcfForecastWorkspace({
   const [tableOpen, setTableOpen] = useState(false)
   // Inline grid focuses on the 4 primary columns by default (Year | Revenue |
   // EBITDA | FCFF) — that's the punchline. Percent details (YoY, margin, CapEx%,
-  // D&A%, ΔNWC%) are collapsed behind a toggle so the FCFF column never clips
+  // D&A%, NWC ratio) are collapsed behind a toggle so the FCFF column never clips
   // on a 14" laptop with the right panel open.
   const [showPercentColumns, setShowPercentColumns] = useState(false)
 
@@ -127,14 +127,23 @@ export function DcfForecastWorkspace({
       nwcPct: globalNwcPct ?? DCF_DEFAULT_NWC_PCT,
       taxRatePct: globalTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT,
     }
-    const build = (row: DcfForecastRow) => buildProjectionRowFromForecastRow(row, globals)
+    const build = (row: DcfForecastRow, index: number) => {
+      const previousRevenue =
+        index === 0
+          ? (latestHistoricalRevenue ?? coalesceFiniteNumber(row.revenue) ?? 0)
+          : (coalesceFiniteNumber(sortedRows[index - 1]?.revenue) ??
+            latestHistoricalRevenue ??
+            coalesceFiniteNumber(row.revenue) ??
+            0)
+      return buildProjectionRowFromForecastRow(row, { ...globals, previousRevenue })
+    }
 
     if (dcfInputMode !== 'ebitda' || !derivedProjectionPreview?.length) {
-      return sortedRows.map((row) => build(row))
+      return sortedRows.map((row, index) => build(row, index))
     }
 
     const derivedByYear = new Map(derivedProjectionPreview.map((r) => [r.year, r]))
-    return sortedRows.map((row) => {
+    return sortedRows.map((row, index) => {
       const derivedRow = derivedByYear.get(Number(row.year))
       // Prefer stored row whenever the user has entered any forecast line (not only revenue).
       const hasStoredForecastInput =
@@ -147,10 +156,11 @@ export function DcfForecastWorkspace({
       if (derivedRow && !hasStoredForecastInput) {
         return derivedRow
       }
-      return build(row)
+      return build(row, index)
     })
   }, [
     sortedRows,
+    latestHistoricalRevenue,
     globalCapexPct,
     globalDaPct,
     globalNwcPct,

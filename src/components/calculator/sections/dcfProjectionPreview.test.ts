@@ -35,10 +35,40 @@ describe('deriveDcfProjectionPreview', () => {
     expect(rows[0].nopat).toBe(168_300)
     // CapEx = 4% of 1,320,000 = 52,800
     expect(rows[0].capex).toBe(52_800)
-    // NWC = 1.5% of 1,320,000 = 19,800
-    expect(rows[0].nwcChange).toBe(19_800)
-    // FCFF = 168,300 + 39,600 - 52,800 - 19,800 = 135,300
-    expect(rows[0].fcff).toBe(135_300)
+    // ΔNWC = 1.5% of revenue growth (1,320,000 - 1,200,000) = 1,800
+    expect(rows[0].nwcChange).toBe(1_800)
+    // FCFF = 168,300 + 39,600 - 52,800 - 1,800 = 153,300
+    expect(rows[0].fcff).toBe(153_300)
+  })
+
+  it('applies the NWC ratio to revenue growth for the De Drie Biggen DCF scenario', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+      revenueGrowthPct: 5,
+      ebitdaMarginPct: 10,
+      capexPct: 2,
+      daPct: 2,
+      nwcPct: 1.5,
+      taxRatePct: 25,
+      years: 5,
+    })
+
+    expect(rows).toHaveLength(5)
+    expect(rows[0]).toMatchObject({
+      year: 2026,
+      revenue: 1_050_000,
+      ebitda: 105_000,
+      capex: 21_000,
+      nwcChange: 750,
+      fcff: 62_250,
+    })
+    expect(rows[0].nwcChange).not.toBe(15_750)
+    expect(rows[4]).toMatchObject({
+      year: 2030,
+      revenue: 1_276_282,
+      nwcChange: 912,
+      fcff: 75_665,
+    })
   })
 
   it('falls back to smart defaults when explicit inputs are missing', () => {
@@ -108,7 +138,7 @@ describe('deriveDcfProjectionPreview', () => {
     expect(result[1].ebitda).toBe(220_000)
     expect(result[1].capex).toBe(44_000)
     expect(result[1].depreciation).toBe(33_000)
-    expect(result[1].nwc_change).toBe(16_500)
+    expect(result[1].nwc_change).toBe(1_500)
   })
 
   it('uses explicit free_cash_flow when provided', () => {
@@ -119,7 +149,7 @@ describe('deriveDcfProjectionPreview', () => {
         ebitda: 0,
         free_cash_flow: 125_000,
       },
-      { daPct: 3, capexPct: 4, nwcPct: 1.5, taxRatePct: 25 }
+      { daPct: 3, capexPct: 4, nwcPct: 1.5, taxRatePct: 25, previousRevenue: 1_000_000 }
     )
     expect(row.fcff).toBe(125_000)
     expect(row.da).toBe(0)
@@ -159,7 +189,7 @@ describe('deriveDcfProjectionPreview', () => {
         revenue: fromDerive.revenue,
         ebitda: fromDerive.ebitda,
       },
-      { daPct: 3, capexPct: 4, nwcPct: 1.5, taxRatePct: 25 }
+      { daPct: 3, capexPct: 4, nwcPct: 1.5, taxRatePct: 25, previousRevenue: 1_000_000 }
     )
     expect(fromBuild.fcff).toBe(fromDerive.fcff)
     expect(fromBuild.nopat).toBe(fromDerive.nopat)
@@ -232,8 +262,8 @@ describe('deriveDcfProjectionPreview', () => {
           taxes: 46_750,
           nopat: 140_250,
           capex: 44_000,
-          nwcChange: 16_500,
-          fcff: 112_750,
+          nwcChange: 1_500,
+          fcff: 127_750,
         },
       ]
     )
@@ -242,6 +272,6 @@ describe('deriveDcfProjectionPreview', () => {
     expect(result[0].ebitda).toBe(220_000)
     expect(result[0].capex).toBe(44_000)
     expect(result[0].depreciation).toBe(33_000)
-    expect(result[0].nwc_change).toBe(16_500)
+    expect(result[0].nwc_change).toBe(1_500)
   })
 })

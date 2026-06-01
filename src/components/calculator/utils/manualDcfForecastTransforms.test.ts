@@ -41,7 +41,7 @@ describe('manual DCF forecast transforms', () => {
     expect(result.yearlyFinancials[0]).toMatchObject({ year: '2024', revenue: 1_000_000 })
     const forecast = result.yearlyFinancials.find((row) => row.year === '2025')
     expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
-    expect(forecast?.free_cash_flow).toEqual(expect.any(Number))
+    expect(forecast?.free_cash_flow).toBe(122_875)
   })
 
   it('switches back to EBITDA mode by clearing FCFF and applying projection rows', () => {

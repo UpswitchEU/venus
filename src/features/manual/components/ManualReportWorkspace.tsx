@@ -1,15 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { Suspense, useRef } from 'react'
-import { ErrorState } from '../../../components/ErrorState'
-import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
-import { SectorMismatchNotice } from '../../../components/calculator/sections/SectorMismatchNotice'
 import {
   HistoryPanel,
   type HistoryPanelProps,
   type RightPanelView,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
+import { ErrorState } from '../../../components/ErrorState'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
@@ -94,7 +93,6 @@ function HtmlReportSurface({
         <LiveMultiplePreviewBanner preview={liveMultipleReportPreview} translate={translate} />
       )}
       <div className="sticky top-0 z-[5] mx-4 mt-3 space-y-2 bg-background/95 backdrop-blur-sm">
-        <SectorMismatchNotice />
         <AcademicValidationNotice className="border-b-0" />
       </div>
       <div className="valuation-report">
@@ -108,7 +106,11 @@ function HtmlReportSurface({
   )
 }
 
-function ReportRenderErrorPanel({ variant }: { variant: 'payload_too_large' | 'html_recovery_failed' }) {
+function ReportRenderErrorPanel({
+  variant,
+}: {
+  variant: 'payload_too_large' | 'html_recovery_failed'
+}) {
   const t = useTranslations('reportPreview')
   if (variant === 'html_recovery_failed') {
     return (
@@ -122,10 +124,7 @@ function ReportRenderErrorPanel({ variant }: { variant: 'payload_too_large' | 'h
   }
   return (
     <div className="flex items-center justify-center h-full min-h-[400px] p-4">
-      <ErrorState
-        title={t('renderPayloadTooLarge')}
-        message={t('renderPayloadTooLargeDesc')}
-      />
+      <ErrorState title={t('renderPayloadTooLarge')} message={t('renderPayloadTooLargeDesc')} />
     </div>
   )
 }
@@ -163,8 +162,7 @@ export function ManualReportWorkspace({
   const reportPanelRef = useRef<HTMLDivElement>(null)
   const renderError = useSessionStore((state) => state.renderError)
   const isBusy = isGenerating || isCalculating || isRecoveringReportHtml || isDeletingCurrentReport
-  const showPayloadTooLarge =
-    renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
+  const showPayloadTooLarge = renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
   const showHtmlRecoveryFailed =
     renderError === 'html_recovery_failed' && !report?.htmlReport && !isBusy
 

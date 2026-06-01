@@ -24,7 +24,7 @@ type SectorMismatchFormSlice = Pick<
 
 /**
  * Warn when KBO/NACE-implied business type differs from the advisor's selection.
- * Used on the form (Basic Information) and on the report panel before external share.
+ * Used on the form (Basic Information), where the advisor can correct the business type.
  */
 export function useSectorMismatchWarning(formData: SectorMismatchFormSlice): SectorMismatchWarning {
   const [warning, setWarning] = useState<SectorMismatchWarning>(null)

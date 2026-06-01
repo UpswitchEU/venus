@@ -137,7 +137,7 @@ export function DcfGlobalAssumptions({
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
   const tManual = useTranslations('manualInput')
-  // Collapsed by default — the four FCFF drivers (CapEx, D&A, ΔNWC, tax) are
+  // Collapsed by default — the FCFF drivers (CapEx, D&A, NWC ratio, tax) are
   // shown in the summary line and are typically left on sector defaults. Keeping
   // them open by default greets the user with six percent inputs and reads as overload.
   const [showAdvancedDrivers, setShowAdvancedDrivers] = useState(false)

@@ -46,6 +46,7 @@ import {
   clearMercurySessionPrefillSuppression,
   markMercurySessionPrefillSuppressed,
 } from '../../utils/prefillRestorationGate'
+import { getRegistryIdentityFromRecord } from '../../utils/registryIdentity'
 import { extractRenderableHtmlFromSessionPayload } from '../../utils/reportHtmlRecovery'
 import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 import {
@@ -782,8 +783,7 @@ class SessionRestorationServiceImpl {
     const hasEnvelopeIdentity = !!(
       (typeof mergedEnvelope.company_name === 'string' &&
         mergedEnvelope.company_name.trim() !== '') ||
-      mergedEnvelope.kbo_number ||
-      mergedEnvelope.kboNumber ||
+      getRegistryIdentityFromRecord(mergedEnvelope) ||
       mergedEnvelope.vat_number ||
       mergedEnvelope.vatNumber
     )
@@ -814,8 +814,7 @@ class SessionRestorationServiceImpl {
       }
       const expectedKbo =
         (typeof data.formData.kbo_number === 'string' && data.formData.kbo_number.trim()) ||
-        (typeof mergedEnvelope.kbo_number === 'string' && mergedEnvelope.kbo_number.trim()) ||
-        (typeof mergedEnvelope.kboNumber === 'string' && mergedEnvelope.kboNumber.trim()) ||
+        getRegistryIdentityFromRecord(mergedEnvelope) ||
         ''
       const actualKbo = formStore.formData.kbo_number
       if (expectedKbo && (!actualKbo || String(actualKbo).trim() === '')) {

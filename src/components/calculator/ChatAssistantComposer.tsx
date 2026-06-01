@@ -73,7 +73,7 @@ export function ChatAssistantComposer({
                 className={cn(
                   'inline-flex items-center rounded-full',
                   'border border-primary/10 bg-primary/[0.04]',
-                  'px-3 py-1 text-xs font-medium text-foreground/70',
+                  'min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-foreground/70 sm:min-h-0 sm:px-3 sm:py-1',
                   'hover:border-primary/20 hover:bg-primary/[0.07] hover:text-foreground/90',
                   'active:scale-[0.97] transition-all touch-manipulation',
                   'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -138,7 +138,7 @@ export function ChatAssistantComposer({
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(index)}
-                  className="text-foreground/40 hover:text-foreground/70"
+                  className="-mr-1 flex h-8 w-8 items-center justify-center rounded-full text-foreground/40 hover:bg-foreground/[0.06] hover:text-foreground/70 touch-manipulation sm:mr-0 sm:h-auto sm:w-auto sm:rounded-none sm:hover:bg-transparent"
                   aria-label="Remove attachment"
                 >
                   <X className="w-3 h-3" />
@@ -190,7 +190,7 @@ export function ChatAssistantComposer({
           <button
             type="button"
             onClick={onAttachClick}
-            className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors touch-manipulation"
+            className="shrink-0 h-11 w-11 flex items-center justify-center rounded-xl text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors touch-manipulation sm:h-9 sm:w-9"
             aria-label={ca('addFile')}
           >
             <Paperclip className="w-4 h-4" />
@@ -201,7 +201,7 @@ export function ChatAssistantComposer({
             onClick={onSubmit}
             disabled={(!input.trim() && attachments.length === 0) || isGenerating}
             className={cn(
-              'shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-colors touch-manipulation',
+              'shrink-0 h-11 w-11 rounded-xl flex items-center justify-center transition-colors touch-manipulation sm:h-9 sm:w-9',
               'bg-primary text-primary-foreground',
               'disabled:opacity-40 disabled:cursor-not-allowed',
               'hover:bg-primary/90 active:bg-primary/85'
