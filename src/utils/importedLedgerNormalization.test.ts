@@ -17,6 +17,16 @@ describe('buildReportedEbitdaByYearFromFormRecords', () => {
       })
     ).toEqual({ 2024: 50_000, 2023: 40_000, 2022: 30_000 })
   })
+
+  it('uses imported yearData and scalar fallback EBITDA before auto-accepting imported flags', () => {
+    expect(
+      buildReportedEbitdaByYearFromFormRecords({
+        yearData: { 2021: { ebitda: 180_000 } },
+        fallbackYear: 2024,
+        fallbackEbitda: 260_000,
+      })
+    ).toEqual({ 2021: 180_000, 2024: 260_000 })
+  })
 })
 
 describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
@@ -39,7 +49,25 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
     expect(items[0].adjustment).toBe(300_000)
   })
 
-  it('maps SDE flags to applied normalization items', () => {
+  it('accepts imported addbacks when reported EBITDA keeps them within the cap', () => {
+    const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+      reported_ebitda_by_year: { 2023: 100_000 },
+      sde_flags: [
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 20_000,
+          suggested_question: 'Review discretionary spend?',
+          year: 2023,
+        },
+      ],
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0].status).toBe('accepted')
+  })
+
+  it('keeps SDE flags pending when reported EBITDA is unavailable', () => {
     const items = buildNormalizationItemsFromImportedLedgerAnalysis({
       latest_fiscal_year: 2024,
       sde_flags: [
@@ -60,7 +88,7 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
     expect(items).toHaveLength(1)
     expect(items[0].ledgerCode).toBe('600')
     expect(items[0].category).toBe('salary')
-    expect(items[0].status).toBe('accepted')
+    expect(items[0].status).toBe('pending')
     expect(items[0].confidence).toBe('high')
     expect(items[0].year).toBe(2023)
   })

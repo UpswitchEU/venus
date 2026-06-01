@@ -118,7 +118,6 @@ export function useManualNormalizationController({
     handleUnifiedNormalizationModalOpenChange,
     handleShowNormalisationReview,
   } = useManualNormalizationModalController({
-    reportId,
     guidedResolutionUrl,
     planFeatures,
     openNormalizationPaywall,

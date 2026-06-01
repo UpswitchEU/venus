@@ -1,9 +1,6 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react'
+import { type Dispatch, type SetStateAction, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import {
-  isImportedLedgerNormalizationItem,
-  type SuggestedNormalisation,
-} from '../../../components/calculator'
+import type { SuggestedNormalisation } from '../../../components/calculator'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 
 type NormalizationStoreState = ReturnType<typeof useNormalizationStore.getState>
@@ -15,8 +12,6 @@ export type ManualNormalizationActions = Pick<
 
 export interface UseManualNormalizationStateParams {
   hasImportQuality: boolean
-  reportId: string
-  resolvedReportId?: string | null
 }
 
 export interface UseManualNormalizationStateResult {
@@ -29,8 +24,6 @@ export interface UseManualNormalizationStateResult {
 
 export function useManualNormalizationState({
   hasImportQuality,
-  reportId,
-  resolvedReportId,
 }: UseManualNormalizationStateParams): UseManualNormalizationStateResult {
   const normalizationItems = useNormalizationStore((s) => s.items)
   const normalizationActions = useNormalizationStore(
@@ -46,24 +39,6 @@ export function useManualNormalizationState({
   const [suggestedNormalisations, setSuggestedNormalisations] = useState<SuggestedNormalisation[]>(
     []
   )
-
-  useEffect(() => {
-    const hasImportedPendingItems = normalizationItems.some(
-      (item) => isImportedLedgerNormalizationItem(item) && item.status === 'pending'
-    )
-    if (!hasImportedPendingItems) return
-
-    normalizationActions.setItems(
-      normalizationItems.map((item) =>
-        isImportedLedgerNormalizationItem(item) && item.status === 'pending'
-          ? { ...item, status: 'accepted' as const }
-          : item
-      )
-    )
-
-    const idForApi = resolvedReportId || reportId
-    if (idForApi) normalizationActions.persistToSession(idForApi)
-  }, [normalizationActions, normalizationItems, reportId, resolvedReportId])
 
   const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
   const hasImportedNormalizationData =

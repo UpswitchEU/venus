@@ -141,6 +141,8 @@ beforeEach(() => {
   aiConsentMocks.grant.mockReset()
   aiConsentMocks.grant.mockResolvedValue(true)
   useScrollLockMock.mockReset()
+  window.localStorage.clear()
+  document.documentElement.style.removeProperty('--venus-ai-dock-width')
 })
 
 afterEach(() => {
@@ -634,6 +636,31 @@ describe('input + send', () => {
 
     expect(screen.getByTestId('venus-ai-dock-drawer')).toBeInTheDocument()
     expect(screen.getByText('title')).toBeInTheDocument()
+  })
+
+  it('lets desktop users drag the left edge to widen the drawer', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 })
+
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    const handle = screen.getByTestId('venus-ai-dock-resize-handle')
+    expect(handle).toHaveAttribute('aria-valuenow', '420')
+
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 1020 })
+    const move = new Event('pointermove')
+    Object.defineProperty(move, 'clientX', { value: 880 })
+    fireEvent(window, move)
+    fireEvent(window, new Event('pointerup'))
+
+    expect(document.documentElement.style.getPropertyValue('--venus-ai-dock-width')).toBe('560px')
+    expect(window.localStorage.getItem('upswitch:venus-ai-dock-width')).toBe('560')
   })
 })
 

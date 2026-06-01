@@ -733,6 +733,11 @@ class SessionRestorationServiceImpl {
                     isForecast?: boolean
                   }>)
                 : undefined,
+              yearData: asRecord(formData?.year_data) as
+                | Record<string | number, { ebitda?: number }>
+                | undefined,
+              fallbackYear: analysis.latest_fiscal_year,
+              fallbackEbitda: Number(formData?.ebitda),
             }),
           })
           if (items.length > 0) {

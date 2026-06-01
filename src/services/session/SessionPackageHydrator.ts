@@ -250,6 +250,12 @@ function seedImportedLedgerAnalysisFromPackage(raw: Record<string, unknown>): vo
                   isForecast?: boolean
                 }>)
               : undefined,
+            yearData:
+              raw.year_data && typeof raw.year_data === 'object'
+                ? (raw.year_data as Record<string | number, { ebitda?: number }>)
+                : undefined,
+            fallbackYear: (analysis as ImportedLedgerAnalysisLike).latest_fiscal_year,
+            fallbackEbitda: Number(raw.ebitda),
           }),
         })
         if (items.length > 0) {

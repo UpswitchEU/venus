@@ -252,13 +252,43 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           | 'bff-fallback-failed'
           | 'bff-stream-incomplete'
           | null = null
+        const patchAssistantMessage = (patch: Partial<ChatMessage>) => {
+          if (activeChatTurnIdRef.current !== turnId) return
+          setChatMessages((prev) => patchManualChatMessage(prev, streamingMsgId, patch))
+        }
+        let pendingAssistantContentFrame: number | null = null
+        const cancelAssistantContentFrame = () => {
+          if (pendingAssistantContentFrame == null) return
+          if (typeof globalThis.cancelAnimationFrame === 'function') {
+            globalThis.cancelAnimationFrame(pendingAssistantContentFrame)
+          }
+          pendingAssistantContentFrame = null
+        }
+        const flushAssistantContent = () => {
+          cancelAssistantContentFrame()
+          if (streamedContent.length > 0) {
+            patchAssistantMessage({ content: streamedContent })
+          }
+        }
+        const scheduleAssistantContentFlush = () => {
+          if (typeof globalThis.requestAnimationFrame !== 'function') {
+            flushAssistantContent()
+            return
+          }
+          if (pendingAssistantContentFrame != null) return
+          pendingAssistantContentFrame = globalThis.requestAnimationFrame(() => {
+            pendingAssistantContentFrame = null
+            if (activeChatTurnIdRef.current !== turnId) return
+            if (streamedContent.length > 0) {
+              patchAssistantMessage({ content: streamedContent })
+            }
+          })
+        }
         const clearActiveStream = () => {
+          cancelAssistantContentFrame()
           streamCleanupRef.current?.()
           streamCleanupRef.current = null
           setToolInProgress(null)
-        }
-        const patchAssistantMessage = (patch: Partial<ChatMessage>) => {
-          setChatMessages((prev) => patchManualChatMessage(prev, streamingMsgId, patch))
         }
         const finishWithTerminalError = (state: ManualChatTerminalErrorState) => {
           clearActiveStream()
@@ -282,6 +312,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             return false
           }
           if (skipAction.kind === 'finish_with_content') {
+            flushAssistantContent()
             clearActiveStream()
             setIsChatGenerating(false)
             return false
@@ -324,6 +355,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                   if (activeChatTurnIdRef.current !== turnId) return
                   if (persisted) {
                     hasReceivedAnyContent = true
+                    cancelAssistantContentFrame()
                     patchAssistantMessage({ content: persisted.content })
                     return
                   }
@@ -342,6 +374,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
                   if (nextConversationId) {
                     setConversationId(nextConversationId)
                   }
+                  cancelAssistantContentFrame()
                   patchAssistantMessage(outcome.patch)
                   if (outcome.showAiUnavailableToast) {
                     toast.info(translate('aiUnavailable'), {
@@ -382,7 +415,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             if (text.trim().length > 0) {
               hasReceivedAnyContent = true
             }
-            patchAssistantMessage({ content: streamedContent })
+            scheduleAssistantContentFlush()
           },
           onToolStart: (toolName) => {
             didObserveToolActivity = true
@@ -390,6 +423,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           },
           onToolResult: (toolName, result) => {
             setToolInProgress(null)
+            flushAssistantContent()
             const cards = parseManualChatStreamToolResult(toolName, result, () =>
               crypto.randomUUID()
             )
@@ -427,6 +461,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               return
             }
 
+            flushAssistantContent()
             if (isOfflineFallbackContent(streamedContent)) {
               patchAssistantMessage({ isOfflineFallback: true })
               toast.info(translate('aiUnavailable'), {
@@ -466,8 +501,10 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             const errorAction = resolveManualChatOnErrorAction({ hasReceivedAnyContent })
             if (errorAction.kind === 'finish_with_content') {
               if (isOfflineFallbackContent(streamedContent)) {
+                flushAssistantContent()
                 patchAssistantMessage({ isOfflineFallback: true })
               }
+              flushAssistantContent()
               clearActiveStream()
               setIsChatGenerating(false)
               return

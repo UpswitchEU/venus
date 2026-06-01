@@ -14,7 +14,6 @@ export interface OpenManualNormalizationModalOptions {
 }
 
 export interface UseManualNormalizationModalControllerParams {
-  reportId: string
   guidedResolutionUrl?: ManualGuidedNormalizationUrl | null
   planFeatures: Pick<PlanFeatureFlags, 'ebitda_normalization'> | null
   openNormalizationPaywall: () => void
@@ -29,26 +28,7 @@ export interface UseManualNormalizationModalControllerResult {
   handleShowNormalisationReview: () => void
 }
 
-function hasHandledGuidedNormalization(storageKey: string): boolean {
-  try {
-    return typeof sessionStorage !== 'undefined' && sessionStorage.getItem(storageKey) === '1'
-  } catch {
-    return false
-  }
-}
-
-function markGuidedNormalizationHandled(storageKey: string): void {
-  try {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(storageKey, '1')
-    }
-  } catch {
-    // Non-fatal: without sessionStorage the modal may reopen after reload.
-  }
-}
-
 export function useManualNormalizationModalController({
-  reportId,
   guidedResolutionUrl,
   planFeatures,
   openNormalizationPaywall,
@@ -64,7 +44,9 @@ export function useManualNormalizationModalController({
         openNormalizationPaywall()
         return
       }
-      setGuidedNormalizationPrefill(opts?.prefill ?? null)
+      setGuidedNormalizationPrefill((current) =>
+        opts && 'prefill' in opts ? (opts.prefill ?? null) : current
+      )
       if (opts?.track !== false) {
         trackNormalizationOpen()
       }
@@ -77,18 +59,13 @@ export function useManualNormalizationModalController({
   )
 
   useEffect(() => {
-    const guidedPlan = buildManualGuidedNormalizationPlan({ reportId, guidedResolutionUrl })
+    const guidedPlan = buildManualGuidedNormalizationPlan({ guidedResolutionUrl })
     if (!guidedPlan) return
     if (planFeatures === null) return
     if (!planFeatures.ebitda_normalization) return
-    if (hasHandledGuidedNormalization(guidedPlan.storageKey)) return
 
-    markGuidedNormalizationHandled(guidedPlan.storageKey)
-    openUnifiedNormalizationModal({
-      prefill: guidedPlan.prefill,
-      track: false,
-    })
-  }, [reportId, guidedResolutionUrl, openUnifiedNormalizationModal, planFeatures])
+    setGuidedNormalizationPrefill(guidedPlan.prefill)
+  }, [guidedResolutionUrl, planFeatures])
 
   const handleUnifiedNormalizationModalOpenChange = useCallback((open: boolean) => {
     setShowUnifiedNormalizationModal(open)

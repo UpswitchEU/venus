@@ -342,8 +342,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setSuggestedNormalisations,
   } = useManualNormalizationState({
     hasImportQuality,
-    reportId,
-    resolvedReportId,
   })
   const {
     financialYears,

@@ -381,10 +381,8 @@ describe('useBootstrapPrefill', () => {
           ledgerCode: '610000',
           ledgerName: 'Related party rent',
           adjustment: 156_000,
-          // Hermes-derived SDE flags from synced accounting data are auto-applied
-          // (status='accepted'); buildNormalizationItemsFromImportedLedgerAnalysis
-          // owns this default. Editable in UnifiedNormalizationModal with provenance.
-          status: 'accepted',
+          // Extreme imported addbacks must be reviewed before they alter EBITDA.
+          status: 'pending',
           year: 2024,
         }),
       ])

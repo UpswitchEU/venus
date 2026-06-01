@@ -4,14 +4,17 @@
  */
 
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../../../components/calculator'
 import { useManualChatMessageActions } from './useManualChatMessageActions'
 
 type StreamCallbacks = {
+  onText?: (text: string) => void
+  onToolStart?: (toolName: string) => void
+  onToolResult?: (toolName: string, result: unknown) => void
   onBffStreamRecovery?: (source: string) => void
   onError?: (error: string) => void
-  onDone?: () => void
+  onDone?: (conversationId?: string) => void
 }
 
 const streamHarness = vi.hoisted(() => ({
@@ -119,6 +122,10 @@ describe('useManualChatMessageActions stream recovery', () => {
     pollHistoryMock.mockClear()
     pollHistoryMock.mockResolvedValue(null)
     clientContextHarness.state = { client: null }
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('recovers via non-streaming chat after BFF stream_recovery failed + error SSE', async () => {
@@ -235,6 +242,41 @@ describe('useManualChatMessageActions stream recovery', () => {
       const assistant = params.chatMessages.find((m) => m.role === 'assistant')
       expect(assistant?.isOfflineFallback).toBe(true)
     })
+  })
+
+  it('coalesces bursty text chunks into one frame-paced message patch', async () => {
+    let rafCallback: FrameRequestCallback | null = null
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      rafCallback = cb
+      return 1
+    })
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await result.current.handleChatMessage('Leg de waarde uit')
+    })
+
+    const callsBeforeText = params.setChatMessages.mock.calls.length
+    await act(async () => {
+      streamHarness.callbacks?.onText?.('Waarde')
+      streamHarness.callbacks?.onText?.('ring ')
+      streamHarness.callbacks?.onText?.('klaar.')
+    })
+
+    expect(params.setChatMessages).toHaveBeenCalledTimes(callsBeforeText)
+    expect(params.chatMessages.find((m) => m.role === 'assistant')?.content).toBe('')
+
+    await act(async () => {
+      rafCallback?.(16)
+    })
+
+    expect(params.chatMessages.find((m) => m.role === 'assistant')?.content).toBe(
+      'Waardering klaar.'
+    )
+    vi.unstubAllGlobals()
   })
 
   it('does not start a new AI turn while already generating', async () => {

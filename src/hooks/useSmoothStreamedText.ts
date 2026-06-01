@@ -28,11 +28,11 @@ export interface SmoothStreamedText {
 // Tuning. `tau` is the time-constant of the exponential catch-up: roughly the
 // time to reveal ~63% of the current backlog. A small `tau` once the stream
 // ends drains the tail fast but still smoothly. Rates are chars/second.
-const TAU_STREAMING = 0.16
-const TAU_DRAINING = 0.06
-const MIN_RATE_STREAMING = 40
-const MIN_RATE_DRAINING = 160
-const MAX_RATE = 2200 // ceiling so a huge pasted block never animates for seconds
+const TAU_STREAMING = 0.28
+const TAU_DRAINING = 0.08
+const MIN_RATE_STREAMING = 28
+const MIN_RATE_DRAINING = 180
+const MAX_RATE = 720 // ceiling so bursty SSE still reads like composed typing
 const MAX_FRAME_SECONDS = 1 / 30 // clamp dt so a backgrounded tab doesn't dump the buffer
 
 export function useSmoothStreamedText(fullText: string, isStreaming: boolean): SmoothStreamedText {

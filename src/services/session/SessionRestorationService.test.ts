@@ -162,8 +162,10 @@ describe('SessionRestorationService', () => {
         pdf: { url: null, status: 'none' },
         formData: {
           company_name: 'Pkg Co',
+          current_year_data: { year: 2022, ebitda: 8000 },
           business_context: {
             _imported_ledger_analysis: {
+              latest_fiscal_year: 2022,
               sde_flags: [
                 {
                   ledger_code: '610',
@@ -185,7 +187,7 @@ describe('SessionRestorationService', () => {
     const items = useNormalizationStore.getState().items
     expect(items.length).toBe(1)
     expect(items[0].ledgerCode).toBe('610')
-    expect(items[0].status).toBe('accepted')
+    expect(items[0].status).toBe('pending')
     expect(useTaxLatencyStore.getState().candidates).toEqual([])
   })
 
@@ -339,8 +341,12 @@ describe('SessionRestorationService', () => {
       reportId: 'val_restore_ledger',
       sessionData: {
         company_name: 'Restore Co',
+        year_data: {
+          2023: { ebitda: 20_000 },
+        },
         business_context: {
           _imported_ledger_analysis: {
+            latest_fiscal_year: 2023,
             sde_flags: [
               {
                 ledger_code: '620',
@@ -359,6 +365,7 @@ describe('SessionRestorationService', () => {
 
     const items = useNormalizationStore.getState().items
     expect(items.some((i) => i.ledgerCode === '620')).toBe(true)
+    expect(items.find((i) => i.ledgerCode === '620')?.status).toBe('pending')
     expect(useTaxLatencyStore.getState().candidates).toEqual([])
   })
 

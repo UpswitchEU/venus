@@ -2,8 +2,9 @@
  * Build EBITDA normalization draft items from Titan/Mercury imported-ledger SDE flags.
  * Shared by bootstrap prefill and session restoration so persisted analysis is consistent.
  *
- * SDE flags from synced accounting data are applied by default and remain editable
- * in UnifiedNormalizationModal with clear provenance.
+ * SDE flags from synced accounting data are accepted only when reported EBITDA
+ * proves they stay within the defensibility cap; uncertain or extreme addbacks
+ * remain pending review.
  */
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
@@ -52,6 +53,9 @@ export function buildReportedEbitdaByYearFromFormRecords(options: {
   currentYearData?: { year?: number; ebitda?: number }
   historicalYearsData?: Array<{ year?: number; ebitda?: number }>
   yearlyFinancials?: Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
+  yearData?: Record<string | number, { ebitda?: number }>
+  fallbackYear?: number
+  fallbackEbitda?: number
 }): Record<number, number> {
   const map: Record<number, number> = {}
 
@@ -71,6 +75,10 @@ export function buildReportedEbitdaByYearFromFormRecords(options: {
     if (row.isForecast) continue
     add(row.year, row.ebitda)
   }
+  for (const [year, row] of Object.entries(options.yearData ?? {})) {
+    add(year, row?.ebitda)
+  }
+  add(options.fallbackYear, options.fallbackEbitda)
 
   return map
 }
@@ -81,7 +89,8 @@ function resolveAutoImportedNormStatus(
   reportedEbitdaByYear?: Record<number, number>
 ): NormalizationItem['status'] {
   const reported = reportedEbitdaByYear?.[year]
-  if (reported == null || !(reported > 0) || !(adjustment > 0)) return 'accepted'
+  if (!(adjustment > 0)) return 'accepted'
+  if (reported == null || !(reported > 0)) return 'pending'
   return adjustment / reported > AUTO_NORM_DEFENSIBILITY_CAP_RATIO ? 'pending' : 'accepted'
 }
 

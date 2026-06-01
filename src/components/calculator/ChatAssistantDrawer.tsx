@@ -40,6 +40,7 @@ import {
 } from './ChatAssistantParsing'
 import { getContextualSuggestionKeys } from './ChatAssistantSuggestions'
 import { useChatAssistantConsentFlow } from './useChatAssistantConsentFlow'
+import { useResizableAiDockWidth } from './useResizableAiDockWidth'
 import { useVenusAiDockFocus } from './useVenusAiDockFocus'
 import { VenusAiDockPortal } from './VenusAiDockPortal'
 import {
@@ -194,6 +195,8 @@ export function ChatAssistantDrawer({
   const viewportStyle = viewportInsets
     ? { top: viewportInsets.top, height: viewportInsets.height }
     : undefined
+  const { resizeHandleProps, style: dockWidthStyle, width: dockWidth } = useResizableAiDockWidth()
+  const drawerStyle = viewportStyle ? { ...dockWidthStyle, ...viewportStyle } : dockWidthStyle
   const viewportScrollKey = viewportInsets ? `${viewportInsets.top}:${viewportInsets.height}` : ''
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const pendingAssistantIntentRef = useRef<AssistantIntent | undefined>(undefined)
@@ -403,7 +406,7 @@ export function ChatAssistantDrawer({
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 28, scale: 0.99 }}
             transition={shouldReduceMotion ? { duration: 0 } : dockDrawerTransition}
-            style={viewportStyle}
+            style={drawerStyle}
             data-testid="venus-ai-dock-drawer"
             className={cn(
               'fixed top-0 right-0 flex flex-col min-h-0 w-full p-0',
@@ -417,6 +420,28 @@ export function ChatAssistantDrawer({
             )}
             aria-label={ca('panelLabel')}
           >
+            <div
+              {...resizeHandleProps}
+              aria-label={ca('resizeHandle')}
+              title={ca('resizeHandle')}
+              data-testid="venus-ai-dock-resize-handle"
+              className={cn(
+                'group/resize hidden xl:flex',
+                'absolute inset-y-0 left-0 z-10 w-4 -translate-x-1/2',
+                'cursor-col-resize touch-none items-center justify-center',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+              )}
+            >
+              <span
+                className={cn(
+                  'h-16 w-1 rounded-full bg-primary/25 opacity-0',
+                  'transition-opacity duration-150',
+                  'group-hover/resize:opacity-100 group-focus-visible/resize:opacity-100'
+                )}
+                aria-hidden="true"
+              />
+              <span className="sr-only">{`${ca('resizeHandle')} (${dockWidth}px)`}</span>
+            </div>
             <header
               className={cn(
                 'shrink-0 flex items-center justify-between',

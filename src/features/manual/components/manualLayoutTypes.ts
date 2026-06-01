@@ -13,8 +13,8 @@ export interface ManualLayoutProps {
   /** One-shot assistant intent forwarded from Mercury. */
   initialAgentNext?: string
   /**
-   * Mercury STP: `focusField` + optional `flagYear` open the normalization modal once with
-   * a ledger search hint (`spotlight` is ignored; kept for URL compatibility).
+   * Mercury STP: `focusField` + optional `flagYear` prepare a normalization search hint
+   * for the review CTA (`spotlight` is ignored; kept for URL compatibility).
    */
   guidedResolutionUrl?: ManualGuidedNormalizationUrl
   /**

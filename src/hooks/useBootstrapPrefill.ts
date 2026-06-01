@@ -609,6 +609,10 @@ function applyPrefillToForm(
           yearlyFinancials: allData.yearlyFinancials as
             | Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
             | undefined,
+          yearData: financials.yearData,
+          fallbackYear:
+            financials.importedLedgerAnalysis.latest_fiscal_year ?? getCurrentFilingYear(),
+          fallbackEbitda: financials.ebitda,
         }),
       })
       if (importedNormalizationItems.length > 0) {

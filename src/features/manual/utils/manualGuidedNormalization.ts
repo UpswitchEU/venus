@@ -10,7 +10,6 @@ export interface ManualGuidedNormalizationPrefill {
 }
 
 export interface ManualGuidedNormalizationPlan {
-  storageKey: string
   prefill: ManualGuidedNormalizationPrefill
 }
 
@@ -23,10 +22,8 @@ const MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS: Record<string, string> = {
 }
 
 export function buildManualGuidedNormalizationPlan({
-  reportId,
   guidedResolutionUrl,
 }: {
-  reportId: string
   guidedResolutionUrl?: ManualGuidedNormalizationUrl | null
 }): ManualGuidedNormalizationPlan | null {
   const focus = guidedResolutionUrl?.focusField?.trim()
@@ -39,7 +36,6 @@ export function buildManualGuidedNormalizationPlan({
       : Number.NaN
 
   return {
-    storageKey: `venus:guided-norm-handled:${reportId}:${focus}:${rawYear ?? ''}`,
     prefill: {
       initialSearchQuery: MERCURY_GUIDED_NORMALIZATION_FIELD_HINTS[focus] ?? '',
       initialYearFilter: Number.isFinite(yearParsed) ? yearParsed : null,
