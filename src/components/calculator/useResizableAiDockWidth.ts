@@ -95,14 +95,22 @@ export function useResizableAiDockWidth() {
         window.removeEventListener('pointermove', handlePointerMove)
         window.removeEventListener('pointerup', cleanup)
         window.removeEventListener('pointercancel', cleanup)
-        handleTarget.releasePointerCapture?.(pointerId)
+        try {
+          handleTarget.releasePointerCapture?.(pointerId)
+        } catch {
+          // The pointer may already be released if the gesture was cancelled by the browser.
+        }
         document.body.style.cursor = previousCursor
         document.body.style.userSelect = previousUserSelect
         activeDragRef.current = null
       }
 
       activeDragRef.current = cleanup
-      handleTarget.setPointerCapture?.(pointerId)
+      try {
+        handleTarget.setPointerCapture?.(pointerId)
+      } catch {
+        // Window-level listeners still keep the resize interaction working.
+      }
       window.addEventListener('pointermove', handlePointerMove)
       window.addEventListener('pointerup', cleanup)
       window.addEventListener('pointercancel', cleanup)
