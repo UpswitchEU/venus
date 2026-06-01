@@ -59,12 +59,12 @@ export function ContextBar({
       animate={{ opacity: 1, y: 0 }}
       transition={springDefault}
       className={cn(
-        'flex items-center justify-between px-4 py-2',
+        'flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4',
         'bg-foreground/[0.02] border-b border-foreground/[0.06]'
       )}
     >
       {/* Left: Firm Branding + Context Path */}
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch] sm:w-auto sm:gap-3 sm:overflow-visible sm:pb-0">
         {(firmName || firmLogoUrl) && (
           <>
             <div className="flex items-center gap-2">
@@ -88,10 +88,10 @@ export function ContextBar({
         {clientName && (
           <button
             onClick={onClientClick}
-            className="flex items-center gap-1.5 text-foreground/60 hover:text-foreground transition-colors"
+            className="flex min-h-[36px] min-w-0 shrink-0 items-center gap-1.5 text-foreground/60 transition-colors hover:text-foreground sm:min-h-0"
           >
             <User className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate max-w-[260px]">{clientName}</span>
+            <span className="max-w-[42vw] truncate sm:max-w-[260px]">{clientName}</span>
           </button>
         )}
 
@@ -100,21 +100,21 @@ export function ContextBar({
         {businessName && (
           <button
             onClick={onBusinessClick}
-            className="flex items-center gap-1.5 text-foreground hover:text-primary transition-colors font-medium"
+            className="flex min-h-[36px] min-w-0 shrink-0 items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary sm:min-h-0"
           >
             <Building2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate max-w-[260px]">{businessName}</span>
+            <span className="max-w-[48vw] truncate sm:max-w-[260px]">{businessName}</span>
           </button>
         )}
       </div>
 
       {/* Right: Status Indicators */}
-      <div className="flex items-center gap-3">
+      <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] sm:w-auto sm:gap-3 sm:overflow-visible sm:pb-0">
         {pendingNormalisations > 0 && onShowNormalisationReview && (
           <button
             onClick={onShowNormalisationReview}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+              'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:min-h-0',
               'bg-primary/10 text-primary border border-primary/20',
               'hover:bg-primary/15 transition-colors'
             )}
@@ -131,7 +131,7 @@ export function ContextBar({
         {clientApprovalStatus !== 'none' && (
           <div
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
+              'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:min-h-0',
               clientApprovalStatus === 'pending'
                 ? 'bg-foreground/[0.04] text-foreground/60 border-foreground/[0.08]'
                 : clientApprovalStatus === 'approved'
@@ -171,7 +171,7 @@ export function ContextBar({
 
         <div
           className={cn(
-            'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs',
+            'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
             draftStatus === 'saved'
               ? 'bg-success/10 text-success'
               : draftStatus === 'saving'
