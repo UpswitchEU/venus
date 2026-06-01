@@ -1,6 +1,7 @@
 import type { ValuationRequest } from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import {
+  isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
@@ -11,6 +12,7 @@ import {
 } from '../../utils/optionalSessionPrefillKeys'
 
 type SessionRecord = Record<string, unknown>
+type SessionYearRow = { year: number; revenue?: number; ebitda?: number }
 
 function isRecord(value: unknown): value is SessionRecord {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -32,14 +34,14 @@ function isPlaceholderNumeric(value: unknown): boolean {
   return numeric == null || numeric === 0
 }
 
-function hasRealRevenueOrEbitda(row: { revenue?: number; ebitda?: number }): boolean {
-  return (row.revenue != null && row.revenue !== 0) || (row.ebitda != null && row.ebitda !== 0)
+function hasRealRevenueOrEbitda(row: { revenue?: unknown; ebitda?: unknown }): boolean {
+  const revenue = toOptionalNumeric(row.revenue)
+  const ebitda = toOptionalNumeric(row.ebitda)
+  return (revenue != null && revenue !== 0) || (ebitda != null && ebitda !== 0)
 }
 
-function buildYearRowsFromMap(
-  yearData: unknown
-): Map<number, { year: number; revenue?: number; ebitda?: number }> {
-  const yearRowsFromMap = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+function buildYearRowsFromMap(yearData: unknown): Map<number, SessionYearRow> {
+  const yearRowsFromMap = new Map<number, SessionYearRow>()
   if (!yearData || typeof yearData !== 'object' || Array.isArray(yearData)) {
     return yearRowsFromMap
   }
@@ -62,7 +64,7 @@ function buildYearRowsFromMap(
 
 function mergeYearDataIntoHistoricalRows(
   fd: Record<string, unknown>,
-  yearRowsFromMap: Map<number, { year: number; revenue?: number; ebitda?: number }>
+  yearRowsFromMap: Map<number, SessionYearRow>
 ): void {
   if (!fd.historical_years_data && yearRowsFromMap.size > 0) {
     const years = Array.from(yearRowsFromMap.keys())
@@ -114,9 +116,73 @@ function mergeYearDataIntoHistoricalRows(
   }
 }
 
+function readHistoricalRows(fd: Record<string, unknown>): SessionYearRow[] {
+  if (!Array.isArray(fd.historical_years_data)) return []
+  const rows: Array<SessionYearRow | null> = fd.historical_years_data.map((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return null
+    const record = row as Record<string, unknown>
+    const year = Number(record.year)
+    if (!Number.isFinite(year) || year < 2000 || year > 2100) return null
+    return {
+      year,
+      revenue: toOptionalNumeric(record.revenue),
+      ebitda: toOptionalNumeric(record.ebitda),
+    }
+  })
+  return rows.filter((row): row is SessionYearRow => row !== null)
+}
+
+function findLatestRealYearRow(rows: SessionYearRow[]): SessionYearRow | null {
+  return rows.filter(hasRealRevenueOrEbitda).sort((a, b) => b.year - a.year)[0] ?? null
+}
+
+function promoteLatestHistoricalRowToCurrentIfNeeded(fd: Record<string, unknown>): void {
+  const historicalRows = readHistoricalRows(fd)
+  const latest = findLatestRealYearRow(historicalRows)
+  if (!latest) return
+
+  const cyd = fd.current_year_data as
+    | { year?: number; revenue?: number | null; ebitda?: number | null }
+    | undefined
+  const currentYear = Number(cyd?.year)
+  const currentMissing = !cyd
+  const currentPlaceholder = !hasRealRevenueOrEbitda({
+    revenue: cyd?.revenue,
+    ebitda: cyd?.ebitda,
+  })
+  const currentIsUnconfirmedFuturePlaceholder =
+    currentPlaceholder &&
+    !isFilingYearConfirmedValue(fd.filing_year_confirmed) &&
+    (!Number.isFinite(currentYear) || latest.year <= currentYear)
+
+  if (!currentMissing && !currentIsUnconfirmedFuturePlaceholder) return
+
+  fd.current_year_data = {
+    ...(cyd && Number(cyd.year) === latest.year ? cyd : {}),
+    year: latest.year,
+    revenue: latest.revenue ?? 0,
+    ebitda: latest.ebitda ?? 0,
+  }
+  fd.historical_years_data = historicalRows.filter((row) => row.year !== latest.year)
+  fd.revenue = latest.revenue ?? 0
+  fd.ebitda = latest.ebitda ?? 0
+}
+
+function removeCurrentYearFromHistoricalRows(fd: Record<string, unknown>): void {
+  const cyd = fd.current_year_data as
+    | { year?: number; revenue?: number | null; ebitda?: number | null }
+    | undefined
+  const currentYear = Number(cyd?.year)
+  if (!Number.isFinite(currentYear) || !hasRealRevenueOrEbitda(cyd ?? {})) return
+
+  const historicalRows = readHistoricalRows(fd)
+  if (!historicalRows.some((row) => row.year === currentYear)) return
+  fd.historical_years_data = historicalRows.filter((row) => row.year !== currentYear)
+}
+
 function normalizeFinancialRows(
   fd: Record<string, unknown>,
-  yearRowsFromMap: Map<number, { year: number; revenue?: number; ebitda?: number }>
+  yearRowsFromMap: Map<number, SessionYearRow>
 ): void {
   mergeYearDataIntoHistoricalRows(fd, yearRowsFromMap)
 
@@ -144,9 +210,18 @@ function normalizeFinancialRows(
       }
     }
   }
-  if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
-    if (fd.revenue === undefined && cyd.revenue != null) fd.revenue = Number(cyd.revenue)
-    if (fd.ebitda === undefined && cyd.ebitda != null) fd.ebitda = Number(cyd.ebitda)
+  promoteLatestHistoricalRowToCurrentIfNeeded(fd)
+  removeCurrentYearFromHistoricalRows(fd)
+  const currentYearData = fd.current_year_data as
+    | { year?: number; revenue?: number | null; ebitda?: number | null }
+    | undefined
+  if (currentYearData && (fd.revenue === undefined || fd.ebitda === undefined)) {
+    if (fd.revenue === undefined && currentYearData.revenue != null) {
+      fd.revenue = Number(currentYearData.revenue)
+    }
+    if (fd.ebitda === undefined && currentYearData.ebitda != null) {
+      fd.ebitda = Number(currentYearData.ebitda)
+    }
   }
 }
 

@@ -17,9 +17,9 @@ import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ModalContent } from '@/design-system/components/Modal'
 import { trackNormalizationAdd, trackNormalizationEdit } from '@/lib/analytics'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import {
@@ -45,14 +45,15 @@ import {
   UnifiedNormalizationModalHeader,
 } from './UnifiedNormalizationModalHeader'
 import { UnifiedNormalizationPromptEditor } from './UnifiedNormalizationPromptEditor'
-import type {
-  NormalizationItem,
-  NormalizationPresetOption,
-  NormalizationSource,
-  NormalizationStatus,
-  NormalizationType,
-  SearchableLedgerAccount,
-  UnifiedNormalizationModalProps,
+import {
+  isImportedLedgerNormalizationItem,
+  type NormalizationItem,
+  type NormalizationPresetOption,
+  type NormalizationSource,
+  type NormalizationStatus,
+  type NormalizationType,
+  type SearchableLedgerAccount,
+  type UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationTypes'
 import { UnifiedNormalizationViewContent } from './UnifiedNormalizationViewContent'
 import {
@@ -520,15 +521,43 @@ export function UnifiedNormalizationModal({
   // Actions
   const updateStatus = useCallback(
     (id: string, status: NormalizationStatus) => {
-      onNormalizationsChange(normalizations.map((n) => (n.id === id ? { ...n, status } : n)))
+      const reviewedAt = status === 'accepted' ? new Date().toISOString() : undefined
+      onNormalizationsChange(
+        normalizations.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                status,
+                ...(isImportedLedgerNormalizationItem(n)
+                  ? reviewedAt
+                    ? { reviewedAt }
+                    : { reviewedAt: undefined }
+                  : {}),
+              }
+            : n
+        )
+      )
     },
     [normalizations, onNormalizationsChange]
   )
 
   const bulkUpdateStatus = useCallback(
     (status: NormalizationStatus) => {
+      const reviewedAt = status === 'accepted' ? new Date().toISOString() : undefined
       onNormalizationsChange(
-        normalizations.map((n) => (selectedIds.has(n.id) ? { ...n, status } : n))
+        normalizations.map((n) =>
+          selectedIds.has(n.id)
+            ? {
+                ...n,
+                status,
+                ...(isImportedLedgerNormalizationItem(n)
+                  ? reviewedAt
+                    ? { reviewedAt }
+                    : { reviewedAt: undefined }
+                  : {}),
+              }
+            : n
+        )
       )
       setSelectedIds(new Set())
     },

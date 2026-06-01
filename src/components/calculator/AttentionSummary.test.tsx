@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AttentionSummary } from './AttentionSummary'
 import type { QualityWarning, StartupAssistantIssue } from './ChatAssistantTypes'
@@ -144,7 +144,7 @@ describe('AttentionSummary', () => {
     )
   })
 
-  it('opens an inline fill form for a warning with inlineFix and applies parsed values', () => {
+  it('opens an inline fill form for a warning with inlineFix and applies parsed values', async () => {
     const onInlineFixQualityWarning = vi.fn()
     const onResolveQualityWarning = vi.fn()
     render(
@@ -169,7 +169,9 @@ describe('AttentionSummary', () => {
       target: { value: '30000' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'qualityInlineApply' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'qualityInlineApply' }))
+    })
     expect(onInlineFixQualityWarning).toHaveBeenCalledWith('net_debt_unavailable', {
       cash: 5000,
       total_debt: 30000,
@@ -219,9 +221,13 @@ describe('AttentionSummary', () => {
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     const dismissButtons = screen.getAllByRole('button', { name: 'Dismiss' })
     expect(dismissButtons).toHaveLength(2)
-    fireEvent.click(dismissButtons[0]!)
+    const [startupDismissButton, qualityDismissButton] = dismissButtons
+    if (!startupDismissButton || !qualityDismissButton) {
+      throw new Error('Expected startup and quality dismiss buttons')
+    }
+    fireEvent.click(startupDismissButton)
     expect(onDismissStartupIssue).toHaveBeenCalledWith('missing_investment_ask')
-    fireEvent.click(dismissButtons[1]!)
+    fireEvent.click(qualityDismissButton)
     expect(onDismissQualityWarning).toHaveBeenCalledWith('net_debt_zero')
   })
 

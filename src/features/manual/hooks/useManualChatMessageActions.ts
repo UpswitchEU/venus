@@ -264,10 +264,14 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           }
           pendingAssistantContentFrame = null
         }
-        const flushAssistantContent = () => {
+        const flushAssistantContent = (patch?: Partial<ChatMessage>) => {
           cancelAssistantContentFrame()
-          if (streamedContent.length > 0) {
-            patchAssistantMessage({ content: streamedContent })
+          const nextPatch = {
+            ...(streamedContent.length > 0 ? { content: streamedContent } : {}),
+            ...patch,
+          }
+          if (Object.keys(nextPatch).length > 0) {
+            patchAssistantMessage(nextPatch)
           }
         }
         const scheduleAssistantContentFlush = () => {
@@ -461,9 +465,9 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               return
             }
 
-            flushAssistantContent()
-            if (isOfflineFallbackContent(streamedContent)) {
-              patchAssistantMessage({ isOfflineFallback: true })
+            const isOfflineFallback = isOfflineFallbackContent(streamedContent)
+            flushAssistantContent(isOfflineFallback ? { isOfflineFallback: true } : undefined)
+            if (isOfflineFallback) {
               toast.info(translate('aiUnavailable'), {
                 description: translate('aiUnavailableDesc'),
                 duration: 4000,
@@ -501,10 +505,10 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             const errorAction = resolveManualChatOnErrorAction({ hasReceivedAnyContent })
             if (errorAction.kind === 'finish_with_content') {
               if (isOfflineFallbackContent(streamedContent)) {
+                flushAssistantContent({ isOfflineFallback: true })
+              } else {
                 flushAssistantContent()
-                patchAssistantMessage({ isOfflineFallback: true })
               }
-              flushAssistantContent()
               clearActiveStream()
               setIsChatGenerating(false)
               return

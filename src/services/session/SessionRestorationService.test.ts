@@ -369,6 +369,44 @@ describe('SessionRestorationService', () => {
     expect(useTaxLatencyStore.getState().candidates).toEqual([])
   })
 
+  it('restore demotes legacy accepted imported ledger addbacks above the defensibility cap', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_legacy_imported_norm')
+    useNormalizationStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_legacy_imported_norm', {
+      reportId: 'val_restore_legacy_imported_norm',
+      sessionData: {
+        company_name: 'Legacy Auto Norm Co',
+        current_year_data: { year: 2024, ebitda: 260_000 },
+        _normalizations: [
+          {
+            id: 'imported_sde_2024_610000_0',
+            ledgerCode: '610000',
+            ledgerName: 'Services and other goods',
+            category: 'other',
+            type: 'add',
+            value: 206_000,
+            adjustment: 206_000,
+            reason: 'Legacy imported auto-suggestion',
+            source: 'auto',
+            status: 'accepted',
+            applyAllYears: false,
+            applyYears: [2024],
+            year: 2024,
+            confidence: 'high',
+          },
+        ],
+      },
+    })
+
+    expect(useNormalizationStore.getState().items).toEqual([
+      expect.objectContaining({
+        id: 'imported_sde_2024_610000_0',
+        status: 'pending',
+      }),
+    ])
+  })
+
   it('restore seeds NBB prefill snapshots from official_financials historicalYears', async () => {
     SessionRestorationService.clearRestorationState('val_restore_nbb')
     useNbbPrefillStore.getState().clear()

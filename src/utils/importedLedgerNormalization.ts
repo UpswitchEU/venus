@@ -94,6 +94,69 @@ function resolveAutoImportedNormStatus(
   return adjustment / reported > AUTO_NORM_DEFENSIBILITY_CAP_RATIO ? 'pending' : 'accepted'
 }
 
+function resolveImportedFlagYear(
+  flagYear: unknown,
+  analysis: Pick<ImportedLedgerAnalysisLike, 'latest_fiscal_year' | 'reported_ebitda_by_year'>
+): number {
+  const explicitYear = Number(flagYear)
+  if (Number.isFinite(explicitYear) && explicitYear >= 2000 && explicitYear <= 2100) {
+    return explicitYear
+  }
+
+  const latestYear = Number(analysis.latest_fiscal_year)
+  if (Number.isFinite(latestYear) && latestYear >= 2000 && latestYear <= 2100) {
+    return latestYear
+  }
+
+  const reportedYears = Object.keys(analysis.reported_ebitda_by_year ?? {})
+    .map(Number)
+    .filter((year) => Number.isFinite(year) && year >= 2000 && year <= 2100)
+  if (reportedYears.length > 0) {
+    return Math.max(...reportedYears)
+  }
+
+  return getCurrentFilingYear()
+}
+
+function importedItemReviewed(item: NormalizationItem): boolean {
+  return typeof item.reviewedAt === 'string' && item.reviewedAt.trim().length > 0
+}
+
+function importedItemTargetYears(item: NormalizationItem): number[] {
+  if (item.applyAllYears) return []
+  if (item.applyYears && item.applyYears.length > 0) return item.applyYears
+  return [item.year]
+}
+
+export function normalizeImportedLedgerReviewStatuses(
+  items: readonly NormalizationItem[],
+  reportedEbitdaByYear: Record<number, number>
+): NormalizationItem[] {
+  let changed = false
+  const next = items.map((item) => {
+    const isImported = item.id.startsWith('imported_sde_')
+    if (!isImported || item.status !== 'accepted' || importedItemReviewed(item)) return item
+
+    const targetYears = importedItemTargetYears(item)
+    const yearsToCheck =
+      targetYears.length > 0 ? targetYears : Object.keys(reportedEbitdaByYear).map(Number)
+    if (yearsToCheck.length === 0 && item.adjustment > 0) {
+      changed = true
+      return { ...item, status: 'pending' as const }
+    }
+    const mustReview = yearsToCheck.some(
+      (year) =>
+        resolveAutoImportedNormStatus(item.adjustment, year, reportedEbitdaByYear) === 'pending'
+    )
+    if (!mustReview) return item
+
+    changed = true
+    return { ...item, status: 'pending' as const }
+  })
+
+  return changed ? next : [...items]
+}
+
 function mapImportedLedgerCategory(category?: string): NormalizationItem['category'] {
   switch (category) {
     case 'owner_compensation':
@@ -153,10 +216,10 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
         ? `${baseReason} Default ${flag.default_private_use_pct.toFixed(0)}% private-use share applied; adjust as needed.`
         : baseReason
 
-    const year = flag.year || getCurrentFilingYear()
+    const year = resolveImportedFlagYear(flag.year, analysis)
 
     return {
-      id: `imported_sde_${flag.year ?? 'y'}_${flag.ledger_code}_${index}`,
+      id: `imported_sde_${year}_${flag.ledger_code}_${index}`,
       ledgerCode: flag.ledger_code,
       ledgerName: flag.ledger_name,
       category: mapImportedLedgerCategory(flag.category),
@@ -166,10 +229,10 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
       adjustment: seededAmount,
       reason,
       source: 'auto' as const,
-      sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
+      sourceRef: `${year}:${flag.ledger_code}`,
       status: resolveAutoImportedNormStatus(seededAmount, year, analysis.reported_ebitda_by_year),
       applyAllYears: false,
-      applyYears: flag.year ? [flag.year] : undefined,
+      applyYears: [year],
       year,
       confidence: mapImportedLedgerConfidence(flag.confidence),
       marketBenchmark: flag.benchmark_median_pct,

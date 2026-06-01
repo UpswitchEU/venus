@@ -53,7 +53,7 @@ describe('normalizeSessionData', () => {
     })
   })
 
-  it('normalizes year_data into oldest-to-newest historical years', () => {
+  it('promotes the latest year_data row to current year and keeps older rows historical', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_456',
       session_data: {
@@ -65,11 +65,17 @@ describe('normalizeSessionData', () => {
       },
     })
 
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 950000,
+      ebitda: 95000,
+    })
     expect(normalized.formData.historical_years_data).toEqual([
       { year: 2022, revenue: 750000, ebitda: 75000 },
       { year: 2023, revenue: 850000, ebitda: 85000 },
-      { year: 2024, revenue: 950000, ebitda: 95000 },
     ])
+    expect(normalized.formData.revenue).toBe(950000)
+    expect(normalized.formData.ebitda).toBe(95000)
   })
 
   it('filters unconfirmed future historical rows from year_data during H1 restore', () => {
@@ -87,9 +93,13 @@ describe('normalizeSessionData', () => {
       },
     })
 
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 950000,
+      ebitda: 95000,
+    })
     expect(normalized.formData.historical_years_data).toEqual([
       { year: 2023, revenue: 850000, ebitda: 85000 },
-      { year: 2024, revenue: 950000, ebitda: 95000 },
     ])
   })
 
@@ -122,10 +132,44 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.historical_years_data).toEqual([
       { year: 2022, revenue: 780000, ebitda: 98000 },
       { year: 2023, revenue: 840000, ebitda: 112000 },
-      { year: 2024, revenue: 910000, ebitda: 120000 },
     ])
     expect(normalized.formData.revenue).toBe(910000)
     expect(normalized.formData.ebitda).toBe(120000)
+  })
+
+  it('replaces a stale zero filing-year placeholder with the latest imported actual year', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
+
+    const normalized = normalizeSessionData({
+      session_key: 'val_yuki_latest_2024',
+      session_data: {
+        current_year_data: {
+          year: 2025,
+          revenue: 0,
+          ebitda: 0,
+        },
+        historical_years_data: [
+          { year: 2021, revenue: 1_350_000, ebitda: 180_000 },
+          { year: 2022, revenue: 1_500_000, ebitda: 205_000 },
+          { year: 2023, revenue: 1_650_000, ebitda: 230_000 },
+          { year: 2024, revenue: 1_800_000, ebitda: 260_000 },
+        ],
+      },
+    })
+
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 1_800_000,
+      ebitda: 260_000,
+    })
+    expect(normalized.formData.historical_years_data).toEqual([
+      { year: 2021, revenue: 1_350_000, ebitda: 180_000 },
+      { year: 2022, revenue: 1_500_000, ebitda: 205_000 },
+      { year: 2023, revenue: 1_650_000, ebitda: 230_000 },
+    ])
+    expect(normalized.formData.revenue).toBe(1_800_000)
+    expect(normalized.formData.ebitda).toBe(260_000)
   })
 
   it('merges activity_* with canonical NACE and prefers activity_label for description', () => {

@@ -31,6 +31,8 @@ export interface NormalizationItem {
   source: NormalizationSource
   sourceRef?: string
   status: NormalizationStatus
+  /** Set when an advisor explicitly accepts an imported auto-suggestion after review. */
+  reviewedAt?: string
   applyAllYears: boolean
   applyYears?: number[]
   year: number

@@ -35,6 +35,7 @@ import {
 import {
   buildNormalizationItemsFromImportedLedgerAnalysis,
   buildReportedEbitdaByYearFromFormRecords,
+  normalizeImportedLedgerReviewStatuses,
 } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
@@ -619,20 +620,41 @@ class SessionRestorationServiceImpl {
         '../../store/useNormalizationStore'
       )
       const normStore = useNormalizationStore.getState()
+      const formData = asRecord(data.formData)
+      const reportedEbitdaByYear = buildReportedEbitdaByYearFromFormRecords({
+        currentYearData: asRecord(formData?.current_year_data) as {
+          year?: number
+          ebitda?: number
+        },
+        historicalYearsData: Array.isArray(formData?.historical_years_data)
+          ? (formData.historical_years_data as Array<{ year?: number; ebitda?: number }>)
+          : undefined,
+        yearlyFinancials: Array.isArray(formData?.yearlyFinancials)
+          ? (formData.yearlyFinancials as Array<{
+              year?: number | string
+              ebitda?: number
+              isForecast?: boolean
+            }>)
+          : undefined,
+        yearData: asRecord(formData?.year_data) as
+          | Record<string | number, { ebitda?: number }>
+          | undefined,
+        fallbackEbitda: Number(formData?.ebitda),
+      })
 
       // First: check for items buffered to localStorage during a previous beforeunload
       const recovered = recoverPendingNormalizations(data.reportId)
       if (recovered && recovered.length > 0) {
-        normStore.setItems(recovered)
+        normStore.setItems(normalizeImportedLedgerReviewStatuses(recovered, reportedEbitdaByYear))
         restoredEbitdaNormalizations = true
         generalLogger.info('[SessionRestoration] Normalizations recovered from localStorage', {
           count: recovered.length,
         })
       } else {
         // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
-        const rawMeta = asNormalizationItems(asRecord(data.formData)?._normalizations)
+        const rawMeta = asNormalizationItems(formData?._normalizations)
         if (rawMeta.length > 0) {
-          normStore.setItems(rawMeta)
+          normStore.setItems(normalizeImportedLedgerReviewStatuses(rawMeta, reportedEbitdaByYear))
           restoredEbitdaNormalizations = true
           generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
             count: rawMeta.length,
@@ -640,9 +662,13 @@ class SessionRestorationServiceImpl {
         } else {
           // Fallback: load from Titan API
           await normStore.loadFromTitan(data.reportId)
-          restoredEbitdaNormalizations = normStore.items.length > 0
+          const titanItems = useNormalizationStore.getState().items
+          normStore.setItems(
+            normalizeImportedLedgerReviewStatuses(titanItems, reportedEbitdaByYear)
+          )
+          restoredEbitdaNormalizations = useNormalizationStore.getState().items.length > 0
           generalLogger.info('[SessionRestoration] Normalizations loaded from Titan API', {
-            count: normStore.items.length,
+            count: useNormalizationStore.getState().items.length,
           })
         }
       }

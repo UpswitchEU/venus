@@ -19,9 +19,11 @@ import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
   getCurrentFilingYear,
+  isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
+import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 import { generalLogger } from './logger'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
@@ -226,6 +228,60 @@ function hasPositiveHistoricalRevenue(source: YearDataInput): boolean {
   return revenue !== null && revenue > 0
 }
 
+function hasRealRevenueOrEbitda(source: { revenue?: unknown; ebitda?: unknown }): boolean {
+  const revenue = toFiniteNumber(source.revenue)
+  const ebitda = toFiniteNumber(source.ebitda)
+  return (revenue !== null && revenue !== 0) || (ebitda !== null && ebitda !== 0)
+}
+
+function getLatestRealHistoricalRow(rows: YearDataInput[]): YearDataInput | null {
+  return (
+    rows.filter(hasRealRevenueOrEbitda).sort((a, b) => Number(b.year) - Number(a.year))[0] ?? null
+  )
+}
+
+function resolveCurrentYearFromHistoricalBackstop(args: {
+  formData: ValuationFormData
+  normalizedCurrentYear: number
+  normalizedHistoricalData: YearDataInput[]
+}): { currentYearData?: YearDataInput; promoted: boolean } {
+  const current = args.formData.current_year_data
+  const latestHistorical = getLatestRealHistoricalRow(args.normalizedHistoricalData)
+  if (!latestHistorical) {
+    return { currentYearData: current, promoted: false }
+  }
+
+  const topLevelHasRealFigures = hasRealRevenueOrEbitda({
+    revenue: args.formData.revenue,
+    ebitda: args.formData.ebitda,
+  })
+  const currentMissing = !current && !topLevelHasRealFigures
+  const currentPlaceholder = !hasRealRevenueOrEbitda({
+    revenue: current?.revenue,
+    ebitda: current?.ebitda,
+  })
+  const canTreatCurrentAsStalePlaceholder =
+    currentPlaceholder &&
+    !topLevelHasRealFigures &&
+    !isFilingYearConfirmedValue(args.formData.filing_year_confirmed) &&
+    latestHistorical.year <= args.normalizedCurrentYear
+
+  if (!currentMissing && !canTreatCurrentAsStalePlaceholder) {
+    return { currentYearData: current, promoted: false }
+  }
+
+  generalLogger.warn('[buildValuationRequest] Promoted latest historical row to current year', {
+    business_name: args.formData.company_name,
+    stale_current_year: current?.year ?? args.normalizedCurrentYear,
+    promoted_year: latestHistorical.year,
+    revenue: latestHistorical.revenue,
+    ebitda: latestHistorical.ebitda,
+    note: 'A placeholder current-year row would have produced a zero basis year. Using the latest imported actual year instead.',
+  })
+
+  return { currentYearData: latestHistorical, promoted: true }
+}
+
 function mapLegacyNormalizationAdjustment(
   adjustment: NormalizationAdjustment
 ): NormYearEntry['items'][number] {
@@ -285,8 +341,22 @@ export function buildValuationRequest(
   }
 
   // Respect an explicitly selected filing year when the accountant confirms a newer year.
-  const currentFiscalYear = normalizeCurrentYearForFiling(
+  const normalizedCurrentFiscalYear = normalizeCurrentYearForFiling(
     formData.current_year_data?.year,
+    formData.filing_year_confirmed
+  )
+  const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
+    formData.historical_years_data?.filter((y) => !isYearRowForecast(y)),
+    formData.filing_year_confirmed
+  )
+  const { currentYearData: effectiveCurrentYearData, promoted: promotedCurrentFromHistorical } =
+    resolveCurrentYearFromHistoricalBackstop({
+      formData,
+      normalizedCurrentYear: normalizedCurrentFiscalYear,
+      normalizedHistoricalData,
+    })
+  const currentFiscalYear = normalizeCurrentYearForFiling(
+    effectiveCurrentYearData?.year ?? normalizedCurrentFiscalYear,
     formData.filing_year_confirmed
   )
 
@@ -332,21 +402,25 @@ export function buildValuationRequest(
   // Revenue: treat 0 as a valid value (pre-revenue startup). Only fall back to
   // current_year_data when the form field is truly absent (null/undefined).
   const rawRevenue =
-    formData.revenue != null
-      ? formData.revenue
-      : formData.current_year_data?.revenue != null
-        ? formData.current_year_data.revenue
-        : null
+    promotedCurrentFromHistorical && effectiveCurrentYearData?.revenue != null
+      ? effectiveCurrentYearData.revenue
+      : formData.revenue != null
+        ? formData.revenue
+        : effectiveCurrentYearData?.revenue != null
+          ? effectiveCurrentYearData.revenue
+          : null
   const revenue = requireNonNegativeRevenue(rawRevenue, 'current_year_data.revenue')
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
   const rawEbitdaInput =
-    formData.ebitda !== undefined && formData.ebitda !== null
-      ? formData.ebitda
-      : formData.current_year_data?.ebitda !== undefined &&
-          formData.current_year_data?.ebitda !== null
-        ? formData.current_year_data.ebitda
-        : null
+    promotedCurrentFromHistorical && effectiveCurrentYearData?.ebitda != null
+      ? effectiveCurrentYearData.ebitda
+      : formData.ebitda !== undefined && formData.ebitda !== null
+        ? formData.ebitda
+        : effectiveCurrentYearData?.ebitda !== undefined &&
+            effectiveCurrentYearData?.ebitda !== null
+          ? effectiveCurrentYearData.ebitda
+          : null
   const rawEbitda = toFiniteNumber(rawEbitdaInput)
   if (rawEbitda === null) {
     generalLogger.warn(
@@ -356,10 +430,36 @@ export function buildValuationRequest(
   }
   const ebitda = rawEbitda ?? 0
 
-  // Use provided items or read from store — avoids redundant getState() in recalculation paths
-  const allItems = overrideItems ?? useNormalizationStore.getState().items
-  const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
+  // Use provided items or read from store — avoids redundant getState() in recalculation paths.
+  // Imported auto-suggestions get a second defensibility pass below once the reported
+  // EBITDA-by-year map is known, so legacy sessions from before the review gate cannot
+  // keep silently submitting extreme addbacks as accepted.
+  const rawNormalizationItems = overrideItems ?? useNormalizationStore.getState().items
   const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
+
+  // Separate historical actuals from explicit forecast projections.
+  const actualHistoricalData = promotedCurrentFromHistorical
+    ? normalizedHistoricalData.filter((year) => Number(year.year) !== currentFiscalYear)
+    : normalizedHistoricalData
+  const rawForecastData =
+    formData.forecast_years_data && formData.forecast_years_data.length > 0
+      ? formData.forecast_years_data
+      : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
+
+  const historicalYears = actualHistoricalData
+    .filter((y) => toFiniteNumber(y.ebitda) != null && y.year >= 2000 && y.year <= 2100)
+    .map((y) => y.year)
+  const allDataYears = Array.from(new Set([currentFiscalYear, ...historicalYears]))
+
+  const yearEbitdaMap: Record<number, number> = {}
+  yearEbitdaMap[currentFiscalYear] = ebitda
+  actualHistoricalData.forEach((y) => {
+    const numericEbitda = toFiniteNumber(y.ebitda)
+    if (numericEbitda != null) yearEbitdaMap[y.year] = numericEbitda
+  })
+
+  const allItems = normalizeImportedLedgerReviewStatuses(rawNormalizationItems, yearEbitdaMap)
+  const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
 
   // Integrity guard: if the user can see normalizations in the UI but none reach the API
   // payload, the resulting valuation will silently use unnormalized EBITDA. That is the
@@ -385,29 +485,6 @@ export function buildValuationRequest(
       }
     )
   }
-
-  // Separate historical actuals from explicit forecast projections.
-  const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
-    formData.historical_years_data?.filter((y) => !isYearRowForecast(y)),
-    formData.filing_year_confirmed
-  )
-  const actualHistoricalData = normalizedHistoricalData
-  const rawForecastData =
-    formData.forecast_years_data && formData.forecast_years_data.length > 0
-      ? formData.forecast_years_data
-      : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
-
-  const historicalYears = actualHistoricalData
-    .filter((y) => toFiniteNumber(y.ebitda) != null && y.year >= 2000 && y.year <= 2100)
-    .map((y) => y.year)
-  const allDataYears = Array.from(new Set([currentFiscalYear, ...historicalYears]))
-
-  const yearEbitdaMap: Record<number, number> = {}
-  yearEbitdaMap[currentFiscalYear] = ebitda
-  actualHistoricalData.forEach((y) => {
-    const numericEbitda = toFiniteNumber(y.ebitda)
-    if (numericEbitda != null) yearEbitdaMap[y.year] = numericEbitda
-  })
 
   const allDataYearsSet = new Set(allDataYears)
   const orphanItems: Array<{ id: string; targetYears: number[]; adjustment: number }> = []

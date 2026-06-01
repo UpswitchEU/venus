@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildNormalizationItemsFromImportedLedgerAnalysis,
   buildReportedEbitdaByYearFromFormRecords,
+  normalizeImportedLedgerReviewStatuses,
 } from './importedLedgerNormalization'
 
 describe('buildReportedEbitdaByYearFromFormRecords', () => {
@@ -93,6 +94,30 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
     expect(items[0].year).toBe(2023)
   })
 
+  it('uses latest_fiscal_year for imported flags that omit their own year', () => {
+    const items = buildNormalizationItemsFromImportedLedgerAnalysis({
+      latest_fiscal_year: 2024,
+      reported_ebitda_by_year: { 2024: 260_000 },
+      sde_flags: [
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 206_000,
+          suggested_question: 'Review discretionary spend?',
+        },
+      ],
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      id: 'imported_sde_2024_610000_0',
+      sourceRef: '2024:610000',
+      year: 2024,
+      applyYears: [2024],
+      status: 'pending',
+    })
+  })
+
   it('returns empty array when no flags', () => {
     expect(buildNormalizationItemsFromImportedLedgerAnalysis({})).toEqual([])
     expect(buildNormalizationItemsFromImportedLedgerAnalysis({ sde_flags: [] })).toEqual([])
@@ -180,5 +205,50 @@ describe('buildNormalizationItemsFromImportedLedgerAnalysis', () => {
 
     expect(items.map((item) => item.ledgerCode)).toEqual(['610000'])
     expect(items[0].adjustment).toBe(156_500)
+  })
+})
+
+describe('normalizeImportedLedgerReviewStatuses', () => {
+  it('demotes legacy accepted imported addbacks that still exceed the cap', () => {
+    const [item] = buildNormalizationItemsFromImportedLedgerAnalysis({
+      reported_ebitda_by_year: { 2024: 260_000 },
+      sde_flags: [
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 206_000,
+          suggested_question: 'Review discretionary spend?',
+          year: 2024,
+        },
+      ],
+    })
+
+    const [normalized] = normalizeImportedLedgerReviewStatuses([{ ...item, status: 'accepted' }], {
+      2024: 260_000,
+    })
+
+    expect(normalized.status).toBe('pending')
+  })
+
+  it('keeps explicitly reviewed imported addbacks accepted', () => {
+    const [item] = buildNormalizationItemsFromImportedLedgerAnalysis({
+      reported_ebitda_by_year: { 2024: 260_000 },
+      sde_flags: [
+        {
+          ledger_code: '610000',
+          ledger_name: 'Services and other goods',
+          amount: 206_000,
+          suggested_question: 'Review discretionary spend?',
+          year: 2024,
+        },
+      ],
+    })
+
+    const [normalized] = normalizeImportedLedgerReviewStatuses(
+      [{ ...item, status: 'accepted', reviewedAt: '2026-06-01T10:00:00.000Z' }],
+      { 2024: 260_000 }
+    )
+
+    expect(normalized.status).toBe('accepted')
   })
 })

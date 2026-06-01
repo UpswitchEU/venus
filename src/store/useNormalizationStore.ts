@@ -108,6 +108,18 @@ function isNormalizationItem(value: unknown): value is NormalizationItem {
   return isRecord(value) && typeof value.id === 'string'
 }
 
+function isImportedLedgerNormalizationItem(item: NormalizationItem): boolean {
+  return item.id.startsWith('imported_sde_')
+}
+
+function markNormalizationReviewedIfImported(item: NormalizationItem): Partial<NormalizationItem> {
+  return isImportedLedgerNormalizationItem(item) ? { reviewedAt: new Date().toISOString() } : {}
+}
+
+function clearImportedNormalizationReview(item: NormalizationItem): Partial<NormalizationItem> {
+  return isImportedLedgerNormalizationItem(item) ? { reviewedAt: undefined } : {}
+}
+
 function toBackendNormalizationCategory(
   category: string,
   backendCategory?: string
@@ -287,7 +299,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         set(
           (state) => ({
             items: state.items.map((n) =>
-              n.id === id ? { ...n, status: 'accepted' as NormalizationStatus } : n
+              n.id === id
+                ? {
+                    ...n,
+                    status: 'accepted' as NormalizationStatus,
+                    ...markNormalizationReviewedIfImported(n),
+                  }
+                : n
             ),
           }),
           false,
@@ -298,7 +316,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         set(
           (state) => ({
             items: state.items.map((n) =>
-              n.id === id ? { ...n, status: 'rejected' as NormalizationStatus } : n
+              n.id === id
+                ? {
+                    ...n,
+                    status: 'rejected' as NormalizationStatus,
+                    ...clearImportedNormalizationReview(n),
+                  }
+                : n
             ),
           }),
           false,
@@ -309,7 +333,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         set(
           (state) => ({
             items: state.items.map((n) =>
-              ids.includes(n.id) ? { ...n, status: 'accepted' as NormalizationStatus } : n
+              ids.includes(n.id)
+                ? {
+                    ...n,
+                    status: 'accepted' as NormalizationStatus,
+                    ...markNormalizationReviewedIfImported(n),
+                  }
+                : n
             ),
           }),
           false,
@@ -320,7 +350,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         set(
           (state) => ({
             items: state.items.map((n) =>
-              ids.includes(n.id) ? { ...n, status: 'rejected' as NormalizationStatus } : n
+              ids.includes(n.id)
+                ? {
+                    ...n,
+                    status: 'rejected' as NormalizationStatus,
+                    ...clearImportedNormalizationReview(n),
+                  }
+                : n
             ),
           }),
           false,

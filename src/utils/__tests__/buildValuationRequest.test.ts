@@ -1748,6 +1748,174 @@ describe('buildValuationRequest', () => {
     warnSpy.mockRestore()
   })
 
+  it('rechecks legacy accepted imported addbacks before applying them to EBITDA', async () => {
+    const loggerModule = await import('../logger')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 260_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_800_000,
+          ebitda: 260_000,
+        },
+      }),
+      [
+        {
+          id: `imported_sde_${lastFullYear}_610000_0`,
+          ledgerCode: '610000',
+          ledgerName: 'Services and other goods',
+          category: 'other',
+          type: 'add',
+          value: 206_000,
+          adjustment: 206_000,
+          year: lastFullYear,
+          applyAllYears: false,
+          applyYears: [lastFullYear],
+          status: 'accepted',
+          source: 'auto',
+          confidence: 'high',
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(260_000)
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
+    )
+    expect(matched).toBeDefined()
+
+    warnSpy.mockRestore()
+  })
+
+  it('applies an imported addback once the advisor explicitly reviewed it', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 260_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_800_000,
+          ebitda: 260_000,
+        },
+      }),
+      [
+        {
+          id: `imported_sde_${lastFullYear}_610000_0`,
+          ledgerCode: '610000',
+          ledgerName: 'Services and other goods',
+          category: 'other',
+          type: 'add',
+          value: 206_000,
+          adjustment: 206_000,
+          year: lastFullYear,
+          applyAllYears: false,
+          applyYears: [lastFullYear],
+          status: 'accepted',
+          reviewedAt: '2026-06-01T10:00:00.000Z',
+          source: 'auto',
+          confidence: 'high',
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(466_000)
+    expect(result.current_year_data.ebitda_normalization_metadata).toMatchObject({
+      reported_ebitda: 260_000,
+      normalized_ebitda: 466_000,
+      total_adjustments: 206_000,
+    })
+  })
+
+  it('uses the latest imported actual year instead of a stale zero filing-year placeholder', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
+
+    const result = buildValuationRequest(
+      makeFormData({
+        revenue: 0,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 0,
+          ebitda: 0,
+        },
+        historical_years_data: [
+          { year: 2021, revenue: 1_350_000, ebitda: 180_000 },
+          { year: 2022, revenue: 1_500_000, ebitda: 205_000 },
+          { year: 2023, revenue: 1_650_000, ebitda: 230_000 },
+          { year: 2024, revenue: 1_800_000, ebitda: 260_000 },
+        ],
+      }),
+      []
+    )
+
+    expect(result.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 1_800_000,
+      ebitda: 260_000,
+    })
+    expect(result.historical_years_data.map((row) => row.year)).toEqual([2021, 2022, 2023])
+  })
+
+  it('applies a reviewed imported addback to the promoted actual year', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
+
+    const result = buildValuationRequest(
+      makeFormData({
+        revenue: 0,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 0,
+          ebitda: 0,
+        },
+        historical_years_data: [
+          { year: 2021, revenue: 1_350_000, ebitda: 180_000 },
+          { year: 2022, revenue: 1_500_000, ebitda: 205_000 },
+          { year: 2023, revenue: 1_650_000, ebitda: 230_000 },
+          { year: 2024, revenue: 1_800_000, ebitda: 260_000 },
+        ],
+      }),
+      [
+        {
+          id: 'imported_sde_2024_610000_0',
+          ledgerCode: '610000',
+          ledgerName: 'Services and other goods',
+          category: 'other',
+          type: 'add',
+          value: 206_000,
+          adjustment: 206_000,
+          year: 2024,
+          applyAllYears: false,
+          applyYears: [2024],
+          status: 'accepted',
+          reviewedAt: '2026-06-01T10:00:00.000Z',
+          source: 'auto',
+          confidence: 'high',
+        },
+      ]
+    )
+
+    expect(result.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 1_800_000,
+      ebitda: 466_000,
+      ebitda_normalized: true,
+    })
+    expect(result.current_year_data.ebitda_normalization_metadata).toMatchObject({
+      reported_ebitda: 260_000,
+      normalized_ebitda: 466_000,
+      total_adjustments: 206_000,
+    })
+    expect(result.historical_years_data.map((row) => row.year)).toEqual([2021, 2022, 2023])
+  })
+
   // ─── Orphan-year normalization guard (legacy store path) ─────────────────
   // ValuationForm still writes to useEbitdaNormalizationStore. A legacy
   // entry keyed by a year outside the canonical data set used to be

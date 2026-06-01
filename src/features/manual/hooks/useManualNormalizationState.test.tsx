@@ -41,4 +41,20 @@ describe('useManualNormalizationState', () => {
       status: 'pending',
     })
   })
+
+  it('marks imported ledger items as reviewed when accepted by a store action', () => {
+    useNormalizationStore.getState().setItems([importedPendingItem])
+
+    useNormalizationStore.getState().acceptItem(importedPendingItem.id)
+
+    const accepted = useNormalizationStore.getState().items[0]
+    expect(accepted.status).toBe('accepted')
+    expect(accepted.reviewedAt).toEqual(expect.any(String))
+
+    useNormalizationStore.getState().rejectItem(importedPendingItem.id)
+
+    const rejected = useNormalizationStore.getState().items[0]
+    expect(rejected.status).toBe('rejected')
+    expect(rejected.reviewedAt).toBeUndefined()
+  })
 })
