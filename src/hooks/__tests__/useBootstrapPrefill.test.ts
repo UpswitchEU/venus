@@ -6,6 +6,7 @@ import { useImportQualityStore } from '../../store/useImportQualityStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import type { ValuationSession } from '../../types/valuation'
 import { resetBootstrapPrefillState, useBootstrapPrefill } from '../useBootstrapPrefill'
 
 const { mockUseBootstrapSafe } = vi.hoisted(() => ({
@@ -632,6 +633,73 @@ describe('useBootstrapPrefill', () => {
           id: 'norm_1',
           status: 'accepted',
           year: 2024,
+        }),
+      ])
+    })
+  })
+
+  it('demotes legacy accepted imported ledger addbacks from session fallback surface', async () => {
+    useSessionStore.setState({
+      session: {
+        reportId: 'val_bootstrap_legacy_imported_norm',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        updatedAt: new Date('2026-06-01T10:00:00.000Z'),
+        partialData: {},
+        sessionData: {
+          current_year_data: { year: 2024, revenue: 1_000_000, ebitda: 100_000 },
+          _normalizations: [
+            {
+              id: 'imported_sde_2024_610000_0',
+              ledgerCode: '610000',
+              ledgerName: 'Services and other goods',
+              category: 'other',
+              type: 'add',
+              value: 80_000,
+              adjustment: 80_000,
+              reason: 'Legacy imported auto-suggestion',
+              source: 'auto',
+              status: 'accepted',
+              applyAllYears: false,
+              applyYears: [2024],
+              year: 2024,
+              confidence: 'high',
+            },
+          ],
+        },
+      } satisfies ValuationSession,
+    })
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: {
+        mode: 'new',
+        reportId: 'val_bootstrap_legacy_imported_norm',
+        hasExistingData: false,
+      },
+      prefillData: {
+        sources: ['session'],
+        confidence: 0.4,
+        fieldsPopulated: ['company_name'],
+        fieldsRemaining: [],
+        companyInfo: {
+          companyName: 'Legacy Imported Norm Co',
+          countryCode: 'BE',
+        },
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      expect(useNormalizationStore.getState().items).toEqual([
+        expect.objectContaining({
+          id: 'imported_sde_2024_610000_0',
+          status: 'pending',
         }),
       ])
     })

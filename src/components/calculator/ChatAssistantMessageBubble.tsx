@@ -228,7 +228,7 @@ export function MessageBubble({
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onOpenConsent(message.id)}
             className={cn(
-              'mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5',
+              'mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3.5 py-2 sm:min-h-0 sm:px-3 sm:py-1.5',
               'bg-primary/10 text-xs font-medium text-primary',
               'border border-primary/20 transition-all hover:bg-primary/15 active:scale-[0.98] touch-manipulation'
             )}
@@ -244,7 +244,7 @@ export function MessageBubble({
             animate={{ opacity: 1, y: 0 }}
             href={loginHref}
             className={cn(
-              'mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5',
+              'mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3.5 py-2 sm:min-h-0 sm:px-3 sm:py-1.5',
               'text-xs font-medium text-primary',
               'bg-primary/10 border border-primary/20',
               'transition-all hover:bg-primary/15 active:scale-[0.98] touch-manipulation'
@@ -262,7 +262,7 @@ export function MessageBubble({
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onRetry(message.id)}
             className={cn(
-              'mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
+              'mt-2 flex min-h-11 items-center gap-1.5 px-3.5 py-2 rounded-lg sm:min-h-0 sm:px-3 sm:py-1.5',
               'text-xs font-medium text-destructive',
               'bg-destructive/10 border border-destructive/20',
               'hover:bg-destructive/15 active:scale-[0.98] transition-all touch-manipulation'
@@ -275,11 +275,11 @@ export function MessageBubble({
 
         {/* Copy button - hover reveal for assistant messages */}
         {!isUser && !isSystem && message.content && !message.isError && (
-          <div className="mt-2 flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200">
+          <div className="mt-2 flex items-center gap-1 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover/msg:opacity-100">
             <button
               onClick={handleCopyMessage}
               className={cn(
-                'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                'flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all sm:min-h-0 sm:px-2 sm:py-1',
                 copied
                   ? 'text-primary bg-primary/10'
                   : 'text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]'
@@ -339,7 +339,7 @@ export function MessageBubble({
                     <button
                       type="button"
                       onClick={() => onApplyUpdate?.(update.field, update.value)}
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                     >
                       {ca('acceptAndApply')}
                     </button>
@@ -390,14 +390,14 @@ export function MessageBubble({
                       <button
                         type="button"
                         onClick={() => onAcceptNormalisation?.(suggestion.id)}
-                        className="text-primary/85 hover:text-primary transition-colors font-medium"
+                        className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                       >
                         {ca('accept')}
                       </button>
                       <button
                         type="button"
                         onClick={() => onRejectNormalisation?.(suggestion.id)}
-                        className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                        className="inline-flex min-h-11 items-center rounded-full px-3 text-foreground/45 hover:text-foreground/70 transition-colors sm:min-h-0 sm:px-0"
                       >
                         {ca('reject')}
                       </button>

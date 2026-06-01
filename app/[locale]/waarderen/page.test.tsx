@@ -18,7 +18,7 @@ describe('/[locale]/waarderen landing', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Start free valuation' })).toHaveAttribute(
       'href',
-      '/en/startup-valuation'
+      '/en/landing/startup'
     )
     expect(screen.queryByText(/Een investor-ready waardering/)).not.toBeInTheDocument()
   })
@@ -34,7 +34,7 @@ describe('/[locale]/waarderen landing', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Start gratis waardering' })).toHaveAttribute(
       'href',
-      '/nl/startup-valuation'
+      '/nl/landing/startup'
     )
   })
 

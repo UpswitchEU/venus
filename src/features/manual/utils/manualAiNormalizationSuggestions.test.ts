@@ -198,7 +198,7 @@ describe('manualAiNormalizationSuggestions', () => {
     expect(result[0]).toBe(suggestion)
   })
 
-  it('maps imported normalization suggestions to store, review, and chat cards', () => {
+  it('maps imported normalization suggestions to pending store, review, and chat cards', () => {
     const result = buildManualImportedNormalizationSuggestions({
       source: 'exact',
       filingYear: 2025,
@@ -227,7 +227,7 @@ describe('manualAiNormalizationSuggestions', () => {
         reason: 'Above market salary',
         source: 'exact',
         sourceRef: 'Exact Online',
-        status: 'accepted',
+        status: 'pending',
         applyAllYears: false,
         year: 2025,
       },
@@ -235,7 +235,7 @@ describe('manualAiNormalizationSuggestions', () => {
     expect(result.reviewSuggestions[0]).toMatchObject({
       id: 'exact-row-1',
       sourceRef: MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS.exact,
-      status: 'accepted',
+      status: 'pending',
     })
     expect(result.chatSuggestions).toEqual([
       {
@@ -246,7 +246,7 @@ describe('manualAiNormalizationSuggestions', () => {
         amount: 45_000,
         reason: 'Above market salary',
         sourceRef: 'Exact Online',
-        status: 'accepted',
+        status: 'pending',
         multiple: 5.2,
       },
     ])

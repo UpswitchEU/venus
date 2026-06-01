@@ -76,6 +76,47 @@ describe('SessionRestorationService', () => {
     expect(state.result?.html_report).toBe('<html>Fresh report</html>')
   })
 
+  it('package-only hydration demotes legacy accepted imported ledger addbacks above the defensibility cap', () => {
+    SessionRestorationService.hydrateFromPackage(
+      'val_package_legacy_imported_norm',
+      {
+        htmlReport: '<html>Fresh report</html>',
+        pricingRange: { min: 200000, mid: 277000, max: 320000, currency: 'EUR' },
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {
+          current_year_data: { year: 2024, revenue: 1_000_000, ebitda: 100_000 },
+          _normalizations: [
+            {
+              id: 'imported_sde_2024_610000_0',
+              ledgerCode: '610000',
+              ledgerName: 'Services and other goods',
+              category: 'other',
+              type: 'add',
+              value: 80_000,
+              adjustment: 80_000,
+              reason: 'Legacy imported auto-suggestion',
+              source: 'auto',
+              status: 'accepted',
+              applyAllYears: false,
+              applyYears: [2024],
+              year: 2024,
+              confidence: 'high',
+            },
+          ],
+        },
+      },
+      'manual'
+    )
+
+    expect(useNormalizationStore.getState().items).toEqual([
+      expect.objectContaining({
+        id: 'imported_sde_2024_610000_0',
+        status: 'pending',
+      }),
+    ])
+  })
+
   it('gap-fills registry fields from _businessInfo when flat session extract is empty', async () => {
     await SessionRestorationService.restore('val_nested_card', {
       reportId: 'val_nested_card',

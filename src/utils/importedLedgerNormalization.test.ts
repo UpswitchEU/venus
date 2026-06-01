@@ -251,4 +251,29 @@ describe('normalizeImportedLedgerReviewStatuses', () => {
 
     expect(normalized.status).toBe('accepted')
   })
+
+  it('demotes legacy accepted accounting-import addbacks even without imported_sde id', () => {
+    const [normalized] = normalizeImportedLedgerReviewStatuses(
+      [
+        {
+          id: 'yuki-row-610000',
+          ledgerCode: '610000',
+          ledgerName: 'Services and other goods',
+          category: 'other',
+          type: 'add',
+          value: 206_000,
+          adjustment: 206_000,
+          reason: 'Legacy Yuki suggestion',
+          source: 'yuki',
+          status: 'accepted',
+          applyAllYears: false,
+          year: 2024,
+          confidence: 'high',
+        },
+      ],
+      { 2024: 260_000 }
+    )
+
+    expect(normalized.status).toBe('pending')
+  })
 })

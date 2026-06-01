@@ -208,14 +208,14 @@ function BuyerReadyCardFrame({
         {decision === 'idle' &&
         typeof onSendFollowUp === 'function' &&
         followUpActions.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1 sm:gap-3">
             {followUpActions.map((action) => (
               <button
                 key={`${id}-${action.label}-${action.prompt}`}
                 type="button"
                 onClick={() => onSendFollowUp(action.prompt)}
                 className={cn(
-                  'transition-colors',
+                  'inline-flex min-h-11 items-center rounded-full px-3 transition-colors touch-manipulation sm:min-h-0 sm:px-0',
                   action.primary
                     ? 'font-medium text-primary/85 hover:text-primary'
                     : 'text-foreground/55 hover:text-foreground/75'

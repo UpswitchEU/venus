@@ -36,6 +36,7 @@ import {
 import {
   buildNormalizationItemsFromImportedLedgerAnalysis,
   buildReportedEbitdaByYearFromFormRecords,
+  normalizeImportedLedgerReviewStatuses,
 } from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
@@ -889,7 +890,29 @@ function applyPrefillToForm(
 
     const mergedNormalizations = readNormalizationItems(mergedSession._normalizations)
     if (mergedNormalizations && mergedNormalizations.length > 0) {
-      useNormalizationStore.getState().setItems(mergedNormalizations)
+      useNormalizationStore.getState().setItems(
+        normalizeImportedLedgerReviewStatuses(
+          mergedNormalizations,
+          buildReportedEbitdaByYearFromFormRecords({
+            currentYearData: allData.current_year_data as { year?: number; ebitda?: number },
+            historicalYearsData: Array.isArray(allData.historical_years_data)
+              ? (allData.historical_years_data as Array<{ year?: number; ebitda?: number }>)
+              : undefined,
+            yearlyFinancials: Array.isArray(allData.yearlyFinancials)
+              ? (allData.yearlyFinancials as Array<{
+                  year?: number | string
+                  ebitda?: number
+                  isForecast?: boolean
+                }>)
+              : undefined,
+            yearData:
+              allData.year_data && typeof allData.year_data === 'object'
+                ? (allData.year_data as Record<string | number, { ebitda?: number }>)
+                : undefined,
+            fallbackEbitda: Number(allData.ebitda),
+          })
+        )
+      )
     }
   }
 

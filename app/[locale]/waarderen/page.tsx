@@ -210,14 +210,14 @@ export default async function WaarderenLandingPage({ params }: Props) {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href={`/${locale}/startup-valuation`}
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90"
+              href={`/${locale}/landing/startup`}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90 sm:w-auto"
             >
               {copy.primaryCta}
             </Link>
             <Link
               href={`/${locale}/reports/new?flow=startup&studio=legacy`}
-              className="inline-flex items-center justify-center rounded-lg border border-foreground/15 bg-background px-6 py-3 text-sm font-medium text-foreground/80 transition hover:border-primary hover:text-primary"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-foreground/15 bg-background px-6 py-3 text-sm font-medium text-foreground/80 transition hover:border-primary hover:text-primary sm:w-auto"
             >
               {copy.secondaryCta}
             </Link>
@@ -300,8 +300,8 @@ export default async function WaarderenLandingPage({ params }: Props) {
           <h2 className="text-3xl font-semibold text-foreground">{copy.finalHeading}</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-foreground/65">{copy.finalBody}</p>
           <Link
-            href={`/${locale}/startup-valuation`}
-            className="mt-8 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90"
+            href={`/${locale}/landing/startup`}
+            className="mt-8 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90"
           >
             {copy.finalCta}
           </Link>

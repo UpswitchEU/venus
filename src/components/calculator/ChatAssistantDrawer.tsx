@@ -463,7 +463,7 @@ export function ChatAssistantDrawer({
                     aria-label={ca('newConversation')}
                     title={ca('newConversation')}
                     className={cn(
-                      'px-2.5 py-1 rounded-md',
+                      'min-h-11 px-3 rounded-md sm:min-h-0 sm:px-2.5 sm:py-1',
                       'text-foreground/40 hover:text-foreground/70',
                       'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
                       'transition-colors touch-manipulation text-[11px] font-medium'
@@ -476,7 +476,7 @@ export function ChatAssistantDrawer({
                   type="button"
                   onClick={() => onOpenChange(false)}
                   className={cn(
-                    'w-8 h-8 rounded-md flex items-center justify-center',
+                    'h-11 w-11 rounded-md flex items-center justify-center sm:h-8 sm:w-8',
                     'text-foreground/50 hover:text-foreground',
                     'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
                     'transition-colors touch-manipulation'

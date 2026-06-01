@@ -33,13 +33,13 @@ export function AutoNormalizationCapWarning({
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">
               {isDutch
-                ? 'Review vereist: auto-normalisaties overschrijden verdedigbaarheidslimiet'
-                : 'Review required: auto normalizations exceed defensibility cap'}
+                ? 'Review vereist: geaccepteerde importcorrecties boven limiet'
+                : 'Review required: accepted import adjustments exceed cap'}
             </p>
             <p className="mt-0.5 text-xs text-foreground/70">
               {isDutch
-                ? 'Deze jaren overschrijden 50% van de gerapporteerde EBITDA met auto-toegepaste addbacks. Onderbouw of corrigeer vóór externe deling.'
-                : 'These years exceed 50% of reported EBITDA via auto-applied addbacks. Substantiate or correct before external sharing.'}
+                ? 'Deze addbacks staan op geaccepteerd en overschrijden 50% van de gerapporteerde EBITDA. Laat ze alleen toegepast als ze expliciet beoordeeld en onderbouwd zijn.'
+                : 'These addbacks are accepted and exceed 50% of reported EBITDA. Keep them applied only when explicitly reviewed and substantiated.'}
             </p>
             <ul className="mt-2 space-y-1">
               {breaches.slice(0, 3).map((breach) => (

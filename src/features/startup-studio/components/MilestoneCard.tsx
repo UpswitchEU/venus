@@ -209,7 +209,7 @@ export function MilestoneCard({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80"
+        className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-primary hover:text-primary/80 sm:min-h-0 sm:px-0"
         aria-expanded={open}
       >
         {t('whatInvestorsLookFor')}

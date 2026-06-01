@@ -253,6 +253,39 @@ describe('normalizationMath', () => {
     expect(out[0].addbackPctOfEbitda).toBeCloseTo((280_000 / 290_000) * 100, 4)
   })
 
+  it('flags accepted accounting-import addbacks above 50% EBITDA cap', () => {
+    const items: NormalizationItem[] = [
+      {
+        id: 'yuki-row-610000',
+        ledgerCode: '610000',
+        ledgerName: 'Services and other goods',
+        category: 'other',
+        type: 'add',
+        value: 206_000,
+        adjustment: 206_000,
+        reason: 'Yuki imported suggestion',
+        source: 'yuki',
+        status: 'accepted',
+        applyAllYears: false,
+        year: 2024,
+      },
+    ]
+
+    const out = findAcceptedAutoNormalizationCapBreaches({
+      items,
+      availableYears: [2024],
+      reportedEbitdaByYear: { 2024: 260_000 },
+      fallbackYear: 2024,
+    })
+
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      year: 2024,
+      autoAddback: 206_000,
+      capAmount: 130_000,
+    })
+  })
+
   it('ignores pending/manual items and non-positive EBITDA years for cap detection', () => {
     const items: NormalizationItem[] = [
       {

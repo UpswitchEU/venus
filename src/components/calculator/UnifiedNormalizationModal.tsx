@@ -52,6 +52,7 @@ import {
   type NormalizationSource,
   type NormalizationStatus,
   type NormalizationType,
+  requiresIndividualImportedNormalizationReview,
   type SearchableLedgerAccount,
   type UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationTypes'
@@ -517,6 +518,16 @@ export function UnifiedNormalizationModal({
   const isAllSelected =
     filteredNormalizations.length > 0 && filteredNormalizations.every((n) => selectedIds.has(n.id))
   const isSomeSelected = filteredNormalizations.some((n) => selectedIds.has(n.id))
+  const bulkAcceptBlockedCount = useMemo(
+    () =>
+      normalizations.filter(
+        (n) =>
+          selectedIds.has(n.id) &&
+          n.status !== 'accepted' &&
+          requiresIndividualImportedNormalizationReview(n)
+      ).length,
+    [normalizations, selectedIds]
+  )
 
   // Actions
   const updateStatus = useCallback(
@@ -528,7 +539,7 @@ export function UnifiedNormalizationModal({
             ? {
                 ...n,
                 status,
-                ...(isImportedLedgerNormalizationItem(n)
+                ...(requiresIndividualImportedNormalizationReview(n)
                   ? reviewedAt
                     ? { reviewedAt }
                     : { reviewedAt: undefined }
@@ -549,10 +560,17 @@ export function UnifiedNormalizationModal({
           selectedIds.has(n.id)
             ? {
                 ...n,
-                status,
-                ...(isImportedLedgerNormalizationItem(n)
+                status:
+                  status === 'accepted' &&
+                  n.status !== 'accepted' &&
+                  requiresIndividualImportedNormalizationReview(n)
+                    ? n.status
+                    : status,
+                ...(requiresIndividualImportedNormalizationReview(n)
                   ? reviewedAt
-                    ? { reviewedAt }
+                    ? n.status !== 'accepted'
+                      ? {}
+                      : { reviewedAt }
                     : { reviewedAt: undefined }
                   : {}),
               }
@@ -946,6 +964,7 @@ export function UnifiedNormalizationModal({
 
               <UnifiedNormalizationBulkActionsBar
                 selectedCount={selectedIds.size}
+                bulkAcceptBlockedCount={bulkAcceptBlockedCount}
                 onDeselectAll={deselectAll}
                 onBulkUpdateStatus={bulkUpdateStatus}
                 onBulkDelete={bulkDelete}

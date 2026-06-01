@@ -35,7 +35,7 @@ interface PanelHeaderProps {
 export function PanelHeader(_props: PanelHeaderProps) {
   const t = useTranslations('startupStudio.panelHeader')
   return (
-    <header className="-mx-6 -mt-6 mb-2 border-b border-foreground/10 bg-background/85 px-6 py-3 backdrop-blur-md">
+    <header className="-mx-4 -mt-4 mb-2 border-b border-foreground/10 bg-background/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:px-6">
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
           {t('badge')}

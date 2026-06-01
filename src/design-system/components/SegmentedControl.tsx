@@ -41,13 +41,13 @@ export interface SegmentedControlProps<T extends string = string> {
 
 const sizeConfig = {
   sm: {
-    container: 'h-8 p-0.5 rounded-lg gap-0.5',
-    button: 'px-2.5 py-1 text-xs rounded-md gap-1.5',
+    container: 'min-h-[44px] p-0.5 rounded-lg gap-0.5 sm:h-8 sm:min-h-0',
+    button: 'min-h-[44px] px-2.5 py-2 text-xs rounded-md gap-1.5 sm:min-h-0 sm:py-1',
     icon: 'w-3 h-3',
   },
   md: {
-    container: 'h-10 p-1 rounded-xl gap-1',
-    button: 'px-3.5 py-1.5 text-sm rounded-lg gap-2',
+    container: 'min-h-[44px] p-1 rounded-xl gap-1 sm:h-10 sm:min-h-0',
+    button: 'min-h-[44px] px-3.5 py-2 text-sm rounded-lg gap-2 sm:min-h-0 sm:py-1.5',
     icon: 'w-4 h-4',
   },
   lg: {

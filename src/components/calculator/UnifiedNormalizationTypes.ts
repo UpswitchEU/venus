@@ -62,6 +62,26 @@ export function isImportedLedgerNormalizationItem(item: Pick<NormalizationItem, 
   return typeof item.id === 'string' && item.id.startsWith('imported_sde_')
 }
 
+const ACCOUNTING_IMPORT_NORMALIZATION_SOURCES = new Set<NormalizationSource>([
+  'yuki',
+  'exact',
+  'silverfin',
+  'bizzcontrol',
+  'odoo',
+  'octopus',
+  'expertm',
+  'accountable',
+])
+
+export function requiresIndividualImportedNormalizationReview(
+  item: Pick<NormalizationItem, 'id' | 'source'>
+): boolean {
+  return (
+    isImportedLedgerNormalizationItem(item) ||
+    ACCOUNTING_IMPORT_NORMALIZATION_SOURCES.has(item.source)
+  )
+}
+
 export interface UnifiedNormalizationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void

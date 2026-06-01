@@ -100,14 +100,14 @@ export function ChatAssistantMarketplaceProposalCards({
                           req.visibility
                         )
                       }
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                     >
                       {ca('proposalCards.listing.actionLabel')}
                     </button>
                     <button
                       type="button"
                       onClick={() => onRejectListingCreate?.(req.id)}
-                      className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-foreground/45 hover:text-foreground/70 transition-colors sm:min-h-0 sm:px-0"
                     >
                       {ca('proposalCards.common.buttonCancel')}
                     </button>
@@ -188,14 +188,14 @@ export function ChatAssistantMarketplaceProposalCards({
                     <button
                       type="button"
                       onClick={() => onApproveSellabilityRun?.(req.id)}
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                     >
                       {ca('proposalCards.sellability.actionLabel')}
                     </button>
                     <button
                       type="button"
                       onClick={() => onRejectSellabilityRun?.(req.id)}
-                      className="text-foreground/45 hover:text-foreground/70 transition-colors"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-foreground/45 hover:text-foreground/70 transition-colors sm:min-h-0 sm:px-0"
                     >
                       {ca('proposalCards.common.buttonCancel')}
                     </button>

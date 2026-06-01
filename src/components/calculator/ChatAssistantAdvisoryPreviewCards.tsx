@@ -225,14 +225,14 @@ function FollowUpButtons({
 }) {
   if (typeof onSendFollowUp !== 'function' || actions.length === 0) return null
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:gap-3">
       {actions.map((action) => (
         <button
           key={`${action.label}-${action.prompt}`}
           type="button"
           onClick={() => onSendFollowUp(action.prompt)}
           className={cn(
-            'transition-colors',
+            'inline-flex min-h-11 items-center rounded-full px-3 transition-colors touch-manipulation sm:min-h-0 sm:px-0',
             action.primary
               ? 'font-medium text-primary/85 hover:text-primary'
               : 'text-foreground/55 hover:text-foreground/75'
@@ -650,7 +650,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                       <button
                         type="button"
                         onClick={() => onSendFollowUp(buildListingGapPrompt(listingPreview))}
-                        className="text-primary/85 hover:text-primary transition-colors font-medium"
+                        className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                       >
                         {ca('proposalCards.listingPreview.resolveGapsAction')}
                       </button>
@@ -659,7 +659,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                         <button
                           type="button"
                           onClick={() => onSendFollowUp(`Profile likely buyers for ${subject}.`)}
-                          className="text-primary/85 hover:text-primary transition-colors font-medium"
+                          className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                         >
                           {ca('proposalCards.listingPreview.profileBuyersAction')}
                         </button>
@@ -670,7 +670,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                               `Prepare a private marketplace listing draft for ${subject}.`
                             )
                           }
-                          className="text-foreground/55 hover:text-foreground/75 transition-colors"
+                          className="inline-flex min-h-11 items-center rounded-full px-3 text-foreground/55 hover:text-foreground/75 transition-colors sm:min-h-0 sm:px-0"
                         >
                           {ca('proposalCards.listingPreview.createDraftAction')}
                         </button>
@@ -766,7 +766,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                             : `Prepare a private marketplace listing draft for ${subject}.`
                         )
                       }
-                      className="text-primary/85 hover:text-primary transition-colors font-medium"
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
                     >
                       {hasListingGaps
                         ? ca('proposalCards.buyerProfile.resolveGapsAction')
@@ -833,7 +833,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                             onSendFollowUp(`Use business type ${result.title} (${result.id})`)
                           }}
                           disabled={typeof onSendFollowUp !== 'function'}
-                          className="w-full text-left rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035]"
+                          className="min-h-11 w-full text-left rounded-md bg-foreground/[0.035] px-3 py-2 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035] sm:min-h-0 sm:px-2 sm:py-1.5"
                           aria-label={`Use business type ${result.title}`}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -937,7 +937,7 @@ export function ChatAssistantAdvisoryPreviewCards({
                             onSendFollowUp(`Use ${hit.companyName} (${ref})`)
                           }}
                           disabled={typeof onSendFollowUp !== 'function'}
-                          className="w-full text-left rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035]"
+                          className="min-h-11 w-full text-left rounded-md bg-foreground/[0.035] px-3 py-2 text-xs hover:bg-foreground/[0.06] active:bg-foreground/[0.08] focus:outline-none focus:bg-foreground/[0.06] transition-colors disabled:cursor-default disabled:opacity-70 disabled:hover:bg-foreground/[0.035] sm:min-h-0 sm:px-2 sm:py-1.5"
                           aria-label={`Use ${hit.companyName}`}
                         >
                           <div className="flex items-center justify-between gap-2">

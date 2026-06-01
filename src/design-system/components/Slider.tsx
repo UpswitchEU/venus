@@ -72,6 +72,12 @@ const sliderThumbVariants = cva(
   }
 )
 
+function sliderThumbVisualSize(size: SliderProps['size']): string {
+  if (size === 'sm') return 'h-4 w-4'
+  if (size === 'lg') return 'h-6 w-6'
+  return 'h-5 w-5'
+}
+
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
@@ -157,20 +163,23 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
     const clampedValue = Math.min(max, Math.max(min, value))
     const percentage = ((clampedValue - min) / (max - min)) * 100
 
-    const updateValue = (clientX: number) => {
-      if (disabled || !trackRef.current) return
+    const updateValue = React.useCallback(
+      (clientX: number) => {
+        if (disabled || !trackRef.current) return
 
-      const rect = trackRef.current.getBoundingClientRect()
-      const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      const rawValue = min + percent * (max - min)
-      const steppedValue = Math.round(rawValue / step) * step
-      const newValue = Math.min(max, Math.max(min, steppedValue))
+        const rect = trackRef.current.getBoundingClientRect()
+        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+        const rawValue = min + percent * (max - min)
+        const steppedValue = Math.round(rawValue / step) * step
+        const newValue = Math.min(max, Math.max(min, steppedValue))
 
-      if (!isControlled) {
-        setInternalValue(newValue)
-      }
-      onChange?.(newValue)
-    }
+        if (!isControlled) {
+          setInternalValue(newValue)
+        }
+        onChange?.(newValue)
+      },
+      [disabled, isControlled, max, min, onChange, step]
+    )
 
     const handleMouseDown = (e: React.MouseEvent) => {
       if (disabled) return
@@ -272,7 +281,11 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           ref={trackRef}
           className={cn(
             'relative flex items-center cursor-pointer',
-            size === 'sm' ? 'h-5' : size === 'lg' ? 'h-7' : 'h-6',
+            size === 'sm'
+              ? 'min-h-11 sm:h-5'
+              : size === 'lg'
+                ? 'min-h-11 sm:h-7'
+                : 'min-h-11 sm:h-6',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
           onMouseDown={handleMouseDown}
@@ -304,21 +317,8 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
 
           <motion.div
             className={cn(
-              'absolute top-1/2 z-10',
-              'rounded-full bg-background',
-              'shadow-md cursor-grab active:cursor-grabbing',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background',
-              'transition-shadow',
-              size === 'sm'
-                ? 'w-4 h-4 border-2'
-                : size === 'lg'
-                  ? 'w-6 h-6 border-[3px]'
-                  : 'w-5 h-5 border-2',
-              variant === 'success'
-                ? 'border-success'
-                : variant === 'accent'
-                  ? 'border-accent'
-                  : 'border-primary',
+              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
+              'cursor-grab active:cursor-grabbing touch-manipulation',
               disabled && 'cursor-not-allowed'
             )}
             initial={false}
@@ -331,6 +331,18 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
             whileHover={!disabled ? { scale: 1.1 } : undefined}
             whileTap={!disabled ? { scale: 0.95 } : undefined}
           >
+            <span
+              className={cn(
+                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
+                sliderThumbVisualSize(size),
+                variant === 'success'
+                  ? 'border-success'
+                  : variant === 'accent'
+                    ? 'border-accent'
+                    : 'border-primary'
+              )}
+              aria-hidden="true"
+            />
             {showTooltip && isDragging && (
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
@@ -399,41 +411,58 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
     const minPercent = ((minVal - min) / (max - min)) * 100
     const maxPercent = ((maxVal - min) / (max - min)) * 100
 
-    const updateValue = (clientX: number, thumbIndex: 0 | 1) => {
-      if (disabled || !trackRef.current) return
+    const updateValue = React.useCallback(
+      (clientX: number, thumbIndex: 0 | 1) => {
+        if (disabled || !trackRef.current) return
 
-      const rect = trackRef.current.getBoundingClientRect()
-      const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      const rawValue = min + percent * (max - min)
-      const steppedValue = Math.round(rawValue / step) * step
+        const rect = trackRef.current.getBoundingClientRect()
+        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+        const rawValue = min + percent * (max - min)
+        const steppedValue = Math.round(rawValue / step) * step
 
-      let newValue: [number, number] = [...value] as [number, number]
+        let newValue: [number, number] = [...value] as [number, number]
 
-      if (thumbIndex === 0) {
-        newValue[0] = Math.min(steppedValue, value[1] - minDistance)
-        newValue[0] = Math.max(min, newValue[0])
-      } else {
-        newValue[1] = Math.max(steppedValue, value[0] + minDistance)
-        newValue[1] = Math.min(max, newValue[1])
-      }
+        if (thumbIndex === 0) {
+          newValue[0] = Math.min(steppedValue, value[1] - minDistance)
+          newValue[0] = Math.max(min, newValue[0])
+        } else {
+          newValue[1] = Math.max(steppedValue, value[0] + minDistance)
+          newValue[1] = Math.min(max, newValue[1])
+        }
 
-      if (!isControlled) {
-        setInternalValue(newValue)
-      }
-      onChange?.(newValue)
-    }
+        if (!isControlled) {
+          setInternalValue(newValue)
+        }
+        onChange?.(newValue)
+      },
+      [disabled, isControlled, max, min, minDistance, onChange, step, value]
+    )
 
     const handleThumbMouseDown = (e: React.MouseEvent, thumbIndex: 0 | 1) => {
       if (disabled) return
       e.preventDefault()
       e.stopPropagation()
       setActiveThumb(thumbIndex)
+      updateValue(e.clientX, thumbIndex)
+    }
+
+    const handleThumbTouchStart = (e: React.TouchEvent, thumbIndex: 0 | 1) => {
+      if (disabled) return
+      e.preventDefault()
+      e.stopPropagation()
+      setActiveThumb(thumbIndex)
+      const touch = e.touches[0]
+      if (touch) updateValue(touch.clientX, thumbIndex)
     }
 
     React.useEffect(() => {
       if (activeThumb === null) return
 
       const handleMouseMove = (e: MouseEvent) => updateValue(e.clientX, activeThumb)
+      const handleTouchMove = (e: TouchEvent) => {
+        const touch = e.touches[0]
+        if (touch) updateValue(touch.clientX, activeThumb)
+      }
 
       const handleEnd = () => {
         setActiveThumb(null)
@@ -442,10 +471,14 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
 
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mouseup', handleEnd)
+      window.addEventListener('touchmove', handleTouchMove)
+      window.addEventListener('touchend', handleEnd)
 
       return () => {
         window.removeEventListener('mousemove', handleMouseMove)
         window.removeEventListener('mouseup', handleEnd)
+        window.removeEventListener('touchmove', handleTouchMove)
+        window.removeEventListener('touchend', handleEnd)
       }
     }, [activeThumb, isControlled, controlledValue, internalValue, onChangeEnd, updateValue])
 
@@ -470,7 +503,11 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
           ref={trackRef}
           className={cn(
             'relative flex items-center cursor-pointer',
-            size === 'sm' ? 'h-5' : size === 'lg' ? 'h-7' : 'h-6',
+            size === 'sm'
+              ? 'min-h-11 sm:h-5'
+              : size === 'lg'
+                ? 'min-h-11 sm:h-7'
+                : 'min-h-11 sm:h-6',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
@@ -494,19 +531,8 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
           {/* Min Thumb */}
           <motion.div
             className={cn(
-              'absolute top-1/2 z-10',
-              'rounded-full bg-background',
-              'shadow-md cursor-grab active:cursor-grabbing',
-              size === 'sm'
-                ? 'w-4 h-4 border-2'
-                : size === 'lg'
-                  ? 'w-6 h-6 border-[3px]'
-                  : 'w-5 h-5 border-2',
-              variant === 'success'
-                ? 'border-success'
-                : variant === 'accent'
-                  ? 'border-accent'
-                  : 'border-primary',
+              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
+              'cursor-grab active:cursor-grabbing touch-manipulation',
               disabled && 'cursor-not-allowed'
             )}
             initial={false}
@@ -519,7 +545,20 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
             whileHover={!disabled ? { scale: 1.1 } : undefined}
             whileTap={!disabled ? { scale: 0.95 } : undefined}
             onMouseDown={(e) => handleThumbMouseDown(e, 0)}
+            onTouchStart={(e) => handleThumbTouchStart(e, 0)}
           >
+            <span
+              className={cn(
+                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
+                sliderThumbVisualSize(size),
+                variant === 'success'
+                  ? 'border-success'
+                  : variant === 'accent'
+                    ? 'border-accent'
+                    : 'border-primary'
+              )}
+              aria-hidden="true"
+            />
             {showTooltip && activeThumb === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
@@ -539,19 +578,8 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
           {/* Max Thumb */}
           <motion.div
             className={cn(
-              'absolute top-1/2 z-10',
-              'rounded-full bg-background',
-              'shadow-md cursor-grab active:cursor-grabbing',
-              size === 'sm'
-                ? 'w-4 h-4 border-2'
-                : size === 'lg'
-                  ? 'w-6 h-6 border-[3px]'
-                  : 'w-5 h-5 border-2',
-              variant === 'success'
-                ? 'border-success'
-                : variant === 'accent'
-                  ? 'border-accent'
-                  : 'border-primary',
+              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
+              'cursor-grab active:cursor-grabbing touch-manipulation',
               disabled && 'cursor-not-allowed'
             )}
             initial={false}
@@ -564,7 +592,20 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
             whileHover={!disabled ? { scale: 1.1 } : undefined}
             whileTap={!disabled ? { scale: 0.95 } : undefined}
             onMouseDown={(e) => handleThumbMouseDown(e, 1)}
+            onTouchStart={(e) => handleThumbTouchStart(e, 1)}
           >
+            <span
+              className={cn(
+                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
+                sliderThumbVisualSize(size),
+                variant === 'success'
+                  ? 'border-success'
+                  : variant === 'accent'
+                    ? 'border-accent'
+                    : 'border-primary'
+              )}
+              aria-hidden="true"
+            />
             {showTooltip && activeThumb === 1 && (
               <motion.div
                 initial={{ opacity: 0, y: 4 }}

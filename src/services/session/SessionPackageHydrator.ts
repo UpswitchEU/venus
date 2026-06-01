@@ -34,6 +34,7 @@ import {
   buildNormalizationItemsFromImportedLedgerAnalysis,
   buildReportedEbitdaByYearFromFormRecords,
   type ImportedLedgerAnalysisLike,
+  normalizeImportedLedgerReviewStatuses,
 } from '../../utils/importedLedgerNormalization'
 import {
   buildTaxLatencyCandidatesFromImportedLedgerAnalysis,
@@ -187,11 +188,51 @@ function hydrateTaxLatenciesFromPackage(reportId: string, raw: Record<string, un
   }
 }
 
+function buildReportedEbitdaByYearFromPackageRaw(
+  raw: Record<string, unknown>,
+  fallbackYear?: number
+): Record<number, number> {
+  const currentYearData = (raw.current_year_data ?? raw.currentYearData) as
+    | { year?: number; ebitda?: number }
+    | undefined
+  const historicalYearsData = (raw.historical_years_data ?? raw.historicalYearsData) as
+    | Array<{ year?: number; ebitda?: number }>
+    | undefined
+  const yearlyFinancials = (raw.yearlyFinancials ?? raw.yearly_financials) as
+    | Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
+    | undefined
+  const rawYearData = raw.year_data ?? raw.yearData
+  const yearData =
+    rawYearData && typeof rawYearData === 'object' && !Array.isArray(rawYearData)
+      ? (rawYearData as Record<string | number, { ebitda?: number }>)
+      : undefined
+
+  return buildReportedEbitdaByYearFromFormRecords({
+    currentYearData,
+    historicalYearsData: Array.isArray(historicalYearsData) ? historicalYearsData : undefined,
+    yearlyFinancials: Array.isArray(yearlyFinancials) ? yearlyFinancials : undefined,
+    yearData,
+    fallbackYear,
+    fallbackEbitda: Number(raw.ebitda),
+  })
+}
+
 function hydrateNormalizationsFromPackage(reportId: string, raw: Record<string, unknown>): void {
   try {
+    const businessContext = (raw.business_context ?? raw.businessContext) as
+      | Record<string, unknown>
+      | undefined
+    const analysis = (businessContext?._imported_ledger_analysis ??
+      raw._imported_ledger_analysis) as ImportedLedgerAnalysisLike | undefined
+    const reportedEbitdaByYear = buildReportedEbitdaByYearFromPackageRaw(
+      raw,
+      analysis?.latest_fiscal_year
+    )
     const recoveredNorm = recoverPendingNormalizations(reportId)
     if (recoveredNorm && recoveredNorm.length > 0) {
-      useNormalizationStore.getState().setItems(recoveredNorm)
+      useNormalizationStore
+        .getState()
+        .setItems(normalizeImportedLedgerReviewStatuses(recoveredNorm, reportedEbitdaByYear))
       return
     }
 
@@ -199,7 +240,14 @@ function hydrateNormalizationsFromPackage(reportId: string, raw: Record<string, 
       (raw as { _normalizations?: unknown })._normalizations ??
       (raw as { normalizations?: unknown }).normalizations
     if (Array.isArray(rawNormalizations) && rawNormalizations.length > 0) {
-      useNormalizationStore.getState().setItems(rawNormalizations as NormalizationItem[])
+      useNormalizationStore
+        .getState()
+        .setItems(
+          normalizeImportedLedgerReviewStatuses(
+            rawNormalizations as NormalizationItem[],
+            reportedEbitdaByYear
+          )
+        )
     }
   } catch {
     // Non-critical
@@ -238,25 +286,10 @@ function seedImportedLedgerAnalysisFromPackage(raw: Record<string, unknown>): vo
       if (ns.items.length === 0) {
         const items = buildNormalizationItemsFromImportedLedgerAnalysis({
           ...(analysis as ImportedLedgerAnalysisLike),
-          reported_ebitda_by_year: buildReportedEbitdaByYearFromFormRecords({
-            currentYearData: raw.current_year_data as { year?: number; ebitda?: number },
-            historicalYearsData: Array.isArray(raw.historical_years_data)
-              ? (raw.historical_years_data as Array<{ year?: number; ebitda?: number }>)
-              : undefined,
-            yearlyFinancials: Array.isArray(raw.yearlyFinancials)
-              ? (raw.yearlyFinancials as Array<{
-                  year?: number | string
-                  ebitda?: number
-                  isForecast?: boolean
-                }>)
-              : undefined,
-            yearData:
-              raw.year_data && typeof raw.year_data === 'object'
-                ? (raw.year_data as Record<string | number, { ebitda?: number }>)
-                : undefined,
-            fallbackYear: (analysis as ImportedLedgerAnalysisLike).latest_fiscal_year,
-            fallbackEbitda: Number(raw.ebitda),
-          }),
+          reported_ebitda_by_year: buildReportedEbitdaByYearFromPackageRaw(
+            raw,
+            (analysis as ImportedLedgerAnalysisLike).latest_fiscal_year
+          ),
         })
         if (items.length > 0) {
           ns.addItems(items)

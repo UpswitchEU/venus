@@ -20,7 +20,8 @@ import type {
   NormalizationItem,
   NormalizationSource,
   NormalizationStatus,
-} from '../components/calculator/UnifiedNormalizationModal'
+} from '../components/calculator/UnifiedNormalizationTypes'
+import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 import type {
   ConfidenceScoreValue,
@@ -108,16 +109,14 @@ function isNormalizationItem(value: unknown): value is NormalizationItem {
   return isRecord(value) && typeof value.id === 'string'
 }
 
-function isImportedLedgerNormalizationItem(item: NormalizationItem): boolean {
-  return item.id.startsWith('imported_sde_')
-}
-
 function markNormalizationReviewedIfImported(item: NormalizationItem): Partial<NormalizationItem> {
-  return isImportedLedgerNormalizationItem(item) ? { reviewedAt: new Date().toISOString() } : {}
+  return requiresIndividualImportedNormalizationReview(item)
+    ? { reviewedAt: new Date().toISOString() }
+    : {}
 }
 
 function clearImportedNormalizationReview(item: NormalizationItem): Partial<NormalizationItem> {
-  return isImportedLedgerNormalizationItem(item) ? { reviewedAt: undefined } : {}
+  return requiresIndividualImportedNormalizationReview(item) ? { reviewedAt: undefined } : {}
 }
 
 function toBackendNormalizationCategory(
@@ -334,11 +333,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
           (state) => ({
             items: state.items.map((n) =>
               ids.includes(n.id)
-                ? {
-                    ...n,
-                    status: 'accepted' as NormalizationStatus,
-                    ...markNormalizationReviewedIfImported(n),
-                  }
+                ? requiresIndividualImportedNormalizationReview(n) && n.status !== 'accepted'
+                  ? n
+                  : {
+                      ...n,
+                      status: 'accepted' as NormalizationStatus,
+                      ...markNormalizationReviewedIfImported(n),
+                    }
                 : n
             ),
           }),

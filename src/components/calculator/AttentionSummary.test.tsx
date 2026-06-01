@@ -87,6 +87,19 @@ describe('AttentionSummary', () => {
     expect(screen.queryByRole('button', { name: /caveat/i })).not.toBeInTheDocument()
   })
 
+  it('does not render title-only warnings as inert buttons', () => {
+    const titleOnlyWarning: QualityWarning = {
+      type: 'title_only',
+      severity: 'low',
+      message: 'Documentation note',
+    }
+
+    render(<AttentionSummary startupIssues={[]} qualityWarnings={[titleOnlyWarning]} />)
+
+    expect(screen.getByText('Documentation note')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Documentation note' })).not.toBeInTheDocument()
+  })
+
   it('collapses to a summary bar when there are 2+ items and shows blocker count', () => {
     render(
       <AttentionSummary

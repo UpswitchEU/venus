@@ -148,6 +148,7 @@ export function AttentionSummary({
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    void fingerprint
     // Functional-set bails when value is unchanged so we don't allocate a new
     // Set ref or flip `open` to the same boolean every render. The old form
     // (`setExpandedKeys(new Set())`) churned a fresh reference on every fire,
@@ -301,7 +302,7 @@ export function AttentionSummary({
             aria-expanded={open}
             aria-controls="assistant-attention-list"
             className={cn(
-              'flex-1 min-w-0 flex items-center gap-2.5 px-3.5 py-2.5',
+              'flex-1 min-w-0 flex min-h-11 items-center gap-2.5 px-3.5 py-2.5 sm:min-h-0',
               'text-left text-sm',
               'hover:bg-foreground/[0.03] transition-colors touch-manipulation'
             )}
@@ -322,7 +323,7 @@ export function AttentionSummary({
             type="button"
             onClick={handleDismissAll}
             className={cn(
-              'shrink-0 px-3 text-xs text-foreground/55 hover:text-foreground/85',
+              'shrink-0 min-h-11 px-3 text-xs text-foreground/55 hover:text-foreground/85 sm:min-h-0',
               'hover:bg-foreground/[0.04] border-l border-foreground/[0.06]',
               'transition-colors touch-manipulation'
             )}
@@ -435,21 +436,28 @@ function AttentionCard({
   const quickFixIsPrimary = hasQuickFix && !hasResolve
 
   const primaryButtonClass = cn(
-    'rounded-full px-2.5 py-0.5 text-xs font-medium',
+    'min-h-11 rounded-full px-3.5 py-1.5 text-xs font-medium sm:min-h-0 sm:px-2.5 sm:py-0.5',
     'bg-primary/10 text-primary/90 border border-primary/15',
     'hover:bg-primary/15 hover:text-primary hover:border-primary/25 transition-colors',
     'touch-manipulation'
   )
   const secondaryButtonClass = cn(
-    'rounded-full px-2.5 py-0.5 text-xs',
+    'min-h-11 rounded-full px-3.5 py-1.5 text-xs sm:min-h-0 sm:px-2.5 sm:py-0.5',
     'bg-foreground/[0.04] text-foreground/75 border border-foreground/[0.08]',
     'hover:bg-foreground/[0.08] hover:text-foreground hover:border-foreground/[0.14] transition-colors',
     'touch-manipulation'
   )
   const linkButtonClass = cn(
-    'rounded-full px-2.5 py-0.5 text-xs',
+    'min-h-11 rounded-full px-3.5 py-1.5 text-xs sm:min-h-0 sm:px-2.5 sm:py-0.5',
     'text-foreground/55 hover:text-foreground/85 hover:bg-foreground/[0.04] transition-colors',
     'touch-manipulation'
+  )
+  const titleClassName = cn(
+    'flex-1 min-w-0 text-left text-sm leading-snug text-foreground/90',
+    // Title clamp keeps a 200-char engine message from eating the panel.
+    // When a body exists, tapping reveals the full context below.
+    !isOpen && 'line-clamp-2',
+    hasBody && 'cursor-pointer hover:text-foreground touch-manipulation'
   )
 
   return (
@@ -468,26 +476,26 @@ function AttentionCard({
           className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', SEVERITY_DOT[item.severity])}
           aria-hidden
         />
-        <button
-          type="button"
-          onClick={hasBody ? onToggle : undefined}
-          className={cn(
-            'flex-1 min-w-0 text-left text-sm leading-snug text-foreground/90',
-            // Title clamp keeps a 200-char engine message from eating the
-            // panel; full body is reachable by tap when present.
-            !isOpen && 'line-clamp-2',
-            hasBody && 'cursor-pointer hover:text-foreground touch-manipulation'
-          )}
-          aria-expanded={hasBody ? isOpen : undefined}
-        >
-          {item.title}
-        </button>
+        {hasBody ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className={titleClassName}
+            aria-expanded={isOpen}
+          >
+            {item.title}
+          </button>
+        ) : (
+          <p className={titleClassName} title={item.title}>
+            {item.title}
+          </p>
+        )}
         <button
           type="button"
           onClick={onDismiss}
           aria-label={dismissLabel}
           className={cn(
-            'shrink-0 h-6 w-6 rounded-md flex items-center justify-center',
+            'shrink-0 h-11 w-11 rounded-md flex items-center justify-center sm:h-6 sm:w-6',
             'text-foreground/30 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors',
             'touch-manipulation'
           )}
@@ -632,7 +640,7 @@ function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps
                 }
                 disabled={submitting}
                 placeholder="0"
-                className="w-full bg-transparent py-1.5 pr-2.5 text-sm text-foreground tabular-nums outline-none disabled:opacity-50"
+                className="min-h-11 w-full bg-transparent py-2 pr-2.5 text-sm text-foreground tabular-nums outline-none disabled:opacity-50 sm:min-h-0 sm:py-1.5"
               />
             </div>
           </label>
@@ -644,7 +652,7 @@ function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps
             onClick={handleApply}
             disabled={submitting || !anyFilled}
             className={cn(
-              'rounded-full px-3 py-1 text-xs font-medium transition-colors touch-manipulation',
+              'min-h-11 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1',
               'bg-primary text-primary-foreground hover:bg-primary/90',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
@@ -656,7 +664,7 @@ function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps
             onClick={onCancel}
             disabled={submitting}
             className={cn(
-              'rounded-full px-2.5 py-1 text-xs text-foreground/55',
+              'min-h-11 rounded-full px-3.5 py-1.5 text-xs text-foreground/55 sm:min-h-0 sm:px-2.5 sm:py-1',
               'hover:text-foreground/85 hover:bg-foreground/[0.04] transition-colors touch-manipulation',
               'disabled:opacity-50'
             )}

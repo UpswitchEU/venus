@@ -167,7 +167,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
           <button
             type="button"
             onClick={applySectorDefaultY5}
-            className="rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary/[0.08]"
+            className="min-h-11 rounded-lg border border-primary/40 bg-primary/[0.04] px-3 py-2 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary/[0.08]"
           >
             {t('sectorDefaultBtn', { amount: formatEur(sectorDefaultY5) })}
           </button>
@@ -280,7 +280,7 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
                   type="button"
                   onClick={() => setField('target_roi_x', value)}
                   className={[
-                    'rounded-md px-2.5 py-1.5 text-[11px] font-medium transition tabular-nums',
+                    'min-h-11 rounded-md px-3 py-2 text-[11px] font-medium transition tabular-nums sm:min-h-0 sm:px-2.5 sm:py-1.5',
                     isActive
                       ? 'bg-primary text-primary-foreground'
                       : 'border border-foreground/15 bg-background text-foreground/75 hover:border-primary/50 hover:text-primary',

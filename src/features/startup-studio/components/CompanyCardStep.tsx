@@ -779,7 +779,7 @@ function SectorChip({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="ml-auto rounded-md border border-foreground/15 bg-background px-2 py-0.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary"
+          className="ml-auto min-h-11 rounded-md border border-foreground/15 bg-background px-3 py-1.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary sm:min-h-0 sm:px-2 sm:py-0.5"
         >
           {t('sectorChipChange')}
         </button>
@@ -804,7 +804,7 @@ function SectorChip({
                 setEditing(false)
               }}
               className={[
-                'rounded-md px-2 py-1.5 text-[11px] font-medium transition',
+                'min-h-11 rounded-md px-3 py-2 text-[11px] font-medium transition sm:min-h-0 sm:px-2 sm:py-1.5',
                 isSelected
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-foreground/15 bg-background text-foreground/75 hover:border-primary/50 hover:text-primary',

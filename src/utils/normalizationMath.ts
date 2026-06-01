@@ -1,4 +1,5 @@
-import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
+import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
 
 /** Whether an accepted normalization item applies to a given year. Single source of truth. */
 export function appliesToYear(item: NormalizationItem, year: number): boolean {
@@ -326,7 +327,8 @@ export function findAcceptedAutoNormalizationCapBreaches(options: {
 
   for (const item of items) {
     if (item.status !== 'accepted') continue
-    const isAutoImported = item.source === 'auto' || item.id.startsWith('imported_sde_')
+    const isAutoImported =
+      item.source === 'auto' || requiresIndividualImportedNormalizationReview(item)
     if (!isAutoImported) continue
 
     const years = item.applyAllYears

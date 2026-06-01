@@ -260,7 +260,7 @@ export function LandingStartupContent() {
       <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section
           aria-label={tLanding('wizardAriaLabel')}
-          className="aurora-theme space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-6"
+          className="aurora-theme min-w-0 space-y-6 rounded-2xl border border-foreground/[0.08] bg-background/80 p-4 sm:p-6"
         >
           {/* Live blend pill + EV/Revenue method header.  Same component
               the authenticated `StartupValuationPanel` uses so anonymous
@@ -294,7 +294,7 @@ export function LandingStartupContent() {
           })}
         </section>
 
-        <aside className="lg:sticky lg:top-6 lg:h-fit">
+        <aside className="min-w-0 lg:sticky lg:top-6 lg:h-fit">
           <div className="space-y-4 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] p-5 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
               {tLanding('rightRail.title')}
@@ -336,7 +336,7 @@ export function LandingStartupContent() {
               {tLanding('rightRail.legalAlready')}{' '}
               <a
                 href={`${getMercuryUrl()}/${locale}/auth/login`}
-                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center px-2 font-medium text-primary underline underline-offset-2 hover:text-primary/80 sm:min-h-0 sm:min-w-0 sm:px-0"
               >
                 {tLanding('rightRail.legalLogin')}
               </a>

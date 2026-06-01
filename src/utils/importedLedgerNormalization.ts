@@ -7,7 +7,8 @@
  * remain pending review.
  */
 
-import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
+import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
 import { isMarPersonnelSocialChargesBucket } from '../lib/mar/marAccountCodes'
 import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { getCurrentFilingYear } from './fiscalYear'
@@ -134,8 +135,13 @@ export function normalizeImportedLedgerReviewStatuses(
 ): NormalizationItem[] {
   let changed = false
   const next = items.map((item) => {
-    const isImported = item.id.startsWith('imported_sde_')
-    if (!isImported || item.status !== 'accepted' || importedItemReviewed(item)) return item
+    if (
+      !requiresIndividualImportedNormalizationReview(item) ||
+      item.status !== 'accepted' ||
+      importedItemReviewed(item)
+    ) {
+      return item
+    }
 
     const targetYears = importedItemTargetYears(item)
     const yearsToCheck =

@@ -274,7 +274,7 @@ export function PresetPicker(_props: PresetPickerProps) {
               onFocus={() => setHovered(key)}
               onBlur={() => setHovered((h) => (h === key ? null : h))}
               className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                'inline-flex min-h-[44px] items-center gap-1 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-0 sm:px-2.5 sm:py-1',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                 isActive
                   ? 'border-primary bg-primary/10 text-primary'
@@ -291,7 +291,7 @@ export function PresetPicker(_props: PresetPickerProps) {
           <button
             type="button"
             onClick={handleClear}
-            className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-background/60 px-2.5 py-1 text-xs font-medium text-foreground/65 transition-colors hover:border-rose-300 hover:bg-rose-50/40 hover:text-rose-700 dark:hover:border-rose-700/40 dark:hover:bg-rose-950/30 dark:hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-foreground/15 bg-background/60 px-3.5 py-1.5 text-xs font-medium text-foreground/65 transition-colors hover:border-rose-300 hover:bg-rose-50/40 hover:text-rose-700 dark:hover:border-rose-700/40 dark:hover:bg-rose-950/30 dark:hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 sm:min-h-0 sm:px-2.5 sm:py-1"
             title={t('clearTooltip')}
             aria-label={t('clearAria')}
           >

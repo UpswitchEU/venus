@@ -21,6 +21,29 @@ const importedPendingItem: NormalizationItem = {
   confidence: 'high',
 }
 
+const manualPendingItem: NormalizationItem = {
+  id: 'manual-rent-2021',
+  ledgerCode: '610100',
+  ledgerName: 'Rent',
+  category: 'rent',
+  type: 'add',
+  value: 10_000,
+  adjustment: 10_000,
+  reason: 'Manual correction',
+  source: 'manual',
+  status: 'pending',
+  applyAllYears: false,
+  year: 2021,
+  confidence: 'medium',
+}
+
+const accountingImportPendingItem: NormalizationItem = {
+  ...importedPendingItem,
+  id: 'yuki-row-610000',
+  source: 'yuki',
+  sourceRef: 'Yuki',
+}
+
 describe('useManualNormalizationState', () => {
   beforeEach(() => {
     useNormalizationStore.getState().clear()
@@ -56,5 +79,32 @@ describe('useManualNormalizationState', () => {
     const rejected = useNormalizationStore.getState().items[0]
     expect(rejected.status).toBe('rejected')
     expect(rejected.reviewedAt).toBeUndefined()
+  })
+
+  it('does not bulk-accept imported ledger review items', () => {
+    useNormalizationStore
+      .getState()
+      .setItems([importedPendingItem, accountingImportPendingItem, manualPendingItem])
+
+    useNormalizationStore.getState().bulkAccept([importedPendingItem.id, manualPendingItem.id])
+    useNormalizationStore.getState().bulkAccept([accountingImportPendingItem.id])
+
+    const items = useNormalizationStore.getState().items
+    expect(items).toEqual([
+      expect.objectContaining({
+        id: importedPendingItem.id,
+        status: 'pending',
+      }),
+      expect.objectContaining({
+        id: accountingImportPendingItem.id,
+        status: 'pending',
+      }),
+      expect.objectContaining({
+        id: manualPendingItem.id,
+        status: 'accepted',
+      }),
+    ])
+    expect(items[0]?.reviewedAt).toBeUndefined()
+    expect(items[1]?.reviewedAt).toBeUndefined()
   })
 })

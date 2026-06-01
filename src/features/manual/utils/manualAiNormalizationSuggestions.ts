@@ -2,7 +2,6 @@ import type {
   ChatMessage,
   NormalizationItem,
   NormalizationSource,
-  NormalizationStatus,
   SuggestedNormalisation,
 } from '@/components/calculator'
 import { mapBackendCategoryToFrontend } from '@/store/useNormalizationStore'
@@ -53,8 +52,6 @@ const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>
   'other',
 ])
 
-const NORMALIZATION_STATUSES = new Set<NormalizationStatus>(['pending', 'accepted', 'rejected'])
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
@@ -77,12 +74,6 @@ function readFrontendCategory(value: unknown): NormalizationItem['category'] {
     FRONTEND_NORMALIZATION_CATEGORIES.has(value as NormalizationItem['category'])
     ? (value as NormalizationItem['category'])
     : 'other'
-}
-
-function readNormalizationStatus(value: unknown): NormalizationStatus {
-  return typeof value === 'string' && NORMALIZATION_STATUSES.has(value as NormalizationStatus)
-    ? (value as NormalizationStatus)
-    : 'pending'
 }
 
 export function buildSuggestedNormalisationsFromItems(
@@ -140,7 +131,7 @@ export function buildManualImportedNormalizationSuggestions({
       reason: readString(record.reason) || '',
       source,
       sourceRef: readString(record.sourceRef) || sourceLabel,
-      status: readNormalizationStatus(record.status),
+      status: 'pending',
       applyAllYears: false,
       year: filingYear,
     }

@@ -12,7 +12,10 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationTypes'
-import { isImportedLedgerNormalizationItem } from './UnifiedNormalizationTypes'
+import {
+  isImportedLedgerNormalizationItem,
+  requiresIndividualImportedNormalizationReview,
+} from './UnifiedNormalizationTypes'
 
 const sourceConfig: Record<NormalizationSource, { labelKey: string; color: string }> = {
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
@@ -80,13 +83,14 @@ export function CompactTableRow({
   const tCommon = useTranslations('common.actions')
   const sourceBase = sourceConfig[item.source] || sourceConfig.manual
   const isImportedLedger = isImportedLedgerNormalizationItem(item)
+  const requiresImportReview = requiresIndividualImportedNormalizationReview(item)
   const source = isImportedLedger
     ? {
         labelKey: 'sources.importedLedger' as const,
         color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
       }
     : sourceBase
-  const appliedStatusLabel = isImportedLedger ? nh('statusApplied') : nh('statusOk')
+  const appliedStatusLabel = requiresImportReview ? nh('accepted') : nh('statusOk')
 
   // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
   const displayAdjustment = useMemo(() => {
