@@ -12,17 +12,17 @@
  * @module lib/bootstrap/SessionBootstrapService
  */
 
+import { getMercuryUrl } from '../../utils/getMercuryUrl'
+import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
+import { getInitTraceId } from '../auth'
 import {
   buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
   isDelegatedMercuryAccountantHandoff,
   shouldWaitForMercuryClientContextBeforeBootstrap,
 } from '../mercury/sessionReadiness'
-import { getMercuryUrl } from '../../utils/getMercuryUrl'
-import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
-import { getInitTraceId } from '../auth'
-import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
 import { VENUS_BOOTSTRAP_CLIENT_ABORT_MS } from './bootstrapProxyTimeouts'
 import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from './bootstrapUserMessages'
+import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
@@ -77,6 +77,9 @@ export class SessionBootstrapService {
 
   // In-flight bootstrap cache to prevent duplicate requests
   private bootstrapPromiseCache: Map<string, Promise<SessionBootstrapState>> = new Map()
+  private bootstrapAbortControllers: Set<AbortController> = new Set()
+  private responseAbortControllers: WeakMap<Response, AbortController> = new WeakMap()
+  private bootstrapCancellationEpoch = 0
 
   // Sliding-window rate limiter: allows legitimate calls (SPA navigations)
   // but blocks rapid-fire calls from remount loops.
@@ -490,9 +493,13 @@ export class SessionBootstrapService {
     const maxRetries = 2
     const baseDelay = 500
     const clientAbortMs = VENUS_BOOTSTRAP_CLIENT_ABORT_MS
+    const cancellationEpoch = this.bootstrapCancellationEpoch
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      this.throwIfBootstrapRequestCancelled(cancellationEpoch)
+
       const controller = new AbortController()
+      this.bootstrapAbortControllers.add(controller)
       const timeoutId = setTimeout(() => controller.abort(), clientAbortMs)
 
       try {
@@ -513,31 +520,41 @@ export class SessionBootstrapService {
           response.status !== 504 &&
           attempt < maxRetries - 1
         ) {
+          this.bootstrapAbortControllers.delete(controller)
           const delay = baseDelay * Math.pow(2, attempt)
           this.logger.warn(
             `[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
           )
           await new Promise((r) => setTimeout(r, delay))
+          this.throwIfBootstrapRequestCancelled(cancellationEpoch)
           continue
         }
 
         // 408 timeout — retryable. 504 from Venus BFF means Titan already exceeded
         // the proxy budget; a client retry would double total wait (~56s+).
         if (response.status === 408 && attempt < maxRetries - 1) {
+          this.bootstrapAbortControllers.delete(controller)
           const delay = baseDelay * Math.pow(2, attempt)
           this.logger.warn(
             `[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
           )
           await new Promise((r) => setTimeout(r, delay))
+          this.throwIfBootstrapRequestCancelled(cancellationEpoch)
           continue
         }
 
+        this.responseAbortControllers.set(response, controller)
         return response
       } catch (fetchError) {
         clearTimeout(timeoutId)
+        this.bootstrapAbortControllers.delete(controller)
 
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        if (this.isAbortError(fetchError)) {
           throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+        }
+
+        if (fetchError instanceof Error && fetchError.message === BOOTSTRAP_TIMEOUT_USER_MESSAGE) {
+          throw fetchError
         }
 
         if (attempt < maxRetries - 1) {
@@ -546,6 +563,7 @@ export class SessionBootstrapService {
             `[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
           )
           await new Promise((r) => setTimeout(r, delay))
+          this.throwIfBootstrapRequestCancelled(cancellationEpoch)
           continue
         }
 
@@ -554,6 +572,68 @@ export class SessionBootstrapService {
     }
 
     throw new Error('Bootstrap failed after all retries')
+  }
+
+  private getClientBodyBudgetMs(startTime: number): number {
+    return Math.max(1_000, VENUS_BOOTSTRAP_CLIENT_ABORT_MS - (performance.now() - startTime))
+  }
+
+  private throwIfBootstrapRequestCancelled(cancellationEpoch: number): void {
+    if (cancellationEpoch !== this.bootstrapCancellationEpoch) {
+      throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+    }
+  }
+
+  private isAbortError(error: unknown): boolean {
+    return (
+      (error instanceof DOMException && error.name === 'AbortError') ||
+      (error instanceof Error && error.name === 'AbortError')
+    )
+  }
+
+  private releaseResponseAbortController(response?: Response): void {
+    if (!response) return
+    const controller = this.responseAbortControllers.get(response)
+    if (!controller) return
+    this.bootstrapAbortControllers.delete(controller)
+    this.responseAbortControllers.delete(response)
+  }
+
+  private async readResponseBodyWithinClientBudget<T>(
+    operation: () => Promise<T>,
+    startTime: number,
+    traceId: string,
+    label: string,
+    response?: Response
+  ): Promise<T> {
+    const timeoutMs = this.getClientBodyBudgetMs(startTime)
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const controller = response ? this.responseAbortControllers.get(response) : undefined
+
+    try {
+      return await Promise.race([
+        operation(),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            this.logger.warn(`[Bootstrap:${traceId}] Response ${label} exceeded client budget`, {
+              timeoutMs: Math.round(timeoutMs),
+            })
+            controller?.abort()
+            reject(new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE))
+          }, timeoutMs)
+        }),
+      ])
+    } catch (error) {
+      if (this.isAbortError(error)) {
+        throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+      }
+      throw error
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      this.releaseResponseAbortController(response)
+    }
   }
 
   /**
@@ -581,6 +661,11 @@ export class SessionBootstrapService {
 
   /** Drop in-flight bootstrap promises (e.g. after deleting the active report). */
   clearInflightCache(): void {
+    this.bootstrapCancellationEpoch += 1
+    for (const controller of this.bootstrapAbortControllers) {
+      controller.abort()
+    }
+    this.bootstrapAbortControllers.clear()
     this.bootstrapPromiseCache.clear()
   }
 
@@ -876,7 +961,13 @@ export class SessionBootstrapService {
       })
 
       if (!response.ok) {
-        lastErrorText = await response.text()
+        lastErrorText = await this.readResponseBodyWithinClientBudget(
+          () => response.text(),
+          startTime,
+          traceId,
+          'error body',
+          response
+        )
         this.logger.error('[Bootstrap] Bootstrap API failed', {
           status: response.status,
           statusText: response.statusText,
@@ -905,8 +996,17 @@ export class SessionBootstrapService {
 
       let data: TitanBootstrapResponsePayload
       try {
-        data = (await response.json()) as TitanBootstrapResponsePayload
-      } catch {
+        data = await this.readResponseBodyWithinClientBudget(
+          () => response.json() as Promise<TitanBootstrapResponsePayload>,
+          startTime,
+          traceId,
+          'JSON body',
+          response
+        )
+      } catch (error) {
+        if (error instanceof Error && error.message === BOOTSTRAP_TIMEOUT_USER_MESSAGE) {
+          throw error
+        }
         throw new Error('Invalid response from bootstrap service')
       }
 

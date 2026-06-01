@@ -18,16 +18,16 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import { shouldWaitForMercuryClientContextBeforeBootstrap } from '../mercury/sessionReadiness'
 import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancellation'
+import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
+import { shouldWaitForMercuryClientContextBeforeBootstrap } from '../mercury/sessionReadiness'
 import { setBootstrapState } from '../sessionInitialization'
 import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
-import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { bootstrapService } from './SessionBootstrapService'
 import type {
   BootstrapContext as BootstrapContextShape,
@@ -227,6 +227,7 @@ export function BootstrapProvider({
   // Prevent duplicate bootstrap calls using refs
   const bootstrapStartedRef = useRef(false)
   const bootstrapCompletedRef = useRef(false)
+  const bootstrapRunIdRef = useRef(0)
   const _contextReportIdRef = useRef(context?.reportId)
 
   // Stable refs for parent callbacks — avoids runBootstrap re-creation
@@ -348,6 +349,7 @@ export function BootstrapProvider({
     }
 
     bootstrapStartedRef.current = true
+    const runId = ++bootstrapRunIdRef.current
     if (!mountedRef.current) return
     setIsBootstrapping(true)
     setBootstrapError(null)
@@ -370,6 +372,13 @@ export function BootstrapProvider({
       } else {
         // Use client-side resolvers (fallback)
         result = await bootstrapService.bootstrap(bootstrapContext)
+      }
+
+      if (runId !== bootstrapRunIdRef.current) {
+        generalLogger.debug('[BootstrapProvider] Ignoring stale bootstrap result', {
+          reportId: bootstrapContext.reportId?.substring(0, 30),
+        })
+        return
       }
 
       // CRITICAL VALIDATION: Ensure bootstrap returned the correct reportId
@@ -484,6 +493,13 @@ export function BootstrapProvider({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
+      if (runId !== bootstrapRunIdRef.current) {
+        generalLogger.debug('[BootstrapProvider] Ignoring stale bootstrap error', {
+          error: errorMessage,
+        })
+        return
+      }
+
       // Check if this is an authentication error that requires redirect
       if (error instanceof AuthenticationRequiredError) {
         // Navigational logout may clear cookies before the document unloads; resolver
@@ -514,7 +530,7 @@ export function BootstrapProvider({
 
       generalLogger.error('[BootstrapProvider] Bootstrap failed:', errorMessage)
     } finally {
-      if (mountedRef.current) setIsBootstrapping(false)
+      if (runId === bootstrapRunIdRef.current && mountedRef.current) setIsBootstrapping(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeContext, method, mountedRef])
@@ -528,8 +544,10 @@ export function BootstrapProvider({
     bootstrapCompletedGlobally = false
     lastGlobalResult = null
     lastGlobalContextKey = null
+    bootstrapRunIdRef.current += 1
     resetBootstrapSyncGateForRetry()
     bootstrapService.clearCache()
+    bootstrapService.clearInflightCache()
     bootstrapService.resetCircuitBreaker()
     if (mountedRef.current) {
       setBootstrapError(null)
@@ -569,9 +587,7 @@ export function BootstrapProvider({
   )
 
   const mercuryClientContextReady = useClientContext((s) =>
-    !needsMercuryClientContext
-      ? true
-      : !!(s.isActingAsClient && s.accountant && s.relationshipId)
+    !needsMercuryClientContext ? true : !!(s.isActingAsClient && s.accountant && s.relationshipId)
   )
 
   const authStoreReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)

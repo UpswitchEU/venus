@@ -16,7 +16,11 @@ import {
   remainingBootstrapRouteBudgetMs,
   VENUS_BOOTSTRAP_TOKEN_REFRESH_TIMEOUT_MS,
 } from '@/lib/bootstrap/bootstrapProxyTimeouts'
-import { AuthUpstreamTimeoutError, getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bffAuthProxy'
+import {
+  AuthUpstreamTimeoutError,
+  getBffCookieHeaderForTitan,
+  getResponseSetCookieList,
+} from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { generalLogger } from '@/utils/logger'
@@ -109,6 +113,30 @@ function isUpstreamTimeoutError(error: unknown): boolean {
     (error instanceof DOMException && error.name === 'AbortError') ||
     (error instanceof Error && error.name === 'AuthUpstreamTimeoutError')
   )
+}
+
+async function withRouteBodyBudget<T>(
+  operation: () => Promise<T>,
+  startTime: number,
+  targetHost = 'titan-bootstrap-body'
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new AuthUpstreamTimeoutError(targetHost)),
+          remainingBootstrapRouteBudgetMs(startTime)
+        )
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
 }
 
 /**
@@ -251,8 +279,14 @@ export async function POST(request: NextRequest) {
 
     let data: Record<string, unknown>
     try {
-      data = (await response.json()) as Record<string, unknown>
-    } catch {
+      data = await withRouteBodyBudget(
+        () => response.json() as Promise<Record<string, unknown>>,
+        startTime
+      )
+    } catch (error) {
+      if (isUpstreamTimeoutError(error)) {
+        throw error
+      }
       return NextResponse.json(
         {
           success: false,

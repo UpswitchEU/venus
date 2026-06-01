@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BootstrapProvider, resetBootstrapGuard, useBootstrap } from '../BootstrapProvider'
 import type { BootstrapContext, SessionBootstrapState } from '../types'
@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
     getCachedResult: vi.fn(),
     hasCompletedFor: vi.fn(),
     clearCache: vi.fn(),
+    clearInflightCache: vi.fn(),
     resetCircuitBreaker: vi.fn(),
     setBootstrapState: vi.fn(),
     setEngine: vi.fn(),
@@ -57,6 +58,7 @@ vi.mock('../SessionBootstrapService', () => ({
     bootstrap: mocks.bootstrapClient,
     bootstrapViaTitan: mocks.bootstrapViaTitan,
     clearCache: mocks.clearCache,
+    clearInflightCache: mocks.clearInflightCache,
     getCachedResult: mocks.getCachedResult,
     hasCompletedFor: mocks.hasCompletedFor,
     resetCircuitBreaker: mocks.resetCircuitBreaker,
@@ -126,11 +128,14 @@ function makeState(reportId: string): SessionBootstrapState {
 }
 
 function Probe() {
-  const { bootstrapError, isBootstrapping, report } = useBootstrap()
+  const { bootstrapError, isBootstrapping, refreshBootstrap, report } = useBootstrap()
 
   return (
     <div data-testid="report-state">
       {report.reportId}:{isBootstrapping ? 'loading' : 'ready'}:{bootstrapError ?? 'ok'}
+      <button type="button" onClick={() => void refreshBootstrap()}>
+        Retry
+      </button>
     </div>
   )
 }
@@ -310,5 +315,25 @@ describe('BootstrapProvider', () => {
     await waitFor(() => {
       expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('clears in-flight bootstrap work on explicit retry', async () => {
+    render(
+      <BootstrapProvider context={makeContext('val_retry_report')} autoBootstrap={true}>
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('report-state')).toHaveTextContent('val_retry_report:ready:ok')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => {
+      expect(mocks.clearInflightCache).toHaveBeenCalledTimes(1)
+    })
+    expect(mocks.clearCache).toHaveBeenCalled()
+    expect(mocks.resetCircuitBreaker).toHaveBeenCalled()
   })
 })

@@ -84,6 +84,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -137,6 +138,29 @@ describe('POST /api/bootstrap', () => {
     mocks.fetchWithTimeout.mockRejectedValueOnce(new AuthUpstreamTimeoutError('api.upswitch.app'))
 
     const res = await POST(makeRequest({ reportId: 'rep-1' }))
+    const payload = await res.json()
+
+    expect(res.status).toBe(504)
+    expect(payload.error).toBe('Bootstrap request timed out')
+  })
+
+  it('returns 504 when Titan response body exceeds the route budget', async () => {
+    vi.useFakeTimers()
+    mocks.fetchWithTimeout.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: vi.fn(
+        () =>
+          new Promise(() => {
+            // Intentionally never resolves; the route-level body budget must win.
+          })
+      ),
+    } as unknown as Response)
+
+    const responsePromise = POST(makeRequest({ reportId: 'rep-1' }))
+
+    await vi.advanceTimersByTimeAsync(29_000)
+    const res = await responsePromise
     const payload = await res.json()
 
     expect(res.status).toBe(504)

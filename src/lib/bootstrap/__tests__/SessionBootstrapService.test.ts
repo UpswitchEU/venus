@@ -7,7 +7,8 @@
  * @module lib/bootstrap/__tests__/SessionBootstrapService
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from '../bootstrapUserMessages'
 import { SessionBootstrapService } from '../SessionBootstrapService'
 import type { BootstrapContext, SessionBootstrapState } from '../types'
 
@@ -37,6 +38,11 @@ describe('SessionBootstrapService', () => {
       mockSessionResolver as unknown as SessionBootstrapServiceConstructorArgs[1],
       mockPrefillResolver as unknown as SessionBootstrapServiceConstructorArgs[2]
     )
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   describe('bootstrap', () => {
@@ -384,6 +390,161 @@ describe('SessionBootstrapService', () => {
 
       // Auth resolver should only be called once (deduplication)
       expect(mockAuthResolver.resolve).toHaveBeenCalledTimes(1)
+    })
+
+    it('drops stale in-flight Titan bootstrap work when explicitly cleared', async () => {
+      const context: BootstrapContext = {
+        reportId: 'val_dedup_titan',
+        locale: 'nl',
+      }
+      const never = new Promise<SessionBootstrapState>(() => {
+        // Intentionally never resolves; this pins the in-flight cache behavior.
+      })
+      const executeTitan = vi.fn(() => never)
+      ;(
+        service as unknown as {
+          _executeBootstrapViaTitan: typeof executeTitan
+        }
+      )._executeBootstrapViaTitan = executeTitan
+
+      void service.bootstrapViaTitan(context)
+      void service.bootstrapViaTitan(context)
+
+      expect(executeTitan).toHaveBeenCalledTimes(1)
+
+      service.clearInflightCache()
+      void service.bootstrapViaTitan(context)
+
+      expect(executeTitan).toHaveBeenCalledTimes(2)
+    })
+
+    it('aborts active Titan fetches when explicit retry clears in-flight work', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = (init as RequestInit | undefined)?.signal
+            signal?.addEventListener('abort', () => {
+              reject(new DOMException('Aborted', 'AbortError'))
+            })
+          })
+      )
+
+      const requestPromise = (
+        service as unknown as {
+          makeBootstrapRequest: (
+            requestBody: Record<string, unknown>,
+            headers: Record<string, string>,
+            traceId: string
+          ) => Promise<Response>
+        }
+      ).makeBootstrapRequest({}, {}, 'trace-clear')
+
+      await Promise.resolve()
+      service.clearInflightCache()
+
+      await expect(requestPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not resume a retry backoff after explicit retry clears in-flight work', async () => {
+      vi.useFakeTimers()
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(new Response('{}', { status: 500 }))
+
+      const requestPromise = (
+        service as unknown as {
+          makeBootstrapRequest: (
+            requestBody: Record<string, unknown>,
+            headers: Record<string, string>,
+            traceId: string
+          ) => Promise<Response>
+        }
+      ).makeBootstrapRequest({}, {}, 'trace-backoff-clear')
+      const assertion = expect(requestPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+
+      await Promise.resolve()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+      service.clearInflightCache()
+      await vi.advanceTimersByTimeAsync(500)
+
+      await assertion
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('bounds browser-side Titan response body reads', async () => {
+      vi.useFakeTimers()
+
+      const readPromise = (
+        service as unknown as {
+          readResponseBodyWithinClientBudget: <T>(
+            operation: () => Promise<T>,
+            startTime: number,
+            traceId: string,
+            label: string,
+            response?: Response
+          ) => Promise<T>
+        }
+      ).readResponseBodyWithinClientBudget(
+        () =>
+          new Promise(() => {
+            // Intentionally never resolves; the browser-side body budget must win.
+          }),
+        performance.now(),
+        'trace-body',
+        'JSON body'
+      )
+      const assertion = expect(readPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+
+      await vi.advanceTimersByTimeAsync(32_000)
+
+      await assertion
+    })
+
+    it('aborts in-progress Titan response body reads when explicit retry clears in-flight work', async () => {
+      const controller = new AbortController()
+      const response = new Response('{}')
+      ;(
+        service as unknown as {
+          bootstrapAbortControllers: Set<AbortController>
+          responseAbortControllers: WeakMap<Response, AbortController>
+        }
+      ).bootstrapAbortControllers.add(controller)
+      ;(
+        service as unknown as {
+          responseAbortControllers: WeakMap<Response, AbortController>
+        }
+      ).responseAbortControllers.set(response, controller)
+
+      const readPromise = (
+        service as unknown as {
+          readResponseBodyWithinClientBudget: <T>(
+            operation: () => Promise<T>,
+            startTime: number,
+            traceId: string,
+            label: string,
+            response?: Response
+          ) => Promise<T>
+        }
+      ).readResponseBodyWithinClientBudget(
+        () =>
+          new Promise((_resolve, reject) => {
+            controller.signal.addEventListener('abort', () => {
+              reject(new DOMException('Aborted', 'AbortError'))
+            })
+          }),
+        performance.now(),
+        'trace-body-clear',
+        'JSON body',
+        response
+      )
+      const assertion = expect(readPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+
+      await Promise.resolve()
+      service.clearInflightCache()
+
+      await assertion
     })
 
     it('scopes cached results to the requested report id', async () => {
