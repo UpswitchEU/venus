@@ -137,7 +137,7 @@ describe('usePreSelectedMethodSessionSync', () => {
         reportId: 'report-url-seed',
         resolvedReportId: 'report-url-seed',
         restorationComplete: true,
-        initialSelectedMethodFromUrl: 'ebitda_multiple',
+        initialSelectedMethodFromUrl: 'upswitch_adaptive',
         initialSelectedMethodsFromUrl: 'ebitda_multiple,dcf',
         firmCountryCode: 'BE',
         hasValuationResult: false,

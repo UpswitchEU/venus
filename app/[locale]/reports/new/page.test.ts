@@ -195,12 +195,12 @@ describe('/reports/new param preservation', () => {
   it('preserves blended selected_methods from Mercury advisor handoffs', async () => {
     const url = await callPage({
       source: 'mercury',
-      selected_method: 'ebitda_multiple',
+      selected_method: 'upswitch_adaptive',
       selected_methods: 'ebitda_multiple,dcf',
     })
     const u = new URL(url, 'https://example.com')
     expect(u.searchParams.get('source')).toBe('mercury')
-    expect(u.searchParams.get('selected_method')).toBe('ebitda_multiple')
+    expect(u.searchParams.get('selected_method')).toBe('upswitch_adaptive')
     expect(u.searchParams.get('selected_methods')).toBe('ebitda_multiple,dcf')
   })
 

@@ -58,13 +58,13 @@ describe('venus /calculator redirect', () => {
       params: Promise.resolve({ locale: 'en' }),
       searchParams: Promise.resolve({
         source: 'mercury',
-        selected_method: 'ebitda_multiple',
+        selected_method: 'upswitch_adaptive',
         selected_methods: 'ebitda_multiple,dcf',
       }),
     })
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/en/reports/new?source=mercury&selected_method=ebitda_multiple&selected_methods=ebitda_multiple%2Cdcf'
+      '/en/reports/new?source=mercury&selected_method=upswitch_adaptive&selected_methods=ebitda_multiple%2Cdcf'
     )
   })
 

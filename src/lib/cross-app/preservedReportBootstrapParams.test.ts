@@ -41,12 +41,12 @@ describe('buildPreservedReportBootstrapQueryString', () => {
 
   it('preserves blended selected_methods from Mercury advisor handoffs', () => {
     const q = buildPreservedReportBootstrapQueryString({
-      selected_method: 'ebitda_multiple',
+      selected_method: 'upswitch_adaptive',
       selected_methods: 'ebitda_multiple,dcf',
       source: 'mercury',
     })
     expect(q).toBe(
-      '?source=mercury&selected_method=ebitda_multiple&selected_methods=ebitda_multiple%2Cdcf'
+      '?source=mercury&selected_method=upswitch_adaptive&selected_methods=ebitda_multiple%2Cdcf'
     )
   })
 
