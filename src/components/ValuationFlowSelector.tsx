@@ -68,6 +68,8 @@ interface ValuationFlowSelectorProps {
   }
   /** URL query `selected_method` forwarded from ValuationReport */
   initialSelectedMethodFromUrl?: string
+  /** URL query `selected_methods` forwarded from ValuationReport */
+  initialSelectedMethodsFromUrl?: string
 }
 
 function LoadingErrorFallback() {
@@ -171,6 +173,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     initialAgentNext,
     guidedResolution,
     initialSelectedMethodFromUrl,
+    initialSelectedMethodsFromUrl,
   }) => {
     const tErrors = useTranslations('errors')
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
@@ -239,6 +242,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 initialAgentNext={initialAgentNext}
                 guidedResolution={guidedResolution}
                 initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
+                initialSelectedMethodsFromUrl={initialSelectedMethodsFromUrl}
               />
             </Suspense>
           </div>
@@ -283,6 +287,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       prevProps.initialDrawerOpen === nextProps.initialDrawerOpen &&
       prevProps.initialAgentNext === nextProps.initialAgentNext &&
       prevProps.initialSelectedMethodFromUrl === nextProps.initialSelectedMethodFromUrl &&
+      prevProps.initialSelectedMethodsFromUrl === nextProps.initialSelectedMethodsFromUrl &&
       prevProps.onRetry === nextProps.onRetry &&
       prevProps.onStartOver === nextProps.onStartOver &&
       prevProps.guidedResolution?.spotlight === nextProps.guidedResolution?.spotlight &&

@@ -32,6 +32,12 @@ function appendForwardedSetCookies(res: NextResponse, setCookies: string[]): voi
   }
 }
 
+function readErrorMessage(errorData: unknown): string | undefined {
+  if (!errorData || typeof errorData !== 'object' || Array.isArray(errorData)) return undefined
+  const message = (errorData as { message?: unknown }).message
+  return typeof message === 'string' && message.trim() ? message : undefined
+}
+
 export async function GET(request: NextRequest) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
@@ -71,6 +77,34 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
 
+      if (response.status === 429) {
+        const res429 = NextResponse.json(
+          {
+            isAuthenticated: false,
+            rateLimited: true,
+            error: 'Rate limit exceeded',
+            message: 'Too many requests. Please wait a moment and try again.',
+          },
+          { status: 429 }
+        )
+        appendForwardedSetCookies(res429, setCookiesToForward)
+        return res429
+      }
+
+      if (response.status === 502 || response.status === 503) {
+        const resUnavailable = NextResponse.json(
+          {
+            isAuthenticated: false,
+            error: 'service_unavailable',
+            message:
+              readErrorMessage(errorData) || 'Authentication service temporarily unavailable',
+          },
+          { status: response.status }
+        )
+        appendForwardedSetCookies(resUnavailable, setCookiesToForward)
+        return resUnavailable
+      }
+
       if (response.status >= 500) {
         generalLogger.error('[Venus /api/auth/me] Titan API server error', {
           status: response.status,
@@ -81,10 +115,11 @@ export async function GET(request: NextRequest) {
           {
             isAuthenticated: false,
             error: 'Server error',
-            message: errorData.message || 'Authentication service temporarily unavailable',
+            message:
+              readErrorMessage(errorData) || 'Authentication service temporarily unavailable',
             details: process.env.NODE_ENV === 'development' ? errorData : undefined,
           },
-          { status: 500 }
+          { status: response.status }
         )
         appendForwardedSetCookies(res500, setCookiesToForward)
         return res500

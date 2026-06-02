@@ -303,7 +303,8 @@
 		"noRecent": "Geen recente schattingen",
 		"versions": "Schattingsversies",
 		"currentVersion": "Huidige versie",
-		"listingPriceTooltip": "Voorgestelde listing price – wordt gebruikt bij publiceren op de marketplace"
+		"listingPriceTooltip": "Voorgestelde listing price – wordt gebruikt bij publiceren op de marketplace",
+		"versionHistoryTooltip": "Open versiegeschiedenis en waarderingsbandbreedte"
 	},
 	"forms": {
 		"sections": {
@@ -2245,7 +2246,7 @@
 		"title": "Versiegeschiedenis",
 		"loading": "Laden...",
 		"loadError": "Versiegeschiedenis kon niet worden geladen",
-		"versionsCount": "{count} versies · Audit trail",
+		"versionsCount": "{count, plural, one {# versie · Audit trail} other {# versies · Audit trail}}",
 		"compare": "Vergelijk",
 		"stopCompare": "Stop vergelijken",
 		"selectToCompare": "Selecteer 2 versies om te vergelijken ({selected}/2 geselecteerd)",

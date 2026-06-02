@@ -274,35 +274,33 @@ function ValuationSummaryCard({
   if (!version.valuation) return null
 
   return (
-    <div className="rounded-xl overflow-hidden mb-4 bg-foreground/[0.04] border border-foreground/[0.08]">
-      <div className="p-5">
+    <div className="-mx-4 mb-4 border-y border-foreground/[0.06] bg-foreground/[0.025]">
+      <div className="px-4 py-4">
         {/* Label */}
-        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-foreground/50">
-          {hp('indicativeEV')}
-        </p>
+        <p className="text-[11px] font-semibold text-foreground/50">{hp('indicativeEV')}</p>
 
         {/* Main Value */}
-        <div className="flex items-baseline gap-3 mb-4">
-          <span className="text-2xl font-bold leading-none tracking-tight font-mono text-foreground">
+        <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-mono text-2xl font-bold leading-none tracking-normal text-foreground tabular-nums">
             {formatCurrency(version.valuation, locale)}
           </span>
           {version.isCurrent && (
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded text-primary bg-primary/10 border border-primary/20">
+            <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
               {hp('current')}
             </span>
           )}
         </div>
 
         {/* Range + Metrics Grid */}
-        <div className="grid grid-cols-3 gap-4 pt-4 border-t border-foreground/[0.06]">
+        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(8.75rem,1fr))] gap-3 border-t border-foreground/[0.06] pt-3">
           {version.valuationLow != null &&
             version.valuationHigh != null &&
             (version.valuationLow > 0 || version.valuationHigh > 0) && (
               <div>
-                <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
+                <p className="mb-1 text-[10px] font-semibold text-foreground/40">
                   {hp('bandwidth')}
                 </p>
-                <p className="text-xs font-medium text-foreground/80 font-mono">
+                <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
                   {formatCurrency(version.valuationLow, locale)} —{' '}
                   {formatCurrency(version.valuationHigh, locale)}
                 </p>
@@ -310,20 +308,18 @@ function ValuationSummaryCard({
             )}
           {version.ebitda != null && Number.isFinite(version.ebitda) && (
             <div>
-              <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
+              <p className="mb-1 text-[10px] font-semibold text-foreground/40">
                 {hp('normalizedEbitda')}
               </p>
-              <p className="text-xs font-medium text-foreground/80 font-mono">
+              <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
                 {formatCurrency(version.ebitda, locale)}
               </p>
             </div>
           )}
           {version.multiple != null && version.multiple > 0 && (
             <div>
-              <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
-                {hp('multiple')}
-              </p>
-              <p className="text-xs font-medium text-foreground/80 font-mono">
+              <p className="mb-1 text-[10px] font-semibold text-foreground/40">{hp('multiple')}</p>
+              <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
                 {version.multiple.toFixed(2)}×
               </p>
             </div>

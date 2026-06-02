@@ -319,6 +319,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                   flagYear: urlParams.flagYear,
                 }}
                 initialSelectedMethodFromUrl={urlParams.selected_method}
+                initialSelectedMethodsFromUrl={urlParams.selected_methods}
               />
             )}
           </ValuationSessionManager>

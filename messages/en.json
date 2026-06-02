@@ -303,7 +303,8 @@
 		"noRecent": "No recent indicative business estimates",
 		"versions": "Indicative Estimate Versions",
 		"currentVersion": "Current version",
-		"listingPriceTooltip": "Suggested listing price – used when you publish on the marketplace"
+		"listingPriceTooltip": "Suggested listing price – used when you publish on the marketplace",
+		"versionHistoryTooltip": "Open version history and valuation range"
 	},
 	"forms": {
 		"sections": {
@@ -2245,7 +2246,7 @@
 		"title": "Version History",
 		"loading": "Loading...",
 		"loadError": "Version history could not be loaded",
-		"versionsCount": "{count} versions · Audit trail",
+		"versionsCount": "{count, plural, one {# version · Audit trail} other {# versions · Audit trail}}",
 		"compare": "Compare",
 		"stopCompare": "Stop comparing",
 		"selectToCompare": "Select 2 versions to compare ({selected}/2 selected)",

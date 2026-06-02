@@ -7,7 +7,17 @@
 
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearAuthCache, useAuthStore } from '../auth'
+import { clearAuthCache } from '../auth/authCache'
+import { useAuthStore } from '../auth/store'
+import { useAuth } from '../auth/useAuth'
+
+function fetchMock() {
+  return vi.mocked(global.fetch)
+}
+
+function responseStub(response: Partial<Response>): Response {
+  return response as Response
+}
 
 const clearClientContextMock = vi.fn()
 vi.mock('../../stores/clientContext', () => ({
@@ -19,9 +29,13 @@ vi.mock('../../stores/clientContext', () => ({
 }))
 
 describe('Authentication Module', () => {
+  const originalLocation = window.location
+  const locationAssignMock = vi.fn()
+
   beforeEach(() => {
     clearAuthCache()
     clearClientContextMock.mockClear()
+    locationAssignMock.mockClear()
     // Reset store state
     useAuthStore.setState({
       user: null,
@@ -40,9 +54,24 @@ describe('Authentication Module', () => {
       writable: true,
       value: '',
     })
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: {
+        ...originalLocation,
+        origin: originalLocation.origin,
+        assign: locationAssignMock,
+      },
+    })
   })
 
   afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    })
     vi.useRealTimers()
   })
 
@@ -62,13 +91,15 @@ describe('Authentication Module', () => {
         role: 'user',
       }
 
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { user: mockUser },
-        }),
-      })
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { user: mockUser },
+          }),
+        })
+      )
 
       // Call checkSession
       const { checkSession } = useAuthStore.getState()
@@ -111,21 +142,23 @@ describe('Authentication Module', () => {
         value: 'upswitch_session=valid_token',
       })
 
-      const unauthorized = {
+      const unauthorized = responseStub({
         ok: false,
         status: 401,
         json: async () => ({ success: false }),
-      }
+      })
 
       // 401 path: auth/me (twice for cookie-propagation retry), then refresh, then me again if refresh succeeded
-      ;(global.fetch as any).mockImplementation((input: RequestInfo | URL) => {
+      fetchMock().mockImplementation((input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : String((input as Request).url)
         if (url.includes('/api/auth/refresh')) {
-          return Promise.resolve({
-            ok: false,
-            status: 401,
-            json: async () => ({}),
-          })
+          return Promise.resolve(
+            responseStub({
+              ok: false,
+              status: 401,
+              json: async () => ({}),
+            })
+          )
         }
         if (url.includes('/api/auth/me')) {
           return Promise.resolve(unauthorized)
@@ -150,6 +183,14 @@ describe('Authentication Module', () => {
         value: '',
       })
 
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: true,
+          status: 200,
+          json: async () => ({ isAuthenticated: false, user: null }),
+        })
+      )
+
       // Call checkSession
       const { checkSession } = useAuthStore.getState()
       const user = await checkSession()
@@ -167,7 +208,7 @@ describe('Authentication Module', () => {
       })
 
       // Mock network error
-      ;(global.fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      fetchMock().mockRejectedValueOnce(new Error('Network error'))
 
       // Call checkSession
       const { checkSession } = useAuthStore.getState()
@@ -176,6 +217,42 @@ describe('Authentication Module', () => {
       // Verify error handled, user still null (guest mode)
       expect(user).toBeNull()
       expect(useAuthStore.getState().error).toBeTruthy()
+    })
+
+    it('should preserve current user on transient auth service outage', async () => {
+      const currentUser = {
+        id: 'user123',
+        email: 'test@example.com',
+        name: 'Test User',
+        role: 'user',
+      }
+
+      useAuthStore.setState({
+        user: currentUser,
+        loading: true,
+        error: 'stale auth error',
+      })
+
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: false,
+          status: 503,
+          json: async () => ({
+            isAuthenticated: false,
+            error: 'service_unavailable',
+            message: 'Authentication service temporarily unavailable',
+          }),
+        })
+      )
+
+      const { checkSession } = useAuthStore.getState()
+      const user = await checkSession()
+
+      expect(user).toEqual(currentUser)
+      expect(useAuthStore.getState().user).toEqual(currentUser)
+      expect(useAuthStore.getState().loading).toBe(false)
+      expect(useAuthStore.getState().error).toBeNull()
+      expect(clearClientContextMock).not.toHaveBeenCalled()
     })
   })
 
@@ -189,19 +266,23 @@ describe('Authentication Module', () => {
       }
 
       // Mock successful token exchange
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true }),
-      })
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: true,
+          json: async () => ({ success: true }),
+        })
+      )
 
       // Mock successful session check after exchange
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { user: mockUser },
-        }),
-      })
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { user: mockUser },
+          }),
+        })
+      )
 
       // Call exchangeToken
       const { exchangeToken } = useAuthStore.getState()
@@ -215,10 +296,12 @@ describe('Authentication Module', () => {
 
     it('should handle invalid token', async () => {
       // Mock failed token exchange
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-      })
+      fetchMock().mockResolvedValueOnce(
+        responseStub({
+          ok: false,
+          status: 401,
+        })
+      )
 
       // Call exchangeToken
       const { exchangeToken } = useAuthStore.getState()
@@ -231,7 +314,7 @@ describe('Authentication Module', () => {
 
     it('should handle token exchange network error', async () => {
       // Mock network error
-      ;(global.fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      fetchMock().mockRejectedValueOnce(new Error('Network error'))
 
       // Call exchangeToken
       const { exchangeToken } = useAuthStore.getState()
@@ -291,12 +374,14 @@ describe('Authentication Module', () => {
       expect(state.user).toBeNull()
       expect(state.loading).toBe(false)
       expect(state.error).toBeNull()
+      expect(locationAssignMock).toHaveBeenCalledWith(
+        `${originalLocation.origin}/api/auth/logout?fallback=1`
+      )
     })
   })
 
   describe('useAuth Hook', () => {
-    it('should provide backward compatible API', async () => {
-      const { useAuth } = await import('../auth')
+    it('should provide backward compatible API', () => {
       const { result } = renderHook(() => useAuth())
       const auth = result.current
 
@@ -314,8 +399,7 @@ describe('Authentication Module', () => {
       expect(auth).toHaveProperty('cookieHealth')
     })
 
-    it('should compute businessCard correctly', async () => {
-      const { useAuth } = await import('../auth')
+    it('should compute businessCard correctly', () => {
       const { setUser } = useAuthStore.getState()
 
       // Set user with business data
@@ -343,8 +427,7 @@ describe('Authentication Module', () => {
       expect(result.current.businessCard?.country_code).toBe('BE')
     })
 
-    it('should return null businessCard when no business data', async () => {
-      const { useAuth } = await import('../auth')
+    it('should return null businessCard when no business data', () => {
       const { setUser } = useAuthStore.getState()
 
       // Set user without business data

@@ -7,18 +7,26 @@ import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
 import {
+  BOOTSTRAP_VERSION,
   type BootstrapContext,
   BootstrapProvider,
+  DEFAULT_BOOTSTRAP_STATE,
+  DEFAULT_IDENTITY,
+  DEFAULT_PREFILL,
+  DEFAULT_REPORT,
+  DEFAULT_UI_HINTS,
   type FlowType,
+  type SessionBootstrapState,
 } from '../../../../src/lib/bootstrap'
-import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
-import { useClientContext } from '../../../../src/stores/clientContext'
-import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
-import { generalLogger } from '../../../../src/utils/logger'
 import {
   buildMercuryDelegatedHandoffSignals,
   isDelegatedMercuryAccountantHandoff,
 } from '../../../../src/lib/mercury/sessionReadiness'
+import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
+import { useClientContext } from '../../../../src/stores/clientContext'
+import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
+import { shouldAllowLocalDevelopmentVenusDraftReport } from '../../../../src/utils/localDevelopmentDraftReport'
+import { generalLogger } from '../../../../src/utils/logger'
 import { isValidReportId } from '../../../../src/utils/reportIdGenerator'
 import { parseReportModeForInitialUi } from '../../../../src/utils/reportMode'
 
@@ -82,6 +90,53 @@ function TokenRefreshGuard() {
   }, [])
   useTokenRefresh({ onTokenExpired: handleTokenExpired })
   return null
+}
+
+function parseFlowType(flow: string | undefined): FlowType | undefined {
+  if (flow === 'manual' || flow === 'conversational') return flow
+  return undefined
+}
+
+function buildLocalDevelopmentDraftBootstrapState({
+  reportId,
+  flow,
+  returnUrl,
+}: {
+  reportId: string
+  flow?: FlowType
+  returnUrl?: string
+}): SessionBootstrapState {
+  const now = new Date()
+  return {
+    ...DEFAULT_BOOTSTRAP_STATE,
+    identity: { ...DEFAULT_IDENTITY },
+    report: {
+      ...DEFAULT_REPORT,
+      reportId,
+      mode: 'new',
+      status: 'draft',
+      hasExistingData: false,
+      hasValuationResult: false,
+      reportReady: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    prefillData: {
+      ...DEFAULT_PREFILL,
+      sources: [...DEFAULT_PREFILL.sources],
+      fieldsPopulated: [...DEFAULT_PREFILL.fieldsPopulated],
+      fieldsRemaining: [...DEFAULT_PREFILL.fieldsRemaining],
+    },
+    ui: {
+      ...DEFAULT_UI_HINTS,
+      suggestedFlow: flow ?? DEFAULT_UI_HINTS.suggestedFlow,
+      sourceApp: 'venus-local-dev',
+      ...(returnUrl ? { returnUrl } : {}),
+    },
+    bootstrapVersion: BOOTSTRAP_VERSION,
+    bootstrappedAt: now,
+    bootstrapDurationMs: 0,
+  }
 }
 
 interface ValuationReportClientProps {
@@ -165,6 +220,15 @@ export default function ValuationReportClient({
   const returnUrl = urlParams.return_url
   const source = urlParams.source
   const isActingAsClient = useClientContext((s) => s.isActingAsClient)
+  const localDevelopmentDraftAccess = useMemo(() => {
+    return shouldAllowLocalDevelopmentVenusDraftReport({
+      reportId,
+      hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+      sourceApp: source,
+      clientId,
+      clientToken,
+    })
+  }, [reportId, source, clientId, clientToken])
 
   // Optimistic seed + stale-state reset on reportId change.
   //
@@ -261,6 +325,16 @@ export default function ValuationReportClient({
     urlParams.mode,
   ])
 
+  const localDevelopmentDraftBootstrapState = useMemo(() => {
+    if (!localDevelopmentDraftAccess) return undefined
+    const parsedFlow = parseFlowType(flow)
+    return buildLocalDevelopmentDraftBootstrapState({
+      reportId,
+      ...(parsedFlow ? { flow: parsedFlow } : {}),
+      ...(returnUrl ? { returnUrl } : {}),
+    })
+  }, [localDevelopmentDraftAccess, reportId, flow, returnUrl])
+
   return (
     <ErrorBoundary>
       {/*
@@ -290,9 +364,14 @@ export default function ValuationReportClient({
         returnUrl={urlParams.return_url}
         loadingComponent={<CalculatorShellSkeleton />}
         optimistic={source === 'mercury' && !hasClientToken}
+        allowLocalDevelopmentDraftAccess={localDevelopmentDraftAccess}
       >
-        <TokenRefreshGuard />
-        <BootstrapProvider context={bootstrapContext} autoBootstrap={true}>
+        {!localDevelopmentDraftAccess && <TokenRefreshGuard />}
+        <BootstrapProvider
+          context={bootstrapContext}
+          initialState={localDevelopmentDraftBootstrapState}
+          autoBootstrap={!localDevelopmentDraftAccess}
+        >
           <ValuationReport
             reportId={reportId}
             initialMode={uiMode}

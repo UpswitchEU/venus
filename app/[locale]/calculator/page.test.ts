@@ -53,6 +53,21 @@ describe('venus /calculator redirect', () => {
     )
   })
 
+  it('preserves blended selected methods when redirecting to reports/new', async () => {
+    await CalculatorPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({
+        source: 'mercury',
+        selected_method: 'ebitda_multiple',
+        selected_methods: 'ebitda_multiple,dcf',
+      }),
+    })
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/en/reports/new?source=mercury&selected_method=ebitda_multiple&selected_methods=ebitda_multiple%2Cdcf'
+    )
+  })
+
   it('strips non-allowlisted params when redirecting to reports/new', async () => {
     await CalculatorPage({
       params: Promise.resolve({ locale: 'en' }),

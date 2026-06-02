@@ -39,6 +39,17 @@ describe('buildPreservedReportBootstrapQueryString', () => {
     expect(q).toBe('?selected_method=startup_valuation&prefill_from=landing')
   })
 
+  it('preserves blended selected_methods from Mercury advisor handoffs', () => {
+    const q = buildPreservedReportBootstrapQueryString({
+      selected_method: 'ebitda_multiple',
+      selected_methods: 'ebitda_multiple,dcf',
+      source: 'mercury',
+    })
+    expect(q).toBe(
+      '?source=mercury&selected_method=ebitda_multiple&selected_methods=ebitda_multiple%2Cdcf'
+    )
+  })
+
   it('preserves the Mercury advisor agent_next handoff intent', () => {
     const q = buildPreservedReportBootstrapQueryString({
       drawer: 'open',

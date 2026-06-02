@@ -73,6 +73,8 @@ export interface ProposalCardShellProps {
 	 * with `onPrimary` — pass one or the other, not both.
 	 */
 	primaryHref?: string;
+	/** Optional side effect before following a `primaryHref` link. */
+	onPrimaryClick?: () => void | Promise<void>;
 
 	/** Footer reject action. Omitting both still allows showing a single
 	 *  primary CTA without a secondary, but most cards pair them. */
@@ -124,6 +126,7 @@ export function ProposalCardShell({
 	primaryLabel,
 	onPrimary,
 	primaryHref,
+	onPrimaryClick,
 	rejectLabel,
 	onReject,
 	primaryVariant = 'primary',
@@ -173,6 +176,9 @@ export function ProposalCardShell({
 					{primaryHref && !onPrimary ? (
 						<a
 							href={primaryHref}
+							onClick={() => {
+								void onPrimaryClick?.();
+							}}
 							className={cn(
 								'inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 transition-colors',
 								primaryVariant === 'destructive'

@@ -22,4 +22,9 @@ export interface ManualLayoutProps {
    * when session has no stored preference yet and there is no valuation result.
    */
   initialSelectedMethodFromUrl?: string
+  /**
+   * Optional `selected_methods` query param for blended Mercury -> Venus handoffs.
+   * Comma-separated method keys; sanitized by the session sync hook.
+   */
+  initialSelectedMethodsFromUrl?: string
 }

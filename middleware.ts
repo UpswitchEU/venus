@@ -12,6 +12,7 @@ import {
   getReportIdRequiringAuth,
   hasReportAccessCookie,
   redirectToMercuryLogin,
+  shouldAllowLocalDevelopmentDraftReportRequest,
 } from '@/middleware/reportAccess'
 import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
 import { defaultLocale, locales } from './i18n'
@@ -191,7 +192,10 @@ export async function middleware(request: NextRequest) {
     // Skip /reports/new (redirect route, no auth needed).
     const protectedReportId = getReportIdRequiringAuth(pathWithoutLocale)
     if (protectedReportId) {
-      if (!hasReportAccessCookie(request)) {
+      if (
+        !hasReportAccessCookie(request) &&
+        !shouldAllowLocalDevelopmentDraftReportRequest(request, protectedReportId)
+      ) {
         const mercuryBase = deriveMercuryUrl(request)
         return redirectToMercuryLogin(request, pathLocale, mercuryBase)
       }

@@ -10,6 +10,7 @@ export const formatTimeAgo = (
   const minutes = Math.floor(diff / (1000 * 60))
   const hours = Math.floor(diff / (1000 * 60 * 60))
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  if (diff < 1000 * 60) return t('common.time.justNow')
   if (diff < 1000 * 60 * 60) return t('common.time.minutesAgo', { count: minutes })
   if (diff < 1000 * 60 * 60 * 24) return t('common.time.hoursAgo', { count: hours })
   return t('common.time.daysAgo', { count: days })
@@ -24,8 +25,6 @@ export const formatPrice = (value: number) => {
   }
   return `€${Math.round(value / 1000)}K`
 }
-
-export const valuationNavAmountClass = 'text-sm font-semibold text-foreground tracking-tight'
 
 export function confidenceDotClassName(confidence: 'high' | 'medium' | 'low') {
   const base = 'w-1.5 h-1.5 rounded-full shrink-0'

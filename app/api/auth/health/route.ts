@@ -31,6 +31,12 @@ function appendForwardedSetCookies(res: NextResponse, setCookies: string[]): voi
   }
 }
 
+function readErrorMessage(errorData: unknown): string | undefined {
+  if (!errorData || typeof errorData !== 'object' || Array.isArray(errorData)) return undefined
+  const message = (errorData as { message?: unknown }).message
+  return typeof message === 'string' && message.trim() ? message : undefined
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { cookieHeader, cookieSource } = await getBffCookieHeaderForTitan(request)
@@ -64,6 +70,37 @@ export async function GET(request: NextRequest) {
     const setCookiesToForward = getResponseSetCookieList(meResponse)
 
     if (!meResponse.ok) {
+      const errorData = await meResponse.json().catch(() => ({}))
+
+      if (meResponse.status === 429) {
+        const res429 = NextResponse.json(
+          {
+            ...health,
+            status: 'rate_limited',
+            message: 'Too many requests. Please wait a moment and try again.',
+            authMeStatus: meResponse.status,
+          },
+          { status: 429 }
+        )
+        appendForwardedSetCookies(res429, setCookiesToForward)
+        return res429
+      }
+
+      if (meResponse.status === 502 || meResponse.status === 503) {
+        const resUnavailable = NextResponse.json(
+          {
+            ...health,
+            status: 'service_unavailable',
+            message:
+              readErrorMessage(errorData) || 'Authentication service temporarily unavailable',
+            authMeStatus: meResponse.status,
+          },
+          { status: meResponse.status }
+        )
+        appendForwardedSetCookies(resUnavailable, setCookiesToForward)
+        return resUnavailable
+      }
+
       const res401 = NextResponse.json(
         {
           ...health,

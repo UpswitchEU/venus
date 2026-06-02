@@ -119,6 +119,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   initialAgentNext,
   guidedResolutionUrl,
   initialSelectedMethodFromUrl,
+  initialSelectedMethodsFromUrl,
 }) => {
   const t = useTranslations('toast')
   const tReport = useTranslations('report')
@@ -450,6 +451,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     resolvedReportId,
     restorationComplete,
     initialSelectedMethodFromUrl,
+    initialSelectedMethodsFromUrl,
     firmCountryCode: user?.firm_country_code,
     currentYearRevenue: currentYearRevenueForMethodNav,
     hasValuationResult: !!result,

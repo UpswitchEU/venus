@@ -20,6 +20,7 @@ import {
   MessageCircle,
   MoreVertical,
   Pencil,
+  Plus,
   Settings,
   SlidersHorizontal,
   Trash2,
@@ -42,7 +43,6 @@ import {
   formatTimeAgo,
   resolveCalculatorNavMethodLabels,
   resolvePdfDownloadTooltip,
-  valuationNavAmountClass,
 } from './CalculatorNav.utils'
 import { Dropdown } from './CalculatorNavDropdown'
 import { ToolbarOverflowMenu } from './CalculatorNavToolbarOverflowMenu'
@@ -123,6 +123,7 @@ export function CalculatorNav({
 
   const activeVersion =
     valuationVersions.find((v) => v.id === selectedVersionId) || valuationVersions[0]
+  const activeVersionId = activeVersion?.id
   const displaySummary =
     valuationSummary ||
     (activeVersion
@@ -202,8 +203,8 @@ export function CalculatorNav({
               </button>
             }
           >
-            <div className="p-2">
-              <div className="text-xs text-foreground/50 uppercase tracking-wider px-2 py-1.5">
+            <div className="w-[min(20rem,calc(100vw-1.5rem))] p-2">
+              <div className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold text-foreground/45">
                 {t('valuation.recentValuations')}
               </div>
               {recentValuations.length > 0 ? (
@@ -213,32 +214,42 @@ export function CalculatorNav({
                     <div
                       key={val.id}
                       className={cn(
-                        'flex items-center gap-2 group rounded-lg transition-colors',
+                        'group flex items-center gap-1 rounded-lg border transition-all',
                         isActive
-                          ? 'bg-primary/10 ring-1 ring-primary/20'
-                          : 'hover:bg-foreground/[0.04]'
+                          ? 'border-primary/20 bg-primary/[0.07] shadow-[inset_0_1px_0_hsl(var(--primary)/0.08)]'
+                          : 'border-transparent hover:bg-foreground/[0.04]'
                       )}
                     >
                       <button
                         type="button"
                         onClick={() => onSelectValuation?.(val.id)}
-                        className="flex-1 flex items-center gap-3 px-2 py-2 min-w-0 text-left"
+                        aria-current={isActive ? 'page' : undefined}
+                        className="grid min-w-0 flex-1 grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-3 px-2.5 py-2.5 text-left"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4 text-foreground/50" />
+                        <div
+                          className={cn(
+                            'flex h-9 w-9 items-center justify-center rounded-lg border',
+                            isActive
+                              ? 'border-primary/15 bg-primary/[0.08] text-primary'
+                              : 'border-foreground/[0.06] bg-foreground/[0.035] text-foreground/45'
+                          )}
+                        >
+                          <FileText className="h-4 w-4" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {val.companyName}
-                          </p>
-                          <div className="flex items-center gap-1.5 text-xs text-foreground/40">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatTimeAgo(val.updatedAt, t)}</span>
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-foreground">
+                              {val.companyName}
+                            </p>
                             {val.isDraft && (
-                              <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
+                              <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-warning/20 bg-warning/[0.08] px-1.5 text-[10px] font-semibold leading-none text-warning">
                                 {t('valuation.draft')}
                               </span>
                             )}
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] leading-none text-foreground/45">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{formatTimeAgo(val.updatedAt, t)}</span>
                           </div>
                         </div>
                       </button>
@@ -246,24 +257,24 @@ export function CalculatorNav({
                         <div
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
-                          className="shrink-0"
+                          className="shrink-0 pr-1"
                         >
                           {deletingValuationId === val.id ? (
                             <div
-                              className="p-1.5 rounded-lg text-foreground/40 flex items-center justify-center"
+                              className="flex items-center justify-center rounded-lg p-1.5 text-foreground/40"
                               aria-label={t('common.states.processing')}
                             >
-                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             </div>
                           ) : (
                             <Dropdown
                               trigger={
                                 <button
                                   type="button"
-                                  className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
-                                  aria-label="More actions"
+                                  className="rounded-lg p-1.5 text-foreground/45 opacity-70 transition-all hover:bg-foreground/[0.08] hover:text-foreground hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                  aria-label={navLocale === 'nl' ? 'Meer acties' : 'More actions'}
                                 >
-                                  <MoreVertical className="w-4 h-4" />
+                                  <MoreVertical className="h-4 w-4" />
                                 </button>
                               }
                               align="end"
@@ -342,9 +353,10 @@ export function CalculatorNav({
                     e.stopPropagation()
                     onNewValuation()
                   }}
-                  className="w-full px-2 py-2 rounded-lg text-primary font-medium hover:bg-primary/10 transition-colors text-left"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
-                  + {t('valuation.new')}
+                  <Plus className="h-4 w-4 shrink-0" />
+                  {t('valuation.new')}
                 </button>
               )}
             </div>
@@ -396,50 +408,58 @@ export function CalculatorNav({
               >
                 <div
                   className={cn(
-                    'flex items-center rounded-full',
-                    'bg-foreground/[0.03] border border-foreground/[0.06]',
-                    'p-0.5 gap-0.5'
+                    'flex items-stretch rounded-full',
+                    'border border-foreground/[0.07] bg-foreground/[0.03]',
+                    'gap-0.5 p-0.5 shadow-[0_1px_0_hsl(var(--foreground)/0.04)]'
                   )}
                 >
                   <Dropdown
                     trigger={
                       <button
                         type="button"
-                        title={t('valuation.listingPriceTooltip')}
+                        title={t('valuation.versionHistoryTooltip')}
+                        aria-label={t('valuation.versionHistoryTooltip')}
                         className={cn(
-                          'flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 rounded-full',
+                          'group flex items-center gap-2 rounded-full py-1.5 pl-2.5 pr-2',
                           'hover:bg-foreground/[0.04] transition-colors',
                           'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-                          'group cursor-pointer'
+                          'cursor-pointer'
                         )}
                       >
                         <span
                           className={confidenceDotClassName(displaySummary.confidence)}
                           aria-hidden
                         />
-                        <span className={valuationNavAmountClass}>
+                        <span className="font-mono text-sm font-semibold leading-none tracking-normal text-foreground tabular-nums">
                           {formatPrice(displaySummary.askPrice)}
                         </span>
                         <span
                           className={cn(
-                            valuationNavAmountClass,
+                            'hidden h-5 items-center rounded-full border border-foreground/[0.07] bg-background/45 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/55 tabular-nums',
                             // The full range fits at lg+ now that secondary
                             // actions live in the overflow menu; below lg the
                             // dropdown still surfaces the full range on click.
-                            'hidden lg:inline'
+                            'lg:inline-flex'
                           )}
                         >
                           {formatPrice(displaySummary.priceRange.min)}–
                           {formatPrice(displaySummary.priceRange.max)}
                         </span>
-                        <ChevronDown className="w-3 h-3 text-foreground/30 group-hover:text-foreground/50 transition-colors" />
+                        <ChevronDown className="h-3 w-3 text-foreground/30 transition-colors group-hover:text-foreground/50" />
                       </button>
                     }
                     align="center"
                   >
-                    <div className="p-2 w-72">
-                      <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-                        {t('valuation.versions')}
+                    <div className="w-80 p-2">
+                      <div className="px-2.5 pb-2 pt-1">
+                        <div className="text-[11px] font-semibold text-foreground/45">
+                          {t('valuation.versions')}
+                        </div>
+                        <div className="mt-0.5 text-[11px] leading-none text-foreground/35">
+                          {t('historyPanel.versionsCount', {
+                            count: Math.max(valuationVersions.length, 1),
+                          })}
+                        </div>
                       </div>
                       <div className="relative rounded-lg">
                         <div
@@ -449,51 +469,86 @@ export function CalculatorNav({
                           )}
                         >
                           {valuationVersions.length > 0 ? (
-                            valuationVersions.map((version) => (
-                              <button
-                                key={version.id}
-                                type="button"
-                                onClick={() => onSelectVersion?.(version.id)}
-                                className={cn(
-                                  'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors',
-                                  version.id === selectedVersionId
-                                    ? 'bg-primary/[0.08]'
-                                    : 'hover:bg-foreground/[0.04]'
-                                )}
-                              >
-                                {version.id === selectedVersionId ? (
-                                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-                                    <Check className="w-3 h-3 text-primary" />
+                            valuationVersions.map((version) => {
+                              const isSelectedVersion = version.id === activeVersionId
+
+                              return (
+                                <button
+                                  key={version.id}
+                                  type="button"
+                                  onClick={() => onSelectVersion?.(version.id)}
+                                  aria-current={isSelectedVersion ? 'true' : undefined}
+                                  className={cn(
+                                    'group/version mb-1 grid w-full grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-3 rounded-lg border px-2.5 py-2.5 transition-all last:mb-0',
+                                    isSelectedVersion
+                                      ? 'border-primary/20 bg-primary/[0.07]'
+                                      : 'border-transparent hover:bg-foreground/[0.04]'
+                                  )}
+                                >
+                                  {isSelectedVersion ? (
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.08] text-primary">
+                                      <Check className="h-4 w-4" />
+                                    </div>
+                                  ) : (
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-foreground/[0.06] bg-foreground/[0.035] text-foreground/40">
+                                      <GitBranch className="h-4 w-4" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 text-left">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <p
+                                        className={cn(
+                                          'min-w-0 flex-1 truncate text-sm font-semibold leading-5',
+                                          isSelectedVersion
+                                            ? 'text-foreground'
+                                            : 'text-foreground/80'
+                                        )}
+                                      >
+                                        {version.label}
+                                      </p>
+                                      {isSelectedVersion && (
+                                        <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
+                                          {t('historyPanel.current')}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                      <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
+                                        {formatPrice(version.askPrice)}
+                                      </span>
+                                      <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
+                                        {formatPrice(version.priceRange.min)}–
+                                        {formatPrice(version.priceRange.max)}
+                                      </span>
+                                    </div>
                                   </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-foreground/[0.06] flex items-center justify-center">
-                                    <GitBranch className="w-3 h-3 text-foreground/30" />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0 text-left">
-                                  <p
-                                    className={cn(
-                                      'text-sm font-medium',
-                                      version.id === selectedVersionId
-                                        ? 'text-foreground'
-                                        : 'text-foreground/80'
-                                    )}
-                                  >
-                                    {version.label}
-                                  </p>
-                                  <p className={valuationNavAmountClass}>
-                                    {formatPrice(version.priceRange.min)}–
-                                    {formatPrice(version.priceRange.max)} ·{' '}
-                                    {formatPrice(version.askPrice)}
-                                  </p>
-                                </div>
-                              </button>
-                            ))
+                                </button>
+                              )
+                            })
                           ) : (
-                            <div className="px-3 py-3 text-center">
-                              <p className="text-sm text-foreground/40">
-                                {t('valuation.currentVersion')}
-                              </p>
+                            <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-3 rounded-lg border border-primary/20 bg-primary/[0.07] px-2.5 py-2.5">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.08] text-primary">
+                                <Check className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 text-left">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-foreground">
+                                    {t('valuation.currentVersion')}
+                                  </p>
+                                  <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
+                                    {t('historyPanel.current')}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
+                                    {formatPrice(displaySummary.askPrice)}
+                                  </span>
+                                  <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
+                                    {formatPrice(displaySummary.priceRange.min)}–
+                                    {formatPrice(displaySummary.priceRange.max)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           )}
                           {versionControlFeatureLocked && (
@@ -543,10 +598,10 @@ export function CalculatorNav({
                       type="button"
                       onClick={onContinueToListing}
                       className={cn(
-                        'flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full',
+                        'flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-2.5',
                         'bg-primary text-primary-foreground',
                         'hover:bg-primary/90 active:bg-primary/95',
-                        'transition-colors font-medium text-sm',
+                        'text-sm font-semibold transition-colors',
                         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2'
                       )}
                     >

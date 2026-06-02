@@ -67,6 +67,10 @@ async function broadcastLoginIfNewSession(
   }
 }
 
+function isTransientAuthCheckStatus(status: number): boolean {
+  return status === 408 || status === 429 || (status >= 500 && status < 600)
+}
+
 export const useAuthStore = create<AuthState>()(
   devtools(
     (set, get) => ({
@@ -259,6 +263,15 @@ export const useAuthStore = create<AuthState>()(
 
                 return user
               }
+            }
+
+            if (isTransientAuthCheckStatus(response.status)) {
+              const currentUser = get().user
+              logAuthError('Auth check temporarily unavailable', { status: response.status })
+              trackAuthFailure(`auth_check_${response.status}`, { method: 'cookie' })
+              authMetrics.recordFailure()
+              set({ loading: false, error: null })
+              return currentUser
             }
 
             get().setUser(null)

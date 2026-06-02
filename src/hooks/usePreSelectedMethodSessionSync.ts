@@ -12,8 +12,9 @@
  * @module hooks/usePreSelectedMethodSessionSync
  */
 
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { sanitizeMethodSelection } from '../constants/methodFieldConfig'
 import {
   SESSION_PRE_SELECTED_METHODS_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
@@ -41,6 +42,8 @@ export interface UsePreSelectedMethodSessionSyncParams {
   restorationComplete: boolean
   /** Server-serialized `urlParams.selected_method` */
   initialSelectedMethodFromUrl: string | undefined
+  /** Server-serialized `urlParams.selected_methods` */
+  initialSelectedMethodsFromUrl?: string | undefined
   firmCountryCode: string | null | undefined
   /** Current-year turnover when known (same source as nav); omzet URL seed rejected at €0. */
   currentYearRevenue?: number | null
@@ -56,6 +59,37 @@ export interface UsePreSelectedMethodSessionSyncParams {
   allowedMethodsForNav?: readonly string[] | null
 }
 
+function sanitizePreSelectedValuationMethodsFromUrl(
+  raw: string | null | undefined,
+  firmCountryCode?: string | null,
+  currentYearRevenue?: number | null,
+  allowedMethodsForNav?: readonly string[] | null
+): string[] | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null
+  const methods: string[] = []
+  for (const token of raw.split(',')) {
+    const normalizedToken = token
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_')
+    if (!normalizedToken) continue
+    if (normalizedToken === 'upswitch_adaptive') {
+      methods.push('upswitch_adaptive')
+      continue
+    }
+    const method = sanitizePreSelectedValuationMethod(
+      normalizedToken,
+      firmCountryCode,
+      currentYearRevenue,
+      allowedMethodsForNav
+    )
+    if (method) methods.push(method)
+  }
+  const unique = methods.filter((method, index) => methods.indexOf(method) === index)
+  if (unique.length === 0) return null
+  return sanitizeMethodSelection(unique)
+}
+
 /**
  * 1) Debounced persist of `_pre_selected_valuation_method`.
  * 2) One-time URL seed per report when no stored preference and no valuation result.
@@ -65,6 +99,7 @@ export function usePreSelectedMethodSessionSync({
   resolvedReportId,
   restorationComplete,
   initialSelectedMethodFromUrl,
+  initialSelectedMethodsFromUrl,
   firmCountryCode,
   currentYearRevenue,
   hasValuationResult,
@@ -87,6 +122,13 @@ export function usePreSelectedMethodSessionSync({
   const reportKey = resolvedReportId || reportId
   const reportKeyRef = useRef(reportKey)
   reportKeyRef.current = reportKey
+  const persistTriggerKey = JSON.stringify({
+    preSelectedMethod: manualMethodPrefs.preSelectedMethod,
+    selectedMethod: manualMethodPrefs.selectedMethod,
+    preSelectedMethods: manualMethodPrefs.preSelectedMethods,
+    userWeights: manualMethodPrefs.userWeights,
+    userWeightJustification: manualMethodPrefs.userWeightJustification,
+  })
 
   useEffect(() => {
     if (!restorationComplete) {
@@ -100,7 +142,7 @@ export function usePreSelectedMethodSessionSync({
     })
   }, [restorationComplete, reportKey])
 
-  const runPersist = () => {
+  const runPersist = useCallback(() => {
     const activeReportKey = reportKeyRef.current
     const { session, updateSessionData, saveSession } = useSessionStore.getState()
     if (!session?.reportId || !activeReportKey || session.reportId !== activeReportKey) return 0
@@ -132,8 +174,7 @@ export function usePreSelectedMethodSessionSync({
     const weightsMatch =
       JSON.stringify(storedWeights ?? null) ===
       JSON.stringify(Object.keys(store.userWeights).length > 0 ? store.userWeights : null)
-    const justificationMatch =
-      (storedJustification ?? '') === (store.userWeightJustification || '')
+    const justificationMatch = (storedJustification ?? '') === (store.userWeightJustification || '')
     const methodFieldMatch = storedMethod === valueToStore
 
     if (methodFieldMatch && methodsMatch && weightsMatch && justificationMatch) {
@@ -157,15 +198,18 @@ export function usePreSelectedMethodSessionSync({
       }
     })()
     return 0
-  }
+  }, [])
 
   // Persist (debounced)
   useEffect(() => {
     if (!restorationComplete) return
     const id = resolvedReportId || reportId
     if (!id || id === 'new') return
+    // Dependency trigger only: the debounced persist reads the latest store snapshot.
+    const scheduledPreferenceSnapshot = persistTriggerKey
 
     const handle = setTimeout(() => {
+      void scheduledPreferenceSnapshot
       const deferRemainingMs = runPersist()
       if (deferRemainingMs > 0) {
         if (persistRetryTimerRef.current) clearTimeout(persistRetryTimerRef.current)
@@ -183,16 +227,7 @@ export function usePreSelectedMethodSessionSync({
         persistRetryTimerRef.current = null
       }
     }
-  }, [
-    restorationComplete,
-    resolvedReportId,
-    reportId,
-    manualMethodPrefs.preSelectedMethod,
-    manualMethodPrefs.selectedMethod,
-    manualMethodPrefs.preSelectedMethods,
-    manualMethodPrefs.userWeights,
-    manualMethodPrefs.userWeightJustification,
-  ])
+  }, [restorationComplete, resolvedReportId, reportId, persistTriggerKey, runPersist])
 
   // URL seed: reset per report, then apply at most once when conditions hold.
   //
@@ -211,7 +246,9 @@ export function usePreSelectedMethodSessionSync({
     }
 
     if (urlSeedDoneRef.current) return
-    if (!restorationComplete || !initialSelectedMethodFromUrl?.trim()) return
+    const hasSelectedMethodSeed = Boolean(initialSelectedMethodFromUrl?.trim())
+    const hasSelectedMethodsSeed = Boolean(initialSelectedMethodsFromUrl?.trim())
+    if (!restorationComplete || (!hasSelectedMethodSeed && !hasSelectedMethodsSeed)) return
     if (hasValuationResult) {
       urlSeedDoneRef.current = true
       return
@@ -229,21 +266,32 @@ export function usePreSelectedMethodSessionSync({
       urlSeedDoneRef.current = true
       return
     }
-    useManualResultsStore
-      .getState()
-      .setPreSelectedMethod(
-        sanitizePreSelectedValuationMethod(
-          initialSelectedMethodFromUrl,
-          firmCountryCode,
-          currentYearRevenue,
-          allowedMethodsForNav
+    const methodListSeed = sanitizePreSelectedValuationMethodsFromUrl(
+      initialSelectedMethodsFromUrl,
+      firmCountryCode,
+      currentYearRevenue,
+      allowedMethodsForNav
+    )
+    if (methodListSeed && methodListSeed.length > 0) {
+      useManualResultsStore.getState().setPreSelectedMethods(methodListSeed)
+    } else {
+      useManualResultsStore
+        .getState()
+        .setPreSelectedMethod(
+          sanitizePreSelectedValuationMethod(
+            initialSelectedMethodFromUrl,
+            firmCountryCode,
+            currentYearRevenue,
+            allowedMethodsForNav
+          )
         )
-      )
+    }
     urlSeedDoneRef.current = true
   }, [
     reportKey,
     restorationComplete,
     initialSelectedMethodFromUrl,
+    initialSelectedMethodsFromUrl,
     hasValuationResult,
     firmCountryCode,
     currentYearRevenue,

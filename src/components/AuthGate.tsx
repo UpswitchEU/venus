@@ -94,6 +94,11 @@ interface AuthGateProps {
    * Use for Mercury→Venus flows where cookies are already present.
    */
   optimistic?: boolean
+  /**
+   * Development-only escape hatch for Venus-generated draft report URLs on localhost.
+   * Unlike optimistic mode, this skips the auth redirect effect entirely.
+   */
+  allowLocalDevelopmentDraftAccess?: boolean
 }
 
 // ============================================================================
@@ -265,13 +270,16 @@ export function AuthGate({
   hasClientToken = false,
   returnUrl,
   optimistic = false,
+  allowLocalDevelopmentDraftAccess = false,
 }: AuthGateProps) {
   const t = useTranslations('auth.authGate')
-  const [state, setState] = useState<AuthGateState>(wasAuthReady ? 'ready' : 'checking')
+  const [state, setState] = useState<AuthGateState>(
+    allowLocalDevelopmentDraftAccess || wasAuthReady ? 'ready' : 'checking'
+  )
   const [error, setError] = useState<string | null>(null)
   const [errorCorrelationId, setErrorCorrelationId] = useState<string | null>(null)
   const [errorStatus, setErrorStatus] = useState<number | null>(null)
-  const [isReady, setIsReady] = useState(wasAuthReady)
+  const [isReady, setIsReady] = useState(allowLocalDevelopmentDraftAccess || wasAuthReady)
 
   // Stable refs for callback props — avoids useEffect re-runs when parent
   // passes new closure references on every render.
@@ -313,6 +321,17 @@ export function AuthGate({
   }, [])
 
   useEffect(() => {
+    if (!allowLocalDevelopmentDraftAccess) return
+    clearRedirectCount()
+    setState('ready')
+    setError(null)
+    setErrorCorrelationId(null)
+    setErrorStatus(null)
+    setIsReady(true)
+  }, [allowLocalDevelopmentDraftAccess])
+
+  useEffect(() => {
+    if (allowLocalDevelopmentDraftAccess) return
     if (wasAuthReady) return
 
     let mounted = true
@@ -457,9 +476,20 @@ export function AuthGate({
       clearTimeout(maxTimeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext])
+  }, [
+    authLoading,
+    authError,
+    isInitializing,
+    isRefreshing,
+    needsClientContext,
+    allowLocalDevelopmentDraftAccess,
+  ])
 
   // Render based on state
+  if (allowLocalDevelopmentDraftAccess) {
+    return <>{children}</>
+  }
+
   // In optimistic mode, render children immediately.
   // Auth still runs in the background via the useEffect above.
   // If auth fails, the useEffect will redirect to login.

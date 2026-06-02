@@ -36,6 +36,7 @@ export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   /** Historic report version (advisor restore); survives `/calculator` → `/reports/[id]`. */
   'version',
   'selected_method',
+  'selected_methods',
   'startup_stage',
   /** Legacy studio routing (`/waarderen` → `?flow=startup&studio=legacy`). */
   'studio',

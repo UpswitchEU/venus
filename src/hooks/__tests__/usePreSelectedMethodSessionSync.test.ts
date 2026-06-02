@@ -112,4 +112,46 @@ describe('usePreSelectedMethodSessionSync', () => {
     expect(updateSessionData).toHaveBeenCalledTimes(1)
     expect(saveSession).toHaveBeenCalledWith('autosave')
   })
+
+  it('seeds blended selected methods from the URL when the session has no stored preference', () => {
+    useSessionStore.setState({
+      restorationComplete: true,
+      session: {
+        reportId: 'report-url-seed',
+        sessionData: {},
+      },
+      updateSessionData,
+      saveSession,
+    } as Parameters<typeof useSessionStore.setState>[0])
+    useManualResultsStore.setState({
+      preSelectedMethod: null,
+      selectedMethod: 'upswitch_adaptive',
+      preSelectedMethods: ['upswitch_adaptive'],
+      userWeights: {},
+      userWeightJustification: '',
+      result: null,
+    } as Parameters<typeof useManualResultsStore.setState>[0])
+
+    renderHook(() =>
+      usePreSelectedMethodSessionSync({
+        reportId: 'report-url-seed',
+        resolvedReportId: 'report-url-seed',
+        restorationComplete: true,
+        initialSelectedMethodFromUrl: 'ebitda_multiple',
+        initialSelectedMethodsFromUrl: 'ebitda_multiple,dcf',
+        firmCountryCode: 'BE',
+        hasValuationResult: false,
+      })
+    )
+
+    expect(useManualResultsStore.getState()).toMatchObject({
+      selectedMethod: 'ebitda_multiple',
+      preSelectedMethod: 'ebitda_multiple',
+      preSelectedMethods: ['ebitda_multiple', 'dcf'],
+      userWeights: {
+        ebitda_multiple: 50,
+        dcf: 50,
+      },
+    })
+  })
 })

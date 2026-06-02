@@ -50,7 +50,7 @@ describe('decorateManualValuationRequest', () => {
     })
 
     expect(request.dataSource).toBe('manual')
-    expect(request.selected_method).toBe('dcf')
+    expect(request.selected_method).toBe('upswitch_adaptive')
     expect(request.reportId).toBe('8d57c0da-8fc9-4042-a9ca-2f8c17b78b10')
     expect(request.sessionKey).toBe('val_1700000000000_abc')
     expect(request.user_weights).toEqual({ dcf: 0.35, ebitda_multiple: 0.65 })
@@ -114,7 +114,7 @@ describe('buildManualCalculationRequest', () => {
     expect(buildManualValuationRequestMock).toHaveBeenCalledWith(formData, normalizations, 'en')
     expect(request).toBe(rawRequest)
     expect(request.dataSource).toBe('manual')
-    expect(request.selected_method).toBe('dcf')
+    expect(request.selected_method).toBe('upswitch_adaptive')
     expect(request.reportId).toBe('report-1')
     expect(request.user_weights).toEqual({ dcf: 0.4, ebitda_multiple: 0.6 })
   })

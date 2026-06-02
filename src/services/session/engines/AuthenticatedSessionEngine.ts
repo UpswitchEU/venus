@@ -89,6 +89,120 @@ function stripBackendComputedFields(payload: Record<string, unknown>): Record<st
   return stripped
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function coerceStatus(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return /^\d{3}$/.test(trimmed) ? Number(trimmed) : undefined
+}
+
+function readNumericStatus(value: unknown, seen = new Set<unknown>()): number | undefined {
+  const record = asRecord(value)
+  if (!record || seen.has(value)) return undefined
+  seen.add(value)
+
+  const directStatus = record.status ?? record.statusCode
+  const directNumericStatus = coerceStatus(directStatus)
+  if (directNumericStatus !== undefined) return directNumericStatus
+
+  const response = asRecord(record.response)
+  const responseStatus = coerceStatus(response?.status)
+  if (responseStatus !== undefined) return responseStatus
+
+  const context = asRecord(record.context)
+  const contextStatus = coerceStatus(context?.statusCode ?? context?.status)
+  if (contextStatus !== undefined) return contextStatus
+
+  const nestedStatus = readNumericStatus(context?.originalError, seen)
+  if (nestedStatus !== undefined) return nestedStatus
+
+  return readNumericStatus(response?.data, seen)
+}
+
+function collectErrorText(value: unknown, seen = new Set<unknown>()): string {
+  if (typeof value === 'string') return value
+  const record = asRecord(value)
+  if (!record || seen.has(value)) return ''
+  seen.add(value)
+
+  const parts = [
+    typeof record.name === 'string' ? record.name : undefined,
+    typeof record.code === 'string' ? record.code : undefined,
+    typeof record.message === 'string' ? record.message : undefined,
+  ]
+
+  const response = asRecord(record.response)
+  const responseData = response?.data
+  const responseRecord = asRecord(responseData)
+  parts.push(typeof responseData === 'string' ? responseData : undefined)
+  parts.push(typeof responseRecord?.message === 'string' ? responseRecord.message : undefined)
+  parts.push(typeof responseRecord?.error === 'string' ? responseRecord.error : undefined)
+
+  const context = asRecord(record.context)
+  parts.push(typeof context?.code === 'string' ? context.code : undefined)
+  parts.push(collectErrorText(context?.originalError, seen))
+
+  return parts.filter(Boolean).join(' ')
+}
+
+function readRetryableStatusFromText(text: string): number | undefined {
+  const statusMatch = text.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|5\d{2})\b/i)
+  if (statusMatch?.[1]) return Number(statusMatch[1])
+
+  const namedStatusMatch = text.match(
+    /\b(408|429|5\d{2})\s+(?:request timeout|too many requests|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/i
+  )
+  return namedStatusMatch?.[1] ? Number(namedStatusMatch[1]) : undefined
+}
+
+function isRetryableSessionSaveError(error: unknown): boolean {
+  const status = readNumericStatus(error)
+  if (status === 400 || status === 401 || status === 403 || status === 404 || status === 409) {
+    return false
+  }
+  if (status === 408 || status === 429 || (status !== undefined && status >= 500 && status < 600)) {
+    return true
+  }
+
+  if (error instanceof TypeError) return true
+
+  const text = collectErrorText(error).toLowerCase()
+  if (
+    text.includes('authentication required') ||
+    text.includes('unauthorized') ||
+    text.includes('forbidden') ||
+    text.includes('invalid authentication token')
+  ) {
+    return false
+  }
+
+  if (readRetryableStatusFromText(text) !== undefined) return true
+
+  return (
+    text.includes('fetch') ||
+    text.includes('network') ||
+    text.includes('econnrefused') ||
+    text.includes('econnreset') ||
+    text.includes('etimedout') ||
+    text.includes('aborterror') ||
+    text.includes('timeout') ||
+    text.includes('timed out') ||
+    text.includes('temporarily unavailable') ||
+    text.includes('service unavailable') ||
+    text.includes('did not respond in time') ||
+    text.includes('upstream_timeout') ||
+    text.includes('server error') ||
+    text.includes('bad gateway') ||
+    text.includes('gateway timeout')
+  )
+}
+
 function mergeQueuedLocalSession(
   serverSession: ValuationSession,
   localSession: ValuationSession
@@ -483,23 +597,15 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
         return
       } catch (error) {
-        const isNetworkError =
-          error instanceof TypeError ||
-          (error instanceof Error &&
-            (error.message.includes('fetch') ||
-              error.message.includes('network') ||
-              error.message.includes('ECONNREFUSED') ||
-              error.message.includes('ETIMEDOUT') ||
-              error.name === 'AbortError'))
-
+        const isRetryableError = isRetryableSessionSaveError(error)
         const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
 
-        if (!isNetworkError || isLastAttempt) {
+        if (!isRetryableError || isLastAttempt) {
           generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
             reportId: this.currentSession?.reportId,
             reason,
             attempt: attempt + 1,
-            isNetworkError,
+            isRetryableError,
             error: error instanceof Error ? error.message : String(error),
           })
           throw error

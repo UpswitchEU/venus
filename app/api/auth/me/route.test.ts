@@ -180,6 +180,49 @@ describe('GET /api/auth/me', () => {
     ])
   })
 
+  it('preserves Titan 503 as service_unavailable and forwards cookies', async () => {
+    const cookieHeader = 'upswitch_access_token=access; upswitch_refresh_token=refresh'
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader,
+      cookieSource: 'header',
+    })
+    mocks.fetchWithTimeout.mockResolvedValue(
+      jsonResponse(503, { message: 'Authentication service temporarily unavailable' })
+    )
+    mocks.getResponseSetCookieList.mockReturnValue([
+      'upswitch_access_token=access; Path=/; HttpOnly',
+    ])
+
+    const res = await GET(makeRequest(cookieHeader))
+
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({
+      isAuthenticated: false,
+      error: 'service_unavailable',
+      message: 'Authentication service temporarily unavailable',
+    })
+    expect(getSetCookies(res)).toEqual(['upswitch_access_token=access; Path=/; HttpOnly'])
+  })
+
+  it('maps Titan 429 to a rate-limit response', async () => {
+    const cookieHeader = 'upswitch_access_token=access'
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader,
+      cookieSource: 'header',
+    })
+    mocks.fetchWithTimeout.mockResolvedValue(jsonResponse(429, { message: 'Too many requests' }))
+    mocks.getResponseSetCookieList.mockReturnValue([])
+
+    const res = await GET(makeRequest(cookieHeader))
+
+    expect(res.status).toBe(429)
+    expect(await res.json()).toMatchObject({
+      isAuthenticated: false,
+      rateLimited: true,
+      error: 'Rate limit exceeded',
+    })
+  })
+
   it('maps upstream timeout to 504', async () => {
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: 'upswitch_access_token=access',

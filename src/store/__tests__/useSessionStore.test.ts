@@ -31,8 +31,16 @@ vi.mock('../../services/session/SessionEngineFactory', () => ({
 
 vi.mock('../../utils/logger', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../utils/logger')>()
+  const generalLoggerMock = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }
+
   return {
     ...actual,
+    generalLogger: generalLoggerMock,
     storeLogger: {
       debug: vi.fn(),
       info: vi.fn(),
@@ -48,6 +56,14 @@ import { SessionStatus, useSessionStore } from '../useSessionStore'
 describe('useSessionStore', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    global.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    ) as typeof fetch
+
     // Reset store to initial state
     useSessionStore.setState({
       session: null,
@@ -537,6 +553,102 @@ describe('useSessionStore', () => {
       expect(useSessionStore.getState().isSaving).toBe(false)
     })
 
+    it('keeps transient auth-service autosave failures out of errorMessage', async () => {
+      const session = {
+        reportId: 'val_auth_blip_123',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+
+      mockGetSession.mockReturnValue(session)
+      mockSaveSession.mockRejectedValue(
+        new Error('Failed to save session: Authentication service temporarily unavailable')
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+      useSessionStore.setState({
+        session,
+        status: 'loaded' as SessionStatus,
+        hasUnsavedChanges: true,
+        errorMessage: 'stale message',
+      })
+
+      await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+      expect(useSessionStore.getState().isSaving).toBe(false)
+      expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
+    })
+
+    it('keeps text-only HTTP 503 autosave failures out of errorMessage', async () => {
+      const session = {
+        reportId: 'val_status_text_blip_123',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+
+      mockGetSession.mockReturnValue(session)
+      mockSaveSession.mockRejectedValue(
+        new Error('Failed to save session: Request failed with status code 503')
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+      useSessionStore.setState({
+        session,
+        status: 'loaded' as SessionStatus,
+        hasUnsavedChanges: true,
+        errorMessage: 'stale message',
+      })
+
+      await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+      expect(useSessionStore.getState().isSaving).toBe(false)
+      expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
+    })
+
+    it('surfaces autosave failures where an incidental number only looks like HTTP 503', async () => {
+      const session = {
+        reportId: 'val_incidental_503_123',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+
+      mockGetSession.mockReturnValue(session)
+      mockSaveSession.mockRejectedValue(
+        new Error('Failed to save session: validation failed for registry row 503')
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+      useSessionStore.setState({
+        session,
+        status: 'loaded' as SessionStatus,
+        hasUnsavedChanges: true,
+        errorMessage: 'stale message',
+      })
+
+      await expect(useSessionStore.getState().saveSession('autosave')).rejects.toThrow(
+        'validation failed for registry row 503'
+      )
+
+      expect(useSessionStore.getState().errorMessage).toBe(
+        'Failed to save session: validation failed for registry row 503'
+      )
+      expect(useSessionStore.getState().isSaving).toBe(false)
+    })
+
     it('markSaved should clear errorMessage', () => {
       useSessionStore.setState({
         hasUnsavedChanges: true,
@@ -736,7 +848,7 @@ describe('useSessionStore', () => {
           sessionData: {
             _bootstrapPrefill: false,
             _optimisticMercuryShell: true,
-          } as any,
+          } as ValuationSession['sessionData'],
         },
         identity: { type: 'authenticated', userId: 'user-123' },
       })
@@ -759,7 +871,7 @@ describe('useSessionStore', () => {
           currentView: 'manual',
           dataSource: 'manual',
           partialData: {},
-          sessionData: { _optimisticMercuryShell: true } as any,
+          sessionData: { _optimisticMercuryShell: true } as ValuationSession['sessionData'],
         },
         identity: { type: 'authenticated', userId: 'user-123' },
       })

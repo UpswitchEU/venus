@@ -31,6 +31,8 @@ interface ValuationFlowProps {
   }
   /** Query param `selected_method` — seed top-bar method when no session preference yet */
   initialSelectedMethodFromUrl?: string
+  /** Query param `selected_methods` — seed blended top-bar methods when no session preference yet */
+  initialSelectedMethodsFromUrl?: string
 }
 
 const ManualLayout = lazy(() =>
@@ -50,6 +52,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   initialAgentNext,
   guidedResolution,
   initialSelectedMethodFromUrl,
+  initialSelectedMethodsFromUrl,
 }) => {
   return (
     <ManualLayout
@@ -63,6 +66,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
       initialAgentNext={initialAgentNext}
       guidedResolutionUrl={guidedResolution}
       initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
+      initialSelectedMethodsFromUrl={initialSelectedMethodsFromUrl}
     />
   )
 }

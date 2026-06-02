@@ -14,23 +14,23 @@
  */
 
 import { create } from 'zustand'
-import {
-  isDelegatedMercuryAccountantHandoff,
-  type DelegatedMercuryHandoffSignals,
-} from '../lib/mercury/sessionReadiness'
+import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
+import {
+  type DelegatedMercuryHandoffSignals,
+  isDelegatedMercuryAccountantHandoff,
+} from '../lib/mercury/sessionReadiness'
 import { isLegacyReturnUrl } from '../lib/return-url'
-import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
-import { useManualResultsStore } from './manual/useManualResultsStore'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import { sessionEnvelopeHasIdentitySignals } from '../utils/mergeOptionalSessionPrefillFields'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
+import { useManualResultsStore } from './manual/useManualResultsStore'
 
 /**
  * After session snapshot updates from {@link loadSession} or {@link hydrateSession}, Omni optional
@@ -65,6 +65,45 @@ const HYDRATE_SCALAR_KEYS: ReadonlySet<string> = new Set<string>([
   'htmlReport',
   'buyerReadiness',
 ])
+
+function isNonCriticalSaveFailureMessage(message: string): boolean {
+  const normalized = message.toLowerCase()
+  const isHardAuthFailure =
+    normalized.includes('authentication required') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('forbidden') ||
+    normalized.includes('invalid authentication token')
+
+  if (isHardAuthFailure && !normalized.includes('temporarily unavailable')) {
+    return false
+  }
+
+  const retryableStatusMatch =
+    normalized.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|5\d{2})\b/) ||
+    normalized.match(
+      /\b(408|429|5\d{2})\s+(?:request timeout|too many requests|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/
+    )
+  if (retryableStatusMatch?.[1]) return true
+
+  return (
+    normalized.includes('429') ||
+    normalized.includes('rate limit') ||
+    normalized.includes('too many requests') ||
+    normalized.includes('network') ||
+    normalized.includes('timeout') ||
+    normalized.includes('timed out') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('econnreset') ||
+    normalized.includes('etimedout') ||
+    normalized.includes('temporarily unavailable') ||
+    normalized.includes('service unavailable') ||
+    normalized.includes('did not respond in time') ||
+    normalized.includes('upstream_timeout') ||
+    normalized.includes('server error') ||
+    normalized.includes('bad gateway') ||
+    normalized.includes('gateway timeout')
+  )
+}
 
 /**
  * Cheap content check: would applying `updates` to `current` change anything
@@ -334,8 +373,7 @@ type PaywallLoadError = Error & {
   limit?: number
 }
 
-const SESSION_NOT_READY_MESSAGE =
-  'Session not ready. Please wait for initialization or retry.'
+const SESSION_NOT_READY_MESSAGE = 'Session not ready. Please wait for initialization or retry.'
 
 /**
  * Unified Session Store
@@ -405,14 +443,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       )
       return
     }
-    if (
-      delegatedHandoffSignals &&
-      isDelegatedMercuryAccountantHandoff(delegatedHandoffSignals)
-    ) {
-      storeLogger.warn(
-        '[Session] Refusing optimistic Mercury shell — delegated handoff signals',
-        { reportId: seedSession.reportId.substring(0, 30) }
-      )
+    if (delegatedHandoffSignals && isDelegatedMercuryAccountantHandoff(delegatedHandoffSignals)) {
+      storeLogger.warn('[Session] Refusing optimistic Mercury shell — delegated handoff signals', {
+        reportId: seedSession.reportId.substring(0, 30),
+      })
       return
     }
 
@@ -1167,15 +1201,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       // ✅ WORLD-CLASS FIX: Don't crash UI for non-critical errors
       // Rate limits (429) and network errors are transient - don't show error screen
-      const isRateLimit =
-        message.includes('429') ||
-        message.includes('rate limit') ||
-        message.includes('too many requests')
-      const isNetworkError =
-        message.includes('network') ||
-        message.includes('timeout') ||
-        message.includes('ECONNREFUSED')
-      const isNonCritical = isRateLimit || isNetworkError
+      const isNonCritical = isNonCriticalSaveFailureMessage(message)
 
       if (isNonCritical) {
         storeLogger.warn('[Session] Non-critical save error (will retry automatically)', {

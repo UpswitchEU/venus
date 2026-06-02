@@ -4,6 +4,8 @@ import type { ValuationFormData, ValuationRequest } from '@/types/valuation'
 import { attachSynthesisWeightsToValuationRequest } from '@/utils/attachSynthesisWeightsToValuationRequest'
 import { buildManualValuationRequest } from '@/utils/buildManualValuationRequest'
 
+const ADAPTIVE_METHOD = 'upswitch_adaptive'
+
 export interface ManualCalculationIdentifiers {
   reportId?: string
   sessionKey?: string
@@ -44,6 +46,9 @@ export function decorateManualValuationRequest(
   }
 
   attachSynthesisWeightsToValuationRequest(out, params.synthesisSelection)
+  if (out.user_weights && Object.keys(out.user_weights).length > 1) {
+    out.selected_method = ADAPTIVE_METHOD
+  }
 
   if (params.identifiers?.reportId) {
     out.reportId = params.identifiers.reportId
