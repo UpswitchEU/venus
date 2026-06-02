@@ -41,6 +41,10 @@ export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean
   if (Array.isArray(multi) && multi.length > 0) return true
   const flatMulti = o.pre_selected_valuation_methods
   if (Array.isArray(flatMulti) && flatMulti.length > 0) return true
+  const selectedMethods = o.selected_methods
+  if (Array.isArray(selectedMethods) && selectedMethods.length > 0) return true
+  const methods = o.methods
+  if (Array.isArray(methods) && methods.length > 0) return true
   const sm = o.selected_method
   return typeof sm === 'string' && sm.trim().length > 0
 }
@@ -78,7 +82,12 @@ export function sanitizePreSelectedValuationMethod(
 
 /** Multi-method selection persisted on session / form JSONB (not sent to ValuationIQ). */
 export function readPreSelectedValuationMethods(source: object): string[] | undefined {
-  const raw = (source as Record<string, unknown>)[SESSION_PRE_SELECTED_METHODS_KEY]
+  const record = source as Record<string, unknown>
+  const raw =
+    record[SESSION_PRE_SELECTED_METHODS_KEY] ??
+    record.pre_selected_valuation_methods ??
+    record.selected_methods ??
+    record.methods
   if (!Array.isArray(raw)) return undefined
   const methods = raw.filter((method): method is string => typeof method === 'string')
   return methods.length > 0 ? methods : undefined

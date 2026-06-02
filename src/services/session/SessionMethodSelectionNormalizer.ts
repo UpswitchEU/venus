@@ -20,10 +20,21 @@ function pickStringArray(raw: unknown): string[] | undefined {
   return raw.every((method: unknown) => typeof method === 'string') ? raw : undefined
 }
 
+function normalizeWeightMapForUi(record: Record<string, number>): Record<string, number> {
+  const values = Object.values(record)
+  const total = values.reduce((sum, value) => sum + value, 0)
+  const looksFractional =
+    values.length > 0 && values.every((value) => value >= 0 && value <= 1) && total <= 1.05
+  if (!looksFractional) return record
+  return Object.fromEntries(
+    Object.entries(record).map(([method, weight]) => [method, weight * 100])
+  )
+}
+
 function pickWeightMap(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
   const record = raw as Record<string, number>
-  return Object.keys(record).length > 0 ? record : undefined
+  return Object.keys(record).length > 0 ? normalizeWeightMapForUi(record) : undefined
 }
 
 function extractSingleMethodHint(sessionData: SessionRecord): string | null | undefined {
@@ -56,7 +67,9 @@ export function extractMethodSelectionHints(
 ): SessionMethodSelectionHints {
   const preSelectedMethods =
     pickStringArray(sessionData[SESSION_PRE_SELECTED_METHODS_KEY]) ??
-    pickStringArray(sessionData.pre_selected_valuation_methods)
+    pickStringArray(sessionData.pre_selected_valuation_methods) ??
+    pickStringArray(sessionData.selected_methods) ??
+    pickStringArray(sessionData.methods)
 
   const userWeights =
     pickWeightMap(sessionData[SESSION_USER_WEIGHTS_KEY]) ??

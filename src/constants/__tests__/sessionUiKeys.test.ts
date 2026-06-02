@@ -112,6 +112,19 @@ describe('readPreSelectedValuationMethods', () => {
     expect(readPreSelectedValuationMethods({})).toBeUndefined()
     expect(readPreSelectedValuationMethods({ _pre_selected_valuation_methods: [] })).toBeUndefined()
   })
+
+  it('falls back to flat multi-method keys', () => {
+    expect(
+      readPreSelectedValuationMethods({
+        selected_methods: ['ebitda_multiple', 'dcf'],
+      })
+    ).toEqual(['ebitda_multiple', 'dcf'])
+    expect(
+      readPreSelectedValuationMethods({
+        methods: ['adjusted_nav', 'dcf'],
+      })
+    ).toEqual(['adjusted_nav', 'dcf'])
+  })
 })
 
 describe('sessionHasStoredPreSelectedMethod', () => {
@@ -144,5 +157,12 @@ describe('sessionHasStoredPreSelectedMethod', () => {
     ).toBe(true)
     expect(sessionHasStoredPreSelectedMethod({ selected_method: 'dcf' })).toBe(true)
     expect(sessionHasStoredPreSelectedMethod({ selected_method: '  ' })).toBe(false)
+  })
+
+  it('detects selected_methods and methods arrays as stored multi-selection hints', () => {
+    expect(sessionHasStoredPreSelectedMethod({ selected_methods: ['dcf'] })).toBe(true)
+    expect(sessionHasStoredPreSelectedMethod({ methods: ['dcf'] })).toBe(true)
+    expect(sessionHasStoredPreSelectedMethod({ selected_methods: [] })).toBe(false)
+    expect(sessionHasStoredPreSelectedMethod({ methods: [] })).toBe(false)
   })
 })

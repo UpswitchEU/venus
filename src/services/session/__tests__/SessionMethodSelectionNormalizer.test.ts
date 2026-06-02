@@ -31,6 +31,24 @@ describe('extractMethodSelectionHints', () => {
     expect(hints.userWeightJustification).toBe('Client asked for floor + income.')
   })
 
+  it('accepts selected_methods as a blended-selection fallback', () => {
+    const hints = extractMethodSelectionHints({
+      selected_methods: ['ebitda_multiple', 'dcf'],
+      user_weights: { ebitda_multiple: 0.5, dcf: 0.5 },
+    })
+
+    expect(hints.preSelectedMethods).toEqual(['ebitda_multiple', 'dcf'])
+    expect(hints.userWeights).toEqual({ ebitda_multiple: 50, dcf: 50 })
+  })
+
+  it('accepts methods as the last blended-selection fallback', () => {
+    const hints = extractMethodSelectionHints({
+      methods: ['ebitda_multiple', 'dcf'],
+    })
+
+    expect(hints.preSelectedMethods).toEqual(['ebitda_multiple', 'dcf'])
+  })
+
   it('falls back to camelCase weights when persisted underscore keys are absent', () => {
     const hints = extractMethodSelectionHints({
       userWeights: { dcf: 50, ebitda_multiple: 50 },
