@@ -70,6 +70,105 @@ describe('manualVersionNav', () => {
     expect(navItem.priceRange).toEqual({ min: 453_502, max: 616_744 })
   })
 
+  it('uses the live nav summary for the current lightweight persisted version', () => {
+    const createdAt = new Date('2026-06-02T08:00:00.000Z')
+    const [navItem] = buildManualVersionHistoryForNav({
+      report: {
+        companyName: 'Restaurant Decan',
+        valuation: 293_000,
+        valuationLow: 220_000,
+        valuationHigh: 367_000,
+        recommendedAskingPrice: 293_000,
+        generatedAt: createdAt,
+      } as unknown as ValuationReportData,
+      selectedMethod: 'upswitch_adaptive',
+      currentVersionLabel: 'Current',
+      currentValuationSummary: {
+        askPrice: 293_000,
+        priceRange: { min: 220_000, max: 367_000 },
+      },
+      versions: [
+        {
+          id: 'version-1',
+          versionNumber: 1,
+          versionLabel: 'Version 1',
+          createdAt,
+          isActive: true,
+          formData: { selected_method: 'upswitch_adaptive' },
+          valuationResult: null,
+        } as unknown as ValuationVersion,
+      ],
+    })
+
+    expect(navItem).toMatchObject({
+      id: 'version-1',
+      label: 'Version 1',
+      askPrice: 293_000,
+      priceRange: { min: 220_000, max: 367_000 },
+      isActive: true,
+    })
+  })
+
+  it('uses activeVersionNumber to identify the current lightweight version', () => {
+    const createdAt = new Date('2026-06-02T08:00:00.000Z')
+    const navItems = buildManualVersionHistoryForNav({
+      report: {
+        companyName: 'Restaurant Decan',
+        valuation: 293_000,
+        valuationLow: 220_000,
+        valuationHigh: 367_000,
+        recommendedAskingPrice: 293_000,
+        generatedAt: createdAt,
+      } as unknown as ValuationReportData,
+      selectedMethod: 'upswitch_adaptive',
+      currentVersionLabel: 'Current',
+      currentValuationSummary: {
+        askPrice: 293_000,
+        priceRange: { min: 220_000, max: 367_000 },
+      },
+      activeVersionNumber: 2,
+      versions: [
+        {
+          id: 'version-1',
+          versionNumber: 1,
+          versionLabel: 'Version 1',
+          createdAt,
+          formData: { selected_method: 'upswitch_adaptive' },
+          valuationResult: {
+            valuation_results: {
+              upswitch_adaptive: {
+                available: true,
+                value: 180_000,
+                details: { equity_range_low: 150_000, equity_range_high: 210_000 },
+              },
+            },
+          },
+        } as unknown as ValuationVersion,
+        {
+          id: 'version-2',
+          versionNumber: 2,
+          versionLabel: 'Version 2',
+          createdAt,
+          formData: { selected_method: 'upswitch_adaptive' },
+          valuationResult: null,
+        } as unknown as ValuationVersion,
+      ],
+    })
+
+    expect(navItems[0]).toMatchObject({
+      id: 'version-1',
+      askPrice: 180_000,
+      priceRange: { min: 150_000, max: 210_000 },
+      isActive: false,
+    })
+    expect(navItems[1]).toMatchObject({
+      id: 'version-2',
+      askPrice: 293_000,
+      priceRange: { min: 220_000, max: 367_000 },
+      isActive: true,
+    })
+  })
+
   it('maps persisted versions through method-aware nav pricing', () => {
     const createdAt = new Date('2026-02-01T00:00:00.000Z')
     const [navItem] = buildManualVersionHistoryForNav({
@@ -105,7 +204,7 @@ describe('manualVersionNav', () => {
       priceRange: { min: 400_000, max: 600_000 },
       askPrice: 500_000,
       timestamp: createdAt,
-      isActive: false,
+      isActive: true,
     })
   })
 })

@@ -477,6 +477,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
 
   const { handleSelectVersion, selectedVersionId, versionHistoryForNav } =
     useManualVersionNavigation({
+      currentValuationSummary: navValuationSummary,
       currentVersionLabel: t('currentVersion'),
       onVersionHistoryLocked: () => openStarterPaywall('version_history'),
       planFeatures,

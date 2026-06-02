@@ -117,6 +117,43 @@ describe('CalculatorNav', () => {
     expect(nextVersionRow).not.toHaveAttribute('aria-current')
   })
 
+  it('prefers the active valuation version over the first version when no explicit version is selected', () => {
+    render(
+      <CalculatorNav
+        companyName="Restaurant Decan"
+        hasReport
+        valuationVersions={[
+          {
+            id: 'version-1',
+            label: 'v1',
+            askPrice: 220000,
+            priceRange: { min: 180000, max: 260000 },
+            timestamp: new Date('2026-06-02T09:37:00.000Z'),
+            isActive: false,
+          },
+          {
+            id: 'version-2',
+            label: 'v2',
+            askPrice: 293000,
+            priceRange: { min: 220000, max: 367000 },
+            timestamp: new Date('2026-06-02T09:38:00.000Z'),
+            isActive: true,
+          },
+        ]}
+        onSelectVersion={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByTitle('Open versiegeschiedenis en waarderingsbandbreedte'))
+
+    const firstVersionRow = screen.getByText('v1').closest('button')
+    const currentVersionRow = screen.getByText('v2').closest('button')
+
+    expect(firstVersionRow).not.toHaveAttribute('aria-current')
+    expect(currentVersionRow).toHaveAttribute('aria-current', 'true')
+    expect(within(currentVersionRow as HTMLElement).getByText('HUIDIG')).toBeInTheDocument()
+  })
+
   it('shows a polished current-version fallback when only a valuation summary exists', () => {
     render(
       <CalculatorNav

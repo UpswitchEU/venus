@@ -43,6 +43,11 @@ import { formatChangesSummary } from '../utils/versionDiffDetection'
 /** Number of versions to show initially and per "Load More" click */
 const VERSIONS_PER_PAGE = 10
 
+function positiveFiniteNumber(value: unknown): number | null {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
 export interface VersionTimelineProps {
   versions: ValuationVersion[]
   activeVersion: number
@@ -247,16 +252,17 @@ function VersionTimelineItem({
     }
   }
 
-  // Get valuation amounts
-  const currentValuation = getFinalValuation(version.valuationResult) ?? 0
+  // Get valuation amounts. Zero-only snapshots are usually lightweight persisted metadata,
+  // not a real valuation result, so avoid rendering a misleading €0 card/delta.
+  const currentValuation = positiveFiniteNumber(getFinalValuation(version.valuationResult))
   const previousValuation = previousVersion
-    ? getFinalValuation(previousVersion.valuationResult)
+    ? positiveFiniteNumber(getFinalValuation(previousVersion.valuationResult))
     : null
 
   // Calculate price difference
   let priceChange = 0
   let priceChangePercent = 0
-  if (previousValuation !== null && previousValuation > 0) {
+  if (currentValuation !== null && previousValuation !== null) {
     priceChange = currentValuation - previousValuation
     priceChangePercent = ((currentValuation - previousValuation) / previousValuation) * 100
   }
@@ -314,12 +320,16 @@ function VersionTimelineItem({
 
           {/* Valuation Card - Full Width Navy Theme */}
           {version.valuationResult &&
+            currentValuation !== null &&
             (() => {
-              const equityValueLow = getEquityValueLow(version.valuationResult) ?? 0
+              const equityValueLow =
+                positiveFiniteNumber(getEquityValueLow(version.valuationResult)) ?? 0
               const equityValueMid =
-                getEquityValueMid(version.valuationResult) ?? currentValuation ?? 0
-              const equityValueHigh = getEquityValueHigh(version.valuationResult) ?? 0
-              const recommendedAskingPrice = getRecommendedAskingPrice(version.valuationResult) ?? 0
+                positiveFiniteNumber(getEquityValueMid(version.valuationResult)) ?? currentValuation
+              const equityValueHigh =
+                positiveFiniteNumber(getEquityValueHigh(version.valuationResult)) ?? 0
+              const recommendedAskingPrice =
+                positiveFiniteNumber(getRecommendedAskingPrice(version.valuationResult)) ?? 0
 
               // Calculate premium percentage if we have both mid and asking price
               const premiumPercent =

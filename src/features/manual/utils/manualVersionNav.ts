@@ -3,13 +3,61 @@ import type {
   ValuationReportData,
 } from '@/components/calculator'
 import type { ValuationVersion } from '@/types/ValuationVersion'
-import { deriveNavPricesForVersionNav } from '../components/manualReportPresentation'
+import {
+  deriveNavPricesForVersionNav,
+  type NavVersionPrices,
+} from '../components/manualReportPresentation'
+
+type CurrentValuationSummary = {
+  priceRange: { min: number; max: number }
+  askPrice: number
+} | null
 
 export interface BuildManualVersionHistoryForNavParams {
   versions: ValuationVersion[]
   report: ValuationReportData | null
   selectedMethod: string
   currentVersionLabel: string
+  currentValuationSummary?: CurrentValuationSummary
+  activeVersionNumber?: number | null
+}
+
+function finiteNumber(value: unknown): number | null {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function hasUsableNavPrices(prices: NavVersionPrices): boolean {
+  return prices.askPrice > 0 || prices.priceRange.min > 0 || prices.priceRange.max > 0
+}
+
+function pricesFromCurrentSummary(
+  summary: CurrentValuationSummary | undefined,
+  report: ValuationReportData | null
+): NavVersionPrices | null {
+  if (summary) {
+    const askPrice = finiteNumber(summary.askPrice)
+    const min = finiteNumber(summary.priceRange?.min)
+    const max = finiteNumber(summary.priceRange?.max)
+    if (askPrice != null && min != null && max != null) {
+      return {
+        askPrice,
+        priceRange: { min, max },
+      }
+    }
+  }
+
+  if (!report) return null
+
+  const valuation = finiteNumber(report.valuation) ?? 0
+  const askPrice = finiteNumber(report.recommendedAskingPrice) ?? valuation
+  return {
+    askPrice,
+    priceRange: {
+      min: finiteNumber(report.valuationLow) ?? Math.round(valuation * 0.85),
+      max: finiteNumber(report.valuationHigh) ?? Math.round(valuation * 1.15),
+    },
+  }
 }
 
 export function buildManualVersionHistoryForNav({
@@ -17,38 +65,53 @@ export function buildManualVersionHistoryForNav({
   report,
   selectedMethod,
   currentVersionLabel,
+  currentValuationSummary,
+  activeVersionNumber,
 }: BuildManualVersionHistoryForNavParams): NavValuationVersion[] {
+  const currentPrices = pricesFromCurrentSummary(currentValuationSummary, report)
+  const activeNumber = finiteNumber(activeVersionNumber)
+
   if (versions.length === 0 && report) {
     return [
       {
         id: 'current',
         label: currentVersionLabel,
-        priceRange: {
+        priceRange: currentPrices?.priceRange ?? {
           min: report.valuationLow ?? Math.round(report.valuation * 0.85),
           max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
         },
-        askPrice: report.recommendedAskingPrice ?? report.valuation,
+        askPrice: currentPrices?.askPrice ?? report.recommendedAskingPrice ?? report.valuation,
         timestamp: report.generatedAt,
         isActive: true,
       },
     ]
   }
 
-  return versions.map((version) => {
+  return versions.map((version, index) => {
     const formData = version.formData as {
       selected_valuation_method?: string
       selected_method?: string
     }
     const method = formData.selected_valuation_method ?? formData.selected_method ?? selectedMethod
-    const { priceRange, askPrice } = deriveNavPricesForVersionNav(version.valuationResult, method)
+    const versionPrices = deriveNavPricesForVersionNav(version.valuationResult, method)
+    const isCurrentVersion =
+      activeNumber != null
+        ? version.versionNumber === activeNumber
+        : version.isActive || (versions.length === 1 && index === 0)
+    const prices =
+      isCurrentVersion &&
+      currentPrices &&
+      (!version.valuationResult || !hasUsableNavPrices(versionPrices))
+        ? currentPrices
+        : versionPrices
 
     return {
       id: version.id,
       label: version.versionLabel,
-      priceRange,
-      askPrice,
+      priceRange: prices.priceRange,
+      askPrice: prices.askPrice,
       timestamp: version.createdAt,
-      isActive: version.isActive,
+      isActive: isCurrentVersion,
     }
   })
 }

@@ -122,7 +122,9 @@ export function CalculatorNav({
   const openAdvisorControlsModal = useAdvisorControlsModalStore((s) => s.setOpen)
 
   const activeVersion =
-    valuationVersions.find((v) => v.id === selectedVersionId) || valuationVersions[0]
+    valuationVersions.find((v) => v.id === selectedVersionId) ||
+    valuationVersions.find((v) => v.isActive) ||
+    valuationVersions[0]
   const activeVersionId = activeVersion?.id
   const displaySummary =
     valuationSummary ||

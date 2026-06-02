@@ -55,6 +55,8 @@ export interface ReportLike {
   id?: string
   companyName?: string
   valuation?: number
+  valuationLow?: number
+  valuationHigh?: number
   ebitda?: number
   multiple?: number
 }
@@ -151,6 +153,27 @@ const formatDate = (date: Date | string | number, locale: 'nl' | 'en') => {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function finiteReportNumber(value: unknown): number | undefined {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+function positiveFiniteNumber(value: unknown): number | undefined {
+  const numeric = finiteReportNumber(value)
+  return numeric != null && numeric > 0 ? numeric : undefined
+}
+
+function positiveSnapshotOrCurrent(
+  snapshotValue: number | null,
+  reportValue: unknown,
+  isCurrent: boolean
+): number | undefined {
+  return (
+    positiveFiniteNumber(snapshotValue) ??
+    (isCurrent ? positiveFiniteNumber(reportValue) : undefined)
+  )
 }
 
 // ─────────────────────────────────────────
@@ -385,7 +408,7 @@ export function HistoryPanel({
 
     return storeVersions
       .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
-      .map((v) => {
+      .map((v, index, sortedVersions) => {
         const vr = v.valuationResult
         const createdBy = v.createdBy
         const authorDisplay = formatVersionAuthor(createdBy, user, {
@@ -394,6 +417,10 @@ export function HistoryPanel({
         })
         const authorInitials =
           authorDisplay.substring(0, 2).toUpperCase().replace(/\s/g, '') || '??'
+        const isCurrent =
+          activeVersionNumber != null
+            ? v.versionNumber === activeVersionNumber
+            : v.isActive || (sortedVersions.length === 1 && index === 0)
         return {
           id: v.id || String(v.versionNumber),
           version: v.versionNumber || 1,
@@ -403,13 +430,23 @@ export function HistoryPanel({
           type: deriveVersionType(v),
           summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
           changes: deriveChanges(v, hp('changed')),
-          valuation: getFinalValuation(vr) ?? undefined,
-          valuationLow: getEquityValueLow(vr) ?? undefined,
-          valuationHigh: getEquityValueHigh(vr) ?? undefined,
-          ebitda: getNormalizedEbitda(vr) ?? undefined,
-          multiple: getValuationMultiple(vr) ?? undefined,
-          isCurrent:
-            activeVersionNumber != null ? v.versionNumber === activeVersionNumber : v.isActive,
+          valuation: positiveSnapshotOrCurrent(getFinalValuation(vr), report?.valuation, isCurrent),
+          valuationLow: positiveSnapshotOrCurrent(
+            getEquityValueLow(vr),
+            report?.valuationLow,
+            isCurrent
+          ),
+          valuationHigh: positiveSnapshotOrCurrent(
+            getEquityValueHigh(vr),
+            report?.valuationHigh,
+            isCurrent
+          ),
+          ebitda:
+            getNormalizedEbitda(vr) ?? (isCurrent ? finiteReportNumber(report?.ebitda) : undefined),
+          multiple:
+            positiveFiniteNumber(getValuationMultiple(vr)) ??
+            (isCurrent ? positiveFiniteNumber(report?.multiple) : undefined),
+          isCurrent,
         }
       })
   }, [storeVersions, activeVersionNumber, hp, report, user])

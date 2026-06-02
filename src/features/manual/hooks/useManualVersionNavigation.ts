@@ -10,6 +10,10 @@ interface VersionControlFeatures {
 }
 
 export interface UseManualVersionNavigationParams {
+  currentValuationSummary?: {
+    priceRange: { min: number; max: number }
+    askPrice: number
+  } | null
   currentVersionLabel: string
   onVersionHistoryLocked: () => void
   planFeatures?: VersionControlFeatures | null
@@ -28,6 +32,7 @@ export interface UseManualVersionNavigationResult {
 }
 
 export function useManualVersionNavigation({
+  currentValuationSummary,
   currentVersionLabel,
   onVersionHistoryLocked,
   planFeatures,
@@ -38,7 +43,9 @@ export function useManualVersionNavigation({
   setResult,
   showVersionLoadedToast,
 }: UseManualVersionNavigationParams): UseManualVersionNavigationResult {
-  const versions = useVersionHistoryStore((s) => s.versions[resolvedReportId || reportId] || [])
+  const versionLookupId = resolvedReportId || reportId
+  const versions = useVersionHistoryStore((s) => s.versions[versionLookupId] || [])
+  const activeVersionNumber = useVersionHistoryStore((s) => s.activeVersions[versionLookupId])
   const [selectedVersionId, setSelectedVersionId] = useState<string>('current')
 
   const versionHistoryForNav = useMemo(() => {
@@ -47,8 +54,17 @@ export function useManualVersionNavigation({
       report,
       selectedMethod,
       currentVersionLabel,
+      currentValuationSummary,
+      activeVersionNumber,
     })
-  }, [currentVersionLabel, report, selectedMethod, versions])
+  }, [
+    activeVersionNumber,
+    currentValuationSummary,
+    currentVersionLabel,
+    report,
+    selectedMethod,
+    versions,
+  ])
 
   const handleSelectVersion = useCallback(
     (id: string) => {
