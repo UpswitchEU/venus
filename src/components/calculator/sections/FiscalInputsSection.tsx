@@ -3,9 +3,9 @@
 /**
  * Meerwaarde-tax left-panel section — pure data input.
  *
- * Captures the four amount values needed to file the cedent's 31/12/2025
- * cost basis under the Belgian capital-gains regime (Wet 22/12/2024,
- * Art. 90 WIB 92, effective 01/01/2026):
+ * Captures the four amount values used as a possible 31/12/2025 cost-basis
+ * reference under the Belgian capital-gains regime (Art. 90 WIB 92; final
+ * filing treatment to be confirmed with a tax advisor):
  *
  *   1. Aanschaffingswaarde (historische kostprijs van de aandelen) — primary
  *   2. Anker 2 — contractuele formule (aandeelhoudersovereenkomst) — fallback
