@@ -38,6 +38,31 @@ describe('SessionRestorationService', () => {
     vi.restoreAllMocks()
   })
 
+  it('does not hydrate stores when restoration is cancelled before side effects', async () => {
+    const result = await SessionRestorationService.restore(
+      'val_cancelled_restore',
+      {
+        reportId: 'val_cancelled_restore',
+        sessionData: {
+          company_name: 'Cancelled BV',
+          revenue: 1_000_000,
+        },
+        valuationResult: {
+          valuation_id: 'val_cancelled_restore',
+          html_report: '<html>Cancelled</html>',
+          equity_value_mid: 100000,
+          currency: 'EUR',
+        },
+      },
+      { shouldContinue: () => false }
+    )
+
+    expect(result.success).toBe(false)
+    expect(useManualFormStore.getState().formData.company_name).not.toBe('Cancelled BV')
+    expect(useManualResultsStore.getState().result).toBeNull()
+    expect(useSessionStore.getState().restorationComplete).toBe(false)
+  })
+
   it('preserves valuation methods during package-only hydration', () => {
     useManualResultsStore.setState({
       result: {

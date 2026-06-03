@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sessionServiceMocks = vi.hoisted(() => ({
+  loadSession: vi.fn(),
   saveSession: vi.fn(),
 }))
 
 vi.mock('../../index', () => ({
   sessionService: {
+    loadSession: sessionServiceMocks.loadSession,
     saveSession: sessionServiceMocks.saveSession,
   },
 }))
@@ -38,6 +40,107 @@ function deferred<T>() {
 describe('AuthenticatedSessionEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('deduplicates same-report loads through the full engine merge path', async () => {
+    const createdAt = new Date('2026-06-03T13:00:00.000Z')
+    const load = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.loadSession.mockReturnValueOnce(load.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    const first = engine.loadSession('val_load_same')
+    const second = engine.loadSession('val_load_same')
+    engine.updateSession({ sessionData: { queued: true } })
+
+    load.resolve({
+      reportId: 'val_load_same',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Load Co' },
+      partialData: {},
+    })
+
+    const [firstResult, secondResult] = await Promise.all([first, second])
+
+    expect(sessionServiceMocks.loadSession).toHaveBeenCalledTimes(1)
+    expect(firstResult?.sessionData).toMatchObject({ company_name: 'Load Co', queued: true })
+    expect(secondResult?.sessionData).toMatchObject({ company_name: 'Load Co', queued: true })
+    expect(engine.getSession()?.sessionData).toMatchObject({
+      company_name: 'Load Co',
+      queued: true,
+    })
+  })
+
+  it('ignores stale load responses after a newer report load starts', async () => {
+    const createdAt = new Date('2026-06-03T13:05:00.000Z')
+    const oldLoad = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+    const nextLoad = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.loadSession
+      .mockReturnValueOnce(oldLoad.promise)
+      .mockReturnValueOnce(nextLoad.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    const oldPromise = engine.loadSession('val_old_report')
+    engine.updateSession({ sessionData: { oldQueuedEdit: true } })
+    const nextPromise = engine.loadSession('val_next_report')
+    engine.updateSession({ sessionData: { nextQueuedEdit: true } })
+
+    nextLoad.resolve({
+      reportId: 'val_next_report',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Next Co' },
+      partialData: {},
+    })
+    await nextPromise
+
+    oldLoad.resolve({
+      reportId: 'val_old_report',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Old Co' },
+      partialData: {},
+    })
+    await expect(oldPromise).resolves.toBeNull()
+
+    expect(engine.getSession()?.reportId).toBe('val_next_report')
+    expect(engine.getSession()?.sessionData).toMatchObject({
+      company_name: 'Next Co',
+      nextQueuedEdit: true,
+    })
+    expect(engine.getSession()?.sessionData).not.toHaveProperty('oldQueuedEdit')
   })
 
   it('persists top-level session name through centralized save', async () => {
@@ -274,6 +377,82 @@ describe('AuthenticatedSessionEngine', () => {
         revenue: 1_250_000,
         ebitda: 250_000,
         currentView: 'manual',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('automatically sends a follow-up save when local edits happen during an in-flight request', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const createdAt = new Date('2026-06-03T13:10:00.000Z')
+      const firstSave = deferred<{
+        reportId: string
+        currentView: 'manual'
+        dataSource: 'manual'
+        createdAt: Date
+        updatedAt: Date
+        sessionData: Record<string, unknown>
+        partialData: Record<string, unknown>
+      }>()
+
+      sessionServiceMocks.saveSession
+        .mockImplementationOnce(() => firstSave.promise)
+        .mockImplementationOnce(async (reportId, payload) => ({
+          reportId,
+          currentView: 'manual',
+          dataSource: 'manual',
+          createdAt,
+          updatedAt: new Date('2026-06-03T13:10:02.000Z'),
+          sessionData: payload,
+          partialData: {},
+        }))
+
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_inflight_local_edit',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'Initial Co', revenue: 1_000_000 },
+        partialData: {},
+      })
+
+      const savePromise = engine.saveSession('user')
+      await Promise.resolve()
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+      engine.updateSession({
+        sessionData: { revenue: 1_500_000, ebitda: 300_000 },
+      })
+
+      firstSave.resolve({
+        reportId: 'val_inflight_local_edit',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: new Date('2026-06-03T13:10:01.000Z'),
+        sessionData: { company_name: 'Initial Co', revenue: 1_000_000 },
+        partialData: {},
+      })
+
+      await vi.advanceTimersByTimeAsync(750)
+      await savePromise
+
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
+      expect(sessionServiceMocks.saveSession.mock.calls[1]?.[1]).toMatchObject({
+        company_name: 'Initial Co',
+        revenue: 1_500_000,
+        ebitda: 300_000,
+        currentView: 'manual',
+      })
+      expect(engine.getSession()?.sessionData).toMatchObject({
+        company_name: 'Initial Co',
+        revenue: 1_500_000,
+        ebitda: 300_000,
       })
     } finally {
       vi.useRealTimers()

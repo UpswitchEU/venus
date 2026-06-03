@@ -438,6 +438,114 @@ describe('useSessionStore', () => {
       expect(useSessionStore.getState().session?.reportId).toBe('val_report_B')
     })
 
+    it('ignores stale cross-report load successes', async () => {
+      const oldSession = {
+        reportId: 'val_report_A',
+        sessionData: { company_name: 'Old Co' },
+        updatedAt: new Date('2026-06-03T13:00:00.000Z'),
+      }
+      const nextSession = {
+        reportId: 'val_report_B',
+        sessionData: { company_name: 'Next Co' },
+        updatedAt: new Date('2026-06-03T13:01:00.000Z'),
+      }
+      let releaseOld: (session: typeof oldSession) => void = () => undefined
+      let releaseNext: (session: typeof nextSession) => void = () => undefined
+      const oldLoad = new Promise<typeof oldSession>((resolve) => {
+        releaseOld = resolve
+      })
+      const nextLoad = new Promise<typeof nextSession>((resolve) => {
+        releaseNext = resolve
+      })
+      mockLoadSession.mockImplementation((reportId: string) =>
+        reportId === 'val_report_A' ? oldLoad : nextLoad
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const oldPromise = useSessionStore.getState().loadSession('val_report_A')
+      await Promise.resolve()
+      const nextPromise = useSessionStore.getState().loadSession('val_report_B')
+      await Promise.resolve()
+
+      releaseNext(nextSession)
+      await nextPromise
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.reportId).toBe('val_report_B')
+
+      releaseOld(oldSession)
+      await oldPromise
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.reportId).toBe('val_report_B')
+      expect(useSessionStore.getState().session?.sessionData).toMatchObject({
+        company_name: 'Next Co',
+      })
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+    })
+
+    it('ignores stale cross-report load failures', async () => {
+      const nextSession = {
+        reportId: 'val_report_B',
+        sessionData: { company_name: 'Next Co' },
+        updatedAt: new Date('2026-06-03T13:02:00.000Z'),
+      }
+      let rejectOld: (error: Error) => void = () => undefined
+      let releaseNext: (session: typeof nextSession) => void = () => undefined
+      const oldLoad = new Promise<never>((_resolve, reject) => {
+        rejectOld = reject
+      })
+      const nextLoad = new Promise<typeof nextSession>((resolve) => {
+        releaseNext = resolve
+      })
+      mockLoadSession.mockImplementation((reportId: string) =>
+        reportId === 'val_report_A' ? oldLoad : nextLoad
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const oldPromise = useSessionStore.getState().loadSession('val_report_A')
+      await Promise.resolve()
+      const nextPromise = useSessionStore.getState().loadSession('val_report_B')
+      await Promise.resolve()
+
+      releaseNext(nextSession)
+      await nextPromise
+      rejectOld(new Error('late old load failed'))
+      await oldPromise
+
+      expect(useSessionStore.getState().status).toBe('loaded')
+      expect(useSessionStore.getState().session?.reportId).toBe('val_report_B')
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+    })
+
+    it('does not resurrect a session when clearSession wins the load race', async () => {
+      const loadedSession = {
+        reportId: 'val_cleared_race',
+        sessionData: { company_name: 'Cleared Co' },
+        updatedAt: new Date('2026-06-03T13:03:00.000Z'),
+      }
+      let releaseLoad: (session: typeof loadedSession) => void = () => undefined
+      const loadDeferred = new Promise<typeof loadedSession>((resolve) => {
+        releaseLoad = resolve
+      })
+      mockLoadSession.mockImplementation(() => loadDeferred)
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+      const loadPromise = useSessionStore.getState().loadSession('val_cleared_race')
+      await Promise.resolve()
+      expect(useSessionStore.getState().status).toBe('loading')
+
+      useSessionStore.getState().clearSession()
+      releaseLoad(loadedSession)
+      await loadPromise
+
+      expect(useSessionStore.getState().status).toBe('idle')
+      expect(useSessionStore.getState().session).toBeNull()
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+    })
+
     it('should reset to IDLE on clearSession', async () => {
       const mockSession = {
         reportId: 'val_clear_123',

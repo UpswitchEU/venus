@@ -121,6 +121,10 @@ export interface RestorationResult {
   error?: string
 }
 
+interface RestorationOptions {
+  shouldContinue?: () => boolean
+}
+
 /**
  * Session Restoration Service
  *
@@ -189,6 +193,35 @@ class SessionRestorationServiceImpl {
     // - Restoration hasn't started yet
     // UI should check session store status to differentiate
     return false
+  }
+
+  private shouldContinueRestoration(
+    reportId: string,
+    options: RestorationOptions | undefined,
+    phase: string
+  ): boolean {
+    if (options?.shouldContinue?.() === false) {
+      generalLogger.debug('[SessionRestoration] Ignoring stale restoration work', {
+        reportId,
+        phase,
+      })
+      return false
+    }
+    return true
+  }
+
+  private skippedRestorationResult(reportId: string): RestorationResult {
+    return {
+      success: false,
+      reportId,
+      restoredFormFields: 0,
+      restoredValuationResult: false,
+      restoredHtmlReport: false,
+      restoredPricingRange: false,
+      restoredVersionHistory: false,
+      restoredEbitdaNormalizations: false,
+      error: 'stale restoration',
+    }
   }
 
   /**
@@ -268,12 +301,23 @@ class SessionRestorationServiceImpl {
    * @param backendSession - Raw session data from backend
    * @returns Restoration result with details of what was restored
    */
-  async restore(reportId: string, backendSession: unknown): Promise<RestorationResult> {
+  async restore(
+    reportId: string,
+    backendSession: unknown,
+    options?: RestorationOptions
+  ): Promise<RestorationResult> {
     const startTime = performance.now()
+
+    if (!this.shouldContinueRestoration(reportId, options, 'start')) {
+      return this.skippedRestorationResult(reportId)
+    }
 
     // Idempotent check: Skip if already restored
     if (this.restoredReportIds.has(reportId)) {
       generalLogger.debug('[SessionRestoration] Skipping - already restored', { reportId })
+      if (!this.shouldContinueRestoration(reportId, options, 'already-restored')) {
+        return this.skippedRestorationResult(reportId)
+      }
       markMercurySessionPrefillSuppressed(reportId)
       // Re-assert flag in case loadSession reset it between calls
       if (!useSessionStore.getState().restorationComplete) {
@@ -304,7 +348,7 @@ class SessionRestorationServiceImpl {
     this.restorationInProgress.add(reportId)
 
     // Create and store the restoration promise so waitForRestoration can use it
-    const restorationPromise = this.executeRestoration(reportId, backendSession, startTime)
+    const restorationPromise = this.executeRestoration(reportId, backendSession, startTime, options)
     this.restorationPromises.set(reportId, restorationPromise)
 
     try {
@@ -321,7 +365,8 @@ class SessionRestorationServiceImpl {
   private async executeRestoration(
     reportId: string,
     backendSession: unknown,
-    startTime: number
+    startTime: number,
+    options?: RestorationOptions
   ): Promise<RestorationResult> {
     try {
       // 1. Normalize data
@@ -332,9 +377,16 @@ class SessionRestorationServiceImpl {
         throw new Error('Session data validation failed')
       }
 
+      if (!this.shouldContinueRestoration(reportId, options, 'normalized')) {
+        return this.skippedRestorationResult(reportId)
+      }
+
       // 3. Check if this is an existing report with data
       if (!normalized.hasExistingData) {
         generalLogger.debug('[SessionRestoration] New report - no data to restore', { reportId })
+        if (!this.shouldContinueRestoration(reportId, options, 'empty-session')) {
+          return this.skippedRestorationResult(reportId)
+        }
         this.restoredReportIds.add(reportId)
         useSessionStore.getState().setRestorationComplete(true)
         return {
@@ -350,13 +402,22 @@ class SessionRestorationServiceImpl {
       }
 
       // 4. Hydrate ALL stores atomically
-      const result = await this.hydrateStores(normalized)
+      const result = await this.hydrateStores(normalized, options)
+      if (!this.shouldContinueRestoration(reportId, options, 'hydrated')) {
+        return this.skippedRestorationResult(reportId)
+      }
       markMercurySessionPrefillSuppressed(reportId)
 
       // 5. Signal restoration complete so ManualLayout can unblock the UI immediately
+      if (!this.shouldContinueRestoration(reportId, options, 'complete-signal')) {
+        return this.skippedRestorationResult(reportId)
+      }
       useSessionStore.getState().setRestorationComplete(true)
 
       // 6. Verify restoration completed successfully
+      if (!this.shouldContinueRestoration(reportId, options, 'verify')) {
+        return this.skippedRestorationResult(reportId)
+      }
       const verified = this.verifyRestoration(normalized)
       if (!verified) {
         generalLogger.warn('[SessionRestoration] Verification found missing assets', {
@@ -388,6 +449,9 @@ class SessionRestorationServiceImpl {
       })
 
       // Always unblock the UI even when restoration fails
+      if (!this.shouldContinueRestoration(reportId, options, 'error')) {
+        return this.skippedRestorationResult(reportId)
+      }
       useSessionStore.getState().setRestorationComplete(true)
 
       return {
@@ -413,7 +477,8 @@ class SessionRestorationServiceImpl {
    * Includes: Form data, Results, Version history, EBITDA normalizations
    */
   private async hydrateStores(
-    data: NormalizedSessionData
+    data: NormalizedSessionData,
+    options?: RestorationOptions
   ): Promise<Omit<RestorationResult, 'success' | 'error' | 'audit'>> {
     let restoredFormFields = 0
     let restoredValuationResult = false
@@ -424,10 +489,22 @@ class SessionRestorationServiceImpl {
 
     // Determine which results store to use based on flow type
     const isConversational = data.flowType === 'conversational'
+    const currentResult = () => ({
+      reportId: data.reportId,
+      restoredFormFields,
+      restoredValuationResult,
+      restoredHtmlReport,
+      restoredPricingRange,
+      restoredVersionHistory,
+      restoredEbitdaNormalizations,
+    })
 
     // 1. Hydrate form store (for manual flow): normalized snapshot first, then merged envelope gap-fill.
     if (!isConversational) {
       try {
+        if (!this.shouldContinueRestoration(data.reportId, options, 'form')) {
+          return currentResult()
+        }
         const { updateFormData } = useManualFormStore.getState()
 
         if (data.formData && Object.keys(data.formData).length > 0) {
@@ -478,6 +555,9 @@ class SessionRestorationServiceImpl {
       data.preSelectedValuationMethod !== undefined
     ) {
       try {
+        if (!this.shouldContinueRestoration(data.reportId, options, 'preselected-method')) {
+          return currentResult()
+        }
         if (data.preSelectedValuationMethod === null) {
           useManualResultsStore.getState().setPreSelectedMethod(null)
         } else {
@@ -511,6 +591,9 @@ class SessionRestorationServiceImpl {
     // Applied both for drafts and completed valuations so recalculation preserves
     // the accountant's configured method mix and weighting.
     if (!isConversational) {
+      if (!this.shouldContinueRestoration(data.reportId, options, 'preselected-methods')) {
+        return currentResult()
+      }
       const store = useManualResultsStore.getState()
       if (data.preSelectedMethods && data.preSelectedMethods.length > 0) {
         store.setPreSelectedMethods(data.preSelectedMethods)
@@ -536,6 +619,9 @@ class SessionRestorationServiceImpl {
 
     if (hasResult || hasOutputAssets) {
       try {
+        if (!this.shouldContinueRestoration(data.reportId, options, 'results')) {
+          return currentResult()
+        }
         const existingResult = asValuationResultWithAssets(useManualResultsStore.getState().result)
         const vr = asValuationResultWithAssets(data.valuationResult)
         const mergeHydrateOpts = {
@@ -616,9 +702,15 @@ class SessionRestorationServiceImpl {
     // 4. Normalizations — hydrate unified store
     // Priority: localStorage recovery > session JSONB > Titan API
     try {
+      if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations')) {
+        return currentResult()
+      }
       const { useNormalizationStore, recoverPendingNormalizations } = await import(
         '../../store/useNormalizationStore'
       )
+      if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations-imported')) {
+        return currentResult()
+      }
       const normStore = useNormalizationStore.getState()
       const formData = asRecord(data.formData)
       const reportedEbitdaByYear = buildReportedEbitdaByYearFromFormRecords({
@@ -662,6 +754,9 @@ class SessionRestorationServiceImpl {
         } else {
           // Fallback: load from Titan API
           await normStore.loadFromTitan(data.reportId)
+          if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations-loaded')) {
+            return currentResult()
+          }
           const titanItems = useNormalizationStore.getState().items
           normStore.setItems(
             normalizeImportedLedgerReviewStatuses(titanItems, reportedEbitdaByYear)
@@ -681,9 +776,15 @@ class SessionRestorationServiceImpl {
 
     // 5. Tax Latencies — hydrate store from session JSONB or localStorage
     try {
+      if (!this.shouldContinueRestoration(data.reportId, options, 'tax-latencies')) {
+        return currentResult()
+      }
       const { useTaxLatencyStore, recoverPendingTaxLatencies } = await import(
         '../../store/useTaxLatencyStore'
       )
+      if (!this.shouldContinueRestoration(data.reportId, options, 'tax-latencies-imported')) {
+        return currentResult()
+      }
       const taxLatStore = useTaxLatencyStore.getState()
 
       const recoveredTL = recoverPendingTaxLatencies(data.reportId)
@@ -711,6 +812,9 @@ class SessionRestorationServiceImpl {
 
     // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
     try {
+      if (!this.shouldContinueRestoration(data.reportId, options, 'import-quality')) {
+        return currentResult()
+      }
       const fd = asRecord(data.formData) ?? {}
       const rawIQ = fd._import_quality ?? fd.import_quality ?? fd.importQuality
       const importQuality = asImportQuality(rawIQ)
@@ -733,6 +837,9 @@ class SessionRestorationServiceImpl {
 
     // 7. Imported ledger analysis — seed review prompts from persisted import analysis
     try {
+      if (!this.shouldContinueRestoration(data.reportId, options, 'imported-ledger-analysis')) {
+        return currentResult()
+      }
       const normStore = useNormalizationStore.getState()
       useTaxLatencyStore.getState().setCandidates([])
       const formData = asRecord(data.formData)

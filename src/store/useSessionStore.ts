@@ -332,6 +332,7 @@ interface SessionStore {
 
 // Promise cache to prevent duplicate loads (Cursor pattern)
 const loadingPromises = new Map<string, Promise<void>>()
+let activeLoadSequence = 0
 
 function asSessionDataRecord(data: unknown): SessionDataRecord {
   return data && typeof data === 'object' ? (data as SessionDataRecord) : {}
@@ -694,6 +695,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
+    const loadToken = ++activeLoadSequence
+    const isStaleLoad = () => loadToken !== activeLoadSequence
+    const logStaleLoad = (phase: string) => {
+      storeLogger.debug('[Session] Ignoring stale load completion', {
+        reportId,
+        phase,
+      })
+    }
+
     // STATE TRANSITION: -> LOADING (initial), or stay LOADED (refresh)
     const loadPromise = (async () => {
       if (isBootstrapMinimal) {
@@ -729,6 +739,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
 
         const loadedSession = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
+
+        if (isStaleLoad()) {
+          logStaleLoad('engine-load')
+          return
+        }
 
         if (!loadedSession) {
           throw createSessionNotFoundError(reportId)
@@ -838,6 +853,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           },
         })
 
+        if (isStaleLoad()) {
+          logStaleLoad('pre-restoration')
+          return
+        }
+
         // ✅ WORLD-CLASS: Trigger centralized restoration
         // For EXISTING sessions: Hydrate ALL stores (form, results, versions, normalizations)
         // For NEW sessions: Skip restoration (nothing to restore)
@@ -850,7 +870,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           SessionRestorationService.clearRestorationState(session.reportId)
           const restorationResult = await SessionRestorationService.restore(
             session.reportId,
-            session
+            session,
+            { shouldContinue: () => !isStaleLoad() }
           )
 
           storeLogger.debug('[Session] Restoration complete', {
@@ -867,6 +888,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           set({ restorationComplete: true })
         }
 
+        if (isStaleLoad()) {
+          logStaleLoad('pre-commit')
+          return
+        }
+
         set({
           session,
           status: 'loaded' as SessionStatus,
@@ -878,6 +904,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         })
         scheduleOptionalGapFillAfterHydrate()
       } catch (error) {
+        if (isStaleLoad()) {
+          logStaleLoad('error')
+          return
+        }
+
         const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 
         // Handle paywall errors separately
@@ -1244,6 +1275,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    */
   clearSession: () => {
     const state = get()
+    activeLoadSequence += 1
+    loadingPromises.clear()
 
     storeLogger.info('[Session] Clearing session', {
       reportId: state.session?.reportId,

@@ -251,6 +251,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private currentSession: ValuationSession | null = null
   private loadingPromise: Promise<ValuationSession | null> | null = null
   private loadingReportId: string | null = null
+  private loadSequence = 0
   private pendingUpdates: Partial<ValuationSession>[] = []
   private localMutationVersion = 0
 
@@ -275,14 +276,45 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     flow: FlowType = 'manual',
     prefilledQuery?: string | null
   ): Promise<ValuationSession | null> {
+    if (this.loadingPromise && this.loadingReportId === reportId) {
+      generalLogger.debug('[AuthenticatedSessionEngine] Reusing in-flight load', {
+        reportId,
+      })
+      return this.loadingPromise
+    }
+
+    if (this.loadingPromise && this.loadingReportId !== reportId) {
+      generalLogger.warn('[AuthenticatedSessionEngine] Superseding in-flight load', {
+        previousReportId: this.loadingReportId,
+        nextReportId: reportId,
+        droppedPendingUpdates: this.pendingUpdates.length,
+      })
+      this.pendingUpdates = []
+    }
+
     // Track that we're loading this reportId
+    const loadToken = ++this.loadSequence
     this.loadingReportId = reportId
+    const loadPromise = this.performLoadSession(reportId, flow, prefilledQuery, loadToken)
+    this.loadingPromise = loadPromise
+    return loadPromise
+  }
 
+  private async performLoadSession(
+    reportId: string,
+    flow: FlowType,
+    prefilledQuery: string | null | undefined,
+    loadToken: number
+  ): Promise<ValuationSession | null> {
     try {
-      const loadPromise = sessionService.loadSession(reportId, flow, prefilledQuery)
-      this.loadingPromise = loadPromise
-
-      const session = await loadPromise
+      const session = await sessionService.loadSession(reportId, flow, prefilledQuery)
+      if (loadToken !== this.loadSequence || this.loadingReportId !== reportId) {
+        generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale load response', {
+          reportId,
+          activeReportId: this.loadingReportId,
+        })
+        return null
+      }
 
       if (session) {
         this.currentSession = session
@@ -310,14 +342,26 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
       return this.currentSession
     } catch (error) {
+      if (loadToken !== this.loadSequence || this.loadingReportId !== reportId) {
+        generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale load failure', {
+          reportId,
+          activeReportId: this.loadingReportId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return null
+      }
+
+      this.pendingUpdates = []
       generalLogger.error('[AuthenticatedSessionEngine] Failed to load session', {
         reportId,
         error: error instanceof Error ? error.message : String(error),
       })
       return null
     } finally {
-      this.loadingPromise = null
-      this.loadingReportId = null
+      if (loadToken === this.loadSequence && this.loadingReportId === reportId) {
+        this.loadingPromise = null
+        this.loadingReportId = null
+      }
     }
   }
 
@@ -543,6 +587,10 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       this.savePending = false
       const savedMutationVersion = await this.executeSave(nextReason)
       nextReason = 'autosave'
+
+      if (this.currentSession && this.localMutationVersion > savedMutationVersion) {
+        this.savePending = true
+      }
 
       if (
         this.savePending &&
