@@ -17,6 +17,16 @@ describe('bootstrap utils', () => {
     expect(context.mercuryPersonaMode).toBe('accountant')
   })
 
+  it('extracts UUID report IDs from calculator query deep links', () => {
+    const context = parseUrlToContext(
+      `https://venus.upswitch.app/nl/calculator?reportId=${REPORT_UUID}&clientId=rel-1&source=mercury`
+    )
+
+    expect(context.reportId).toBe(REPORT_UUID)
+    expect(context.clientId).toBe('rel-1')
+    expect(context.sourceApp).toBe('mercury')
+  })
+
   it('treats UUID report IDs as existing reports in bootstrap hints', () => {
     const hints = parseBootstrapHints({
       url: `https://venus.upswitch.app/nl/reports/${REPORT_UUID}`,

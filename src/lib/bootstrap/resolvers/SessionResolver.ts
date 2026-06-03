@@ -215,8 +215,33 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         }
       }
 
-      // Session not found - treat as new report with provided ID
-      // This allows creating reports with pre-generated IDs
+      if (hints.hasReportId && isUuid(context.reportId)) {
+        this.logger.warn(
+          '[SessionResolver] Existing report lookup failed - refusing draft fallback',
+          {
+            reportId: truncateForLog(context.reportId),
+            error: sessionResult.error,
+          }
+        )
+
+        return {
+          success: false,
+          data: {
+            mode: 'existing',
+            reportId: context.reportId,
+            hasExistingData: false,
+            hasValuationResult: false,
+            reportReady: false,
+            version: context.version,
+            status: 'draft',
+          },
+          error: sessionResult.error || 'Existing report not found',
+          source: 'existing_lookup_failed',
+          durationMs: performance.now() - startTime,
+        }
+      }
+
+      // Session not found for a genuinely new flow - treat as a draft with the provided ID.
       this.logger.info('[SessionResolver] Session not found, creating new with ID', {
         reportId: truncateForLog(context.reportId),
       })
@@ -304,8 +329,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
             suggestion: 'If you see this warning frequently, check why Titan bootstrap is failing',
           }
         )
-        // Return not found - the caller will treat this as a new report
-        // In production, this path should rarely be hit since Titan bootstrap handles UUIDs
+        // Return not found. The caller refuses draft fallback for UUIDs because
+        // Mercury UUID handoffs are existing report lookups.
         return {
           success: false,
           error: 'UUID format not supported by session endpoint - use bootstrap',

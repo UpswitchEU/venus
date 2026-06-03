@@ -90,6 +90,13 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       }
     }
 
+    if (!reportId) {
+      const queryReportId = params.get('reportId')?.trim()
+      if (looksLikeExistingReportId(queryReportId)) {
+        reportId = queryReportId
+      }
+    }
+
     // Extract locale from pathname
     const localeMatch = urlObj.pathname.match(/^\/(en|nl|fr|de)\//)
     const locale = localeMatch ? localeMatch[1] : 'en'

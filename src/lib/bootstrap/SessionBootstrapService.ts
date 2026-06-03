@@ -13,7 +13,7 @@
  */
 
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
-import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
+import { getIdentifierType, isUuid, looksLikeExistingReportId } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
 import {
   buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
@@ -21,6 +21,7 @@ import {
   shouldWaitForMercuryClientContextBeforeBootstrap,
 } from '../mercury/sessionReadiness'
 import { VENUS_BOOTSTRAP_CLIENT_ABORT_MS } from './bootstrapProxyTimeouts'
+import { recordBootstrapReportMode } from './bootstrapReportModeRegistry'
 import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from './bootstrapUserMessages'
 import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
@@ -63,6 +64,11 @@ interface BootstrapOptions {
   useCache?: boolean
 }
 
+interface TitanBootstrapFetchResult {
+  data: TitanBootstrapResponsePayload
+  responseStatus: number
+}
+
 const DEFAULT_OPTIONS: BootstrapOptions = {
   timeout: 10000, // Reduced from 15s - auth wait optimization makes this safer
   skipAuth: false,
@@ -88,6 +94,9 @@ export class SessionBootstrapService {
   private static readonly CIRCUIT_BREAKER_WINDOW_MS = 30_000
   private callTimestamps: number[] = []
 
+  private static readonly STRUCTURED_ERROR_MAX_RETRIES = 1
+  private static readonly STRUCTURED_ERROR_RETRY_BASE_DELAY_MS = 400
+
   // Result cache: returns cached result for repeated calls within the cooldown window.
   // This survives component remounts because the service is a module-level singleton.
   private static readonly RESULT_CACHE_TTL_MS = 10_000
@@ -103,6 +112,17 @@ export class SessionBootstrapService {
     this.authResolver = authResolver || new AuthResolver()
     this.sessionResolver = sessionResolver || new SessionResolver()
     this.prefillResolver = prefillResolver || new PrefillResolver()
+  }
+
+  private rememberSuccessfulBootstrapResult(
+    result: SessionBootstrapState,
+    cacheKey: string
+  ): SessionBootstrapState {
+    this.lastSuccessfulResult = result
+    this.lastSuccessfulAt = Date.now()
+    this.lastSuccessfulCacheKey = cacheKey
+    recordBootstrapReportMode(result.report.reportId, result.report.mode)
+    return result
   }
 
   /**
@@ -197,13 +217,22 @@ export class SessionBootstrapService {
     )
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
       const cachedResult = this.getCachedResult(context)
-      if (cachedResult) return cachedResult
+      if (cachedResult) {
+        recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
+        return cachedResult
+      }
       throw new Error('[Bootstrap] Circuit breaker tripped (client-side path)')
     }
 
     // Guard 2: Result cache
     if (this.hasCompletedFor(context)) {
-      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
+      if (this.lastSuccessfulResult) {
+        recordBootstrapReportMode(
+          this.lastSuccessfulResult.report.reportId,
+          this.lastSuccessfulResult.report.mode
+        )
+        return this.lastSuccessfulResult
+      }
     }
 
     const opts = { ...DEFAULT_OPTIONS, ...options }
@@ -222,10 +251,7 @@ export class SessionBootstrapService {
 
     try {
       const result = await bootstrapPromise
-      this.lastSuccessfulResult = result
-      this.lastSuccessfulAt = Date.now()
-      this.lastSuccessfulCacheKey = cacheKey
-      return result
+      return this.rememberSuccessfulBootstrapResult(result, cacheKey)
     } finally {
       this.bootstrapPromiseCache.delete(cacheKey)
     }
@@ -636,6 +662,129 @@ export class SessionBootstrapService {
     }
   }
 
+  private async fetchTitanBootstrapPayloadOnce(
+    requestBody: Record<string, unknown>,
+    headers: Record<string, string>,
+    traceId: string,
+    startTime: number
+  ): Promise<TitanBootstrapFetchResult> {
+    const apiStart = performance.now()
+    const response = await this.makeBootstrapRequest(requestBody, headers, traceId)
+    const apiMs = Math.round(performance.now() - apiStart)
+    this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, {
+      durationMs: apiMs,
+      status: response.status,
+    })
+
+    if (!response.ok) {
+      const lastErrorText = await this.readResponseBodyWithinClientBudget(
+        () => response.text(),
+        startTime,
+        traceId,
+        'error body',
+        response
+      )
+      this.logger.error('[Bootstrap] Bootstrap API failed', {
+        status: response.status,
+        statusText: response.statusText,
+        error: lastErrorText.substring(0, 200),
+      })
+      if (response.status === 401) {
+        const mercuryUrl = getMercuryUrl()
+        const locale =
+          typeof window !== 'undefined'
+            ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+            : 'en'
+        const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+        const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+        throw new AuthenticationRequiredError(
+          'Session expired or authentication required',
+          redirectUrl
+        )
+      }
+      if (response.status === 504 || response.status === 408 || response.status === 503) {
+        throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+      }
+      throw new Error(
+        `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
+      )
+    }
+
+    try {
+      return {
+        data: await this.readResponseBodyWithinClientBudget(
+          () => response.json() as Promise<TitanBootstrapResponsePayload>,
+          startTime,
+          traceId,
+          'JSON body',
+          response
+        ),
+        responseStatus: response.status,
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === BOOTSTRAP_TIMEOUT_USER_MESSAGE) {
+        throw error
+      }
+      throw new Error('Invalid response from bootstrap service')
+    }
+  }
+
+  private shouldRetryStructuredBootstrapError(
+    data: TitanBootstrapResponsePayload,
+    attempt: number
+  ): boolean {
+    if (data.success) return false
+    if (attempt >= SessionBootstrapService.STRUCTURED_ERROR_MAX_RETRIES) return false
+    if (!data.errorInfo?.retryable) return false
+    if (data.data?.creditStatus && !data.data.creditStatus.allowed) return false
+    return true
+  }
+
+  private getStructuredBootstrapRetryDelayMs(attempt: number): number {
+    return SessionBootstrapService.STRUCTURED_ERROR_RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
+  }
+
+  private async waitForStructuredBootstrapRetry(
+    _attempt: number,
+    _traceId: string,
+    delayMs: number
+  ): Promise<void> {
+    await new Promise((r) => setTimeout(r, delayMs))
+  }
+
+  private async fetchTitanBootstrapPayloadWithStructuredRetry(
+    requestBody: Record<string, unknown>,
+    headers: Record<string, string>,
+    traceId: string,
+    startTime: number
+  ): Promise<TitanBootstrapFetchResult> {
+    const cancellationEpoch = this.bootstrapCancellationEpoch
+
+    for (let attempt = 0; ; attempt += 1) {
+      this.throwIfBootstrapRequestCancelled(cancellationEpoch)
+
+      const result = await this.fetchTitanBootstrapPayloadOnce(
+        requestBody,
+        headers,
+        traceId,
+        startTime
+      )
+      if (!this.shouldRetryStructuredBootstrapError(result.data, attempt)) {
+        return result
+      }
+
+      const delayMs = this.getStructuredBootstrapRetryDelayMs(attempt)
+      this.logger.warn(`[Bootstrap:${traceId}] Retryable structured error from Titan`, {
+        code: result.data.errorInfo?.code,
+        attempt: attempt + 1,
+        maxAttempts: SessionBootstrapService.STRUCTURED_ERROR_MAX_RETRIES + 1,
+        delayMs,
+      })
+      await this.waitForStructuredBootstrapRetry(attempt, traceId, delayMs)
+      this.throwIfBootstrapRequestCancelled(cancellationEpoch)
+    }
+  }
+
   /**
    * Check if a successful bootstrap result is cached for the given context.
    * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
@@ -730,6 +879,7 @@ export class SessionBootstrapService {
       const cachedResult = this.getCachedResult(context)
       if (cachedResult) {
         this.logger.info('[Bootstrap] Returning scoped cached result from circuit breaker')
+        recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
         return cachedResult
       }
       throw new Error(msg)
@@ -740,7 +890,13 @@ export class SessionBootstrapService {
       this.logger.info(
         `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
       )
-      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
+      if (this.lastSuccessfulResult) {
+        recordBootstrapReportMode(
+          this.lastSuccessfulResult.report.reportId,
+          this.lastSuccessfulResult.report.mode
+        )
+        return this.lastSuccessfulResult
+      }
     }
 
     const titanCacheKey = `titan:${cacheKey}`
@@ -757,10 +913,7 @@ export class SessionBootstrapService {
 
     try {
       const result = await promise
-      this.lastSuccessfulResult = result
-      this.lastSuccessfulAt = Date.now()
-      this.lastSuccessfulCacheKey = cacheKey
-      return result
+      return this.rememberSuccessfulBootstrapResult(result, cacheKey)
     } finally {
       this.bootstrapPromiseCache.delete(titanCacheKey)
     }
@@ -951,69 +1104,17 @@ export class SessionBootstrapService {
       })
 
       // Make request (proxy handles 401 refresh; no client-side retry on 401).
-      let lastErrorText = ''
-      const apiStart = performance.now()
-      const response = await this.makeBootstrapRequest(requestBody, headers, traceId)
-      const apiMs = Math.round(performance.now() - apiStart)
-      this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, {
-        durationMs: apiMs,
-        status: response.status,
-      })
-
-      if (!response.ok) {
-        lastErrorText = await this.readResponseBodyWithinClientBudget(
-          () => response.text(),
-          startTime,
-          traceId,
-          'error body',
-          response
-        )
-        this.logger.error('[Bootstrap] Bootstrap API failed', {
-          status: response.status,
-          statusText: response.statusText,
-          error: lastErrorText.substring(0, 200),
-        })
-        if (response.status === 401) {
-          const mercuryUrl = getMercuryUrl()
-          const locale =
-            typeof window !== 'undefined'
-              ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-              : 'en'
-          const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
-          const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
-          throw new AuthenticationRequiredError(
-            'Session expired or authentication required',
-            redirectUrl
-          )
-        }
-        if (response.status === 504 || response.status === 408 || response.status === 503) {
-          throw new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
-        }
-        throw new Error(
-          `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
-        )
-      }
-
-      let data: TitanBootstrapResponsePayload
-      try {
-        data = await this.readResponseBodyWithinClientBudget(
-          () => response.json() as Promise<TitanBootstrapResponsePayload>,
-          startTime,
-          traceId,
-          'JSON body',
-          response
-        )
-      } catch (error) {
-        if (error instanceof Error && error.message === BOOTSTRAP_TIMEOUT_USER_MESSAGE) {
-          throw error
-        }
-        throw new Error('Invalid response from bootstrap service')
-      }
+      const { data, responseStatus } = await this.fetchTitanBootstrapPayloadWithStructuredRetry(
+        requestBody,
+        headers,
+        traceId,
+        startTime
+      )
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {
         this.logger.info(`[Bootstrap:${traceId}] Accountant flow response`, {
-          status: response.status,
+          status: responseStatus,
           success: data.success,
           reportMode: data.data?.report?.mode,
           reportId: data.data?.report?.reportId?.substring(0, 30),
@@ -1050,8 +1151,6 @@ export class SessionBootstrapService {
           ? `[${errorCode}] ${errorInfo.message}${isRetryableError ? ' (retryable)' : ''}`
           : data.error || 'Bootstrap returned no data'
 
-        // For retryable errors, we could implement automatic retry here
-        // For now, just throw with additional context
         const error = new Error(errorMessage) as Error & {
           code?: string
           retryable?: boolean
@@ -1072,6 +1171,7 @@ export class SessionBootstrapService {
         startTime,
         data.bootstrapDurationMs
       )
+      this.assertExistingReportWasNotDowngraded(context, state, traceId)
 
       const totalMs = Math.round(performance.now() - startTime)
       this.logger.info(`[Bootstrap:${traceId}] Titan bootstrap complete`, {
@@ -1089,24 +1189,6 @@ export class SessionBootstrapService {
           pdfStatus: valuationPackage.pdf?.status,
           hasBuyerReadiness: !!valuationPackage.buyerReadiness,
         })
-      }
-
-      // Log if reportId looked like an existing session but Titan returned mode='new'.
-      // This typically means the session doesn't exist for this user (deleted, wrong owner, etc.).
-      // We no longer retry here — waitForAuth() above already ensures auth is stable,
-      // and the proxy route handles token refresh on 401.
-      if (
-        state.report.mode === 'new' &&
-        context.reportId &&
-        looksLikeExistingReportId(context.reportId)
-      ) {
-        this.logger.warn(
-          `[Bootstrap:${traceId}] Expected existing session but got mode=new — accepting result`,
-          {
-            reportId: context.reportId.substring(0, 30),
-            identifierType: getIdentifierType(context.reportId),
-          }
-        )
       }
 
       this.logger.info(`[Bootstrap:${traceId}] Titan API bootstrap complete`, {
@@ -1130,6 +1212,28 @@ export class SessionBootstrapService {
       this.logger.error('[Bootstrap] Titan API bootstrap failed', { error: errorMessage })
       throw error
     }
+  }
+
+  private assertExistingReportWasNotDowngraded(
+    context: BootstrapContext,
+    state: SessionBootstrapState,
+    traceId: string
+  ): void {
+    const requestedReportId = context.reportId?.trim()
+    if (!requestedReportId || !isUuid(requestedReportId) || state.report.mode !== 'new') {
+      return
+    }
+
+    this.logger.error(`[Bootstrap:${traceId}] Expected existing report but got mode=new`, {
+      reportId: requestedReportId.substring(0, 30),
+      returnedReportId: state.report.reportId?.substring(0, 30),
+      identifierType: getIdentifierType(requestedReportId),
+    })
+
+    throw new Error(
+      `Report ${requestedReportId.substring(0, 8)} was expected to exist, but bootstrap returned a new draft. ` +
+        'The report may not exist, you may not have access, or the bootstrap cache is stale.'
+    )
   }
 }
 

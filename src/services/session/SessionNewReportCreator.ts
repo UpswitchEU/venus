@@ -1,5 +1,7 @@
+import { getBootstrapReportMode } from '../../lib/bootstrap/bootstrapReportModeRegistry'
 import { ValidationError } from '../../types/errors'
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import { isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
@@ -27,17 +29,26 @@ function optionalString(value: unknown): string | undefined {
 }
 
 async function bootstrapIndicatesNewReport(reportId: string): Promise<boolean> {
-  try {
-    const { useBootstrapSafe } = await import('../../lib/bootstrap')
-    const bootstrap = useBootstrapSafe()
-    return bootstrap?.report?.mode === 'new' && bootstrap?.report?.reportId === reportId
-  } catch (bootstrapError) {
-    logger.warn('Failed to check bootstrap state, assuming new report', {
-      reportId,
-      error: bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError),
-    })
-    return true
+  const bootstrapMode = getBootstrapReportMode(reportId)
+  if (bootstrapMode) {
+    return bootstrapMode === 'new'
   }
+
+  if (isUuid(reportId)) {
+    logger.warn('No bootstrap state for UUID report - refusing session creation fallback', {
+      reportId,
+      note: 'UUIDs are existing Mercury report lookups; creating a session would mask a failed lookup.',
+    })
+    return false
+  }
+
+  logger.warn(
+    'No bootstrap state for session-key report - allowing legacy draft creation fallback',
+    {
+      reportId,
+    }
+  )
+  return true
 }
 
 function throwCategorizedSessionCreationError(reportId: string, createError: unknown): never {

@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest'
+import type { BootstrapContext, BootstrapHints, IdentityState } from '../types'
 import { SessionResolver } from './SessionResolver'
 
+const REPORT_UUID = '46e05c0c-6f40-4527-82cb-4560d6eee0ad'
+
+type TestableSessionResolver = {
+  hasValuationResult(session: { session_data: Record<string, unknown> }): boolean
+  hasExistingData(session: { session_data: Record<string, unknown> }): boolean
+  resolve(
+    context: BootstrapContext,
+    hints: BootstrapHints,
+    identity?: IdentityState
+  ): ReturnType<SessionResolver['resolve']>
+}
+
 describe('SessionResolver readiness helpers', () => {
-  const resolver = new SessionResolver() as any
+  const resolver = new SessionResolver() as unknown as TestableSessionResolver
 
   it('treats html-only completed payloads as valuation output', () => {
     expect(
@@ -61,5 +74,51 @@ describe('SessionResolver readiness helpers', () => {
         },
       })
     ).toBe(false)
+  })
+
+  it('does not turn a missing UUID report handoff into a new draft', async () => {
+    const result = await resolver.resolve(
+      { url: `/nl/reports/${REPORT_UUID}`, reportId: REPORT_UUID, locale: 'nl' },
+      {
+        hasClientToken: false,
+        hasReportId: true,
+        hasPrefilledQuery: false,
+        isNewReport: false,
+        isEmbedded: false,
+        requestedFlow: null,
+        requestedMode: null,
+        locale: 'nl',
+      },
+      { type: 'authenticated', userId: 'user-1' }
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.source).toBe('existing_lookup_failed')
+    expect(result.data.mode).toBe('existing')
+    expect(result.data.reportId).toBe(REPORT_UUID)
+    expect(result.data.reportReady).toBe(false)
+  })
+
+  it('still allows a freshly minted Venus session key to bootstrap as a draft', async () => {
+    const reportId = 'val_1780417472000_vfreshdraft'
+    const result = await resolver.resolve(
+      { url: `/nl/reports/${reportId}`, reportId, locale: 'nl' },
+      {
+        hasClientToken: false,
+        hasReportId: true,
+        hasPrefilledQuery: false,
+        isNewReport: false,
+        isEmbedded: false,
+        requestedFlow: null,
+        requestedMode: null,
+        locale: 'nl',
+      },
+      { type: 'authenticated', userId: 'user-1' }
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.source).toBe('new_with_id')
+    expect(result.data.mode).toBe('new')
+    expect(result.data.reportId).toBe(reportId)
   })
 })

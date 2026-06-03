@@ -25,6 +25,13 @@ const mockPrefillResolver = {
   resolve: vi.fn(),
 }
 
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 describe('SessionBootstrapService', () => {
   let service: SessionBootstrapService
   type SessionBootstrapServiceConstructorArgs = ConstructorParameters<
@@ -547,6 +554,167 @@ describe('SessionBootstrapService', () => {
       await assertion
     })
 
+    it('retries retryable structured Titan bootstrap errors once', async () => {
+      const makeBootstrapRequest = vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            success: false,
+            error: 'Database busy',
+            errorInfo: {
+              code: 'DATABASE_ERROR',
+              message: 'A database error occurred. Please try again.',
+              retryable: true,
+            },
+          })
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            success: true,
+            data: {
+              identity: { type: 'authenticated', userId: 'user-structured-retry' },
+              report: {
+                mode: 'existing',
+                reportId: '46e05c0c-6f40-4527-82cb-4560d6eee0ad',
+                hasExistingData: true,
+                status: 'completed',
+              },
+              prefill: {
+                sources: [],
+                confidence: 0,
+                fieldsPopulated: [],
+                fieldsRemaining: [],
+              },
+              ui: {},
+            },
+          })
+        )
+      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
+      ;(
+        service as unknown as {
+          makeBootstrapRequest: typeof makeBootstrapRequest
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).makeBootstrapRequest = makeBootstrapRequest
+      ;(
+        service as unknown as {
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
+
+      const result = await (
+        service as unknown as {
+          fetchTitanBootstrapPayloadWithStructuredRetry: (
+            requestBody: Record<string, unknown>,
+            headers: Record<string, string>,
+            traceId: string,
+            startTime: number
+          ) => Promise<{ data: { success?: boolean }; responseStatus: number }>
+        }
+      ).fetchTitanBootstrapPayloadWithStructuredRetry(
+        {},
+        {},
+        'trace-structured-retry',
+        performance.now()
+      )
+
+      expect(result.data.success).toBe(true)
+      expect(result.responseStatus).toBe(200)
+      expect(makeBootstrapRequest).toHaveBeenCalledTimes(2)
+      expect(waitForStructuredBootstrapRetry).toHaveBeenCalledWith(0, 'trace-structured-retry', 400)
+    })
+
+    it('does not retry structured missing-report errors', async () => {
+      const makeBootstrapRequest = vi.fn().mockResolvedValue(
+        jsonResponse({
+          success: false,
+          error: 'Report not found',
+          errorInfo: {
+            code: 'REPORT_NOT_FOUND',
+            message: 'Report not found',
+            retryable: false,
+          },
+        })
+      )
+      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
+      ;(
+        service as unknown as {
+          makeBootstrapRequest: typeof makeBootstrapRequest
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).makeBootstrapRequest = makeBootstrapRequest
+      ;(
+        service as unknown as {
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
+
+      const result = await (
+        service as unknown as {
+          fetchTitanBootstrapPayloadWithStructuredRetry: (
+            requestBody: Record<string, unknown>,
+            headers: Record<string, string>,
+            traceId: string,
+            startTime: number
+          ) => Promise<{ data: { success?: boolean; errorInfo?: { code: string } } }>
+        }
+      ).fetchTitanBootstrapPayloadWithStructuredRetry({}, {}, 'trace-not-found', performance.now())
+
+      expect(result.data.success).toBe(false)
+      expect(result.data.errorInfo?.code).toBe('REPORT_NOT_FOUND')
+      expect(makeBootstrapRequest).toHaveBeenCalledTimes(1)
+      expect(waitForStructuredBootstrapRetry).not.toHaveBeenCalled()
+    })
+
+    it('does not retry credit-blocked bootstrap responses', async () => {
+      const makeBootstrapRequest = vi.fn().mockResolvedValue(
+        jsonResponse({
+          success: false,
+          error: 'Credits exhausted',
+          errorInfo: {
+            code: 'CREDITS_EXHAUSTED',
+            message: 'Credits exhausted',
+            retryable: true,
+          },
+          data: {
+            creditStatus: {
+              allowed: false,
+            },
+          },
+        })
+      )
+      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
+      ;(
+        service as unknown as {
+          makeBootstrapRequest: typeof makeBootstrapRequest
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).makeBootstrapRequest = makeBootstrapRequest
+      ;(
+        service as unknown as {
+          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
+        }
+      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
+
+      const result = await (
+        service as unknown as {
+          fetchTitanBootstrapPayloadWithStructuredRetry: (
+            requestBody: Record<string, unknown>,
+            headers: Record<string, string>,
+            traceId: string,
+            startTime: number
+          ) => Promise<{
+            data: { success?: boolean; data?: { creditStatus?: { allowed?: boolean } } }
+          }>
+        }
+      ).fetchTitanBootstrapPayloadWithStructuredRetry({}, {}, 'trace-credit', performance.now())
+
+      expect(result.data.success).toBe(false)
+      expect(result.data.data?.creditStatus?.allowed).toBe(false)
+      expect(makeBootstrapRequest).toHaveBeenCalledTimes(1)
+      expect(waitForStructuredBootstrapRetry).not.toHaveBeenCalled()
+    })
+
     it('scopes cached results to the requested report id', async () => {
       const context: BootstrapContext = {
         reportId: 'val_cache_a',
@@ -725,6 +893,55 @@ describe('SessionBootstrapService', () => {
 
       expect(service.getCachedResult(context)?.report.reportId).toBe('val_breaker_a')
       expect(service.getCachedResult(otherContext)).toBeNull()
+    })
+
+    it('rejects Titan bootstrap responses that downgrade an existing UUID to a new draft', () => {
+      expect(() =>
+        (
+          service as unknown as {
+            assertExistingReportWasNotDowngraded: (
+              context: BootstrapContext,
+              state: SessionBootstrapState,
+              traceId: string
+            ) => void
+          }
+        ).assertExistingReportWasNotDowngraded(
+          {
+            url: '/nl/reports/46e05c0c-6f40-4527-82cb-4560d6eee0ad',
+            reportId: '46e05c0c-6f40-4527-82cb-4560d6eee0ad',
+            locale: 'nl',
+            sourceApp: 'mercury',
+          },
+          {
+            identity: { type: 'authenticated', userId: 'user-1' },
+            report: {
+              mode: 'new',
+              reportId: '46e05c0c-6f40-4527-82cb-4560d6eee0ad',
+              hasExistingData: false,
+              status: 'draft',
+            },
+            prefillData: {
+              sources: [],
+              confidence: 0,
+              fieldsPopulated: [],
+              fieldsRemaining: [],
+            },
+            ui: {
+              showWelcomeBack: false,
+              resumableSession: false,
+              suggestedFlow: 'manual',
+              prefilledFieldCount: 0,
+              totalFieldCount: 0,
+              showKboVerification: false,
+              showAccountantBanner: false,
+            },
+            bootstrapVersion: '2.0.0',
+            bootstrappedAt: new Date(),
+            bootstrapDurationMs: 0,
+          },
+          'trace-uuid-downgrade'
+        )
+      ).toThrow('was expected to exist')
     })
 
     it('should track bootstrap duration', async () => {
