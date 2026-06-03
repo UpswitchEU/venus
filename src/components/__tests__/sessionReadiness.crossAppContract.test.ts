@@ -99,9 +99,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
   it('BootstrapProvider runBootstrap defers Titan when delegated context is not ready', () => {
     const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
     const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(
-      /Delegated client context not ready — deferring Titan bootstrap/
-    )
+    expect(source).toMatch(/Delegated client context not ready — deferring Titan bootstrap/)
     expect(source).toMatch(/needsDelegatedContext[\s\S]*useClientContext\.getState\(\)/)
   })
 
@@ -111,7 +109,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/sessionStore\.hydrateSessionAndComplete\(\{/)
     const gapFillBlock = source.slice(
       source.indexOf('Session already in store, checking for prefill updates'),
-      source.indexOf('} else if (report.mode === \'new\')')
+      source.indexOf("} else if (report.mode === 'new')")
     )
     expect(gapFillBlock).toMatch(/hydrateSessionAndComplete/)
     expect(gapFillBlock).not.toMatch(/sessionStore\.hydrateSession\(/)
@@ -139,10 +137,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/globalBootstrapSyncScheduledKey/)
     expect(source).toMatch(/globalBootstrapSyncSignature/)
 
-    const manualLayoutPath = join(
-      __dirname,
-      '../../features/manual/components/ManualLayout.tsx'
-    )
+    const manualLayoutPath = join(__dirname, '../../features/manual/components/ManualLayout.tsx')
     const manualSource = readFileSync(manualLayoutPath, 'utf8')
     expect(manualSource).not.toMatch(/useBootstrapSync\(/)
   })
@@ -216,9 +211,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/clientIdParam && isAccountantTierRole\(user\.role\)/)
-    expect(source).not.toMatch(
-      /mode === MERCURY_ADVISOR_URL_MODE &&\s*\n\s*clientIdParam/
-    )
+    expect(source).not.toMatch(/mode === MERCURY_ADVISOR_URL_MODE &&\s*\n\s*clientIdParam/)
   })
 
   it('preview incident: bootstrap wait and delegated handoff agree', () => {
@@ -229,9 +222,11 @@ describe('sessionReadiness Mercury report URL contract', () => {
       mercuryPersonaMode: 'accountant',
     }
     expect(shouldWaitForMercuryClientContextBeforeBootstrap(ctx)).toBe(true)
-    expect(isDelegatedMercuryAccountantHandoff(
-      buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx)
-    )).toBe(true)
+    expect(
+      isDelegatedMercuryAccountantHandoff(
+        buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx)
+      )
+    ).toBe(true)
   })
 
   it('bootstrap wait aligns with bootstrap context (preview incident)', () => {
@@ -287,9 +282,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
 
     expect(source).toMatch(/if \(reportId\)/)
-    expect(source).toMatch(
-      /url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*clientId\s*\)/
-    )
+    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*clientId\s*\)/)
     expect(source).toMatch(/url\.searchParams\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
   })
 
@@ -306,7 +299,9 @@ describe('sessionReadiness Mercury report URL contract', () => {
     }
     expect(shouldWaitForMercuryClientContextBeforeBootstrap(ctx)).toBe(true)
     expect(
-      isDelegatedMercuryAccountantHandoff(buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx))
+      isDelegatedMercuryAccountantHandoff(
+        buildMercuryDelegatedHandoffSignalsFromBootstrapContext(ctx)
+      )
     ).toBe(true)
   })
 
@@ -314,9 +309,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/hasPartialDelegatedHeaderSet/)
-    expect(source).toMatch(
-      /hasFullDelegatedHeaderSet \|\| hasPartialDelegatedHeaderSet/
-    )
+    expect(source).toMatch(/hasFullDelegatedHeaderSet \|\| hasPartialDelegatedHeaderSet/)
     expect(source).not.toMatch(
       /Partial client context in store - skipping delegated headers for bootstrap/
     )
@@ -348,9 +341,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Session load SKIPPED: bootstrap failed/)
     expect(source).toMatch(/bootstrap\?\.bootstrapError/)
-    expect(source).toMatch(
-      /status === 'idle' \|\| status === 'loading' \|\| isInitializing/
-    )
+    expect(source).toMatch(/status === 'idle' \|\| status === 'loading' \|\| isInitializing/)
   })
 
   it('Venus bootstrap BFF timeout allows slow staging Titan bootstrap', () => {
@@ -367,7 +358,9 @@ describe('sessionReadiness Mercury report URL contract', () => {
   it('SessionBootstrapService surfaces actionable message on BFF timeout', () => {
     const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
     const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/response\.status === 504 \|\| response\.status === 408 \|\| response\.status === 503/)
+    expect(source).toMatch(
+      /response\.status === 504 \|\| response\.status === 408 \|\| response\.status === 503/
+    )
     expect(source).toMatch(/BOOTSTRAP_TIMEOUT_USER_MESSAGE/)
     expect(source).toMatch(/AbortError[\s\S]*BOOTSTRAP_TIMEOUT_USER_MESSAGE/)
     expect(source).toMatch(/Invalid response from bootstrap service/)
@@ -383,9 +376,18 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const path = join(__dirname, '../ValuationSessionManager.tsx')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Session load timeout \(30 seconds\)/)
+    expect(source).toMatch(/cancelActiveLoad\(reportId\)/)
     expect(source).toMatch(
       /Session load timeout[\s\S]*useSessionStore\.setState\([\s\S]*status: 'error'[\s\S]*errorMessage:/
     )
+  })
+
+  it('ValuationSessionManager direct bootstrap restoration is cancellation-aware', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/restorationRunRef/)
+    expect(source).toMatch(/shouldContinueRestore/)
+    expect(source).toMatch(/SessionRestorationService\.restore\(reportId, session, \{/)
   })
 
   it('AdvisorAIDock reuses TanStack client detail cache', () => {

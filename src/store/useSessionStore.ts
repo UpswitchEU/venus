@@ -271,6 +271,7 @@ interface SessionStore {
   // Actions
   setRenderError: (renderError: SessionRenderError | null) => void
   setEngine: (identity: IdentityState) => void
+  cancelActiveLoad: (reportId?: string) => void
   loadSession: (
     reportId: string,
     flow?: 'manual' | 'conversational',
@@ -333,6 +334,15 @@ interface SessionStore {
 // Promise cache to prevent duplicate loads (Cursor pattern)
 const loadingPromises = new Map<string, Promise<void>>()
 let activeLoadSequence = 0
+
+function invalidateActiveLoads(reportId?: string): void {
+  activeLoadSequence += 1
+  if (reportId) {
+    loadingPromises.delete(reportId)
+    return
+  }
+  loadingPromises.clear()
+}
 
 function asSessionDataRecord(data: unknown): SessionDataRecord {
   return data && typeof data === 'object' ? (data as SessionDataRecord) : {}
@@ -437,6 +447,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       engineType: 'AuthenticatedSessionEngine',
       hydratedExistingSession: !!existingSession,
     })
+  },
+
+  cancelActiveLoad: (reportId?: string) => {
+    invalidateActiveLoads(reportId)
+    storeLogger.debug('[Session] Active load invalidated', { reportId })
   },
 
   seedOptimisticMercuryShell: ({ seedSession, identity, delegatedHandoffSignals }) => {
@@ -972,8 +987,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await loadPromise
     } finally {
-      // Clean up promise cache
-      loadingPromises.delete(reportId)
+      // Clean up only the promise that is finishing. A timeout/retry can
+      // invalidate this entry and start a newer same-report load before this
+      // finally block runs.
+      if (loadingPromises.get(reportId) === loadPromise) {
+        loadingPromises.delete(reportId)
+      }
     }
   },
 
@@ -1275,8 +1294,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    */
   clearSession: () => {
     const state = get()
-    activeLoadSequence += 1
-    loadingPromises.clear()
+    invalidateActiveLoads()
 
     storeLogger.info('[Session] Clearing session', {
       reportId: state.session?.reportId,

@@ -37,15 +37,6 @@ import {
   BOOTSTRAP_TIMEOUT_USER_MESSAGE,
   SESSION_NOT_READY_USER_MESSAGE,
 } from '../lib/bootstrap/bootstrapUserMessages'
-import { SessionRestorationService } from '../services/session/SessionRestorationService'
-import { sessionService } from '../services/session/SessionService'
-import { useManualResultsStore } from '../store/manual/useManualResultsStore'
-import { useSessionStore } from '../store/useSessionStore'
-import { useClientContext } from '../stores/clientContext'
-import type { ValuationSession } from '../types/valuation'
-import { getMercuryUrl } from '../utils/getMercuryUrl'
-import { generalLogger } from '../utils/logger'
-import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import {
   buildMercuryDelegatedHandoffSignals,
   buildSeedIdentity,
@@ -55,6 +46,15 @@ import {
   shouldAllowOptimisticMercuryRender,
   shouldSeedOptimisticMercuryShell,
 } from '../lib/mercury/sessionReadiness'
+import { SessionRestorationService } from '../services/session/SessionRestorationService'
+import { sessionService } from '../services/session/SessionService'
+import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useSessionStore } from '../store/useSessionStore'
+import { useClientContext } from '../stores/clientContext'
+import type { ValuationSession } from '../types/valuation'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
+import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
@@ -224,6 +224,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const loadingInitiatedRef = useRef<string | null>(null)
     // LOOP FIX: Prevents concurrent restore() when effect re-runs before restore completes
     const restorationInProgressRef = useRef<string | null>(null)
+    const restorationRunRef = useRef(0)
     const bootstrapRetryRef = useRef(false)
     // ✅ LOOP FIX: Track restoration completion to prevent repeated restore() calls
     // when the effect re-runs due to bootstrap/context updates
@@ -240,6 +241,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrapRetryRef.current = false
       restorationCompletedForReportIdRef.current = null
       restorationInProgressRef.current = null
+      restorationRunRef.current += 1
       optimisticMercuryShellSeededRef.current = null
       delegatedShellSkipLoggedRef.current = false
       staleRecoveryAttemptedRef.current = false
@@ -344,9 +346,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           clientContext: useClientContext.getState(),
         })
         if (!seedIdentity) {
-          generalLogger.debug(
-            '[SessionManager] Skipping Mercury shell seed — auth user not ready'
-          )
+          generalLogger.debug('[SessionManager] Skipping Mercury shell seed — auth user not ready')
           return
         }
 
@@ -397,15 +397,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     }, [
       isBootstrapping,
       isFromMercury,
-      isDelegatedAccountantHandoff,
       clientIdParam,
       clientTokenParam,
       mercuryModeParam,
-      isActingAsClient,
       reportId,
       session?.reportId,
       status,
       urlIndicatesExisting,
+      delegatedHandoffSignals,
     ])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
@@ -531,6 +530,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       return 'data-entry'
     })()
 
+    const loadingTimeoutSnapshotRef = useRef({
+      status,
+      isBootstrapping,
+      hasSession: !!session,
+    })
+    useEffect(() => {
+      loadingTimeoutSnapshotRef.current = {
+        status,
+        isBootstrapping,
+        hasSession: !!session,
+      }
+    }, [status, isBootstrapping, session])
+
     // ✅ FIX: Maximum loading timeout - force error state after 30 seconds
     // This prevents users from being stuck forever on a loading screen.
     // IMPORTANT: Only reset the timer when `stage` changes (not on every status
@@ -539,11 +551,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     useEffect(() => {
       if (stage === 'loading') {
         const maxLoadingTimer = setTimeout(() => {
+          const snapshot = loadingTimeoutSnapshotRef.current
           generalLogger.error('[SessionManager] Max loading time exceeded', {
             reportId,
-            status,
-            isBootstrapping,
-            hasSession: !!session,
+            status: snapshot.status,
+            isBootstrapping: snapshot.isBootstrapping,
+            hasSession: snapshot.hasSession,
           })
 
           // Force error state via session store
@@ -555,8 +568,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
         return () => clearTimeout(maxLoadingTimer)
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stage, reportId, isBootstrapping, session, status]) // Only reset when stage or reportId changes, not on every status/session change
+    }, [stage, reportId]) // Only reset when stage or reportId changes, not on every status/session change
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // WORLD CLASS: Skip loading if bootstrap already has this session
@@ -656,6 +668,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           }
 
           restorationInProgressRef.current = reportId
+          const restorationRun = ++restorationRunRef.current
+          const shouldContinueRestore = () =>
+            restorationRunRef.current === restorationRun &&
+            restorationInProgressRef.current === reportId &&
+            useSessionStore.getState().session?.reportId === reportId
+
           generalLogger.debug(
             '[SessionManager] Session load SKIPPED: already loaded via bootstrap',
             {
@@ -664,8 +682,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             }
           )
           // Restore from session - form and output assets hydrated from sessionData
-          SessionRestorationService.restore(reportId, session)
+          SessionRestorationService.restore(reportId, session, {
+            shouldContinue: shouldContinueRestore,
+          })
             .then((result) => {
+              if (!shouldContinueRestore()) {
+                generalLogger.debug('[SessionManager] Ignoring stale restoration completion', {
+                  reportId,
+                })
+                return
+              }
               restorationInProgressRef.current = null
               restorationCompletedForReportIdRef.current = reportId
 
@@ -704,6 +730,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               }
             })
             .catch((err) => {
+              if (!shouldContinueRestore()) {
+                generalLogger.debug('[SessionManager] Ignoring stale restoration failure', {
+                  reportId,
+                  error: err instanceof Error ? err.message : String(err),
+                })
+                return
+              }
               restorationInProgressRef.current = null
               generalLogger.warn('[SessionManager] Restoration failed when skipping loadSession', {
                 reportId,
@@ -778,6 +811,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // ✅ CRITICAL FIX: Force reset isInitializing on timeout
           // This prevents infinite loading when API calls hang
           generalLogger.warn('[SessionManager] Session load timeout, resetting state', { reportId })
+          useSessionStore.getState().cancelActiveLoad(reportId)
           useSessionStore.setState({
             status: 'error',
             errorMessage:
@@ -965,6 +999,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // ✅ RACE CONDITION FIX: Reset refs to allow retry
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
+      useSessionStore.getState().cancelActiveLoad(reportId)
       // When bootstrap failed, refresh bootstrap first (engine not set yet).
       // Clear stale session-store errors from a race (e.g. loadSession timeout)
       // so the UI follows bootstrap state during retry.
