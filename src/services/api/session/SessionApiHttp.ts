@@ -21,7 +21,15 @@ export function isHttpStatus(error: unknown, status: number): boolean {
 
 export function isTimeoutLikeError(error: unknown): boolean {
   const axiosError = toAxiosLikeError(error)
-  return axiosError.code === 'ECONNABORTED' || !!axiosError.message?.includes('timeout')
+  const message = axiosError.message?.toLowerCase() ?? ''
+  return (
+    axiosError.code === 'ECONNABORTED' ||
+    axiosError.code === 'ERR_CANCELED' ||
+    message.includes('timeout') ||
+    message.includes('canceled') ||
+    message.includes('cancelled') ||
+    message.includes('aborted')
+  )
 }
 
 export function requestConfig(config: {

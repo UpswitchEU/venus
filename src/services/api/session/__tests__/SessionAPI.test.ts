@@ -243,6 +243,56 @@ describe('SessionAPI', () => {
       }
     })
 
+    it('treats HTTP 499 session PATCH responses as transient client-abort failures', async () => {
+      vi.useFakeTimers()
+      try {
+        executeRequestSpy
+          .mockRejectedValueOnce({
+            response: { status: 499, data: { message: 'Client closed request' } },
+          })
+          .mockResolvedValueOnce({
+            session_key: 'val_update_499',
+            session_data: { company_name: 'Updated Corp' },
+          })
+
+        const resultPromise = api.updateValuationSession('val_update_499', {
+          reportId: 'val_update_499',
+          updates: { sessionData: { company_name: 'Updated Corp' } },
+        })
+
+        await vi.advanceTimersByTimeAsync(500)
+        const result = await resultPromise
+
+        expect(result.success).toBe(true)
+        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('uses the session PATCH retry policy instead of nested generic HttpClient retries', async () => {
+      executeRequestSpy.mockResolvedValue({
+        session_key: 'val_update_retry_policy',
+        session_data: { company_name: 'Updated Corp' },
+      })
+
+      await api.updateValuationSession('val_update_retry_policy', {
+        reportId: 'val_update_retry_policy',
+        updates: { sessionData: { company_name: 'Updated Corp' } },
+      })
+
+      expect(executeRequestSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'PATCH',
+          url: '/api/v2/valuations/sessions/val_update_retry_policy',
+        }),
+        expect.objectContaining({
+          retry: expect.objectContaining({ maxRetries: 0 }),
+          timeout: 60000,
+        })
+      )
+    })
+
     it('maps PATCH updates to Titan session_data and strips report HTML blobs', async () => {
       executeRequestSpy.mockResolvedValue({
         success: true,

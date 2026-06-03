@@ -135,7 +135,14 @@ function isTransientSessionPatchError(error: unknown): boolean {
   if (status === 429 || status === 404) {
     return false
   }
-  if (status === 500 || status === 502 || status === 503 || status === 504) {
+  if (
+    status === 408 ||
+    status === 499 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504
+  ) {
     return true
   }
   if (isNetworkError(error) || isTimeoutLikeError(error)) {
@@ -148,7 +155,11 @@ function isTransientSessionPatchError(error: unknown): boolean {
     message.includes('etimedout') ||
     message.includes('socket hang up') ||
     message.includes('connection terminated') ||
-    message.includes('network error')
+    message.includes('network error') ||
+    message.includes('client closed request') ||
+    message.includes('canceled') ||
+    message.includes('cancelled') ||
+    message.includes('aborted')
   )
 }
 
@@ -171,6 +182,7 @@ function normalizeSaveValuationResultResponse(
 export class SessionAPI extends HttpClient {
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
+  private static readonly SESSION_PATCH_TIMEOUT_MS = 60000
   private static readonly TRANSIENT_PATCH_RETRY_DELAYS_MS = [500, 1500]
 
   private static markSessionDeleted(reportId: string): void {
@@ -204,6 +216,11 @@ export class SessionAPI extends HttpClient {
   ): Promise<unknown> {
     for (let attempt = 0; ; attempt += 1) {
       try {
+        const patchOptions: APIRequestConfig = {
+          ...options,
+          timeout: options?.timeout ?? SessionAPI.SESSION_PATCH_TIMEOUT_MS,
+          retry: options?.retry ?? { maxRetries: 0 },
+        }
         return await this.executeRequest<unknown>(
           requestConfig({
             method: 'PATCH',
@@ -211,7 +228,7 @@ export class SessionAPI extends HttpClient {
             data: patchBody,
             headers: {},
           }),
-          options
+          patchOptions
         )
       } catch (error) {
         const retryDelay = SessionAPI.TRANSIENT_PATCH_RETRY_DELAYS_MS[attempt]

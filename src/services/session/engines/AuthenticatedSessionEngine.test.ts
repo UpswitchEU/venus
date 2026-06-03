@@ -67,7 +67,7 @@ describe('AuthenticatedSessionEngine', () => {
       name: 'Acme BV business valuation',
     })
 
-    await engine.saveSession('autosave')
+    await engine.saveSession('user')
 
     expect(sessionServiceMocks.saveSession).toHaveBeenCalledWith(
       'val_name_123',
@@ -80,7 +80,7 @@ describe('AuthenticatedSessionEngine', () => {
     expect(engine.getSession()?.name).toBe('Acme BV business valuation')
   })
 
-  it('strips backend-computed fields (valuation_result, html_report, etc.) from autosave PATCH', async () => {
+  it('strips backend-computed fields (valuation_result, html_report, etc.) from save PATCH', async () => {
     // Regression: METANOUS revisit shipped a 13.9MB PATCH (Titan log
     // content-length: 13920316) that timed out with "Premature close" 500s.
     // The engine kept server-rendered artifacts in sessionData and round-
@@ -122,7 +122,7 @@ describe('AuthenticatedSessionEngine', () => {
       partialData: {},
     })
 
-    await engine.saveSession('autosave')
+    await engine.saveSession('user')
 
     const [, payload] = sessionServiceMocks.saveSession.mock.calls[0]
     // Form data still ships.
@@ -148,75 +148,136 @@ describe('AuthenticatedSessionEngine', () => {
   })
 
   it('serializes overlapping saves and preserves local edits made while the first save is in flight', async () => {
-    const createdAt = new Date('2026-05-26T10:00:00.000Z')
-    const firstSave = deferred<{
-      reportId: string
-      currentView: 'manual'
-      dataSource: 'manual'
-      createdAt: Date
-      updatedAt: Date
-      sessionData: Record<string, unknown>
-      partialData: Record<string, unknown>
-    }>()
+    vi.useFakeTimers()
 
-    sessionServiceMocks.saveSession
-      .mockImplementationOnce(() => firstSave.promise)
-      .mockImplementationOnce(async (reportId, payload) => ({
+    try {
+      const createdAt = new Date('2026-05-26T10:00:00.000Z')
+      const firstSave = deferred<{
+        reportId: string
+        currentView: 'manual'
+        dataSource: 'manual'
+        createdAt: Date
+        updatedAt: Date
+        sessionData: Record<string, unknown>
+        partialData: Record<string, unknown>
+      }>()
+
+      sessionServiceMocks.saveSession
+        .mockImplementationOnce(() => firstSave.promise)
+        .mockImplementationOnce(async (reportId, payload) => ({
+          reportId,
+          currentView: 'manual',
+          dataSource: 'manual',
+          createdAt,
+          updatedAt: new Date('2026-05-26T10:00:02.000Z'),
+          sessionData: payload,
+          partialData: {},
+        }))
+
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_race_789',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
+        partialData: {},
+      })
+
+      const first = engine.saveSession('user')
+      await Promise.resolve()
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+      engine.updateSession({
+        sessionData: { revenue: 1_250_000, ebitda: 250_000 },
+      })
+      const second = engine.saveSession('autosave')
+      await Promise.resolve()
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+      firstSave.resolve({
+        reportId: 'val_race_789',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: new Date('2026-05-26T10:00:01.000Z'),
+        sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
+        partialData: {},
+      })
+
+      await vi.advanceTimersByTimeAsync(750)
+      await Promise.all([first, second])
+
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
+      expect(sessionServiceMocks.saveSession.mock.calls[1]?.[1]).toMatchObject({
+        company_name: 'METANOUS',
+        revenue: 1_250_000,
+        ebitda: 250_000,
+        currentView: 'manual',
+      })
+      expect(engine.getSession()?.sessionData).toMatchObject({
+        company_name: 'METANOUS',
+        revenue: 1_250_000,
+        ebitda: 250_000,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('coalesces rapid autosave callers into one settled PATCH with the latest payload', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const createdAt = new Date('2026-06-03T12:11:00.000Z')
+      sessionServiceMocks.saveSession.mockImplementation(async (reportId, payload) => ({
         reportId,
         currentView: 'manual',
         dataSource: 'manual',
         createdAt,
-        updatedAt: new Date('2026-05-26T10:00:02.000Z'),
+        updatedAt: new Date('2026-06-03T12:11:01.000Z'),
         sessionData: payload,
         partialData: {},
       }))
 
-    const engine = new AuthenticatedSessionEngine()
-    engine.updateSession({
-      reportId: 'val_race_789',
-      currentView: 'manual',
-      dataSource: 'manual',
-      createdAt,
-      updatedAt: createdAt,
-      sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
-      partialData: {},
-    })
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_autosave_burst',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'Initial Co', revenue: 1_000_000 },
+        partialData: {},
+      })
 
-    const first = engine.saveSession('autosave')
-    await Promise.resolve()
-    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+      const first = engine.saveSession('autosave')
+      await Promise.resolve()
+      expect(sessionServiceMocks.saveSession).not.toHaveBeenCalled()
 
-    engine.updateSession({
-      sessionData: { revenue: 1_250_000, ebitda: 250_000 },
-    })
-    const second = engine.saveSession('autosave')
-    await Promise.resolve()
-    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+      engine.updateSession({
+        sessionData: { revenue: 1_250_000, ebitda: 250_000 },
+      })
+      const second = engine.saveSession('autosave')
+      await Promise.resolve()
 
-    firstSave.resolve({
-      reportId: 'val_race_789',
-      currentView: 'manual',
-      dataSource: 'manual',
-      createdAt,
-      updatedAt: new Date('2026-05-26T10:00:01.000Z'),
-      sessionData: { company_name: 'METANOUS', revenue: 1_000_000 },
-      partialData: {},
-    })
+      await vi.advanceTimersByTimeAsync(749)
+      expect(sessionServiceMocks.saveSession).not.toHaveBeenCalled()
 
-    await Promise.all([first, second])
+      await vi.advanceTimersByTimeAsync(1)
+      await Promise.all([first, second])
 
-    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
-    expect(sessionServiceMocks.saveSession.mock.calls[1]?.[1]).toMatchObject({
-      company_name: 'METANOUS',
-      revenue: 1_250_000,
-      ebitda: 250_000,
-      currentView: 'manual',
-    })
-    expect(engine.getSession()?.sessionData).toMatchObject({
-      company_name: 'METANOUS',
-      revenue: 1_250_000,
-      ebitda: 250_000,
-    })
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+      expect(sessionServiceMocks.saveSession.mock.calls[0]?.[1]).toMatchObject({
+        company_name: 'Initial Co',
+        revenue: 1_250_000,
+        ebitda: 250_000,
+        currentView: 'manual',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('hydrateSession preserves URL reportId when SessionBackgroundRevalidation hydrates with the canonical session_key', () => {
@@ -326,7 +387,7 @@ describe('AuthenticatedSessionEngine', () => {
       })
 
       const savePromise = engine.saveSession('autosave')
-      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(750)
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(1000)
@@ -372,7 +433,53 @@ describe('AuthenticatedSessionEngine', () => {
       })
 
       const savePromise = engine.saveSession('autosave')
-      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(750)
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1000)
+      await savePromise
+
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
+      expect(engine.getSession()?.updatedAt).toEqual(updatedSession.updatedAt)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries client-aborted 499 save failures before surfacing failure', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const createdAt = new Date('2026-06-03T12:11:00.000Z')
+      const updatedSession = {
+        reportId: 'val_client_abort_499',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt,
+        updatedAt: new Date('2026-06-03T12:11:01.000Z'),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+
+      sessionServiceMocks.saveSession
+        .mockRejectedValueOnce(
+          new Error('Failed to save session: Request failed with status code 499')
+        )
+        .mockResolvedValueOnce(updatedSession)
+
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_client_abort_499',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      })
+
+      const savePromise = engine.saveSession('autosave')
+      await vi.advanceTimersByTimeAsync(750)
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(1000)
@@ -405,9 +512,11 @@ describe('AuthenticatedSessionEngine', () => {
         partialData: {},
       })
 
-      await expect(engine.saveSession('autosave')).rejects.toThrow(
+      const savePromise = expect(engine.saveSession('autosave')).rejects.toThrow(
         'validation failed for registry row 503'
       )
+      await vi.advanceTimersByTimeAsync(750)
+      await savePromise
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
@@ -445,7 +554,7 @@ describe('AuthenticatedSessionEngine', () => {
 
     const engine = new AuthenticatedSessionEngine()
     engine.updateSession(localSession)
-    await engine.saveSession('autosave')
+    await engine.saveSession('user')
 
     expect(engine.getSession()?.htmlReport).toBe(recoveredHtml)
     expect(engine.getSession()?.reportReady).toBe(true)

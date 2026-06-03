@@ -615,6 +615,37 @@ describe('useSessionStore', () => {
       expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
     })
 
+    it('keeps client-aborted HTTP 499 autosave failures out of errorMessage', async () => {
+      const session = {
+        reportId: 'val_status_text_499_123',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+
+      mockGetSession.mockReturnValue(session)
+      mockSaveSession.mockRejectedValue(
+        new Error('Failed to save session: Request failed with status code 499')
+      )
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+      useSessionStore.setState({
+        session,
+        status: 'loaded' as SessionStatus,
+        hasUnsavedChanges: true,
+        errorMessage: 'stale message',
+      })
+
+      await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+
+      expect(useSessionStore.getState().errorMessage).toBeNull()
+      expect(useSessionStore.getState().isSaving).toBe(false)
+      expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
+    })
+
     it('surfaces autosave failures where an incidental number only looks like HTTP 503', async () => {
       const session = {
         reportId: 'val_incidental_503_123',

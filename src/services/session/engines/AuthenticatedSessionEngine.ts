@@ -152,11 +152,11 @@ function collectErrorText(value: unknown, seen = new Set<unknown>()): string {
 }
 
 function readRetryableStatusFromText(text: string): number | undefined {
-  const statusMatch = text.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|5\d{2})\b/i)
+  const statusMatch = text.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|499|5\d{2})\b/i)
   if (statusMatch?.[1]) return Number(statusMatch[1])
 
   const namedStatusMatch = text.match(
-    /\b(408|429|5\d{2})\s+(?:request timeout|too many requests|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/i
+    /\b(408|429|499|5\d{2})\s+(?:request timeout|too many requests|client closed request|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/i
   )
   return namedStatusMatch?.[1] ? Number(namedStatusMatch[1]) : undefined
 }
@@ -166,7 +166,12 @@ function isRetryableSessionSaveError(error: unknown): boolean {
   if (status === 400 || status === 401 || status === 403 || status === 404 || status === 409) {
     return false
   }
-  if (status === 408 || status === 429 || (status !== undefined && status >= 500 && status < 600)) {
+  if (
+    status === 408 ||
+    status === 429 ||
+    status === 499 ||
+    (status !== undefined && status >= 500 && status < 600)
+  ) {
     return true
   }
 
@@ -191,6 +196,9 @@ function isRetryableSessionSaveError(error: unknown): boolean {
     text.includes('econnreset') ||
     text.includes('etimedout') ||
     text.includes('aborterror') ||
+    text.includes('aborted') ||
+    text.includes('canceled') ||
+    text.includes('cancelled') ||
     text.includes('timeout') ||
     text.includes('timed out') ||
     text.includes('temporarily unavailable') ||
@@ -202,6 +210,8 @@ function isRetryableSessionSaveError(error: unknown): boolean {
     text.includes('gateway timeout')
   )
 }
+
+const AUTOSAVE_SETTLE_MS = 750
 
 function mergeQueuedLocalSession(
   serverSession: ValuationSession,
@@ -317,6 +327,9 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private applyUpdate(updates: Partial<ValuationSession>): void {
     if (!this.currentSession) return
 
+    const previousSessionData = this.currentSession.sessionData
+    const previousPartialData = this.currentSession.partialData
+
     this.currentSession = {
       ...this.currentSession,
       ...updates,
@@ -326,7 +339,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     // Merge sessionData if provided
     if (updates.sessionData) {
       this.currentSession.sessionData = {
-        ...(this.currentSession.sessionData || {}),
+        ...(previousSessionData || {}),
         ...updates.sessionData,
       }
     }
@@ -334,7 +347,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     // Merge partialData if provided
     if (updates.partialData) {
       this.currentSession.partialData = {
-        ...(this.currentSession.partialData || {}),
+        ...(previousPartialData || {}),
         ...updates.partialData,
       }
     }
@@ -519,9 +532,25 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     let nextReason = reason
 
     do {
+      if (nextReason === 'autosave') {
+        await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_SETTLE_MS))
+      }
+
+      // Absorb callers that arrived during the autosave settle window into the
+      // single snapshot about to be sent. Mutations that happen while the HTTP
+      // request is in-flight will flip savePending again and schedule one
+      // follow-up pass below.
       this.savePending = false
-      await this.executeSave(nextReason)
+      const savedMutationVersion = await this.executeSave(nextReason)
       nextReason = 'autosave'
+
+      if (
+        this.savePending &&
+        this.currentSession &&
+        this.localMutationVersion <= savedMutationVersion
+      ) {
+        this.savePending = false
+      }
 
       if (this.savePending && this.currentSession) {
         generalLogger.debug('[AuthenticatedSessionEngine] Processing queued save', {
@@ -537,8 +566,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Includes retry with backoff (max 2 attempts) for transient network errors.
    * Validation errors (4xx) are NOT retried.
    */
-  private async executeSave(reason: 'user' | 'autosave' | 'system'): Promise<void> {
-    if (!this.currentSession) return
+  private async executeSave(reason: 'user' | 'autosave' | 'system'): Promise<number> {
+    if (!this.currentSession) return this.localMutationVersion
 
     const MAX_ATTEMPTS = 2
     const BACKOFF_MS = [1000, 3000]
@@ -595,7 +624,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           }
         }
 
-        return
+        return mutationVersionAtSend
       } catch (error) {
         const isRetryableError = isRetryableSessionSaveError(error)
         const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
@@ -621,6 +650,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt]))
       }
     }
+
+    return this.localMutationVersion
   }
 
   /**

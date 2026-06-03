@@ -79,9 +79,9 @@ function isNonCriticalSaveFailureMessage(message: string): boolean {
   }
 
   const retryableStatusMatch =
-    normalized.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|5\d{2})\b/) ||
+    normalized.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|499|5\d{2})\b/) ||
     normalized.match(
-      /\b(408|429|5\d{2})\s+(?:request timeout|too many requests|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/
+      /\b(408|429|499|5\d{2})\s+(?:request timeout|too many requests|client closed request|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/
     )
   if (retryableStatusMatch?.[1]) return true
 
@@ -92,6 +92,9 @@ function isNonCriticalSaveFailureMessage(message: string): boolean {
     normalized.includes('network') ||
     normalized.includes('timeout') ||
     normalized.includes('timed out') ||
+    normalized.includes('aborted') ||
+    normalized.includes('canceled') ||
+    normalized.includes('cancelled') ||
     normalized.includes('econnrefused') ||
     normalized.includes('econnreset') ||
     normalized.includes('etimedout') ||
@@ -1127,8 +1130,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     if (state.isSaving) {
-      storeLogger.debug('[Session] Save already in progress, skipping', { reason })
-      return
+      storeLogger.debug('[Session] Save already in progress, delegating to engine queue', {
+        reason,
+      })
     }
 
     // ✅ FIX: Capture hasUnsavedChanges BEFORE save starts (for toast callback)
