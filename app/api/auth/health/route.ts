@@ -17,7 +17,7 @@ import {
   getBffCookieHeaderForTitan,
   getResponseSetCookieList,
 } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
 
     const titanApiUrl = getTitanApiUrl(request)
-    const meResponse = await fetchWithTimeout(
+    const { response: meResponse, json: responseBody } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/auth/me-or-refresh`,
       {
         method: 'GET',
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     const setCookiesToForward = getResponseSetCookieList(meResponse)
 
     if (!meResponse.ok) {
-      const errorData = await meResponse.json().catch(() => ({}))
+      const errorData = responseBody ?? {}
 
       if (meResponse.status === 429) {
         const res429 = NextResponse.json(

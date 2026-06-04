@@ -1,10 +1,7 @@
 export const AI_CHAT_PROXY_TIMEOUT_MS = 60_000
 export const AI_CHAT_ADD_CLIENT_PROXY_TIMEOUT_MS = 120_000
 
-import {
-  isAdvisorWorkspaceClientTurn,
-  isAdvisorWorkspaceSurfaceIntent,
-} from '@upswitch/ai-actions'
+import { isAdvisorWorkspaceClientTurn, isAdvisorWorkspaceSurfaceIntent } from '@upswitch/ai-actions'
 
 const MAX_CORRELATION_ID_LENGTH = 128
 
@@ -37,6 +34,30 @@ type UnknownRecord = Record<string, unknown>
 
 export function isTitanAiProxyTimeoutError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError'
+}
+
+function makeAiProxyBodyTimeoutError(): Error {
+  const error = new Error('AI response body timed out')
+  error.name = 'AbortError'
+  return error
+}
+
+export async function readJsonBodyWithTimeout<T>(
+  response: Pick<Response, 'json'>,
+  timeoutMs: number = AI_CHAT_PROXY_TIMEOUT_MS
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      response.json() as Promise<T>,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(makeAiProxyBodyTimeoutError()), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
 }
 
 /**
@@ -190,14 +211,14 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
     viewingClientId: isWorkspaceClientIntent ? undefined : body.viewingClientId,
     pageRoute: isWorkspaceClientIntent ? undefined : body.pageRoute,
     surfaceIntent: resolvedSurfaceIntent ?? undefined,
-    assistantIntent: isWorkspaceClientIntent ? undefined : assistantIntentFromBody ?? undefined,
+    assistantIntent: isWorkspaceClientIntent ? undefined : (assistantIntentFromBody ?? undefined),
     industry: isWorkspaceClientIntent ? undefined : formData?.industry,
     countryCode: isWorkspaceClientIntent
       ? nonEmptyString(body.countryCode) || formData?.country_code || formData?.country
       : formData?.country_code || formData?.country,
     locale: normalizeLocale(body.locale),
     focusedField: isWorkspaceClientIntent ? undefined : fieldContext?.field,
-    reportId: isWorkspaceClientIntent ? sessionId ?? '' : body.reportId || body.sessionId,
+    reportId: isWorkspaceClientIntent ? (sessionId ?? '') : body.reportId || body.sessionId,
     hasRevenue: isWorkspaceClientIntent ? false : hasProvidedValue(formData?.revenue),
     hasEbitda: isWorkspaceClientIntent ? false : hasProvidedValue(formData?.ebitda),
     hasOwnerSalary: isWorkspaceClientIntent
@@ -220,8 +241,7 @@ export function buildTitanAiChatProxyPlan(body: unknown): TitanAiChatProxyPlanRe
     payload.normalizations = body.normalizations
   }
 
-  const streamTurnRecovery =
-    body.stream === false && body.recoverFromStreamTurn === true
+  const streamTurnRecovery = body.stream === false && body.recoverFromStreamTurn === true
 
   const proxyTimeoutMs = isWorkspaceClientIntent
     ? AI_CHAT_ADD_CLIENT_PROXY_TIMEOUT_MS

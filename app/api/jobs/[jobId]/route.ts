@@ -5,11 +5,23 @@
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
+
+const JOB_STATUS_TIMEOUT_MS = 15_000
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === 'AuthUpstreamTimeoutError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('timeout'))
+  )
+}
 
 export async function GET(
   request: NextRequest,
@@ -31,17 +43,18 @@ export async function GET(
       )
     }
 
-    const titanUrl = `${getTitanApiUrl(request)}/jobs/${jobId}`
+    const titanUrl = `${getTitanApiUrl(request)}/jobs/${encodeURIComponent(jobId)}`
 
-    const response = await fetch(titanUrl, {
-      method: 'GET',
-      headers: {
-        Cookie: cookieHeader,
+    const { response, json: body } = await fetchJsonWithTimeout(
+      titanUrl,
+      {
+        method: 'GET',
+        headers: {
+          Cookie: cookieHeader,
+        },
       },
-      signal: AbortSignal.timeout(15_000),
-    })
-
-    const body = await response.json().catch(() => ({}))
+      JOB_STATUS_TIMEOUT_MS
+    )
 
     if (!response.ok) {
       return NextResponse.json(
@@ -60,6 +73,12 @@ export async function GET(
   } catch (error) {
     console.error('[Jobs proxy] Error:', error instanceof Error ? error.message : error)
 
-    return NextResponse.json({ success: false, error: 'Failed to load job' }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: isTimeoutError(error) ? 'Job status request timed out' : 'Job service unavailable',
+      },
+      { status: isTimeoutError(error) ? 504 : 502 }
+    )
   }
 }

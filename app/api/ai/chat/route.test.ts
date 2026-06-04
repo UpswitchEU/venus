@@ -28,6 +28,7 @@
 
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AI_CHAT_PROXY_TIMEOUT_MS } from './chat-proxy'
 
 const mocks = vi.hoisted(() => ({
   getBffCookieHeaderForTitan: vi.fn(),
@@ -901,6 +902,33 @@ describe('response shape', () => {
     const body = await res.json()
 
     expect(body).toEqual(payload)
+  })
+
+  it('returns 504 when a non-streaming JSON body stalls after headers arrive', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: vi.fn(
+          () =>
+            new Promise(() => {
+              // Intentionally never resolves; the body timeout must win.
+            })
+        ),
+      } as unknown as Response)
+    )
+
+    const responsePromise = POST(request({ message: 'hi', stream: false }))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const assertion = expect(responsePromise.then((res) => res.status)).resolves.toBe(504)
+    await vi.advanceTimersByTimeAsync(AI_CHAT_PROXY_TIMEOUT_MS + 1)
+
+    await assertion
   })
 })
 

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getTitanAccessTokenFromCookieHeader, hasTitanAuthCookie } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchArrayBufferWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
     const titanApiUrl = getTitanApiUrl(request)
-    const response = await fetchWithTimeout(
+    const { response, arrayBuffer: body } = await fetchArrayBufferWithTimeout(
       `${titanApiUrl}/api/v1/buyer-ready/im/${encodeURIComponent(entityId)}/docx`,
       {
         method: 'GET',
@@ -47,14 +47,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        success: false,
-        error: 'Buyer-ready IM DOCX export failed',
-      }))
-      return NextResponse.json(error, { status: response.status })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Buyer-ready IM DOCX export failed',
+        },
+        { status: response.status }
+      )
     }
 
-    const body = await response.arrayBuffer()
+    if (!body) {
+      return NextResponse.json(
+        { success: false, error: 'Buyer-ready IM DOCX export failed' },
+        { status: 502 }
+      )
+    }
+
     const contentType =
       response.headers.get('content-type') ??
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'

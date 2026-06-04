@@ -35,8 +35,11 @@ async function proxyToTitan(
   try {
     const cookieHeader = request.headers.get('cookie') || ''
     const authHeader = request.headers.get('authorization') || ''
-    const pathStr = pathSegments.length > 0 ? '/' + pathSegments.join('/') : ''
-    const url = `${TITAN_API_URL}/api/v2/valuations/sessions/${id}/versions${pathStr}${searchParams ? `?${searchParams}` : ''}`
+    const pathStr =
+      pathSegments.length > 0
+        ? '/' + pathSegments.map((segment) => encodeURIComponent(segment)).join('/')
+        : ''
+    const url = `${TITAN_API_URL}/api/v2/valuations/sessions/${encodeURIComponent(id)}/versions${pathStr}${searchParams ? `?${searchParams}` : ''}`
 
     const fetchOptions: RequestInit = {
       method,

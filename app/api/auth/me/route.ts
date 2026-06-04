@@ -16,7 +16,7 @@ import {
   getBffCookieHeaderForTitan,
   getResponseSetCookieList,
 } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { generalLogger } from '@/utils/logger'
 
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     // Single Titan hop: `/me-or-refresh` returns the user and rotates cookies
     // atomically when the access cookie is missing or expired.
-    const response = await fetchWithTimeout(
+    const { response, json: responseBody } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/auth/me-or-refresh`,
       {
         method: 'GET',
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const setCookiesToForward = getResponseSetCookieList(response)
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorData = responseBody ?? {}
 
       if (response.status === 429) {
         const res429 = NextResponse.json(
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       return res401
     }
 
-    const data = await response.json()
+    const data = responseBody ?? {}
 
     const res = NextResponse.json(data, {
       headers: {

@@ -85,7 +85,7 @@ function proxyTimeoutMsForMethod(method: string): number {
  * Avoids trailing slash when path is empty (POST /api/normalization).
  */
 function buildTitanUrl(path: string[], searchParams: URLSearchParams): string {
-  const pathStr = path.join('/')
+  const pathStr = path.map((segment) => encodeURIComponent(segment)).join('/')
   const qs = searchParams.toString()
   const base = `${TITAN_API_URL}/api/normalization`
   const pathPart = pathStr ? `/${pathStr}` : ''

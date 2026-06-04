@@ -8,6 +8,14 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/utils/bffAuthProxy', () => ({
+  AuthUpstreamTimeoutError: class AuthUpstreamTimeoutError extends Error {
+    readonly code = 'upstream_timeout' as const
+
+    constructor(public readonly targetHost: string) {
+      super('Request timeout - please try again')
+      this.name = 'AuthUpstreamTimeoutError'
+    }
+  },
   getBffCookieHeaderForTitan: mocks.getBffCookieHeaderForTitan,
 }))
 
@@ -26,6 +34,12 @@ function titanJsonResponse(status: number, body: unknown): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+function upstreamTimeoutError(): Error {
+  const err = new Error('Request timeout - please try again')
+  err.name = 'AuthUpstreamTimeoutError'
+  return err
 }
 
 describe('/api/valuations/pdf/status/[jobId]', () => {
@@ -90,5 +104,61 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
     expect(res.status).toBe(401)
     expect(await res.json()).toEqual({ success: false, error: 'Authentication required' })
     expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 504 when Titan status polling times out', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token',
+      cookieSource: 'header',
+    })
+    mocks.fetch.mockRejectedValue(upstreamTimeoutError())
+
+    const res = await GET(request(), {
+      params: Promise.resolve({ jobId: 'pdf_report-1' }),
+    })
+
+    expect(res.status).toBe(504)
+    expect(await res.json()).toEqual({
+      success: false,
+      error: 'PDF status check timed out. Please try again.',
+    })
+    expect(res.headers.get('Cache-Control')).toContain('no-store')
+    expect(consoleWarn).toHaveBeenCalledWith(
+      '[PDF Status] Titan status request timed out',
+      'Request timeout - please try again'
+    )
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleWarn.mockRestore()
+    consoleError.mockRestore()
+  })
+
+  it('normalizes invite-advisor paywall responses while polling', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token',
+      cookieSource: 'header',
+    })
+    mocks.fetch.mockResolvedValue(
+      titanJsonResponse(402, {
+        code: 'INVITE_ADVISOR_REQUIRED',
+        message: 'Invite your advisor',
+        action: 'invite_accountant',
+      })
+    )
+
+    const res = await GET(request(), {
+      params: Promise.resolve({ jobId: 'pdf_report-1' }),
+    })
+
+    expect(res.status).toBe(402)
+    expect(res.headers.get('Cache-Control')).toContain('no-store')
+    expect(await res.json()).toEqual({
+      success: false,
+      error: 'Invite your advisor',
+      code: 'INVITE_ADVISOR_REQUIRED',
+      action: 'invite_accountant',
+      inviteAdvisorRequired: true,
+    })
   })
 })

@@ -13,13 +13,75 @@ import { useSessionStore } from '../store/useSessionStore'
 import { APIError } from '../types/errors'
 import { generalLogger } from '../utils/logger'
 
-/** Titan + VIQ sync paths can exceed 60s; align with Venus pdf/download maxDuration (120s). */
-const PDF_DOWNLOAD_FETCH_MS = 130_000
+/** Let the BFF return its structured 504 before the browser gives up. */
+const PDF_DOWNLOAD_FETCH_MS = 125_000
+const PDF_STATUS_FETCH_MS = 10_000
+const PDF_STATUS_POLL_INTERVAL_MS = 2_000
+const PDF_STATUS_MAX_POLL_MS = 5 * 60_000
+
+type TimeoutAbortHandle = {
+  signal: AbortSignal
+  abort: () => void
+  cleanup: () => void
+  didTimeout: () => boolean
+}
+
+function createTimeoutAbortHandle(
+  timeoutMs: number,
+  incomingSignal?: AbortSignal
+): TimeoutAbortHandle {
+  const controller = new AbortController()
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const abortFromIncomingSignal = () => controller.abort(incomingSignal?.reason)
+
+  if (incomingSignal) {
+    if (incomingSignal.aborted) {
+      abortFromIncomingSignal()
+    } else {
+      incomingSignal.addEventListener('abort', abortFromIncomingSignal, { once: true })
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    abort: () => controller.abort(),
+    cleanup: () => {
+      clearTimeout(timeoutId)
+      incomingSignal?.removeEventListener('abort', abortFromIncomingSignal)
+    },
+    didTimeout: () => timedOut,
+  }
+}
 
 async function blobStartsWithPdfMagic(blob: Blob): Promise<boolean> {
   if (blob.size < 8) return false
   const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer())
   return head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46
+}
+
+type PdfAccessErrorBody = {
+  action?: unknown
+  code?: unknown
+  inviteAdvisorRequired?: unknown
+  required_tier?: unknown
+  upgradeRequired?: unknown
+}
+
+function buildPdfAccessErrorContext(errBody: PdfAccessErrorBody): Record<string, unknown> {
+  const code = typeof errBody.code === 'string' ? errBody.code : undefined
+  const inviteAdvisorRequired =
+    errBody.inviteAdvisorRequired === true || code === 'INVITE_ADVISOR_REQUIRED'
+  return {
+    upgradeRequired: inviteAdvisorRequired ? false : true,
+    inviteAdvisorRequired,
+    ...(code ? { code } : {}),
+    ...(typeof errBody.action === 'string' ? { action: errBody.action } : {}),
+    ...(typeof errBody.required_tier === 'string' ? { required_tier: errBody.required_tier } : {}),
+  }
 }
 
 export type PdfStatus = 'none' | 'generating' | 'ready' | 'error'
@@ -37,7 +99,12 @@ export interface UsePdfGenerationReturn {
   /** Trigger PDF generation — returns the PDF URL if available synchronously */
   generatePdf: () => Promise<string | null>
   /** Download existing PDF with optional custom filename and abort signal */
-  downloadPdf: (url?: string, filename?: string, signal?: AbortSignal) => Promise<void>
+  downloadPdf: (
+    url?: string,
+    filename?: string,
+    signal?: AbortSignal,
+    reportIdOverride?: string | null
+  ) => Promise<void>
   /** Check if PDF is ready */
   isReady: boolean
   /** Check if generating */
@@ -63,29 +130,59 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   })
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const pollInFlightRef = useRef(false)
+  const statusPollAbortRef = useRef<TimeoutAbortHandle | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const hasCheckedSessionRef = useRef(false)
   const mountedRef = useIsMountedRef()
   const isGeneratingRef = useRef(false)
+  const activeReportIdRef = useRef<string | null>(reportId)
+  const generationRunIdRef = useRef(0)
+  const pollRunIdRef = useRef(0)
+  const downloadRunIdRef = useRef(0)
+  activeReportIdRef.current = reportId
 
   // Get session data to check existing PDF
   const getSessionData = useSessionStore((s) => s.getSessionData)
 
-  // Check for existing PDF on mount from session store
+  // Reset report-scoped state when the active report changes. This prevents
+  // late completions for report A from marking report B as ready/error.
   useEffect(() => {
-    if (hasCheckedSessionRef.current) return
-    hasCheckedSessionRef.current = true
+    generationRunIdRef.current++
+    pollRunIdRef.current++
+    downloadRunIdRef.current++
+    isGeneratingRef.current = false
+    pollInFlightRef.current = false
+
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    if (statusPollAbortRef.current) {
+      statusPollAbortRef.current.abort()
+      statusPollAbortRef.current = null
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
 
     const sessionData = getSessionData()
-    if (sessionData?.pdfUrl) {
+    if (reportId && sessionData?.pdfUrl) {
       setState({
         status: 'ready',
         url: sessionData.pdfUrl as string,
         error: null,
         progress: 100,
       })
+      return
     }
-  }, [getSessionData])
+    setState({
+      status: 'none',
+      url: null,
+      error: null,
+      progress: 0,
+    })
+  }, [getSessionData, reportId])
 
   // Keep isGeneratingRef in sync with status
   isGeneratingRef.current = state.status === 'generating'
@@ -96,6 +193,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
+      }
+      if (statusPollAbortRef.current) {
+        statusPollAbortRef.current.abort()
       }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
@@ -108,20 +208,32 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
    */
   const startPolling = useCallback(
     (jobId: string) => {
+      const pollRunId = ++pollRunIdRef.current
       // Clear any existing polling
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
+        pollingRef.current = null
       }
+      if (statusPollAbortRef.current) {
+        statusPollAbortRef.current.abort()
+        statusPollAbortRef.current = null
+      }
+      pollInFlightRef.current = false
 
       let pollCount = 0
-      const maxPolls = 150 // 5 minutes max (2s intervals)
+      const startedAt = Date.now()
 
       pollingRef.current = setInterval(async () => {
+        if (pollRunIdRef.current !== pollRunId) return
+        if (pollInFlightRef.current) return
         pollCount++
 
-        if (pollCount > maxPolls) {
+        if (Date.now() - startedAt > PDF_STATUS_MAX_POLL_MS) {
           const timer = pollingRef.current
-          if (timer) clearInterval(timer)
+          if (timer) {
+            clearInterval(timer)
+            pollingRef.current = null
+          }
           isGeneratingRef.current = false
           if (mountedRef.current) {
             setState({
@@ -134,15 +246,24 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           return
         }
 
+        pollInFlightRef.current = true
+        const statusAbortHandle = createTimeoutAbortHandle(PDF_STATUS_FETCH_MS)
+        statusPollAbortRef.current = statusAbortHandle
+
         try {
           const response = await fetch(`/api/valuations/pdf/status/${encodeURIComponent(jobId)}`, {
             credentials: 'include',
+            signal: statusAbortHandle.signal,
           })
+          if (pollRunIdRef.current !== pollRunId) return
 
           if (!response.ok) {
             if (response.status === 402) {
               const timer = pollingRef.current
-              if (timer) clearInterval(timer)
+              if (timer) {
+                clearInterval(timer)
+                pollingRef.current = null
+              }
               isGeneratingRef.current = false
               if (mountedRef.current) {
                 setState({
@@ -158,6 +279,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           }
 
           const data = await response.json()
+          if (pollRunIdRef.current !== pollRunId) return
 
           if (!mountedRef.current) return
 
@@ -167,7 +289,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
           if (data.status === 'completed' && data.pdfUrl) {
             const timer = pollingRef.current
-            if (timer) clearInterval(timer)
+            if (timer) {
+              clearInterval(timer)
+              pollingRef.current = null
+            }
             isGeneratingRef.current = false
             if (mountedRef.current) {
               setState({
@@ -179,7 +304,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             }
           } else if (data.status === 'failed') {
             const timer = pollingRef.current
-            if (timer) clearInterval(timer)
+            if (timer) {
+              clearInterval(timer)
+              pollingRef.current = null
+            }
             isGeneratingRef.current = false
             if (mountedRef.current) {
               setState({
@@ -191,12 +319,26 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             }
           }
         } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            if (statusAbortHandle.didTimeout()) {
+              generalLogger.warn('[PDF] Polling status request timed out', { jobId, pollCount })
+            }
+            return
+          }
           // Don't fail on polling errors - keep trying
           generalLogger.warn('[PDF] Polling error', { error })
+        } finally {
+          statusAbortHandle.cleanup()
+          if (statusPollAbortRef.current === statusAbortHandle) {
+            statusPollAbortRef.current = null
+          }
+          if (pollRunIdRef.current === pollRunId) {
+            pollInFlightRef.current = false
+          }
         }
-      }, 2000)
+      }, PDF_STATUS_POLL_INTERVAL_MS)
     },
-    [mountedRef.current]
+    [mountedRef]
   )
 
   /**
@@ -213,6 +355,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }))
       return null
     }
+    const targetReportId = reportId
 
     // Guard: Prevent concurrent generation (double-click, rapid navigation)
     if (isGeneratingRef.current) {
@@ -220,6 +363,11 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       return null
     }
     isGeneratingRef.current = true
+    const generationRunId = ++generationRunIdRef.current
+    const isCurrentGeneration = () =>
+      mountedRef.current &&
+      generationRunIdRef.current === generationRunId &&
+      activeReportIdRef.current === targetReportId
 
     // Abort any existing request before starting new one
     if (abortControllerRef.current) {
@@ -234,30 +382,33 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       progress: 10,
     })
 
+    let generationTimedOut = false
     try {
       const ctrl = abortControllerRef.current
       if (!ctrl) throw new Error('PDF generation was not initialized')
-      const combinedSignal =
-        typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function'
-          ? AbortSignal.any([ctrl.signal, AbortSignal.timeout(130_000)])
-          : ctrl.signal
-
-      const response = await fetch(`/api/valuations/${reportId}/pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        signal: combinedSignal,
-      })
+      const generationAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, ctrl.signal)
+      let response: Response
+      try {
+        response = await fetch(`/api/valuations/${encodeURIComponent(targetReportId)}/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          signal: generationAbortHandle.signal,
+        })
+      } finally {
+        generationTimedOut = generationAbortHandle.didTimeout()
+        generationAbortHandle.cleanup()
+      }
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}))
         if (response.status === 402) {
-          isGeneratingRef.current = false
           const errMsg =
             (typeof errBody.message === 'string' && errBody.message) ||
             (typeof errBody.error === 'string' && errBody.error) ||
             'PDF download requires a plan that includes downloadable reports.'
-          if (mountedRef.current) {
+          if (isCurrentGeneration()) {
+            isGeneratingRef.current = false
             setState({
               status: 'none',
               url: null,
@@ -265,7 +416,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               progress: 0,
             })
           }
-          throw new APIError(errMsg, 402, undefined, true, { upgradeRequired: true as const })
+          throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
         }
         const errMsg =
           errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to start PDF generation'
@@ -274,8 +425,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       const data = await response.json()
 
-      if (!mountedRef.current) {
-        isGeneratingRef.current = false
+      if (!isCurrentGeneration()) {
         return null
       }
 
@@ -315,23 +465,25 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       return null
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        isGeneratingRef.current = false
         // Unmount abort leaves `mountedRef` false — skip churning UI state.
-        if (mountedRef.current) {
+        if (isCurrentGeneration()) {
+          isGeneratingRef.current = false
           setState({
             status: 'error',
             url: null,
-            error: 'PDF generation timed out — please try again.',
+            error: generationTimedOut
+              ? 'PDF generation timed out — please try again.'
+              : 'PDF generation was cancelled.',
             progress: 0,
           })
         }
         return null
       }
-      isGeneratingRef.current = false
       if (error instanceof APIError && error.statusCode === 402) {
         throw error
       }
-      if (mountedRef.current) {
+      if (isCurrentGeneration()) {
+        isGeneratingRef.current = false
         const message = error instanceof Error ? error.message : 'PDF generation failed'
         setState({
           status: 'error',
@@ -351,9 +503,15 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
    * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
    */
   const downloadPdf = useCallback(
-    async (url?: string, filename?: string, signal?: AbortSignal) => {
+    async (
+      url?: string,
+      filename?: string,
+      signal?: AbortSignal,
+      reportIdOverride?: string | null
+    ) => {
       void url
-      if (!reportId) {
+      const targetReportId = reportIdOverride || reportId
+      if (!targetReportId) {
         const msg = 'Cannot download PDF until the valuation report is saved (no report ID).'
         generalLogger.warn('[PDF] downloadPdf without reportId')
         if (mountedRef.current) {
@@ -364,27 +522,36 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         }
         throw new Error(msg)
       }
+      const downloadRunId = ++downloadRunIdRef.current
+      const isCurrentDownload = () => {
+        const activeReportId = activeReportIdRef.current
+        return (
+          mountedRef.current &&
+          downloadRunIdRef.current === downloadRunId &&
+          (activeReportId == null || activeReportId === targetReportId)
+        )
+      }
 
+      let downloadTimedOut = false
       try {
-        const timeoutSignal =
-          typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
-            ? AbortSignal.timeout(PDF_DOWNLOAD_FETCH_MS)
-            : undefined
-        const fetchSignal =
-          signal && timeoutSignal && typeof AbortSignal.any === 'function'
-            ? AbortSignal.any([signal, timeoutSignal])
-            : (signal ?? timeoutSignal)
-
         // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
         // BFF runs Titan GET + optional POST generate + storage stream.
-        const response = await fetch(
-          `/api/valuations/${reportId}/pdf/download?_=${encodeURIComponent(String(Date.now()))}`,
-          {
-            credentials: 'include',
-            signal: fetchSignal,
-            cache: 'no-store',
-          }
-        )
+        const downloadAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, signal)
+        let response: Response
+        try {
+          response = await fetch(
+            `/api/valuations/${encodeURIComponent(targetReportId)}/pdf/download?_=${encodeURIComponent(String(Date.now()))}`,
+            {
+              credentials: 'include',
+              signal: downloadAbortHandle.signal,
+              cache: 'no-store',
+            }
+          )
+        } finally {
+          downloadTimedOut = downloadAbortHandle.didTimeout()
+          downloadAbortHandle.cleanup()
+        }
+        if (!isCurrentDownload()) return
 
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}))
@@ -401,14 +568,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
                 progress: 0,
               })
             }
-            throw new APIError(errMsg, 402, undefined, true, {
-              upgradeRequired: true as const,
-            })
+            throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
           }
           throw new Error(errMsg)
         }
 
         const blob = await response.blob()
+        if (!isCurrentDownload()) return
         if (!(await blobStartsWithPdfMagic(blob))) {
           const snippet = (await blob.slice(0, 240).text()).trim()
           let parsed: { error?: string; message?: string } | null = null
@@ -424,11 +590,12 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               : snippet.slice(0, 120))
           throw new Error(hint || 'Download did not return a valid PDF file.')
         }
+        if (!isCurrentDownload()) return
 
         const blobUrl = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = blobUrl
-        link.download = filename || `valuation-report-${reportId}-${Date.now()}.pdf`
+        link.download = filename || `valuation-report-${targetReportId}-${Date.now()}.pdf`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -438,10 +605,16 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           throw error
         }
         if (error instanceof Error && error.name === 'AbortError') {
+          if (downloadTimedOut && isCurrentDownload()) {
+            setState((prev) => ({
+              ...prev,
+              error: 'PDF download timed out — please try again.',
+            }))
+          }
           throw error
         }
         generalLogger.error('[PDF] Download error', { error })
-        if (mountedRef.current) {
+        if (isCurrentDownload()) {
           setState((prev) => ({
             ...prev,
             error: error instanceof Error ? error.message : 'Download failed',
@@ -450,7 +623,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         throw error
       }
     },
-    [reportId, mountedRef.current]
+    [reportId, mountedRef]
   )
 
   return {

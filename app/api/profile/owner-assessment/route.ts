@@ -5,7 +5,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
@@ -38,10 +38,6 @@ async function getTitanAuth(request: NextRequest) {
   }
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  return response.json().catch(() => null)
-}
-
 function titanError(data: unknown, fallback: string) {
   if (data && typeof data === 'object') {
     const message = (data as Record<string, unknown>).message
@@ -61,7 +57,7 @@ export async function GET(request: NextRequest) {
     const accountantCustomerId = request.nextUrl.searchParams.get('accountantCustomerId')
     if (accountantCustomerId) target.searchParams.set('accountantCustomerId', accountantCustomerId)
 
-    const response = await fetchWithTimeout(
+    const { response, json: data } = await fetchJsonWithTimeout(
       target.toString(),
       {
         method: 'GET',
@@ -75,7 +71,6 @@ export async function GET(request: NextRequest) {
       10_000
     )
 
-    const data = await readJson(response)
     if (response.status === 401) return unauthorized()
     if (!response.ok) {
       return NextResponse.json(
@@ -112,7 +107,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid JSON' }, { status: 400 })
     }
 
-    const response = await fetchWithTimeout(
+    const { response, json: data } = await fetchJsonWithTimeout(
       `${getTitanApiUrl(request)}/api/v2/owner-profile-assessment`,
       {
         method: 'PUT',
@@ -129,7 +124,6 @@ export async function PUT(request: NextRequest) {
       15_000
     )
 
-    const data = await readJson(response)
     if (response.status === 401) return unauthorized()
     if (!response.ok) {
       return NextResponse.json(

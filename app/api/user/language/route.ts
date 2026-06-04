@@ -7,7 +7,7 @@
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies
 export const dynamic = 'force-dynamic'
@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest) {
     // Forward request to Titan API with cookies
     const titanApiUrl = `${backendUrl}/api/v2/users/language`
 
-    const response = await fetchWithTimeout(
+    const { response, json: data } = await fetchJsonWithTimeout<Record<string, unknown>>(
       titanApiUrl,
       {
         method: 'PUT',
@@ -75,18 +75,14 @@ export async function PUT(request: NextRequest) {
     )
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ message: 'Failed to update language preference' }))
-      return NextResponse.json(
-        { error: error.message || 'Failed to update language preference' },
-        { status: response.status }
-      )
+      const message =
+        typeof data?.message === 'string' && data.message.trim()
+          ? data.message
+          : 'Failed to update language preference'
+      return NextResponse.json({ error: message }, { status: response.status })
     }
 
-    const data = await response.json()
-
-    return NextResponse.json(data, { status: 200 })
+    return NextResponse.json(data ?? {}, { status: 200 })
   } catch (error) {
     console.error('[Venus /api/user/language] Error:', error)
     const isTimeout = error instanceof Error && error.message.includes('timeout')

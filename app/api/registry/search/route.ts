@@ -12,11 +12,22 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { REGISTRY_SEARCH_PROXY_TIMEOUT_MS } from '@/services/registry/types'
+import { AuthUpstreamTimeoutError } from '@/utils/bffAuthProxy'
+import { fetchTextWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 25
+
+function parseJsonText(text: string | null, fallback: Record<string, unknown>): unknown {
+  if (!text) return fallback
+  try {
+    return JSON.parse(text)
+  } catch {
+    return fallback
+  }
+}
 
 export async function POST(request: NextRequest) {
   const parentSignal = request.signal
@@ -60,30 +71,24 @@ export async function POST(request: NextRequest) {
       body: payloadJson,
     }
 
-    const runProxiedFetch = async (path: string): Promise<Response> => {
-      const controller = new AbortController()
-      let timedOut = false
-      let parentAborted = false
-      const timer = setTimeout(() => {
-        timedOut = true
-        controller.abort()
-      }, REGISTRY_SEARCH_PROXY_TIMEOUT_MS)
-      const onParentAbort = () => {
-        parentAborted = true
-        controller.abort()
-      }
-      parentSignal.addEventListener('abort', onParentAbort, { once: true })
-
+    const runProxiedFetch = async (
+      path: string
+    ): Promise<{ response: Response; text: string | null }> => {
       try {
-        return await fetch(`${titanUrl}${path}`, {
-          ...baseFetchInit,
-          signal: controller.signal,
-        })
+        return await fetchTextWithTimeout(
+          `${titanUrl}${path}`,
+          {
+            ...baseFetchInit,
+            signal: parentSignal,
+          },
+          REGISTRY_SEARCH_PROXY_TIMEOUT_MS
+        )
       } catch (fetchError) {
         const isAbort = fetchError instanceof Error && fetchError.name === 'AbortError'
-        if (isAbort && parentAborted) {
+        if (isAbort && parentSignal.aborted) {
           throw Object.assign(new Error('CLIENT_CANCELLED'), { code: 'CLIENT_CANCELLED' as const })
         }
+        const timedOut = fetchError instanceof AuthUpstreamTimeoutError
         const errorMsg = timedOut
           ? `Backend request timed out after ${REGISTRY_SEARCH_PROXY_TIMEOUT_MS / 1000}s`
           : `Cannot reach backend at ${titanUrl}`
@@ -97,17 +102,14 @@ export async function POST(request: NextRequest) {
 
         throw Object.assign(new Error(errorMsg), {
           code: 'UPSTREAM_FETCH' as const,
-          status: 503,
+          status: timedOut ? 504 : 503,
         })
-      } finally {
-        clearTimeout(timer)
-        parentSignal.removeEventListener('abort', onParentAbort)
       }
     }
 
-    let backendResponse: Response
+    let backendResult: { response: Response; text: string | null }
     try {
-      backendResponse = await runProxiedFetch('/api/v2/registry/search')
+      backendResult = await runProxiedFetch('/api/v2/registry/search')
     } catch (e) {
       if (
         e instanceof Error &&
@@ -131,11 +133,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 404 fallback: try v1 endpoint (defensive, same as Mercury)
-    if (backendResponse.status === 404) {
+    if (backendResult.response.status === 404) {
       try {
-        const fallbackRes = await runProxiedFetch('/api/v1/registry/search')
-        if (fallbackRes.ok) {
-          const data = await fallbackRes.json()
+        const fallbackResult = await runProxiedFetch('/api/v1/registry/search')
+        if (fallbackResult.response.ok) {
+          const data = parseJsonText(fallbackResult.text, {
+            success: false,
+            results: [],
+            error: 'Invalid response',
+          })
           return NextResponse.json(data)
         }
       } catch (e) {
@@ -153,30 +159,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text()
+    if (!backendResult.response.ok) {
+      const errorText = backendResult.text ?? ''
       console.error('[Venus Registry API] Backend error:', {
-        status: backendResponse.status,
-        statusText: backendResponse.statusText,
+        status: backendResult.response.status,
+        statusText: backendResult.response.statusText,
         error: errorText,
       })
 
       const userMessage =
-        backendResponse.status === 503
+        backendResult.response.status === 503
           ? 'Registry service temporarily unavailable. Please try again later.'
-          : `Backend error: ${backendResponse.status} ${backendResponse.statusText}`
+          : `Backend error: ${backendResult.response.status} ${backendResult.response.statusText}`
 
       return NextResponse.json(
         { success: false, results: [], error: userMessage },
-        { status: backendResponse.status }
+        { status: backendResult.response.status }
       )
     }
 
-    const data = await backendResponse.json().catch(() => ({
+    const data = parseJsonText(backendResult.text, {
       success: false,
       results: [],
       error: 'Invalid response',
-    }))
+    })
     return NextResponse.json(data)
   } catch (error) {
     console.error('[Venus Registry API] Error:', error)

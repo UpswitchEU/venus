@@ -10,11 +10,23 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
+
+const NACE_PROXY_TIMEOUT_MS = 6_000
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === 'AuthUpstreamTimeoutError' ||
+      error.name === 'AbortError' ||
+      error.message.includes('timeout'))
+  )
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +40,6 @@ export async function GET(request: NextRequest) {
     const guarantee = searchParams.get('guarantee')
 
     const titanUrl = getTitanApiUrl(request)
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 6000)
 
     try {
       let url: string
@@ -46,25 +56,26 @@ export async function GET(request: NextRequest) {
         }
         url = `${titanUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type?${lookupParams}`
       } else if (businessTypeId) {
-        url = `${titanUrl}/api/v2/business-types/${businessTypeId}/nace`
+        url = `${titanUrl}/api/v2/business-types/${encodeURIComponent(businessTypeId)}/nace`
       } else if (q && q.length >= 1) {
         const params = new URLSearchParams({ q, limit })
         url = `${titanUrl}/api/v2/nace/search?${params}`
       } else {
-        clearTimeout(timeout)
         return NextResponse.json({ success: true, data: [] })
       }
 
       const { cookieHeader } = await getBffCookieHeaderForTitan(request)
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      const { response, json: data } = await fetchJsonWithTimeout(
+        url,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+          },
         },
-        signal: controller.signal,
-      })
-      clearTimeout(timeout)
+        NACE_PROXY_TIMEOUT_MS
+      )
 
       if (!response.ok) {
         console.error('[Venus NACE API] Backend error:', { status: response.status, url })
@@ -74,18 +85,16 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      const data = await response.json().catch(() => ({ success: false }))
       const cacheHeader = naceCode
         ? 'private, no-cache'
         : 'public, s-maxage=600, stale-while-revalidate=1200'
-      return NextResponse.json(data, {
+      return NextResponse.json(data ?? { success: false }, {
         headers: {
           'Cache-Control': cacheHeader,
         },
       })
     } catch (fetchError) {
-      clearTimeout(timeout)
-      const isTimeout = fetchError instanceof Error && fetchError.name === 'AbortError'
+      const isTimeout = isTimeoutError(fetchError)
       console.error('[Venus NACE API] Connection error:', {
         error: fetchError instanceof Error ? fetchError.message : String(fetchError),
         isTimeout,
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
           data: [],
           error: isTimeout ? 'Request timed out' : 'Service unavailable',
         },
-        { status: 503 }
+        { status: isTimeout ? 504 : 503 }
       )
     }
   } catch (error) {

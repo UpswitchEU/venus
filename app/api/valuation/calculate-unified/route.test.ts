@@ -10,7 +10,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -41,6 +41,10 @@ function jsonResponse(status: number, body: unknown): Response {
 
 beforeEach(() => {
   mocks.fetch.mockReset()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('POST /api/valuation/calculate-unified — error pass-through', () => {
@@ -94,7 +98,7 @@ describe('POST /api/valuation/calculate-unified — error pass-through', () => {
 
   it('falls back to PARSE_ERROR shape when Titan returns malformed JSON, but preserves status', async () => {
     mocks.fetch.mockResolvedValueOnce(
-      new Response('not json at all', { status: 422, headers: { 'Content-Type': 'text/plain' } }),
+      new Response('not json at all', { status: 422, headers: { 'Content-Type': 'text/plain' } })
     )
 
     const { POST } = await import('./route')
@@ -116,5 +120,46 @@ describe('POST /api/valuation/calculate-unified — error pass-through', () => {
 
     expect(res.status).toBe(400)
     expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 504 when Titan stalls after response headers', async () => {
+    vi.useFakeTimers()
+    let signal: AbortSignal | null = null
+    mocks.fetch.mockImplementationOnce((_url: string, init?: RequestInit) => {
+      signal = init?.signal ?? null
+      return Promise.resolve({
+        status: 200,
+        headers: new Headers(),
+        json: vi.fn(
+          () =>
+            new Promise((_resolve, reject) => {
+              signal?.addEventListener('abort', () => {
+                reject(new DOMException('Aborted', 'AbortError'))
+              })
+            })
+        ),
+      } as unknown as Response)
+    })
+
+    const { POST } = await import('./route')
+    const responsePromise = POST(makeRequest())
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const assertion = expect(responsePromise.then((response) => response.status)).resolves.toBe(504)
+    await vi.advanceTimersByTimeAsync(60_001)
+
+    await assertion
+  })
+
+  it('returns 502 when Titan is unreachable before headers', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+
+    const { POST } = await import('./route')
+    const res = await POST(makeRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(502)
+    expect(body.code).toBe('UPSTREAM_UNAVAILABLE')
   })
 })

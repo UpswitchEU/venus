@@ -813,6 +813,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       isCalculating,
       isChatGenerating,
       isGenerating,
+      integrationsEnabled: planFeatures?.integrations_enabled === true,
       isLoadingHistory,
       isStartupAssistantRoute,
       lastSubmittedDataRef,

@@ -16,7 +16,7 @@ import {
   getBffCookieHeaderForTitan,
   getResponseSetCookieList,
 } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetchWithTimeout(
+    const { response, json: responseBody } = await fetchJsonWithTimeout<Record<string, unknown>>(
       `${titanApiUrl}/api/v2/auth/refresh`,
       {
         method: 'POST',
@@ -56,17 +56,21 @@ export async function POST(request: NextRequest) {
     )
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Token refresh failed' }))
+      const errorData = responseBody ?? { message: 'Token refresh failed' }
+      const message =
+        typeof errorData.message === 'string' && errorData.message
+          ? errorData.message
+          : 'Token refresh failed'
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Token refresh failed',
+          message,
         },
         { status: response.status }
       )
     }
 
-    const data = await response.json()
+    const data = responseBody ?? {}
 
     const setCookieHeaders = getResponseSetCookieList(response)
     const nextResponse = NextResponse.json({

@@ -20,15 +20,17 @@ describe('POST /api/registry/search', () => {
   beforeEach(() => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, results: [] }),
-      })
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ success: true, results: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
     )
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -69,22 +71,50 @@ describe('POST /api/registry/search', () => {
   it('falls back to v1 when v2 returns 404', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>
     fetchMock
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        text: async () => '',
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true, results: [{ company_id: '1' }] }),
-      })
+      .mockResolvedValueOnce(new Response('', { status: 404, statusText: 'Not Found' }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, results: [{ company_id: '1' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
 
     const res = await POST(makeRequest({ company_name: 'Beta' }))
     expect(res.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.upswitch.app/api/v2/registry/search')
     expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.upswitch.app/api/v1/registry/search')
+  })
+
+  it('returns 504 when Titan stalls while reading the response body', async () => {
+    vi.useFakeTimers()
+    let signal: AbortSignal | null = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        signal = init?.signal ?? null
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers(),
+          text: () =>
+            new Promise<string>((_resolve, reject) => {
+              signal?.addEventListener('abort', () => {
+                reject(new DOMException('Aborted', 'AbortError'))
+              })
+            }),
+        } as unknown as Response)
+      })
+    )
+
+    const responsePromise = POST(makeRequest({ company_name: 'Acme' }))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const assertion = expect(responsePromise.then((response) => response.status)).resolves.toBe(504)
+    await vi.advanceTimersByTimeAsync(14_501)
+
+    await assertion
   })
 })

@@ -538,160 +538,132 @@ const handleValuationComplete = async (result: ValuationResponse) => {
 ### Phase 7: PDF Download
 
 #### Step 7.1: User Clicks Download PDF
-**Location**: `apps/upswitch-valuation-tester/src/hooks/valuationToolbar/useValuationToolbarDownload.ts`
+**Location**: `apps/venus/src/features/manual/hooks/useManualToolbar.ts`
 
-**Trigger**: User clicks "Download PDF" button in toolbar
+**Trigger**: User clicks "Download PDF" in the manual valuation toolbar.
 
 **Process**:
 ```typescript
-const handleDownload = async (valuationData: ValuationData) => {
-  const { DownloadService } = await import('../../services/downloadService')
-  await DownloadService.downloadAccountantViewPDF(valuationData, {
-    format: 'pdf',
-    filename: `valuation-${companyName}-${Date.now()}.pdf`
-  })
-}
+const { downloadPdf } = usePdfGeneration(sessionReportId ?? null)
+await downloadPdf(undefined, filename, undefined, reportId)
 ```
 
+The manual toolbar resolves the active report ID first, then delegates to the shared PDF hook. This is intentionally report-scoped; Venus no longer calls the legacy accountant-view helper.
+
 **Files Involved**:
-- `src/hooks/valuationToolbar/useValuationToolbarDownload.ts` (lines 27-70)
-- `src/services/downloadService.ts` (lines 360-489)
+- `src/features/manual/hooks/useManualToolbar.ts`
+- `src/features/manual/hooks/useManualPdfExportController.ts`
+- `src/hooks/usePdfGeneration.ts`
 
 ---
 
-#### Step 7.2: Frontend Calls PDF Endpoint
-**Location**: `apps/upswitch-valuation-tester/src/services/api/report/ReportAPI.ts`
+#### Step 7.2: Frontend Calls the Venus PDF Download BFF
+**Location**: `apps/venus/src/hooks/usePdfGeneration.ts`
 
-**Endpoint**: `POST /api/valuations/pdf/accountant-view`
+**Endpoint**: `GET /api/valuations/:id/pdf/download`
 
 **Request**:
 ```typescript
-const response = await this.client.request({
-  method: 'POST',
-  url: '/api/valuations/pdf/accountant-view',
-  data: { reportId },
-  responseType: 'blob',  // Important: binary PDF data
-  timeout: 120000,  // 2 minutes
-})
+const response = await fetch(
+  `/api/valuations/${encodeURIComponent(reportId)}/pdf/download`,
+  {
+    credentials: 'include',
+    cache: 'no-store',
+  }
+)
 ```
 
+The hook validates that the response body starts with PDF magic bytes before creating a browser download link. Paywall responses preserve Titan's `402` metadata so the UI can distinguish advisor-invite requirements from normal plan upgrades.
+
 **Files Involved**:
-- `src/services/api/report/ReportAPI.ts` (lines 78-194)
-- `src/services/downloadService.ts` (line 413: `backendAPI.downloadAccountantViewPDF()`)
+- `src/hooks/usePdfGeneration.ts`
+- `app/api/valuations/[id]/pdf/download/route.ts`
 
 ---
 
-#### Step 7.3: Node.js Proxies PDF Request
-**Location**: `apps/upswitch-backend/src/controllers/valuation.controller.ts`
+#### Step 7.3: Venus BFF Resolves or Generates the Report PDF
+**Location**: `apps/venus/app/api/valuations/[id]/pdf/download/route.ts`
 
-**Endpoint**: `POST /api/valuations/pdf/accountant-view`  
-**Handler**: `ValuationController.downloadAccountantViewPDF` (line 2249)
+**Titan Endpoint**: `GET /api/v2/valuations/reports/:id/pdf`
+**Fallback Generate Endpoint**: `POST /api/v2/valuations/reports/:id/pdf`
 
 **Process**:
-1. **Extract Request**:
+1. **Authenticate and encode report ID**:
    ```typescript
-   const valuationRequest: ValuationRequest = req.body
+   const titanPdfUrl =
+     `${TITAN_API_URL}/api/v2/valuations/reports/${encodeURIComponent(id)}/pdf`
    ```
 
-2. **Call Python Engine**:
+2. **Look up an existing fresh PDF URL**:
    ```typescript
-   const pdfBuffer = await pythonEngineService.downloadAccountantViewPDF(
-     valuationRequest,
-     correlationId
-   )
+   const lookupResult = await titanLookupPdfUrl(titanPdfUrl, cookieHeader)
    ```
 
-3. **Return PDF**:
+3. **Recover when the lookup or stored PDF is stale/unavailable**:
    ```typescript
-   res.setHeader('Content-Type', 'application/pdf')
-   res.setHeader('Content-Disposition', `attachment; filename=${filename}`)
-   res.send(pdfBuffer)
+   if (!pdfBuffer) {
+     const gen = await titanGeneratePdf(titanPdfUrl, cookieHeader)
+     pdfBuffer = gen.pdfUrl ? await fetchPdfFromStorage(gen.pdfUrl) : null
+   }
    ```
+
+4. **Stream only validated PDF bytes**:
+   ```typescript
+   return new NextResponse(pdfBuffer, {
+     headers: {
+       'Content-Type': 'application/pdf',
+       'Content-Disposition': `attachment; filename="${filename}"`,
+     },
+   })
+   ```
+
+The BFF returns no-store headers for both JSON errors and PDF bytes, rejects tiny/non-PDF storage bodies, and retries once after expired signed URLs or Titan lookup `5xx` failures.
 
 **Files Involved**:
-- `src/controllers/valuation.controller.ts` (lines 2249-2380)
-- `src/services/pythonEngine.service.ts` (lines 419-550)
+- `app/api/valuations/[id]/pdf/download/route.ts`
+- `app/api/valuations/[id]/pdf/route.ts`
+- `app/api/valuations/pdf/status/[jobId]/route.ts`
 
 ---
 
-#### Step 7.4: Python Generates PDF
-**Location**: `apps/upswitch-valuation-engine/src/api/routes/valuation_pdf.py`
+#### Step 7.4: Titan Enforces Entitlement and Freshness
+**Location**: `apps/titan-api/src/valuations/reports/pdf.controller.ts`
 
-**Endpoint**: `POST /api/v1/valuation/pdf/accountant-view`  
-**Handler**: `generate_accountant_view_pdf()` (line 508)
+**Report-scoped endpoints**:
+- `GET /api/v2/valuations/reports/:id/pdf`
+- `POST /api/v2/valuations/reports/:id/pdf`
+- `POST /api/v2/valuations/reports/:id/pdf/async`
 
-**Process**:
-1. **Calculate Valuation** (if not already calculated):
-   ```python
-   # Re-calculate or load from cache
-   valuation_response = await calculate_comprehensive_valuation(
-       valuation_request,
-       correlation_id=correlation_id
-   )
-   ```
+Titan validates report access, enforces PDF feature entitlement, and only returns persisted URLs when the stored PDF fingerprint matches the current valuation snapshot.
 
-2. **Generate PDF from HTML**:
-   ```python
-   # Option 1: Use stored html_report if available
-   html_content = valuation_response.html_report
-   
-   # Option 2: Generate HTML if not available
-   if not html_content:
-       html_content = html_report_service.generate_accountant_view_html(
-           valuation_response,
-           valuation_request
-       )
-   
-   # Convert HTML to PDF using WeasyPrint
-   pdf_bytes = pdf_generator.generate_pdf_from_html(
-       html_content,
-       template_data=valuation_data
-   )
-   ```
+**Legacy compatibility route**:
+- `POST /api/v2/valuations/pdf/accountant-view`
 
-3. **Return PDF**:
-   ```python
-   return Response(
-       content=pdf_bytes,
-       media_type="application/pdf",
-       headers={
-           "Content-Disposition": f"attachment; filename={filename}",
-           "Content-Type": "application/pdf"
-       }
-   )
-   ```
-
-**Files Involved**:
-- `src/api/routes/valuation_pdf.py` (lines 508-798)
-- `src/services/infrastructure/html_report_service.py` (lines 1563-1657)
-- `src/services/infrastructure/template/coordinators/pdf_generation_coordinator.py`
+The accountant-view route is retained for compatibility and remains advisor/admin-only. Manual valuation PDF downloads in Venus must use the report-scoped BFF route above.
 
 ---
 
 #### Step 7.5: Frontend Downloads PDF
-**Location**: `apps/upswitch-valuation-tester/src/services/downloadService.ts`
+**Location**: `apps/venus/src/hooks/usePdfGeneration.ts`
 
 **Process**:
-1. **Receive PDF Blob**:
-   ```typescript
-   const pdfBlob = await backendAPI.downloadAccountantViewPDF(reportId)
-   ```
+```typescript
+const blob = await response.blob()
+if (!(await blobStartsWithPdfMagic(blob))) {
+  throw new Error('Download did not return a valid PDF file.')
+}
 
-2. **Create Download Link**:
-   ```typescript
-   const url = URL.createObjectURL(pdfBlob)
-   const link = document.createElement('a')
-   link.href = url
-   link.download = filename
-   document.body.appendChild(link)
-   link.click()
-   document.body.removeChild(link)
-   URL.revokeObjectURL(url)
-   ```
+const blobUrl = URL.createObjectURL(blob)
+const link = document.createElement('a')
+link.href = blobUrl
+link.download = filename
+link.click()
+URL.revokeObjectURL(blobUrl)
+```
 
 **Files Involved**:
-- `src/services/downloadService.ts` (lines 360-489)
-- `src/services/api/report/ReportAPI.ts` (lines 78-194)
+- `src/hooks/usePdfGeneration.ts`
+- `app/api/valuations/[id]/pdf/download/route.ts`
 
 ---
 
@@ -819,24 +791,22 @@ const response = await this.client.request({
 
 8. PDF DOWNLOAD
    │
-   ├─ useValuationToolbarDownload.ts
-   │  └─ DownloadService.downloadAccountantViewPDF()
+   ├─ useManualToolbar.ts
+   │  └─ usePdfGeneration(reportId).downloadPdf()
    │
-   ├─ downloadService.ts
-   │  └─ backendAPI.downloadAccountantViewPDF(reportId)
+   ├─ usePdfGeneration.ts
+   │  └─ GET /api/valuations/:id/pdf/download
+   │     └─ validates PDF magic before browser download
    │
-   ├─ ReportAPI.ts
-   │  └─ POST /api/valuations/pdf/accountant-view
-   │     └─ responseType: 'blob'
+   ├─ Venus BFF download route
+   │  ├─ GET /api/v2/valuations/reports/:id/pdf
+   │  ├─ POST /api/v2/valuations/reports/:id/pdf when lookup/storage fails
+   │  └─ stream no-store application/pdf bytes
    │
-   ├─ ValuationController.downloadAccountantViewPDF()
-   │  └─ pythonEngineService.downloadAccountantViewPDF()
-   │
-   ├─ Python: valuation_pdf.py
-   │  └─ generate_accountant_view_pdf()
-   │     ├─ Load or generate html_report
-   │     ├─ Convert HTML → PDF (WeasyPrint)
-   │     └─ Return PDF bytes
+   ├─ Titan report-scoped PDF controller
+   │  ├─ validates report access and PDF entitlement
+   │  ├─ returns only fresh fingerprint-matching PDFs
+   │  └─ regenerates/stores PDF when needed
    │
    └─ Frontend: Download PDF blob
       └─ Create download link → Browser downloads file
@@ -889,12 +859,12 @@ const response = await this.client.request({
 - `src/controllers/valuation.controller.ts`:
   - `calculateValuation()` (line 889) - Unified calculation endpoint
   - `saveValuation()` (line 107 in routes) - Save report endpoint
-  - `downloadAccountantViewPDF()` (line 2249) - PDF download endpoint
+  - Legacy accountant-view PDF compatibility route - not used by Venus manual downloads
 
 **Services**:
 - `src/services/pythonEngine.service.ts`:
   - `calculateValuation()` (line 148) - Proxy to Python
-  - `downloadAccountantViewPDF()` (line 419) - PDF proxy
+  - Legacy PDF proxy retained only for compatibility
 
 ---
 
@@ -1028,10 +998,10 @@ PDF Bytes (~200-500KB)
   - [ ] Source tab shows raw HTML
 - [ ] **Report Saving**: Frontend calls `/api/valuations/save` after completion
 - [ ] **PDF Download**: 
-  - [ ] User clicks download → Frontend calls `/api/valuations/pdf/accountant-view`
-  - [ ] Node.js proxies to Python `/api/v1/valuation/pdf/accountant-view`
-  - [ ] Python generates PDF from `html_report` → Returns PDF bytes
-  - [ ] Frontend receives PDF blob → Browser downloads file
+  - [ ] User clicks download → Frontend calls `/api/valuations/:id/pdf/download`
+  - [ ] Venus BFF checks Titan report-scoped PDF status and regenerates if needed
+  - [ ] Titan validates report access, PDF entitlement, and PDF freshness
+  - [ ] Frontend receives validated PDF blob → Browser downloads file
 
 ---
 
@@ -1139,13 +1109,12 @@ PDF Bytes (~200-500KB)
 6. ✅ Node.js forwards → Returns JSON response to frontend
 7. ✅ Frontend displays → Preview tab shows `html_report`, Info tab shows `info_tab_html`
 8. ✅ Report saves → Frontend calls `/api/valuations/save` to persist
-9. ✅ PDF downloads → Frontend calls `/api/valuations/pdf/accountant-view`, Python generates PDF from HTML
+9. ✅ PDF downloads → Frontend calls `/api/valuations/:id/pdf/download`; Venus streams a fresh Titan report-scoped PDF
 
-**Key Principle**: Frontend is purely presentational. All calculations, HTML generation, and PDF creation happen in Python backend.
+**Key Principle**: Frontend is purely presentational. Calculations and report rendering remain backend-owned; Venus downloads PDFs through the report-scoped BFF route so access, entitlement, freshness, and storage validation stay server-side.
 
 ---
 
 **Document Version**: 1.0  
 **Created**: December 2025  
 **Next Review**: After production verification
-

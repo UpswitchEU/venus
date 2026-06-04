@@ -12,7 +12,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { apiLogger } from '@/utils/logger'
 
@@ -72,7 +72,7 @@ async function proxyConsentRequest(
     const authContext = await getAuthContext(request)
     if (!authContext) return unauthorized()
 
-    const titanResponse = await fetchWithTimeout(
+    const { response: titanResponse, json: data } = await fetchJsonWithTimeout(
       `${getTitanApiUrl(request)}${TITAN_PATH}`,
       {
         method: init.method,
@@ -87,8 +87,7 @@ async function proxyConsentRequest(
       TIMEOUT_MS
     )
 
-    const data = await titanResponse.json().catch(() => ({}))
-    return NextResponse.json(data, { status: titanResponse.status })
+    return NextResponse.json(data ?? {}, { status: titanResponse.status })
   } catch (error) {
     apiLogger.error(
       'AI consent proxy failed',

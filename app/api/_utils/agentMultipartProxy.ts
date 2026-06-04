@@ -1,9 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { AuthUpstreamTimeoutError, getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { hasTitanAccessCookie } from '@/utils/auth/cookieHeader'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { AuthUpstreamTimeoutError, getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { fetchTextWithTimeout } from '@/utils/fetchWithTimeout'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { forwardAgentToolActionHeaders } from './agentActionProxy'
+
+function parseJsonText(text: string | null): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
 
 export async function proxyAgentMultipartToMercury(
   request: NextRequest,
@@ -30,7 +39,7 @@ export async function proxyAgentMultipartToMercury(
 
   const target = `${getMercuryUrl().replace(/\/$/, '')}${path}`
   try {
-    const response = await fetchWithTimeout(
+    const { response, text } = await fetchTextWithTimeout(
       target,
       {
         method: 'POST',
@@ -45,11 +54,11 @@ export async function proxyAgentMultipartToMercury(
 
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
-      const data = await response.json().catch(() => null)
+      const data = parseJsonText(text)
       return NextResponse.json(data, { status: response.status })
     }
 
-    return new NextResponse(await response.text(), {
+    return new NextResponse(text ?? '', {
       status: response.status,
       headers: contentType ? { 'Content-Type': contentType } : undefined,
     })

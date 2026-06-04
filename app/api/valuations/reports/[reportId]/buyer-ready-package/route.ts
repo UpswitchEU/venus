@@ -4,7 +4,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
@@ -45,12 +45,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const raw = await request.text()
-  const body = raw.trim() ? raw : '{}'
+  const requestBody = raw.trim() ? raw : '{}'
   const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
   const titanApiUrl = getTitanApiUrl(request)
 
   try {
-    const response = await fetchWithTimeout(
+    const { response, json: responseBody } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/valuations/reports/${encodeURIComponent(
         reportId
       )}/buyer-ready-package`,
@@ -63,15 +63,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
           ...forwardAgentToolActionHeaders(request),
         },
         credentials: 'include',
-        body,
+        body: requestBody,
       },
       GENERATION_TIMEOUT_MS
     )
 
-    const data = await response.json().catch(() => ({
+    const data = responseBody ?? {
       success: false,
       error: 'Buyer-ready package generation failed',
-    }))
+    }
 
     return NextResponse.json(data, { status: response.status })
   } catch (error) {

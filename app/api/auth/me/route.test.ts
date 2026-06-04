@@ -22,6 +22,10 @@ vi.mock('@/utils/logger', () => ({
 
 vi.mock('@/utils/fetchWithTimeout', () => ({
   fetchWithTimeout: mocks.fetchWithTimeout,
+  fetchJsonWithTimeout: async (...args: unknown[]) => {
+    const response = (await mocks.fetchWithTimeout(...args)) as Response
+    return { response, json: await response.json().catch(() => null) }
+  },
 }))
 
 vi.mock('@/utils/bffAuthProxy', () => {

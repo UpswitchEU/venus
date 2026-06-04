@@ -37,6 +37,10 @@ vi.mock('@/utils/bffAuthProxy', () => ({
 
 vi.mock('@/utils/fetchWithTimeout', () => ({
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+  fetchJsonWithTimeout: async (...args: unknown[]) => {
+    const response = (await mockFetchWithTimeout(...args)) as Response
+    return { response, json: await response.json().catch(() => null) }
+  },
 }))
 
 import { GET } from './route'

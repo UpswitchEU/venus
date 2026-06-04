@@ -105,6 +105,7 @@ export interface UseManualAssistantControllerParams {
   isCalculating: boolean
   isChatGenerating: boolean
   isGenerating: boolean
+  integrationsEnabled: boolean
   isLoadingHistory: boolean
   isStartupAssistantRoute: boolean
   lastSubmittedDataRef: MutableRefObject<ValuationFormData | null>
@@ -178,6 +179,7 @@ export function useManualAssistantController({
   isCalculating,
   isChatGenerating,
   isGenerating,
+  integrationsEnabled,
   isLoadingHistory,
   isStartupAssistantRoute,
   lastSubmittedDataRef,
@@ -288,6 +290,7 @@ export function useManualAssistantController({
     synthesisUnlocked,
     synthesisValuationResults,
     onSynthesisPaywall: () => openStarterPaywall('synthesis'),
+    integrationsEnabled,
     assistantPatch: assistantInputPatch,
     initialData,
     isAssistantOpen: chatDrawerOpen,

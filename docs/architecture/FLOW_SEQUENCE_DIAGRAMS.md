@@ -70,8 +70,9 @@ sequenceDiagram
     useValuationResultsStore->>ReportPanel: Update result
     ReportPanel->>User: Display report (Preview/Source/Info tabs)
     User->>ReportPanel: View report, download PDF
-    ReportPanel->>Backend: GET /api/reports/[id]/accountant-pdf
-    Backend-->>ReportPanel: PDF blob
+    ReportPanel->>Backend: GET /api/valuations/:id/pdf/download
+    Backend->>Backend: Resolve or regenerate fresh report-scoped PDF
+    Backend-->>ReportPanel: Validated PDF blob
     ReportPanel->>User: Download PDF
 ```
 
@@ -155,8 +156,9 @@ sequenceDiagram
     useValuationResultsStore->>ReportPanel: Update result
     ReportPanel->>User: Display report (Preview/Source/Info tabs)
     User->>ReportPanel: View report, download PDF
-    ReportPanel->>Backend: GET /api/reports/[id]/accountant-pdf
-    Backend-->>ReportPanel: PDF blob
+    ReportPanel->>Backend: GET /api/valuations/:id/pdf/download
+    Backend->>Backend: Resolve or regenerate fresh report-scoped PDF
+    Backend-->>ReportPanel: Validated PDF blob
     ReportPanel->>User: Download PDF
 ```
 
@@ -211,21 +213,25 @@ sequenceDiagram
     participant User
     participant ReportPanel
     participant ValuationToolbar
-    participant ReportAPI
-    participant Node.js Backend
-    participant Python Backend
+    participant UsePdfGeneration
+    participant Venus BFF
+    participant Titan API
+    participant Storage
     participant Browser
 
     User->>ReportPanel: Click download PDF button
     ReportPanel->>ValuationToolbar: handleDownload()
-    ValuationToolbar->>ReportAPI: downloadAccountantViewPDF(reportId)
-    ReportAPI->>Node.js Backend: GET /api/reports/[id]/accountant-pdf
-    Node.js Backend->>Python Backend: GET /api/valuation/[id]/accountant-pdf
-    Python Backend->>Python Backend: Load stored calculation
-    Python Backend->>Python Backend: Generate PDF from html_report
-    Python Backend-->>Node.js Backend: PDF blob
-    Node.js Backend-->>ReportAPI: PDF blob
-    ReportAPI->>Browser: Create blob URL
+    ValuationToolbar->>UsePdfGeneration: downloadPdf(reportId)
+    UsePdfGeneration->>Venus BFF: GET /api/valuations/:id/pdf/download
+    Venus BFF->>Titan API: GET /api/v2/valuations/reports/:id/pdf
+    alt no fresh PDF URL or storage fetch fails
+        Venus BFF->>Titan API: POST /api/v2/valuations/reports/:id/pdf
+    end
+    Titan API-->>Venus BFF: Fresh signed PDF URL
+    Venus BFF->>Storage: Fetch PDF bytes
+    Storage-->>Venus BFF: application/pdf
+    Venus BFF-->>UsePdfGeneration: Validated PDF blob
+    UsePdfGeneration->>Browser: Create blob URL
     Browser->>User: Download PDF file
 ```
 
@@ -431,4 +437,3 @@ ValuationReport
 
 **Last Updated**: January 2025  
 **Maintainer**: Frontend Team
-

@@ -4,7 +4,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const AGENT_TOOL_ACTION_NAME_HEADER = 'X-Upswitch-Agent-Tool-Name'
@@ -44,7 +44,7 @@ export async function proxyAgentJsonToTitan(
   }
 
   const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
-  const response = await fetchWithTimeout(
+  const { response, json: data } = await fetchJsonWithTimeout<Record<string, unknown>>(
     `${getTitanApiUrl(request)}${path}`,
     {
       method: options.method,
@@ -64,7 +64,6 @@ export async function proxyAgentJsonToTitan(
     return new NextResponse(null, { status: 204 })
   }
 
-  const data = await response.json().catch(() => null)
   if (!response.ok) {
     return NextResponse.json(
       {

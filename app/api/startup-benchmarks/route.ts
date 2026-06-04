@@ -11,7 +11,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { generalLogger } from '@/utils/logger'
 
 const TIMEOUT_MS = 4_000
@@ -102,11 +102,10 @@ export async function GET(request: NextRequest) {
   const target = `${ATHENA_BASE_URL}/api/benchmarks/v1/startup-reference?${params.toString()}`
 
   try {
-    const res = await fetchWithTimeout(
-      target,
-      { headers: { 'x-api-key': apiKey, accept: 'application/json' } },
-      TIMEOUT_MS
-    )
+    const { response: res, json } = await fetchJsonWithTimeout<{
+      rows?: unknown[]
+      source?: string
+    }>(target, { headers: { 'x-api-key': apiKey, accept: 'application/json' } }, TIMEOUT_MS)
     if (!res.ok) {
       generalLogger.warn('[startup-benchmarks] Athena non-2xx', { status: res.status })
       return NextResponse.json(
@@ -118,7 +117,17 @@ export async function GET(request: NextRequest) {
         { headers: { 'cache-control': 'public, s-maxage=60' } }
       )
     }
-    const json = (await res.json()) as { rows?: unknown[]; source?: string }
+    if (!json) {
+      generalLogger.warn('[startup-benchmarks] Athena malformed JSON')
+      return NextResponse.json(
+        {
+          rows: staticRows(region, stage, sector),
+          source: 'venus-static-fallback',
+          warning: 'Athena returned malformed JSON — using static Q1 2026 numbers.',
+        },
+        { headers: { 'cache-control': 'public, s-maxage=60' } }
+      )
+    }
     return NextResponse.json(json, {
       headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=86400' },
     })

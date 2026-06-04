@@ -169,6 +169,8 @@ interface ManualInputPanelProps {
   synthesisValuationResults?: Record<string, ValuationMethodResult> | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
+  /** Live accounting integrations are Pro+; skip background status polling when locked. */
+  integrationsEnabled?: boolean
 }
 
 export function ManualInputPanel({
@@ -190,6 +192,7 @@ export function ManualInputPanel({
   synthesisUnlocked = false,
   synthesisValuationResults,
   onSynthesisPaywall,
+  integrationsEnabled = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -254,6 +257,7 @@ export function ManualInputPanel({
     openingLiveAccountingImport,
   } = useManualAccountingImportController({
     currentFilingYear,
+    integrationsEnabled,
     messages: accountingImportMessages,
     setFormData,
   })

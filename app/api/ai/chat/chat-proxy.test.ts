@@ -6,6 +6,7 @@ import {
   getOrCreateCorrelationId,
   isTitanAiProxyTimeoutError,
   normalizeCorrelationId,
+  readJsonBodyWithTimeout,
 } from './chat-proxy'
 
 describe('fetchWithTimeout', () => {
@@ -29,12 +30,13 @@ describe('fetchWithTimeout', () => {
     vi.useFakeTimers()
     vi.stubGlobal(
       'fetch',
-      vi.fn((_url: string, init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => {
-            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+            })
           })
-        })
       )
     )
 
@@ -42,9 +44,29 @@ describe('fetchWithTimeout', () => {
     const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     await vi.runAllTimersAsync()
     await assertion
-    expect(isTitanAiProxyTimeoutError(Object.assign(new Error('aborted'), { name: 'AbortError' }))).toBe(
-      true
+    expect(
+      isTitanAiProxyTimeoutError(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+    ).toBe(true)
+  })
+
+  it('times out stalled JSON body reads after headers arrive', async () => {
+    vi.useFakeTimers()
+    const pending = readJsonBodyWithTimeout(
+      {
+        json: vi.fn(
+          () =>
+            new Promise(() => {
+              // Intentionally never resolves; the body timeout must win.
+            })
+        ),
+      },
+      100
     )
+
+    const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    await vi.advanceTimersByTimeAsync(101)
+
+    await assertion
   })
 })
 

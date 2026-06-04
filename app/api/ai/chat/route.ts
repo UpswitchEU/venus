@@ -13,7 +13,7 @@
  * - POST /api/v2/ai/chat (JSON fallback)
  */
 
-import { withAiStreamTurnRecoveryHeader, isAdvisorWorkspaceClientTurn } from '@upswitch/ai-actions'
+import { isAdvisorWorkspaceClientTurn, withAiStreamTurnRecoveryHeader } from '@upswitch/ai-actions'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getTitanAccessTokenFromCookieHeader,
@@ -23,6 +23,7 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { apiLogger } from '@/utils/logger'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
+import { wrapAiSseBodyForObservability } from './ai-stream-proxy'
 import {
   AI_CHAT_PROXY_TIMEOUT_MS,
   buildTitanAiChatProxyPlan,
@@ -32,8 +33,8 @@ import {
   getOrCreateCorrelationId,
   getTitanResponseCorrelationId,
   isTitanAiProxyTimeoutError,
+  readJsonBodyWithTimeout,
 } from './chat-proxy'
-import { wrapAiSseBodyForObservability } from './ai-stream-proxy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -115,7 +116,12 @@ export async function POST(request: NextRequest) {
     )
 
     if (!titanResponse.ok) {
-      const errorData = await titanResponse.json().catch(() => ({}))
+      const errorData = await readJsonBodyWithTimeout(titanResponse, proxyTimeoutMs).catch(
+        (error) => {
+          if (isTitanAiProxyTimeoutError(error)) throw error
+          return {}
+        }
+      )
       const response = NextResponse.json(buildTitanErrorEnvelope(errorData), {
         status: titanResponse.status,
       })
@@ -141,6 +147,7 @@ export async function POST(request: NextRequest) {
             },
             proxyTimeoutMs
           ),
+        nonStreamingFallbackBodyTimeoutMs: proxyTimeoutMs,
       })
       return new Response(wrapped, {
         headers: {
@@ -158,7 +165,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const data = await titanResponse.json()
+    const data = await readJsonBodyWithTimeout(titanResponse, proxyTimeoutMs)
     const response = NextResponse.json(data)
     response.headers.set(
       'X-Correlation-ID',
@@ -169,9 +176,12 @@ export async function POST(request: NextRequest) {
     const isTimeout = isTitanAiProxyTimeoutError(error)
     const titanApiUrl = getTitanApiUrl(request)
     if (isTimeout) {
-      const response = NextResponse.json(buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }), {
-        status: 504,
-      })
+      const response = NextResponse.json(
+        buildTitanNetworkErrorEnvelope({ isTimeout, titanApiUrl }),
+        {
+          status: 504,
+        }
+      )
       response.headers.set('X-Correlation-ID', correlationId)
       return response
     }

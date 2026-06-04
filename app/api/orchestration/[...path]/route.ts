@@ -43,6 +43,25 @@ const TITAN_API_URL = (() => {
   return url
 })()
 
+function makeResponseBodyTimeoutError(): Error {
+  return new Error('Orchestration response body timeout')
+}
+
+async function readJsonWithTimeout(response: Response, timeoutMs: number): Promise<unknown> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      response.json(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(makeResponseBodyTimeoutError()), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
+
 function buildTitanUrl(path: string[], searchParams: URLSearchParams): string {
   const pathStr = path.join('/')
   const qs = searchParams.toString()
@@ -111,7 +130,10 @@ async function proxyToTitan(
       return new NextResponse(null, { status: 204 })
     }
 
-    const data = await titanResponse.json().catch(() => ({ success: false }))
+    const data = await readJsonWithTimeout(titanResponse, 15_000).catch((error) => {
+      if (error instanceof Error && error.message.includes('timeout')) throw error
+      return { success: false }
+    })
     return NextResponse.json(data, { status: titanResponse.status })
   } catch (error) {
     console.error(

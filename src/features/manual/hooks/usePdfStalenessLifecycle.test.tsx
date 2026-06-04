@@ -378,7 +378,10 @@ describe('usePdfStalenessLifecycle', () => {
 
       // Start the retry. Don't await it yet — the inner `await getReport()`
       // never resolves until we call `resolveGetReport(...)`.
-      const retryPromise = result.current.retry()
+      let retryPromise: Promise<void> = Promise.resolve()
+      act(() => {
+        retryPromise = result.current.retry()
+      })
 
       // The retry handler awaits `generatePdf()` first (1 microtask), then
       // calls `getReport(...)` (which sets `resolveGetReport`). Use waitFor
@@ -387,12 +390,16 @@ describe('usePdfStalenessLifecycle', () => {
 
       // Unmount BEFORE the in-flight getReport resolves. The hook's
       // mount-effect cleanup flips `isMountedRef.current = false`.
-      unmount()
+      act(() => {
+        unmount()
+      })
 
       // Now resolve. The retry handler's `isStillRelevant()` guard sees
       // `isMountedRef === false` and bails before touching setResult.
-      resolveGetReport?.(makeFreshResponse())
-      await retryPromise
+      await act(async () => {
+        resolveGetReport?.(makeFreshResponse())
+        await retryPromise
+      })
 
       expect(params.setResult).not.toHaveBeenCalled()
       expect(params.setReport).not.toHaveBeenCalled()
@@ -420,18 +427,25 @@ describe('usePdfStalenessLifecycle', () => {
       )
 
       // Kick off the retry — it captures `'uuid-A'` and starts awaiting getReport.
-      const retryPromise = result.current.retry()
+      let retryPromise: Promise<void> = Promise.resolve()
+      act(() => {
+        retryPromise = result.current.retry()
+      })
 
       await waitFor(() => expect(getReport).toHaveBeenCalled())
 
       // Mid-flight, the user navigates to a different report.
-      rerender({ ...baseParams, persistedReportLookupId: 'uuid-B' })
+      act(() => {
+        rerender({ ...baseParams, persistedReportLookupId: 'uuid-B' })
+      })
 
       // Now the old getReport resolves with report A's data. The retry
       // handler's `isStillRelevant()` guard sees `lookupIdRef.current === 'uuid-B'`
       // while the captured `startLookupId === 'uuid-A'` and bails.
-      resolveGetReport?.(makeFreshResponse({ valuation_id: 'val_A' }))
-      await retryPromise
+      await act(async () => {
+        resolveGetReport?.(makeFreshResponse({ valuation_id: 'val_A' }))
+        await retryPromise
+      })
 
       expect(baseParams.setResult).not.toHaveBeenCalled()
     })

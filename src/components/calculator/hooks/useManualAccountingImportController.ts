@@ -31,6 +31,7 @@ export interface ManualAccountingImportMessages {
 
 interface UseManualAccountingImportControllerParams {
   currentFilingYear: number
+  integrationsEnabled: boolean
   messages: ManualAccountingImportMessages
   setFormData: Dispatch<SetStateAction<ManualValuationFormData>>
 }
@@ -48,6 +49,7 @@ export function venusLiveBatchImportProvider(
 
 export function useManualAccountingImportController({
   currentFilingYear,
+  integrationsEnabled,
   messages,
   setFormData,
 }: UseManualAccountingImportControllerParams) {
@@ -72,22 +74,43 @@ export function useManualAccountingImportController({
   const [venusLiveImportProvider, setVenusLiveImportProvider] =
     useState<LiveBatchImportProvider | null>(null)
   const [openingLiveAccountingImport, setOpeningLiveAccountingImport] = useState(false)
-  const venusLiveImportFetchGenRef = useRef(0)
+  const openingLiveAccountingImportRef = useRef(false)
+  const liveStatusFetchGenRef = useRef(0)
+  const liveOpenImportRunIdRef = useRef(0)
+  const statusFetchPromiseRef = useRef<Promise<IntegrationStatus[]> | null>(null)
   const accountingRefetchThrottle = useRef(0)
 
+  const getAccountingIntegrationStatuses = useCallback(() => {
+    if (statusFetchPromiseRef.current) return statusFetchPromiseRef.current
+    const promise = accountingAPI.getAllIntegrationStatus()
+    statusFetchPromiseRef.current = promise
+    promise
+      .finally(() => {
+        if (statusFetchPromiseRef.current === promise) {
+          statusFetchPromiseRef.current = null
+        }
+      })
+      .catch(() => undefined)
+    return promise
+  }, [])
+
   const loadAccountingIntegrationStatus = useCallback(async () => {
-    const gen = ++venusLiveImportFetchGenRef.current
+    const gen = ++liveStatusFetchGenRef.current
+    if (!integrationsEnabled) {
+      setVenusLiveImportProvider(null)
+      return
+    }
     try {
-      const statuses = await accountingAPI.getAllIntegrationStatus()
-      if (gen !== venusLiveImportFetchGenRef.current) return
+      const statuses = await getAccountingIntegrationStatuses()
+      if (gen !== liveStatusFetchGenRef.current) return
       const row = pickConnectedVenusBatchImportStatus(statuses)
       setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
     } catch {
-      if (gen === venusLiveImportFetchGenRef.current) {
+      if (gen === liveStatusFetchGenRef.current) {
         setVenusLiveImportProvider(null)
       }
     }
-  }, [])
+  }, [getAccountingIntegrationStatuses, integrationsEnabled])
 
   const notifyImportFailure = useCallback(
     (message: string) => {
@@ -99,12 +122,21 @@ export function useManualAccountingImportController({
   )
 
   const handleOpenLiveAccountingImport = useCallback(async () => {
+    if (openingLiveAccountingImportRef.current) return
     setImportAccountingError(null)
+    if (!integrationsEnabled) {
+      setVenusLiveImportProvider(null)
+      setImportAccountingError(messages.importUnavailable)
+      setOpeningLiveAccountingImport(false)
+      return
+    }
+    openingLiveAccountingImportRef.current = true
     setOpeningLiveAccountingImport(true)
-    const gen = ++venusLiveImportFetchGenRef.current
+    const runId = ++liveOpenImportRunIdRef.current
+    const isCurrentOpenRun = () => liveOpenImportRunIdRef.current === runId
     try {
-      const statuses = await accountingAPI.getAllIntegrationStatus()
-      if (gen !== venusLiveImportFetchGenRef.current) return
+      const statuses = await getAccountingIntegrationStatuses()
+      if (!isCurrentOpenRun()) return
       const row = pickConnectedVenusBatchImportStatus(statuses)
       setVenusLiveImportProvider(venusLiveBatchImportProvider(row))
 
@@ -114,6 +146,7 @@ export function useManualAccountingImportController({
         setLoadingBizzcontrolCompanies(true)
         try {
           const res = await accountingAPI.getBizzcontrolCompanies()
+          if (!isCurrentOpenRun()) return
           setBizzcontrolCompanies(res.administrations)
           setSelectedBizzcontrolCompanyId((prev) => {
             if (prev) return prev
@@ -121,9 +154,13 @@ export function useManualAccountingImportController({
             return ''
           })
         } catch (error) {
-          setBizzcontrolImportError(parseAccountingApiError(error))
+          if (isCurrentOpenRun()) {
+            setBizzcontrolImportError(parseAccountingApiError(error))
+          }
         } finally {
-          setLoadingBizzcontrolCompanies(false)
+          if (isCurrentOpenRun()) {
+            setLoadingBizzcontrolCompanies(false)
+          }
         }
         return
       }
@@ -134,6 +171,7 @@ export function useManualAccountingImportController({
         setLoadingOctopusCompanies(true)
         try {
           const res = await accountingAPI.getOctopusCompanies()
+          if (!isCurrentOpenRun()) return
           setOctopusCompanies(res.administrations)
           setSelectedOctopusCompanyId((prev) => {
             if (prev) return prev
@@ -141,28 +179,55 @@ export function useManualAccountingImportController({
             return ''
           })
         } catch (error) {
-          setOctopusImportError(parseAccountingApiError(error))
+          if (isCurrentOpenRun()) {
+            setOctopusImportError(parseAccountingApiError(error))
+          }
         } finally {
-          setLoadingOctopusCompanies(false)
+          if (isCurrentOpenRun()) {
+            setLoadingOctopusCompanies(false)
+          }
         }
         return
       }
 
       setImportAccountingError(messages.importUnavailable)
     } catch (error) {
+      if (!isCurrentOpenRun()) return
       const message = parseAccountingApiError(error)
       setImportAccountingError(message)
       notifyImportFailure(message)
     } finally {
-      setOpeningLiveAccountingImport(false)
+      if (isCurrentOpenRun()) {
+        openingLiveAccountingImportRef.current = false
+        setOpeningLiveAccountingImport(false)
+      }
     }
-  }, [messages.importUnavailable, notifyImportFailure])
+  }, [
+    getAccountingIntegrationStatuses,
+    integrationsEnabled,
+    messages.importUnavailable,
+    notifyImportFailure,
+  ])
 
   useEffect(() => {
     void loadAccountingIntegrationStatus()
   }, [loadAccountingIntegrationStatus])
 
   useEffect(() => {
+    if (integrationsEnabled) return
+    liveStatusFetchGenRef.current++
+    liveOpenImportRunIdRef.current++
+    openingLiveAccountingImportRef.current = false
+    setOpeningLiveAccountingImport(false)
+    setVenusLiveImportProvider(null)
+    setShowBizzcontrolImportModal(false)
+    setLoadingBizzcontrolCompanies(false)
+    setShowOctopusImportModal(false)
+    setLoadingOctopusCompanies(false)
+  }, [integrationsEnabled])
+
+  useEffect(() => {
+    if (!integrationsEnabled) return
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return
       const now = Date.now()
@@ -172,7 +237,7 @@ export function useManualAccountingImportController({
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [loadAccountingIntegrationStatus])
+  }, [integrationsEnabled, loadAccountingIntegrationStatus])
 
   const applyImportedBatch = useCallback(
     (

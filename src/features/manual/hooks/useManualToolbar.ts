@@ -7,11 +7,11 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { trackPDFDownload } from '@/lib/analytics'
+import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useValuationToolbarRefresh } from '../../../hooks/valuationToolbar'
-import { backendAPI } from '../../../services/backendApi'
 import { RefreshService } from '../../../services/toolbar/refreshService'
 import UrlGeneratorService from '../../../services/urlGenerator'
 import { useManualResultsStore } from '../../../store/manual'
@@ -20,6 +20,7 @@ import { APIError } from '../../../types/errors'
 import type { ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { generateReportId } from '../../../utils/reportIdGenerator'
+import { buildManualPdfFilename } from '../utils/manualPdfExport'
 
 /**
  * Manual Toolbar Hook Return Type
@@ -51,7 +52,26 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
   const tToast = useTranslations('toast')
   // Read from unified session store
   const sessionReportId = useSessionStore((state) => state.session?.reportId)
+  const { downloadPdf } = usePdfGeneration(sessionReportId ?? null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const downloadInFlightRef = useRef(false)
+  const downloadAbortRef = useRef<AbortController | null>(null)
+  const downloadRunIdRef = useRef(0)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionReportId intentionally cancels in-flight downloads on report navigation.
+  useEffect(() => {
+    downloadRunIdRef.current++
+    downloadInFlightRef.current = false
+    downloadAbortRef.current?.abort()
+    downloadAbortRef.current = null
+    setIsDownloading(false)
+    return () => {
+      downloadRunIdRef.current++
+      downloadInFlightRef.current = false
+      downloadAbortRef.current?.abort()
+      downloadAbortRef.current = null
+    }
+  }, [sessionReportId])
 
   const handleRefresh = useCallback(() => {
     const newReportId = generateReportId()
@@ -60,6 +80,7 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
   }, [handleHookRefresh])
 
   const handleDownload = useCallback(async () => {
+    if (downloadInFlightRef.current) return
     const currentResult = result || useManualResultsStore.getState().result
     const reportId = sessionReportId // Use stable reportId from selector
 
@@ -78,6 +99,11 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
       return
     }
 
+    downloadInFlightRef.current = true
+    const runId = ++downloadRunIdRef.current
+    const isCurrentRun = () => downloadRunIdRef.current === runId && sessionReportId === reportId
+    const abortController = new AbortController()
+    downloadAbortRef.current = abortController
     setIsDownloading(true)
     try {
       generalLogger.info('Initiating backend PDF download', {
@@ -86,40 +112,36 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
         companyName: currentResult.company_name,
       })
 
-      // Use backend PDF generation endpoint
-      const pdfBlob = await backendAPI.downloadAccountantViewPDF(reportId)
+      const filename = buildManualPdfFilename({
+        companyName: currentResult.company_name,
+        defaultFilename: 'valuation',
+        pdfSuffix: 'report',
+        timestamp: Date.now(),
+      })
 
-      // Generate filename
-      const companyName = currentResult.company_name || 'Company'
-      const filename = `valuation-${companyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.pdf`
-
-      // Trigger browser download
-      const url = URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      await downloadPdf(undefined, filename, abortController.signal, reportId)
+      if (!isCurrentRun()) return
 
       trackPDFDownload()
       generalLogger.info('PDF download completed successfully', {
         reportId,
         filename,
-        pdfSize: pdfBlob.size,
       })
     } catch (error) {
       if (error instanceof APIError && error.statusCode === 402) {
-        toast.error(tToast('pdfDownloadPlanBlocked'), {
-          description: error.message || tToast('pdfDownloadPlanBlockedDesc'),
-        })
-        generalLogger.warn('PDF download blocked by plan', {
-          reportId,
-          valuationId: currentResult.valuation_id,
-        })
+        if (isCurrentRun()) {
+          toast.error(tToast('pdfDownloadPlanBlocked'), {
+            description: error.message || tToast('pdfDownloadPlanBlockedDesc'),
+          })
+          generalLogger.warn('PDF download blocked by plan', {
+            reportId,
+            valuationId: currentResult.valuation_id,
+          })
+        }
         return
       }
+      if (error instanceof Error && error.name === 'AbortError') return
+      if (!isCurrentRun()) return
       // BANK-GRADE: Specific error handling - PDF download failure
       if (error instanceof Error) {
         generalLogger.error('PDF download failed', {
@@ -128,17 +150,29 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
           reportId,
           valuationId: currentResult.valuation_id,
         })
+        toast.error(tToast('pdfExportFailed'), {
+          description: error.message || tToast('pdfExportFailedDesc'),
+        })
       } else {
         generalLogger.error('PDF download failed', {
           error: String(error),
           reportId,
           valuationId: currentResult.valuation_id,
         })
+        toast.error(tToast('pdfExportFailed'), {
+          description: tToast('pdfExportFailedDesc'),
+        })
       }
     } finally {
-      setIsDownloading(false)
+      if (isCurrentRun()) {
+        downloadInFlightRef.current = false
+        setIsDownloading(false)
+        if (downloadAbortRef.current === abortController) {
+          downloadAbortRef.current = null
+        }
+      }
     }
-  }, [result, sessionReportId, tToast]) // ⚠️ Use stable reportId, not entire session
+  }, [downloadPdf, result, sessionReportId, tToast]) // ⚠️ Use stable reportId, not entire session
 
   return {
     handleRefresh,

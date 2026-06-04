@@ -5,7 +5,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { forwardAgentToolActionHeaders } from './agentActionProxy'
 
@@ -154,7 +154,7 @@ export async function proxyProviderAccountingSyncToTitan(request: NextRequest, p
   const config = PROVIDERS[provider]
   const titanBase = getTitanApiUrl(request)
 
-  const listResponse = await fetchWithTimeout(
+  const { response: listResponse, json: listPayload } = await fetchJsonWithTimeout(
     `${titanBase}${config.listPath}`,
     {
       method: 'GET',
@@ -166,7 +166,6 @@ export async function proxyProviderAccountingSyncToTitan(request: NextRequest, p
     },
     15_000
   )
-  const listPayload: unknown = await listResponse.json().catch(() => null)
   if (!listResponse.ok) {
     return NextResponse.json(
       {
@@ -190,7 +189,7 @@ export async function proxyProviderAccountingSyncToTitan(request: NextRequest, p
   }
 
   const body = config.syncBody(administrationIds, chainToBulk)
-  const syncResponse = await fetchWithTimeout(
+  const { response: syncResponse, json: syncPayload } = await fetchJsonWithTimeout(
     `${titanBase}${config.syncPath}`,
     {
       method: 'POST',
@@ -209,7 +208,6 @@ export async function proxyProviderAccountingSyncToTitan(request: NextRequest, p
     },
     15_000
   )
-  const syncPayload: unknown = await syncResponse.json().catch(() => null)
   if (!syncResponse.ok) {
     return NextResponse.json(
       {

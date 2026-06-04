@@ -1,9 +1,5 @@
-// Download service for exporting valuation reports
-import { backendAPI } from '../services/backendApi'
-import type { ValuationRequest } from '../types/valuation'
 import { HTMLProcessor } from '../utils/htmlProcessor'
 import { generalLogger } from '../utils/logger'
-import { createRandomId } from '../utils/secureRandom'
 
 export interface DownloadOptions {
   format: 'html' | 'pdf'
@@ -20,11 +16,6 @@ export interface ValuationData {
   inputs?: Record<string, unknown>
   assumptions?: Record<string, unknown>
   htmlContent?: string
-}
-
-type PdfDownloadRequest = ValuationRequest & {
-  reportId?: string
-  valuation_id?: string
 }
 
 export class DownloadService {
@@ -356,142 +347,6 @@ export class DownloadService {
     </div>
 </body>
 </html>`
-  }
-
-  /**
-   * Download Accountant View PDF from backend
-   * Uses the backend /api/v1/valuation/pdf/accountant-view endpoint
-   * which generates a professional PDF with all whitepaper sections
-   */
-  static async downloadAccountantViewPDF(
-    request: PdfDownloadRequest,
-    options?: {
-      filename?: string
-      onProgress?: (progress: number) => void
-      signal?: AbortSignal
-    }
-  ): Promise<void> {
-    const startTime = performance.now()
-    const downloadId = createRandomId('pdf', 12)
-
-    try {
-      generalLogger.info('[DownloadService] PDF download initiated', {
-        downloadId,
-        company_name: request.company_name,
-        timestamp: new Date().toISOString(),
-        hasSignal: !!options?.signal,
-        hasProgressCallback: !!options?.onProgress,
-      })
-
-      const filename = options?.filename || this.getDefaultFilename(request.company_name, 'pdf')
-
-      generalLogger.debug('[DownloadService] PDF filename determined', {
-        downloadId,
-        filename,
-        company_name: request.company_name,
-      })
-
-      // Show loading state if progress callback provided
-      if (options?.onProgress) {
-        options.onProgress(0)
-        generalLogger.debug('[DownloadService] Progress callback initialized', {
-          downloadId,
-          progress: 0,
-        })
-      }
-
-      const apiCallStartTime = performance.now()
-      generalLogger.debug('[DownloadService] Calling backend API for PDF generation', {
-        downloadId,
-        company_name: request.company_name,
-        endpoint: '/api/valuations/pdf/accountant-view',
-      })
-
-      // Call backend API to generate PDF
-      // NOTE: downloadAccountantViewPDF expects reportId, not ValuationRequest
-      // We need to extract reportId from request or use a different approach
-      // For now, we'll need to get the reportId from the valuation response
-      // This is a temporary fix - the proper solution would be to pass reportId
-      const reportId = request.reportId || request.valuation_id || ''
-      if (!reportId) {
-        throw new Error('Report ID is required for PDF download')
-      }
-      const pdfBlob = await backendAPI.downloadAccountantViewPDF(reportId)
-
-      const apiCallDuration = performance.now() - apiCallStartTime
-      generalLogger.debug('[DownloadService] Backend API call completed', {
-        downloadId,
-        company_name: request.company_name,
-        pdfSize: pdfBlob.size,
-        pdfSizeKB: Math.round(pdfBlob.size / 1024),
-        apiCallDurationMs: Math.round(apiCallDuration),
-        contentType: pdfBlob.type || 'application/pdf',
-      })
-
-      if (options?.onProgress) {
-        options.onProgress(100)
-        generalLogger.debug('[DownloadService] Progress set to 100%', { downloadId })
-      }
-
-      const downloadStartTime = performance.now()
-      generalLogger.debug('[DownloadService] Initiating browser download', {
-        downloadId,
-        filename,
-        pdfSize: pdfBlob.size,
-      })
-
-      // Create download link
-      const url = URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // Clean up
-      URL.revokeObjectURL(url)
-
-      const downloadDuration = performance.now() - downloadStartTime
-      const totalDuration = performance.now() - startTime
-
-      generalLogger.info('[DownloadService] PDF download completed successfully', {
-        downloadId,
-        filename,
-        pdfSize: pdfBlob.size,
-        pdfSizeKB: Math.round(pdfBlob.size / 1024),
-        downloadDurationMs: Math.round(downloadDuration),
-        totalDurationMs: Math.round(totalDuration),
-        company_name: request.company_name,
-        timestamp: new Date().toISOString(),
-      })
-    } catch (error) {
-      const errorDuration = performance.now() - startTime
-      const errorDetails = {
-        downloadId,
-        company_name: request.company_name,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-        durationMs: Math.round(errorDuration),
-        timestamp: new Date().toISOString(),
-      }
-
-      generalLogger.error('[DownloadService] PDF download failed', errorDetails)
-
-      // Log additional error details if available
-      if (error instanceof Error && error.stack) {
-        generalLogger.error('[DownloadService] Error stack trace', {
-          downloadId,
-          stack: error.stack,
-        })
-      }
-
-      // Re-throw with user-friendly message
-      if (error instanceof Error) {
-        throw new Error(`Failed to download PDF: ${error.message}`)
-      }
-      throw new Error('Failed to download PDF: Unknown error')
-    }
   }
 
   /**

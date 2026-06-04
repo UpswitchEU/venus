@@ -15,9 +15,8 @@ import {
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
-import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { apiLogger } from '../../../utils/logger'
-import { createRandomId } from '../../../utils/secureRandom'
+import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 type AxiosLikeError = {
@@ -37,28 +36,6 @@ type AxiosLikeError = {
 
 function asAxiosLikeError(error: unknown): AxiosLikeError {
   return error && typeof error === 'object' ? (error as AxiosLikeError) : {}
-}
-
-async function parsePlanGateErrorMessage(axiosError: {
-  response?: { data?: unknown }
-}): Promise<string> {
-  const fallback =
-    'PDF download requires a plan that includes downloadable reports. Upgrade to Starter to continue.'
-  const data = axiosError.response?.data
-  if (data && typeof data === 'object' && !(data instanceof Blob)) {
-    const o = data as { message?: string; error?: string }
-    return o.message || o.error || fallback
-  }
-  if (data instanceof Blob) {
-    try {
-      const text = await data.text()
-      const j = JSON.parse(text) as { message?: string; error?: string }
-      return j.message || j.error || fallback
-    } catch {
-      return fallback
-    }
-  }
-  return fallback
 }
 
 export class ReportAPI extends HttpClient {
@@ -217,144 +194,6 @@ export class ReportAPI extends HttpClient {
         return { success: true }
       }
       this.handleReportError(error, 'delete report')
-    }
-  }
-
-  /**
-   * Download accountant view PDF
-   */
-  async downloadAccountantViewPDF(reportId: string, options?: APIRequestConfig): Promise<Blob> {
-    const correlationId = createRandomId('pdf', 12)
-
-    // Check for duplicate request
-    if (this.activeRequests.has(correlationId)) {
-      apiLogger.warn('Duplicate PDF download request detected, cancelling previous', {
-        correlationId,
-      })
-      this.activeRequests.get(correlationId)?.abort()
-    }
-
-    // Create AbortController for this request
-    const controller = new AbortController()
-    this.activeRequests.set(correlationId, controller)
-
-    // Use provided signal or create new one
-    const signal = options?.signal || controller.signal
-    const timeout = options?.timeout || 120000 // 2 minutes for PDF downloads
-
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      apiLogger.warn('PDF download timeout, aborting', { correlationId, timeout })
-      controller.abort()
-    }, timeout)
-    this.requestTimeouts.set(correlationId, timeoutId)
-
-    try {
-      apiLogger.info('Starting PDF download', {
-        correlationId,
-        reportId,
-        timeout,
-      })
-
-      // Call Node.js backend endpoint which proxies to Python engine
-      const response = await this.client.request<Blob>({
-        method: 'POST',
-        url: `/api/v2/valuations/pdf/accountant-view`,
-        data: { reportId },
-        responseType: 'blob', // Important: request as blob for PDF
-        signal,
-        timeout,
-      })
-
-      const contentLength = response.data?.size || 0
-      apiLogger.info('PDF download completed', {
-        correlationId,
-        reportId,
-        contentLength,
-        contentType: response.headers?.['content-type'],
-      })
-
-      // Validate PDF blob
-      if (!response.data || response.data.size === 0) {
-        throw new Error('Received empty PDF blob')
-      }
-
-      if (response.headers?.['content-type'] !== 'application/pdf') {
-        apiLogger.warn('Unexpected content type for PDF download', {
-          contentType: response.headers?.['content-type'],
-          expected: 'application/pdf',
-        })
-      }
-
-      return response.data
-    } catch (error) {
-      const axiosError = asAxiosLikeError(error)
-      // Comprehensive error logging
-      const errorContext = {
-        correlationId,
-        reportId,
-        error: error instanceof Error ? error.message : String(error),
-        status: axiosError?.response?.status,
-        statusText: axiosError?.response?.statusText,
-        isTimeout: axiosError?.code === 'ECONNABORTED',
-        isAbort: axiosError?.name === 'AbortError',
-      }
-
-      if (axiosError?.response?.status === 404) {
-        apiLogger.error('Report not found for PDF download', errorContext)
-        throw new APIError('Report not found. Please check the report ID.', 404)
-      }
-
-      if (axiosError?.response?.status === 402) {
-        const msg = await parsePlanGateErrorMessage(axiosError)
-        const data = axiosError.response?.data
-        const code =
-          data && typeof data === 'object' && !(data instanceof Blob)
-            ? (data as { code?: string }).code
-            : undefined
-        const inviteAdvisorRequired = code === 'INVITE_ADVISOR_REQUIRED'
-        apiLogger.warn('PDF download blocked by plan', { ...errorContext, message: msg, code })
-        throw new APIError(msg, 402, undefined, true, {
-          upgradeRequired: !inviteAdvisorRequired,
-          inviteAdvisorRequired,
-          code,
-        })
-      }
-
-      if (axiosError?.response?.status === 403 || axiosError?.response?.status === 401) {
-        apiLogger.error('Unauthorized PDF download attempt', errorContext)
-        throw new AuthenticationError('You do not have permission to download this report.')
-      }
-
-      if (axiosError?.code === 'ECONNABORTED') {
-        apiLogger.error('PDF download timed out', errorContext)
-        throw new NetworkError('PDF download timed out. Please try again.')
-      }
-
-      if (axiosError?.name === 'AbortError') {
-        apiLogger.info('PDF download was cancelled', errorContext)
-        throw error // Re-throw abort errors
-      }
-
-      // Log additional error context
-      apiLogger.error('PDF download failed with unknown error', {
-        ...errorContext,
-        stack: error instanceof Error ? error.stack : undefined,
-        responseData: axiosError?.response?.data,
-      })
-
-      const statusCode = axiosError?.response?.status
-      throw new APIError('Failed to download PDF. Please try again.', statusCode, undefined, true, {
-        originalError: error,
-      })
-    } finally {
-      // Cleanup
-      this.activeRequests.delete(correlationId)
-      const timeout = this.requestTimeouts.get(correlationId)
-      if (timeout) {
-        clearTimeout(timeout)
-        this.requestTimeouts.delete(correlationId)
-      }
     }
   }
 

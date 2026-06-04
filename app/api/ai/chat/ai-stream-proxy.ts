@@ -1,4 +1,5 @@
 import { apiLogger } from '@/utils/logger'
+import { AI_CHAT_PROXY_TIMEOUT_MS, readJsonBodyWithTimeout } from './chat-proxy'
 import {
   createSseStreamContentScanner,
   encodeStreamFallbackErrorSseBytes,
@@ -27,11 +28,17 @@ interface AiSseProxyOptions {
   correlationId: string
   upstreamStatus: number
   fetchNonStreamingFallback?: () => Promise<Response>
+  nonStreamingFallbackBodyTimeoutMs?: number
 }
 
 export function wrapAiSseBodyForObservability(
   body: ReadableStream<Uint8Array>,
-  { correlationId, upstreamStatus, fetchNonStreamingFallback }: AiSseProxyOptions
+  {
+    correlationId,
+    upstreamStatus,
+    fetchNonStreamingFallback,
+    nonStreamingFallbackBodyTimeoutMs = AI_CHAT_PROXY_TIMEOUT_MS,
+  }: AiSseProxyOptions
 ): ReadableStream<Uint8Array> {
   const reader = body.getReader()
   const startedAt = Date.now()
@@ -101,7 +108,10 @@ export function wrapAiSseBodyForObservability(
     try {
       const fallbackResponse = await fetchNonStreamingFallback()
       if (fallbackResponse.ok) {
-        const fallbackPayload = (await fallbackResponse.json()) as TitanChatJsonResponse
+        const fallbackPayload = await readJsonBodyWithTimeout<TitanChatJsonResponse>(
+          fallbackResponse,
+          nonStreamingFallbackBodyTimeoutMs
+        )
         if (hasVisibleTitanChatPayload(fallbackPayload)) {
           emitStreamRecoveryMeta(controller, 'bff-fallback')
           enqueueBytes(controller, encodeTitanChatResponseAsSseBytes(fallbackPayload))

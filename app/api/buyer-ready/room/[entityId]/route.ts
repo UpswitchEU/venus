@@ -9,7 +9,7 @@ import type {
 } from '@/features/buyer-ready/readiness-room/types'
 import { getTitanAccessTokenFromCookieHeader, hasTitanAuthCookie } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
@@ -47,7 +47,7 @@ async function fetchTitanJson<T>(
   timeoutMs = 10_000
 ): Promise<TitanJsonResult<T>> {
   const titanApiUrl = getTitanApiUrl(request)
-  const response = await fetchWithTimeout(
+  const { response, json } = await fetchJsonWithTimeout(
     `${titanApiUrl}${path}`,
     {
       method: 'GET',
@@ -56,7 +56,6 @@ async function fetchTitanJson<T>(
     },
     timeoutMs
   )
-  const json = await response.json().catch(() => null)
   return {
     data: json as T | null,
     ok: response.ok,

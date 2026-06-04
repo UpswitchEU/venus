@@ -201,10 +201,6 @@ class BackendAPI {
     return this.reportAPI.deleteReport(reportId)
   }
 
-  async downloadAccountantViewPDF(reportId: string): Promise<Blob> {
-    return this.reportAPI.downloadAccountantViewPDF(reportId)
-  }
-
   // ===== SESSION OPERATIONS =====
 
   async getValuationSession(reportId: string): Promise<ValuationSessionResponse | null> {

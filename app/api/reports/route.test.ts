@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/utils/fetchWithTimeout', () => ({
   fetchWithTimeout: mocks.fetchWithTimeout,
+  fetchJsonWithTimeout: async (...args: unknown[]) => {
+    const response = (await mocks.fetchWithTimeout(...args)) as Response
+    return { response, json: await response.json().catch(() => null) }
+  },
 }))
 
 vi.mock('@/utils/bffAuthProxy', () => ({
@@ -99,6 +103,20 @@ describe('GET /api/reports', () => {
       },
       10_000
     )
+  })
+
+  it('returns 401 without calling Titan when no auth or guest session is present', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: '',
+      cookieSource: 'header',
+    })
+
+    const res = await GET(request())
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'Authentication required' })
+    expect(res.headers.get('Cache-Control')).toContain('no-store')
+    expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
   })
 
   it('URL-encodes status before proxying to Titan', async () => {

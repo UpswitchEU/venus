@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,18 +27,16 @@ const TIMEOUT_MS = 10_000
  * Returns Belgian grootboek codes for normalization UI.
  */
 export async function GET() {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
   try {
-    const titanResponse = await fetch(`${TITAN_API_URL}/api/v2/reference-data/grootboek`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      next: { revalidate: 3600 },
-    })
-
-    clearTimeout(timeout)
+    const { response: titanResponse, json: data } = await fetchJsonWithTimeout(
+      `${TITAN_API_URL}/api/v2/reference-data/grootboek`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        next: { revalidate: 3600 },
+      },
+      TIMEOUT_MS
+    )
 
     if (!titanResponse.ok) {
       return NextResponse.json(
@@ -46,12 +45,12 @@ export async function GET() {
       )
     }
 
-    const data = await titanResponse.json().catch(() => ({ success: false }))
-    return NextResponse.json(data)
+    return NextResponse.json(data ?? { success: false })
   } catch (error) {
-    clearTimeout(timeout)
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    const isTimeout =
+      error instanceof Error &&
+      (error.name === 'AuthUpstreamTimeoutError' || error.message.includes('timeout'))
+    if (isTimeout) {
       return NextResponse.json({ success: false, error: 'Request timeout' }, { status: 504 })
     }
 

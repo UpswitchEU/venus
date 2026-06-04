@@ -13,7 +13,7 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { apiLogger } from '@/utils/logger'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
 
-    const titanResponse = await fetchWithTimeout(
+    const { response: titanResponse, json: data } = await fetchJsonWithTimeout(
       `${getTitanApiUrl(request)}/api/v2/ai/conversations/${encodeURIComponent(reportId)}/history`,
       {
         headers: {
@@ -61,8 +61,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const data = await titanResponse.json().catch(() => ({ success: false, messages: [] }))
-    return NextResponse.json(data)
+    return NextResponse.json(data ?? { success: false, messages: [] })
   } catch (error) {
     apiLogger.error(
       'AI history proxy failed',

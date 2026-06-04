@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { PRIVATE_BFF_JSON_HEADERS } from '@/utils/bffResponseHeaders'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
@@ -38,7 +38,7 @@ export async function DELETE(
       headers['x-guest-session-id'] = guestSessionId
     }
 
-    const response = await fetchWithTimeout(
+    const { response, json: body } = await fetchJsonWithTimeout<Record<string, unknown>>(
       `${titanApiUrl}/api/v2/valuations/reports/${encodeURIComponent(reportId)}`,
       {
         method: 'DELETE',
@@ -49,17 +49,21 @@ export async function DELETE(
     )
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Failed to delete report' }))
+      const errorData = body ?? { message: 'Failed to delete report' }
+      const message =
+        typeof errorData.message === 'string' && errorData.message
+          ? errorData.message
+          : 'Failed to delete report'
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to delete report',
+          message,
         },
         { status: response.status, headers: PRIVATE_BFF_JSON_HEADERS }
       )
     }
 
-    const data = await response.json().catch(() => ({ success: true }))
+    const data = body ?? { success: true }
     return NextResponse.json(data, { headers: PRIVATE_BFF_JSON_HEADERS })
   } catch (error) {
     console.error('[Venus /api/reports/[reportId]] Error:', error)

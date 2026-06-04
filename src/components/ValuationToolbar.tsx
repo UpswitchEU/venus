@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { Tooltip } from '@/design-system'
 import { dateLikeToUnixMs } from '@/utils/date-like'
 import { generalLogger } from '@/utils/logger'
+import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
   useValuationToolbarAuth,
@@ -28,7 +29,6 @@ import {
   useValuationToolbarTabs,
   type ValuationTab,
 } from '../hooks/valuationToolbar'
-import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { APIError } from '../types/errors'
@@ -204,28 +204,72 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     isReady: isPdfReady,
     isGenerating: isPdfGenerating,
   } = usePdfGeneration(reportId || null)
+  const [isPdfDownloading, setIsPdfDownloading] = React.useState(false)
+  const pdfDownloadInFlightRef = React.useRef(false)
+  const pdfDownloadAbortRef = React.useRef<AbortController | null>(null)
+  const pdfDownloadRunIdRef = React.useRef(0)
 
-  const isDownloading = isPdfGenerating
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reportId intentionally cancels in-flight downloads on report navigation.
+  React.useEffect(() => {
+    pdfDownloadRunIdRef.current++
+    pdfDownloadInFlightRef.current = false
+    pdfDownloadAbortRef.current?.abort()
+    pdfDownloadAbortRef.current = null
+    setIsPdfDownloading(false)
+    return () => {
+      pdfDownloadRunIdRef.current++
+      pdfDownloadInFlightRef.current = false
+      pdfDownloadAbortRef.current?.abort()
+      pdfDownloadAbortRef.current = null
+    }
+  }, [reportId])
+
+  const isDownloading = isPdfGenerating || isPdfDownloading
 
   const handleDownload = React.useCallback(async () => {
     if (onDownload) {
       onDownload()
     } else {
+      if (pdfDownloadInFlightRef.current) return
+      pdfDownloadInFlightRef.current = true
+      const runId = ++pdfDownloadRunIdRef.current
+      const activeReportId = reportId || null
+      const isCurrentRun = () =>
+        pdfDownloadRunIdRef.current === runId && (reportId || null) === activeReportId
+      const abortController = new AbortController()
+      pdfDownloadAbortRef.current = abortController
+      setIsPdfDownloading(true)
       try {
-        await downloadPdf()
+        await downloadPdf(undefined, undefined, abortController.signal)
+        if (!isCurrentRun()) return
       } catch (err) {
         if (err instanceof APIError && err.statusCode === 402) {
-          toast.error(tToast('pdfDownloadPlanBlocked'), {
-            description: tToast('pdfDownloadPlanBlockedDesc'),
-          })
+          if (isCurrentRun()) {
+            toast.error(tToast('pdfDownloadPlanBlocked'), {
+              description: tToast('pdfDownloadPlanBlockedDesc'),
+            })
+          }
           return
         }
+        if (err instanceof Error && err.name === 'AbortError') return
+        if (!isCurrentRun()) return
         generalLogger.error('[ValuationToolbar] PDF download failed', {
           error: err instanceof Error ? err.message : String(err),
         })
+        toast.error(tToast('pdfExportFailed'), {
+          description: err instanceof Error ? err.message : tToast('pdfExportFailedDesc'),
+        })
+      } finally {
+        if (isCurrentRun()) {
+          pdfDownloadInFlightRef.current = false
+          setIsPdfDownloading(false)
+          if (pdfDownloadAbortRef.current === abortController) {
+            pdfDownloadAbortRef.current = null
+          }
+        }
       }
     }
-  }, [onDownload, downloadPdf, tToast])
+  }, [onDownload, downloadPdf, tToast, reportId])
 
   // Fullscreen hook - use prop if provided, otherwise use hook
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()

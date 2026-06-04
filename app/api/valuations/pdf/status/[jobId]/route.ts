@@ -12,13 +12,37 @@ import {
   hasTitanAccessCookie,
 } from '@/utils/auth/cookieHeader'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const TITAN_PDF_STATUS_MS = 10_000
+type JsonRecord = Record<string, unknown>
+
+function pdfStatusJson(body: Record<string, unknown>, status: number): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Cache-Control': 'private, no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      Vary: 'Cookie',
+    },
+  })
+}
+
+function isUpstreamTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return (
+    error.name === 'AuthUpstreamTimeoutError' ||
+    error.name === 'AbortError' ||
+    error.message.toLowerCase().includes('timeout')
+  )
+}
 
 function titanAuthHeaders(cookieHeader: string): Record<string, string> {
   const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
@@ -36,56 +60,66 @@ export async function GET(
     const { jobId } = await params
 
     if (!jobId) {
-      return NextResponse.json({ success: false, error: 'Job ID is required' }, { status: 400 })
+      return pdfStatusJson({ success: false, error: 'Job ID is required' }, 400)
     }
 
     const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
     if (!hasTitanAccessCookie(cookieHeader)) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
+      return pdfStatusJson({ success: false, error: 'Authentication required' }, 401)
     }
 
     const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${encodeURIComponent(jobId)}`
 
-    const response = await fetch(titanUrl, {
-      method: 'GET',
-      headers: titanAuthHeaders(cookieHeader),
-      credentials: 'include',
-      signal: AbortSignal.timeout(TITAN_PDF_STATUS_MS),
-    })
+    const { response, json: responseBody } = await fetchJsonWithTimeout<JsonRecord>(
+      titanUrl,
+      {
+        method: 'GET',
+        headers: titanAuthHeaders(cookieHeader),
+        credentials: 'include',
+      },
+      TITAN_PDF_STATUS_MS
+    )
 
     if (!response.ok) {
-      const errBody = (await response.json().catch(() => ({}))) as {
-        message?: string
-        error?: string
-        detail?: string
-      }
-      const errMsg = errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to check status'
-      return NextResponse.json(
-        {
-          success: false,
-          error: errMsg,
-          ...(response.status === 402 && { upgradeRequired: true as const }),
-        },
-        { status: response.status }
+      const errBody = responseBody ?? {}
+      const errMsg =
+        (typeof errBody.message === 'string' && errBody.message) ||
+        (typeof errBody.error === 'string' && errBody.error) ||
+        (typeof errBody.detail === 'string' && errBody.detail) ||
+        'Failed to check status'
+      const errorBody =
+        response.status === 402
+          ? buildPdfPaywall402JsonBody(errBody as TitanPdfPaywallBody, errMsg)
+          : { success: false, error: errMsg }
+      return pdfStatusJson(errorBody, response.status)
+    }
+
+    const data = responseBody ?? {}
+
+    return pdfStatusJson(
+      {
+        success: true,
+        status: data.status,
+        pdfUrl: data.pdfUrl || null,
+        progress: data.progress || 0,
+        error: data.error || null,
+      },
+      200
+    )
+  } catch (error) {
+    if (isUpstreamTimeout(error)) {
+      console.warn(
+        '[PDF Status] Titan status request timed out',
+        error instanceof Error ? error.message : error
+      )
+      return pdfStatusJson(
+        { success: false, error: 'PDF status check timed out. Please try again.' },
+        504
       )
     }
 
-    const data = await response.json()
-
-    return NextResponse.json({
-      success: true,
-      status: data.status,
-      pdfUrl: data.pdfUrl || null,
-      progress: data.progress || 0,
-      error: data.error || null,
-    })
-  } catch (error) {
     console.error('[PDF Status] Error:', error instanceof Error ? error.message : error)
-
-    return NextResponse.json({ success: false, error: 'Failed to check status' }, { status: 500 })
+    return pdfStatusJson({ success: false, error: 'Failed to check status' }, 500)
   }
 }

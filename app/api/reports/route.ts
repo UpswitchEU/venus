@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { CLIENT_CONTEXT_HEADERS, extractClientContextFromHeaders } from '@/constants/headers'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { PRIVATE_BFF_JSON_HEADERS } from '@/utils/bffResponseHeaders'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies(), headers(), and searchParams which are dynamic
@@ -78,9 +78,15 @@ export async function GET(request: NextRequest) {
 
     const { cookieHeader } = await getBffCookieHeaderForTitan(request)
     const titanHeaders = buildTitanHeaders(request, cookieHeader)
+    if (!titanHeaders.Cookie && !titanHeaders['x-guest-session-id']) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401, headers: PRIVATE_BFF_JSON_HEADERS }
+      )
+    }
     const titanQuery = buildReportsQuery({ skip: offset, take: limit, status })
 
-    const response = await fetchWithTimeout(
+    const { response, json: body } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/valuations/reports?${titanQuery}`,
       {
         method: 'GET',
@@ -97,7 +103,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch reports' }, { status: response.status })
     }
 
-    const data = await response.json().catch(() => ({ success: false }))
+    const data = body ?? { success: false }
 
     return NextResponse.json(data, {
       headers: PRIVATE_BFF_JSON_HEADERS,

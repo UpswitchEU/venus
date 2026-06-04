@@ -24,8 +24,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/utils/fetchWithTimeout', () => ({
+const mocks = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
+}))
+
+vi.mock('@/utils/fetchWithTimeout', () => ({
+  fetchWithTimeout: mocks.fetchWithTimeout,
+  fetchJsonWithTimeout: async (...args: unknown[]) => {
+    const response = (await mocks.fetchWithTimeout(...args)) as Response
+    return { response, json: await response.json().catch(() => null) }
+  },
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -35,7 +43,7 @@ vi.mock('@/utils/logger', () => ({
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { GET } from './route'
 
-const mockedFetch = fetchWithTimeout as unknown as ReturnType<typeof vi.fn>
+const mockedFetch = fetchWithTimeout as unknown as typeof mocks.fetchWithTimeout
 
 function makeRequest(query: string): Request {
   return new Request(`https://valuation.upswitch.app/api/startup-benchmarks?${query}`)
@@ -147,6 +155,25 @@ describe('GET /api/startup-benchmarks', () => {
     expect(res.status).toBe(200)
     expect(body.source).toBe('venus-static-fallback')
     expect(body.warning).toContain('503')
+  })
+
+  it('falls back when Athena returns malformed JSON', async () => {
+    process.env.ATHENA_BENCHMARK_API_KEY = 'test-key'
+    mockedFetch.mockResolvedValueOnce(
+      new Response('not-json', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const res = await GET(makeRequest('region=BE&stage=seed&sector=saas') as never)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.source).toBe('venus-static-fallback')
+    expect(body.warning).toContain('malformed JSON')
+    expect(body.rows[0].stage).toBe('seed')
+    expect(body.rows[0].sector).toBe('saas')
   })
 
   it('respects the stage + sector filter when narrowing the static payload', async () => {

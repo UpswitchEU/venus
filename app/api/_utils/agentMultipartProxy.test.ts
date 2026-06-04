@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/utils/fetchWithTimeout', () => ({
   fetchWithTimeout: mocks.fetchWithTimeout,
+  fetchTextWithTimeout: async (...args: unknown[]) => {
+    const response = (await mocks.fetchWithTimeout(...args)) as Response
+    return { response, text: await response.text().catch(() => null) }
+  },
 }))
 
 vi.mock('@/utils/bffAuthProxy', () => ({
