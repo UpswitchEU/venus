@@ -7,13 +7,30 @@ export type VisualViewportDrawerInsets = {
   height: number
 }
 
+function sameInsets(
+  left: VisualViewportDrawerInsets | null,
+  right: VisualViewportDrawerInsets | null
+): boolean {
+  return left?.top === right?.top && left?.height === right?.height
+}
+
+function readViewportInsets(vv: VisualViewport): VisualViewportDrawerInsets | null {
+  const heightSource = Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight
+  const height = Number.isFinite(heightSource) && heightSource > 0 ? Math.round(heightSource) : 0
+
+  if (height <= 0) return null
+
+  return {
+    top: Number.isFinite(vv.offsetTop) && vv.offsetTop > 0 ? Math.round(vv.offsetTop) : 0,
+    height,
+  }
+}
+
 /**
  * Tracks visual viewport geometry for full-screen mobile drawers.
  * Keeps fixed panels aligned when the soft keyboard opens (iOS Safari / Android).
  */
-export function useVisualViewportDrawerInsets(
-  enabled: boolean
-): VisualViewportDrawerInsets | null {
+export function useVisualViewportDrawerInsets(enabled: boolean): VisualViewportDrawerInsets | null {
   const [insets, setInsets] = useState<VisualViewportDrawerInsets | null>(null)
 
   useEffect(() => {
@@ -28,22 +45,35 @@ export function useVisualViewportDrawerInsets(
       return
     }
 
-    const sync = () => {
-      setInsets({
-        top: vv.offsetTop,
-        height: vv.height,
-      })
+    let frameId: number | null = null
+    const applyInsets = () => {
+      frameId = null
+      const next = readViewportInsets(vv)
+      setInsets((current) => (sameInsets(current, next) ? current : next))
+    }
+    const scheduleSync = () => {
+      if (typeof window.requestAnimationFrame !== 'function') {
+        applyInsets()
+        return
+      }
+      if (frameId !== null) {
+        window.cancelAnimationFrame?.(frameId)
+      }
+      frameId = window.requestAnimationFrame(applyInsets)
     }
 
-    sync()
-    vv.addEventListener('resize', sync)
-    vv.addEventListener('scroll', sync)
-    window.addEventListener('orientationchange', sync)
+    applyInsets()
+    vv.addEventListener('resize', scheduleSync)
+    vv.addEventListener('scroll', scheduleSync)
+    window.addEventListener('orientationchange', scheduleSync)
 
     return () => {
-      vv.removeEventListener('resize', sync)
-      vv.removeEventListener('scroll', sync)
-      window.removeEventListener('orientationchange', sync)
+      if (frameId !== null) {
+        window.cancelAnimationFrame?.(frameId)
+      }
+      vv.removeEventListener('resize', scheduleSync)
+      vv.removeEventListener('scroll', scheduleSync)
+      window.removeEventListener('orientationchange', scheduleSync)
     }
   }, [enabled])
 

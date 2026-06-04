@@ -186,6 +186,7 @@ export function ChatAssistantDrawer({
   })
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesContentRef = useRef<HTMLDivElement>(null)
+  const wasOpenRef = useRef(false)
   // Pin to the bottom as the smoothing buffer reveals text between state
   // updates, so streamed lines stay in view without snapping.
   useStickToBottom(messagesContainerRef, messagesContentRef, open)
@@ -253,8 +254,10 @@ export function ChatAssistantDrawer({
 
   useEffect(() => {
     void scrollTriggerKey
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = open
     if (!open) return
-    scrollMessagesContainerToBottom(messagesContainerRef.current)
+    scrollMessagesContainerToBottom(messagesContainerRef.current, { force: !wasOpen })
   }, [open, scrollTriggerKey])
 
   // Auto-resize textarea
@@ -412,11 +415,10 @@ export function ChatAssistantDrawer({
               'fixed top-0 right-0 flex flex-col min-h-0 w-full p-0',
               VENUS_AI_DOCK_LAYER_Z_CLASS,
               VENUS_AI_DOCK_DRAWER_WIDTH_CLASS,
-              !viewportStyle && 'bottom-0 h-full',
+              !viewportStyle && 'bottom-0 h-[100dvh] md:h-full',
               viewportStyle && 'h-auto',
               'bg-background border-l border-primary/10',
-              'shadow-[-4px_0_40px_-8px_rgba(0,0,0,0.15)]',
-              'pb-[env(safe-area-inset-bottom)]'
+              'shadow-[-4px_0_40px_-8px_rgba(0,0,0,0.15)]'
             )}
             aria-label={ca('panelLabel')}
           >
@@ -521,7 +523,7 @@ export function ChatAssistantDrawer({
             {/* Messages Area - Scrollable with momentum */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 py-4"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 py-4 touch-pan-y [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]"
               role="log"
               aria-live="polite"
               aria-busy={isGenerating}

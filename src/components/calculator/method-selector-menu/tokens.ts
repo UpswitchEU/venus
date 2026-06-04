@@ -38,6 +38,6 @@ export const methodSelectorSectionHelperSecondaryClass = 'text-foreground/30'
 export const methodSelectorStaticSectionTitleClass =
   'text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1'
 
-export const methodSelectorListboxClass = 'p-1.5 w-80'
+export const methodSelectorListboxClass = 'p-1.5 w-[min(20rem,calc(100vw-1.5rem))]'
 
 export const methodSelectorDividerClass = 'h-px bg-foreground/[0.06] my-1.5'

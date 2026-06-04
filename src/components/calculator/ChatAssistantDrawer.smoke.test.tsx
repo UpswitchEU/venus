@@ -440,6 +440,24 @@ describe('message rendering', () => {
 // ---------------------------------------------------------------------
 
 describe('input + send', () => {
+  it('mounts a compact mobile-stable composer shell', () => {
+    render(
+      <ChatAssistantDrawer
+        open={true}
+        onOpenChange={onOpenChange}
+        messages={[]}
+        onSendMessage={onSendMessage}
+      />
+    )
+
+    expect(screen.getByTestId('venus-ai-dock-drawer')).toHaveClass('min-h-0')
+    expect(screen.getByRole('log', { name: 'title' })).toHaveClass('touch-pan-y')
+    expect(screen.getByLabelText('chatInput')).toHaveAttribute('rows', '1')
+    expect(screen.getByLabelText('chatInput')).toHaveClass('max-h-[120px]')
+    expect(screen.getByLabelText('chatInput')).toHaveClass('touch-pan-y')
+    expect(screen.getByTestId('assistant-starter-chips')).toHaveClass('overflow-x-auto')
+  })
+
   it('typing in the textarea and clicking Send fires onSendMessage with the text', () => {
     render(
       <ChatAssistantDrawer

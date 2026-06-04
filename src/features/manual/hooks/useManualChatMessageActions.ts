@@ -134,6 +134,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
 }: UseManualChatMessageActionsParams<TCollectedData>): UseManualChatMessageActionsResult {
   const clientUserId = useClientContext((state) => state.client?.id ?? null)
   const activeChatTurnIdRef = useRef<string | null>(null)
+  const chatTurnInFlightRef = useRef(false)
 
   const handleNormalisationSuggestions = useCallback(
     (suggestions: unknown[] | undefined) => {
@@ -168,7 +169,51 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       // Allow non-empty user messages (e.g. quality-warning CTAs) while
       // history hydrates; only block empty triggers during load.
       if (isLoadingHistory && !content.trim()) return
-      if (isChatGenerating && !parsedCommands?.length) return
+      if (isChatGenerating || chatTurnInFlightRef.current) return
+
+      streamCleanupRef.current?.()
+      streamCleanupRef.current = null
+
+      const turnId = crypto.randomUUID()
+      activeChatTurnIdRef.current = turnId
+      chatTurnInFlightRef.current = true
+      const streamingMsgId = crypto.randomUUID()
+      let assistantPlaceholderAdded = false
+      let pendingAssistantContentFrame: number | null = null
+      let streamTransportCleanup: (() => void) | null = null
+      let externalTurnCleanup: (() => void) | null = null
+      const isActiveTurn = () => activeChatTurnIdRef.current === turnId
+      const clearRegisteredCleanup = () => {
+        if (externalTurnCleanup && streamCleanupRef.current === externalTurnCleanup) {
+          streamCleanupRef.current = null
+        }
+      }
+      const releaseTurn = () => {
+        clearRegisteredCleanup()
+        if (isActiveTurn()) {
+          activeChatTurnIdRef.current = null
+        }
+        chatTurnInFlightRef.current = false
+      }
+      const cancelAssistantContentFrame = () => {
+        if (pendingAssistantContentFrame == null) return
+        if (typeof globalThis.cancelAnimationFrame === 'function') {
+          globalThis.cancelAnimationFrame(pendingAssistantContentFrame)
+        }
+        pendingAssistantContentFrame = null
+      }
+      const clearStreamTransport = () => {
+        cancelAssistantContentFrame()
+        streamTransportCleanup?.()
+        streamTransportCleanup = null
+        setToolInProgress(null)
+      }
+      externalTurnCleanup = () => {
+        clearStreamTransport()
+        releaseTurn()
+        setIsChatGenerating(false)
+      }
+      streamCleanupRef.current = externalTurnCleanup
 
       const userMessage = buildManualUserChatMessage({
         id: crypto.randomUUID(),
@@ -179,13 +224,12 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       setChatMessages((prev) => [...prev, userMessage])
       setIsChatGenerating(true)
 
-      const streamingMsgId = crypto.randomUUID()
-
       try {
         // Handle parsed commands locally, no AI call needed.
         if (parsedCommands?.length) {
           parsedCommands.forEach((cmd) => handleApplyFieldUpdate(cmd.field, cmd.value))
           await new Promise<void>((resolve) => setTimeout(resolve, 500))
+          if (!isActiveTurn()) return
           setChatMessages((prev) => [
             ...prev,
             buildManualAssistantChatMessage({
@@ -198,6 +242,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }),
           ])
           setIsChatGenerating(false)
+          releaseTurn()
           return
         }
 
@@ -235,8 +280,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           assistantIntent,
         })
 
-        const turnId = crypto.randomUUID()
-        activeChatTurnIdRef.current = turnId
         let streamedContent = ''
         // Track whether the stream produced anything user-visible. Either
         // text or a rendered tool card counts; neither one means Titan closed
@@ -255,14 +298,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
         const patchAssistantMessage = (patch: Partial<ChatMessage>) => {
           if (activeChatTurnIdRef.current !== turnId) return
           setChatMessages((prev) => patchManualChatMessage(prev, streamingMsgId, patch))
-        }
-        let pendingAssistantContentFrame: number | null = null
-        const cancelAssistantContentFrame = () => {
-          if (pendingAssistantContentFrame == null) return
-          if (typeof globalThis.cancelAnimationFrame === 'function') {
-            globalThis.cancelAnimationFrame(pendingAssistantContentFrame)
-          }
-          pendingAssistantContentFrame = null
         }
         const flushAssistantContent = (patch?: Partial<ChatMessage>) => {
           cancelAssistantContentFrame()
@@ -289,20 +324,19 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           })
         }
         const clearActiveStream = () => {
-          cancelAssistantContentFrame()
-          streamCleanupRef.current?.()
-          streamCleanupRef.current = null
-          setToolInProgress(null)
+          clearStreamTransport()
         }
         const finishWithTerminalError = (state: ManualChatTerminalErrorState) => {
           clearActiveStream()
-          setIsChatGenerating(false)
           patchAssistantMessage(buildManualChatTerminalErrorPatch(state, translate))
+          setIsChatGenerating(false)
+          releaseTurn()
         }
         const recoverViaNonStreamingChat = (
           streamEndedWithoutCompletion = false,
           emptyStream = false
         ): boolean => {
+          if (!isActiveTurn()) return false
           const skipAction = resolveManualChatRecoverySkipAction({
             nonStreamingRecoveryStarted,
             didObserveToolActivity,
@@ -319,6 +353,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             flushAssistantContent()
             clearActiveStream()
             setIsChatGenerating(false)
+            releaseTurn()
             return false
           }
           nonStreamingRecoveryStarted = true
@@ -399,6 +434,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               if (activeChatTurnIdRef.current !== turnId) return
               clearActiveStream()
               setIsChatGenerating(false)
+              releaseTurn()
             })
           return true
         }
@@ -407,14 +443,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           ...prev,
           buildManualAssistantChatMessage({ id: streamingMsgId }),
         ])
+        assistantPlaceholderAdded = true
 
-        if (streamCleanupRef.current) {
-          streamCleanupRef.current()
-          streamCleanupRef.current = null
-        }
-
-        streamCleanupRef.current = aiChatService.streamMessage(aiRequest, {
+        streamTransportCleanup = aiChatService.streamMessage(aiRequest, {
           onText: (text) => {
+            if (!isActiveTurn()) return
             streamedContent += text
             if (text.trim().length > 0) {
               hasReceivedAnyContent = true
@@ -422,10 +455,12 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             scheduleAssistantContentFlush()
           },
           onToolStart: (toolName) => {
+            if (!isActiveTurn()) return
             didObserveToolActivity = true
             setToolInProgress(toolName)
           },
           onToolResult: (toolName, result) => {
+            if (!isActiveTurn()) return
             setToolInProgress(null)
             flushAssistantContent()
             const cards = parseManualChatStreamToolResult(toolName, result, () =>
@@ -451,6 +486,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
           },
           onDone: (responseConversationId, meta) => {
+            if (!isActiveTurn()) return
             const doneAction = resolveManualChatOnDoneAction({
               hasReceivedAnyContent,
               bffStreamRecoverySource,
@@ -475,6 +511,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
             clearActiveStream()
             setIsChatGenerating(false)
+            releaseTurn()
 
             const nextConversationId = resolveReturnedConversationIdUpdate(
               conversationId,
@@ -485,9 +522,11 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             }
           },
           onQuotaExhausted: () => {
+            if (!isActiveTurn()) return
             finishWithTerminalError({ kind: 'quota' })
           },
           onConsentRequired: (payload) => {
+            if (!isActiveTurn()) return
             finishWithTerminalError({
               kind: 'consent',
               message: payload.message,
@@ -495,12 +534,15 @@ export function useManualChatMessageActions<TCollectedData extends object>({
             })
           },
           onAuthRequired: (payload) => {
+            if (!isActiveTurn()) return
             finishWithTerminalError({ kind: 'auth', message: payload.message })
           },
           onBffStreamRecovery: (source) => {
+            if (!isActiveTurn()) return
             bffStreamRecoverySource = source
           },
           onError: (error) => {
+            if (!isActiveTurn()) return
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
             const errorAction = resolveManualChatOnErrorAction({ hasReceivedAnyContent })
             if (errorAction.kind === 'finish_with_content') {
@@ -511,18 +553,19 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               }
               clearActiveStream()
               setIsChatGenerating(false)
+              releaseTurn()
               return
             }
             recoverViaNonStreamingChat(errorAction.streamEndedWithoutCompletion)
           },
         })
       } catch {
-        streamCleanupRef.current?.()
-        streamCleanupRef.current = null
+        if (!isActiveTurn()) return
+        clearStreamTransport()
         setToolInProgress(null)
         const errorPatch = buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
         setChatMessages((prev) =>
-          streamingMsgId
+          assistantPlaceholderAdded
             ? patchManualChatMessage(prev, streamingMsgId, errorPatch)
             : [
                 ...prev,
@@ -534,6 +577,7 @@ export function useManualChatMessageActions<TCollectedData extends object>({
               ]
         )
         setIsChatGenerating(false)
+        releaseTurn()
       }
     },
     [

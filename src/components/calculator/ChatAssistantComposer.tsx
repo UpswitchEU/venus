@@ -53,7 +53,7 @@ export function ChatAssistantComposer({
   const detectedItems = detectedCommands.length > 0 ? detectedCommands : detectedValues
 
   return (
-    <div className="shrink-0 px-4 sm:px-5 pb-4 sm:pb-5 pt-2 space-y-2.5">
+    <div className="shrink-0 space-y-2.5 border-t border-primary/10 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl sm:px-5 sm:pb-5 sm:pt-2">
       <AnimatePresence>
         {!input.trim() && !isGenerating && suggestions.length > 0 && (
           <motion.div
@@ -61,7 +61,7 @@ export function ChatAssistantComposer({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.15 }}
-            className="flex flex-wrap gap-1.5"
+            className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1 [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible sm:pb-0"
             data-testid="assistant-starter-chips"
           >
             {suggestions.slice(0, 4).map((suggestion, index) => (
@@ -71,7 +71,7 @@ export function ChatAssistantComposer({
                 onClick={() => onSuggestionClick(suggestion)}
                 disabled={isGenerating}
                 className={cn(
-                  'inline-flex items-center rounded-full',
+                  'inline-flex max-w-[78vw] shrink-0 items-center rounded-full sm:max-w-full sm:shrink',
                   'border border-primary/10 bg-primary/[0.04]',
                   'min-h-11 px-3.5 py-1.5 text-xs font-medium text-foreground/70 sm:min-h-0 sm:px-3 sm:py-1',
                   'hover:border-primary/20 hover:bg-primary/[0.07] hover:text-foreground/90',
@@ -79,7 +79,7 @@ export function ChatAssistantComposer({
                   'disabled:opacity-50 disabled:cursor-not-allowed'
                 )}
               >
-                {suggestion}
+                <span className="truncate">{suggestion}</span>
               </button>
             ))}
           </motion.div>
@@ -93,7 +93,7 @@ export function ChatAssistantComposer({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.12 }}
-            className="px-1 text-xs text-foreground/55 leading-relaxed"
+            className="max-h-12 overflow-y-auto px-1 text-xs text-foreground/55 leading-relaxed"
           >
             <span className="text-foreground/35 mr-1.5">
               {detectedCommands.length > 0 ? ca('normCommandDetected') : ca('detectedValues')}:
@@ -122,12 +122,12 @@ export function ChatAssistantComposer({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.12 }}
-            className="flex gap-1.5 flex-wrap"
+            className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
           >
             {attachments.map((file, index) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.04] text-xs text-foreground/70"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-foreground/[0.04] px-2 py-1 text-xs text-foreground/70"
               >
                 {file.type.startsWith('image/') ? (
                   <ImageIcon className="w-3 h-3" />
@@ -174,9 +174,9 @@ export function ChatAssistantComposer({
               ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
               : ca('inputPlaceholder')
           }
-          rows={3}
+          rows={1}
           className={cn(
-            'aurora-glass-textarea w-full resize-none min-h-[88px]',
+            'aurora-glass-textarea w-full resize-none min-h-[48px] max-h-[120px] overflow-y-auto touch-pan-y [-webkit-overflow-scrolling:touch]',
             'px-3 py-2 bg-transparent border-0 outline-none',
             'text-base sm:text-sm leading-relaxed',
             'text-foreground placeholder:text-foreground/40',

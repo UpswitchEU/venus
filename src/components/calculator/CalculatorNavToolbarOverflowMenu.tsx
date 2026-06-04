@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Database,
   Download,
+  FileSpreadsheet,
   History,
   Loader2,
   Lock,
@@ -27,6 +28,10 @@ interface ToolbarOverflowMenuProps {
   onDownload?: () => void | Promise<void>
   onRedownload?: (item: DownloadHistoryItem) => void
   onFullscreen?: () => void
+  onOpenNormalization?: () => void
+  normalizationCount?: number
+  normalizationFeatureLocked?: boolean
+  onNormalizationFeatureLocked?: () => void
   isExporting: boolean
   pdfPlanLocked: boolean
   pdfDownloadTooltip: string | null
@@ -46,6 +51,10 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   onDownload,
   onRedownload,
   onFullscreen,
+  onOpenNormalization,
+  normalizationCount = 0,
+  normalizationFeatureLocked = false,
+  onNormalizationFeatureLocked,
   isExporting,
   pdfPlanLocked,
   pdfDownloadTooltip,
@@ -56,7 +65,10 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   const hasHistory = !!onShowHistory
   const hasDownload = !!onDownload
   const hasFullscreen = !!onFullscreen
-  const hasAnyAction = hasSourceData || hasHistory || hasDownload || hasFullscreen
+  const hasNormalization = !!onOpenNormalization
+  const hasPendingNormalization = hasNormalization && normalizationCount > 0
+  const hasAnyAction =
+    hasSourceData || hasHistory || hasDownload || hasFullscreen || hasNormalization
 
   if (!hasAnyAction) return null
 
@@ -67,12 +79,15 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
       ? 'Upgrade voor PDF-download (Starter)'
       : 'Upgrade for PDF download (Starter)'
   const triggerActive =
-    (sourceDataOpen && hasSourceData) || (rightPanelView === 'history' && hasReport)
+    (sourceDataOpen && hasSourceData) ||
+    (rightPanelView === 'history' && hasReport) ||
+    hasPendingNormalization
   const showPanelDivider = (hasSourceData || hasHistory) && (hasDownload || hasFullscreen)
 
   return (
     <Dropdown
       align="end"
+      avoidViewportOverflow="mobile"
       trigger={
         <button
           type="button"
@@ -92,10 +107,63 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
           ) : (
             <MoreHorizontal className="w-4 h-4" aria-hidden />
           )}
+          {hasPendingNormalization && (
+            <span
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-bold text-primary shadow-sm"
+              aria-label={
+                navLocale === 'nl'
+                  ? `${normalizationCount} normalisatie${normalizationCount === 1 ? '' : 's'} ter beoordeling`
+                  : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
+              }
+            >
+              {normalizationCount > 9 ? '9+' : normalizationCount}
+            </span>
+          )}
         </button>
       }
     >
-      <div className="p-1.5 w-64" role="menu">
+      <div className="p-1.5 w-56 md:w-64" role="menu">
+        {hasNormalization && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={
+              normalizationFeatureLocked
+                ? (onNormalizationFeatureLocked ?? onOpenNormalization)
+                : onOpenNormalization
+            }
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              normalizationFeatureLocked
+                ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-500/10'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            {normalizationFeatureLocked ? (
+              <Lock
+                className="w-4 h-4 shrink-0 text-amber-600/90 dark:text-amber-400/90"
+                aria-hidden
+              />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            )}
+            <span className="flex-1">
+              {normalizationFeatureLocked
+                ? `${t('normalization.title')} — Starter+`
+                : t('normalization.title')}
+            </span>
+            {hasPendingNormalization && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">
+                {normalizationCount > 9 ? '9+' : normalizationCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {hasNormalization && (hasSourceData || hasHistory || hasDownload || hasFullscreen) && (
+          <div className="h-px bg-foreground/[0.06] my-1.5" />
+        )}
+
         {hasSourceData && (
           <button
             type="button"

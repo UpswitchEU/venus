@@ -6,6 +6,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../../../components/calculator'
+import { buildManualChatAttachmentSummaries } from '../utils/manualChatAttachments'
 import { useManualChatMessageActions } from './useManualChatMessageActions'
 
 type StreamCallbacks = {
@@ -121,6 +122,8 @@ describe('useManualChatMessageActions stream recovery', () => {
     })
     pollHistoryMock.mockClear()
     pollHistoryMock.mockResolvedValue(null)
+    vi.mocked(buildManualChatAttachmentSummaries).mockReset()
+    vi.mocked(buildManualChatAttachmentSummaries).mockResolvedValue([])
     clientContextHarness.state = { client: null }
   })
 
@@ -289,6 +292,68 @@ describe('useManualChatMessageActions stream recovery', () => {
 
     expect(streamHarness.callbacks).toBeNull()
     expect(params.setChatMessages).not.toHaveBeenCalled()
+  })
+
+  it('drops rapid duplicate sends before React busy state rerenders', async () => {
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await Promise.all([
+        result.current.handleChatMessage('First turn'),
+        result.current.handleChatMessage('Second same-frame turn'),
+      ])
+    })
+
+    expect(params.chatMessages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(params.chatMessages.find((message) => message.role === 'user')?.content).toBe(
+      'First turn'
+    )
+  })
+
+  it('ignores late stream callbacks after the active turn is cancelled', async () => {
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await result.current.handleChatMessage('Start then cancel')
+    })
+
+    const callsBeforeCancel = params.setChatMessages.mock.calls.length
+    await act(async () => {
+      params.streamCleanupRef.current?.()
+    })
+
+    await act(async () => {
+      streamHarness.callbacks?.onText?.('late text')
+      streamHarness.callbacks?.onDone?.('late-conversation')
+    })
+
+    expect(params.setChatMessages).toHaveBeenCalledTimes(callsBeforeCancel)
+    expect(params.setConversationId).not.toHaveBeenCalledWith('late-conversation')
+
+    await act(async () => {
+      await result.current.handleChatMessage('Fresh turn after cancel')
+    })
+
+    expect(params.chatMessages.filter((message) => message.role === 'user')).toHaveLength(2)
+  })
+
+  it('renders a visible assistant error if setup fails before the stream placeholder is added', async () => {
+    vi.mocked(buildManualChatAttachmentSummaries).mockRejectedValueOnce(
+      new Error('file read failed')
+    )
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+
+    await act(async () => {
+      await result.current.handleChatMessage('Read this file')
+    })
+
+    const assistant = params.chatMessages.find((message) => message.role === 'assistant')
+    expect(assistant?.isError).toBe(true)
+    expect(params.setIsChatGenerating).toHaveBeenCalledWith(false)
+    expect(streamHarness.callbacks).toBeNull()
   })
 
   it('self-heals from persisted history when stream + /chat recovery both fail', async () => {

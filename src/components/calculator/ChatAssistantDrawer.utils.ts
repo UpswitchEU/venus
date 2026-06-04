@@ -87,7 +87,27 @@ export function getChatAssistantMessageRenderKey(messages: ChatMessage[]): strin
     .join('|')
 }
 
+type ScrollMessagesToBottomOptions = {
+  force?: boolean
+  stickThresholdPx?: number
+}
+
+const DEFAULT_STICK_THRESHOLD_PX = 96
+
+function isNearScrollBottom(container: HTMLElement, thresholdPx: number): boolean {
+  return container.scrollHeight - container.scrollTop - container.clientHeight <= thresholdPx
+}
+
 /** Scroll the assistant messages panel without touching document scroll position. */
-export function scrollMessagesContainerToBottom(container: HTMLElement | null | undefined): void {
+export function scrollMessagesContainerToBottom(
+  container: HTMLElement | null | undefined,
+  options?: ScrollMessagesToBottomOptions
+): void {
+  if (!container) return
+
+  const force = options?.force ?? false
+  const stickThresholdPx = options?.stickThresholdPx ?? DEFAULT_STICK_THRESHOLD_PX
+  if (!force && !isNearScrollBottom(container, stickThresholdPx)) return
+
   scrollContainerToBottom(container)
 }
