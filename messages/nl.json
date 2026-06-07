@@ -1,4 +1,22 @@
 {
+	"reviewAndDiscuss": {
+		"title": "Nakijken & bespreken",
+		"subtitle": "Een korte controle vóór het vergrendelen — bevestig wat we onderbouwen.",
+		"empty": "Niets gemarkeerd — je kunt vergrendelen.",
+		"acknowledge": "Ik heb dit nagekeken",
+		"notesLabel": "Onderbouwing (optioneel)",
+		"notesPlaceholder": "Waarom deze weging / hoe waarschuwingen zijn behandeld…",
+		"back": "Terug",
+		"askAi": "Vraag de AI-adviseur",
+		"skip": "Overslaan — ik accepteer alles",
+		"confirm": "Bevestigen & doorgaan",
+		"items": {
+			"qualityWarning": "{count, plural, =1 {# verdedigbaarheidswaarschuwing} other {# verdedigbaarheidswaarschuwingen}}",
+			"methodMix": "{count} waarderingsmethoden gewogen",
+			"normalization": "{count, plural, =1 {# normalisatie toegepast} other {# normalisaties toegepast}}",
+			"capBreach": "{count, plural, =1 {# eigenaarsafhankelijkheid-capoverschrijding} other {# eigenaarsafhankelijkheid-capoverschrijdingen}}"
+		}
+	},
 	"common": {
 		"cancel": "Annuleren",
 		"optional": "Optioneel",

@@ -1,4 +1,22 @@
 {
+	"reviewAndDiscuss": {
+		"title": "Review & discuss",
+		"subtitle": "A quick checkpoint before locking the report — confirm what we're defending.",
+		"empty": "Nothing flagged — you're clear to lock.",
+		"acknowledge": "I've reviewed this",
+		"notesLabel": "Rationale (optional)",
+		"notesPlaceholder": "Why this weighting / how warnings were handled…",
+		"back": "Back",
+		"askAi": "Ask the AI advisor",
+		"skip": "Skip — I accept all",
+		"confirm": "Confirm & continue",
+		"items": {
+			"qualityWarning": "{count, plural, =1 {# defensibility warning} other {# defensibility warnings}}",
+			"methodMix": "{count} valuation methods weighted",
+			"normalization": "{count, plural, =1 {# normalization applied} other {# normalizations applied}}",
+			"capBreach": "{count, plural, =1 {# owner-dependency cap breach} other {# owner-dependency cap breaches}}"
+		}
+	},
 	"common": {
 		"cancel": "Cancel",
 		"optional": "Optional",
