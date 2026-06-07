@@ -65,13 +65,19 @@ function worstWarningSeverity(warnings: Array<{ severity?: string }>): ReviewSev
 export function buildReviewAgenda(inputs: ReviewAgendaInputs): ReviewAgenda {
   const items: ReviewAgendaItem[] = []
 
-  const warnings = inputs.qualityWarnings ?? []
+  const warnings = [...(inputs.qualityWarnings ?? [])].sort((a, b) => {
+    return (
+      SEVERITY_RANK[normalizeSeverity(b.severity)] -
+      SEVERITY_RANK[normalizeSeverity(a.severity)]
+    )
+  })
   if (warnings.length > 0) {
     items.push({
       kind: 'quality_warning',
       count: warnings.length,
       severity: worstWarningSeverity(warnings),
       refs: warnings
+        .slice(0, 3)
         .map((w) => w.type)
         .filter((t): t is string => typeof t === 'string' && t.length > 0),
     })

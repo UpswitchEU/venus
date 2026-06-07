@@ -17,6 +17,11 @@
  * funnels).
  */
 
+import {
+  buildDiscussionAnalyticsPayload,
+  type DiscussionAnalyticsInput,
+  discussionEventName,
+} from '../features/manual/utils/discussionAnalytics'
 import { isAnalyticsConsentGranted } from './analytics-consent'
 import { getAnalyticsContext } from './analytics-context'
 import { isInternalEmail } from './is-internal-user'
@@ -60,6 +65,15 @@ function trackEvent(name: string, params?: Record<string, string | number | bool
     // analytics must never throw into product code
   }
   // Mirror to PostHog (consent-queued; no-op when token not set).
+  capturePostHogOrQueue(name, {
+    ...(params ?? {}),
+    ...(stickyUserRole ? { user_role: stickyUserRole } : {}),
+    ...(stickyCurrentPlan ? { current_plan: stickyCurrentPlan } : {}),
+    ...(stickyIsInternal ? { is_internal: 'true' } : {}),
+  })
+}
+
+function trackPostHogOnly(name: string, params?: Record<string, string | number | boolean>): void {
   capturePostHogOrQueue(name, {
     ...(params ?? {}),
     ...(stickyUserRole ? { user_role: stickyUserRole } : {}),
@@ -212,6 +226,25 @@ export function trackAINormalizationAccept(): void {
 /** User accepts an AI field update from chat */
 export function trackAIFieldUpdate(): void {
   trackEvent('venus_ai_field_update')
+}
+
+// ── AI Discussion Phase (BET-299) ───────────────────────────────────
+
+export function trackDiscussionStarted(input: DiscussionAnalyticsInput): void {
+  trackPostHogOnly(discussionEventName('started'), { ...buildDiscussionAnalyticsPayload(input) })
+}
+
+export function trackDiscussionCompleted(input: DiscussionAnalyticsInput): void {
+  trackPostHogOnly(discussionEventName('completed'), { ...buildDiscussionAnalyticsPayload(input) })
+}
+
+export function trackDiscussionSkipped(input: DiscussionAnalyticsInput): void {
+  trackPostHogOnly(discussionEventName('skipped'), {
+    ...buildDiscussionAnalyticsPayload({
+      ...input,
+      skipReason: input.skipReason ?? 'advisor_accepted_all',
+    }),
+  })
 }
 
 // ── Version Control ──────────────────────────────────────────────────

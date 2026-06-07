@@ -14,11 +14,13 @@ describe('buildReviewAgenda', () => {
       qualityWarnings: [
         { type: 'sector_missing', severity: 'medium' },
         { type: 'low_revenue_base', severity: 'high' },
+        { type: 'info_only', severity: 'info' },
+        { type: 'cap_table_note', severity: 'medium' },
       ],
     })
     const item = agenda.items.find((i) => i.kind === 'quality_warning')
-    expect(item).toMatchObject({ count: 2, severity: 'high' })
-    expect(item?.refs).toEqual(['sector_missing', 'low_revenue_base'])
+    expect(item).toMatchObject({ count: 4, severity: 'high' })
+    expect(item?.refs).toEqual(['low_revenue_base', 'sector_missing', 'cap_table_note'])
     // high-severity → gates the lock
     expect(agenda.acknowledgementKeys).toContain('quality_warning')
     expect(agenda.requiresReview).toBe(true)

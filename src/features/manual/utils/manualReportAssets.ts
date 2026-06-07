@@ -1,6 +1,7 @@
 import type { ValuationResponse } from '@/types/valuation'
 import { getRenderableReportHtml } from '@/utils/safetyNetReportHtml'
 import { mergeSessionDataForReportAssets } from '@/utils/sessionPackageHelpers'
+import type { DiscussionPhaseMetadata } from './discussionPhaseMetadata'
 
 export interface BuildManualReportAssetsParams {
   sessionData: Record<string, unknown>
@@ -8,6 +9,8 @@ export interface BuildManualReportAssetsParams {
   taxLatencyItems: unknown[]
   valuationResult: ValuationResponse
   name?: string
+  discussionPhase?: DiscussionPhaseMetadata
+  htmlReport?: string | null
 }
 
 export interface ManualReportAssets {
@@ -28,11 +31,41 @@ export function buildManualReportAssets({
   taxLatencyItems,
   valuationResult,
   name,
+  discussionPhase,
+  htmlReport,
 }: BuildManualReportAssetsParams): ManualReportAssets {
+  const mergedSessionData = mergeSessionDataForReportAssets(sessionData, request, taxLatencyItems)
+  const sessionDataWithDiscussion = discussionPhase
+    ? mergeDiscussionPhaseIntoMetadata(mergedSessionData, discussionPhase)
+    : mergedSessionData
+  const valuationResultWithDiscussion = discussionPhase
+    ? mergeDiscussionPhaseIntoMetadata(valuationResult, discussionPhase)
+    : valuationResult
+
   return {
-    sessionData: mergeSessionDataForReportAssets(sessionData, request, taxLatencyItems),
-    valuationResult,
-    htmlReport: getRenderableReportHtml(valuationResult.html_report),
+    sessionData: sessionDataWithDiscussion,
+    valuationResult: valuationResultWithDiscussion,
+    htmlReport: getRenderableReportHtml(htmlReport ?? valuationResult.html_report),
     ...(name ? { name } : {}),
+  }
+}
+
+function asPlainRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {}
+}
+
+function mergeDiscussionPhaseIntoMetadata<T extends object>(
+  value: T,
+  discussionPhase: DiscussionPhaseMetadata
+): T & { metadata: Record<string, unknown> } {
+  const metadata = asPlainRecord((value as Record<string, unknown>).metadata)
+  return {
+    ...value,
+    metadata: {
+      ...metadata,
+      discussion_phase: discussionPhase,
+    },
   }
 }

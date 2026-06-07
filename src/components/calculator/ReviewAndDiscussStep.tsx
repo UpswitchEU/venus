@@ -31,6 +31,7 @@ export interface ReviewAndDiscussStepProps {
   onBack?: () => void
   /** Opens the existing ChatAssistantDrawer for a deeper discussion. */
   onAskAi?: () => void
+  disabled?: boolean
 }
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -49,6 +50,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
   onSkip,
   onBack,
   onAskAi,
+  disabled = false,
 }) => {
   const t = useTranslations('reviewAndDiscuss') as unknown as (
     key: string,
@@ -103,6 +105,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
                       <input
                         type="checkbox"
                         checked={acked}
+                        disabled={disabled}
                         onChange={() => onToggleAcknowledge(item.kind)}
                         className="h-3.5 w-3.5 rounded border-foreground/30"
                       />
@@ -126,6 +129,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
         <textarea
           id="discussion-notes"
           value={notes}
+          disabled={disabled}
           onChange={(e) => onNotesChange(e.target.value)}
           placeholder={t('notesPlaceholder')}
           rows={3}
@@ -139,6 +143,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
             <button
               type="button"
               onClick={onBack}
+              disabled={disabled}
               className="rounded-lg border border-foreground/15 px-3 py-2 text-sm text-foreground/70 transition-colors hover:text-foreground"
             >
               {t('back')}
@@ -148,6 +153,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
             <button
               type="button"
               onClick={onAskAi}
+              disabled={disabled}
               className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/10"
             >
               {t('askAi')}
@@ -158,6 +164,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
           <button
             type="button"
             onClick={onSkip}
+            disabled={disabled}
             className="rounded-lg px-3 py-2 text-sm text-foreground/55 transition-colors hover:text-foreground/80"
           >
             {t('skip')}
@@ -165,7 +172,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!complete}
+            disabled={disabled || !complete}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t('confirm')}
