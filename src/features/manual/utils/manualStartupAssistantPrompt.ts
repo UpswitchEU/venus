@@ -1,4 +1,4 @@
-type ManualAssistantLocale = 'en' | 'nl'
+type ManualAssistantLocale = 'en' | 'nl' | 'fr'
 
 export function formatManualStartupAssistantPrompt(
   prompt: string,
@@ -13,6 +13,18 @@ export function formatManualStartupAssistantPrompt(
       '**Wat in te vullen:** een concrete waarde of voorbeeld (bedrag, percentage, multiple, of zin).',
       '',
       `Vraag van de gebruiker: ${prompt}`,
+    ].join('\n')
+  }
+
+  if (locale === 'fr') {
+    return [
+      'Réponds exactement dans ce format (français), avec ces trois titres en gras :',
+      '',
+      '**Actions :** 1 à 3 étapes numérotées et concrètes à effectuer maintenant dans l’assistant.',
+      '**Pourquoi c’est important :** une phrase sur l’impact pour la valorisation ou le rapport.',
+      '**Que saisir :** une valeur ou un exemple concret (montant, pourcentage, multiple ou phrase).',
+      '',
+      `Question de l’utilisateur : ${prompt}`,
     ].join('\n')
   }
 

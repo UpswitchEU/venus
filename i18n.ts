@@ -2,7 +2,7 @@
  * i18n Configuration for Venus Platform
  * 
  * Configures internationalization with next-intl
- * Supports: English (en), Dutch (nl)
+ * Supports: English (en), Dutch (nl), French (fr)
  */
 
 import { getRequestConfig } from 'next-intl/server';
@@ -10,7 +10,7 @@ import { getRequestConfig } from 'next-intl/server';
 import { loadLocaleMessages } from './src/lib/i18n/loadLocaleMessages';
 
 // Supported locales
-export const locales = ['en', 'nl'] as const;
+export const locales = ['en', 'nl', 'fr'] as const;
 export type Locale = (typeof locales)[number];
 
 // Default locale — nl for Belgian/Dutch market (align with Mercury)

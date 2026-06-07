@@ -36,7 +36,7 @@ import {
 
 /** @deprecated `locale` ignored — copy comes from next-intl route locale. */
 interface FounderPedigreeStepProps {
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
 }

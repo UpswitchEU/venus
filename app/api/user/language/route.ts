@@ -48,8 +48,11 @@ export async function PUT(request: NextRequest) {
     const { language } = body
 
     // Validate language
-    if (!language || !['en', 'nl'].includes(language)) {
-      return NextResponse.json({ error: 'Invalid language. Must be "en" or "nl"' }, { status: 400 })
+    if (!language || !['en', 'nl', 'fr'].includes(language)) {
+      return NextResponse.json(
+        { error: 'Invalid language. Must be "en", "nl", or "fr"' },
+        { status: 400 }
+      )
     }
 
     // Get backend URL from environment

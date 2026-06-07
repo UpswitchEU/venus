@@ -29,7 +29,7 @@ interface StudioCoPilotProps {
   issues: StudioIssue[]
   scopeId?: string
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   /**
    * Whether the shared assistant drawer is currently open.
    * Used to hide duplicate nudges while the drawer is active.

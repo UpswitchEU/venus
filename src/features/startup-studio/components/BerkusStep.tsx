@@ -25,7 +25,7 @@ import { MilestoneCard } from './MilestoneCard'
 
 interface BerkusStepProps {
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
 }

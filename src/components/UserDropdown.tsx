@@ -33,7 +33,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const router = useTransitionRouter()
   const pathname = usePathname()
   /** Mercury app routes are /en|nl/... — align deep links with current Venus locale. */
-  const mercuryLocale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+  const mercuryLocale = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
   const [isOpen, setIsOpen] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)

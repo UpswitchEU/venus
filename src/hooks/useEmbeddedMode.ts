@@ -111,7 +111,7 @@ export function useEmbeddedMode() {
     // closing the iframe (seller dashboard Doorgaan / close parity).
     if (isEmbedded) {
       try {
-        const localeMatch = window.location.pathname.match(/^\/(en|nl)/)
+        const localeMatch = window.location.pathname.match(/^\/(en|nl|fr)/)
         const locale = localeMatch?.[1] ?? 'en'
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
         const sourceApp = sessionStorage.getItem('upswitch_source')

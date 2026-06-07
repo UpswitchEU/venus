@@ -26,6 +26,7 @@ import { InceptionLensPicker } from '@/features/startup-studio/components/Incept
 import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
 import { XMultiplierInput } from '@/features/startup-studio/components/XMultiplierInput'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
+import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
   STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
@@ -48,7 +49,7 @@ const ROI_PRESETS: ReadonlyArray<{ stage: StartupStage; value: number }> = [
 
 interface ExitStoryStepProps {
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
 }
@@ -57,10 +58,10 @@ export function ExitStoryStep(_props: ExitStoryStepProps) {
   const t = useTranslations('startupStudio.exitStory')
   const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
   const tSectorLabels = useTranslations('startupStudio.narrative.sectorLabels')
-  const locale = useLocale()
+  const locale = coerceStudioLocale(useLocale())
   const intlFmt = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(studioIntlLocale(locale), {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),

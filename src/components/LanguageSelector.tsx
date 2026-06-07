@@ -1,7 +1,7 @@
 /**
  * Language Selector Component
  *
- * Allows users to switch between English and Dutch.
+ * Allows users to switch between supported locales.
  * Text-only labels (no flags) to avoid country association.
  */
 
@@ -10,6 +10,7 @@
 import { Globe } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { LANGUAGES } from '@/lib/locale-constants'
+import type { Locale } from '../../i18n'
 import { useI18n } from '../hooks/useI18n'
 
 interface LanguageSelectorProps {
@@ -40,7 +41,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
     }
   }, [isOpen])
 
-  const handleLanguageChange = (langCode: 'en' | 'nl') => {
+  const handleLanguageChange = (langCode: Locale) => {
     changeLanguage(langCode)
     setIsOpen(false)
   }

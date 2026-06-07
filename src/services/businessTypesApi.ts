@@ -613,8 +613,8 @@ class BusinessTypesApiService {
    */
   private getLocaleFromPathname(): string {
     if (typeof window === 'undefined') return 'en'
-    const match = window.location.pathname.match(/^\/(en|nl)/)
-    return (match?.[1] as 'en' | 'nl') || 'en'
+    const match = window.location.pathname.match(/^\/(en|nl|fr)/)
+    return (match?.[1] as 'en' | 'nl' | 'fr') || 'en'
   }
 
   /**

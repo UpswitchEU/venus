@@ -1121,7 +1121,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                       : t('paywall.insufficientCredits'))
                 }
                 onUpgrade={() => {
-                  const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+                  const locale = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
                   trackPaywallUpgradeClick('bootstrap_credit')
                   const base = getMercuryUrl()
                   const upgradePath = isAccountantBillingUpgradePath(
@@ -1151,7 +1151,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               limit={paywallData?.limit || 1}
               message={paywallData?.message}
               onUpgrade={() => {
-                const loc = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+                const loc = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
                 trackPaywallUpgradeClick('session_credit')
                 const base = getMercuryUrl()
                 window.location.href =

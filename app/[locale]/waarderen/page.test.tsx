@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import WaarderenLandingPage, { generateMetadata } from './page'
 
-async function renderLanding(locale: 'en' | 'nl') {
+async function renderLanding(locale: 'en' | 'nl' | 'fr') {
   render(await WaarderenLandingPage({ params: Promise.resolve({ locale }) }))
 }
 
@@ -38,13 +38,31 @@ describe('/[locale]/waarderen landing', () => {
     )
   })
 
+  it('renders French copy for the French locale route', async () => {
+    await renderLanding('fr')
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Une valorisation de startup prête pour les investisseurs en 7 minutes.',
+      })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Démarrer la valorisation gratuite' })).toHaveAttribute(
+      'href',
+      '/fr/landing/startup'
+    )
+  })
+
   it('generates locale-specific metadata and canonicals', async () => {
     const enMeta = await generateMetadata({ params: Promise.resolve({ locale: 'en' }) })
     const nlMeta = await generateMetadata({ params: Promise.resolve({ locale: 'nl' }) })
+    const frMeta = await generateMetadata({ params: Promise.resolve({ locale: 'fr' }) })
 
     expect(enMeta.title).toBe('Startup Valuation — Upswitch · Free pre-revenue valuation')
     expect(enMeta.alternates?.canonical).toBe('/en/waarderen')
     expect(nlMeta.title).toBe('Startup waarderen — Upswitch · Gratis pre-revenue valuation')
     expect(nlMeta.alternates?.canonical).toBe('/nl/waarderen')
+    expect(frMeta.title).toBe('Valoriser une startup — Upswitch · Valorisation pré-revenus gratuite')
+    expect(frMeta.alternates?.canonical).toBe('/fr/waarderen')
   })
 })

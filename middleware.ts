@@ -58,6 +58,8 @@ const intlMiddleware = createMiddleware({
 })
 
 const VENUS_FRAME_ANCESTORS = "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
+const localePathPrefixPattern = /^\/(en|nl|fr)(?=\/|$)/
+const localePathStripPattern = /^\/(?:en|nl|fr)(?=\/|$)/
 
 function withEmbeddingHeaders(response: Response): void {
   response.headers.delete('X-Frame-Options')
@@ -107,7 +109,7 @@ function detectLocale(request: NextRequest): string {
     if (returnUrl) {
       try {
         const path = new URL(returnUrl).pathname
-        const m = path.match(/\/(nl|en)(\/|$)/)
+        const m = path.match(/\/(en|nl|fr)(\/|$)/)
         if (m && locales.includes(m[1] as (typeof locales)[number])) {
           return m[1]
         }
@@ -178,11 +180,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(newUrl)
   }
 
-  // Path locale always wins: when path has /nl/ or /en/, use it and set cookie — never redirect
-  const pathLocaleMatch = pathname.match(/^\/(nl|en)(\/|$)/)
+  // Path locale always wins: when path has /en, /nl, or /fr, use it and set cookie — never redirect
+  const pathLocaleMatch = pathname.match(localePathPrefixPattern)
   if (pathLocaleMatch) {
     const pathLocale = pathLocaleMatch[1]
-    const pathWithoutLocale = pathname.replace(/^\/(nl|en)/, '')
+    const pathWithoutLocale = pathname.replace(localePathStripPattern, '')
 
     // Auth check: /reports/:id needs at least one auth cookie.
     // Accept either the 15-min access token OR the 7-day refresh token —

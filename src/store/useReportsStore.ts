@@ -165,7 +165,7 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
               '*'
             )
             if (didClearSession) {
-              const localeMatch = window.location.pathname.match(/^\/(en|nl)/)
+              const localeMatch = window.location.pathname.match(/^\/(en|nl|fr)/)
               const locale = localeMatch?.[1] ?? 'en'
               const { navigateToMercuryFromManualHandoff } = await import(
                 '../features/manual/utils/manualMercuryNavigate'

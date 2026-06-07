@@ -137,18 +137,20 @@ export function applyMercuryCelebrationQuery(urlString: string, celebrate: boole
   }
 }
 
-/** Mercury routes only use en|nl as the first path segment. */
-function mercuryPathLocale(locale: string): 'en' | 'nl' {
-  return locale === 'nl' ? 'nl' : 'en'
+type AppLocale = 'en' | 'nl' | 'fr'
+
+/** Mercury routes use supported app locales as the first path segment. */
+function mercuryPathLocale(locale: string): AppLocale {
+  return locale === 'nl' || locale === 'fr' ? locale : 'en'
 }
 
-/** Strip /en or /nl prefix (first segment only). Mirrors Mercury auth-return-url helper. */
+/** Strip app locale prefix (first segment only). Mirrors Mercury auth-return-url helper. */
 function stripLocalePrefixFromPathname(pathname: string): string {
-  const p = pathname.replace(/^\/(en|nl)(\/|$)/, '/') || '/'
+  const p = pathname.replace(/^\/(en|nl|fr)(\/|$)/, '/') || '/'
   return p === '//' ? '/' : p
 }
 
-function pathnameWithLocale(pathname: string, locale: 'en' | 'nl'): string {
+function pathnameWithLocale(pathname: string, locale: AppLocale): string {
   const rest = stripLocalePrefixFromPathname(pathname)
   return rest === '/' ? `/${locale}` : `/${locale}${rest}`
 }
@@ -195,7 +197,7 @@ const ACCOUNTANT_SOURCE_TOKENS = ['accountant', 'advisor'] as const
  */
 export function fallbackDashboardForSource(
   sourceApp: string | null | undefined,
-  pathLocale: 'en' | 'nl',
+  pathLocale: AppLocale,
   mercuryUrl: string
 ): string {
   const base = mercuryUrl.replace(/\/$/, '')

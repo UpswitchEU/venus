@@ -40,7 +40,7 @@ const ALLOWLIST = new Set<string>([
   'home.flows.conversational',
 ])
 
-function loadMerged(locale: 'nl' | 'en'): Record<string, unknown> {
+function loadMerged(locale: 'nl' | 'en' | 'fr'): Record<string, unknown> {
   const base = JSON.parse(readFileSync(join(APP_ROOT, `messages/${locale}.json`), 'utf8'))
   const startupStudio = JSON.parse(
     readFileSync(join(APP_ROOT, `messages/startupStudio/${locale}.json`), 'utf8')
@@ -122,6 +122,7 @@ function collectReferencedKeys(files: string[]): KeyRef[] {
 describe('i18n key coverage', () => {
   const nl = loadMerged('nl')
   const en = loadMerged('en')
+  const fr = loadMerged('fr')
   const refs = collectReferencedKeys(walkSourceFiles(SRC_DIR))
 
   it('finds a meaningful number of static key references (scanner sanity)', () => {
@@ -130,9 +131,11 @@ describe('i18n key coverage', () => {
     expect(refs.length).toBeGreaterThan(1500)
   })
 
-  it('every statically-referenced key resolves in both nl and en', () => {
+  it('every statically-referenced key resolves in nl, en, and fr', () => {
     const missing = refs.filter(
-      (ref) => !ALLOWLIST.has(ref.full) && (!hasKey(nl, ref.full) || !hasKey(en, ref.full))
+      (ref) =>
+        !ALLOWLIST.has(ref.full) &&
+        (!hasKey(nl, ref.full) || !hasKey(en, ref.full) || !hasKey(fr, ref.full))
     )
     const report = [...new Map(missing.map((m) => [m.full, m])).values()]
       .map((m) => `  ✗ ${m.full}  (${m.file}:${m.line})`)

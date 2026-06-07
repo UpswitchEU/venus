@@ -59,10 +59,11 @@ import { mapApiBusinessTypeForEntitySearch } from '@/utils/businessTypeSearchMap
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
+import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 
 interface CompanyCardStepProps {
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
 }
@@ -123,14 +124,14 @@ function getLegalFormOptions(countryCode: string): Array<{ value: string; label:
 
 export function CompanyCardStep(_props: CompanyCardStepProps) {
   const t = useTranslations('startupStudio.companyCard')
-  const locale = useLocale()
+  const locale = coerceStudioLocale(useLocale())
   // Locale-aware integer formatter — matches the same Intl rules
   // CurrencyInput's display uses, so the placeholder for round size
   // never disagrees with the value the founder ends up seeing once
   // they type. NL renders "750.000", EN-BE renders "750,000".
   const placeholderIntFmt = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(studioIntlLocale(locale), {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),

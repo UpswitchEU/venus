@@ -47,7 +47,7 @@ const SEVERITY_VISUAL: Record<
 interface FindingPeekProps {
   issues: StudioIssue[]
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   open: boolean
   onAskAi: (issue: StudioIssue) => void
   onSnooze: () => void

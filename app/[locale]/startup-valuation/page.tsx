@@ -21,7 +21,19 @@ const META_BY_LOCALE = {
       'Een investor-ready startup waardering. Berkus + Scorecard + VC-methode, Q1 2026 Benelux benchmarks, geen historische cijfers nodig.',
     locale: 'nl_BE',
   },
+  fr: {
+    title: 'Valorisation de startup — Upswitch · Valorisation pré-revenus gratuite',
+    description:
+      'Obtenez une valorisation de startup prête pour les investisseurs. Méthodes Berkus, Scorecard et VC, benchmarks Benelux T1 2026, sans historiques financiers requis.',
+    locale: 'fr_BE',
+  },
 } as const
+
+type StartupValuationLocale = keyof typeof META_BY_LOCALE
+
+function pickLocale(raw: string | undefined): StartupValuationLocale {
+  return raw === 'nl' || raw === 'fr' ? raw : 'en'
+}
 
 /**
  * SEO metadata for the (now-redirecting) startup entry point.  Kept so
@@ -30,10 +42,10 @@ const META_BY_LOCALE = {
  * `/reports/{id}` surface where ValuationIQ runs the valuation.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  let locale: 'en' | 'nl' = 'en'
+  let locale: StartupValuationLocale = 'en'
   try {
     const resolved = await params
-    locale = resolved.locale === 'nl' ? 'nl' : 'en'
+    locale = pickLocale(resolved.locale)
   } catch {
     // ignore — default to en
   }
@@ -47,6 +59,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       languages: {
         en: '/en/startup-valuation',
         nl: '/nl/startup-valuation',
+        fr: '/fr/startup-valuation',
       },
     },
     openGraph: {
@@ -83,10 +96,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * report client to read.
  */
 export default async function StartupValuationRoute({ params, searchParams }: Props) {
-  let locale: 'en' | 'nl' = 'en'
+  let locale: StartupValuationLocale = 'en'
   try {
     const resolved = await params
-    locale = resolved.locale === 'nl' ? 'nl' : 'en'
+    locale = pickLocale(resolved.locale)
   } catch {
     // fall back to en
   }

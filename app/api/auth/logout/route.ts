@@ -29,7 +29,7 @@ function applyNoStoreHeaders(response: NextResponse): void {
   response.headers.set('Expires', '0')
 }
 
-function getLocaleFromRequest(request: Request): 'en' | 'nl' {
+function getLocaleFromRequest(request: Request): 'en' | 'nl' | 'fr' {
   try {
     const referer = request.headers.get('referer')
     if (!referer) return 'en'
@@ -37,6 +37,7 @@ function getLocaleFromRequest(request: Request): 'en' | 'nl' {
     const refererPath = new URL(referer).pathname
     if (refererPath === '/en' || refererPath.startsWith('/en/')) return 'en'
     if (refererPath === '/nl' || refererPath.startsWith('/nl/')) return 'nl'
+    if (refererPath === '/fr' || refererPath.startsWith('/fr/')) return 'fr'
   } catch {
     // keep default
   }

@@ -42,7 +42,7 @@ interface PageProps {
 }
 
 function pickLocale(raw: string): Locale {
-  return raw === 'nl' ? 'nl' : 'en'
+  return raw === 'nl' || raw === 'fr' ? raw : 'en'
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -65,6 +65,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       languages: {
         en: '/en/landing/startup',
         nl: '/nl/landing/startup',
+        fr: '/fr/landing/startup',
       },
     },
     openGraph: {

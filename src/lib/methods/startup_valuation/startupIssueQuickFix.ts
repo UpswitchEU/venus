@@ -6,7 +6,7 @@ import {
   STARTUP_STAGE_DEFAULT_RAISE,
 } from '@/store/manual/useStartupValuationStore'
 
-type QuickFixLocale = 'en' | 'nl'
+type QuickFixLocale = 'en' | 'nl' | 'fr'
 
 type StartupIssueQuickFixLabel = Record<QuickFixLocale, string>
 
@@ -14,26 +14,32 @@ const QUICK_FIX_LABELS: Record<string, StartupIssueQuickFixLabel> = {
   missing_investment_ask: {
     en: 'Use stage default',
     nl: 'Gebruik stage-default',
+    fr: 'Utiliser la valeur par défaut de l\'étape',
   },
   no_exit_story: {
     en: 'Fill exit defaults',
     nl: 'Vul exit-defaults',
+    fr: 'Remplir les valeurs par défaut de sortie',
   },
   thin_blend_for_stage: {
     en: 'Fill exit defaults',
     nl: 'Vul exit-defaults',
+    fr: 'Remplir les valeurs par défaut de sortie',
   },
   recurring_sector_no_arr: {
     en: 'Mark pre-revenue',
     nl: 'Markeer pre-revenue',
+    fr: 'Marquer comme pré-revenu',
   },
   target_roi_too_low: {
     en: 'Use stage ROI',
     nl: 'Gebruik stage-ROI',
+    fr: 'Utiliser le retour sur investissement de l\'étape',
   },
   inception_bet_without_pedigree: {
     en: 'Use milestone lens',
     nl: 'Gebruik mijlpaal-lens',
+    fr: 'Utiliser l\'objectif d\'étape',
   },
 }
 

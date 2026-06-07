@@ -72,7 +72,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     const isAuthCrash = msg.includes('418') || msg.includes('401') || msg.includes('hydration')
 
     if (isAuthCrash && typeof window !== 'undefined' && !window.__isLoggingOut) {
-      const locale = window.location.pathname.match(/^\/(en|nl)\//)?.[1] || 'en'
+      const locale = window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
       const mercuryUrl = getMercuryUrl()
       const returnUrl = encodeURIComponent(window.location.href)
       chatLogger.error('Auth-related crash detected, redirecting to login', {

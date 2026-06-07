@@ -142,8 +142,8 @@ export interface AIChatRequest {
   surfaceIntent?: 'add_client' | 'kbo_lookup'
   /** Venus quicklink / chip intent for M&A copilot routing. */
   assistantIntent?: AssistantIntent
-  /** Locale for fallback responses when AI is unavailable (en | nl) */
-  locale?: 'en' | 'nl'
+  /** Locale for fallback responses when AI is unavailable. */
+  locale?: 'en' | 'nl' | 'fr'
   /** Previous messages for conversation context (used as fallback if server history unavailable) */
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
@@ -733,11 +733,16 @@ class AIChatServiceImpl {
       industry?: string
       revenue?: number
       value?: unknown
-      locale?: 'en' | 'nl'
+      locale?: 'en' | 'nl' | 'fr'
     }
   ): Promise<AIChatResponse> {
     const locale = context.locale || 'nl'
-    const helpMsg = locale === 'en' ? `Help me with ${label}` : `Help me met ${label}`
+    const helpMsg =
+      locale === 'fr'
+        ? `Aidez-moi avec ${label}`
+        : locale === 'en'
+          ? `Help me with ${label}`
+          : `Help me met ${label}`
     try {
       const response = await fetch('/api/ai/suggestion', {
         method: 'POST',

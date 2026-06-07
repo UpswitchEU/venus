@@ -6,13 +6,13 @@ import {
 
 const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
 
-export type ManualMercuryLocale = 'en' | 'nl'
+export type ManualMercuryLocale = 'en' | 'nl' | 'fr'
 
 function normalizeMercuryBaseUrl(mercuryUrl: string): string {
   return mercuryUrl.replace(/\/$/, '')
 }
 
-const SELLER_DASHBOARD_PATH_RE = /\/(?:en|nl)\/business\/dashboard(?:\/|$)/
+const SELLER_DASHBOARD_PATH_RE = /\/(?:en|nl|fr)\/business\/dashboard(?:\/|$)/
 
 /**
  * Drop stale `?phase=` from seller dashboard return URLs so Mercury lands on the
@@ -58,7 +58,7 @@ export function stripStaleSellerDashboardPhaseFromReturnUrl(
 }
 
 export function getManualMercuryLocale(locale: string | null | undefined): ManualMercuryLocale {
-  return locale === 'nl' || locale === 'en' ? locale : 'en'
+  return locale === 'nl' || locale === 'en' || locale === 'fr' ? locale : 'en'
 }
 
 export interface BuildManualMercuryUrlParams {

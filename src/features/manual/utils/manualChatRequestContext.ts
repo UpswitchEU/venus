@@ -46,8 +46,8 @@ export type ManualChatEnrichedFormData = ManualChatCollectedData & {
   _valuationSummary?: ManualChatValuationSummary
 }
 
-export function getManualChatLocale(locale: string): 'en' | 'nl' {
-  return locale === 'en' || locale === 'nl' ? locale : 'nl'
+export function getManualChatLocale(locale: string): 'en' | 'nl' | 'fr' {
+  return locale === 'en' || locale === 'nl' || locale === 'fr' ? locale : 'nl'
 }
 
 export function getManualChatVersionCount(

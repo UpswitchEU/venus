@@ -24,6 +24,7 @@ import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEdito
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
+import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
@@ -39,7 +40,7 @@ const DILUTION_DEFAULT_PCT: Record<StartupStage, number> = {
 
 interface RoundSimulatorStepProps {
   /** @deprecated Route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
   advisorMode?: boolean
 }
 
@@ -49,10 +50,10 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
   const t = useTranslations('startupStudio.round')
   const tCommon = useTranslations('startupStudio.common')
   const tStageLabels = useTranslations('startupStudio.companyCard.stageLabels')
-  const locale = useLocale()
+  const locale = coerceStudioLocale(useLocale())
   const intlFmt = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(studioIntlLocale(locale), {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),
@@ -335,10 +336,10 @@ export function RoundSimulatorStep({ advisorMode = false }: RoundSimulatorStepPr
 
 function RaiseWhatIfSlider() {
   const t = useTranslations('startupStudio.round')
-  const locale = useLocale()
+  const locale = coerceStudioLocale(useLocale())
   const intlFmt = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(studioIntlLocale(locale), {
         maximumFractionDigits: 0,
         useGrouping: true,
       }),

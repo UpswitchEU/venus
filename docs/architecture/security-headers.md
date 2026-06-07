@@ -9,12 +9,19 @@ embedding is product-required, but only from Upswitch-controlled origins.
 Venus uses CSP `frame-ancestors 'self' https://upswitch.app https://*.upswitch.app`.
 It must not emit `X-Frame-Options`, because `SAMEORIGIN` blocks the intended
 Mercury-to-Venus cross-subdomain embed and `ALLOW-FROM` is obsolete.
+The app still emits the shared hardening headers around that product exception:
+`Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` and
+CSP `object-src 'none'`.
 
 Middleware also strips platform-injected `X-Frame-Options` so the CSP
 `frame-ancestors` policy remains the single source of truth. When middleware
 sees an existing CSP, it appends `frame-ancestors` instead of replacing the
 policy, so directives such as `default-src`, `script-src`, `base-uri`, and
 `form-action` remain intact.
+
+`vercel.json` must not emit a partial `Content-Security-Policy`; the full policy
+lives in `next.config.js` so the platform layer cannot accidentally replace the
+non-framing directives with a frame-only CSP.
 
 ## Script Execution
 
@@ -30,7 +37,8 @@ vendor-by-vendor review of the remaining browser integrations.
 
 `pnpm run guard:security-headers` imports the production Next config and fails
 if Venus reintroduces production `'unsafe-eval'`, loses the Upswitch
-`frame-ancestors` allowlist, emits `X-Frame-Options`, or stops stripping
-platform-injected frame headers in middleware. It also fails if middleware stops
-appending `frame-ancestors` to an existing CSP and risks replacing the rest of
-the security policy.
+`frame-ancestors` allowlist, loses CSP `object-src 'none'`, weakens HSTS,
+emits a partial CSP from `vercel.json`, emits `X-Frame-Options`, or stops
+stripping platform-injected frame headers in middleware. It also fails if
+middleware stops appending `frame-ancestors` to an existing CSP and risks
+replacing the rest of the security policy.

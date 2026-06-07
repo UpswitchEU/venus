@@ -44,7 +44,7 @@ describe('manualChatRequestContext', () => {
   it('normalizes chat locale to the supported AI set', () => {
     expect(getManualChatLocale('en')).toBe('en')
     expect(getManualChatLocale('nl')).toBe('nl')
-    expect(getManualChatLocale('fr')).toBe('nl')
+    expect(getManualChatLocale('fr')).toBe('fr')
   })
 
   it('reads version counts defensively', () => {

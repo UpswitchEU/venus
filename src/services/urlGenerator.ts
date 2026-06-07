@@ -16,8 +16,8 @@ class UrlGeneratorService {
   private static getLocale(locale?: string): string {
     if (locale) return locale
     if (typeof window === 'undefined') return 'en'
-    const match = window.location.pathname.match(/^\/(en|nl)/)
-    return (match?.[1] as 'en' | 'nl') || 'en'
+    const match = window.location.pathname.match(/^\/(en|nl|fr)/)
+    return (match?.[1] as 'en' | 'nl' | 'fr') || 'en'
   }
 
   static root = (locale?: string) => `/${this.getLocale(locale)}`

@@ -128,6 +128,7 @@ const nextConfig = {
               "font-src 'self' data:",
               "connect-src 'self' https://*.upswitch.app wss://*.upswitch.app",
               "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app",
+              "object-src 'none'",
               "form-action 'self'",
               "base-uri 'self'",
             ].join('; '),
@@ -135,12 +136,12 @@ const nextConfig = {
           // SECURITY: Permissions Policy (formerly Feature-Policy)
           {
             key: 'Permissions-Policy',
-            value: 'geolocation=(), microphone=(), camera=()',
+            value: 'camera=(), microphone=(), geolocation=()',
           },
           // SECURITY: Strict Transport Security (HSTS)
           {
             key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains',
+            value: 'max-age=63072000; includeSubDomains; preload',
           },
         ],
       },

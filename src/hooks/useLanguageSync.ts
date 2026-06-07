@@ -7,7 +7,7 @@ import type { Locale } from '../../i18n'
 import { useAuthStore } from '../lib/auth'
 import { setNextLocaleCookie } from '../utils/set-next-locale-cookie'
 
-const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
+const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl', 'fr']
 
 /** RELOAD LOOP FIX: Minimum delay (ms) after auth ready before locale redirect. */
 const LOCALE_REDIRECT_DELAY_MS = 1500
@@ -80,7 +80,7 @@ export function useLanguageSync() {
         if (synced.current) return
         synced.current = true
         setNextLocaleCookie(preferred)
-        const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
+        const pathWithoutLocale = pathname.replace(/^\/(en|nl|fr)/, '')
         const newPath = `/${preferred}${pathWithoutLocale}`
         window.location.replace(newPath)
       }, remaining)
@@ -91,7 +91,7 @@ export function useLanguageSync() {
 
     setNextLocaleCookie(preferred)
 
-    const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
+    const pathWithoutLocale = pathname.replace(/^\/(en|nl|fr)/, '')
     const newPath = `/${preferred}${pathWithoutLocale}`
     window.location.replace(newPath)
   }, [user, locale, pathname, isInitializing])

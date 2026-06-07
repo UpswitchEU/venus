@@ -31,7 +31,7 @@ export function useI18n() {
     }
 
     // Replace current locale in pathname with new locale
-    const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
+    const pathWithoutLocale = pathname.replace(/^\/(en|nl|fr)/, '')
     const newPath = `/${newLocale}${pathWithoutLocale}`
 
     setNextLocaleCookie(newLocale)

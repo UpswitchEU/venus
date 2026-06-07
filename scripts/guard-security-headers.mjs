@@ -17,6 +17,9 @@ const securityHeadersDoc = fs.readFileSync(
   new URL('../docs/architecture/security-headers.md', import.meta.url),
   'utf8',
 )
+const vercelConfig = JSON.parse(
+  fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'),
+)
 const failures = []
 
 function directiveValue(policy, directiveName) {
@@ -29,6 +32,12 @@ function directiveValue(policy, directiveName) {
 
 const scriptSrc = directiveValue(csp, 'script-src')
 const styleSrc = directiveValue(csp, 'style-src')
+const objectSrc = directiveValue(csp, 'object-src')
+const hsts =
+  headers.find((header) => header.key === 'Strict-Transport-Security')?.value ?? ''
+const vercelCspHeader = (vercelConfig.headers ?? [])
+  .flatMap((rule) => rule.headers ?? [])
+  .find((header) => header.key === 'Content-Security-Policy')
 
 if (!csp) {
   failures.push('Content-Security-Policy header is missing')
@@ -54,6 +63,18 @@ if (scriptSrc.includes("'unsafe-inline'") || styleSrc.includes("'unsafe-inline'"
 
 if (!/frame-ancestors[^;]*https:\/\/\*\.upswitch\.app/.test(csp)) {
   failures.push('Venus CSP must explicitly allow cross-subdomain Upswitch embedding')
+}
+
+if (objectSrc !== "object-src 'none'") {
+  failures.push("Venus CSP must block plugins with object-src 'none'")
+}
+
+if (hsts !== 'max-age=63072000; includeSubDomains; preload') {
+  failures.push('Venus HSTS must use max-age=63072000; includeSubDomains; preload')
+}
+
+if (vercelCspHeader) {
+  failures.push('Venus vercel.json must not emit a partial CSP; keep CSP in next.config.js')
 }
 
 if (xFrameOptions) {

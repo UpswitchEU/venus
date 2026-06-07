@@ -7,7 +7,7 @@ interface Props {
   params: Promise<{ locale: string }>
 }
 
-type PageLocale = 'en' | 'nl'
+type PageLocale = 'en' | 'nl' | 'fr'
 
 const GHENT_PARTNERS = [
   'imec.istart',
@@ -153,10 +153,77 @@ const PAGE_COPY = {
     finalBody: '7 minuten. Een PDF die staat. Een gesprek met je angel dat anders verloopt.',
     finalCta: 'Start gratis →',
   },
+  fr: {
+    meta: {
+      title: 'Valoriser une startup — Upswitch · Valorisation pré-revenus gratuite',
+      description:
+        'En 7 minutes, créez une valorisation de startup prête pour les investisseurs. Méthodes Berkus, Scorecard et VC, benchmarks Benelux T1 2026, sans historiques financiers requis.',
+    },
+    eyebrow: 'Moteur de valorisation startup · T1 2026',
+    headline: 'Une valorisation de startup prête pour les investisseurs en 7 minutes.',
+    intro:
+      'Berkus, Scorecard et méthode VC dans un seul assistant. Pas d’historiques financiers, pas de curseurs abstraits, pas d’approximation. Juste un PDF que votre angel ou investisseur peut prendre au sérieux.',
+    primaryCta: 'Démarrer la valorisation gratuite',
+    secondaryCta: 'Flux classique (conseillers)',
+    trustLine: 'Sans carte bancaire · Aucun compte requis pour le premier essai · Conforme au RGPD',
+    partnerHeading: 'Utilisé par des fondateurs et partenaires gantois',
+    featuresHeading: 'Pourquoi c’est mieux qu’un autre tableur',
+    features: [
+      {
+        title: 'Pas d’approximation',
+        body: 'Des cartes jalons avec 4 options fondées sur des preuves — choisissez ce qui correspond le mieux à votre réalité et voyez immédiatement l’impact sur le pre-money.',
+      },
+      {
+        title: 'Valorisation en direct',
+        body: 'Un mélange en 3 volets (Berkus + SaaS Forward + méthode VC) se met à jour en direct dans le récapitulatif — plus besoin de “cliquer pour calculer”.',
+      },
+      {
+        title: 'PDF prêt pour les investisseurs',
+        body: 'Narratif de sortie, football field méthode par méthode, aperçu de cap table et toutes vos preuves — prêt à partager avec des angels.',
+      },
+      {
+        title: 'Benchmarks Benelux T1 2026',
+        body: 'Données en direct issues de notre Athena MDM (PitchBook + Dealroom). Le moteur suit le marché — plus de chiffres 2024 périmés.',
+      },
+    ],
+    stepsHeading: '7 étapes, 7 minutes',
+    stepsIntro:
+      'Une carte par étape, un champ de preuve pour soutenir votre réponse. Le récapitulatif en direct montre comment chaque choix déplace la valorisation.',
+    stepLabel: 'Étape',
+    steps: [
+      { n: '1', title: 'Profil', body: 'Stade, secteur, taille du tour et pitch en une ligne.' },
+      { n: '2', title: 'Réduction du risque', body: '5 cartes jalons (Berkus 2024).' },
+      { n: '3', title: 'Défendabilité', body: '5 facteurs Bill Payne pondérés.' },
+      { n: '4', title: 'Traction', body: 'Option MRR avec unit economics en direct.' },
+      { n: '5', title: 'Histoire de sortie', body: 'TAM/SAM/SOM et courbe de croissance.' },
+      { n: '6', title: 'Simulateur de tour', body: 'SAFE ou tour pricé, cap table en direct.' },
+      { n: '7', title: 'Rapport', body: 'PDF + lien de partage, prêt pour vos angels.' },
+    ],
+    methodologyHeading: 'Méthodologie',
+    methodology: [
+      {
+        title: 'Mise à jour Berkus 2024',
+        body: 'Scorecard de réduction du risque avec plafonds ajustés régionalement (500 k€-750 k€ par jalon en BE/NL/LU).',
+      },
+      {
+        title: 'Scorecard Bill Payne 2024',
+        body: 'Cinq facteurs pondérés ancrés sur la médiane régionale (Athena MDM).',
+      },
+      {
+        title: 'Méthode VC (Sahlman)',
+        body: 'pre = (revenu Y5 × multiple de sortie ÷ ROI cible) − taille du tour.',
+      },
+    ],
+    sources:
+      'Sources : PitchBook T4 2025, Dealroom Benelux 2025, Atomico State of European Tech 2025.',
+    finalHeading: 'Prêt à construire votre valorisation ?',
+    finalBody: '7 minutes. Un PDF solide. Une conversation différente avec votre angel.',
+    finalCta: 'Démarrer gratuitement →',
+  },
 } as const
 
 function pickLocale(raw: string | undefined): PageLocale {
-  return raw === 'en' ? 'en' : 'nl'
+  return raw === 'en' || raw === 'fr' ? raw : 'nl'
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -172,6 +239,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       languages: {
         en: '/en/waarderen',
         nl: '/nl/waarderen',
+        fr: '/fr/waarderen',
       },
     },
     openGraph: {
@@ -179,7 +247,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: copy.meta.description,
       type: 'website',
       url: `/${locale}/waarderen`,
-      locale: locale === 'en' ? 'en_BE' : 'nl_BE',
+      locale: locale === 'en' ? 'en_BE' : locale === 'fr' ? 'fr_BE' : 'nl_BE',
     },
     twitter: {
       card: 'summary_large_image',

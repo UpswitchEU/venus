@@ -23,14 +23,14 @@ import { useStartupValuationStore } from '@/store/manual/useStartupValuationStor
 import { getStartupIssueQuickFixLabel } from './startupIssueQuickFix'
 
 /** Step labels shown in the assistant's "Jump to" affordance, per locale. */
-const STUDIO_STEP_LABELS: Record<StudioIssue['step'], { en: string; nl: string }> = {
-  profile: { en: 'Profile', nl: 'Profiel' },
-  berkus: { en: 'Risk reduction', nl: 'Risico-reductie' },
-  scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid' },
-  founder_pedigree: { en: 'Team pedigree', nl: 'Team' },
-  traction: { en: 'Traction', nl: 'Tractie' },
-  exit_story: { en: 'Exit story', nl: 'Exit-verhaal' },
-  round_simulator: { en: 'Round', nl: 'Ronde' },
+const STUDIO_STEP_LABELS: Record<StudioIssue['step'], { en: string; nl: string; fr: string }> = {
+  profile: { en: 'Profile', nl: 'Profiel', fr: 'Profil' },
+  berkus: { en: 'Risk reduction', nl: 'Risico-reductie', fr: 'Réduction des risques' },
+  scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid', fr: 'Défendabilité' },
+  founder_pedigree: { en: 'Team pedigree', nl: 'Team', fr: 'Pedigree de l\'équipe' },
+  traction: { en: 'Traction', nl: 'Tractie', fr: 'Traction' },
+  exit_story: { en: 'Exit story', nl: 'Exit-verhaal', fr: 'Histoire de sortie' },
+  round_simulator: { en: 'Round', nl: 'Ronde', fr: 'Tour' },
 }
 
 export interface UseStartupAssistantSurfaceParams {
@@ -39,7 +39,7 @@ export interface UseStartupAssistantSurfaceParams {
   /** Set of issue ids the user has dismissed or fixed via the assistant. */
   acknowledgedStartupIssues: Set<string>
   /** Active assistant locale; drives label + prompt copy. */
-  assistantLocale: 'en' | 'nl'
+  assistantLocale: 'en' | 'nl' | 'fr'
   /**
    * Wraps the raw `issue.assistantPrompt[locale]` for routing to the AI
    * assistant. Owned by the panel because it depends on panel-side context.
@@ -89,10 +89,21 @@ export function useStartupAssistantSurface(
         title: issue.title[assistantLocale],
         body: issue.body[assistantLocale],
         action: issue.action[assistantLocale],
-        ctaLabel: assistantLocale === 'nl' ? 'Fix met AI' : 'Fix with AI',
+        ctaLabel:
+          assistantLocale === 'fr'
+            ? "Corriger avec l'IA"
+            : assistantLocale === 'nl'
+              ? 'Fix met AI'
+              : 'Fix with AI',
         ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
         quickFixLabel: getStartupIssueQuickFixLabel(issue.id, assistantLocale),
-        jumpLabel: `${assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'} ${
+        jumpLabel: `${
+          assistantLocale === 'fr'
+            ? 'Aller à'
+            : assistantLocale === 'nl'
+              ? 'Ga naar'
+              : 'Jump to'
+        } ${
           STUDIO_STEP_LABELS[issue.step][assistantLocale]
         }`,
       }))

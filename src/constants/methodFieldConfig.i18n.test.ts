@@ -8,16 +8,17 @@ type MessagesShape = {
   chatAssistant?: Record<string, unknown>
 }
 
-function readMessages(locale: 'en' | 'nl'): MessagesShape {
+function readMessages(locale: 'en' | 'nl' | 'fr'): MessagesShape {
   const here = dirname(fileURLToPath(import.meta.url))
   const abs = join(here, '../../messages', `${locale}.json`)
   return JSON.parse(readFileSync(abs, 'utf8')) as MessagesShape
 }
 
 describe('QUALITY_WARNING_ASSISTANT_CTA_CONFIG i18n coverage', () => {
-  it('has every CTA key in both EN and NL chatAssistant namespaces', () => {
+  it('has every CTA key in EN, NL, and FR chatAssistant namespaces', () => {
     const en = readMessages('en').chatAssistant ?? {}
     const nl = readMessages('nl').chatAssistant ?? {}
+    const fr = readMessages('fr').chatAssistant ?? {}
 
     // Walk every property whose name ends in `Key` so new fields added to
     // the config (e.g. titleKey / bodyKey) are automatically covered without
@@ -28,6 +29,7 @@ describe('QUALITY_WARNING_ASSISTANT_CTA_CONFIG i18n coverage', () => {
         if (typeof value !== 'string') continue
         expect(Object.hasOwn(en, value), `EN missing ${field} (${value}) for ${type}`).toBe(true)
         expect(Object.hasOwn(nl, value), `NL missing ${field} (${value}) for ${type}`).toBe(true)
+        expect(Object.hasOwn(fr, value), `FR missing ${field} (${value}) for ${type}`).toBe(true)
       }
     }
   })

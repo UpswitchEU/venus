@@ -35,7 +35,7 @@ import {
 
 /** @deprecated Locale comes from next-intl. */
 interface InceptionLensPickerProps {
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
 }
 
 function formatPct(pct: number, sign = '+'): string {

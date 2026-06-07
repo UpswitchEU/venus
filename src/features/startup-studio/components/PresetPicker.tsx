@@ -25,6 +25,7 @@ import {
   STUDIO_PRESETS,
   type StudioPreset,
 } from '@/features/startup-studio/data/presets'
+import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import { cn } from '@/lib/utils'
 import type { BusinessType } from '@/services/businessTypesApi'
@@ -131,7 +132,7 @@ const SESSION_KEY = 'upswitch.studio.applied_preset'
 
 interface PresetPickerProps {
   /** @deprecated Ignored — route locale from next-intl is used. */
-  locale?: 'en' | 'nl'
+  locale?: 'en' | 'nl' | 'fr'
 }
 
 /**
@@ -163,7 +164,7 @@ function persistActivePreset(key: PresetKey | null): void {
 }
 
 export function PresetPicker(_props: PresetPickerProps) {
-  const locale = useLocale() === 'nl' ? 'nl' : 'en'
+  const locale = coerceStudioLocale(useLocale())
   const t = useTranslations('startupStudio.preset')
   const applyPreset = useStartupValuationStore((s) => s.applyPreset)
   const reset = useStartupValuationStore((s) => s.reset)
@@ -184,7 +185,7 @@ export function PresetPicker(_props: PresetPickerProps) {
   // Locale-aware compact EUR formatter for the inline preview line.
   const intlPreviewFmt = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(studioIntlLocale(locale), {
         notation: 'compact',
         maximumFractionDigits: 1,
       }),

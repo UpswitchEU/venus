@@ -1,6 +1,8 @@
 packages:
   - '.'
 
+useNodeVersion: 20.19.6
+
 onlyBuiltDependencies:
   - '@heroui/shared-utils'
   - '@parcel/watcher'

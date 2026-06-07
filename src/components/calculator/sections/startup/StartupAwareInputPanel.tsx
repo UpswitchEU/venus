@@ -121,7 +121,7 @@ export const ADVISOR_HANDOFF_KEY = 'upswitch.studio.advisor_handoff'
 
 export interface AdvisorHandoff {
   reportId: string
-  locale: 'en' | 'nl'
+  locale: 'en' | 'nl' | 'fr'
   mode?: string
   clientId?: string
   returnUrl?: string

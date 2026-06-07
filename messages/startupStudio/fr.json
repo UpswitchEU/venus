@@ -1,0 +1,639 @@
+{
+	"sections": {
+		"profile": "Profil",
+		"berkus": "Réduction des risques",
+		"scorecard": "Défendabilité",
+		"founder_pedigree": "Pedigree de l'équipe",
+		"traction": "Traction",
+		"exit_story": "Histoire de sortie",
+		"round_simulator": "Rond"
+	},
+	"panelHeader": {
+		"badge": "Pré-amorçage et amorçage · pré-revenus",
+		"title": "Valorisation EV/Revenu",
+		"formula": "pré-argent = (revenu de l'année 5 × EV de sortie/revenu) ÷ ROI cible − taille du tour",
+		"subtitle": "Trois méthodes publiées triangulent autour de l’épine dorsale EV/Revenu : Berkus élimine les risques du côté qualitatif, Bill Payne Scorecard s’ancre aux médianes régionales et la méthode VC (Sahlman 1987) fait la une des journaux.",
+		"liveBlendLabel": "Pré-argent mixte en direct",
+		"liveRangeLabel": "Gamme",
+		"liveEmpty": "Remplissez l'étape, le secteur et les revenus Y5 - le titre apparaît ici au fur et à mesure que vous tapez.",
+		"jumpToExit": "Modifier Y5 / multiple / ROI ↓",
+		"progressChip": "Coupes {done}/{total} réalisées",
+		"progressAria": "Progrès : sections {done} sur {total} terminées",
+		"progressTitle": "{done} des sections {total} terminées",
+		"progressTitleWithPartial": "{done} de {total} terminé · {partial} en cours"
+	},
+	"common": {
+		"offline": "hors ligne",
+		"preMoney": "Pré-argent",
+		"postMoney": "Post-argent",
+		"dilution": "Dilution",
+		"founders": "Fondateurs",
+		"optionPool": "Pool d'options",
+		"newInvestor": "Nouvel investisseur",
+		"level": "niveau",
+		"monthsShort": "mo",
+		"median": "Médiane",
+		"you": "Vous",
+		"conservative": "Conservateur",
+		"midEngine": "Moyen (puissance moteur)",
+		"bullish": "Haussier",
+		"notAvailable": "non disponible",
+		"previous": "Précédent",
+		"next": "Suivant",
+		"maturityLabels": {
+			"none": "Aucun",
+			"basic": "De base",
+			"strong": "Fort",
+			"exceptional": "Exceptionnel"
+		}
+	},
+	"preset": {
+		"quickStartAria": "Modèles de démarrage rapide",
+		"quickStart": "Démarrage rapide",
+		"clear": "Effacer le préréglage",
+		"clearAria": "Effacez le préréglage actif et commencez avec une toile vierge",
+		"clearTooltip": "Réinitialisez chaque champ géré par défaut (étape, secteur, jalons, entrées VC) afin de pouvoir commencer avec vos propres données.",
+		"previewLabel": "Survol",
+		"previewStage": "Scène",
+		"previewSector": "Secteur",
+		"previewRaise": "Augmenter",
+		"previewY5": "Chiffre d'affaires de l'an 5",
+		"previewMilestones": "{count}/10 jalons prédéfinis"
+	},
+	"milestone": {
+		"weight": "poids",
+		"whatInvestorsLookFor": "Ce que recherchent les investisseurs",
+		"beneluxExamples": "Exemples au Benelux",
+		"yourEvidence": "Votre preuve (facultatif)",
+		"evidenceCounter": "{count}/280 — apparaît textuellement dans le PDF de l'investisseur",
+		"evidenceCounterNearLimit": "{count}/280 · Caractères {remaining} restants"
+	},
+	"prefillBadge": {
+		"sectorDefault": "Pré-rempli · secteur par défaut",
+		"stageDefault": "Pré-rempli · étape par défaut",
+		"benchmarkDefault": "Pré-rempli · médiane de référence",
+		"mercury": "Pré-rempli · de Mercure",
+		"yourOverride": "Votre dérogation"
+	},
+	"berkus": {
+		"introInputPrompt": "Atteignez cinq jalons de réduction des risques.",
+		"introBefore": "La méthode Berkus récompense la preuve que le risque initial a été réduit : produit, marché, exécution, mise sur le marché et préparation au financement.",
+		"introHighlight": "Sélectionnez uniquement les jalons que vous pouvez défendre avec des preuves.",
+		"introAfter": "La contribution est plafonnée par le repère de l'étape régionale et est reportée dans la fourchette mixte pré-monétaire.",
+		"capLine": "Jusqu'à {total} sur 5 jalons · {per} par jalon — {country} {stage} benchmark",
+		"runningTotalLabel": "Contribution de Berkus jusqu'à présent",
+		"runningTotalProgress": "{count} sur 5 jalons choisis"
+	},
+	"scorecard": {
+		"introInputPrompt": "Notez cinq facteurs de défendabilité par rapport à la médiane régionale.",
+		"introBefore": "Le Scorecard compare cette entreprise à ses pairs régionaux au même stade et dans le même secteur.",
+		"introAfter": "Des scores plus élevés élèvent la médiane régionale ; des facteurs plus faibles le font reculer. Gardez la notation fondée sur des preuves que les investisseurs peuvent vérifier.",
+		"contextLine": "{country} {stage} · {sector}",
+		"runningMultiplierLabel": "Multiplicateur de tableau de bord en direct",
+		"runningMultiplierFooter": "Appliqué à la médiane régionale : {regional}",
+		"runningMultiplierProgress": "{count} sur 5 facteurs sélectionnés"
+	},
+	"companyCard": {
+		"operatingCountry": "Pays d'exploitation",
+		"searchCompanyNl": "Nom de l'entreprise ou numéro KVK",
+		"searchCompanyBe": "Nom de l'entreprise ou numéro KBO",
+		"registryNl": "Recherchez dans le registre du commerce KvK.",
+		"registryBe": "Recherchez dans le registre KBO.",
+		"registryPdf": "Apparaît sur votre rapport PDF prêt pour l'investisseur.",
+		"companyNameFallback": "Ou : saisissez le nom de votre entreprise",
+		"companyNamePlaceholder": "par ex. Homme de main",
+		"businessType": "Type d'entreprise (secteur)",
+		"legalForm": "Forme juridique",
+		"fundingStage": "Étape de financement",
+		"seriesANudge": "La série A · ARR multiple est généralement mieux adaptée à ce stade.",
+		"seedRevenueNudge": "€{mrr}k MRR · ARR multiple donne un nombre plus serré.",
+		"switchToArrCta": "Passer au ARR multiple",
+		"switchToArrAria": "Basculez la méthode de valorisation active sur ARR multiple – vos entrées sont conservées.",
+		"sectorChipLabel": "Secteur moteur",
+		"sectorChipMultiple": "{multiple}× quitter le benchmark EV/Revenu",
+		"sectorChipChange": "Changement",
+		"sectorChipPickHeading": "Choisissez le secteur qui correspond le mieux à votre entreprise",
+		"sectorChipPickHint": "Détermine le multiple de sortie, la référence régionale avant l'argent et si la jambe SaaS-forward s'intègre. Choisissez l'ajustement le plus proche - les investisseurs vous mettront au défi si ce n'est pas le cas.",
+		"roundRaised": "Taille ronde à relever (€)",
+		"pitchLabel": "Emplacement sur une ligne (facultatif)",
+		"pitchPlaceholder": "par ex. \"Nous aidons les cabinets d'avocats belges à analyser les contrats 10 fois plus rapidement.\"",
+		"stageLabels": {
+			"pre_seed": "Pré-ensemencement",
+			"seed": "Semence",
+			"series_a": "Série A"
+		},
+		"stageSubtitles": {
+			"pre_seed": "Idée dès les premières embauches, pas encore de revenus récurrents. Les étapes de réduction des risques déterminent la majeure partie de ces chiffres.",
+			"seed": "MRR est en ligne, vous recherchez l'adéquation produit-marché. La réduction des risques, la défendabilité du marché et la traction vers l’avant ont chacune un poids.",
+			"series_a": "~1M€+ ARR, augmentation à grande échelle. La traction vers l’avant et les chiffres induits par la sortie ancrent la valorisation."
+		}
+	},
+	"traction": {
+		"revenuePrompt": "Générez-vous aujourd’hui des revenus récurrents ? Dire « non » indique au moteur d'ignorer le calcul des multiples ARR (cela n'est pas informatif sans revenus).",
+		"noRevenue": "Pas encore de revenus",
+		"yesMrr": "Oui, MRR en direct",
+		"forwardTitle": "Métriques SaaS prospectives",
+		"forwardSub": "Alimente la partie SaaS de l’évaluation avec les données économiques actuelles de votre unité.",
+		"monthlyGrowth": "Croissance mensuelle (%)",
+		"monthlyGrowthHint": "Par mois, composé. 5%/mois ≈ 80%/an. La plupart des SaaS de pré-amorçage se situent entre 8 et 15 %/mois.",
+		"monthlyGrowthAnnualEquiv": "= {annualPct}%/an composé",
+		"monthlyGrowthHotWarn": "Au-dessus de 20 %/mois : une capitalisation soutenue implique un cycle de doublement pluriannuel que la plupart des cohortes ne peuvent pas supporter. Revérifiez.",
+		"monthlyChurn": "Taux de désabonnement mensuel (%)",
+		"mrrLabel": "MRR (€) — revenus récurrents mensuels actuels",
+		"cacLabel": "CAC (€) — coût d'acquisition complet par client",
+		"ltvOptional": "LTV (€) — en option",
+		"ltvCacRatioLabel": "LTV : ratio CAC",
+		"currentArr": "ARR actuel",
+		"forwardArr": "Avancer 12 mois ARR",
+		"payback": "Remboursement",
+		"ltvCacWarn": "LTV : CAC inférieur à 3× — revérifiez les entrées.",
+		"livePreMoneyLabel": "Pré-argent estimé",
+		"livePreMoneyCaption": "Mélange en direct de Berkus, Scorecard, méthode VC et SaaS – se déplace lorsque vous faites glisser les curseurs.",
+		"mrrSliderLabel": "Faites glisser pour comparer les scénarios MRR",
+		"mrrSliderHint": "Le MRR de 0 à 25 000 € couvre la gamme de pré-amorçage/amorçage précoce. Tapez un nombre précis ci-dessus pour toute valeur au-delà.",
+		"engagementTitle": "Utilisateurs actifs/engagement",
+		"engagementLead": "Comptes actifs, MAU, acheteurs hebdomadaires, quelle que soit votre mesure d'utilisation. Les comptes supérieurs à 100 augmentent le score de défendabilité ; 1 000+ ajoute un crédit d'engagement multiple, de sorte qu'un fondateur de marché avec des revenus légers se lit toujours comme une véritable traction.",
+		"engagementLabel": "Utilisateurs actifs aujourd'hui",
+		"engagementSliderLabel": "Faites glisser pour comparer les scénarios d'engagement",
+		"engagementSliderHint": "Tapez un nombre plus grand ci-dessus. La vanité compte en dessous de 100 ne fait pas bouger le score – les anges voient à travers eux.",
+		"engagementBadgeNone": "Aucun crédit jusqu'à ce que vous croisiez ≥100 utilisateurs actifs.",
+		"engagementBadgeToken": "Engagement symbolique – +10 % au signal de traction de défendabilité.",
+		"engagementBadgeReal": "Engagement réel – +25 % au signal de traction de défendabilité."
+	},
+	"exitStory": {
+		"y5Title": "Thèse sur les revenus de la cinquième année",
+		"y5Lead": "Le numéro unique que cette section conduit. Les investisseurs l'utilisent (× le multiple de sortie du secteur ÷ leur retour sur investissement cible) pour résoudre le pré-argent que vous pouvez défendre de manière crédible.",
+		"y5Label": "Chiffre d'affaires de l'année 5 (€)",
+		"y5Desc": "Ce que vous vous attendez de manière réaliste à facturer au cours de votre cinquième année complète. Utilisez la valeur par défaut du secteur ci-dessous comme point de départ, puis affinez-la une fois que votre traction ou la taille du marché sera plus ferme.",
+		"sectorDefaultBtn": "Utiliser la valeur par défaut du secteur · {amount}",
+		"sectorDefaultHint": "(Y5 ARR typique pour {sector} à ce stade)",
+		"investorAskTitle": "Le rendement exigé par l'investisseur",
+		"investorAskLead": "De quel multiple de rendement le fonds a-t-il besoin pour justifier le chèque ? Il s’agit de l’obstacle lié au fonds, et non de votre propre retour sur investissement.",
+		"targetRoiPresetLabel": "Utilisez une cible typique de l'étape",
+		"targetRoiLabel": "La cible de VC renvoie plusieurs (×)",
+		"targetRoiDesc": "Plus le nombre est élevé, plus votre pré-argent est faible. {roi}× signifie que l'investisseur souhaite récupérer {roi} € pour chaque euro investi aujourd'hui – généralement 7 à 10 ans plus tard, après plusieurs cycles de dilution. Pré-ensemencement ~30×, graine ~20×, série A ~10×. Nous avons pré-rempli {roi}× pour {stage}.",
+		"impliedExit": "Sortie implicite EV",
+		"sectorMultipleFoot": "Multiple de sortie du secteur : ",
+		"y5SanityImpossibleGrowthTitle": "Y5 implique une croissance de {ratio}× à partir d’aujourd’hui – les investisseurs contesteront cela",
+		"y5SanityImpossibleGrowthBody": "À votre ARR actuel ({currentArr}), atteindre {y5} dans cinq ans implique une croissance soutenue de {monthlyGrowth}%/mois. Revérifiez la projection.",
+		"y5SanityBelowCurrentTitle": "Y5 est inférieur à votre ARR actuel – revérifiez ce numéro",
+		"y5SanityBelowCurrentBody": "Vous projetez Y5 ({y5}) en dessous de votre ARR actuel ({currentArr}). Soit le ARR est mal déclaré (ponctuel, brut ou net, etc.), soit la projection devrait être supérieure au taux d'exécution actuel.",
+		"y5SanityPreRevenueTooHighTitle": "Y5 est {ratio}× le défaut du secteur – les investisseurs contesteront cela",
+		"y5SanityPreRevenueTooHighBody": "Vous avez projeté {y5} pour Y5 ; la valeur par défaut du secteur pour {sector} est {sectorDefault}. Au-dessus de ~5×, la valeur par défaut du secteur est la zone moonshot – conservez le numéro si vous pouvez le défendre auprès d'un comparable public, sinon rappelez pour ancrer le reste du rapport.",
+		"multipleOverrideTitle": "Quitter EV/Revenu multiple",
+		"multipleOverrideLead": "Pré-rempli à partir du médian du secteur. Remplacez si vous disposez d’un ensemble de pairs plus précis.",
+		"multipleLabel": "Sortie EV/Revenu multiple (×)",
+		"multipleDescDefault": "Valeur par défaut du secteur pour {sector} : {mid}× (plage {low} – {high}×, Athena Q1 2026). Nous avons pré-rempli {mid}×.",
+		"multipleDescOverridden": "Vous avez remplacé la valeur par défaut du secteur ({mid}×) par {applied}×. Ajoutez une justification d’une ligne ci-dessous – elle apparaît textuellement sur votre PDF investisseur.",
+		"multipleResetBtn": "Réinitialisation à la médiane du secteur ({mid}×)",
+		"multipleRationaleLabel": "Pourquoi ce multiple ? (apparaît dans votre PDF)",
+		"multipleRationaleOptionalLabel": "Pourquoi ce multiple ? (facultatif — apparaît dans votre PDF)",
+		"multipleRationaleHint": "Une phrase suffit. Les investisseurs s’attendent à un comparable, à un point de données sur une transaction récente ou à une citation publique.",
+		"multipleRationalePlaceholder": "par ex. \"Le récent indice Bessemer Cloud pour le SaaS vertical avec notre ARPU imprime 8 à 10 ×.\"",
+		"multipleOutOfBandWarn": "En dehors de la bande du secteur P25 – P75 ({low} – {high}×). Ajoutez une justification ci-dessous.",
+		"exitFooter": "Multiple de sortie du secteur : {mult}× · plage {low}–{high}× · {sector} · Athena Q1 2026",
+		"exitFooterOffline": "Multiple de sortie de secteur : {mult}× · plage {low}–{high}× · {sector} · Athena Q1 2026 · hors ligne"
+	},
+	"round": {
+		"kindTitle": "Quel genre de tour levéez-vous ?",
+		"kindLead": "Ce choix change ce que nous pouvons afficher dans l'aperçu.",
+		"kindLeadDetail": "Actions évaluées : nous modélisons cette clôture immédiatement : les nouveaux investisseurs reçoivent une augmentation ÷ après l'argent (voir la barre ci-dessous). Ce pourcentage n’est pas le même que le champ cumulé de dilution jusqu’à la sortie plus haut. Les SAFE et les convertibles sont convertis lors du prochain cycle de prix, il n'y a donc pas encore de tranche de propriété fixe ici.",
+		"priced": "Ronde à prix",
+		"safe": "SÉCURISÉ / convertible",
+		"roundSize": "Taille ronde à relever (€)",
+		"preMoneyTarget": "Pré-argent que vous proposez (€)",
+		"preMoneyPlaceholder": "Mélange vivant",
+		"preMoneyTargetDesc": "Le numéro que vous citerez aux investisseurs. Laissez ce champ vide pour utiliser la valorisation mixte en direct des étapes ci-dessus ; remplissez-le une fois que vous avez une cible que vous souhaitez défendre.",
+		"dilutionLabel": "Dilution cumulée à la sortie (%)",
+		"dilutionDesc": "Dilution totale attendue du fondateur jusqu'à la sortie (références médianes — Atomico State of European Tech 2024 · Dealroom Benelux 2024). On part de {pct}% pour {stage}. Cela ne détermine pas le graphique à barres : le pourcentage de nouveaux investisseurs de ce cycle est toujours augmenté ÷ après l'argent.",
+		"useStageDefault": "Réinitialiser à la valeur par défaut ({pct}%)",
+		"useStageDefaultAria": "Réinitialiser la dilution de sortie cumulée à la valeur médiane par défaut de {stage}, soit {pct}%",
+		"optionPool": "Pool d'options (%)",
+		"optionPoolPlaceholder": "10",
+		"optionPoolDesc": "Fonds propres réservés aux futures embauches. La plupart des tours en utilisent 10 à 15 % ; les investisseurs s’attendent souvent à ce que cela soit visible dans la pile pré-monnaie.",
+		"capTableTitle": "Table des plafonds post-argent",
+		"capTableExplainer": "Propriété après cette clôture (pré-argent + levée, avec l'option pool réservée). Nouveaux investisseurs ≈ {roundPct}% après l'argent de cette seule augmentation - distinct du champ % cumulé jusqu'à la sortie.",
+		"roundDilutionHighHint": "~{roundPct}% pour l'argent frais est une grosse tranche pour un seul tour ; de nombreux fondateurs visent plus près de 10 à 15 % par chèque important. À cette augmentation, environ 12 % correspondraient à un pré-argent proche de {preHint} (à titre indicatif – utilisez votre term sheet actuelle).",
+		"foundersBelowFloorHint": "Les fondateurs terminent cette clôture à ~{foundersPct}% – en dessous du plancher de ~30% souhaité par la plupart des sociétés de capital-risque avant de pouvoir souscrire au prochain cycle. Réduisez le pool d’options, réduisez la levée ou augmentez le pré-argent.",
+		"dilutionDefaultsSource": "Source : Médianes de la cohorte Atomico SoEU 2024 + Dealroom Benelux 2024.",
+		"raiseSliderLabel": "Essayez une taille du tour différente",
+		"raiseSliderHint": "Faites glisser pour voir comment le tableau des plafonds évolue selon les différents montants de levée. La barre ci-dessus et la mise à jour de la pilule post-argent en direct.",
+		"raiseSliderResetCta": "Réinitialiser à {amount}",
+		"preMoney": "Pré-argent",
+		"postMoney": "Post-argent"
+	},
+	"findingPeek": {
+		"ariaPeek": "Suggestion de copilote",
+		"dismissAria": "Plus tard : rejeter la suggestion",
+		"askCopilot": "Demandez au copilote",
+		"severity": {
+			"block": "Doit réparer",
+			"warn": "Recommandé",
+			"info": "Attention"
+		}
+	},
+	"copilot": {
+		"fabToFix": "Copilote · {count} à corriger",
+		"fabAllClear": "Copilote · tout est clair"
+	},
+	"submit": {
+		"calculating": "Calcul…",
+		"generate": "Générer une évaluation de démarrage",
+		"hintMissingCompany": "Ajoutez le nom de l'entreprise ci-dessus pour débloquer la génération de rapports.",
+		"hintMissingMilestone": "Choisissez au moins une étape dans la « Réduction des risques » pour une évaluation défendable.",
+		"hintBlockerIssues": "{count, plural, one {#bloqueur} other {#bloqueurs}}doit être corrigé avant que le rapport puisse être expédié – ouvrez l'assistant pour voir quoi."
+	},
+	"reviewGate": {
+		"title": "Revoyez vos hypothèses avant de générer",
+		"subtitleWithDefaults": "{count, plural, one {#utilise la valeur par défaut du moteur} other {Les valeurs#utilisent les valeurs par défaut du moteur}}— assurez-vous de pouvoir les défendre auprès des investisseurs.",
+		"subtitleAllReviewed": "Chaque valeur est votre propre entrée : générez le rapport lorsque vous êtes prêt.",
+		"defaultChip": "par défaut",
+		"defaultChipTooltip": "Utilisation de la valeur par défaut intelligente du moteur pour votre stade/secteur. Remplacez si vous pouvez défendre un numéro différent.",
+		"editBtn": "Modifier",
+		"cancelBtn": "Retour à l'assistant",
+		"confirmBtn": "Générer un rapport",
+		"closeAria": "Fermer le mode d'examen",
+		"row": {
+			"stage": "Étape de financement",
+			"sector": "Secteur moteur",
+			"y5": "Chiffre d'affaires de la cinquième année",
+			"exitMultiple": "Quitter EV/Revenu multiple",
+			"targetRoi": "ROI cible des investisseurs",
+			"investment": "Taille ronde à relever",
+			"dilution": "Dilution cumulée pour sortir"
+		}
+	},
+	"safeNotes": {
+		"defaultTitle": "Billets SÉCURISÉS / Convertibles",
+		"defaultDescription": "Ajoutez des SAFE exceptionnels : ils seront convertis lors du prochain cycle de tarification.",
+		"empty": "Aucun SAFE ajouté pour l'instant.",
+		"add": "Ajouter SÉCURISÉ",
+		"holder": "Titulaire",
+		"removeAria": "Supprimer SÉCURISÉ",
+		"amount": "Montant (€)",
+		"cap": "Plafond de valorisation (€)",
+		"discount": "Remise (%)",
+		"advisorHint": "Mode conseiller : en cas de conversion au prix rond, la clause la plus favorable (plafond ou remise) est appliquée par SAFE.",
+		"capitalHistoryTitle": "SAFE / cabriolets exceptionnels",
+		"capitalHistoryDescription": "Convertissez lors du prochain tour de tarification. La clause la plus favorable (plafond ou remise) s'applique."
+	},
+	"pedigree": {
+		"introInputPrompt": "Cochez chaque réclamation qui s'applique. Ajoutez une preuve d'une ligne par réclamation : seules les augmentations prouvées comptent.",
+		"introBefore": "Le pedigree de l'équipe ajuste la valorisation uniquement lorsque les preuves du fondateur modifient le risque d'exécution.",
+		"introRisk": "Certaines affirmations élèvent la fourchette ; le risque de fondateur solo peut l’écarter.",
+		"introMid": "Le moteur traite les réclamations non fondées comme neutres.",
+		"introWho": "Appliquez chaque signal au fondateur ou au membre fondateur de l’équipe qui peut le prouver.",
+		"introAfter": "Ces sélections alimentent le tableau de défendabilité dans le PDF investisseur.",
+		"pickDefend": "Choisissez uniquement ce que vous pouvez défendre.",
+		"effectiveMultiplier": "Multiplicateur efficace",
+		"claimedNeutralized": "Réclamé : {claimed}× — neutralisé par des preuves manquantes",
+		"liftApplied": "Ascenseur appliqué",
+		"discountApplied": "Remise appliquée",
+		"noOverlay": "Pas de superposition",
+		"evidenceLabel": "Preuve (obligatoire pour que l'ascenseur compte)",
+		"evidenceMissingEngine": "Sans preuve, le moteur remet à zéro cette affirmation de pedigree (le multiplicateur reste 1,00×).",
+		"evidenceCounter": "{count}/500 — apparaît textuellement dans le tableau de défendabilité du rapport.",
+		"liftPendingChipSuffix": "preuves en attente",
+		"soloFounderAsymmetry": "Le statut de fondateur solo est traité de manière asymétrique : il peut réduire la confiance dans l'exécution, mais les atouts du fondateur, étayés par des preuves, peuvent toujours compenser une partie du risque.",
+		"calibrationBefore": "Les superpositions des fondateurs sont calibrées en fonction des résultats de la phase d'amorçage du Benelux plutôt que ajoutées sous forme de primes arbitraires.",
+		"calibrationTitle": "Logique d'étalonnage",
+		"calibrationAfter": "Les augmentations et les réductions fondées sur des preuves sont multipliées dans la partie Scorecard avant le mélange final.",
+		"calibrationClamp": "La superposition est plafonnée afin que le pedigree ne submerge jamais la traction, les jalons ou l’économie de sortie.",
+		"calibrationTail": "Le rapport conserve la réclamation, les preuves et le multiplicateur appliqué visibles pour l'examen des investisseurs.",
+		"options": {
+			"prior_exit": {
+				"title": "Sortie préalable en capital-risque (≥10M€)",
+				"description": "Tout cofondateur a quitté une précédente entreprise financée par du capital-risque d'une valeur d'entreprise de plus de 10 millions d'euros.",
+				"evidence": "Les investisseurs vérifient : l'enregistrement de sortie de Crunchbase / Dealroom, le communiqué de presse public ou la référence LP."
+			},
+			"top_unicorn_alumnus": {
+				"title": "Ancien élève de haut niveau en scale-up",
+				"description": "Tout cofondateur a passé ≥ 2 ans à un niveau supérieur (IC senior, responsable, manager, staff ou supérieur – pas débutant/stagiaire) au sein d'une scale-up Benelux ou européenne de premier plan (Adyen, Showpad, Collibra, Bol, Mollie, UiPath, Klarna, Wise, Spotify…).",
+				"evidence": "Les investisseurs vérifient : mandat LinkedIn + groupe de rôles ; de nombreux fonds entretiennent une cartographie « mafieuse » de ces réseaux."
+			},
+			"domain_expert_10y": {
+				"title": "Plus de 10 ans d'expérience dans l'industrie",
+				"description": "Tout cofondateur a plus de 10 ans d'expérience opérationnelle dans le secteur du client cible - l'adéquation du fondateur au marché bat la force du fondateur générique au pré-amorçage.",
+				"evidence": "Les investisseurs vérifient : les références d’employeurs antérieurs ; entretiens inversés avec des clients cibles demandant « achèteriez-vous auprès de cette personne ?"
+			},
+			"second_time_founder": {
+				"title": "Fondateur pour la deuxième fois",
+				"description": "Tout cofondateur a déjà fondé une entreprise qui a fonctionné pendant ≥2 ans (aucune sortie requise — le signal « J'ai expédié une entreprise » à lui seul est significatif).",
+				"evidence": "Les investisseurs vérifient : l'historique d'incorporation de KBO/KVK, le tableau des plafonds antérieurs, GitHub ou les archives de produits."
+			},
+			"has_technical_cofounder": {
+				"title": "Cofondateur technique à temps plein",
+				"description": "Au moins un cofondateur technique à temps plein possède la base de code de bout en bout. Atténue le risque d’exécution pré-amorçage le plus courant (ingénierie externalisée).",
+				"evidence": "Les investisseurs vérifient : partage des capitaux propres, engagements GitHub, entretien de due diligence technique."
+			},
+			"solo_founder": {
+				"title": "Fondateur solo (pas de cofondateur)",
+				"description": "Fondateur unique fonctionnant sans cofondateurs. Les fondateurs solo clôturent à un pré-financement sensiblement inférieur dans les ensembles de données publiés sur le Benelux – la remise est empirique et non un jugement.",
+				"evidence": "Choisir cela efface l’ascenseur technique-cofondateur – les deux ne peuvent pas être vrais en même temps."
+			}
+		},
+		"placeholders": {
+			"prior_exit": "par ex. \"Vendu Acme à Salesforce 2021, 40 M€ EV — Crunchbase : …\"",
+			"top_unicorn_alumnus": "par ex. \"Premier ministre senior @ Adyen 2018-2021 — LinkedIn : …\"",
+			"domain_expert_10y": "par ex. \"12 ans de conseil M&A @ ING / KBC — références sur demande\"",
+			"second_time_founder": "par ex. \"Fondation de Foo BV 2015-2019 (3 ans) — KBO : …\"",
+			"has_technical_cofounder": "par ex. \"Jane Doe, ex-Aikido Staff Eng - possède la base de code, 60% s'engage\""
+		}
+	},
+	"teamPicker": {
+		"heading": "Quelle est l’expérience de votre équipe ?",
+		"subline": "Un choix. Pas de jargon. Nous calculons le multiplicateur fondateur-pedigree à partir de cela – aucune case à cocher à lire.",
+		"mostPicked": "Les plus choisis",
+		"footer": "Vous n'êtes pas sûr ? Choisissez \"{title}\" - c'est la médiane de pré-amorçage d'Atomico Benelux.",
+		"levels": {
+			"first_time": {
+				"title": "Créateurs pour la première fois",
+				"subtitle": "Nouveau dans la fondation. Aucune sortie préalable ni mandat de mise à l'échelle. En solo ou avec un partenaire.",
+				"hint": "Engine lit cela comme une base de référence neutre – pas de prime de fondateur-pedigree."
+			},
+			"experienced": {
+				"title": "Opérateurs expérimentés",
+				"subtitle": "Solide expérience industrielle, cofondateur technique à bord. L'équipe peut expédier et vendre.",
+				"hint": "Le moteur lit cela comme ~ 1,25 × – équipe typique de fondateurs de pré-amorçage d'Atomico Benelux."
+			},
+			"veteran": {
+				"title": "Fondateurs vétérans",
+				"subtitle": "Je l'ai déjà fait – entreprise antérieure de plus de 2 ans, expertise approfondie du domaine, cofondateur technique.",
+				"hint": "Engine lit cela comme ~ 1,35 × – fondateurs pour la deuxième fois avec des antécédents opérationnels."
+			},
+			"dream_team": {
+				"title": "Équipe de rêve",
+				"subtitle": "Sortie préalable (10M€+) ou anciens élèves du top scaleup (Adyen / Collibra / Showpad / Bol / Mollie / etc).",
+				"hint": "Le moteur lit cela comme ~ 1,60 × – pedigree du quartile supérieur, rendement requis en VC le plus bas."
+			}
+		}
+	},
+	"ambition": {
+		"heading": "Quelle taille voulez-vous que cela atteigne ?",
+		"subline": "Un choix. Nous dérivons les hypothèses de sortie sous-jacentes à partir des références Atomico SoEU 2024 + Dealroom Benelux.",
+		"recommended": "Recommandé",
+		"y5Anchor": "Ancrage des revenus de la cinquième année",
+		"footer": "Vous n'êtes pas sûr ? Choisissez « {title} » – c'est la médiane Atomico pour les fondateurs en pré-amorçage.",
+		"levels": {
+			"conservative": {
+				"title": "Taille moyenne solide",
+				"subtitle": "Rentable, ciblé et économe en capital. Acquisition par un acheteur industriel.",
+				"outcome": "Revenus raisonnables de taille moyenne d’ici la cinquième année. Défendable, faible risque.",
+				"hint": "Le moteur lit cela comme une ancre conservatrice de la méthode VC."
+			},
+			"standard": {
+				"title": "Chef de catégorie",
+				"subtitle": "Forte part de marché, croissance saine du ARR, acquisition stratégique ou cycle de croissance.",
+				"outcome": "Top-3 dans votre catégorie d'ici la 5e année.",
+				"hint": "La plupart des fondateurs de pré-amorçage choisissent ceci : la médiane Atomico SoEU 2024."
+			},
+			"ambitious": {
+				"title": "Définition de catégorie",
+				"subtitle": "Résultat générationnel – Sortie de plus de 100 millions d’euros ou chemin d’introduction en bourse. Variance élevée, potentiel de hausse élevé.",
+				"outcome": "Définir la catégorie d'ici la cinquième année – résultat à l'échelle du projet.",
+				"hint": "Le moteur lit ceci comme une ancre de méthode VC du quartile supérieur."
+			}
+		}
+	},
+	"inceptionLens": {
+		"heading": "Objectif de création (en option)",
+		"subline": "Pour les fondateurs qui ne suivent pas un parcours jalon conventionnel. Reconnaît que le pré-amorçage est gagné par l'élan (et non par les douves) et que les meilleurs fondateurs coûtent plus cher. Par défaut : désactivé.",
+		"noOverlayChip": "Pas de superposition",
+		"overlayActive": "{lift} · ±{band}%",
+		"defaultBadge": "Par défaut",
+		"whatLensLead": "Utilisez-le uniquement lorsque le prix de l’entreprise est basé sur un élan initial inhabituel plutôt que sur un parcours d’étape conventionnel.",
+		"whatLensBody": "Il élargit la fourchette et peut élever le point médian lorsqu'il existe des preuves crédibles de l'attraction des investisseurs, de la rapidité des embauches ou d'un timing exceptionnel du marché des fondateurs.",
+		"levels": {
+			"milestones_driven": {
+				"title": "Basé sur des jalons",
+				"subtitle": "Pré-amorçage standard : jalons mesurables, trajectoire comparable à celle des pairs. Mélange conventionnel Berkus + Scorecard + VC, pas de superposition."
+			},
+			"momentum_driven": {
+				"title": "Motivé par l'élan",
+				"subtitle": "\"La pré-semence est gagnée par l'élan, pas par les douves.\" Intérêt des investisseurs entrants, accélération des embauches, attraction précoce des clients. Lift +10 %, bande de variance plus large de ±15 %.",
+				"examples": "Juste au moment où les pairs vous contactent sans y être invités ; mise à l'échelle de l'équipe 2 × par trimestre ; les utilisateurs demandent la prochaine version."
+			},
+			"inception_bet": {
+				"title": "Inception bet",
+				"subtitle": "Edge premium + thèse de création de marché. Profil Spike, ambition générationnelle, pas de plafond. Lift +25 %, bande de variance plus large de ±25 % – variance élevée, hausse asymétrique reconnue honnêtement.",
+				"examples": "Le profil Lovable / Anthropique / Curseur. Ambition insensée à la limite, pic technique ou de distribution, thèse créatrice de marché."
+			}
+		}
+	},
+	"landing": {
+		"hero": {
+			"eyebrow": "Aucune inscription nécessaire pour commencer",
+			"headline": "Que vaut votre startup ?",
+			"headlineAccent": "Découvrez-le en 15 minutes : inscrivez-vous uniquement lorsque vous souhaitez recevoir le rapport.",
+			"subline": "Trois cadres établis, calibrés par rapport aux références publiées du Benelux. Remplissez-le ici, inscrivez-vous à la fin pour télécharger le PDF prêt pour les investisseurs.",
+			"stageChipsLabel": "Couverture du stade",
+			"anonymous": "Anonyme jusqu'à l'inscription",
+			"noCard": "Pas de carte de crédit",
+			"gdpr": "Conforme au RGPD",
+			"stageChips": [
+				"Pré-ensemencement",
+				"Semence",
+				"Série A"
+			]
+		},
+		"howItWorks": {
+			"heading": "Comment ça marche",
+			"steps": [
+				{
+					"title": "Remplissez l'assistant",
+					"body": "Huit courtes sections. Aucune donnée financière historique n’est requise. Environ 15 minutes."
+				},
+				{
+					"title": "Inscrivez-vous — pas de carte",
+					"body": "Une inscription par lien magique. Vos entrées voyagent avec vous jusqu'au tableau de bord authentifié."
+				},
+				{
+					"title": "Téléchargez votre PDF",
+					"body": "Un rapport de 4 pages prêt pour l'investisseur : une page, méthodologie, tableau des plafonds, dilution."
+				}
+			]
+		},
+		"methodology": {
+			"heading": "Trois cadres, un numéro défendable",
+			"lede": "Nous mélangeons trois méthodes d'évaluation que les investisseurs providentiels et les fonds d'amorçage demandent réellement. Chacune est fondée sur des recherches publiées – pas de boîte noire exclusive.",
+			"cards": [
+				{
+					"title": "Méthode Berkus",
+					"attribution": "Dave Berkus, ~ années 1990 — Calibrage « Berkus 2.0 » : 2024",
+					"body": "Cinq jalons de réduction des risques (idée, prototype, équipe, partenariats, déploiement). Chaque étape génère une contribution définie au pré-argent – ​​ancrée sur des plafonds adaptés à la stade, et non sur une intuition à un moment donné."
+				},
+				{
+					"title": "Tableau de bord de Bill Payne",
+					"attribution": "Bill Payne / Frontier Angels — méthodologie publiée, mise à jour 2024",
+					"body": "Cinq facteurs pondérés (taille du marché, défendabilité, GTM, efficacité du capital, autres vents favorables) comparés à la médiane régionale. Le résultat est un multiplicateur sur une base de référence Benelux publiée."
+				},
+				{
+					"title": "Méthode VC",
+					"attribution": "Bill Sahlman, Harvard Business Review (1987)",
+					"body": "Revenu de la cinquième année × un multiple de sortie-EV/revenu ÷ le retour sur investissement cible du fonds. Fait apparaître la lentille « que le fonds a-t-il besoin de voir » que les rondes de prix résolvent réellement."
+				}
+			]
+		},
+		"reportContents": {
+			"heading": "Ce que vous allez télécharger",
+			"lede": "Un PDF de 4 pages, conçu pour être déposé dans une data room ou collé dans un deck. Les mêmes artefacts apparaissent chacun dans le rapport ci-dessous.",
+			"items": [
+				{
+					"title": "Une page de collecte de fonds",
+					"body": "La page que vous remettez à un ange : pré-argent mélangé, gamme, mélange de méthodes, terrain de football sur les trois jambes, simulateur de table de cap, points forts de la défensibilité."
+				},
+				{
+					"title": "Résumé exécutif",
+					"body": "Titre canonique + portée + récit, avec un mélange de stades et de méthodes demandé au critique."
+				},
+				{
+					"title": "Répartition de la méthode",
+					"body": "Piste d'audit par méthode : tableau des contributions Berkus, pondérations des facteurs du tableau de bord, calculs multiples SaaS forward, backsolve VC."
+				},
+				{
+					"title": "Tableau des bouchons et dilution",
+					"body": "Pool d'options existant, tour précédent, notes SAFE et scénario de dilution du tour suivant – présentés de manière à ce qu'un comptable puisse le certifier."
+				}
+			]
+		},
+		"sources": {
+			"heading": "Calibré par rapport à la recherche publiée",
+			"lede": "Les benchmarks ne s’inventent pas. Les chiffres auxquels le moteur compare vos entrées proviennent d’ensembles de données publics :",
+			"items": [
+				"Atomico — État de la technologie européenne 2024",
+				"Salle des marchés — Benelux 2024",
+				"Bessemer — État du cloud 2024",
+				"KeyBanc / OpenView — Enquête SaaS privée"
+			],
+			"note": "Les sources sont citées en ligne dans votre rapport téléchargé partout où une référence génère un chiffre."
+		},
+		"faq": {
+			"heading": "Des réponses honnêtes",
+			"items": [
+				{
+					"q": "Pourquoi l'assistant est-il gratuit sans inscription ?",
+					"a": "Le remplir vous donne un numéro que vous pouvez coller seul dans un deck – c'est déjà utile, avec ou sans le PDF. L'inscription est uniquement destinée au rapport raffiné prêt pour les investisseurs et à la conservation de votre travail au fil des sessions."
+				},
+				{
+					"q": "Quelle est la précision de cette évaluation par rapport à une évaluation payante ?",
+					"a": "Il s'agit d'une triangulation entre trois méthodes établies, et non d'un seul chiffre de vérité terrain. Pour une feuille de conditions ou une conversion SÉCURISÉE, votre comptable doit signer le tableau des plafonds — nous en faisons une invitation en un clic depuis l'intérieur du rapport."
+				},
+				{
+					"q": "Qu'arrive-t-il à mes contributions si je pars sans m'inscrire ?",
+					"a": "Ils restent uniquement dans votre navigateur (localStorage). Rien n'est envoyé à nos serveurs jusqu'à votre inscription. Si vous revenez dans les 24 heures, vos saisies se rechargent automatiquement."
+				},
+				{
+					"q": "Puis-je exécuter ceci pour une startup non belge/non néerlandaise ?",
+					"a": "L'assistant fonctionne pour n'importe quelle entreprise : les références régionales sont aujourd'hui calibrées pour la Belgique et les Pays-Bas. Si vous êtes ailleurs en Europe, les chiffres triangulent toujours, mais vous devez considérer le multiplicateur régional comme approximatif."
+				}
+			]
+		},
+		"rightRail": {
+			"title": "Votre rapport est presque prêt",
+			"sub": "Remplissez l'assistant à gauche. Lorsque vous cliquez sur « Générer mon rapport », nous enregistrons vos saisies, vous guidons vers une inscription rapide et vous amenons directement à votre évaluation terminée : le rail de gauche est prérempli, le rail de droite affiche le PDF.",
+			"fixesIssues": "{count, plural, one {1 chose à corriger avant que le rapport soit prêt pour les investisseurs} other {#éléments à corriger avant que le rapport ne soit prêt pour les investisseurs}}",
+			"cta": "Générer mon rapport gratuit",
+			"ctaSubmitting": "Sauvegarde de vos entrées…",
+			"ctaFootnote": "Gratuit, en 15 minutes. Nous ne partageons jamais vos contributions. La prochaine étape est une inscription rapide – pas de carte de crédit.",
+			"legalAlready": "Vous avez déjà un compte ?",
+			"legalLogin": "Connectez-vous"
+		},
+		"meta": {
+			"title": "Valorisation des startups – Gratuit, aucune inscription nécessaire pour démarrer | Commutateur vers le haut",
+			"description": "Exécutez le mélange complet de méthodes Berkus + Scorecard + VC sur votre startup. Remplissez-le ici, inscrivez-vous uniquement lorsque vous souhaitez obtenir le rapport prêt pour l'investisseur."
+		},
+		"wizardAriaLabel": "Assistant de valorisation de startup"
+	},
+	"narrative": {
+		"stageLabels": {
+			"pre_seed": "pré-ensemencement",
+			"seed": "graine",
+			"series_a": "Série A"
+		},
+		"sectorLabels": {
+			"saas": "SaaS B2B",
+			"marketplace": "marché",
+			"fintech": "technologie financière",
+			"biotech_healthtech": "biotechnologie / technologie de la santé",
+			"deeptech_ai": "deeptech / IA",
+			"vertical_ai": "IA verticale/workflow agent",
+			"consumer": "consommateur",
+			"hardware": "matériel",
+			"other": "intersectoriel"
+		},
+		"team": {
+			"first_time": "une première équipe fondatrice",
+			"experienced": "une équipe opérationnelle expérimentée",
+			"veteran": "une équipe fondatrice chevronnée",
+			"dream_team": "un profil de dream-team"
+		},
+		"ambition": {
+			"conservative": "un résultat conservateur de taille moyenne",
+			"standard": "un résultat leader dans la catégorie",
+			"ambitious": "un résultat définissant la catégorie"
+		},
+		"teamFallback": "le profil de votre équipe",
+		"ambitionFallback": "votre thèse de croissance",
+		"year5Suffix": " (Ancre Y5 ARR : {amount})",
+		"whyP1": "Ancré à {team} et {ambition}{year5}.  Le pré-argent atterrit à {preMoney} lors d'un tour {raise}.",
+		"pedigreeLift": " Puis une augmentation de {mult}× pour le pedigree de l'équipe",
+		"pedigreeDiscount": " Puis une réduction de {mult}× pour le pedigree de l'équipe",
+		"whyP2": "Triangulé selon les méthodes académiques {count} (axées sur les jalons, comparaison entre pairs, basées sur les sorties).{overlay}.  Chaque jambe est une méthode publiée et évaluée par des pairs – sans agiter la main.",
+		"headline": "{preMoney} pré-argent · lever {raise} · post-argent {post} · ~{dilution}% aux nouveaux investisseurs de ce cycle ({stage} · {sector} · {country})"
+	},
+	"transparency": {
+		"summaryTitle": "Aperçu en direct : pourquoi ce numéro ?",
+		"disclaimerBold": "Aperçu en direct.",
+		"disclaimerP1": "La valorisation canonique, la plage et le PDF sont rendus par ",
+		"disclaimerP2": " quand tu cliques ",
+		"disclaimerP3": ". Montrez aux investisseurs le rapport – pas cet aperçu.",
+		"valuationIq": "ValorisationIQ",
+		"generateCta": "Générer une évaluation de démarrage",
+		"sectionPlain": "1. En anglais simple",
+		"sectionMath": "2. Les mathématiques, étape par étape",
+		"notAvailable": "non disponible",
+		"legLabels": {
+			"berkus": "Berkus — axé sur les étapes",
+			"scorecard": "Bill Payne Scorecard – comparaison entre pairs",
+			"vc": "Méthode VC (Sahlman) – axée sur la sortie",
+			"saas_forward": "SaaS Forward Multiple — axé sur la traction"
+		},
+		"legNotes": {
+			"berkus": "Animé par vos 5 jalons de réduction des risques (idée, prototype, équipe, partenariats, déploiement).",
+			"scorecard": "Basé sur 5 facteurs de défense pondérés vous comparant à la moyenne régionale de pré-amorçage.",
+			"vc": "Poussé par votre thèse Y5 ARR × sortie multiple ÷ ROI cible − taille du tour.",
+			"saas_forward": "En fonction du MRR actuel projeté sur 12 mois × multiple ajusté au risque."
+		},
+		"pedigreeMultiplier": "Puis un multiplicateur d'équipe-pedigree de {mult}× sur le mélange de pattes ({from} → {to}).",
+		"inceptionSection": "2½. Objectif initial – appliqué",
+		"inceptionMomentumRest": "la pré-amorçage est gagnée par l'élan, pas par les douves. {mult}× levage au milieu ; Bande de variance plus large de ±{band}% pour signaler honnêtement l'incertitude réelle avant l'amorçage.",
+		"inceptionBetRest": "prime de pointe + thèse de création de marché. {mult}× levage au milieu ; Bande plus large de ±{band} % – le plancher plonge légèrement (reconnaissant une baisse plus élevée), le plafond se soulève considérablement (hausse asymétrique). Profil anthropique/adorable/curseur.",
+		"lensMomentum": "Objectif piloté par l'élan",
+		"lensBet": "Objectif du pari initial",
+		"preLens": "Pré-objectif (post-pedigree) milieu : ",
+		"afterLens": "Après l'objectif : ",
+		"benchmark": "3. Benchmark – où se situent les pairs ?",
+		"medianAria": "Médiane {amount}",
+		"engineAria": "Puissance moteur {amount}",
+		"medianLabel": "Médiane : ",
+		"youLabel": "Vous : ",
+		"bandCaption": "Bande : 0,5× – 2× médiane régionale (plage empirique P25–P75).",
+		"sensitivityTitle": "4. Que se passe-t-il si votre thèse de Y5 est en baisse de ±20 % ?",
+		"sensitivityFoot": "La thèse Y5 est l’apport de pré-amorçage le plus exploité. ±20 % de décalage ⇒ ±{spreadPct}% de pré-argent.",
+		"sourcesHeading": "5. Sources et méthodologie",
+		"sourceBerkusTitle": "Berkus (2024) :",
+		"sourceBerkus": "5 étapes de réduction des risques, actualisées pour le climat du risque 2024.",
+		"sourceScorecardTitle": "Tableau de bord Bill Payne (2024) :",
+		"sourceScorecard": "5 facteurs de défendabilité pondérés, bande de comparaison entre pairs 0,5 × – 1,5 ×.",
+		"sourceVcTitle": "Méthode VC (Sahlman) :",
+		"sourceVc": "Revenus Y5 × sorties multiples ÷ ROI cible − taille du tour.",
+		"sourcePedigreeTitle": "Pedigree (Strebulaev 2024) :",
+		"sourcePedigree": "Superposition multiplicative 0,70 × – 1,80 × sur la ligne de base du mélange de jambes.",
+		"sourceInceptionTitle": "Objectif de création (opt-in) :",
+		"sourceInception": "Superposition de multiplicateur + élargissement de bande pour les profils axés sur l'élan et les paris de création. Reconnaît que les fossés n'existent pas au pré-amorçage, que le TAM est inconnaissable et que les meilleurs fondateurs coûtent plus cher.",
+		"benchmarksLabel": "Repères :",
+		"offlineFallback": "solution de secours hors ligne",
+		"updatedPrefix": "mis à jour ",
+		"repro": "Le numéro prêt pour l'audit provient de <viq></viq> (moteur Python, côté serveur). Cet aperçu reflète les mêmes calculs, mais le chiffre canonique (celui de votre PDF et de votre rapport) est calculé de manière déterministe sur le serveur. Entrées identiques ⇒ numéro identique. Pas d'hallucination LLM, pas de règles cachées."
+	}
+}

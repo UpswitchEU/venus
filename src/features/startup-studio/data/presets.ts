@@ -34,13 +34,13 @@ export interface StudioPreset {
   /** Stable machine key — used for analytics + persisted "last applied" tag. */
   key: PresetKey
   /** Card title shown in the picker (EN / NL). */
-  title: { en: string; nl: string }
+  title: { en: string; nl: string; fr: string }
   /** One-line subtitle. */
-  subtitle: { en: string; nl: string }
+  subtitle: { en: string; nl: string; fr: string }
   /** Short list of attributes (chips on the picker card). */
-  highlights: { en: string[]; nl: string[] }
+  highlights: { en: string[]; nl: string[]; fr: string[] }
   /** Optional badge — e.g. "Demo", "Recommended". */
-  badge?: { en: string; nl: string }
+  badge?: { en: string; nl: string; fr: string }
 
   // ---- The actual state diff ----
   stage: StartupStage
@@ -73,10 +73,12 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
   title: {
     en: 'Example: Upswitch valuation',
     nl: 'Voorbeeld: Upswitch waardering',
+    fr: 'Exemple : valorisation Upswitch',
   },
   subtitle: {
     en: "See the engine on a real example — Upswitch's own pre-seed valuation. Click to load the inputs and watch the numbers.",
     nl: 'Zie de engine op een echt voorbeeld — Upswitch eigen pre-seed waardering. Klik om inputs te laden en de cijfers te zien.',
+    fr: 'Découvrez le moteur sur un exemple réel : la propre évaluation de pré-amorçage d\'Upswitch. Cliquez pour charger les entrées et regarder les chiffres.',
   },
   highlights: {
     en: [
@@ -91,8 +93,14 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
       'Veteraan team · categorie-definiërende ambitie',
       '€1.5M pre-seed · ~€8.5M pre-money · ~15% dilutie',
     ],
+    fr: [
+      'Marketplace B2B · Succession PME Benelux',
+      'Système de production expédié, avant revenus',
+      'Équipe vétéran · ambition de définition de la catégorie',
+      '1,5M€ de pré-amorçage · ~8,5M€ de pré-argent · ~15% de dilution',
+    ],
   },
-  badge: { en: 'Example', nl: 'Voorbeeld' },
+  badge: { en: 'Example', nl: 'Voorbeeld', fr: 'Exemple' },
 
   stage: 'pre_seed',
   sector: 'marketplace',
@@ -185,14 +193,21 @@ export const B2B_MARKETPLACE_PRESEED_PRESET: StudioPreset = {
   title: {
     en: 'B2B marketplace',
     nl: 'B2B marktplaats',
+    fr: 'Marché B2B',
   },
   subtitle: {
     en: 'Two-sided platform with take-rate or SaaS revenue.  Smart defaults — pick your stage above and we adapt.',
     nl: 'Tweezijdig platform met take-rate of SaaS-omzet.  Smart defaults — kies je stage hierboven, wij passen aan.',
+    fr: 'Plateforme bilatérale avec taux de participation ou revenus SaaS.  Valeurs par défaut intelligentes : choisissez votre étape ci-dessus et nous nous adaptons.',
   },
   highlights: {
     en: ['Marketplace sector', 'Typical Y5 ARR anchor', 'Adapts to stage you pick'],
     nl: ['Marktplaats sector', 'Typisch Y5 ARR anker', 'Past aan op gekozen stage'],
+    fr: [
+      'Secteur du marché',
+      'Ancre Y5 ARR typique',
+      'S\'adapte à la stade que vous choisissez',
+    ],
   },
 
   stage: 'pre_seed',
@@ -229,14 +244,20 @@ export const B2B_MARKETPLACE_PRESEED_PRESET: StudioPreset = {
 
 export const B2B_SAAS_PRESEED_PRESET: StudioPreset = {
   key: 'b2b_saas_preseed',
-  title: { en: 'B2B SaaS', nl: 'B2B SaaS' },
+  title: { en: 'B2B SaaS', nl: 'B2B SaaS', fr: 'SaaS B2B' },
   subtitle: {
     en: 'Recurring revenue B2B software.  Smart defaults — pick your stage above and we adapt.',
     nl: 'Terugkerende B2B software-omzet.  Smart defaults — kies je stage hierboven, wij passen aan.',
+    fr: 'Logiciel B2B à revenus récurrents.  Valeurs par défaut intelligentes : choisissez votre étape ci-dessus et nous nous adaptons.',
   },
   highlights: {
     en: ['SaaS sector', 'Recurring revenue model', 'Adapts to stage you pick'],
     nl: ['SaaS sector', 'Recurring revenue model', 'Past aan op gekozen stage'],
+    fr: [
+      'Secteur SaaS',
+      'Modèle de revenus récurrents',
+      'S\'adapte à la stade que vous choisissez',
+    ],
   },
 
   stage: 'pre_seed',
@@ -273,10 +294,11 @@ export const B2B_SAAS_PRESEED_PRESET: StudioPreset = {
 
 export const FINTECH_PRESEED_PRESET: StudioPreset = {
   key: 'fintech_preseed',
-  title: { en: 'Fintech', nl: 'Fintech' },
+  title: { en: 'Fintech', nl: 'Fintech', fr: 'Technologie financière' },
   subtitle: {
     en: 'Regulated financial services.  Higher exit multiples, longer rollout.',
     nl: 'Gereguleerde financiële diensten.  Hogere exit-multiples, langere uitrol.',
+    fr: 'Services financiers réglementés.  Multiples de sortie plus élevés, déploiement plus long.',
   },
   highlights: {
     en: [
@@ -288,6 +310,11 @@ export const FINTECH_PRESEED_PRESET: StudioPreset = {
       'Fintech sector · gereguleerde moat',
       'Hogere exit-multiple band',
       'Past aan op gekozen stage',
+    ],
+    fr: [
+      'Secteur Fintech · fossé réglementé',
+      'Bande multiple de sortie supérieure',
+      'S\'adapte à la stade que vous choisissez',
     ],
   },
 
