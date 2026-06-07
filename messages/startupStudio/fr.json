@@ -410,12 +410,12 @@
 			},
 			"momentum_driven": {
 				"title": "Motivé par l'élan",
-				"subtitle": "\"La pré-semence est gagnée par l'élan, pas par les douves.\" Intérêt des investisseurs entrants, accélération des embauches, attraction précoce des clients. Lift +10 %, bande de variance plus large de ±15 %.",
+				"subtitle": "\"La pré-semence est gagnée par l'élan, pas par les douves.\" Intérêt des investisseurs entrants, accélération des embauches, attraction précoce des clients. Hausse +10 %, bande de variance plus large de ±15 %.",
 				"examples": "Juste au moment où les pairs vous contactent sans y être invités ; mise à l'échelle de l'équipe 2 × par trimestre ; les utilisateurs demandent la prochaine version."
 			},
 			"inception_bet": {
-				"title": "Inception bet",
-				"subtitle": "Edge premium + thèse de création de marché. Profil Spike, ambition générationnelle, pas de plafond. Lift +25 %, bande de variance plus large de ±25 % – variance élevée, hausse asymétrique reconnue honnêtement.",
+				"title": "Pari d’inception",
+				"subtitle": "Prime d’avantage + thèse de création de marché. Profil à fort signal, ambition générationnelle, pas de plafond. Hausse +25 %, bande de variance plus large de ±25 % – variance élevée, hausse asymétrique reconnue honnêtement.",
 				"examples": "Le profil Lovable / Anthropique / Curseur. Ambition insensée à la limite, pic technique ou de distribution, thèse créatrice de marché."
 			}
 		}
@@ -576,7 +576,7 @@
 		"ambitionFallback": "votre thèse de croissance",
 		"year5Suffix": " (Ancre Y5 ARR : {amount})",
 		"whyP1": "Ancré à {team} et {ambition}{year5}.  Le pré-argent atterrit à {preMoney} lors d'un tour {raise}.",
-		"pedigreeLift": " Puis une augmentation de {mult}× pour le pedigree de l'équipe",
+		"pedigreeLift": " Puis une hausse de {mult}× pour le pedigree de l'équipe",
 		"pedigreeDiscount": " Puis une réduction de {mult}× pour le pedigree de l'équipe",
 		"whyP2": "Triangulé selon les méthodes académiques {count} (axées sur les jalons, comparaison entre pairs, basées sur les sorties).{overlay}.  Chaque jambe est une méthode publiée et évaluée par des pairs – sans agiter la main.",
 		"headline": "{preMoney} pré-argent · lever {raise} · post-argent {post} · ~{dilution}% aux nouveaux investisseurs de ce cycle ({stage} · {sector} · {country})"
