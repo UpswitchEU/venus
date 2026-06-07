@@ -49,6 +49,17 @@ describe('buildReviewAgenda', () => {
     expect(mix?.refs).toEqual(['dcf', 'ebitda_multiple'])
   })
 
+  it('adds a multiples sanity checkpoint with visible refs', () => {
+    const agenda = buildReviewAgenda({
+      multipleSanityRefs: ['applied 5.20x', 'benchmark 4.80x', 'delta +0.40x'],
+    })
+
+    const item = agenda.items.find((i) => i.kind === 'multiple_sanity')
+    expect(item).toMatchObject({ count: 1, severity: 'info' })
+    expect(item?.refs).toEqual(['applied 5.20x', 'benchmark 4.80x', 'delta +0.40x'])
+    expect(agenda.requiresReview).toBe(false)
+  })
+
   it('treats method mix + normalizations as informational (non-gating)', () => {
     const agenda = buildReviewAgenda({
       methodWeights: { dcf: 0.5, ebitda_multiple: 0.5 },

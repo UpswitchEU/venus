@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import type React from 'react'
+import { useState } from 'react'
 import {
   isDiscussionComplete,
   type ReviewAgenda,
@@ -52,6 +53,7 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
   onAskAi,
   disabled = false,
 }) => {
+  const [skipAccepted, setSkipAccepted] = useState(false)
   const t = useTranslations('reviewAndDiscuss') as unknown as (
     key: string,
     values?: Record<string, string | number>
@@ -63,6 +65,8 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
         return t('items.qualityWarning', { count })
       case 'method_mix':
         return t('items.methodMix', { count })
+      case 'multiple_sanity':
+        return t('items.multipleSanity', { count })
       case 'normalization':
         return t('items.normalization', { count })
       case 'cap_breach':
@@ -100,6 +104,18 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-foreground">{itemLabel(item.kind, item.count)}</p>
+                  {item.refs?.length ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {item.refs.map((ref) => (
+                        <span
+                          key={ref}
+                          className="max-w-full break-all rounded-md border border-foreground/10 bg-background/70 px-1.5 py-0.5 font-mono text-[11px] text-foreground/55"
+                        >
+                          {ref}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {mustAck ? (
                     <label className="mt-1.5 inline-flex cursor-pointer items-center gap-2 text-xs text-foreground/70">
                       <input
@@ -160,23 +176,35 @@ export const ReviewAndDiscussStep: React.FC<ReviewAndDiscussStepProps> = ({
             </button>
           ) : null}
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onSkip}
-            disabled={disabled}
-            className="rounded-lg px-3 py-2 text-sm text-foreground/55 transition-colors hover:text-foreground/80"
-          >
-            {t('skip')}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={disabled || !complete}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {t('confirm')}
-          </button>
+        <div className="flex flex-col items-end gap-2">
+          <label className="inline-flex max-w-sm cursor-pointer items-center justify-end gap-2 text-right text-xs text-foreground/60">
+            <input
+              type="checkbox"
+              checked={skipAccepted}
+              disabled={disabled}
+              onChange={(event) => setSkipAccepted(event.target.checked)}
+              className="h-3.5 w-3.5 shrink-0 rounded border-foreground/30"
+            />
+            {t('skipAcknowledgement')}
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onSkip}
+              disabled={disabled || !skipAccepted}
+              className="rounded-lg px-3 py-2 text-sm text-foreground/55 transition-colors hover:text-foreground/80 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('skip')}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={disabled || !complete}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('confirm')}
+            </button>
+          </div>
         </div>
       </div>
     </section>

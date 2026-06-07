@@ -9,10 +9,12 @@
 		"back": "Back",
 		"askAi": "Ask the AI advisor",
 		"skip": "Skip — I accept all",
+		"skipAcknowledgement": "I've reviewed and accept all items without further changes",
 		"confirm": "Confirm & continue",
 		"items": {
 			"qualityWarning": "{count, plural, =1 {# defensibility warning} other {# defensibility warnings}}",
 			"methodMix": "{count} valuation methods weighted",
+			"multipleSanity": "Multiple sanity check",
 			"normalization": "{count, plural, =1 {# normalization applied} other {# normalizations applied}}",
 			"capBreach": "{count, plural, =1 {# owner-dependency cap breach} other {# owner-dependency cap breaches}}"
 		}

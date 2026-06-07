@@ -11,7 +11,12 @@
  * table/columns). React-free → unit-tested without the wizard or a DB.
  */
 
-export type ReviewItemKind = 'quality_warning' | 'method_mix' | 'normalization' | 'cap_breach'
+export type ReviewItemKind =
+  | 'quality_warning'
+  | 'method_mix'
+  | 'multiple_sanity'
+  | 'normalization'
+  | 'cap_breach'
 
 export type ReviewSeverity = 'high' | 'medium' | 'info'
 
@@ -38,6 +43,7 @@ export interface ReviewAgenda {
 export interface ReviewAgendaInputs {
   qualityWarnings?: Array<{ type?: string; severity?: string }>
   methodWeights?: Record<string, number> | null
+  multipleSanityRefs?: string[]
   acceptedNormalizationCount?: number
   capBreachCount?: number
 }
@@ -67,8 +73,7 @@ export function buildReviewAgenda(inputs: ReviewAgendaInputs): ReviewAgenda {
 
   const warnings = [...(inputs.qualityWarnings ?? [])].sort((a, b) => {
     return (
-      SEVERITY_RANK[normalizeSeverity(b.severity)] -
-      SEVERITY_RANK[normalizeSeverity(a.severity)]
+      SEVERITY_RANK[normalizeSeverity(b.severity)] - SEVERITY_RANK[normalizeSeverity(a.severity)]
     )
   })
   if (warnings.length > 0) {
@@ -93,6 +98,18 @@ export function buildReviewAgenda(inputs: ReviewAgendaInputs): ReviewAgenda {
       count: activeMethods.length,
       severity: 'info',
       refs: activeMethods,
+    })
+  }
+
+  const multipleSanityRefs = (inputs.multipleSanityRefs ?? []).filter(
+    (ref) => typeof ref === 'string' && ref.trim().length > 0
+  )
+  if (multipleSanityRefs.length > 0) {
+    items.push({
+      kind: 'multiple_sanity',
+      count: 1,
+      severity: 'info',
+      refs: multipleSanityRefs.slice(0, 3),
     })
   }
 

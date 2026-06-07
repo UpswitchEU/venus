@@ -37,6 +37,7 @@ import {
 import { backendAPI } from '../../../services/backendApi'
 import { reportService } from '../../../services/report/ReportService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
@@ -106,6 +107,20 @@ function asPlainRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+
+function readOptionalFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function formatMultipleRef(label: string, value: number): string {
+  return `${label} ${value.toFixed(2)}x`
+}
+
+function formatSignedMultipleRef(label: string, value: number): string {
+  return `${label} ${value >= 0 ? '+' : ''}${value.toFixed(2)}x`
 }
 
 function readDiscussionPhase(value: unknown): DiscussionPhaseMetadata | null {
@@ -226,6 +241,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     preparerNote,
     preparerAcknowledgedExtreme,
   } = useManualWorkspaceStores()
+  const startupExitRevenueMultiple = useStartupValuationStore((s) => s.exit_revenue_multiple)
 
   const {
     calculationRequestIdentifiers,
@@ -933,11 +949,55 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     () => (isStartupAssistantRoute ? { berkus: 1, scorecard: 1, exit_multiple: 1 } : userWeights),
     [isStartupAssistantRoute, userWeights]
   )
+  const multipleSanityRefs = useMemo(() => {
+    if (!result) return []
+
+    if (isStartupAssistantRoute) {
+      const exitMultiple = readOptionalFiniteNumber(startupExitRevenueMultiple)
+      return [
+        exitMultiple == null ? 'exit multiple' : formatMultipleRef('exit multiple', exitMultiple),
+      ]
+    }
+
+    const resultMultiples = asPlainRecord(asPlainRecord(result).multiples_valuation)
+    const benchmarkMultiple =
+      readOptionalFiniteNumber(preparerBenchmarkMedian) ??
+      readOptionalFiniteNumber(resultMultiples.ebitda_multiple)
+    const appliedMultiple = readOptionalFiniteNumber(preparerAppliedMedian) ?? benchmarkMultiple
+
+    if (
+      !methodKeyAcceptsPreparerMultipleOverride(selectedMethod) &&
+      appliedMultiple == null &&
+      benchmarkMultiple == null
+    ) {
+      return []
+    }
+
+    const refs: string[] = []
+    if (appliedMultiple != null) refs.push(formatMultipleRef('applied', appliedMultiple))
+    if (benchmarkMultiple != null) refs.push(formatMultipleRef('benchmark', benchmarkMultiple))
+    if (
+      appliedMultiple != null &&
+      benchmarkMultiple != null &&
+      Math.abs(appliedMultiple - benchmarkMultiple) >= 0.005
+    ) {
+      refs.push(formatSignedMultipleRef('delta', appliedMultiple - benchmarkMultiple))
+    }
+    return refs
+  }, [
+    isStartupAssistantRoute,
+    preparerAppliedMedian,
+    preparerBenchmarkMedian,
+    result,
+    selectedMethod,
+    startupExitRevenueMultiple,
+  ])
   const reviewAgenda = useMemo(
     () =>
       buildReviewAgenda({
         qualityWarnings: reviewQualityWarnings,
         methodWeights: reviewMethodWeights,
+        multipleSanityRefs,
         acceptedNormalizationCount: isStartupAssistantRoute
           ? 0
           : normalizationItems.filter((n) => n.status === 'accepted').length,
@@ -946,6 +1006,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     [
       chatDrawerProps.hasCapBreach,
       isStartupAssistantRoute,
+      multipleSanityRefs,
       normalizationItems,
       reviewMethodWeights,
       reviewQualityWarnings,
@@ -983,7 +1044,13 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const discussionHydrationState = useMemo(() => {
     const ackKeys = Array.isArray(existingDiscussionPhase?.warnings_acknowledged)
       ? existingDiscussionPhase.warnings_acknowledged.filter((key): key is ReviewItemKind =>
-          ['quality_warning', 'method_mix', 'normalization', 'cap_breach'].includes(String(key))
+          [
+            'quality_warning',
+            'method_mix',
+            'multiple_sanity',
+            'normalization',
+            'cap_breach',
+          ].includes(String(key))
         )
       : []
     return {

@@ -9,10 +9,12 @@
 		"back": "Retour",
 		"askAi": "Demandez au conseiller en IA",
 		"skip": "Sauter — J'accepte tout",
+		"skipAcknowledgement": "J'ai tout examiné et j'accepte sans autre modification",
 		"confirm": "Confirmer et continuer",
 		"items": {
 			"qualityWarning": "{count, plural, =1 {#avertissement de défendabilité} other {#avertissements de défendabilité}}",
 			"methodMix": "{count} méthodes de valorisation pondérées",
+			"multipleSanity": "Contrôle de cohérence du multiple",
 			"normalization": "{count, plural, =1 {#normalisation appliquée} other {#normalisations appliquées}}",
 			"capBreach": "{count, plural, =1 {#Non-respect du plafond de dépendance du propriétaire} other {#Non-respect du plafond de dépendance du propriétaire}}"
 		}

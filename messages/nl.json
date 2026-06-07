@@ -9,10 +9,12 @@
 		"back": "Terug",
 		"askAi": "Vraag de AI-adviseur",
 		"skip": "Overslaan — ik accepteer alles",
+		"skipAcknowledgement": "Ik heb alles nagekeken en accepteer zonder verdere wijzigingen",
 		"confirm": "Bevestigen & doorgaan",
 		"items": {
 			"qualityWarning": "{count, plural, =1 {# verdedigbaarheidswaarschuwing} other {# verdedigbaarheidswaarschuwingen}}",
 			"methodMix": "{count} waarderingsmethoden gewogen",
+			"multipleSanity": "Multiple-sanitycheck",
 			"normalization": "{count, plural, =1 {# normalisatie toegepast} other {# normalisaties toegepast}}",
 			"capBreach": "{count, plural, =1 {# eigenaarsafhankelijkheid-capoverschrijding} other {# eigenaarsafhankelijkheid-capoverschrijdingen}}"
 		}
