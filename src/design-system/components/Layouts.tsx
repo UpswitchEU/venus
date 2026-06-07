@@ -135,7 +135,7 @@ export const AuroraPageContainer: React.FC<AuroraPageContainerProps> = ({
   footer,
 }) => {
   return (
-    <div className={cn('aurora-theme flex flex-col h-screen w-full bg-background', className)}>
+    <div className={cn('aurora-theme flex flex-col h-[100dvh] w-full bg-background', className)}>
       {/* Header */}
       {header && <div className="shrink-0">{header}</div>}
 

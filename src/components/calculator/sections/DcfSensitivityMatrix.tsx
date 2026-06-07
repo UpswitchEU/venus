@@ -67,7 +67,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
         )}
       </p>
 
-      <div className="overflow-hidden rounded-lg border border-primary/10 bg-background/70">
+      <div className="overflow-x-auto rounded-lg border border-primary/10 bg-background/70">
         <TableRoot size="sm" className="min-w-[420px] w-full">
           <TableCaption className="sr-only">{t('sensitivityTitle')}</TableCaption>
           <TableHeader className="border-b border-primary/10 bg-primary/[0.04]">

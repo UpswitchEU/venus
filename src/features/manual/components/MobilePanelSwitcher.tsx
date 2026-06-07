@@ -30,7 +30,7 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
   ({ activePanel, onPanelChange }) => {
     const t = useTranslations('navigation.tabs')
     return (
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-muted p-1 rounded-full shadow-lg z-50">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 flex gap-2 bg-muted p-1 rounded-full shadow-lg z-50">
         <button
           onClick={() => onPanelChange('form')}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${

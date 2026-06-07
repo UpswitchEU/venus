@@ -180,14 +180,16 @@ export function CalculatorNav({
         )}
       >
         <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-1 pr-2 md:col-auto md:row-auto md:gap-3 md:pr-0">
-          {/* Persistent Upswitch brand mark — the calculator nav previously had
-              no brand or home anchor at any breakpoint, so on mobile the only way
-              out was the (history-dependent) back arrow or a buried avatar-menu
-              item. Mirrors MinimalHeader's `<Link href="/">` home affordance. */}
+          {/* Persistent Upswitch brand mark — mobile-only home affordance.
+              On mobile the only other way out is the (history-dependent) back
+              arrow or a buried avatar-menu item, so the mark earns its place.
+              On desktop (md+) the always-present back arrow is the home/exit
+              affordance, so the mark is redundant chrome and is hidden.
+              Mirrors MinimalHeader's `<Link href="/">` home affordance. */}
           <Link
             href="/"
             aria-label={navLocale === 'nl' ? 'Upswitch — startpagina' : 'Upswitch — home'}
-            className="-ml-1 mr-0.5 inline-flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 md:mr-0"
+            className="-ml-1 mr-0.5 inline-flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 md:hidden"
           >
             <img
               src="/logos/upswitch-mark.svg"
