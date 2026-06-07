@@ -6,10 +6,11 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense, useEffect, useMemo } from 'react'
+import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 // Calculator Components (full Clarity parity)
 import { ChatAssistantDrawer } from '../../../components/calculator'
+import { ReviewAndDiscussStep } from '../../../components/calculator/ReviewAndDiscussStep'
 import {
   shouldShowVenusAiDockFab,
   venusAiDockShellClassName,
@@ -68,6 +69,7 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
+import { buildReviewAgenda, type ReviewItemKind } from '../utils/buildReviewAgenda'
 import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import { hasManualRestorableReport } from '../utils/manualRestorableReport'
@@ -847,6 +849,26 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       wrappedOnSubmit,
     })
 
+  // BET-299 — "Review & Discuss" pre-lock checkpoint. Additive + result-gated:
+  // it surfaces only after a result exists and only when there's something to
+  // review; it does NOT gate the calc/submit path (that stricter lock-gate is a
+  // follow-up to wire against the live flow). State is local; persistence to
+  // `valuation_reports.metadata.discussion_phase` is the next step.
+  const [discussionAck, setDiscussionAck] = useState<ReviewItemKind[]>([])
+  const [discussionNotes, setDiscussionNotes] = useState('')
+  const [discussionDone, setDiscussionDone] = useState(false)
+  const reviewAgenda = useMemo(
+    () =>
+      buildReviewAgenda({
+        qualityWarnings: chatDrawerProps.qualityWarnings,
+        methodWeights: userWeights,
+        acceptedNormalizationCount: normalizationItems.filter((n) => n.status === 'accepted')
+          .length,
+        capBreachCount: chatDrawerProps.hasCapBreach ? 1 : 0,
+      }),
+    [chatDrawerProps.qualityWarnings, chatDrawerProps.hasCapBreach, userWeights, normalizationItems]
+  )
+
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
 
@@ -1047,6 +1069,23 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           userFirmCountryCode={user?.firm_country_code}
         />
       </div>
+
+      {result && !discussionDone && reviewAgenda.items.length > 0 ? (
+        <ReviewAndDiscussStep
+          agenda={reviewAgenda}
+          acknowledgedKeys={discussionAck}
+          onToggleAcknowledge={(key) =>
+            setDiscussionAck((prev) =>
+              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+            )
+          }
+          notes={discussionNotes}
+          onNotesChange={setDiscussionNotes}
+          onConfirm={() => setDiscussionDone(true)}
+          onSkip={() => setDiscussionDone(true)}
+          onAskAi={() => setChatDrawerOpen(true)}
+        />
+      ) : null}
 
       <Suspense fallback={null}>
         <ChatAssistantDrawer
