@@ -207,7 +207,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   const handleBackToDashboard = () => {
     setIsOpen(false)
-    const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+    const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
     const { relationshipId } = useClientContext.getState()
     broadcastReportUpdateBeforeMercuryReturn()
     navigateToMercuryFromManualHandoff({
@@ -257,7 +257,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
     if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
       generalLogger.info('[UserDropdown] Returning to Mercury via handoff')
-      const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+      const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
       broadcastReportUpdateBeforeMercuryReturn()
       const { relationshipId: relId } = useClientContext.getState()
       navigateToMercuryFromManualHandoff({
@@ -330,7 +330,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       setShowExitModal(false)
 
       if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
-        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
         const { relationshipId: relId2 } = useClientContext.getState()
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,
@@ -358,7 +358,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       setShowExitModal(false)
 
       if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
-        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
         const { relationshipId: relId3 } = useClientContext.getState()
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,

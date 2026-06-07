@@ -153,7 +153,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const mercuryUrl = getMercuryUrl()
       const locale =
         typeof window !== 'undefined'
-          ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+          ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
           : 'en'
       // Mercury expects 'returnUrl' parameter (not 'redirect')
       const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`

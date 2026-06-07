@@ -1049,7 +1049,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       if (staleRecoveryAttemptedRef.current) return
 
       staleRecoveryAttemptedRef.current = true
-      const locale = pathname?.match(/^\/(en|nl|fr|de)/)?.[1] || 'en'
+      const locale = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
       const url = buildStaleReportRecoveryUrl(locale)
       generalLogger.info('[SessionManager] Redirecting stale report URL after load error', {
         reportId: reportId?.substring(0, 30),

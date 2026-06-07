@@ -341,7 +341,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
 
     const currentLocale =
       typeof window !== 'undefined'
-        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        ? window.location.pathname.match(/\/(en|nl|fr)\//)?.[1] || 'en'
         : 'en'
     navigateToMercuryFromManualHandoff({
       currentLocale,

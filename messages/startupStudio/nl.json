@@ -9,7 +9,7 @@
 		"round_simulator": "Ronde"
 	},
 	"panelHeader": {
-		"badge": "Pre-seed & seed · pre-revenue",
+		"badge": "Pre-seed & seed · vóór omzet",
 		"title": "EV/Omzet waardering",
 		"formula": "pre-money = (Jaar-5 omzet × exit EV/Omzet) ÷ target ROI − rondegrootte",
 		"subtitle": "Drie gepubliceerde methoden trianguleren rond de EV/Omzet-kern: Berkus weegt risicoreductie, de Bill Payne Scorecard verankert aan regionale medianen, en de VC-methode (Sahlman 1987) bepaalt de headline.",
@@ -99,7 +99,7 @@
 		"searchCompanyBe": "Bedrijfsnaam of KBO-nummer",
 		"registryNl": "Zoek in het Handelsregister van de KvK.",
 		"registryBe": "Zoek in het KBO.",
-		"registryPdf": "Verschijnt op je investor-ready PDF rapport.",
+		"registryPdf": "Verschijnt op je investeerdersklare PDF-rapport.",
 		"companyNameFallback": "Of: typ je bedrijfsnaam",
 		"companyNamePlaceholder": "Bv. Henchman",
 		"businessType": "Bedrijfstype (sector)",
@@ -132,7 +132,7 @@
 		"revenuePrompt": "Genereer je vandaag al recurring omzet? Bij \"nee\" slaan we de ARR-multiple over (zonder omzet voegt die niets toe).",
 		"noRevenue": "Nog geen omzet",
 		"yesMrr": "Ja, MRR live",
-		"forwardTitle": "Forward-looking SaaS-cijfers",
+		"forwardTitle": "Toekomstgerichte SaaS-cijfers",
 		"forwardSub": "Voed de SaaS-leg van de waardering met je huidige unit economics.",
 		"monthlyGrowth": "Maandelijkse groei (%)",
 		"monthlyGrowthHint": "Per maand, compounded. 5%/mnd ≈ 80%/jaar. De meeste pre-seed SaaS zitten op 8–15%/mnd.",
@@ -396,7 +396,7 @@
 		}
 	},
 	"inceptionLens": {
-		"heading": "Inception lens (optioneel)",
+			"heading": "Inception-lens (optioneel)",
 		"subline": "Voor founders die niet op een conventioneel milestone-pad zitten. Erkent dat pre-seed wordt gewonnen door momentum, niet door moats — en dat de beste founders meer kosten. Standaard: uitgeschakeld.",
 		"noOverlayChip": "Geen overlay",
 		"overlayActive": "{lift} · ±{band}%",
@@ -414,7 +414,7 @@
 				"examples": "Wanneer peers ongevraagd uitreiken; team verdubbelt per kwartaal; gebruikers vragen om de volgende versie."
 			},
 			"inception_bet": {
-				"title": "Inception bet",
+					"title": "Inception-bet",
 				"subtitle": "Edge premie + markt-creatie thesis. Spike-profiel, generationele ambitie, geen plafond. Lift +25%, ±25% bredere band — hoge variantie, asymmetrische upside eerlijk erkend.",
 				"examples": "Het Lovable / Anthropic / Cursor profiel. Bijna-krankzinnige ambitie, technisch of distributie spike, markt-creërende thesis."
 			}
@@ -425,7 +425,7 @@
 			"eyebrow": "Geen account nodig om te beginnen",
 			"headline": "Wat is je startup waard?",
 			"headlineAccent": "Ontdek het in 15 minuten — registreer alleen als je het rapport wilt.",
-			"subline": "Drie gevestigde frameworks, gekalibreerd op gepubliceerde Benelux-benchmarks. Vul het hier in, registreer aan het eind om het investor-ready PDF te downloaden.",
+				"subline": "Drie gevestigde frameworks, gekalibreerd op gepubliceerde Benelux-benchmarks. Vul het hier in, registreer aan het eind om de investeerdersklare PDF te downloaden.",
 			"stageChipsLabel": "Stage-dekking",
 			"anonymous": "Anoniem tot registratie",
 			"noCard": "Geen creditcard",
@@ -445,7 +445,7 @@
 				},
 				{
 					"title": "Download je PDF",
-					"body": "Een 4-paginas investor-ready rapport — one-pager, methodologie, cap table, dilutie."
+					"body": "Een investeerdersklaar rapport van 4 pagina's — one-pager, methodologie, cap table, verwatering."
 				}
 			]
 		},
@@ -466,7 +466,7 @@
 				{
 					"title": "VC methode",
 					"attribution": "Bill Sahlman, Harvard Business Review (1987)",
-					"body": "Jaar-5 omzet × een exit-EV/omzet multiple ÷ het doelrendement van het fonds. Brengt de \"wat moet het fonds zien\" lens naar boven die priced rounds in praktijk oplossen."
+					"body": "Jaar-5 omzet × een exit-EV/omzet-multiple ÷ het doelrendement van het fonds. Brengt de \"wat moet het fonds zien\"-lens naar boven die geprijsde rondes in de praktijk oplossen."
 				}
 			]
 		},
@@ -508,7 +508,7 @@
 			"items": [
 				{
 					"q": "Waarom is de wizard gratis zonder registratie?",
-					"a": "Hem invullen geeft je al een getal dat je in een deck kunt plakken — dat is op zich nuttig, met of zonder PDF. Registratie is alleen voor het gepolijste investor-ready rapport en om je werk over sessies heen te bewaren."
+					"a": "Hem invullen geeft je al een getal dat je in een deck kunt plakken — dat is op zich nuttig, met of zonder PDF. Registratie is alleen voor het gepolijste investeerdersklare rapport en om je werk over sessies heen te bewaren."
 				},
 				{
 					"q": "Hoe nauwkeurig is dit ten opzichte van een betaalde waardering?",
@@ -527,7 +527,7 @@
 		"rightRail": {
 			"title": "Je rapport is bijna klaar",
 			"sub": "Vul de wizard links in. Klik op \"Genereer mijn rapport\", we slaan je inputs op, je doet een snelle registratie en je komt meteen op je voltooide waardering uit — links voorgevuld, rechts het PDF-rapport.",
-			"fixesIssues": "{count, plural, one {1 punt om aan te scherpen voordat het rapport investor-ready is} other {# punten om aan te scherpen voordat het rapport investor-ready is}}",
+			"fixesIssues": "{count, plural, one {1 punt om aan te scherpen voordat het rapport investeerdersklaar is} other {# punten om aan te scherpen voordat het rapport investeerdersklaar is}}",
 			"cta": "Genereer mijn gratis rapport",
 			"ctaSubmitting": "Inputs opslaan…",
 			"ctaFootnote": "Gratis, in 15 minuten. We delen je inputs nooit. De volgende stap is een snelle registratie — geen creditcard.",
@@ -536,7 +536,7 @@
 		},
 		"meta": {
 			"title": "Startup-waardering — Gratis, geen account nodig om te starten | Upswitch",
-			"description": "Run de volledige Berkus + Scorecard + VC-methode blend op je startup. Vul het hier in, registreer pas wanneer je het investor-ready rapport wilt."
+			"description": "Draai de volledige Berkus + Scorecard + VC-methodeblend op je startup. Vul het hier in, registreer pas wanneer je het investeerdersklare rapport wilt."
 		},
 		"wizardAriaLabel": "Startup-waardering wizard"
 	},
@@ -601,11 +601,11 @@
 			"saas_forward": "Gedreven door huidige MRR vooruit-geprojecteerd 12 maanden × risico-aangepaste multiple."
 		},
 		"pedigreeMultiplier": "Daarna een team-pedigree multiplier van {mult}× op de leg-blend ({from} → {to}).",
-		"inceptionSection": "2½. Inception lens — toegepast",
+			"inceptionSection": "2½. Inception-lens — toegepast",
 		"inceptionMomentumRest": "pre-seed wordt gewonnen door momentum, niet door moats. {mult}× lift op de mid; ±{band}% bredere variantie band om de werkelijke pre-seed onzekerheid eerlijk te rapporteren.",
 		"inceptionBetRest": "edge premie + markt-creatie thesis. {mult}× lift op de mid; ±{band}% bredere band — vloer iets lager (verhoogd downside-risico erkend), plafond aanzienlijk hoger (asymmetrische upside). Anthropic / Lovable / Cursor profiel.",
 		"lensMomentum": "Momentum-gedreven lens",
-		"lensBet": "Inception bet lens",
+			"lensBet": "Inception-bet-lens",
 		"preLens": "Vóór lens (na pedigree) mid: ",
 		"afterLens": "Na lens: ",
 		"benchmark": "3. Benchmark — waar zitten peers?",
@@ -621,15 +621,15 @@
 		"sourceBerkus": "5 risico-reductie mijlpalen, geüpdated voor het 2024 venture klimaat.",
 		"sourceScorecardTitle": "Bill Payne Scorecard (2024):",
 		"sourceScorecard": "5 gewogen defensibility-factoren, peer-vergelijkingsband 0.5×–1.5×.",
-		"sourceVcTitle": "VC Method (Sahlman):",
+		"sourceVcTitle": "VC-methode (Sahlman):",
 		"sourceVc": "Y5 omzet × exit-multiple ÷ target ROI − ronde-grootte.",
 		"sourcePedigreeTitle": "Pedigree (Strebulaev 2024):",
 		"sourcePedigree": "Multiplicatieve overlay 0.70×–1.80× op leg-blend baseline.",
-		"sourceInceptionTitle": "Inception lens (opt-in):",
+			"sourceInceptionTitle": "Inception-lens (opt-in):",
 		"sourceInception": "Multiplier + band-widening overlay voor momentum-driven en inception-bet profielen. Erkent dat moats niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.",
 		"benchmarksLabel": "Benchmarks:",
 		"offlineFallback": "offline reserve",
 		"updatedPrefix": "bijgewerkt ",
-		"repro": "Het audit-ready cijfer komt van <viq></viq> (Python rekenmodel, server-side). Deze preview spiegelt dezelfde berekening, maar het canonieke getal — dat in je PDF en je rapport verschijnt — wordt deterministisch op de server berekend. Identieke inputs ⇒ identiek getal. Geen LLM-hallucinatie, geen verborgen regels."
+		"repro": "Het auditklare cijfer komt van <viq></viq> (Python-rekenmodel, op de server). Deze preview spiegelt dezelfde berekening, maar het canonieke getal — dat in je PDF en je rapport verschijnt — wordt deterministisch op de server berekend. Identieke inputs ⇒ identiek getal. Geen LLM-hallucinatie, geen verborgen regels."
 	}
 }

@@ -32,7 +32,7 @@ export function cn(...inputs: ClassValue[]): string {
  *
  * @example
  * formatNumber(1234567) // "1,234,567"
- * formatNumber(1234567, 'de-DE') // "1.234.567"
+ * formatNumber(1234567, 'nl-BE') // "1.234.567"
  */
 export function formatNumber(value: number, locale = 'en-US'): string {
   return new Intl.NumberFormat(locale).format(value)

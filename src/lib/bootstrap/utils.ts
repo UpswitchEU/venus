@@ -98,7 +98,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
     }
 
     // Extract locale from pathname
-    const localeMatch = urlObj.pathname.match(/^\/(en|nl|fr|de)\//)
+    const localeMatch = urlObj.pathname.match(/^\/(en|nl|fr)\//)
     const locale = localeMatch ? localeMatch[1] : 'en'
 
     const versionParam = params.get('version')

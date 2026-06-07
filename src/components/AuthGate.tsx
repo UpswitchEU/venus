@@ -171,7 +171,7 @@ function DefaultErrorState({
   const t = useTranslations('auth.authGate')
   const locale =
     typeof window !== 'undefined'
-      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
       : 'en'
 
   const handleLogIn = () => {
@@ -383,7 +383,7 @@ export function AuthGate({
       const mercuryUrl = getMercuryUrl()
       const locale =
         typeof window !== 'undefined'
-          ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+          ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
           : 'en'
       return `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
     }

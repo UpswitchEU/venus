@@ -40,7 +40,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
 
   const locale =
     typeof window !== 'undefined'
-      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
       : 'en'
 
   const handleReturnToDashboard = () => {

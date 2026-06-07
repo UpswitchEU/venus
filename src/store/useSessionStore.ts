@@ -958,7 +958,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (statusCode === 404 && typeof window !== 'undefined') {
           const currentPath = window.location.pathname
           if (currentPath.includes('/reports/')) {
-            const localeMatch = currentPath.match(/^\/(en|nl|fr|de)/)
+            const localeMatch = currentPath.match(/^\/(en|nl|fr)/)
             const locale = localeMatch ? localeMatch[1] : 'en'
             // Accountant flow: redirect to return_url or Mercury dashboard (avoids stuck on deleted report)
             try {

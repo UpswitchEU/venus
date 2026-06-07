@@ -84,7 +84,7 @@ function TokenRefreshGuard() {
     const mercuryUrl = getMercuryUrl()
     const locale =
       typeof window !== 'undefined'
-        ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+        ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
         : 'en'
     window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
   }, [])

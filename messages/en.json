@@ -3669,7 +3669,7 @@
 			"arr_multiple": "ARR × an EV/ARR-style multiple, adjusted for NRR, churn, growth, and concentration risk.",
 			"ebitda_multiple": "Normalized EBITDA × a market multiple — standard for trading companies with reliable earnings.",
 			"omzet_multiple": "Revenue × a multiple — useful when margins swing or peers are quoted on sales.",
-			"revenue_multiple": "Revenue × a multiple (same idea as turnover / omzet multiple).",
+			"revenue_multiple": "Revenue × a multiple (same idea as a turnover multiple).",
 			"sde_multiple": "Seller discretionary earnings × a multiple — common for owner-operated SMEs.",
 			"adjusted_nav": "Adjusted net asset value from the balance sheet — floor or anchor for asset-heavy cases; combine with multiples/DCF in synthesis when appropriate.",
 			"fiscal_4x": "Belgian fiscal reference (notional): book equity + 4× normalized EBITDA.",
