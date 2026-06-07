@@ -26,7 +26,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useTransitionRouter } from 'next-view-transitions'
+import { Link, useTransitionRouter } from 'next-view-transitions'
 import { useMemo, useState } from 'react'
 import { MethodSelectorMenu } from '@/components/calculator/method-selector-menu'
 import {
@@ -180,6 +180,22 @@ export function CalculatorNav({
         )}
       >
         <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-1 pr-2 md:col-auto md:row-auto md:gap-3 md:pr-0">
+          {/* Persistent Upswitch brand mark — the calculator nav previously had
+              no brand or home anchor at any breakpoint, so on mobile the only way
+              out was the (history-dependent) back arrow or a buried avatar-menu
+              item. Mirrors MinimalHeader's `<Link href="/">` home affordance. */}
+          <Link
+            href="/"
+            aria-label={navLocale === 'nl' ? 'Upswitch — startpagina' : 'Upswitch — home'}
+            className="-ml-1 mr-0.5 inline-flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 md:mr-0"
+          >
+            <img
+              src="/logos/upswitch-mark.svg"
+              alt="Upswitch"
+              className="h-6 w-6"
+              draggable={false}
+            />
+          </Link>
           <Tooltip
             content={
               isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')
