@@ -109,9 +109,12 @@ const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey:
   revision: { icon: User, labelKey: 'typeRevision' },
 }
 
-const currencyLocaleFor = (locale: 'nl' | 'en') => (locale === 'nl' ? 'nl-BE' : 'en-BE')
+type HistoryLocale = 'nl' | 'en' | 'fr'
 
-const formatCurrency = (amount: number, locale: 'nl' | 'en') => {
+const currencyLocaleFor = (locale: HistoryLocale) =>
+  locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE'
+
+const formatCurrency = (amount: number, locale: HistoryLocale) => {
   if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
   return new Intl.NumberFormat(currencyLocaleFor(locale), {
     style: 'currency',
@@ -124,7 +127,7 @@ const formatCurrency = (amount: number, locale: 'nl' | 'en') => {
 const formatTime = (
   date: Date | string | number,
   hp: (key: string, values?: Record<string, number>) => string,
-  locale: 'nl' | 'en'
+  locale: HistoryLocale
 ) => {
   const nowMs = Date.now()
   const pastMs = dateLikeToUnixMs(date)
@@ -145,7 +148,7 @@ const formatTime = (
   })
 }
 
-const formatDate = (date: Date | string | number, locale: 'nl' | 'en') => {
+const formatDate = (date: Date | string | number, locale: HistoryLocale) => {
   return formatDateLikeToLocaleString(date, currencyLocaleFor(locale), {
     day: 'numeric',
     month: 'long',
@@ -187,7 +190,7 @@ function VisualTimeline({
 }: {
   versions: HistoryVersion[]
   hp: (k: string) => string
-  locale: 'nl' | 'en'
+  locale: HistoryLocale
 }) {
   const firstVal = versions[0]?.valuation
   const lastVal = versions[versions.length - 1]?.valuation
@@ -292,7 +295,7 @@ function ValuationSummaryCard({
 }: {
   version: HistoryVersion
   hp: (k: string) => string
-  locale: 'nl' | 'en'
+  locale: HistoryLocale
 }) {
   if (!version.valuation) return null
 
@@ -364,7 +367,9 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   const { user } = useAuth()
   const hp = useTranslations('historyPanel')
-  const locale = useLocale() as 'nl' | 'en'
+  const rawLocale = useLocale()
+  const locale: HistoryLocale =
+    rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
   // ── Real version data from store ──
   // Use explicit reportId prop (session key) when report is null (new session)
   const reportId = reportIdProp ?? report?.id

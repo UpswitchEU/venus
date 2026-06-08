@@ -108,7 +108,10 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       )
 
       try {
-        const recalcLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+        const recalcLocale =
+          currentLocale === 'en' || currentLocale === 'nl' || currentLocale === 'fr'
+            ? currentLocale
+            : 'nl'
         const latestFinancialOverrides = mapClarityFormToVenusStore(
           {
             ...collectedData,

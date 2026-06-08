@@ -85,7 +85,7 @@ export function NormalisationReviewStep({
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = useCallback(
     (amount: number) => {
       if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`

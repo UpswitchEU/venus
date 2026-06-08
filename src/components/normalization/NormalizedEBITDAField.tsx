@@ -35,7 +35,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
   const t = useTranslations('normalizationHub')
   const tTime = useTranslations('relativeTime')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',

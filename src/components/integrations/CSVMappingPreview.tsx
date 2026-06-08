@@ -175,8 +175,8 @@ export function CSVMappingPreview({
   className,
 }: CSVMappingPreviewProps) {
   const t = useTranslations('normalizationHub')
-  const locale = useLocale() as 'nl' | 'en'
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const locale = useLocale()
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat(currencyLocale, {
       style: 'currency',

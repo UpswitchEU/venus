@@ -45,8 +45,8 @@ export function ContextBar({
   onShowNormalisationReview,
 }: ContextBarProps) {
   const t = useTranslations('calculator.contextBar')
-  const locale = useLocale() as 'nl' | 'en'
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const locale = useLocale()
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   if (!clientName && !businessName) return null
 
   const formatTime = (date: Date) => {

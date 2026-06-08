@@ -29,7 +29,7 @@ describe('manualMercuryNavigation', () => {
   it('normalizes supported Mercury locales', () => {
     expect(getManualMercuryLocale('nl')).toBe('nl')
     expect(getManualMercuryLocale('en')).toBe('en')
-    expect(getManualMercuryLocale('fr')).toBe('en')
+    expect(getManualMercuryLocale('fr')).toBe('fr')
   })
 
   it('builds canonical Mercury surface URLs from one locale policy', () => {
@@ -49,7 +49,7 @@ describe('manualMercuryNavigation', () => {
       'https://mercury.test/nl/business/dashboard'
     )
     expect(buildManualMercuryPricingUrl({ ...params, locale: 'fr' })).toBe(
-      'https://mercury.test/en/pricing'
+      'https://mercury.test/fr/pricing'
     )
     expect(
       buildManualMercuryClientUrl({
@@ -225,7 +225,7 @@ describe('manualMercuryNavigation', () => {
         reportId: 'report-1',
         visibility: 'published',
       })
-    ).toBe('https://mercury.test/en/business/listing/new?report_id=report-1')
+    ).toBe('https://mercury.test/fr/business/listing/new?report_id=report-1')
   })
 
   it('builds continue-to-listing return urls for advisor clients with celebration', () => {
@@ -291,7 +291,7 @@ describe('manualMercuryNavigation', () => {
       sourceApp: 'mercury',
       hasCompletedValuation: false,
     })
-    expect(url).toContain('/en/advisor/dashboard')
+    expect(url).toContain('/fr/advisor/dashboard')
     expect(url).not.toContain('from=valuation')
   })
 })

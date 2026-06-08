@@ -323,13 +323,13 @@ function mapLegacyCustomAdjustment(adjustment: CustomAdjustment): NormYearEntry[
  * @param source - Either ValuationFormData or DataResponse[] array
  * @param overrideItems - If provided, use these normalizations instead of reading from the store.
  *                        Eliminates a redundant store read when the caller already has the items.
- * @param locale - Report language ('nl' or 'en'). Passed through to ValuationIQ for i18n.
+ * @param locale - Report language ('nl', 'en', or 'fr'). Passed through to ValuationIQ for i18n.
  * @returns ValuationRequest ready for calculateValuation()
  */
 export function buildValuationRequest(
   source: ValuationFormData | DataResponse[],
   overrideItems?: NormalizationItem[],
-  locale?: 'nl' | 'en'
+  locale?: 'nl' | 'en' | 'fr'
 ): ValuationRequest {
   // Convert DataResponse[] to formData if needed
   let formData: ValuationFormData

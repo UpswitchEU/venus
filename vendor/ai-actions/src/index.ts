@@ -52,12 +52,14 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
   get_dd_checklist: 'dd_checklist',
   get_data_room_manifest: 'data_room_manifest',
   get_legal_readiness: 'legal_readiness',
+  get_deal_readiness: 'deal_readiness',
   propose_data_room_upload: 'data_room_upload_request',
   propose_mark_dd_item: 'dd_override_request',
   regenerate_im_section: 'im_regenerate_request',
   propose_buyer_invitation: 'buyer_invitation_request',
   propose_package_publish: 'package_publish_request',
   request_lawyer_handoff: 'lawyer_handoff_request',
+  propose_start_playbook: 'start_playbook_request',
   // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
   // as an inline CompanyNameInput widget; Venus intentionally ignores it
   // (see `venusIgnoredRenderableEnvelopeTypes` in the contract JSON).
@@ -115,12 +117,14 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
   'dd_checklist',
   'data_room_manifest',
   'legal_readiness',
+  'deal_readiness',
   'data_room_upload_request',
   'dd_override_request',
   'im_regenerate_request',
   'buyer_invitation_request',
   'package_publish_request',
   'lawyer_handoff_request',
+  'start_playbook_request',
   'add_client_widget',
 ] as const;
 

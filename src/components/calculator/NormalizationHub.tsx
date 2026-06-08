@@ -112,8 +112,8 @@ export function NormalizationHub({
   countryCode,
 }: NormalizationHubProps) {
   const nh = useTranslations('normalizationHub')
-  const locale = useLocale() as 'nl' | 'en'
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const locale = useLocale()
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (amount: number) => {
     const safe = Number.isFinite(amount) ? amount : 0
     if (Math.abs(safe) >= 1000000) return `€${(safe / 1000000).toFixed(2)}M`

@@ -39,7 +39,7 @@ export function BusinessTypeSelector({
 }: BusinessTypeSelectorProps) {
   const t = useTranslations('common')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const { businessTypeOptions, loading: loadingTypes } = useBusinessTypes()
   const [selectedId, setSelectedId] = useState<string | null>(value)
 

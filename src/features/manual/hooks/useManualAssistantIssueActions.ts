@@ -14,7 +14,7 @@ type AcknowledgementSetter = Dispatch<SetStateAction<Set<string>>>
 type StartupIssueAnchor = Pick<StudioIssue, 'step'>
 
 export interface UseManualAssistantIssueActionsParams {
-  assistantLocale: 'en' | 'nl'
+  assistantLocale: 'en' | 'nl' | 'fr'
   formatStartupAssistantPrompt: (prompt: string) => string
   handleChatMessage: ManualChatSendHandler
   setAcknowledgedQualityWarnings: AcknowledgementSetter

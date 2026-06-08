@@ -150,7 +150,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
   }
 
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const _formatCurrency = (value: number) => {
     return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',

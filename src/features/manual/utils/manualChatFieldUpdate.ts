@@ -98,6 +98,7 @@ export function buildManualChatFieldUpdateBridge(
 
 export function formatManualChatFieldUpdateValue(value: unknown, currentLocale: string): string {
   if (typeof value !== 'number') return String(value)
-  const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale =
+    currentLocale === 'fr' ? 'fr-BE' : currentLocale === 'en' ? 'en-BE' : 'nl-BE'
   return `€${value.toLocaleString(currencyLocale)}`
 }

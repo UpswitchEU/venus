@@ -26,7 +26,7 @@ export interface DecorateManualValuationRequestParams {
 export interface BuildManualCalculationRequestParams extends DecorateManualValuationRequestParams {
   formData: ValuationFormData
   normalizations?: NormalizationItem[]
-  locale?: 'nl' | 'en'
+  locale?: 'nl' | 'en' | 'fr'
 }
 
 /**

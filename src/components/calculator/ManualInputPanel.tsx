@@ -264,7 +264,7 @@ export function ManualInputPanel({
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
     formData.country,
-    locale === 'en' ? 'en' : 'nl'
+    locale === 'fr' ? 'fr' : locale === 'en' ? 'en' : 'nl'
   )
   const activityCodeShort = activityCodeTerm.replace(/-code$/i, '').trim()
   const localizeActivityCodeCopy = useCallback(
@@ -273,9 +273,16 @@ export function ManualInputPanel({
         .replace(/NACE-code/g, activityCodeTerm)
         .replace(/NACE code/g, activityCodeTerm)
         .replace(/NACE/g, activityCodeShort)
-        .replace(/KBO-nummer/g, getFinancialTerm('registrationNumber', formData.country))
+        .replace(
+          /KBO-nummer/g,
+          getFinancialTerm(
+            'registrationNumber',
+            formData.country,
+            locale === 'fr' ? 'fr' : 'nl'
+          )
+        )
         .replace(/KBO number/g, getFinancialTerm('registrationNumber', formData.country, 'en')),
-    [activityCodeShort, activityCodeTerm, formData.country]
+    [activityCodeShort, activityCodeTerm, formData.country, locale]
   )
 
   const latestCompleteYearlyFinancial = useMemo(

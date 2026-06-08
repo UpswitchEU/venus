@@ -7,7 +7,7 @@ import { PREVIEW_DECIMALS } from './previewConstants'
 
 /** Maps next-intl locale (`en`, `nl`, …) to Belgian number formatting. */
 export function getBelgianNumberLocale(locale: string): BelgianLocaleTag {
-  return locale === 'en' ? 'en-BE' : 'nl-BE'
+  return locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
 }
 
 export function createManualMetricFormatter(

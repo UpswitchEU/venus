@@ -133,7 +133,7 @@ export function NormalizationTableView({
   const formatCurrency = React.useCallback(
     (value: number) => {
       const safe = Number.isFinite(value) ? value : 0
-      return new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      return new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
@@ -511,7 +511,7 @@ export function NormalizationBentoView({
   const formatCurrency = React.useCallback(
     (value: number) => {
       const safe = Number.isFinite(value) ? value : 0
-      return new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+      return new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,

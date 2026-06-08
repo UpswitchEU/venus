@@ -138,10 +138,13 @@ export function useManualRecalculateConfirmation({
         )
         updateFormData(venusFormData)
         const storeSnapshot = useManualFormStore.getState().formData
-        const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+        const validLocale =
+          currentLocale === 'en' || currentLocale === 'nl' || currentLocale === 'fr'
+            ? currentLocale
+            : 'nl'
         const request = buildManualCalculationRequest({
           formData: storeSnapshot,
-          locale: validLocale as 'nl' | 'en',
+          locale: validLocale,
           selectedMethod: preSelectedMethod ?? selectedMethod,
           identifiers: { reportId: idForVersions },
           synthesisSelection,

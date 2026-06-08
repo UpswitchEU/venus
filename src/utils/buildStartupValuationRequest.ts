@@ -32,7 +32,7 @@ export interface BuildStartupValuationRequestOptions {
   businessTypeId?: string
   businessType?: string
   startupInputs: Record<string, unknown>
-  locale?: 'nl' | 'en'
+  locale?: 'nl' | 'en' | 'fr'
 }
 
 const DEFAULT_INDUSTRY = 'technology'
@@ -46,7 +46,7 @@ const DEFAULT_BUSINESS_MODEL = 'saas'
  * (preview / staging / production), so PDFs generated in staging
  * link back to staging Mercury rather than production.
  */
-function buildAdvisorCtaUrl(locale?: 'nl' | 'en'): string {
+function buildAdvisorCtaUrl(locale?: 'nl' | 'en' | 'fr'): string {
   const base = getMercuryUrl().replace(/\/$/, '')
   const loc = locale ?? 'nl'
   const url = new URL(`${base}/${loc}/client/dashboard`)

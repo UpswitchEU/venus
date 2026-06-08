@@ -21,8 +21,8 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
   versionNumber,
 }) => {
   const t = useTranslations('normalizationHub')
-  const locale = useLocale() as 'nl' | 'en'
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const locale = useLocale()
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   if (!normalizations || normalizations.length === 0) {
     return null
   }

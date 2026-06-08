@@ -257,7 +257,7 @@ export function ChatAssistantAdvisoryPreviewCards({
 }: ChatAssistantAdvisoryPreviewCardsProps) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
 
   return (
     <>

@@ -14,4 +14,4 @@ export const PREVIEW_DECIMALS = {
   ratio: 1,
 } as const
 
-export type BelgianLocaleTag = 'en-BE' | 'nl-BE'
+export type BelgianLocaleTag = 'en-BE' | 'nl-BE' | 'fr-BE'

@@ -91,8 +91,14 @@ const formatCurrency = (amount: number) => {
 }
 
 type FormatImportTimeT = (key: string, values?: Record<string, number | string>) => string
+type ImportTimeLocale = 'en' | 'nl' | 'fr'
 
-const formatImportTime = (date: Date, t: FormatImportTimeT, locale: 'en' | 'nl' = 'nl') => {
+const normalizeImportTimeLocale = (locale: string): ImportTimeLocale => {
+  if (locale === 'nl' || locale === 'fr') return locale
+  return 'en'
+}
+
+const formatImportTime = (date: Date, t: FormatImportTimeT, locale: ImportTimeLocale = 'nl') => {
   const pastMs = dateLikeToUnixMs(date)
   const diff = pastMs === null ? 0 : Date.now() - pastMs
   const minutes = Math.floor(diff / 60000)
@@ -103,7 +109,8 @@ const formatImportTime = (date: Date, t: FormatImportTimeT, locale: 'en' | 'nl' 
   if (hours < 24) return t('hoursAgo', { count: hours })
   const display =
     pastMs !== null ? new Date(pastMs) : date instanceof Date ? date : new Date(String(date))
-  return display.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+  const dateLocale = locale === 'nl' ? 'nl-BE' : locale === 'fr' ? 'fr-BE' : 'en-GB'
+  return display.toLocaleDateString(dateLocale, {
     day: 'numeric',
     month: 'short',
   })
@@ -122,7 +129,7 @@ export function CSVImportCard({
   softwareName = 'Generiek',
 }: CSVImportCardProps) {
   const t = useTranslations('yukiIntegration')
-  const locale = useLocale() as 'nl' | 'en'
+  const locale = normalizeImportTimeLocale(useLocale())
   const { status, lastImport, fileName, errorMessage } = importStatus
 
   const softwareColors: Record<string, string> = {
@@ -293,7 +300,7 @@ export function ImportStatusBadge({
   lastImport?: Date
 }) {
   const t = useTranslations('yukiIntegration')
-  const locale = useLocale() as 'nl' | 'en'
+  const locale = normalizeImportTimeLocale(useLocale())
 
   if (status === 'processing') {
     return (

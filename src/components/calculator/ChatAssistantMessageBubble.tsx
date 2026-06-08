@@ -104,8 +104,8 @@ export function MessageBubble({
 }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
-  const loginLocale = locale === 'nl' || locale === 'en' ? locale : 'en'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
+  const loginLocale = locale === 'fr' || locale === 'nl' || locale === 'en' ? locale : 'en'
   const loginHref = (() => {
     const mercuryUrl = getMercuryUrl().replace(/\/$/, '')
     const returnUrl =

@@ -258,7 +258,7 @@ export interface ValuationRequest {
   long_term_gdp_growth?: number
 
   // Localization
-  locale?: 'nl' | 'en'
+  locale?: 'nl' | 'en' | 'fr'
 
   // Valuation preferences
   use_dcf?: boolean

@@ -49,7 +49,7 @@ export function ClientContextBanner() {
   const handleExitClientView = () => {
     try {
       clearClientContext()
-      const validLocale = locale && ['en', 'nl', 'fr', 'de'].includes(locale) ? locale : 'en'
+      const validLocale = locale && ['en', 'nl', 'fr'].includes(locale) ? locale : 'en'
       navigateToMercuryFromManualHandoff({
         currentLocale: validLocale,
         clientContextId: relationshipId ?? client?.id,
@@ -60,7 +60,7 @@ export function ClientContextBanner() {
         error: error instanceof Error ? error.message : String(error),
       })
       try {
-        const loc = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
+        const loc = locale && (locale === 'en' || locale === 'nl' || locale === 'fr') ? locale : 'en'
         window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {

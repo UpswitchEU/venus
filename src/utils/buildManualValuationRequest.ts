@@ -20,7 +20,7 @@ import { resolveVentureCountryIso2 } from './resolveVentureCountryIso2'
 export function buildManualValuationRequest(
   formData: ValuationFormData,
   overrideItems?: NormalizationItem[],
-  locale?: 'nl' | 'en'
+  locale?: 'nl' | 'en' | 'fr'
 ): ValuationRequest {
   const effectiveMethod =
     useManualResultsStore.getState().preSelectedMethod ??

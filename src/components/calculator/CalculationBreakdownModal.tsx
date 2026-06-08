@@ -31,9 +31,9 @@ export function CalculationBreakdownModal({
   report,
 }: CalculationBreakdownModalProps) {
   const t = useTranslations('calculationBreakdown')
-  const locale = useLocale() as 'nl' | 'en'
+  const locale = useLocale()
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+    new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-GB', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,

@@ -233,7 +233,7 @@ export function getSafeMercuryReturnUrl(
   const mercuryUrl = getMercuryUrl()
   /** When set, stored Mercury paths are rewritten to this locale; when omitted, stored URLs are kept as-is. */
   const explicitLocaleOpt =
-    options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale)
+    options?.locale && ['en', 'nl', 'fr'].includes(options.locale)
       ? options.locale
       : undefined
   const pathLocale = mercuryPathLocale(explicitLocaleOpt ?? 'en')

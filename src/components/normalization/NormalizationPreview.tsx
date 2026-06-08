@@ -35,7 +35,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
 }) => {
   const t = useTranslations('normalizationHub')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const _adjustmentPercentage =
     reportedEbitda !== 0 ? ((totalAdjustments / reportedEbitda) * 100).toFixed(1) : '0.0'
 

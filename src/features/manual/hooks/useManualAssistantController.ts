@@ -225,7 +225,8 @@ export function useManualAssistantController({
     )
   }, [formStoreData?.current_year_data, formStoreData?.historical_years_data])
 
-  const assistantLocale: 'en' | 'nl' = currentLocale === 'nl' ? 'nl' : 'en'
+  const assistantLocale: 'en' | 'nl' | 'fr' =
+    currentLocale === 'fr' ? 'fr' : currentLocale === 'nl' ? 'nl' : 'en'
   const formatStartupAssistantPrompt = useCallback(
     (prompt: string) => formatManualStartupAssistantPrompt(prompt, assistantLocale),
     [assistantLocale]

@@ -48,12 +48,12 @@
 		}
 	},
 	"preset": {
-		"quickStartAria": "Snelle start templates",
+		"quickStartAria": "Snelle-startsjablonen",
 		"quickStart": "Snelle start",
-		"clear": "Wis preset",
-		"clearAria": "Wis het actieve preset en begin met een leeg canvas",
-		"clearTooltip": "Reset elk preset-beheerd veld (fase, sector, mijlpalen, VC-inputs) zodat je met je eigen data kunt beginnen.",
-		"previewLabel": "Hover",
+		"clear": "Voorinstelling wissen",
+		"clearAria": "Wis de actieve voorinstelling en begin met een leeg canvas",
+		"clearTooltip": "Zet elk door de voorinstelling beheerd veld (fase, sector, mijlpalen, VC-invoer) terug zodat je met je eigen data kunt beginnen.",
+		"previewLabel": "Voorbeeld",
 		"previewStage": "Fase",
 		"previewSector": "Sector",
 		"previewRaise": "Op te halen",
@@ -65,19 +65,19 @@
 		"whatInvestorsLookFor": "Wat investeerders zoeken",
 		"beneluxExamples": "Benelux-voorbeelden",
 		"yourEvidence": "Jouw bewijs (optioneel)",
-		"evidenceCounter": "{count}/280 — verschijnt letterlijk op de investor-PDF",
+		"evidenceCounter": "{count}/280 — verschijnt letterlijk op de investeerders-PDF",
 		"evidenceCounterNearLimit": "{count}/280 · nog {remaining} tekens"
 	},
 	"prefillBadge": {
-		"sectorDefault": "Voorgevuld · sector-default",
-		"stageDefault": "Voorgevuld · fase-default",
+		"sectorDefault": "Voorgevuld · sectorstandaard",
+		"stageDefault": "Voorgevuld · fasestandaard",
 		"benchmarkDefault": "Voorgevuld · sector-mediaan",
 		"mercury": "Voorgevuld · vanuit Mercury",
 		"yourOverride": "Door jou aangepast"
 	},
 	"berkus": {
 		"introInputPrompt": "Score vijf risico-reductie mijlpalen.",
-		"introBefore": "De Berkus-methode beloont bewijs dat vroege risico's zijn verlaagd: product, markt, uitvoering, go-to-market en financieringsklaarheid.",
+		"introBefore": "De Berkus-methode beloont bewijs dat vroege risico's zijn verlaagd: product, markt, uitvoering, marktintroductie en financieringsklaarheid.",
 		"introHighlight": "Selecteer alleen mijlpalen die je met bewijs kunt verdedigen.",
 		"introAfter": "De bijdrage wordt begrensd door de regionale stage-ijking en meegenomen in de geblende pre-money bandbreedte.",
 		"capLine": "Tot {total} over 5 mijlpalen · {per} per mijlpaal — {country} {stage} ijking",
@@ -107,13 +107,13 @@
 		"fundingStage": "Financieringsfase",
 		"seriesANudge": "Series A · ARR multiple past meestal beter bij deze fase.",
 		"seedRevenueNudge": "€{mrr}k MRR · ARR multiple geeft een strakker getal.",
-		"switchToArrCta": "Schakel over naar ARR multiple",
-		"switchToArrAria": "Wissel de actieve waarderingsmethode naar ARR multiple — je inputs blijven behouden.",
+		"switchToArrCta": "Schakel over naar ARR-multiple",
+		"switchToArrAria": "Wissel de actieve waarderingsmethode naar ARR-multiple — je invoer blijft behouden.",
 		"sectorChipLabel": "Waarderingssector",
-		"sectorChipMultiple": "{multiple}× exit EV/Omzet benchmark",
+		"sectorChipMultiple": "{multiple}× exit-EV/omzetbenchmark",
 		"sectorChipChange": "Wijzigen",
 		"sectorChipPickHeading": "Kies de sector die het beste bij je business past",
-		"sectorChipPickHint": "Bepaalt de exit-multiple, de regionale pre-money basis en of de SaaS-forward methode meedoet. Kies de dichtste match — investeerders gaan dit toetsen.",
+		"sectorChipPickHint": "Bepaalt de exit-multiple, de regionale pre-money basis en of de SaaS-prospectiefmethode meedoet. Kies de dichtste match — investeerders gaan dit toetsen.",
 		"roundRaised": "Op te halen ronde (€)",
 		"pitchLabel": "Korte pitch (1 zin, optioneel)",
 		"pitchPlaceholder": "Bv. \"Wij helpen Belgische advocatenkantoren contracten 10× sneller analyseren.\"",
@@ -124,35 +124,35 @@
 		},
 		"stageSubtitles": {
 			"pre_seed": "Idee tot eerste hires, nog geen recurring omzet. Risico-reductie mijlpalen sturen het grootste deel van het cijfer.",
-			"seed": "MRR loopt, je zoekt product-market fit. Risico-reductie, marktverdedigbaarheid en forward tractie wegen elk mee.",
-			"series_a": "~€1M+ ARR, kapitaal voor schaal. Forward tractie en de exit-gedreven berekening verankeren de waardering."
+			"seed": "MRR loopt, je zoekt product-market fit. Risico-reductie, marktverdedigbaarheid en toekomstige tractie wegen elk mee.",
+			"series_a": "~€1M+ ARR, kapitaal voor schaal. Toekomstige tractie en de exit-gedreven berekening verankeren de waardering."
 		}
 	},
 	"traction": {
-		"revenuePrompt": "Genereer je vandaag al recurring omzet? Bij \"nee\" slaan we de ARR-multiple over (zonder omzet voegt die niets toe).",
+		"revenuePrompt": "Genereer je vandaag al terugkerende omzet? Bij \"nee\" slaan we de ARR-multiple over (zonder omzet voegt die niets toe).",
 		"noRevenue": "Nog geen omzet",
 		"yesMrr": "Ja, MRR live",
 		"forwardTitle": "Toekomstgerichte SaaS-cijfers",
-		"forwardSub": "Voed de SaaS-leg van de waardering met je huidige unit economics.",
+		"forwardSub": "Voed de SaaS-poot van de waardering met je huidige unit economics.",
 		"monthlyGrowth": "Maandelijkse groei (%)",
 		"monthlyGrowthHint": "Per maand, compounded. 5%/mnd ≈ 80%/jaar. De meeste pre-seed SaaS zitten op 8–15%/mnd.",
 		"monthlyGrowthAnnualEquiv": "= {annualPct}%/jaar compounded",
 		"monthlyGrowthHotWarn": "Boven 20%/maand — aanhoudende compound impliceert een verdubbeling per kwartaal. Controleer.",
 		"monthlyChurn": "Maandelijkse churn (%)",
-		"mrrLabel": "MRR (€) — huidige maandelijkse recurring revenue",
+		"mrrLabel": "MRR (€) — huidige maandelijkse terugkerende omzet",
 		"cacLabel": "CAC (€) — fully-loaded acquisitiekosten per klant",
 		"ltvOptional": "LTV (€) — optioneel",
 		"ltvCacRatioLabel": "LTV : CAC-ratio",
 		"currentArr": "Huidige ARR",
 		"forwardArr": "Prognose-ARR (12 mnd)",
 		"payback": "Terugverdientijd",
-		"ltvCacWarn": "LTV : CAC onder 3× — controleer de inputs.",
+		"ltvCacWarn": "LTV : CAC onder 3× — controleer de invoer.",
 		"livePreMoneyLabel": "Geschatte pre-money",
-		"livePreMoneyCaption": "Live blend van Berkus, Scorecard, VC-methode en SaaS forward — beweegt zodra je aan de sliders trekt.",
+		"livePreMoneyCaption": "Live mix van Berkus, Scorecard, VC-methode en SaaS-prospectief — beweegt zodra je aan de schuifregelaars trekt.",
 		"mrrSliderLabel": "Sleep om MRR-scenario's te vergelijken",
 		"mrrSliderHint": "0–€25k MRR dekt de pre-seed / vroege seed-fase. Typ een precieze waarde hierboven voor elke andere stand.",
 		"engagementTitle": "Actieve gebruikers / engagement",
-		"engagementLead": "Actieve accounts, MAU, wekelijkse kopers — wat jouw usage-metric ook is. Boven de 100 stijgt de defensibility-score; 1 000+ levert een engagement-multiple credit op, zodat een marketplace-oprichter met lichte omzet toch als echte tractie leest.",
+		"engagementLead": "Actieve accounts, MAU, wekelijkse kopers — wat jouw gebruiksmetric ook is. Boven de 100 stijgt de verdedigbaarheidsscore; 1 000+ levert een engagement-multiple krediet op, zodat een marktplaatsoprichter met lichte omzet toch als echte tractie leest.",
 		"engagementLabel": "Actieve gebruikers vandaag",
 		"engagementSliderLabel": "Sleep om engagement-scenario's te vergelijken",
 		"engagementSliderHint": "Typ een groter aantal hierboven. IJdele aantallen onder de 100 bewegen de score niet — angels zien dat doorheen.",
@@ -273,15 +273,15 @@
 		"amount": "Bedrag (€)",
 		"cap": "Waarderings-cap (€)",
 		"discount": "Korting (%)",
-		"advisorHint": "Advisor mode: bij conversie naar priced round wordt de meest gunstige clausule (cap of discount) per SAFE toegepast.",
+		"advisorHint": "Adviseurmodus: bij conversie naar prijsronde wordt de meest gunstige clausule (cap of korting) per SAFE toegepast.",
 		"capitalHistoryTitle": "Openstaande SAFEs / converteerbare leningen",
 		"capitalHistoryDescription": "Converteren bij de volgende prijsronde. Gebruik de meest gunstige clausule (cap of discount)."
 	},
 	"pedigree": {
-		"introInputPrompt": "Vink elke claim aan die van toepassing is. Voeg per claim één regel onderbouwing toe — alleen onderbouwde lifts tellen.",
+		"introInputPrompt": "Vink elke bewering aan die van toepassing is. Voeg per bewering één regel onderbouwing toe — alleen onderbouwde verhogingen tellen.",
 		"introBefore": "Team-pedigree past de waardering alleen aan wanneer founder-bewijs het uitvoeringsrisico verandert.",
-		"introRisk": "Sommige claims verhogen de bandbreedte; solo-founder risico kan ze verlagen.",
-		"introMid": "Het rekenmodel behandelt niet-onderbouwde claims als neutraal.",
+		"introRisk": "Sommige beweringen verhogen de bandbreedte; solo-founder risico kan ze verlagen.",
+		"introMid": "Het rekenmodel behandelt niet-onderbouwde beweringen als neutraal.",
 		"introWho": "Koppel elk signaal aan de founder of medeoprichter die het kan bewijzen.",
 		"introAfter": "Deze keuzes voeden de verdedigbaarheidstabel in de investor-PDF.",
 		"pickDefend": "Kies alleen wat je kunt verdedigen.",
@@ -289,17 +289,17 @@
 		"claimedNeutralized": "Geclaimd: {claimed}× — geneutraliseerd door ontbrekende onderbouwing",
 		"liftApplied": "Lift toegepast",
 		"discountApplied": "Korting toegepast",
-		"noOverlay": "Geen overlay",
+		"noOverlay": "Geen aanpassing",
 		"evidenceLabel": "Onderbouwing (verplicht voor de lift)",
-		"evidenceMissingEngine": "Zonder onderbouwing wordt deze pedigree-claim door het rekenmodel genuld (multiplier blijft 1.00×).",
+		"evidenceMissingEngine": "Zonder onderbouwing wordt deze pedigree-bewering door het rekenmodel genuld (multiplier blijft 1.00×).",
 		"evidenceCounter": "{count}/500 — verschijnt letterlijk in de verdedigbaarheidstabel van het rapport.",
 		"liftPendingChipSuffix": "wacht op onderbouwing",
 		"soloFounderAsymmetry": "Solo-founder status werkt asymmetrisch: het kan uitvoeringsvertrouwen verlagen, maar onderbouwde founder-sterktes kunnen een deel van dat risico compenseren.",
-		"calibrationBefore": "Founder-overlays worden gekalibreerd op Benelux seed-uitkomsten in plaats van als willekeurige premies toegevoegd.",
+		"calibrationBefore": "Founder-aanpassingen worden gekalibreerd op Benelux seed-uitkomsten in plaats van als willekeurige premies toegevoegd.",
 		"calibrationTitle": "Kalibratielogica",
 		"calibrationAfter": "Onderbouwde lifts en kortingen worden in de Scorecard-methode verwerkt voor de finale blend.",
-		"calibrationClamp": "De overlay is begrensd zodat pedigree nooit tractie, mijlpalen of exit-economie overstemt.",
-		"calibrationTail": "Het rapport houdt claim, bewijs en toegepaste multiplier zichtbaar voor investeerdersreview.",
+		"calibrationClamp": "De aanpassing is begrensd zodat pedigree nooit tractie, mijlpalen of exit-economie overstemt.",
+		"calibrationTail": "Het rapport houdt bewering, bewijs en toegepaste multiplier zichtbaar voor investeerdersreview.",
 		"options": {
 			"prior_exit": {
 				"title": "Eerdere venture-backed exit (≥€10M)",
@@ -370,7 +370,7 @@
 	},
 	"ambition": {
 		"heading": "Hoe groot wil je dat dit wordt?",
-		"subline": "Eén keuze. We berekenen de bijhorende exit-aannames automatisch op basis van Atomico SoEU 2024 + Dealroom Benelux benchmarks.",
+		"subline": "Eén keuze. We berekenen de bijhorende exit-aannames automatisch op basis van Atomico SoEU 2024 + Dealroom Benelux-referenties.",
 		"recommended": "Aanbevolen",
 		"y5Anchor": "Year-5 omzet anker",
 		"footer": "Geen idee? Kies \"{title}\" — dat is de Atomico mediaan voor pre-seed founders.",
@@ -397,8 +397,8 @@
 	},
 	"inceptionLens": {
 			"heading": "Inception-lens (optioneel)",
-		"subline": "Voor founders die niet op een conventioneel milestone-pad zitten. Erkent dat pre-seed wordt gewonnen door momentum, niet door moats — en dat de beste founders meer kosten. Standaard: uitgeschakeld.",
-		"noOverlayChip": "Geen overlay",
+		"subline": "Voor oprichters die niet op een conventioneel mijlpaalpad zitten. Erkent dat pre-seed wordt gewonnen door momentum, niet door concurrentiebarrières — en dat de beste oprichters meer kosten. Standaard: uitgeschakeld.",
+		"noOverlayChip": "Geen aanpassing",
 		"overlayActive": "{lift} · ±{band}%",
 		"defaultBadge": "Standaard",
 		"whatLensLead": "Gebruik dit alleen wanneer het bedrijf wordt geprijsd op uitzonderlijke vroege momentum in plaats van een klassiek milestone-pad.",
@@ -406,11 +406,11 @@
 		"levels": {
 			"milestones_driven": {
 				"title": "Milestones-gedreven",
-				"subtitle": "Standaard pre-seed: meetbare mijlpalen, peer-vergelijkbaar traject. Conventionele Berkus + Scorecard + VC blend, geen overlay."
+				"subtitle": "Standaard pre-seed: meetbare mijlpalen, peer-vergelijkbaar traject. Conventionele Berkus + Scorecard + VC-mix, geen aanpassing."
 			},
 			"momentum_driven": {
 				"title": "Momentum-gedreven",
-				"subtitle": "\"Pre-seed wordt gewonnen door momentum, niet door moats.\" Inkomende investeerdersinteresse, versnelling van aanwervingen, vroege klantenvraag. Lift +10%, ±15% bredere band.",
+				"subtitle": "\"Pre-seed wordt gewonnen door momentum, niet door concurrentiebarrières.\" Inkomende investeerdersinteresse, versnelling van aanwervingen, vroege klantenvraag. Verhoging +10%, ±15% bredere band.",
 				"examples": "Wanneer peers ongevraagd uitreiken; team verdubbelt per kwartaal; gebruikers vragen om de volgende versie."
 			},
 			"inception_bet": {
@@ -425,11 +425,11 @@
 			"eyebrow": "Geen account nodig om te beginnen",
 			"headline": "Wat is je startup waard?",
 			"headlineAccent": "Ontdek het in 15 minuten — registreer alleen als je het rapport wilt.",
-				"subline": "Drie gevestigde frameworks, gekalibreerd op gepubliceerde Benelux-benchmarks. Vul het hier in, registreer aan het eind om de investeerdersklare PDF te downloaden.",
+				"subline": "Drie gevestigde raamwerken, gekalibreerd op gepubliceerde Benelux-referenties. Vul het hier in, registreer aan het eind om de investeerdersklare PDF te downloaden.",
 			"stageChipsLabel": "Stage-dekking",
 			"anonymous": "Anoniem tot registratie",
 			"noCard": "Geen creditcard",
-			"gdpr": "GDPR-compliant",
+			"gdpr": "AVG-conform",
 			"stageChips": ["Pre-seed", "Seed", "Series A"]
 		},
 		"howItWorks": {
@@ -441,17 +441,17 @@
 				},
 				{
 					"title": "Registreer — geen kaart",
-					"body": "Magic-link registratie. Je inputs reizen met je mee naar het ingelogde dashboard."
+					"body": "Magic-link registratie. Je invoer reist met je mee naar het ingelogde dashboard."
 				},
 				{
 					"title": "Download je PDF",
-					"body": "Een investeerdersklaar rapport van 4 pagina's — one-pager, methodologie, cap table, verwatering."
+					"body": "Een investeerdersklaar rapport van 4 pagina's — samenvatting, methodologie, participatietabel, verwatering."
 				}
 			]
 		},
 		"methodology": {
-			"heading": "Drie frameworks, één verdedigbaar getal",
-			"lede": "We combineren drie waarderingsmethodes waar angel investors en seed-fondsen daadwerkelijk om vragen. Elk is gebaseerd op gepubliceerd onderzoek — geen proprietary black box.",
+			"heading": "Drie raamwerken, één verdedigbaar getal",
+			"lede": "We combineren drie waarderingsmethodes waar business angels en seed-fondsen daadwerkelijk om vragen. Elk is gebaseerd op gepubliceerd onderzoek — geen eigen black box.",
 			"cards": [
 				{
 					"title": "Berkus methode",
@@ -472,29 +472,29 @@
 		},
 		"reportContents": {
 			"heading": "Wat je downloadt",
-			"lede": "Een PDF van 4 paginas, ontworpen om in een data room te droppen of in een deck te plakken. Dezelfde artefacten zie je elk in het rapport hieronder.",
+			"lede": "Een PDF van 4 pagina's, ontworpen om in een dataroom te plaatsen of in een pitchdeck te plakken. Dezelfde artefacten zie je elk in het rapport hieronder.",
 			"items": [
 				{
-					"title": "Fundraising one-pager",
-					"body": "De pagina die je een angel overhandigt: geblende pre-money, bandbreedte, methodemix, football field over de drie legs, cap-table simulator, defensibility-hoogtepunten."
+					"title": "Fondsenwervingssamenvatting",
+					"body": "De pagina die je een angel overhandigt: geblende pre-money, bandbreedte, methodemix, waarderingsgrafiek over de drie poten, participatietabelsimulator, verdedigbaarheidshoogtepunten."
 				},
 				{
 					"title": "Executive summary",
 					"body": "Canonieke headline + bandbreedte + narratief, met stage en methodemix uitgelicht voor de lezer."
 				},
 				{
-					"title": "Methode-breakdown",
-					"body": "Audit-trail per methode: Berkus-bijdragentabel, Scorecard factor-gewichten, SaaS forward multiple wiskunde, VC backsolve."
+					"title": "Methode-uitsplitsing",
+					"body": "Auditspoor per methode: Berkus-bijdragentabel, Scorecard-factorwegingen, wiskunde voor de SaaS-prospectiefmultiple, VC-terugrekening."
 				},
 				{
-					"title": "Cap table & dilutie",
-					"body": "Bestaande optiepool, vorige ronde, SAFE notes, en het volgende-ronde dilutiescenario — opgemaakt zodat een accountant het kan certificeren."
+					"title": "Participatietabel & verwatering",
+					"body": "Bestaande optiepool, vorige ronde, SAFE-notes en het dilutiescenario voor de volgende ronde — opgemaakt zodat een accountant het kan certificeren."
 				}
 			]
 		},
 		"sources": {
 			"heading": "Gekalibreerd op gepubliceerd onderzoek",
-			"lede": "Benchmarks zijn niet verzonnen. De getallen waaraan de engine je inputs spiegelt, komen uit publieke datasets:",
+			"lede": "Referenties zijn niet verzonnen. De getallen waaraan de engine je invoer spiegelt, komen uit publieke datasets:",
 			"items": [
 				"Atomico — State of European Tech 2024",
 				"Dealroom — Benelux 2024",
@@ -508,29 +508,29 @@
 			"items": [
 				{
 					"q": "Waarom is de wizard gratis zonder registratie?",
-					"a": "Hem invullen geeft je al een getal dat je in een deck kunt plakken — dat is op zich nuttig, met of zonder PDF. Registratie is alleen voor het gepolijste investeerdersklare rapport en om je werk over sessies heen te bewaren."
+					"a": "Hem invullen geeft je al een getal dat je in een pitchdeck kunt plakken — dat is op zich nuttig, met of zonder PDF. Registratie is alleen voor het gepolijste investeerdersklare rapport en om je werk over sessies heen te bewaren."
 				},
 				{
 					"q": "Hoe nauwkeurig is dit ten opzichte van een betaalde waardering?",
-					"a": "Het is een triangulatie over drie gevestigde methoden, geen single-source-of-truth getal. Voor een term sheet of een SAFE-conversie moet je accountant de cap table tekenen — we maken dat een één-klik uitnodiging vanuit het rapport."
+					"a": "Het is een triangulatie over drie gevestigde methoden, geen enkel absoluut waarheidsgetal. Voor een term sheet of een SAFE-conversie moet je accountant de participatietabel tekenen — we maken dat een één-klik uitnodiging vanuit het rapport."
 				},
 				{
-					"q": "Wat gebeurt er met mijn inputs als ik wegga zonder te registreren?",
-					"a": "Ze blijven alleen in je browser (localStorage). Niets gaat naar onze servers tot je registreert. Als je binnen 24 uur terugkomt, laden je inputs automatisch terug."
+					"q": "Wat gebeurt er met mijn invoer als ik wegga zonder te registreren?",
+					"a": "Ze blijven alleen in je browser (localStorage). Niets gaat naar onze servers tot je registreert. Als je binnen 24 uur terugkomt, laden we je invoer automatisch terug."
 				},
 				{
 					"q": "Kan ik dit gebruiken voor een niet-Belgische / niet-Nederlandse startup?",
-					"a": "De wizard werkt voor elk bedrijf — de regionale benchmarks zijn vandaag gekalibreerd voor België en Nederland. Voor de rest van Europa triangleert het getal nog steeds, maar behandel de regio-multiplier als bij benadering."
+					"a": "De wizard werkt voor elk bedrijf — de regionale referenties zijn vandaag gekalibreerd voor België en Nederland. Voor de rest van Europa trianguleert het getal nog steeds, maar behandel de regio-multiplier als bij benadering."
 				}
 			]
 		},
 		"rightRail": {
 			"title": "Je rapport is bijna klaar",
-			"sub": "Vul de wizard links in. Klik op \"Genereer mijn rapport\", we slaan je inputs op, je doet een snelle registratie en je komt meteen op je voltooide waardering uit — links voorgevuld, rechts het PDF-rapport.",
+			"sub": "Vul de wizard links in. Klik op \"Genereer mijn rapport\", we slaan je invoer op, je doet een snelle registratie en je komt meteen op je voltooide waardering uit — links voorgevuld, rechts het PDF-rapport.",
 			"fixesIssues": "{count, plural, one {1 punt om aan te scherpen voordat het rapport investeerdersklaar is} other {# punten om aan te scherpen voordat het rapport investeerdersklaar is}}",
 			"cta": "Genereer mijn gratis rapport",
-			"ctaSubmitting": "Inputs opslaan…",
-			"ctaFootnote": "Gratis, in 15 minuten. We delen je inputs nooit. De volgende stap is een snelle registratie — geen creditcard.",
+			"ctaSubmitting": "Invoer opslaan…",
+			"ctaFootnote": "Gratis, in 15 minuten. We delen je invoer nooit. De volgende stap is een snelle registratie — geen creditcard.",
 			"legalAlready": "Heb je al een account?",
 			"legalLogin": "Log in"
 		},
@@ -552,8 +552,8 @@
 			"fintech": "Fintech",
 			"biotech_healthtech": "Biotech / healthtech",
 			"deeptech_ai": "Deeptech / AI",
-			"vertical_ai": "Verticale AI / agentic workflow",
-			"consumer": "Consumer / B2C",
+			"vertical_ai": "Verticale AI / agentische workflow",
+			"consumer": "Consument / B2C",
 			"hardware": "Hardware",
 			"other": "Meerdere sectoren"
 		},
@@ -574,12 +574,12 @@
 		"whyP1": "Verankerd op {team} en {ambition}{year5}.  Pre-money komt uit op {preMoney} bij een ronde van {raise}.",
 		"pedigreeLift": " Daarna een lift van {mult}× voor team-pedigree",
 		"pedigreeDiscount": " Daarna een korting van {mult}× voor team-pedigree",
-		"whyP2": "Getrianguleerd over {count} academische methoden (milestone-driven, peer-comparison, exit-driven).{overlay}.  Iedere leg is een gepubliceerde, peer-reviewed methode — geen hand-waving.",
+		"whyP2": "Getrianguleerd over {count} academische methoden (mijlpaalgedreven, peer-vergelijking, exit-gedreven).{overlay}.  Iedere poot is een gepubliceerde, peer-reviewed methode — geen handwaving.",
 		"headline": "{preMoney} pre-money · op te halen {raise} · post-money {post} · ~{dilution}% voor nieuwe investeerders deze ronde ({stage} · {sector} · {country})"
 	},
 	"transparency": {
 		"summaryTitle": "Live-preview: waarom dit cijfer?",
-		"disclaimerBold": "Live preview.",
+		"disclaimerBold": "Live voorbeeld.",
 		"disclaimerP1": "De canonieke waardering, range en PDF worden door ",
 		"disclaimerP2": " gerenderd wanneer je op ",
 		"disclaimerP3": " klikt. Toon investeerders het rapport, niet dit voorbeeld.",
@@ -591,18 +591,18 @@
 		"legLabels": {
 			"berkus": "Berkus — milestone-gedreven",
 			"scorecard": "Bill Payne Scorecard — peer-vergelijking",
-			"vc": "VC Method (Sahlman) — exit-gedreven",
-			"saas_forward": "SaaS Forward Multiple — tractie-gedreven"
+			"vc": "VC-methode (Sahlman) — exit-gedreven",
+			"saas_forward": "SaaS-prospectiefmultiple — tractie-gedreven"
 		},
 		"legNotes": {
 			"berkus": "Gedreven door je 5 risico-reductie mijlpalen (idee, prototype, team, partnerships, uitrol).",
 			"scorecard": "Gedreven door 5 gewogen defensibility-factoren vergeleken met het regionale pre-seed gemiddelde.",
-			"vc": "Gedreven door je Y5 ARR thesis × exit multiple ÷ target ROI − ronde-grootte.",
+			"vc": "Gedreven door je Y5 ARR-these × exit-multiple ÷ doel-ROI − rondegrootte.",
 			"saas_forward": "Gedreven door huidige MRR vooruit-geprojecteerd 12 maanden × risico-aangepaste multiple."
 		},
 		"pedigreeMultiplier": "Daarna een team-pedigree multiplier van {mult}× op de leg-blend ({from} → {to}).",
 			"inceptionSection": "2½. Inception-lens — toegepast",
-		"inceptionMomentumRest": "pre-seed wordt gewonnen door momentum, niet door moats. {mult}× lift op de mid; ±{band}% bredere variantie band om de werkelijke pre-seed onzekerheid eerlijk te rapporteren.",
+		"inceptionMomentumRest": "pre-seed wordt gewonnen door momentum, niet door concurrentiebarrières. {mult}× verhoging op het middenpunt; ±{band}% bredere variantieband om de werkelijke pre-seed onzekerheid eerlijk te rapporteren.",
 		"inceptionBetRest": "edge premie + markt-creatie thesis. {mult}× lift op de mid; ±{band}% bredere band — vloer iets lager (verhoogd downside-risico erkend), plafond aanzienlijk hoger (asymmetrische upside). Anthropic / Lovable / Cursor profiel.",
 		"lensMomentum": "Momentum-gedreven lens",
 			"lensBet": "Inception-bet-lens",
@@ -624,9 +624,9 @@
 		"sourceVcTitle": "VC-methode (Sahlman):",
 		"sourceVc": "Y5 omzet × exit-multiple ÷ target ROI − ronde-grootte.",
 		"sourcePedigreeTitle": "Pedigree (Strebulaev 2024):",
-		"sourcePedigree": "Multiplicatieve overlay 0.70×–1.80× op leg-blend baseline.",
+		"sourcePedigree": "Multiplicatieve aanpassing 0.70×–1.80× op de pootmix-basislijn.",
 			"sourceInceptionTitle": "Inception-lens (opt-in):",
-		"sourceInception": "Multiplier + band-widening overlay voor momentum-driven en inception-bet profielen. Erkent dat moats niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.",
+		"sourceInception": "Multiplier + bandverbredende aanpassing voor momentum-gedreven en inception-bet profielen. Erkent dat concurrentiebarrières niet bestaan op pre-seed, TAM onkenbaar is, en de beste founders meer kosten.",
 		"benchmarksLabel": "Benchmarks:",
 		"offlineFallback": "offline reserve",
 		"updatedPrefix": "bijgewerkt ",

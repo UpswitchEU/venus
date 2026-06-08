@@ -142,6 +142,8 @@ describe('parseAIChatToolResults — input tolerance', () => {
     expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
     expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
       'client_owner_invite_request',
+      'deal_readiness',
+      'start_playbook_request',
     ])
   })
 

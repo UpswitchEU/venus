@@ -139,7 +139,7 @@ export function ChatAssistantDrawer({
   type ChatAssistantTranslationValues = NonNullable<Parameters<typeof ca>[1]>
   const locale = useLocale()
   const shouldReduceMotion = useReducedMotion()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const [input, setInput] = useState('')
   const {
     aiConsentError,

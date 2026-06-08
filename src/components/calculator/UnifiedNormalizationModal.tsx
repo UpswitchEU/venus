@@ -104,7 +104,7 @@ export function UnifiedNormalizationModal({
 }: UnifiedNormalizationModalProps) {
   const nh = useTranslations('normalizationHub')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = useCallback(
     (amount: number) => {
       const safe = Number.isFinite(amount) ? amount : 0

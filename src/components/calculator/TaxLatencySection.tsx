@@ -275,7 +275,7 @@ export function TaxLatencySection({
 }: TaxLatencySectionProps) {
   const t = useTranslations('taxLatency')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   const countryCode = useManualFormStore((s) => s.formData.country_code)
   // Pull the user-chosen NAV-schedule tax rate so newly added latency rows default to
   // the same percentage as the asset-based NAV bridge (e.g. 0% for participation
