@@ -11,8 +11,8 @@
   "type": "module",
   "scripts": {
     "dev": "NEXT_DIST_DIR=.next-dev next dev --port 3001",
-    "build": "corepack pnpm --dir vendor/ai-actions build && node scripts/verify-messages-json.mjs && node scripts/generate-favicons.mjs && next build",
-    "vercel-build": "corepack pnpm --dir vendor/ai-actions build && node scripts/verify-messages-json.mjs && node scripts/generate-favicons.mjs && next build",
+    "build": "NODE_VERSION=$(cat .nvmrc); export PATH=\"$HOME/.nvm/versions/node/v$NODE_VERSION/bin:$PATH\"; corepack pnpm --dir vendor/ai-actions build && node scripts/verify-messages-json.mjs && node scripts/generate-favicons.mjs && next build",
+    "vercel-build": "NODE_VERSION=$(cat .nvmrc); export PATH=\"$HOME/.nvm/versions/node/v$NODE_VERSION/bin:$PATH\"; corepack pnpm --dir vendor/ai-actions build && node scripts/verify-messages-json.mjs && node scripts/generate-favicons.mjs && next build",
     "start": "next start --port 3001",
     "audit": "pnpm audit --prod --audit-level high",
     "guard:bundle-budget": "node scripts/guard-bundle-budget.mjs",
