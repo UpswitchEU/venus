@@ -308,8 +308,10 @@ export function AuthGate({
   const needsClientContext = hasClientToken
 
   // Subscribe to client context when needsClientContext (client null when invitation not accepted)
-  const _clientContextReady = useClientContext(
-    (s) => !needsClientContext || (s.isActingAsClient && !!s.accountant && !!s.relationshipId)
+  const clientContextReady = useClientContext(
+    (s) =>
+      !needsClientContext ||
+      (s.contextGateResolved && s.isActingAsClient && !!s.accountant && !!s.relationshipId)
   )
 
   const handleRetry = useCallback(() => {
@@ -434,7 +436,12 @@ export function AuthGate({
       // Verify client context when accountant flow (client null when invitation not accepted)
       if (needsClientContext) {
         const ctx = useClientContext.getState()
-        if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+        if (
+          !ctx.contextGateResolved ||
+          !ctx.isActingAsClient ||
+          !ctx.accountant ||
+          !ctx.relationshipId
+        ) {
           const exchangeFailure = getLastClientTokenExchangeFailure()
           generalLogger.warn('[AuthGate] Client context check failed', {
             isActingAsClient: ctx.isActingAsClient,
@@ -482,6 +489,7 @@ export function AuthGate({
     isInitializing,
     isRefreshing,
     needsClientContext,
+    clientContextReady,
     allowLocalDevelopmentDraftAccess,
   ])
 

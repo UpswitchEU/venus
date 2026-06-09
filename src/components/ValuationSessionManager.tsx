@@ -559,16 +559,22 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             hasSession: snapshot.hasSession,
           })
 
+          const authError = useAuthStore.getState().error?.trim()
+          const timeoutMessage =
+            isDelegatedAccountantHandoff && authError
+              ? authError
+              : 'Loading took too long. Please try refreshing the page.'
+
           // Force error state via session store
           useSessionStore.setState({
             status: 'error',
-            errorMessage: 'Loading took too long. Please try refreshing the page.',
+            errorMessage: timeoutMessage,
           })
         }, 30000) // 30 second maximum
 
         return () => clearTimeout(maxLoadingTimer)
       }
-    }, [stage, reportId]) // Only reset when stage or reportId changes, not on every status/session change
+    }, [stage, reportId, isDelegatedAccountantHandoff])
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // WORLD CLASS: Skip loading if bootstrap already has this session

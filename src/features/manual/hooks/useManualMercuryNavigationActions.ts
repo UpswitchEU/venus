@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { trackReturnToMercury } from '@/lib/analytics'
 import { useAuthStore } from '../../../lib/auth'
+import { clearDelegatedClientContext } from '../../../lib/auth/persistedClientContext'
 import { useClientContext } from '../../../stores/clientContext'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { generalLogger } from '../../../utils/logger'
@@ -71,7 +72,7 @@ export function useManualMercuryNavigationActions({
   const handleExitClientView = useCallback(() => {
     try {
       try {
-        useClientContext.getState().clearClientContext()
+        clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
       } catch (err) {
         generalLogger.warn('[ManualLayout] Client context cleanup failed', {
           error: err instanceof Error ? err.message : String(err),

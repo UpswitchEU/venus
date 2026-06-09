@@ -22,8 +22,12 @@ import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancel
 import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
+import { refreshDelegatedClientContextIfNeeded } from '../auth/delegatedClientContextRefresh'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
-import { shouldWaitForMercuryClientContextBeforeBootstrap } from '../mercury/sessionReadiness'
+import {
+  isDelegatedClientContextReadyForBootstrap,
+  shouldWaitForMercuryClientContextBeforeBootstrap,
+} from '../mercury/sessionReadiness'
 import { setBootstrapState } from '../sessionInitialization'
 import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
@@ -229,6 +233,7 @@ export function BootstrapProvider({
   const bootstrapCompletedRef = useRef(false)
   const bootstrapRunIdRef = useRef(0)
   const _contextReportIdRef = useRef(context?.reportId)
+  const prevDelegationCacheKeyRef = useRef<string | null>(null)
 
   // Stable refs for parent callbacks — avoids runBootstrap re-creation
   // when parent passes new closure references on every render.
@@ -329,12 +334,22 @@ export function BootstrapProvider({
     })
     if (needsDelegatedContext) {
       const ctx = useClientContext.getState()
-      if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+      if (
+        !isDelegatedClientContextReadyForBootstrap({
+          needsMercuryClientContext: true,
+          contextGateResolved: ctx.contextGateResolved,
+          clientId: activeContext.clientId,
+          isActingAsClient: ctx.isActingAsClient,
+          accountantId: ctx.accountant?.id ?? null,
+          relationshipId: ctx.relationshipId,
+        })
+      ) {
         generalLogger.warn(
           '[BootstrapProvider] Delegated client context not ready — deferring Titan bootstrap',
           {
             reportId: activeContext.reportId?.substring(0, 30),
             hasClientId: !!activeContext.clientId?.trim(),
+            storedRelationshipId: ctx.relationshipId?.substring(0, 8) ?? null,
             authError: authState.error?.substring(0, 80),
           }
         )
@@ -565,6 +580,11 @@ export function BootstrapProvider({
   // Single derived boolean keeps the re-render count to one per auth-readiness
   // transition (previously each of the three selectors fired independently,
   // tripling provider renders on every auth tick).
+  const delegationCacheKey = useMemo(
+    () => getBootstrapContextCacheKey(activeContext),
+    [activeContext]
+  )
+
   const needsMercuryClientContext = useMemo(
     () =>
       shouldWaitForMercuryClientContextBeforeBootstrap({
@@ -586,8 +606,47 @@ export function BootstrapProvider({
     ]
   )
 
+  useEffect(() => {
+    if (!needsMercuryClientContext) return
+    if (prevDelegationCacheKeyRef.current === null) {
+      prevDelegationCacheKeyRef.current = delegationCacheKey
+      return
+    }
+    if (prevDelegationCacheKeyRef.current === delegationCacheKey) return
+
+    prevDelegationCacheKeyRef.current = delegationCacheKey
+    bootstrapStartedRef.current = false
+    bootstrapCompletedRef.current = false
+    bootstrapCompletedGlobally = false
+
+    void refreshDelegatedClientContextIfNeeded({
+      clientId: activeContext.clientId,
+      reportId: activeContext.reportId,
+      sourceApp: activeContext.sourceApp,
+      mercuryPersonaMode: activeContext.mercuryPersonaMode,
+      clientToken: activeContext.clientToken,
+      url: activeContext.url,
+    })
+  }, [
+    delegationCacheKey,
+    needsMercuryClientContext,
+    activeContext.clientId,
+    activeContext.reportId,
+    activeContext.sourceApp,
+    activeContext.mercuryPersonaMode,
+    activeContext.clientToken,
+    activeContext.url,
+  ])
+
   const mercuryClientContextReady = useClientContext((s) =>
-    !needsMercuryClientContext ? true : !!(s.isActingAsClient && s.accountant && s.relationshipId)
+    isDelegatedClientContextReadyForBootstrap({
+      needsMercuryClientContext,
+      contextGateResolved: s.contextGateResolved,
+      clientId: activeContext.clientId,
+      isActingAsClient: s.isActingAsClient,
+      accountantId: s.accountant?.id ?? null,
+      relationshipId: s.relationshipId,
+    })
   )
 
   const authStoreReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)

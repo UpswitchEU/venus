@@ -1095,6 +1095,10 @@ function syncClientContext(state: SessionBootstrapState): void {
       },
     })
 
+    void import('../lib/auth/clientContextGate').then(({ resolveDelegatedContextGateIfBootstrapSynced }) => {
+      resolveDelegatedContextGateIfBootstrapSynced(identity.clientContext!.relationshipId)
+    })
+
     logger.info('Client context synced from bootstrap', {
       clientUserId: clientUserId?.substring(0, 8) ?? 'null',
       accountantUserId: identity.clientContext.accountantUserId.substring(0, 8),

@@ -3,8 +3,8 @@
  * Uses a deferred promise to prevent API requests from firing before client
  * context is loaded.
  */
-import { looksLikeExistingReportId } from '../../utils/identifiers'
-import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
+import { useClientContext } from '../../stores/clientContext'
+import { getDelegatedUrlClientId, urlRequiresDelegatedClientContext } from './persistedClientContext'
 
 let clientContextInitialized = false
 let clientContextPromise: Promise<void> | null = null
@@ -12,24 +12,7 @@ let clientContextResolver: (() => void) | null = null
 let clientContextRejecter: ((error: Error) => void) | null = null
 
 function urlRequiresAsyncClientContext(): boolean {
-  if (typeof window === 'undefined') return false
-
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('clientToken')?.trim() || params.get('clientId')?.trim()) {
-    return true
-  }
-
-  // Mercury advisor opens existing reports with `mode=accountant` but may omit
-  // `clientId` in the URL; initializeAuth restores context via the report row.
-  if (params.get('source') === 'mercury' && isMercuryAdvisorModeParam(params.get('mode'))) {
-    const reportIdMatch = window.location.pathname.match(/\/reports\/([^/]+)/)
-    const reportId = reportIdMatch?.[1]
-    if (reportId && looksLikeExistingReportId(reportId)) {
-      return true
-    }
-  }
-
-  return false
+  return urlRequiresDelegatedClientContext()
 }
 
 export function initClientContextPromise(): Promise<void> {
@@ -42,8 +25,22 @@ export function initClientContextPromise(): Promise<void> {
   return clientContextPromise
 }
 
+function syncContextGateResolvedToStore(resolved: boolean): void {
+  useClientContext.setState({ contextGateResolved: resolved })
+}
+
+/** Reset gate when Venus navigates to a different delegated handoff in-session. */
+export function resetDelegatedClientContextGate(): void {
+  clientContextInitialized = false
+  clientContextPromise = null
+  clientContextResolver = null
+  clientContextRejecter = null
+  useClientContext.setState({ contextGateResolved: false })
+}
+
 export function resolveClientContext(): void {
   clientContextInitialized = true
+  syncContextGateResolvedToStore(true)
   if (clientContextResolver) {
     clientContextResolver()
     clientContextResolver = null
@@ -53,6 +50,7 @@ export function resolveClientContext(): void {
 
 export function rejectClientContext(error: Error): void {
   clientContextInitialized = false
+  syncContextGateResolvedToStore(false)
   if (clientContextRejecter) {
     clientContextRejecter(error)
     clientContextResolver = null
@@ -60,13 +58,27 @@ export function rejectClientContext(error: Error): void {
   }
 }
 
+function isDelegatedGateSatisfied(): boolean {
+  if (!urlRequiresAsyncClientContext()) return true
+  return useClientContext.getState().contextGateResolved
+}
+
 export function isClientContextReady(): boolean {
-  return clientContextInitialized
+  return clientContextInitialized && isDelegatedGateSatisfied()
 }
 
 export function waitForClientContext(): Promise<void> {
-  if (clientContextInitialized) {
+  if (clientContextInitialized && isDelegatedGateSatisfied()) {
     return Promise.resolve()
+  }
+
+  // clearClientContext can drop store.contextGateResolved without resetting this module;
+  // discard a settled promise so callers wait for the next resolve/reject cycle.
+  if (clientContextPromise && !isDelegatedGateSatisfied()) {
+    clientContextPromise = null
+    clientContextResolver = null
+    clientContextRejecter = null
+    clientContextInitialized = false
   }
 
   if (clientContextPromise) {
@@ -78,4 +90,16 @@ export function waitForClientContext(): Promise<void> {
   }
 
   return Promise.resolve()
+}
+
+/** After bootstrap syncs authoritative relationshipId, re-open the gate when it matches the URL. */
+export function resolveDelegatedContextGateIfBootstrapSynced(relationshipId: string | null): void {
+  if (!urlRequiresDelegatedClientContext() || !relationshipId?.trim()) return
+
+  const urlClientId = getDelegatedUrlClientId()
+  if (urlClientId && urlClientId !== relationshipId.trim()) return
+
+  if (!useClientContext.getState().contextGateResolved) {
+    resolveClientContext()
+  }
 }

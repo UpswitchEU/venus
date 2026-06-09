@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildMercuryDelegatedHandoffSignals,
   buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
   buildSeedIdentity,
   canRenderReportSession,
   hasAssetsInSession,
+  isDelegatedClientContextReadyForBootstrap,
+  isDelegatedClientContextReadyForUrl,
   isDelegatedMercuryAccountantHandoff,
   shouldAllowOptimisticMercuryRender,
   shouldSeedOptimisticMercuryShell,
@@ -413,6 +415,25 @@ describe('sessionReadiness', () => {
       expect(id?.type).toBe('authenticated')
     })
 
+    it('does not seed accountant_for_client when URL clientId mismatches relationshipId', () => {
+      vi.stubGlobal('window', {
+        location: { search: '?clientId=client-b&source=mercury' },
+      } as Window)
+
+      const id = buildSeedIdentity({
+        authUser: { id: 'acc-1', email: 'acc@firm.be', name: 'Beth' },
+        clientContext: {
+          isActingAsClient: true,
+          accountant: { id: 'acc-1', email: 'acc@firm.be' },
+          client: null,
+          relationshipId: 'client-a',
+        },
+      })
+
+      expect(id?.type).toBe('authenticated')
+      vi.unstubAllGlobals()
+    })
+
     it('keeps clientUserId nullable when the invitation is unaccepted', () => {
       const id = buildSeedIdentity({
         authUser: { id: 'acc-1', email: 'acc@firm.be', name: 'Beth' },
@@ -424,6 +445,110 @@ describe('sessionReadiness', () => {
         },
       })
       expect(id?.clientContext?.clientUserId).toBeNull()
+    })
+  })
+
+  describe('isDelegatedClientContextReadyForUrl', () => {
+    it('requires relationshipId to match URL clientId when present', () => {
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'stale-client-id',
+        })
+      ).toBe(false)
+    })
+
+    it('rejects shape-only readiness when acting-as-client is false', () => {
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          clientId: 'client-a',
+          isActingAsClient: false,
+          accountantId: 'acc-1',
+          relationshipId: 'client-a',
+        })
+      ).toBe(false)
+    })
+
+    it('allows shape-only readiness when URL has no clientId', () => {
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'rel-1',
+        })
+      ).toBe(true)
+    })
+
+    it('falls back to window URL clientId when bootstrap context omits clientId', () => {
+      vi.stubGlobal('window', {
+        location: { search: '?clientId=url-client&source=mercury' },
+      } as Window)
+
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'url-client',
+        })
+      ).toBe(true)
+
+      expect(
+        isDelegatedClientContextReadyForUrl({
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'stale-client',
+        })
+      ).toBe(false)
+
+      vi.unstubAllGlobals()
+    })
+  })
+
+  describe('isDelegatedClientContextReadyForBootstrap', () => {
+    it('requires context gate resolution for delegated Mercury opens', () => {
+      expect(
+        isDelegatedClientContextReadyForBootstrap({
+          needsMercuryClientContext: true,
+          contextGateResolved: false,
+          clientId: 'client-a',
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'client-a',
+        })
+      ).toBe(false)
+
+      expect(
+        isDelegatedClientContextReadyForBootstrap({
+          needsMercuryClientContext: true,
+          contextGateResolved: true,
+          clientId: 'client-a',
+          isActingAsClient: true,
+          accountantId: 'acc-1',
+          relationshipId: 'client-a',
+        })
+      ).toBe(true)
+    })
+
+    it('skips gate check for non-delegated opens', () => {
+      expect(
+        isDelegatedClientContextReadyForBootstrap({
+          needsMercuryClientContext: false,
+          contextGateResolved: false,
+          isActingAsClient: false,
+          relationshipId: null,
+        })
+      ).toBe(true)
     })
   })
 

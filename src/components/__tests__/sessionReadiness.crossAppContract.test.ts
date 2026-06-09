@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMercuryDelegatedHandoffSignals,
   buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
+  isDelegatedClientContextReadyForUrl,
   isDelegatedMercuryAccountantHandoff,
   shouldWaitForMercuryClientContextBeforeBootstrap,
 } from '../../lib/mercury/sessionReadiness'
@@ -68,6 +69,30 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(isDelegatedMercuryAccountantHandoff(signals)).toBe(true)
   })
 
+  it('preview incident clientId must match stored relationshipId before bootstrap', () => {
+    const params = parseSearchParams(PREVIEW_INCIDENT_SEARCH)
+    const clientId = params.get('clientId')
+    expect(clientId).toBe('e25ce3b7-2e1e-4c6d-890d-eb826d527afd')
+
+    expect(
+      isDelegatedClientContextReadyForUrl({
+        clientId,
+        isActingAsClient: true,
+        accountantId: 'acc-1',
+        relationshipId: clientId,
+      })
+    ).toBe(true)
+
+    expect(
+      isDelegatedClientContextReadyForUrl({
+        clientId,
+        isActingAsClient: true,
+        accountantId: 'acc-1',
+        relationshipId: '5c5bfc87-13f3-48c2-be7f-506e7f4748e7',
+      })
+    ).toBe(false)
+  })
+
   it('matches CalculatorRedirectClient existing-report Venus URL shape', () => {
     const params = new URLSearchParams()
     params.set('flow', 'manual')
@@ -119,16 +144,21 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Aborting Titan bootstrap — delegated context required/)
-    expect(source).toMatch(/!ctx\.isActingAsClient \|\| !ctx\.accountant \|\| !ctx\.relationshipId/)
+    expect(source).toMatch(/isDelegatedClientContextReadyForBootstrap/)
+    expect(source).toMatch(/Aborting Titan bootstrap — delegated context mismatch/)
   })
 
   it('clientContextGate waits when URL has clientId, clientToken, or Mercury accountant existing report', () => {
-    const path = join(__dirname, '../../lib/auth/clientContextGate.ts')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/params\.get\('clientToken'\)/)
-    expect(source).toMatch(/params\.get\('clientId'\)/)
-    expect(source).toMatch(/isMercuryAdvisorModeParam/)
-    expect(source).toMatch(/looksLikeExistingReportId/)
+    const gatePath = join(__dirname, '../../lib/auth/clientContextGate.ts')
+    const gateSource = readFileSync(gatePath, 'utf8')
+    expect(gateSource).toMatch(/urlRequiresDelegatedClientContext/)
+
+    const persistPath = join(__dirname, '../../lib/auth/persistedClientContext.ts')
+    const persistSource = readFileSync(persistPath, 'utf8')
+    expect(persistSource).toMatch(/params\.get\('clientToken'\)/)
+    expect(persistSource).toMatch(/params\.get\('clientId'\)/)
+    expect(persistSource).toMatch(/isMercuryAdvisorModeParam/)
+    expect(persistSource).toMatch(/looksLikeExistingReportId/)
   })
 
   it('useBootstrapSync dedupes across hook instances (ValuationReport + ManualLayout)', () => {
@@ -212,6 +242,101 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/clientIdParam && isAccountantTierRole\(user\.role\)/)
     expect(source).not.toMatch(/mode === MERCURY_ADVISOR_URL_MODE &&\s*\n\s*clientIdParam/)
+  })
+
+  it('initializeAuth rejects invalid clientToken without resolving the context gate', () => {
+    const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Invalid client token format/)
+    expect(source).toMatch(/rejectClientContext/)
+    expect(source).not.toMatch(
+      /Invalid client token format[\s\S]{0,200}resolveClientContext\(\)/
+    )
+  })
+
+  it('initializeAuth clears stale persisted context when URL clientId mismatches', () => {
+    const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/isPersistedContextStaleForUrl/)
+    expect(source).toMatch(/clearDelegatedClientContext/)
+  })
+
+  it('initializeAuth restores report context even when stale isActingAsClient is set', () => {
+    const path = join(__dirname, '../../lib/auth/initializeAuth.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/shouldRestoreFromReport/)
+    expect(source).toMatch(/alreadyMatchesReport/)
+    expect(source).toMatch(/Clearing stale client context before report restore/)
+  })
+
+  it('clientContext store discards stale relationshipId on persist rehydrate', () => {
+    const path = join(__dirname, '../../stores/clientContext.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/onRehydrateStorage/)
+    expect(source).toMatch(/discardStalePersistedClientContextOnRehydrate/)
+    expect(source).toMatch(/isPersistedContextStaleForUrl/)
+  })
+
+  it('BootstrapProvider runBootstrap uses URL-matched delegated context gate', () => {
+    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/isDelegatedClientContextReadyForBootstrap/)
+    expect(source).toMatch(/contextGateResolved/)
+    expect(source).not.toMatch(
+      /!ctx\.isActingAsClient \|\| !ctx\.accountant \|\| !ctx\.relationshipId/
+    )
+  })
+
+  it('clientContextGate syncs contextGateResolved into the client context store', () => {
+    const path = join(__dirname, '../../lib/auth/clientContextGate.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/contextGateResolved/)
+    expect(source).toMatch(/syncContextGateResolvedToStore/)
+    expect(source).toMatch(/resetDelegatedClientContextGate/)
+  })
+
+  it('getContextHeaders blocks until contextGateResolved on delegated URLs', () => {
+    const path = join(__dirname, '../../stores/clientContext.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/urlRequiresDelegatedClientContext/)
+    expect(source).toMatch(/contextGateResolved/)
+  })
+
+  it('AuthGate waits for contextGateResolved on clientToken handoffs', () => {
+    const path = join(__dirname, '../AuthGate.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/contextGateResolved/)
+    expect(source).not.toMatch(
+      /needsClientContext \|\| \(s\.isActingAsClient && !!s\.accountant && !!s\.relationshipId\)/
+    )
+  })
+
+  it('HttpClient waits for delegated client context before attaching headers', () => {
+    const path = join(__dirname, '../../services/api/HttpClient.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/waitForClientContext/)
+    expect(source).toMatch(/getContextHeaders/)
+  })
+
+  it('clearDelegatedClientContext resets gate and refresh dedupe state', () => {
+    const path = join(__dirname, '../../lib/auth/persistedClientContext.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/resetDelegatedClientContextGate/)
+    expect(source).toMatch(/resetDelegatedClientContextRefreshState/)
+  })
+
+  it('waitForClientContext requires store contextGateResolved on delegated URLs', () => {
+    const path = join(__dirname, '../../lib/auth/clientContextGate.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/isDelegatedGateSatisfied/)
+    expect(source).toMatch(/contextGateResolved/)
+  })
+
+  it('BootstrapProvider refreshes delegated context on in-session handoff changes', () => {
+    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/refreshDelegatedClientContextIfNeeded/)
+    expect(source).toMatch(/delegationCacheKey/)
   })
 
   it('preview incident: bootstrap wait and delegated handoff agree', () => {

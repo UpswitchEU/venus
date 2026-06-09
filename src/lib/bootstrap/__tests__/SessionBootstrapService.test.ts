@@ -1006,5 +1006,44 @@ describe('SessionBootstrapService', () => {
       expect(result.report).toBeDefined()
       expect(result.prefillData).toBeDefined()
     })
+
+    it('aborts Titan bootstrap when stored relationshipId mismatches URL clientId', async () => {
+      vi.useFakeTimers()
+
+      const context: BootstrapContext = {
+        reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+        sourceApp: 'mercury',
+        clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+        mercuryPersonaMode: 'accountant',
+        locale: 'nl',
+      }
+
+      const { useAuthStore } = await import('../../auth')
+      const { useClientContext } = await import('../../../stores/clientContext')
+
+      vi.spyOn(useAuthStore, 'getState').mockReturnValue({
+        loading: false,
+        isInitializing: false,
+        isRefreshing: false,
+        user: { id: 'user-1', role: 'accountant' },
+        error: 'Failed to fetch client context',
+      } as ReturnType<typeof useAuthStore.getState>)
+
+      vi.spyOn(useClientContext, 'getState').mockReturnValue({
+        isActingAsClient: true,
+        accountant: { id: 'acc-1', email: 'acc@firm.be' },
+        relationshipId: 'stale-client-id',
+        contextGateResolved: false,
+        getContextHeaders: () => ({}),
+      } as ReturnType<typeof useClientContext.getState>)
+
+      const expectation = expect(service.bootstrapViaTitan(context)).rejects.toThrow(
+        'Failed to fetch client context'
+      )
+      await vi.runAllTimersAsync()
+      await expectation
+
+      vi.useRealTimers()
+    })
   })
 })

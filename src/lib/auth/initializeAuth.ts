@@ -11,6 +11,11 @@ import {
   rejectClientContext,
   resolveClientContext,
 } from './clientContextGate'
+import {
+  clearDelegatedClientContext,
+  clearPersistedClientContextStorage,
+  isPersistedContextStaleForUrl,
+} from './persistedClientContext'
 import { API_URL } from './config'
 import { isReloadLooping, markInitSuccess, wasRecentlyInitialized } from './initGuards'
 import {
@@ -117,16 +122,13 @@ export async function initializeAuth(): Promise<void> {
         if (clientToken.length < 20 || !/^[A-Za-z0-9._-]+$/.test(clientToken)) {
           generalLogger.warn(`[Auth:${traceId}] Invalid client token format - skipping exchange`)
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
-          resolveClientContext()
+          const { useClientContext } = await import('../../stores/clientContext')
+          clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+          const message = 'Invalid valuation link. Please create a new valuation from the client page.'
+          rejectClientContext(new Error(message))
+          useAuthStore.getState().setError(message)
         } else {
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.removeItem('client-context')
-              localStorage.removeItem('client-context-version')
-            }
-          } catch {
-            /* ignore */
-          }
+          clearPersistedClientContextStorage()
 
           void (async () => {
             try {
@@ -261,6 +263,9 @@ export async function initializeAuth(): Promise<void> {
 
             useAuthStore.getState().setError(errorMessage)
 
+            const { useClientContext } = await import('../../stores/clientContext')
+            clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+
             const url = new URL(window.location.href)
             url.searchParams.delete('clientToken')
             url.searchParams.delete('client_id')
@@ -291,6 +296,28 @@ export async function initializeAuth(): Promise<void> {
             )
 
             initClientContextPromise()
+
+            const { useClientContext } = await import('../../stores/clientContext')
+            const persistedContext = useClientContext.getState()
+            if (isPersistedContextStaleForUrl(persistedContext.relationshipId, clientIdParam)) {
+              generalLogger.warn(
+                `[Auth:${traceId}] Clearing stale client context before get-client-context`,
+                {
+                  storedRelationshipId: persistedContext.relationshipId?.substring(0, 8) ?? null,
+                  urlClientId: clientIdParam.substring(0, 8),
+                }
+              )
+              clearDelegatedClientContext(() => persistedContext.clearClientContext())
+            } else if (
+              persistedContext.isActingAsClient &&
+              persistedContext.accountant?.id &&
+              persistedContext.relationshipId === clientIdParam
+            ) {
+              generalLogger.debug(
+                `[Auth:${traceId}] Persisted client context matches URL — unblocking gate while refreshing`
+              )
+              resolveClientContext()
+            }
 
             try {
               const ctxAbort = new AbortController()
@@ -328,6 +355,8 @@ export async function initializeAuth(): Promise<void> {
               })
               rejectClientContext(error instanceof Error ? error : new Error(String(error)))
 
+              clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+
               const errorMessage =
                 error instanceof Error ? error.message : 'Failed to establish client context'
               useAuthStore.getState().setError(errorMessage)
@@ -346,15 +375,28 @@ export async function initializeAuth(): Promise<void> {
             if (reportId && (isSessionKey(reportId) || isUuid(reportId))) {
               const { useClientContext } = await import('../../stores/clientContext')
               const contextState = useClientContext.getState()
+              const shouldRestoreFromReport =
+                mercuryDelegatedExisting || !contextState.isActingAsClient
 
-              if (!contextState.isActingAsClient) {
+              if (shouldRestoreFromReport) {
                 generalLogger.debug(
                   `[Auth:${traceId}] Checking report for accountant_customer_id to restore context`,
-                  { mercuryDelegatedExisting }
+                  {
+                    mercuryDelegatedExisting,
+                    hasActingContext: contextState.isActingAsClient,
+                    storedRelationshipId: contextState.relationshipId?.substring(0, 8) ?? null,
+                  }
                 )
 
                 if (mercuryDelegatedExisting) {
                   initClientContextPromise()
+                }
+
+                const failDelegatedRestore = (message: string) => {
+                  if (!mercuryDelegatedExisting) return
+                  rejectClientContext(new Error(message))
+                  clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+                  useAuthStore.getState().setError(message)
                 }
 
                 try {
@@ -382,63 +424,88 @@ export async function initializeAuth(): Promise<void> {
                     const accountantCustomerId = report.accountant_customer_id
 
                     if (accountantCustomerId) {
-                      generalLogger.info(
-                        `[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`
-                      )
+                      const latestContext = useClientContext.getState()
+                      const alreadyMatchesReport =
+                        latestContext.isActingAsClient &&
+                        latestContext.accountant?.id &&
+                        latestContext.relationshipId === accountantCustomerId
 
-                      initClientContextPromise()
-
-                      const ctxAbort2 = new AbortController()
-                      const ctxTimeout2 = setTimeout(() => ctxAbort2.abort(), 5000)
-                      const contextResponse = await fetch(
-                        `${API_URL}/api/v2/auth/get-client-context`,
-                        {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          credentials: 'include',
-                          body: JSON.stringify({ clientId: accountantCustomerId }),
-                          signal: ctxAbort2.signal,
-                        }
-                      )
-                      clearTimeout(ctxTimeout2)
-
-                      if (contextResponse.ok) {
-                        const context = await contextResponse.json()
-
-                        if (context.accountantUser && context.relationship) {
-                          useClientContext.getState().setClientContext(context)
-
-                          generalLogger.info(
-                            `[Auth:${traceId}] Client context restored from report`
-                          )
+                      if (alreadyMatchesReport) {
+                        generalLogger.debug(
+                          `[Auth:${traceId}] Client context already matches report accountant_customer_id`
+                        )
+                        if (mercuryDelegatedExisting) {
                           resolveClientContext()
-                        } else {
-                          const message = 'Invalid client context structure received'
-                          generalLogger.warn(`[Auth:${traceId}] ${message} (from report)`)
-                          if (mercuryDelegatedExisting) {
-                            rejectClientContext(new Error(message))
-                            useAuthStore.getState().setError(message)
-                          }
                         }
                       } else {
-                        const errorData = await contextResponse.json().catch(() => ({}))
-                        const message =
-                          errorData.message ||
-                          `Failed to fetch client context (${contextResponse.status})`
-                        generalLogger.warn(`[Auth:${traceId}] Failed to fetch client context from report`, {
-                          message,
-                        })
-                        if (mercuryDelegatedExisting) {
-                          rejectClientContext(new Error(message))
-                          useAuthStore.getState().setError(message)
+                        if (
+                          latestContext.relationshipId &&
+                          latestContext.relationshipId !== accountantCustomerId
+                        ) {
+                          generalLogger.warn(
+                            `[Auth:${traceId}] Clearing stale client context before report restore`,
+                            {
+                              storedRelationshipId: latestContext.relationshipId.substring(0, 8),
+                              reportCustomerId: accountantCustomerId.substring(0, 8),
+                            }
+                          )
+                          clearDelegatedClientContext(() =>
+                            useClientContext.getState().clearClientContext()
+                          )
+                        }
+
+                        generalLogger.info(
+                          `[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`
+                        )
+
+                        initClientContextPromise()
+
+                        const ctxAbort2 = new AbortController()
+                        const ctxTimeout2 = setTimeout(() => ctxAbort2.abort(), 5000)
+                        const contextResponse = await fetch(
+                          `${API_URL}/api/v2/auth/get-client-context`,
+                          {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ clientId: accountantCustomerId }),
+                            signal: ctxAbort2.signal,
+                          }
+                        )
+                        clearTimeout(ctxTimeout2)
+
+                        if (contextResponse.ok) {
+                          const context = await contextResponse.json()
+
+                          if (context.accountantUser && context.relationship) {
+                            useClientContext.getState().setClientContext(context)
+
+                            generalLogger.info(
+                              `[Auth:${traceId}] Client context restored from report`
+                            )
+                            resolveClientContext()
+                          } else {
+                            const message = 'Invalid client context structure received'
+                            generalLogger.warn(`[Auth:${traceId}] ${message} (from report)`)
+                            failDelegatedRestore(message)
+                          }
+                        } else {
+                          const errorData = await contextResponse.json().catch(() => ({}))
+                          const message =
+                            errorData.message ||
+                            `Failed to fetch client context (${contextResponse.status})`
+                          generalLogger.warn(
+                            `[Auth:${traceId}] Failed to fetch client context from report`,
+                            { message }
+                          )
+                          failDelegatedRestore(message)
                         }
                       }
                     } else if (mercuryDelegatedExisting) {
                       const message =
                         'This report is not linked to a client — delegated advisor context is unavailable'
                       generalLogger.warn(`[Auth:${traceId}] ${message}`)
-                      rejectClientContext(new Error(message))
-                      useAuthStore.getState().setError(message)
+                      failDelegatedRestore(message)
                     } else {
                       generalLogger.debug(
                         `[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`
@@ -447,8 +514,7 @@ export async function initializeAuth(): Promise<void> {
                   } else if (mercuryDelegatedExisting) {
                     const message = `Report not accessible (${reportResponse.status})`
                     generalLogger.warn(`[Auth:${traceId}] ${message}`)
-                    rejectClientContext(new Error(message))
-                    useAuthStore.getState().setError(message)
+                    failDelegatedRestore(message)
                   } else {
                     generalLogger.debug(
                       `[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`
@@ -463,10 +529,7 @@ export async function initializeAuth(): Promise<void> {
                     `[Auth:${traceId}] Failed to restore client context from report`,
                     { error: message, mercuryDelegatedExisting }
                   )
-                  if (mercuryDelegatedExisting) {
-                    rejectClientContext(error instanceof Error ? error : new Error(message))
-                    useAuthStore.getState().setError(message)
-                  }
+                  failDelegatedRestore(message)
                 }
               }
             }

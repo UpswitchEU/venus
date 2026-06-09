@@ -6,6 +6,10 @@
  * React #185 / ErrorBoundary on preview (2026-05-27).
  */
 
+import {
+  getDelegatedUrlClientId,
+  isPersistedContextStaleForUrl,
+} from '../auth/persistedClientContext'
 import type { BootstrapContext, IdentityState } from '../bootstrap/types'
 import type { ValuationSession } from '../../types/valuation'
 import { looksLikeExistingReportId } from '../../utils/identifiers'
@@ -74,6 +78,63 @@ export function shouldWaitForMercuryClientContextBeforeBootstrap(input: {
     parseMercuryModeFromBootstrapUrl(input.url)?.trim() ||
     null
   return isMercuryAdvisorModeParam(mode)
+}
+
+export type DelegatedClientContextReadinessInput = {
+  /** `?clientId=` from the Mercury handoff URL (accountant_customers.id). */
+  clientId?: string | null
+  isActingAsClient?: boolean
+  accountantId?: string | null
+  relationshipId?: string | null
+}
+
+/**
+ * True when delegated client context in the store is ready for bootstrap.
+ * When the URL carries `?clientId=`, require `relationshipId` to match — stale
+ * persisted context from a prior client must not satisfy Mercury handoff gates.
+ */
+export function isDelegatedClientContextReadyForUrl(
+  input: DelegatedClientContextReadinessInput
+): boolean {
+  const urlClientId = input.clientId?.trim() || getDelegatedUrlClientId() || ''
+  const relationshipId = input.relationshipId?.trim() || ''
+  const accountantId = input.accountantId?.trim() || ''
+
+  const hasDelegatedShape = !!(input.isActingAsClient && accountantId && relationshipId)
+  if (!hasDelegatedShape) return false
+
+  if (urlClientId) {
+    return relationshipId === urlClientId
+  }
+
+  return true
+}
+
+/**
+ * Full bootstrap gate: URL-matched delegated shape AND initializeAuth has
+ * resolved the client-context promise (report restore / get-client-context).
+ * Prevents stale persisted shape from racing ahead of async auth.
+ */
+export function isDelegatedClientContextReadyForBootstrap(input: {
+  needsMercuryClientContext: boolean
+  contextGateResolved: boolean
+  clientId?: string | null
+  isActingAsClient?: boolean
+  accountantId?: string | null
+  relationshipId?: string | null
+}): boolean {
+  if (!input.needsMercuryClientContext) return true
+  if (
+    !isDelegatedClientContextReadyForUrl({
+      clientId: input.clientId,
+      isActingAsClient: input.isActingAsClient,
+      accountantId: input.accountantId,
+      relationshipId: input.relationshipId,
+    })
+  ) {
+    return false
+  }
+  return input.contextGateResolved
 }
 
 /** Build delegation signals from bootstrap context (Titan path). */
@@ -210,7 +271,11 @@ export function buildSeedIdentity(params: {
   const firstName = authUser.name?.split(' ')[0]
   const lastName = authUser.name?.split(' ').slice(1).join(' ') || undefined
 
-  if (clientContext.isActingAsClient && clientContext.relationshipId) {
+  if (
+    clientContext.isActingAsClient &&
+    clientContext.relationshipId &&
+    !isPersistedContextStaleForUrl(clientContext.relationshipId)
+  ) {
     return {
       type: 'accountant_for_client',
       userId: authUser.id,

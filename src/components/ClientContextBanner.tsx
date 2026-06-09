@@ -7,6 +7,7 @@ import { navigateToMercuryFromManualHandoff } from '@/features/manual/utils/manu
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { generalLogger } from '@/utils/logger'
 import { useAuth } from '../lib/auth'
+import { clearDelegatedClientContext } from '../lib/auth/persistedClientContext'
 import { useClientContext } from '../stores/clientContext'
 
 /**
@@ -48,7 +49,7 @@ export function ClientContextBanner() {
 
   const handleExitClientView = () => {
     try {
-      clearClientContext()
+      clearDelegatedClientContext(() => clearClientContext())
       const validLocale = locale && ['en', 'nl', 'fr'].includes(locale) ? locale : 'en'
       navigateToMercuryFromManualHandoff({
         currentLocale: validLocale,

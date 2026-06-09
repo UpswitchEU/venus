@@ -17,6 +17,7 @@ import { getIdentifierType, isUuid, looksLikeExistingReportId } from '../../util
 import { getInitTraceId } from '../auth'
 import {
   buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
+  isDelegatedClientContextReadyForBootstrap,
   isDelegatedMercuryAccountantHandoff,
   shouldWaitForMercuryClientContextBeforeBootstrap,
 } from '../mercury/sessionReadiness'
@@ -177,6 +178,11 @@ export class SessionBootstrapService {
               customer_name: bootstrapContext.clientCompanyName || '',
             },
           })
+
+          const { resolveDelegatedContextGateIfBootstrapSynced } = await import(
+            '../auth/clientContextGate'
+          )
+          resolveDelegatedContextGateIfBootstrapSynced(bootstrapContext.relationshipId)
         }
       } else if (identity.type === 'authenticated' && contextStore.isActingAsClient) {
         // Direct authenticated flow but store has stale client context
@@ -188,7 +194,8 @@ export class SessionBootstrapService {
           note: 'Bootstrap returned authenticated identity but store had client context',
         })
 
-        contextStore.clearClientContext()
+        const { clearDelegatedClientContext } = await import('../auth/persistedClientContext')
+        clearDelegatedClientContext(() => contextStore.clearClientContext())
       }
     } catch (error) {
       // Non-critical - log but don't fail bootstrap
@@ -452,7 +459,11 @@ export class SessionBootstrapService {
    * - When clientToken present: wait for isInitializing=false AND isActingAsClient (client context in store)
    * - Otherwise: maxWaitMs for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
    */
-  private async waitForAuth(maxWaitMs: number, needsClientContext?: boolean): Promise<boolean> {
+  private async waitForAuth(
+    maxWaitMs: number,
+    needsClientContext?: boolean,
+    urlClientId?: string | null
+  ): Promise<boolean> {
     const { useAuthStore } = await import('../auth')
     const { useClientContext } = await import('../../stores/clientContext')
     const start = Date.now()
@@ -472,10 +483,19 @@ export class SessionBootstrapService {
         !authState.isRefreshing &&
         !!authState.user
       if (!authReady) return false
-      // Delegated flow: require full client context (matches BootstrapProvider gate).
+      // Delegated flow: require client context that matches URL clientId (BootstrapProvider gate).
       if (needsClientContext) {
         const ctx = useClientContext.getState()
-        if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+        if (
+          !isDelegatedClientContextReadyForBootstrap({
+            needsMercuryClientContext: true,
+            contextGateResolved: ctx.contextGateResolved,
+            clientId: urlClientId,
+            isActingAsClient: ctx.isActingAsClient,
+            accountantId: ctx.accountant?.id ?? null,
+            relationshipId: ctx.relationshipId,
+          })
+        ) {
           return false
         }
       }
@@ -972,7 +992,7 @@ export class SessionBootstrapService {
       }
 
       const authWaitStart = performance.now()
-      const authReady = await this.waitForAuth(2500, needsClientContext)
+      const authReady = await this.waitForAuth(2500, needsClientContext, context.clientId)
       const authWaitMs = Math.round(performance.now() - authWaitStart)
       this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, {
         durationMs: authWaitMs,
@@ -993,6 +1013,34 @@ export class SessionBootstrapService {
           throw new Error(message)
         }
         this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`)
+      }
+
+      if (needsClientContext) {
+        const { useClientContext } = await import('../../stores/clientContext')
+        const ctx = useClientContext.getState()
+        if (
+          !isDelegatedClientContextReadyForBootstrap({
+            needsMercuryClientContext: true,
+            contextGateResolved: ctx.contextGateResolved,
+            clientId: context.clientId,
+            isActingAsClient: ctx.isActingAsClient,
+            accountantId: ctx.accountant?.id ?? null,
+            relationshipId: ctx.relationshipId,
+          })
+        ) {
+          const { useAuthStore } = await import('../auth')
+          const message =
+            useAuthStore.getState().error?.trim() ||
+            'Delegated client context does not match the requested client'
+          this.logger.error(
+            `[Bootstrap:${traceId}] Aborting Titan bootstrap — delegated context mismatch`,
+            {
+              urlClientId: context.clientId.substring(0, 8),
+              storedRelationshipId: ctx.relationshipId?.substring(0, 8) ?? null,
+            }
+          )
+          throw new Error(message)
+        }
       }
 
       // Build request body

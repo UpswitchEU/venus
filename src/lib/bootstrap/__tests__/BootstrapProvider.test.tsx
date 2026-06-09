@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     isActingAsClient: false,
     accountant: null as { id: string; email: string } | null,
     relationshipId: null as string | null,
+    contextGateResolved: false,
   }
 
   return {
@@ -147,6 +148,7 @@ describe('BootstrapProvider', () => {
     mocks.clientContextState.isActingAsClient = true
     mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
     mocks.clientContextState.relationshipId = 'rel-1'
+    mocks.clientContextState.contextGateResolved = false
     mocks.getCachedResult.mockReturnValue(null)
     mocks.hasCompletedFor.mockReturnValue(false)
     mocks.bootstrapViaTitan.mockImplementation(async (context: BootstrapContext) =>
@@ -217,6 +219,9 @@ describe('BootstrapProvider', () => {
   })
 
   it('does not hydrate the same report across different delegated client contexts', async () => {
+    mocks.clientContextState.relationshipId = 'client-a'
+    mocks.clientContextState.contextGateResolved = true
+
     const first = render(
       <BootstrapProvider
         context={makeContext('val_report_a', { clientId: 'client-a' })}
@@ -241,15 +246,9 @@ describe('BootstrapProvider', () => {
       </BootstrapProvider>
     )
 
-    await waitFor(() => {
-      expect(screen.getByTestId('report-state')).toHaveTextContent('val_report_a:ready:ok')
-    })
-
-    expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(2)
-    expect(mocks.bootstrapViaTitan.mock.calls[1][0]).toMatchObject({
-      reportId: 'val_report_a',
-      clientId: 'client-b',
-    })
+    expect(screen.getByTestId('report-state')).toHaveTextContent(':loading:ok')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(1)
   })
 
   it('defers Titan bootstrap when clientId is present but client context is not ready', async () => {
@@ -298,7 +297,8 @@ describe('BootstrapProvider', () => {
   it('starts Titan bootstrap when delegated clientId context is already ready', async () => {
     mocks.clientContextState.isActingAsClient = true
     mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
-    mocks.clientContextState.relationshipId = 'rel-1'
+    mocks.clientContextState.relationshipId = 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+    mocks.clientContextState.contextGateResolved = true
 
     render(
       <BootstrapProvider
@@ -315,6 +315,54 @@ describe('BootstrapProvider', () => {
     await waitFor(() => {
       expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('does not bootstrap when context gate is unresolved despite matching shape', async () => {
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+    mocks.clientContextState.contextGateResolved = false
+
+    render(
+      <BootstrapProvider
+        context={makeContext('dba236f5-31eb-4ab9-b995-e52c64dce70c', {
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    expect(screen.getByTestId('report-state')).toHaveTextContent(':loading:ok')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('does not bootstrap when persisted relationshipId mismatches URL clientId', async () => {
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = 'stale-client-id'
+    mocks.authState.error = 'Failed to fetch client context'
+
+    render(
+      <BootstrapProvider
+        context={makeContext('dba236f5-31eb-4ab9-b995-e52c64dce70c', {
+          clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+          mercuryPersonaMode: 'accountant',
+        })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      const text = screen.getByTestId('report-state').textContent ?? ''
+      expect(text).toContain(':ready:Failed to fetch client context')
+    })
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
   })
 
   it('clears in-flight bootstrap work on explicit retry', async () => {

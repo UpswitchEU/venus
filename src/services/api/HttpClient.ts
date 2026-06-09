@@ -30,6 +30,7 @@ import {
   type ErrorCategory,
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
+import { waitForClientContext } from '../../lib/auth'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
@@ -438,6 +439,7 @@ export class HttpClient {
     try {
       // Priority 1: Client context (accountant acting on behalf of client)
       try {
+        await waitForClientContext()
         const { useClientContext } = await import('../../stores/clientContext')
         const contextHeaders = useClientContext.getState().getContextHeaders()
 

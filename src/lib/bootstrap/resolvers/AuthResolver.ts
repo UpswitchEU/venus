@@ -26,6 +26,10 @@ import {
   fetchWithTimeoutClient,
 } from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
+import {
+  isDelegatedClientContextReadyForBootstrap,
+  shouldWaitForMercuryClientContextBeforeBootstrap,
+} from '../../mercury/sessionReadiness'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -111,7 +115,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       // Priority 1.5: Check if client context already exists in store
       // This handles the case where auth.ts restored context from report's accountant_customer_id
       // when an accountant returns to an existing report page (no clientToken in URL)
-      const existingContextResult = await this.checkExistingClientContext()
+      const existingContextResult = await this.checkExistingClientContext(context)
       if (existingContextResult.success) {
         this.logger.info('[AuthResolver] Using existing client context from store')
         return {
@@ -509,7 +513,9 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
    * By checking the store, we ensure bootstrap picks up the context regardless
    * of timing between auth.ts and bootstrap initialization.
    */
-  private async checkExistingClientContext(): Promise<ResolverResult<IdentityState>> {
+  private async checkExistingClientContext(
+    context: BootstrapContext
+  ): Promise<ResolverResult<IdentityState>> {
     const startTime = performance.now()
 
     try {
@@ -518,7 +524,24 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const contextState = useClientContext.getState()
 
       // Check if we have valid client context (client null when invitation not accepted)
-      if (contextState.isActingAsClient && contextState.accountant && contextState.relationshipId) {
+      if (
+        isDelegatedClientContextReadyForBootstrap({
+          needsMercuryClientContext: shouldWaitForMercuryClientContextBeforeBootstrap({
+            sourceApp: context.sourceApp,
+            reportId: context.reportId,
+            clientId: context.clientId,
+            clientToken: context.clientToken,
+            mercuryPersonaMode: context.mercuryPersonaMode,
+            url: context.url,
+            hasClientTokenHint: !!context.clientToken?.trim(),
+          }),
+          contextGateResolved: contextState.contextGateResolved,
+          clientId: context.clientId,
+          isActingAsClient: contextState.isActingAsClient,
+          accountantId: contextState.accountant?.id ?? null,
+          relationshipId: contextState.relationshipId,
+        })
+      ) {
         this.logger.info('[AuthResolver] Found existing client context in store', {
           clientId: truncateForLog(contextState.client?.id ?? 'null'),
           accountantId: truncateForLog(contextState.accountant.id),

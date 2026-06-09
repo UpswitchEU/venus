@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
+import {
+  clearPersistedClientContextStorage,
+  discardStalePersistedClientContextOnRehydrate,
+  isPersistedContextStaleForUrl,
+  urlRequiresDelegatedClientContext,
+} from '../lib/auth/persistedClientContext'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 
@@ -40,6 +46,8 @@ interface ClientContextState {
   /** Client/company name (from relationship when client null) */
   relationshipCustomerName: string | null
   lastValidatedAt: number | null // Timestamp of last validation
+  /** Set by clientContextGate when initializeAuth finishes delegated context exchange. */
+  contextGateResolved: boolean
 
   setClientContext: (context: ClientContextResponseDto) => void
   clearClientContext: () => void
@@ -58,6 +66,7 @@ export const useClientContext = create<ClientContextState>()(
       relationshipId: null,
       relationshipCustomerName: null,
       lastValidatedAt: null,
+      contextGateResolved: false,
 
       setClientContext: (context) => {
         // Validate context structure (clientUser null when invitation not accepted)
@@ -96,6 +105,7 @@ export const useClientContext = create<ClientContextState>()(
           relationshipId: null,
           relationshipCustomerName: null,
           lastValidatedAt: null,
+          contextGateResolved: false,
         })
       },
 
@@ -149,6 +159,17 @@ export const useClientContext = create<ClientContextState>()(
         const state = get()
         if (!state.isActingAsClient) return {} as Record<string, string>
 
+        if (urlRequiresDelegatedClientContext() && !state.contextGateResolved) {
+          return {} as Record<string, string>
+        }
+
+        if (isPersistedContextStaleForUrl(state.relationshipId)) {
+          generalLogger.warn('[ClientContext] Stale relationshipId for URL clientId — clearing headers')
+          get().clearClientContext()
+          clearPersistedClientContextStorage()
+          return {} as Record<string, string>
+        }
+
         // Validate before returning headers (client null = pending invitation, accountant-owned)
         if (!state.accountant?.id || !state.relationshipId) {
           generalLogger.warn('[ClientContext] Invalid context for headers, clearing')
@@ -170,13 +191,20 @@ export const useClientContext = create<ClientContextState>()(
     }),
     {
       name: 'client-context',
-      // BANK GRADE: Simplified rehydration - no complex async logic
-      // AuthGate now handles the orchestration of auth → context → bootstrap
-      // Context validation happens via:
-      // 1. validateContext() called by components when needed
-      // 2. TTL expiration check (24h)
-      // 3. Manual logout clears context
-      // No auth subscriptions needed - AuthGate ensures proper sequencing
+      partialize: (state) => ({
+        isActingAsClient: state.isActingAsClient,
+        accountant: state.accountant,
+        client: state.client,
+        relationshipId: state.relationshipId,
+        relationshipCustomerName: state.relationshipCustomerName,
+        lastValidatedAt: state.lastValidatedAt,
+      }),
+      onRehydrateStorage: () => (state) => {
+        discardStalePersistedClientContextOnRehydrate(state)
+        if (state) {
+          state.contextGateResolved = false
+        }
+      },
     }
   )
 )

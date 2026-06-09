@@ -20,6 +20,7 @@ import { generalLogger } from '../../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { clearAuthCache, getAuthCache, setAuthCache } from './authCache'
 import { API_URL } from './config'
+import { clearDelegatedClientContext } from './persistedClientContext'
 import { clearInitThrottle } from './initGuards'
 import { resetAuthInitializationRuntime } from './initRuntime'
 
@@ -88,7 +89,7 @@ export const useAuthStore = create<AuthState>()(
 
         if (shouldClearClientContext) {
           try {
-            useClientContext.getState().clearClientContext()
+            clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
           } catch (e) {
             generalLogger.warn('[Auth] clearClientContext on identity change failed', { e })
           }
@@ -384,10 +385,12 @@ export const useAuthStore = create<AuthState>()(
           }
           window.location.assign(url.toString())
 
-          import('../../stores/clientContext')
-            .then(({ useClientContext }) => {
-              useClientContext.getState().clearClientContext()
-            })
+          import('./persistedClientContext')
+            .then(({ clearDelegatedClientContext }) =>
+              import('../../stores/clientContext').then(({ useClientContext }) => {
+                clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+              })
+            )
             .catch(() => undefined)
 
           import('../bootstrap/SessionBootstrapService')
