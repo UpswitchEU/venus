@@ -1,24 +1,4 @@
 {
-	"reviewAndDiscuss": {
-		"title": "Nakijken & bespreken",
-		"subtitle": "Een korte controle vóór het vergrendelen — bevestig wat we onderbouwen.",
-		"empty": "Niets gemarkeerd — je kunt vergrendelen.",
-		"acknowledge": "Ik heb dit nagekeken",
-		"notesLabel": "Onderbouwing (optioneel)",
-		"notesPlaceholder": "Waarom deze weging / hoe waarschuwingen zijn behandeld…",
-		"back": "Terug",
-		"askAi": "Vraag de AI-adviseur",
-		"skip": "Overslaan — ik accepteer alles",
-		"skipAcknowledgement": "Ik heb alles nagekeken en accepteer zonder verdere wijzigingen",
-		"confirm": "Bevestigen & doorgaan",
-		"items": {
-			"qualityWarning": "{count, plural, =1 {# verdedigbaarheidswaarschuwing} other {# verdedigbaarheidswaarschuwingen}}",
-			"methodMix": "{count} waarderingsmethoden gewogen",
-			"multipleSanity": "Multiple-sanitycheck",
-			"normalization": "{count, plural, =1 {# normalisatie toegepast} other {# normalisaties toegepast}}",
-			"capBreach": "{count, plural, =1 {# eigenaarsafhankelijkheid-capoverschrijding} other {# eigenaarsafhankelijkheid-capoverschrijdingen}}"
-		}
-	},
 	"common": {
 		"cancel": "Annuleren",
 		"optional": "Optioneel",
@@ -822,7 +802,7 @@
 			"description": "Indicatieve bedrijfsschatting berekenen mislukt",
 			"invalidData": "Ongeldige gegevens opgegeven",
 			"retry": "Berekening opnieuw proberen",
-				"insufficientCredits": "Onvoldoende kredieten"
+			"insufficientCredits": "Onvoldoende kredieten"
 		},
 		"session": {
 			"title": "Sessiefout",
@@ -959,21 +939,21 @@
 			"placeholderBoth": "bijv. 10000 of -10000"
 		},
 		"outOfCredits": {
-				"title": "U heeft alle 3 gratis kredieten gebruikt!",
-				"description": "U heeft 3 AI-begeleide indicatieve bedrijfsschattingen voltooid. Meld u aan voor 3 extra gratis kredieten en bewaar uw rapporten voor altijd.",
-				"signUp": "Gratis aanmelden (3 extra kredieten)",
+			"title": "U heeft alle 3 gratis kredieten gebruikt!",
+			"description": "U heeft 3 AI-begeleide indicatieve bedrijfsschattingen voltooid. Meld u aan voor 3 extra gratis kredieten en bewaar uw rapporten voor altijd.",
+			"signUp": "Gratis aanmelden (3 extra kredieten)",
 			"tryManual": "Probeer handmatige invoer (altijd gratis)",
 			"maybeLater": "Misschien later",
 			"signUpFree": "Aanmelden is volledig gratis",
 			"getMoreCredits": "Krijg 3 extra AI-begeleide indicatieve bedrijfsschattingen",
 			"saveReportsForever": "Bewaar rapporten voor altijd",
 			"noCreditCard": "Geen creditcard vereist",
-				"upgrade": "Plan upgraden",
-				"buyCredits": "Meer kredieten kopen",
+			"upgrade": "Plan upgraden",
+			"buyCredits": "Meer kredieten kopen",
 			"cancel": "Annuleren"
 		},
 		"creditBadge": {
-				"outOfCredits": "Geen kredieten",
+			"outOfCredits": "Geen kredieten",
 			"creditsLeft": "{count, plural, one {# krediet over} other {# kredieten over}}",
 			"credits": "{count, plural, one {# krediet} other {# kredieten}}",
 			"upgradeNow": "Upgrade nu",
@@ -988,10 +968,10 @@
 			"title": "Upgrade uw abonnement",
 			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€1.490/jaar of €149/maand) voor alle 10 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (€2.990/jaar of €299/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.",
 			"upgrade": "Bekijk plannen en upgrade",
-				"cancel": "Misschien later",
+			"cancel": "Misschien later",
 			"accountantPaidRequired": "Een betaald adviseur-abonnement is vereist. Upgrade naar Starter of Pro via je dashboard (Instellingen → Facturatie) om door te gaan.",
 			"clientPremiumRequired": "Een Premium-abonnement is vereist om door te gaan. Bekijk de prijzen om te upgraden.",
-				"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€1.490/jaar of €149/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 10 methodes en rapporten in uw huisstijl."
+			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€1.490/jaar of €149/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 10 methodes en rapporten in uw huisstijl."
 		},
 		"versionComparison": {
 			"title": "Versies Vergelijken",
@@ -1643,7 +1623,9 @@
 			"bookRef": {
 				"label": "Boek"
 			},
-			"prefill": { "badge": "Vooringevuld" },
+			"prefill": {
+				"badge": "Vooringevuld"
+			},
 			"lockedPlanBadge": "Starter+",
 			"label": "Methode",
 			"adaptiveRecommended": "Upswitch adaptieve marktbenadering (aanbevolen)",
@@ -1683,8 +1665,8 @@
 			"sdeMultipleDescription": "Voor kleine KMO's en eenmanszaken (omzet onder €5M). Telt eigenaarsbezoldiging bij EBITDA.",
 			"fiscal4x": "Meerwaardebelasting — Forfaitaire referentiewaarde",
 			"fiscal4xDescription": "Rekenreferentie voor een mogelijke aanschaffingswaarde in het kader van meerwaardebelasting onder BE Art. 90 WIB 92. Forfait = Eigen Vermogen + 4× EBITDA van het laatst afgesloten boekjaar. De definitieve fiscale positie, het tarief, de voorwaarden en de toepasselijke ankers moeten met een fiscaal adviseur worden bevestigd.",
-				"startupValuation": "Startupwaardering (vóór omzet)",
-				"startupValuationDescription": "Venture-grade Berkus + Scorecard + VC-mix voor oprichters vóór omzet en in de vroege fase. Geen historische cijfers nodig — enkel kwalitatieve mijlpalen, tractie, SAFEs en participatietabel.",
+			"startupValuation": "Startupwaardering (vóór omzet)",
+			"startupValuationDescription": "Venture-grade Berkus + Scorecard + VC-mix voor oprichters vóór omzet en in de vroege fase. Geen historische cijfers nodig — enkel kwalitatieve mijlpalen, tractie, SAFEs en participatietabel.",
 			"liquidationAnalysis": "Liquidatiewaarde (Geordende + Gedwongen)",
 			"liquidationAnalysisDescription": "Activa-gebaseerde neerwaartse lens. Geordende afbouw (6–12 maanden) en gedwongen veiling, per Pratt & Niculita (2008). De vloerwaarde die een eigenaar realistisch kan recupereren wanneer de zaak niet als going concern verkocht kan worden. Zelfde balansinvoer als Gecorrigeerde NAV.",
 			"fiscalDisclaimerTitle": "Wettelijke referentie",
@@ -2168,8 +2150,8 @@
 		"benchmarkContractRequiredDesc": "Upswitch vond geen vertrouwde Delphi-benchmark voor dit bedrijfstype in het geselecteerde land. Kies een ander bedrijfstype of neem contact op met support om dekking toe te voegen.",
 		"calculationComplete": "Indicatieve bedrijfsschatting voltooid",
 		"reportHtmlRecoveryFailed": "Het rapportvoorbeeld laadt nog. Vernieuw de pagina of bereken opnieuw als het niet verschijnt.",
-		"synthesisBlendSkippedTitle": "Gewogen waardering niet beschikbaar",
-		"synthesisBlendSkippedDesc": "{method} leverde geen waarde voor de synthese: {reason}. Pas invoer of weging aan en bereken opnieuw.",
+		"synthesisBlendSkippedTitle": "Gewogen mix niet in dit resultaat",
+		"synthesisBlendSkippedDesc": "De engine gaf geen geblend eigen vermogen terug. Een geselecteerde methode is mogelijk niet beschikbaar—controleer Waarderingssynthese of herbereken.",
 		"synthesisBlendSkippedReasonFallback": "Controleer de verplichte velden voor deze methode.",
 		"unknownError": "Onbekende fout",
 		"fieldUpdated": "{field} bijgewerkt naar {value}",
@@ -2196,16 +2178,10 @@
 		"pdfUpdating": "PDF wordt bijgewerkt…",
 		"pdfUpdatingBlurb": "Het downloadbestand wordt opnieuw gegenereerd na je laatste wijziging. Dit duurt meestal enkele seconden.",
 		"pdfStillGenerating": "De PDF wordt mogelijk nog gegenereerd. Probeer het over een ogenblik opnieuw te exporteren.",
-		"discussionRequired": "Nakijken & bespreken moet bevestigd zijn vóór export.",
-		"discussionSaved": "Nakijken & bespreken opgeslagen",
-		"discussionSaveFailed": "Nakijken & bespreken kon niet worden opgeslagen",
-		"discussionSaveFailedDesc": "Probeer opnieuw vóór je de PDF exporteert.",
 		"pdfStalledTitle": "PDF nog niet klaar",
 		"pdfStalledBlurb": "De server heeft het downloadbestand nog niet bijgewerkt. U kunt opnieuw proberen te genereren of — als beschikbaar — de vorige PDF openen.",
 		"pdfRetry": "Opnieuw genereren",
 		"pdfOpenLastVersion": "Vorige PDF openen",
-		"synthesisBlendSkippedTitle": "Gewogen mix niet in dit resultaat",
-		"synthesisBlendSkippedDesc": "De engine gaf geen geblend eigen vermogen terug. Een geselecteerde methode is mogelijk niet beschikbaar—controleer Waarderingssynthese of herbereken.",
 		"pdfPollDegradedHint": "Synchronisatie met de server mislukte tijdelijk. Opnieuw proberen helpt meestal.",
 		"downloadPdfStaleHint": "Wacht tot de PDF klaar is met bijwerken om de nieuwste versie te downloaden.",
 		"modalEditInputsMissing": "Opgeslagen waarderingsinvoer voor dit rapport is niet gevonden. Voer een volledige berekening uit in de werkomgeving, of neem contact op met support als dit aanhoudt.",
@@ -2616,7 +2592,7 @@
 				"bulkValuationRunAction": "Bulkwaardering draaien",
 				"bulkValuationRunStarted": "Bulkrun gestart",
 				"bulkValuationRunCount": "Klanten: {count}",
-					"bulkValuationRunCredits": "Kredieten: {credits}",
+				"bulkValuationRunCredits": "Kredieten: {credits}",
 				"bulkValuationRunRejected": "{count} ids overgeslagen (ongeldig)",
 				"listingFieldUpdateTitle": "Listing-tekst / prijs aanpassen",
 				"listingFieldUpdateBlocked": "Listing-update nog niet klaar",
@@ -2972,7 +2948,7 @@
 		"bulkDeselect": "Deselecteer",
 		"viewCompact": "Compact",
 		"viewFinancial": "Financiële tabel",
-			"viewBento": "Bento-raster",
+		"viewBento": "Bento-raster",
 		"ledgerAccountLabel": "Grootboekrekening",
 		"itemCount": "{count, plural, one {# onderdeel} other {# onderdelen}}",
 		"actions": {
@@ -3275,7 +3251,7 @@
 		"editorToggleEditingTitle": "Latentie bewerken",
 		"editorToggleSubtitle": "Open alleen om handmatig een belastinglatentie toe te voegen of een bestaande regel aan te passen.",
 		"pendingCandidatesHint": "{count, plural, one {# voorstel} other {# voorstellen}} te beoordelen",
-			"pendingCandidatesTooltip": "{count, plural, one {# automatisch gedetecteerde suggestie} other {# automatisch gedetecteerde suggesties}} uit de geïmporteerde boekhouding wachten op beoordeling.",
+		"pendingCandidatesTooltip": "{count, plural, one {# automatisch gedetecteerde suggestie} other {# automatisch gedetecteerde suggesties}} uit de geïmporteerde boekhouding wachten op beoordeling.",
 		"addCta": "Toevoegen",
 		"saveCta": "Opslaan",
 		"editItem": "Bewerken",

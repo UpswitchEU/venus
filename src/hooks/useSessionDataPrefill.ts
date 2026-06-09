@@ -25,6 +25,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { generalLogger } from '../utils/logger'
+import { formatRegistryCompanyLocation } from '../utils/registryCompanyDisplay'
 import {
   getSessionOptionalPrefillSignature,
   mergeOptionalSessionPrefillFields,
@@ -464,7 +465,13 @@ export function useSessionDataPrefill() {
           kbo_registration_number: mergedData.kbo_number,
           legal_form: mergedData.legal_form,
           company_id: mergedData.kbo_number,
-          company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
+          company_address: formatRegistryCompanyLocation({
+            address:
+              (mergedData.company_address as string | undefined) ||
+              (mergedData.address as string | undefined),
+            postalCode: mergedData.postal_code as string | undefined,
+            city: mergedData.city as string | undefined,
+          }),
           company_status: 'Active',
           kbo_verified: true,
         } as ValuationFormData['business_context']

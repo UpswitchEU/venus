@@ -10,6 +10,7 @@ export interface ManualInitialPrefillData {
   businessType?: string
   businessTypeCode?: string
   canonicalNaceCode?: string
+  city?: string
   companyName?: string
   country?: string
   fteEmployees?: number
@@ -19,6 +20,7 @@ export interface ManualInitialPrefillData {
   naceCode?: string
   naceDescription?: string
   ownerManagers?: number
+  postalCode?: string
   yearFounded?: string
   yearlyFinancials?: YearlyFinancials[]
 }
@@ -33,6 +35,7 @@ export function buildManualInitialPrefillData(
     businessTypeCode:
       normalizeBusinessTypeId(initialData.businessTypeCode) ?? initialData.businessTypeCode,
     canonicalNaceCode: initialData.canonicalNaceCode,
+    city: initialData.city,
     companyName: initialData.companyName,
     country: initialData.country,
     fteEmployees: initialData.fteEmployees,
@@ -42,6 +45,7 @@ export function buildManualInitialPrefillData(
     naceCode: initialData.naceCode,
     naceDescription: initialData.naceDescription,
     ownerManagers: initialData.ownerManagers,
+    postalCode: initialData.postal_code,
     yearFounded: initialData.yearFounded,
     yearlyFinancials: initialData.yearlyFinancials,
   }
@@ -190,8 +194,8 @@ export function buildManualPrefillCompany({
     kboNumber: prefill.kboNumber || '',
     legalForm: prefill.legalForm || '',
     address: prefill.address || '',
-    postalCode: '',
-    city: '',
+    postalCode: prefill.postalCode || '',
+    city: prefill.city || '',
     naceCode: prefill.canonicalNaceCode || prefill.naceCode,
     naceDescription: prefill.naceDescription,
     canonicalNaceCode: prefill.canonicalNaceCode || prefill.naceCode,
@@ -201,5 +205,6 @@ export function buildManualPrefillCompany({
       prefill.naceCode !== prefill.canonicalNaceCode
         ? prefill.naceCode
         : undefined,
+    countryCode: prefill.country,
   }
 }

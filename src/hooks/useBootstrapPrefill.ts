@@ -49,6 +49,7 @@ import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsC
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
+import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
 import {
   type BootstrapPrefillPatch,
@@ -522,8 +523,11 @@ function applyPrefillToForm(
         legal_form: companyInfo.legalForm || allData.business_context?.legal_form,
         company_id: companyInfo.kboNumber, // Use KBO number as company ID
         company_address:
-          [companyInfo.postalCode, companyInfo.city].filter(Boolean).join(' ') ||
-          allData.business_context?.company_address,
+          formatBootstrapCompanyAddress({
+            address: companyInfo.address,
+            postalCode: companyInfo.postalCode,
+            city: companyInfo.city,
+          }) || allData.business_context?.company_address,
         company_status: 'Active',
         kbo_verified: true, // Flag that KBO was verified
       }
@@ -568,8 +572,11 @@ function applyPrefillToForm(
       company_id: kboData.kboNumber || allData.business_context?.company_id,
       company_status: kboData.status || allData.business_context?.company_status || 'Active',
       company_address:
-        [kboData.postalCode, kboData.city].filter(Boolean).join(' ') ||
-        allData.business_context?.company_address,
+        formatBootstrapCompanyAddress({
+          address: kboData.address,
+          postalCode: kboData.postalCode,
+          city: kboData.city,
+        }) || allData.business_context?.company_address,
       kbo_verified: true, // Flag that KBO was verified
     }
     logger.debug('Set business_context from kboData', {

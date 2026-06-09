@@ -16,3 +16,5 @@ export { BusinessTypeSearchInput } from './entity-search/BusinessTypeSearchInput
 export type { BusinessType, KBOCompany } from './entity-search/EntitySearchTypes'
 export type { KBOSearchInputProps } from './entity-search/KBOSearchInput'
 export { KBOSearchInput } from './entity-search/KBOSearchInput'
+export type { KboConfirmedCardProps } from './entity-search/KboConfirmedCard'
+export { KboConfirmedCard } from './entity-search/KboConfirmedCard'

@@ -38,6 +38,7 @@ import {
   readNewValuationPrefill,
 } from '../utils/newValuationPrefillStorage'
 import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
+import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 const logger = createContextLogger('BootstrapSync')
@@ -251,7 +252,13 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   }
   if (prefillData.financials?.dataSource)
     fields._financial_data_source = prefillData.financials.dataSource
-  const companyAddress = prefillData.companyInfo?.address || prefillData.kboData?.address
+  const companyAddress = formatBootstrapCompanyAddress(
+    {
+      address: prefillData.companyInfo?.address || prefillData.kboData?.address,
+      postalCode: prefillData.companyInfo?.postalCode || prefillData.kboData?.postalCode,
+      city: prefillData.companyInfo?.city || prefillData.kboData?.city,
+    }
+  )
   const companyStatus =
     prefillData.kboData?.status ||
     (prefillData.companyInfo?.isActive === true
@@ -296,7 +303,11 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
       !Array.isArray(fields.business_context)
         ? (fields.business_context as Record<string, unknown>)
         : {}
-    const companyAddress = prefillData.companyInfo?.address || prefillData.kboData?.address
+    const companyAddress = formatBootstrapCompanyAddress({
+      address: prefillData.companyInfo?.address || prefillData.kboData?.address,
+      postalCode: prefillData.companyInfo?.postalCode || prefillData.kboData?.postalCode,
+      city: prefillData.companyInfo?.city || prefillData.kboData?.city,
+    })
     const companyStatus =
       prefillData.kboData?.status ||
       (prefillData.companyInfo?.isActive === true
@@ -310,11 +321,7 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
       kbo_registration_number: kboNum,
       legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
       company_id: kboNum,
-      company_address:
-        companyAddress ||
-        [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
-          .filter(Boolean)
-          .join(' '),
+      company_address: companyAddress,
       company_status: companyStatus || 'Active',
       kbo_verified: true,
     }

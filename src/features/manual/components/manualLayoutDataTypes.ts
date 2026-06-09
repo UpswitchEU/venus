@@ -6,6 +6,8 @@ export interface CollectedData {
   legalForm?: string
   businessStructure?: string
   address?: string
+  city?: string
+  postalCode?: string
   naceCode?: string
   naceDescription?: string
   canonicalNaceCode?: string

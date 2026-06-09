@@ -1,24 +1,4 @@
 {
-	"reviewAndDiscuss": {
-		"title": "Review & discuss",
-		"subtitle": "A quick checkpoint before locking the report — confirm what we're defending.",
-		"empty": "Nothing flagged — you're clear to lock.",
-		"acknowledge": "I've reviewed this",
-		"notesLabel": "Rationale (optional)",
-		"notesPlaceholder": "Why this weighting / how warnings were handled…",
-		"back": "Back",
-		"askAi": "Ask the AI advisor",
-		"skip": "Skip — I accept all",
-		"skipAcknowledgement": "I've reviewed and accept all items without further changes",
-		"confirm": "Confirm & continue",
-		"items": {
-			"qualityWarning": "{count, plural, =1 {# defensibility warning} other {# defensibility warnings}}",
-			"methodMix": "{count} valuation methods weighted",
-			"multipleSanity": "Multiple sanity check",
-			"normalization": "{count, plural, =1 {# normalization applied} other {# normalizations applied}}",
-			"capBreach": "{count, plural, =1 {# owner-dependency cap breach} other {# owner-dependency cap breaches}}"
-		}
-	},
 	"common": {
 		"cancel": "Cancel",
 		"optional": "Optional",
@@ -2196,10 +2176,6 @@
 		"pdfUpdating": "PDF is updating…",
 		"pdfUpdatingBlurb": "The downloadable file is being regenerated after your last change. This usually takes a few seconds.",
 		"pdfStillGenerating": "The PDF may still be generating. Try exporting again in a moment.",
-		"discussionRequired": "Review & discuss must be confirmed before exporting.",
-		"discussionSaved": "Review & discuss saved",
-		"discussionSaveFailed": "Review & discuss could not be saved",
-		"discussionSaveFailedDesc": "Please try again before exporting the PDF.",
 		"pdfStalledTitle": "PDF not ready yet",
 		"pdfStalledBlurb": "The server has not finished updating the downloadable file. You can try generating again or — if available — open the previous PDF.",
 		"pdfRetry": "Generate again",

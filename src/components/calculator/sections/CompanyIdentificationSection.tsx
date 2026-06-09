@@ -10,7 +10,9 @@ import {
   type KBOCompany,
   KBOSearchInput,
 } from '@/design-system'
+import { KboConfirmedCard } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
+import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import type { ManualValuationFormData } from '../../../types/valuation'
@@ -93,6 +95,9 @@ export function CompanyIdentificationSection({
 }: CompanyIdentificationSectionProps) {
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
+  const activityCodeLabel = getFinancialTerm('activityCode', searchCountry)
+    .replace(/-code$/i, '')
+    .trim()
 
   return (
     // `id` is a jump target for the "Sector controleren" quality-warning CTA
@@ -128,17 +133,13 @@ export function CompanyIdentificationSection({
       />
 
       {readOnlyKbo && selectedCompany ? (
-        <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">
-          <p className="text-xs text-foreground/50 mb-0.5">
-            {localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
-          </p>
-          <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
-          {selectedCompany.kboNumber && (
-            <p className="text-xs text-foreground/40 font-mono mt-0.5">
-              {searchCountry === 'NL' ? 'KVK' : 'KBO'} {selectedCompany.kboNumber}
-            </p>
-          )}
-        </div>
+        <KboConfirmedCard
+          company={{
+            ...selectedCompany,
+            countryCode: selectedCompany.countryCode ?? searchCountry,
+          }}
+          activityCodeLabel={activityCodeLabel}
+        />
       ) : (
         <KBOSearchInput
           label={localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}

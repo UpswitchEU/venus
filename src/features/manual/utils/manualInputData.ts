@@ -12,6 +12,8 @@ export interface ManualInputCollectedData {
   legalForm?: string
   businessStructure?: string
   address?: string
+  city?: string
+  postalCode?: string
   naceCode?: string
   naceDescription?: string
   businessType?: string
@@ -49,12 +51,14 @@ export function buildManualInputInitialData({
       collectedData.businessStructure ||
       mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
     address: collectedData.address,
+    city: collectedData.city,
     naceCode: formActivityCode || formNaceCode || collectedData.naceCode,
     canonicalNaceCode: formNaceCode || '',
     naceDescription: collectedData.naceDescription,
     businessType: collectedData.businessType,
     industry: collectedData.industry,
     country: collectedData.country,
+    postal_code: collectedData.postalCode,
     yearFounded: collectedData.yearFounded,
     ownerManagers:
       typeof formStoreData.number_of_owners === 'number' && formStoreData.number_of_owners > 0

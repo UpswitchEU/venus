@@ -6,11 +6,10 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 // Calculator Components (full Clarity parity)
 import { ChatAssistantDrawer } from '../../../components/calculator'
-import { ReviewAndDiscussStep } from '../../../components/calculator/ReviewAndDiscussStep'
 import {
   shouldShowVenusAiDockFab,
   venusAiDockShellClassName,
@@ -24,22 +23,13 @@ import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillResto
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
 import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
-import {
-  trackDiscussionCompleted,
-  trackDiscussionSkipped,
-  trackDiscussionStarted,
-} from '../../../lib/analytics'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import {
   isVenturePathMethodKey,
   methodKeyAcceptsPreparerMultipleOverride,
 } from '../../../lib/methods'
 import { backendAPI } from '../../../services/backendApi'
-import { reportService } from '../../../services/report/ReportService'
-import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
-import { useStartupValuationStore } from '../../../store/manual/useStartupValuationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 // Venus infrastructure (auth, session, stores, services)
 import {
@@ -78,18 +68,7 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
-import {
-  buildReviewAgenda,
-  isDiscussionComplete,
-  type ReviewItemKind,
-} from '../utils/buildReviewAgenda'
-import {
-  buildDiscussionPhaseMetadata,
-  type DiscussionPhaseFlow,
-  type DiscussionPhaseMetadata,
-} from '../utils/discussionPhaseMetadata'
 import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
-import { buildManualReportAssets } from '../utils/manualReportAssets'
 import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import { hasManualRestorableReport } from '../utils/manualRestorableReport'
 import { manualSessionMatchesReport } from '../utils/manualSessionIdentifiers'
@@ -102,53 +81,6 @@ import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
 import type { CollectedData } from './manualLayoutDataTypes'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
-
-function asPlainRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
-
-function readOptionalFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-function formatMultipleRef(label: string, value: number): string {
-  return `${label} ${value.toFixed(2)}x`
-}
-
-function formatSignedMultipleRef(label: string, value: number): string {
-  return `${label} ${value >= 0 ? '+' : ''}${value.toFixed(2)}x`
-}
-
-function readDiscussionPhase(value: unknown): DiscussionPhaseMetadata | null {
-  const record = asPlainRecord(value)
-  const completedAt = record.completed_at ?? record.discussion_completed_at
-  const skipped = record.skipped === true || record.discussion_skipped === true
-  if (typeof completedAt !== 'string' && !skipped) return null
-  return record as unknown as DiscussionPhaseMetadata
-}
-
-function readNestedDiscussionPhase(value: unknown): DiscussionPhaseMetadata | null {
-  const record = asPlainRecord(value)
-  const metadata = asPlainRecord(record.metadata)
-  return (
-    readDiscussionPhase(metadata.discussion_phase) ?? readDiscussionPhase(record.discussion_phase)
-  )
-}
-
-function advisorDisplayName(
-  user: { name?: string | null; email?: string | null } | null,
-  fallback?: string | null
-) {
-  const fromFallback = fallback?.trim()
-  if (fromFallback) return fromFallback
-  const fromName = user?.name?.trim()
-  if (fromName) return fromName
-  return user?.email?.trim() || undefined
-}
 
 export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
   const tErrors = useTranslations('errors')
@@ -241,7 +173,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     preparerNote,
     preparerAcknowledgedExtreme,
   } = useManualWorkspaceStores()
-  const startupExitRevenueMultiple = useStartupValuationStore((s) => s.exit_revenue_multiple)
 
   const {
     calculationRequestIdentifiers,
@@ -802,12 +733,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translateReport: tReport,
   })
 
-  const guardedHandleExportRef = useRef<(() => Promise<unknown> | void) | null>(null)
-  const handleAssistantPdfExport = useCallback(async () => {
-    const guarded = guardedHandleExportRef.current
-    return guarded ? guarded() : handleExport()
-  }, [handleExport])
-
   const {
     showUnifiedNormalizationModal,
     guidedNormalizationPrefill,
@@ -875,7 +800,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       handleCSVImportComplete,
       handleChatMessage,
       handleFieldHelpRequest,
-      handlePdfExport: handleAssistantPdfExport,
+      handlePdfExport: handleExport,
       handleFormDataChange,
       handleManualSubmit,
       handleNewConversation,
@@ -921,349 +846,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       userWeights,
       wrappedOnSubmit,
     })
-
-  // BET-299 — "Review & Discuss" pre-lock checkpoint. It appears once after a
-  // result has a review agenda, then gates export/listing until the advisor
-  // confirms or explicitly accepts-all skip. Persistence rides the existing
-  // saveReportAssets queue and lands in valuation_reports.metadata.discussion_phase.
-  const [discussionAck, setDiscussionAck] = useState<ReviewItemKind[]>([])
-  const [discussionNotes, setDiscussionNotes] = useState('')
-  const [discussionDone, setDiscussionDone] = useState(false)
-  const [discussionVisible, setDiscussionVisible] = useState(false)
-  const [discussionPersisting, setDiscussionPersisting] = useState(false)
-  const discussionFlow: DiscussionPhaseFlow = isStartupAssistantRoute ? 'startup-studio' : 'manual'
-  const reviewQualityWarnings = useMemo(() => {
-    const warnings = [...(chatDrawerProps.qualityWarnings ?? [])]
-    if (!isStartupAssistantRoute) return warnings
-
-    for (const issue of chatDrawerProps.startupIssues ?? []) {
-      warnings.push({
-        type: issue.id,
-        severity:
-          issue.severity === 'block' ? 'high' : issue.severity === 'warn' ? 'medium' : 'info',
-      })
-    }
-    return warnings
-  }, [chatDrawerProps.qualityWarnings, chatDrawerProps.startupIssues, isStartupAssistantRoute])
-  const reviewMethodWeights = useMemo(
-    () => (isStartupAssistantRoute ? { berkus: 1, scorecard: 1, exit_multiple: 1 } : userWeights),
-    [isStartupAssistantRoute, userWeights]
-  )
-  const multipleSanityRefs = useMemo(() => {
-    if (!result) return []
-
-    if (isStartupAssistantRoute) {
-      const exitMultiple = readOptionalFiniteNumber(startupExitRevenueMultiple)
-      return [
-        exitMultiple == null ? 'exit multiple' : formatMultipleRef('exit multiple', exitMultiple),
-      ]
-    }
-
-    const resultMultiples = asPlainRecord(asPlainRecord(result).multiples_valuation)
-    const benchmarkMultiple =
-      readOptionalFiniteNumber(preparerBenchmarkMedian) ??
-      readOptionalFiniteNumber(resultMultiples.ebitda_multiple)
-    const appliedMultiple = readOptionalFiniteNumber(preparerAppliedMedian) ?? benchmarkMultiple
-
-    if (
-      !methodKeyAcceptsPreparerMultipleOverride(selectedMethod) &&
-      appliedMultiple == null &&
-      benchmarkMultiple == null
-    ) {
-      return []
-    }
-
-    const refs: string[] = []
-    if (appliedMultiple != null) refs.push(formatMultipleRef('applied', appliedMultiple))
-    if (benchmarkMultiple != null) refs.push(formatMultipleRef('benchmark', benchmarkMultiple))
-    if (
-      appliedMultiple != null &&
-      benchmarkMultiple != null &&
-      Math.abs(appliedMultiple - benchmarkMultiple) >= 0.005
-    ) {
-      refs.push(formatSignedMultipleRef('delta', appliedMultiple - benchmarkMultiple))
-    }
-    return refs
-  }, [
-    isStartupAssistantRoute,
-    preparerAppliedMedian,
-    preparerBenchmarkMedian,
-    result,
-    selectedMethod,
-    startupExitRevenueMultiple,
-  ])
-  const reviewAgenda = useMemo(
-    () =>
-      buildReviewAgenda({
-        qualityWarnings: reviewQualityWarnings,
-        methodWeights: reviewMethodWeights,
-        multipleSanityRefs,
-        acceptedNormalizationCount: isStartupAssistantRoute
-          ? 0
-          : normalizationItems.filter((n) => n.status === 'accepted').length,
-        capBreachCount: !isStartupAssistantRoute && chatDrawerProps.hasCapBreach ? 1 : 0,
-      }),
-    [
-      chatDrawerProps.hasCapBreach,
-      isStartupAssistantRoute,
-      multipleSanityRefs,
-      normalizationItems,
-      reviewMethodWeights,
-      reviewQualityWarnings,
-    ]
-  )
-  const discussionReportId = resolvedReportId ?? result?.valuation_id ?? reportId ?? null
-  const existingDiscussionPhaseCandidate = useMemo(() => {
-    return (
-      readNestedDiscussionPhase(session?.sessionData) ??
-      readNestedDiscussionPhase(result) ??
-      readNestedDiscussionPhase(report)
-    )
-  }, [report, result, session?.sessionData])
-  const discussionSessionKey = useMemo(() => {
-    if (!result || reviewAgenda.items.length === 0) return null
-
-    const agendaKey = reviewAgenda.items
-      .map((item) => `${item.kind}:${item.count}:${item.severity}:${item.refs?.join(',') ?? ''}`)
-      .join('|')
-
-    return `${discussionReportId ?? 'draft'}:${effectiveAssistantMethod || 'unknown'}:${agendaKey}`
-  }, [discussionReportId, effectiveAssistantMethod, result, reviewAgenda.items])
-  const existingDiscussionPhase = useMemo(() => {
-    const storedKey =
-      typeof existingDiscussionPhaseCandidate?.discussion_session_key === 'string'
-        ? existingDiscussionPhaseCandidate.discussion_session_key
-        : null
-    if (storedKey && discussionSessionKey && storedKey !== discussionSessionKey) {
-      return null
-    }
-    return existingDiscussionPhaseCandidate
-  }, [discussionSessionKey, existingDiscussionPhaseCandidate])
-  const discussionStartedKeyRef = useRef<string | null>(null)
-  const discussionAutoOpenedKeyRef = useRef<string | null>(null)
-  const discussionHydrationState = useMemo(() => {
-    const ackKeys = Array.isArray(existingDiscussionPhase?.warnings_acknowledged)
-      ? existingDiscussionPhase.warnings_acknowledged.filter((key): key is ReviewItemKind =>
-          [
-            'quality_warning',
-            'method_mix',
-            'multiple_sanity',
-            'normalization',
-            'cap_breach',
-          ].includes(String(key))
-        )
-      : []
-    return {
-      ackKeys,
-      done: Boolean(existingDiscussionPhase),
-      notes:
-        typeof existingDiscussionPhase?.advisor_discussion_notes === 'string'
-          ? existingDiscussionPhase.advisor_discussion_notes
-          : '',
-      resetKey: discussionSessionKey,
-    }
-  }, [discussionSessionKey, existingDiscussionPhase])
-
-  useEffect(() => {
-    setDiscussionAck(discussionHydrationState.ackKeys)
-    setDiscussionNotes(discussionHydrationState.notes)
-    setDiscussionDone(discussionHydrationState.done)
-    setDiscussionVisible(false)
-    discussionStartedKeyRef.current = null
-    discussionAutoOpenedKeyRef.current = null
-  }, [discussionHydrationState])
-
-  const markDiscussionStarted = useCallback(() => {
-    if (!discussionSessionKey || discussionStartedKeyRef.current === discussionSessionKey) return
-    discussionStartedKeyRef.current = discussionSessionKey
-    trackDiscussionStarted({
-      agenda: reviewAgenda,
-      acknowledgedKeys: discussionAck,
-      notes: discussionNotes,
-      reportId: discussionReportId,
-      selectedMethod: effectiveAssistantMethod,
-      source: discussionFlow,
-    })
-  }, [
-    discussionAck,
-    discussionFlow,
-    discussionNotes,
-    discussionReportId,
-    discussionSessionKey,
-    effectiveAssistantMethod,
-    reviewAgenda,
-  ])
-
-  const shouldGateDiscussion = Boolean(result && reviewAgenda.items.length > 0 && !discussionDone)
-
-  useEffect(() => {
-    if (!shouldGateDiscussion || !discussionSessionKey) return
-    if (discussionAutoOpenedKeyRef.current === discussionSessionKey) return
-    discussionAutoOpenedKeyRef.current = discussionSessionKey
-    setDiscussionVisible(true)
-    markDiscussionStarted()
-  }, [discussionSessionKey, markDiscussionStarted, shouldGateDiscussion])
-
-  const openDiscussionGate = useCallback(() => {
-    if (!shouldGateDiscussion) return false
-    setDiscussionVisible(true)
-    markDiscussionStarted()
-    toast.info(t('discussionRequired'))
-    return true
-  }, [markDiscussionStarted, shouldGateDiscussion, t])
-
-  const persistDiscussionPhase = useCallback(
-    async (discussionPhase: DiscussionPhaseMetadata) => {
-      const targetReportId = resolvedReportId ?? reportId
-      if (!targetReportId || !result) {
-        throw new Error('Missing report result for discussion persistence.')
-      }
-
-      const liveSession = useSessionStore.getState().session
-      const liveResultState = useManualResultsStore.getState()
-      const liveFormData = useManualFormStore.getState().formData
-      const sessionData = {
-        ...asPlainRecord(liveSession?.sessionData),
-        ...asPlainRecord(formStoreData),
-        ...asPlainRecord(liveFormData),
-        ...asPlainRecord(latestFormDataRef.current),
-      }
-      const request = asPlainRecord(lastSubmittedDataRef.current)
-      const sessionHtml =
-        typeof liveSession?.htmlReport === 'string' ? liveSession.htmlReport : null
-      const reportHtml =
-        typeof asPlainRecord(report).htmlReport === 'string'
-          ? (asPlainRecord(report).htmlReport as string)
-          : null
-      const htmlReport =
-        liveResultState.htmlReport ??
-        standaloneHtmlReport ??
-        sessionHtml ??
-        reportHtml ??
-        result.html_report
-      const valuationResult = htmlReport ? { ...result, html_report: htmlReport } : result
-
-      await reportService.saveReportAssets(
-        targetReportId,
-        buildManualReportAssets({
-          sessionData,
-          request,
-          taxLatencyItems: useTaxLatencyStore.getState().items,
-          valuationResult,
-          name: sessionName,
-          discussionPhase,
-          htmlReport,
-        })
-      )
-    },
-    [
-      formStoreData,
-      lastSubmittedDataRef,
-      latestFormDataRef,
-      report,
-      reportId,
-      resolvedReportId,
-      result,
-      sessionName,
-      standaloneHtmlReport,
-    ]
-  )
-
-  const completeDiscussion = useCallback(
-    async (skipped: boolean) => {
-      if (!isDiscussionComplete(reviewAgenda, discussionAck, skipped)) {
-        toast.error(t('discussionRequired'))
-        return
-      }
-
-      const completedAt = new Date().toISOString()
-      const skipReason = skipped ? 'advisor_accepted_all' : undefined
-      const discussionPhase = buildDiscussionPhaseMetadata({
-        agenda: reviewAgenda,
-        acknowledgedKeys: discussionAck,
-        notes: discussionNotes,
-        advisorName: advisorDisplayName(user, accountantDisplayName),
-        advisorUserId: user?.id,
-        completedAt,
-        skipped,
-        skipReason,
-        flow: discussionFlow,
-        discussionSessionKey,
-      })
-
-      setDiscussionPersisting(true)
-      try {
-        await persistDiscussionPhase(discussionPhase)
-        if (skipped) {
-          trackDiscussionSkipped({
-            agenda: reviewAgenda,
-            acknowledgedKeys: discussionAck,
-            notes: discussionNotes,
-            reportId: discussionReportId,
-            selectedMethod: effectiveAssistantMethod,
-            skipReason,
-            source: discussionFlow,
-          })
-        } else {
-          trackDiscussionCompleted({
-            agenda: reviewAgenda,
-            acknowledgedKeys: discussionAck,
-            notes: discussionNotes,
-            reportId: discussionReportId,
-            selectedMethod: effectiveAssistantMethod,
-            source: discussionFlow,
-          })
-        }
-        setDiscussionDone(true)
-        setDiscussionVisible(false)
-        toast.success(t('discussionSaved'))
-      } catch (_error) {
-        toast.error(t('discussionSaveFailed'), { description: t('discussionSaveFailedDesc') })
-      } finally {
-        setDiscussionPersisting(false)
-      }
-    },
-    [
-      accountantDisplayName,
-      discussionAck,
-      discussionFlow,
-      discussionNotes,
-      discussionReportId,
-      discussionSessionKey,
-      effectiveAssistantMethod,
-      persistDiscussionPhase,
-      reviewAgenda,
-      t,
-      user,
-    ]
-  )
-
-  const handleDiscussionConfirm = useCallback(() => {
-    void completeDiscussion(false)
-  }, [completeDiscussion])
-
-  const handleDiscussionSkip = useCallback(() => {
-    void completeDiscussion(true)
-  }, [completeDiscussion])
-
-  const guardedHandleExport = useCallback(() => {
-    if (openDiscussionGate()) return
-    return handleExport()
-  }, [handleExport, openDiscussionGate])
-
-  const guardedHandleContinueToListing = useCallback(() => {
-    if (openDiscussionGate()) return
-    return handleContinueToListing()
-  }, [handleContinueToListing, openDiscussionGate])
-
-  useEffect(() => {
-    guardedHandleExportRef.current = guardedHandleExport
-    return () => {
-      if (guardedHandleExportRef.current === guardedHandleExport) {
-        guardedHandleExportRef.current = null
-      }
-    }
-  }, [guardedHandleExport])
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
@@ -1314,9 +896,9 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           ebitdaNormalizationLocked={ebitdaNormalizationLocked}
           handleAccountSettings={handleAccountSettings}
           handleBack={handleBack}
-          handleContinueToListing={guardedHandleContinueToListing}
+          handleContinueToListing={handleContinueToListing}
           handleDeleteValuation={handleDeleteValuation}
-          handleExport={guardedHandleExport}
+          handleExport={handleExport}
           handleFullscreen={handleFullscreen}
           handleLogout={handleLogout}
           handleNewValuation={handleNewValuation}
@@ -1420,7 +1002,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           handleConfirmNewValuation={handleConfirmNewValuation}
           handleConfirmRecalculate={handleConfirmRecalculate}
           handleContinueImportReview={handleContinueImportReview}
-          handleExport={guardedHandleExport}
+          handleExport={handleExport}
           handleNormalizationsChange={handleNormalizationsChange}
           handleOpenMercuryClientForInvite={handleOpenMercuryClientForInvite}
           handleSelectMethodWithOverride={handleSelectMethodWithOverride}
@@ -1465,32 +1047,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           userFirmCountryCode={user?.firm_country_code}
         />
       </div>
-
-      {result && discussionVisible && !discussionDone && reviewAgenda.items.length > 0 ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-foreground/10 bg-background shadow-xl">
-            <ReviewAndDiscussStep
-              agenda={reviewAgenda}
-              acknowledgedKeys={discussionAck}
-              disabled={discussionPersisting}
-              onToggleAcknowledge={(key) =>
-                setDiscussionAck((prev) =>
-                  prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-                )
-              }
-              notes={discussionNotes}
-              onNotesChange={setDiscussionNotes}
-              onConfirm={handleDiscussionConfirm}
-              onSkip={handleDiscussionSkip}
-              onBack={() => setDiscussionVisible(false)}
-              onAskAi={() => {
-                setChatDrawerOpen(true)
-                markDiscussionStarted()
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
 
       <Suspense fallback={null}>
         <ChatAssistantDrawer

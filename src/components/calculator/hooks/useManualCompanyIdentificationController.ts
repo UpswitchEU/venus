@@ -14,7 +14,7 @@ import type { ManualValuationFormData as ValuationFormData } from '../../../type
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapApiBusinessTypeForEntitySearch } from '../../../utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
-import { pickLegalFormFromRegistryHit } from '../../../utils/registryUtils'
+import { mapRegistrySearchResultToKboCompany } from '../../../utils/mapRegistrySearchResultToKboCompany'
 import { useManualNaceBusinessTypePrefill } from './useManualNaceBusinessTypePrefill'
 
 type StoreFormPatch = Record<string, unknown>
@@ -84,7 +84,7 @@ export function useManualCompanyIdentificationController({
       }
       if (!response.results) return []
       return response.results.map((result: CompanySearchResult, index: number) =>
-        mapRegistryResultToKboCompany(result, index, searchCountry)
+        mapRegistrySearchResultToKboCompany(result, { index, searchCountry })
       )
     },
     [searchCountry, searchUnavailableMessage]
@@ -123,19 +123,12 @@ export function useManualCompanyIdentificationController({
       setSelectedCompany(company)
       setCompanySearchValue(company.name ?? '')
 
-      const addr = company.address ?? ''
-      const postal = company.postalCode ?? ''
-      const city = company.city ?? ''
-      const addressStr =
-        postal && addr && !addr.includes(postal) ? `${addr}, ${postal} ${city}` : addr
-
-      const canonical = company.canonicalNaceCode?.trim() || company.naceCode?.trim() || ''
-      const displayCode = company.activityCode?.trim() || company.naceCode?.trim() || ''
       const baseUpdates: Partial<ValuationFormData> = {
         companyName: company.name ?? '',
         kboNumber: company.kboNumber ?? '',
         legalForm: company.legalForm ?? '',
-        address: addressStr,
+        address: company.address ?? '',
+        city: company.city ?? '',
         naceCode: displayCode,
         canonicalNaceCode: canonical,
         naceDescription: company.naceDescription ?? '',
@@ -150,6 +143,8 @@ export function useManualCompanyIdentificationController({
         legal_form: company.legalForm ?? '',
         nace_code: canonical,
         nace_description: baseUpdates.naceDescription || '',
+        ...(company.postalCode ? { postal_code: company.postalCode } : {}),
+        ...(company.city ? { city: company.city } : {}),
         ...(displayCode && canonical && displayCode !== canonical
           ? { activity_code: displayCode }
           : { activity_code: undefined }),
@@ -258,45 +253,5 @@ export function useManualCompanyIdentificationController({
     retryNacePrefill,
     searchCountry,
     selectedBusinessType,
-  }
-}
-
-function mapRegistryResultToKboCompany(
-  result: CompanySearchResult,
-  index: number,
-  searchCountry: string
-): KBOCompany {
-  const raw = result as unknown as Record<string, unknown>
-  const legalFormResolved =
-    pickLegalFormFromRegistryHit(raw) ||
-    (typeof result.legal_form === 'string' ? result.legal_form : '')
-  const canonical = (result.canonical_nace_code || result.nace_code)?.trim() || ''
-  const activity = (result.activity_code || '').trim()
-  const displayActivity = activity && canonical && activity !== canonical ? activity : undefined
-  const btIdRaw = raw['business_type_id']
-  const btTitleRaw = raw['business_type_title']
-  const businessTypeId = normalizeBusinessTypeId(btIdRaw)
-  const businessTypeTitle =
-    typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
-
-  return {
-    id:
-      result.company_id ||
-      (result.kbo_number || result.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
-    name: result.company_name,
-    kboNumber: result.kbo_number || result.registration_number,
-    legalForm: legalFormResolved,
-    address: [result.address, result.postal_code, result.city].filter(Boolean).join(', '),
-    postalCode: result.postal_code || '',
-    city: result.city || '',
-    naceCode: canonical,
-    naceDescription: (result.activity_label || result.nace_description || '').trim() || '',
-    canonicalNaceCode: canonical || undefined,
-    activityCode: displayActivity,
-    activityLabel: (result.activity_label || result.nace_description || '').trim() || undefined,
-    activityTaxonomy: result.taxonomy,
-    countryCode: result.country_code || searchCountry,
-    businessTypeId,
-    businessTypeTitle,
   }
 }

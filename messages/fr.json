@@ -1,24 +1,4 @@
 {
-	"reviewAndDiscuss": {
-		"title": "Réviser et discuter",
-		"subtitle": "Un petit point de contrôle avant de verrouiller le rapport : confirmez ce que nous défendons.",
-		"empty": "Rien de signalé : vous pouvez verrouiller.",
-		"acknowledge": "J'ai examiné ceci",
-		"notesLabel": "Justification (facultatif)",
-		"notesPlaceholder": "Pourquoi cette pondération / comment les avertissements ont été traités…",
-		"back": "Retour",
-		"askAi": "Demandez au conseiller en IA",
-		"skip": "Sauter — J'accepte tout",
-		"skipAcknowledgement": "J'ai tout examiné et j'accepte sans autre modification",
-		"confirm": "Confirmer et continuer",
-		"items": {
-			"qualityWarning": "{count, plural, =1 {#avertissement de défendabilité} other {#avertissements de défendabilité}}",
-			"methodMix": "{count} méthodes de valorisation pondérées",
-			"multipleSanity": "Contrôle de cohérence du multiple",
-			"normalization": "{count, plural, =1 {#normalisation appliquée} other {#normalisations appliquées}}",
-			"capBreach": "{count, plural, =1 {#Non-respect du plafond de dépendance du propriétaire} other {#Non-respect du plafond de dépendance du propriétaire}}"
-		}
-	},
 	"common": {
 		"cancel": "Annuler",
 		"optional": "Facultatif",
@@ -2198,10 +2178,6 @@
 		"pdfUpdating": "Le PDF est mis à jour…",
 		"pdfUpdatingBlurb": "Le fichier téléchargeable est en cours de régénération après votre dernière modification. Cela prend généralement quelques secondes.",
 		"pdfStillGenerating": "Le PDF est peut-être encore en cours de génération. Essayez à nouveau d'exporter dans un instant.",
-		"discussionRequired": "Réviser et discuter doit être confirmé avant l'exportation.",
-		"discussionSaved": "Révision et discussion enregistrées",
-		"discussionSaveFailed": "La révision et discussion n'a pas pu être enregistrée",
-		"discussionSaveFailedDesc": "Veuillez réessayer avant d'exporter le PDF.",
 		"pdfStalledTitle": "Le PDF n'est pas encore prêt",
 		"pdfStalledBlurb": "Le serveur n'a pas fini de mettre à jour le fichier téléchargeable. Vous pouvez réessayer de générer ou, si disponible, ouvrir le PDF précédent.",
 		"pdfRetry": "Générer à nouveau",
@@ -2255,7 +2231,7 @@
 		"changes": "Changements",
 		"valuation": "Estimation indicative",
 		"ebitda": "BAIIA",
-			"multiple": "Multiple",
+		"multiple": "Multiple",
 		"title": "Comparaison des versions",
 		"current": "ACTUEL",
 		"comparisonDetails": "Modifications détaillées",
@@ -2294,7 +2270,7 @@
 		"current": "ACTUEL",
 		"bandwidth": "Gamme",
 		"normalizedEbitda": "EBITDA normalisé",
-			"multiple": "Multiple",
+		"multiple": "Multiple",
 		"user": "Utilisateur",
 		"versionN": "Version{number}",
 		"changed": "Changé",

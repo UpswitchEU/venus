@@ -57,6 +57,7 @@ import {
 import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { mapApiBusinessTypeForEntitySearch } from '@/utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
+import { mapRegistrySearchResultToKboCompany } from '@/utils/mapRegistrySearchResultToKboCompany'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
 import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
@@ -379,55 +380,9 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         throw new Error(response.error || 'Registry unavailable')
       }
       if (!response.results) return []
-      return response.results.map((r: CompanySearchResult, index: number) => {
-        const raw = r as unknown as Record<string, unknown>
-        const canonical = (r.canonical_nace_code || r.nace_code)?.trim() || ''
-        const activity = (r.activity_code || '').trim()
-        const displayActivity =
-          activity && canonical && activity !== canonical ? activity : undefined
-        const btIdRaw = raw.business_type_id
-        const btTitleRaw = raw.business_type_title
-        const businessTypeId = normalizeBusinessTypeId(btIdRaw)
-        const businessTypeTitle =
-          typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
-        // Founding year — prefer the explicit numeric field, fall back
-        // to the first 4-digit year found in ``startDate`` ("2018-04-12"
-        // / "12/04/2018").  The studio uses this to pre-fill the funding
-        // stage; missing / unparseable → ``undefined`` (caller skips).
-        const foundingYearRaw = raw.founding_year
-        const startDateRaw = raw.start_date
-        const foundingYearFromField =
-          typeof foundingYearRaw === 'number' && Number.isFinite(foundingYearRaw)
-            ? foundingYearRaw
-            : undefined
-        const foundingYearFromStartDate = (() => {
-          if (typeof startDateRaw !== 'string') return undefined
-          const m = startDateRaw.match(/(19|20)\d{2}/)
-          return m ? Number(m[0]) : undefined
-        })()
-        const foundingYear = foundingYearFromField ?? foundingYearFromStartDate
-        return {
-          id:
-            r.company_id ||
-            (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
-          name: r.company_name,
-          kboNumber: r.kbo_number || r.registration_number,
-          legalForm: typeof r.legal_form === 'string' ? r.legal_form : '',
-          address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
-          postalCode: r.postal_code || '',
-          city: r.city || '',
-          naceCode: canonical,
-          naceDescription: (r.activity_label || r.nace_description || '').trim() || '',
-          canonicalNaceCode: canonical || undefined,
-          activityCode: displayActivity,
-          activityLabel: (r.activity_label || r.nace_description || '').trim() || undefined,
-          activityTaxonomy: r.taxonomy,
-          countryCode: r.country_code || country,
-          businessTypeId,
-          businessTypeTitle,
-          foundingYear,
-        }
-      })
+      return response.results.map((r: CompanySearchResult, index: number) =>
+        mapRegistrySearchResultToKboCompany(r, { index, searchCountry: country })
+      )
     },
     [country]
   )

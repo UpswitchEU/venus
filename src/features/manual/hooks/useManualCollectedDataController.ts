@@ -50,13 +50,14 @@ export function useManualCollectedDataController({
   const formNumberOfOwners = useManualFormStore((s) => s.formData.number_of_owners)
 
   const companyName = formCompanyName || resultCompanyName
-  const formAddress = [formPostalCode, formCity].filter(Boolean).join(' ')
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
     legalForm: formLegalForm || '',
     businessStructure: mapLegalFormToBusinessStructure(formLegalForm || '') || undefined,
-    address: formAddress || '',
+    address: '',
+    city: formCity || '',
+    postalCode: formPostalCode || '',
     naceCode: formActivityCode || formNaceCode || '',
     naceDescription: formNaceDescription || '',
     businessType: formBusinessTypeId || '',
@@ -72,7 +73,6 @@ export function useManualCollectedDataController({
   useManualCollectedDataSync<CollectedData>({
     formSurface: {
       activityCode: formActivityCode,
-      address: formAddress,
       businessModel: formBusinessModel,
       businessTypeId: formBusinessTypeId,
       city: formCity,

@@ -70,6 +70,7 @@ export function useManualInputPrefillSync({
   const initialBusinessTypeCode =
     normalizeBusinessTypeId(initialData.businessTypeCode) ?? initialData.businessTypeCode
   const initialCanonicalNaceCode = initialData.canonicalNaceCode
+  const initialCity = initialData.city
   const initialCompanyName = initialData.companyName
   const initialCountry = initialData.country
   const initialCurrentYearData = initialData.current_year_data
@@ -82,6 +83,7 @@ export function useManualInputPrefillSync({
   const initialNaceCode = initialData.naceCode
   const initialNaceDescription = initialData.naceDescription
   const initialOwnerManagers = initialData.ownerManagers
+  const initialPostalCode = initialData.postal_code
   const initialYearFounded = initialData.yearFounded
   const initialYearlyFinancials = initialData.yearlyFinancials
   const initialPrefill = useMemo<ManualInitialPrefillData>(
@@ -91,6 +93,7 @@ export function useManualInputPrefillSync({
       businessType: initialBusinessType,
       businessTypeCode: initialBusinessTypeCode,
       canonicalNaceCode: initialCanonicalNaceCode,
+      city: initialCity,
       companyName: initialCompanyName,
       country: initialCountry,
       fteEmployees: initialFteEmployees,
@@ -100,6 +103,7 @@ export function useManualInputPrefillSync({
       naceCode: initialNaceCode,
       naceDescription: initialNaceDescription,
       ownerManagers: initialOwnerManagers,
+      postalCode: initialPostalCode,
       yearFounded: initialYearFounded,
       yearlyFinancials: initialYearlyFinancials,
     }),
@@ -109,6 +113,7 @@ export function useManualInputPrefillSync({
       initialBusinessType,
       initialBusinessTypeCode,
       initialCanonicalNaceCode,
+      initialCity,
       initialCompanyName,
       initialCountry,
       initialFteEmployees,
@@ -118,6 +123,7 @@ export function useManualInputPrefillSync({
       initialNaceCode,
       initialNaceDescription,
       initialOwnerManagers,
+      initialPostalCode,
       initialYearFounded,
       initialYearlyFinancials,
     ]

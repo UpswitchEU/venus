@@ -83,6 +83,25 @@ describe('manualInputData', () => {
     ).toBe(3)
   })
 
+  it('passes structured city and postal code into manual initial data', () => {
+    expect(
+      buildManualInputInitialData({
+        collectedData: {
+          companyName: 'Acme',
+          address: 'Kerkstraat 1, 2018 Antwerpen',
+          city: 'Antwerpen',
+          postalCode: '2018',
+        },
+        formStoreData: {},
+      })
+    ).toMatchObject({
+      companyName: 'Acme',
+      address: 'Kerkstraat 1, 2018 Antwerpen',
+      city: 'Antwerpen',
+      postal_code: '2018',
+    })
+  })
+
   it('merges live submit data over initial data and fills required defaults', () => {
     expect(
       buildManualLiveValuationSubmitData({

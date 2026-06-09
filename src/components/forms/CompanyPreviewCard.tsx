@@ -8,6 +8,12 @@
 import { useTranslations } from 'next-intl'
 import React, { useEffect, useRef, useState } from 'react'
 import type { CompanySearchResult } from '../../services/registry/types'
+import {
+  formatLegalFormLabel,
+  formatRegistryCompanyLocation,
+  formatRegistryNumber,
+  getRegistryActivityDescription,
+} from '../../utils/registryCompanyDisplay'
 
 export interface CompanyPreviewCardProps {
   company: CompanySearchResult
@@ -23,6 +29,21 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   const t = useTranslations()
   const [justVerified, setJustVerified] = useState(false)
   const wasVerifying = useRef(false)
+
+  const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(company.legal_form)
+  const registration = company.registration_number
+    ? formatRegistryNumber(company.registration_number, company.country_code ?? 'BE')
+    : ''
+  const location = formatRegistryCompanyLocation({
+    address: company.address,
+    postalCode: company.postal_code,
+    city: company.city,
+  })
+  const activityDescription = getRegistryActivityDescription({
+    activityLabel: company.activity_label,
+    naceDescription: company.nace_description,
+  })
+  const metaParts = [legalFormLabel, registration].filter(Boolean)
 
   // Show subtle feedback when verification completes
   useEffect(() => {
@@ -83,78 +104,35 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
       </div>
 
       {/* Company details */}
-      <div className="space-y-2">
-        <div>
-          <h4 className="text-lg font-semibold text-foreground mb-1">{company.company_name}</h4>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            {company.registration_number && (
-              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                <svg
-                  className="w-4 h-4 text-foreground/40"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
-                  />
-                </svg>
-                <span className="font-mono font-medium">{company.registration_number}</span>
-              </span>
-            )}
-            {company.legal_form && (
-              <>
-                <span className="text-foreground/30">•</span>
-                <span className="text-muted-foreground">{company.legal_form}</span>
-              </>
-            )}
-            {company.status && (
-              <>
-                <span className="text-foreground/30">•</span>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                    company.status.toLowerCase() === 'active'
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {company.status.toLowerCase() === 'active'
-                    ? t('forms.kboLookup.active')
-                    : company.status}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {company.address && (
+      <div className="space-y-1">
+        <h4 className="text-lg font-semibold leading-snug text-foreground">{company.company_name}</h4>
+        {metaParts.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {legalFormLabel && <span title={legalFormTitle}>{legalFormLabel}</span>}
+            {legalFormLabel && registration && <span aria-hidden="true"> · </span>}
+            {registration && <span className="font-mono">{registration}</span>}
+          </p>
+        )}
+        {company.status && (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+              company.status.toLowerCase() === 'active'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {company.status.toLowerCase() === 'active'
+              ? t('forms.kboLookup.active')
+              : company.status}
+          </span>
+        )}
+        {location && (
           <div className="pt-2 border-t border-primary/20">
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-              <svg
-                className="w-4 h-4 text-foreground/40 mt-0.5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span className="leading-relaxed">{company.address}</span>
-            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">{location}</p>
           </div>
+        )}
+        {activityDescription && (
+          <p className="text-xs leading-relaxed text-muted-foreground pt-1">{activityDescription}</p>
         )}
       </div>
     </div>

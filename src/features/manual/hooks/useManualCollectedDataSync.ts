@@ -7,12 +7,14 @@ import type { ValuationFormData } from '../../../types/valuation'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
+import { formatRegistryCompanyLocation } from '../../../utils/registryCompanyDisplay'
 
 interface ManualCollectedDataIdentity {
   address?: string
   businessModel?: string
   businessStructure?: string
   businessType?: string
+  city?: string
   companyName?: string
   country?: string
   industry?: string
@@ -20,6 +22,7 @@ interface ManualCollectedDataIdentity {
   legalForm?: string
   naceCode?: string
   naceDescription?: string
+  postalCode?: string
   yearFounded?: string
 }
 
@@ -92,6 +95,8 @@ export function useManualCollectedDataSync<TCollectedData extends ManualCollecte
       const derivedBusinessStructure = mapLegalFormToBusinessStructure(legalForm || '')
       next.businessStructure = derivedBusinessStructure || prev.businessStructure || undefined
       if (address && address !== prev.address) next.address = address
+      if (city && city !== prev.city) next.city = city
+      if (postalCode && postalCode !== prev.postalCode) next.postalCode = postalCode
       const displayNace = activityCode || naceCode
       if (displayNace && displayNace !== prev.naceCode) next.naceCode = displayNace
       if (naceDescription && naceDescription !== prev.naceDescription) {
@@ -104,6 +109,7 @@ export function useManualCollectedDataSync<TCollectedData extends ManualCollecte
     address,
     businessModel,
     businessTypeId,
+    city,
     companyName,
     country,
     industry,
@@ -111,6 +117,7 @@ export function useManualCollectedDataSync<TCollectedData extends ManualCollecte
     legalForm,
     naceCode,
     naceDescription,
+    postalCode,
     setCollectedData,
     yearFounded,
   ])
@@ -215,9 +222,17 @@ function readManualSessionIdentitySurface(
   const nace = activity?.trim() || canonicalNace || undefined
   const postalCode = (merged.postal_code || merged.postalCode) as string | undefined
   const city = merged.city as string | undefined
+  const streetAddress = (
+    (merged.company_address as string | undefined) ||
+    (merged.address as string | undefined)
+  )?.trim()
 
   return {
-    address: [postalCode, city].filter(Boolean).join(' '),
+    address: formatRegistryCompanyLocation({
+      address: streetAddress,
+      postalCode,
+      city,
+    }),
     businessType: normalizeBusinessTypeId(
       merged.business_type_id || merged.businessTypeId || merged.business_type
     ),
@@ -314,6 +329,8 @@ function mergeManualSessionIdentityIntoCollectedData<
     if (mapped && !previous.businessStructure) next.businessStructure = mapped
   }
   if (session.address && !previous.address) next.address = session.address
+  if (session.city && !previous.city) next.city = session.city
+  if (session.postalCode && !previous.postalCode) next.postalCode = session.postalCode
   if (session.nace && !previous.naceCode) next.naceCode = session.nace
   if (session.naceDescription && !previous.naceDescription) {
     next.naceDescription = session.naceDescription

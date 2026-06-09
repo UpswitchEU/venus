@@ -9,7 +9,9 @@ import { createPortal } from 'react-dom'
 import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
+import { formatLegalFormLabel } from '@/utils/registryCompanyDisplay'
 import { cn, safeString } from '../../utils'
+import { KboConfirmedCard } from './KboConfirmedCard'
 import type { KBOCompany } from './EntitySearchTypes'
 import {
   dropdownVariants,
@@ -523,19 +525,19 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                       <Building2 className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground truncate">
-                          {safeString(company.name)}
-                        </span>
-                        <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded shrink-0">
-                          {safeString(company.legalForm)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-foreground/50 mt-0.5">
-                        {safeString(company.kboNumber)} · {safeString(company.city)}
+                      <p className="text-sm font-medium leading-snug text-foreground">
+                        {safeString(company.name)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-foreground/50">
+                        {(() => {
+                          const { label } = formatLegalFormLabel(company.legalForm)
+                          const kbo = safeString(company.kboNumber)
+                          const city = safeString(company.city)
+                          return [label, kbo, city].filter(Boolean).join(' · ')
+                        })()}
                       </p>
                       {safeString(company.naceDescription) && (
-                        <p className="text-[11px] text-foreground/40 mt-0.5 truncate">
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-foreground/40">
                           {safeString(company.naceDescription)}
                         </p>
                       )}
@@ -554,41 +556,12 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Check className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {safeString(selectedCompany.name)}
-                    </p>
-                    <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded">
-                      {safeString(selectedCompany.legalForm)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-foreground/50 mt-0.5">
-                    {safeString(selectedCompany.kboNumber)}
-                  </p>
-                  <p className="text-xs text-foreground/40 mt-0.5">
-                    {safeString(selectedCompany.address)}, {safeString(selectedCompany.postalCode)}{' '}
-                    {safeString(selectedCompany.city)}
-                  </p>
-                  {safeString(selectedCompany.naceDescription) && (
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
-                        {getActivityCodeShort(selectedCompany.countryCode)}{' '}
-                        {safeString(selectedCompany.activityCode ?? selectedCompany.naceCode)}
-                      </span>
-                      <span className="text-[11px] text-foreground/50 truncate">
-                        {safeString(selectedCompany.naceDescription)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <KboConfirmedCard
+                company={selectedCompany}
+                activityCodeLabel={getActivityCodeShort(selectedCompany.countryCode)}
+                variant="detailsOnly"
+              />
             </motion.div>
           )}
         </AnimatePresence>

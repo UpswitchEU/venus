@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { KBOCompany } from './entity-search/EntitySearchTypes'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, number>) =>
@@ -9,12 +10,28 @@ vi.mock('next-intl', () => ({
 
 import { KBOSearchInput } from './EntitySearch'
 
+const bakkerAldoFixture: KBOCompany = {
+  id: '0631747439',
+  name: 'Bakker Aldo',
+  kboNumber: '0631747439',
+  legalForm: 'Besloten vennootschap met beperkte aansprakelijkhe',
+  address: '2018 Antwerpen',
+  postalCode: '2018',
+  city: 'Antwerpen',
+  naceCode: '47241',
+  naceDescription:
+    'Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade',
+  countryCode: 'BE',
+}
+
 function TestHarness({
   searchFn,
+  selectedCompany = null,
 }: {
   searchFn: (query: string, signal?: AbortSignal) => Promise<unknown[]>
+  selectedCompany?: KBOCompany | null
 }) {
-  const [value, setValue] = React.useState('')
+  const [value, setValue] = React.useState(selectedCompany?.name ?? '')
 
   return (
     <KBOSearchInput
@@ -24,7 +41,7 @@ function TestHarness({
       onCompanySelect={vi.fn()}
       onClear={vi.fn()}
       searchFn={searchFn}
-      selectedCompany={null}
+      selectedCompany={selectedCompany}
       debounceMs={10}
     />
   )
@@ -99,5 +116,23 @@ describe('Venus KBOSearchInput', () => {
 
     expect(searchFn).toHaveBeenCalledTimes(2)
     expect(searchFn.mock.calls[1]?.[0]).toBe('retry bv')
+  })
+
+  it('renders selected company card with short legal form and full NACE description', () => {
+    const searchFn = vi.fn().mockResolvedValue([])
+
+    render(<TestHarness searchFn={searchFn} selectedCompany={bakkerAldoFixture} />)
+
+    expect(screen.getByDisplayValue('Bakker Aldo')).toBeInTheDocument()
+    expect(screen.getByText(/BV/)).toBeInTheDocument()
+    expect(screen.getByText('0631.747.439')).toBeInTheDocument()
+    expect(screen.getByText('2018 Antwerpen')).toBeInTheDocument()
+    expect(screen.queryByText(/2018 Antwerpen 2018/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/beperkte aansprakelijkhe/)).not.toBeInTheDocument()
   })
 })

@@ -38,6 +38,7 @@ describe('manual input prefill utilities', () => {
       businessType: undefined,
       businessTypeCode: undefined,
       canonicalNaceCode: undefined,
+      city: undefined,
       companyName: 'Acme BV',
       country: undefined,
       fteEmployees: undefined,
@@ -47,6 +48,7 @@ describe('manual input prefill utilities', () => {
       naceCode: undefined,
       naceDescription: undefined,
       ownerManagers: undefined,
+      postalCode: undefined,
       yearFounded: undefined,
       yearlyFinancials: [{ year: '2024', revenue: 100, ebitda: 20 }],
     })
@@ -125,16 +127,20 @@ describe('manual input prefill utilities', () => {
         prefill: {
           address: 'Main Street 1',
           canonicalNaceCode: '62010',
+          city: 'Gent',
           kboNumber: 'BE0123456789',
           legalForm: 'BV',
           naceCode: 'SBI-6201',
           naceDescription: 'Software',
+          postalCode: '9000',
         },
       })
     ).toMatchObject({
       id: 'BE0123456789',
       name: 'Acme BV',
       kboNumber: 'BE0123456789',
+      postalCode: '9000',
+      city: 'Gent',
       canonicalNaceCode: '62010',
       activityCode: 'SBI-6201',
     })
