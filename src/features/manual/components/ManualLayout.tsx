@@ -195,6 +195,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     generatePdf,
     downloadPdf,
     isReady: isPdfReady,
+    isGenerating: isPdfGenerating,
   } = usePdfGeneration(resolvedReportId ?? reportId)
 
   const currentLocale = useLocale()
@@ -372,11 +373,13 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     pdfStale,
     pdfWaitTimedOut,
     pdfPollErrorCount,
+    pdfPollTransientCount,
     isPdfRetrying,
     retry: handleRetryPdfStalled,
   } = usePdfStalenessLifecycle({
     report,
     isPdfReady,
+    isPdfGenerating,
     pdfGenerationState,
     persistedReportLookupId,
     canDownloadPdf,
@@ -527,6 +530,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setRightPanelView,
     setShowFullscreenModal,
     generatePdf,
+    isPdfGenerating,
   })
 
   const {
@@ -539,6 +543,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     allowedMethodKeys,
     canDownloadPdf,
     generatePdf,
+    isPdfGenerating,
     openStarterPaywall,
     persistedReportLookupId,
     preSelectableMethodsForNav,
@@ -723,6 +728,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     isAccountantMode,
     openStarterPaywall,
     pdfStale,
+    isPdfGenerating,
     report,
     reportId,
     resolvedReportId,
@@ -764,7 +770,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const urlActionDownloadHandledForRef = useRef<string | null>(null)
   useEffect(() => {
     if (urlAction !== 'download') return
-    if (!report || pdfStale || !canDownloadPdf || isExporting) return
+    if (!report || pdfStale || isPdfGenerating || !canDownloadPdf || isExporting) return
     if (!attestReportId || attestReportId === 'new') return
     if (urlActionDownloadHandledForRef.current === attestReportId) return
     urlActionDownloadHandledForRef.current = attestReportId
@@ -774,6 +780,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     canDownloadPdf,
     handleExport,
     isExporting,
+    isPdfGenerating,
     pdfStale,
     report,
     urlAction,
@@ -1009,6 +1016,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           onRetry={handleRetryPdfStalled}
           persistedReportLookupId={persistedReportLookupId}
           pdfPollErrorCount={pdfPollErrorCount}
+          pdfPollTransientCount={pdfPollTransientCount}
           pdfStale={pdfStale}
           pdfWaitTimedOut={pdfWaitTimedOut}
           report={report}

@@ -9,6 +9,7 @@ interface ManualPdfStaleBannerProps {
   onRetry: () => Promise<void> | void
   persistedReportLookupId: string | null | undefined
   pdfPollErrorCount: number
+  pdfPollTransientCount: number
   pdfStale: boolean
   pdfWaitTimedOut: boolean
   report: ValuationReportData | null
@@ -21,6 +22,7 @@ export function ManualPdfStaleBanner({
   onRetry,
   persistedReportLookupId,
   pdfPollErrorCount,
+  pdfPollTransientCount,
   pdfStale,
   pdfWaitTimedOut,
   report,
@@ -42,7 +44,7 @@ export function ManualPdfStaleBanner({
 
   const pollBlurb = pdfWaitTimedOut
     ? translate('pdfStalledBlurb')
-    : pdfPollErrorCount >= 2
+    : pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
       ? translate('pdfPollDegradedHint')
       : translate('pdfUpdatingBlurb')
 

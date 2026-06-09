@@ -327,6 +327,17 @@ describe('sessionReadiness Mercury report URL contract', () => {
     )
   })
 
+  it('PDF BFF routes and usePdfGeneration forward delegated client context', () => {
+    const pdfRoute = readFileSync(
+      join(__dirname, '../../../app/api/valuations/[id]/pdf/route.ts'),
+      'utf8'
+    )
+    const pdfGen = readFileSync(join(__dirname, '../../hooks/usePdfGeneration.ts'), 'utf8')
+    expect(pdfRoute).toMatch(/getTitanClientContextHeaders/)
+    expect(pdfGen).toMatch(/getContextHeaders/)
+    expect(pdfGen).toMatch(/pdfFetchHeaders/)
+  })
+
   it('HttpClient waits for delegated client context before attaching headers', () => {
     const path = join(__dirname, '../../services/api/HttpClient.ts')
     const source = readFileSync(path, 'utf8')

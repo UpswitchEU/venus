@@ -35,6 +35,7 @@ export interface UseManualNavigationControllerParams {
   isAccountantMode: boolean
   openStarterPaywall: (reason: 'pdf_download') => void
   pdfStale: boolean
+  isPdfGenerating?: boolean
   report: ManualNavigationReport | null
   reportId: string
   resolvedReportId?: string | null
@@ -61,6 +62,7 @@ export function useManualNavigationController({
   isAccountantMode,
   openStarterPaywall,
   pdfStale,
+  isPdfGenerating,
   report,
   reportId,
   resolvedReportId,
@@ -81,11 +83,13 @@ export function useManualNavigationController({
     resolvedReportId,
     canDownloadPdf,
     pdfStale,
+    isPdfGenerating,
     downloadPdf,
     openPdfPaywall: () => openStarterPaywall('pdf_download'),
     defaultFilename: translateReport('defaultFilename'),
     pdfSuffix: translateReport('pdfSuffix'),
     staleHint: translate('downloadPdfStaleHint'),
+    transientDownloadHint: translate('pdfPollDegradedHint'),
     exportFailedTitle: translate('pdfExportFailed'),
     exportFailedDescription: translate('pdfExportFailedDesc'),
     generatingTitle: translate('pdfGenerating'),

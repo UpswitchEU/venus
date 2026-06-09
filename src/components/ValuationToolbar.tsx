@@ -32,6 +32,7 @@ import {
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { APIError } from '../types/errors'
+import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
 import { UserDropdown } from './UserDropdown'
@@ -248,6 +249,12 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
             toast.error(tToast('pdfDownloadPlanBlocked'), {
               description: tToast('pdfDownloadPlanBlockedDesc'),
             })
+          }
+          return
+        }
+        if (err instanceof APIError && isPdfTransientUpstreamStatus(err.statusCode)) {
+          if (isCurrentRun()) {
+            toast.warning(tToast('pdfPollDegradedHint'))
           }
           return
         }

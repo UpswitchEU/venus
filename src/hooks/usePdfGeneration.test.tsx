@@ -20,6 +20,17 @@ vi.mock('../utils/logger', () => ({
   generalLogger: mocks.logger,
 }))
 
+vi.mock('../stores/clientContext', () => ({
+  useClientContext: {
+    getState: () => ({
+      getContextHeaders: () => ({
+        'X-Relationship-Id': 'rel-1',
+        'X-Accountant-User-Id': 'adv-1',
+      }),
+    }),
+  },
+}))
+
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -56,7 +67,13 @@ describe('usePdfGeneration', () => {
     expect(result.current.state.status).toBe('generating')
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/valuations/report-a/pdf',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Relationship-Id': 'rel-1',
+          'X-Accountant-User-Id': 'adv-1',
+        }),
+      })
     )
 
     act(() => {
@@ -73,6 +90,86 @@ describe('usePdfGeneration', () => {
     await act(async () => {
       resolveFetch?.(jsonResponse({ success: true, pdfUrl: 'https://cdn.example/report-a.pdf' }))
       await generationPromise
+    })
+
+    expect(result.current.state).toEqual({
+      status: 'none',
+      url: null,
+      error: null,
+      progress: 0,
+    })
+  })
+
+  it('treats transient 503 on download as a retriable APIError without latching error state', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'pooler blip' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+
+    await act(async () => {
+      await expect(result.current.downloadPdf()).rejects.toMatchObject({ statusCode: 503 })
+    })
+
+    expect(result.current.state.error).toBeNull()
+  })
+
+  it('keeps polling after transient 503 on status checks', async () => {
+    vi.useFakeTimers()
+    let statusCalls = 0
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return jsonResponse({ success: true, jobId: 'job-1' })
+      }
+      if (url.includes('/pdf/status/')) {
+        statusCalls += 1
+        if (statusCalls < 3) {
+          return new Response(JSON.stringify({ error: 'pooler' }), { status: 503 })
+        }
+        return jsonResponse({
+          success: true,
+          status: 'completed',
+          pdfUrl: 'https://cdn.example/fresh.pdf',
+        })
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+
+    await act(async () => {
+      await result.current.generatePdf()
+    })
+    expect(result.current.state.status).toBe('generating')
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000)
+    })
+
+    expect(statusCalls).toBeGreaterThanOrEqual(3)
+    expect(result.current.state.status).toBe('ready')
+    expect(result.current.state.url).toBe('https://cdn.example/fresh.pdf')
+    vi.useRealTimers()
+  })
+
+  it('treats transient 503 on POST as soft failure without a hard error state', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'pooler blip' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+
+    await act(async () => {
+      await result.current.generatePdf()
     })
 
     expect(result.current.state).toEqual({

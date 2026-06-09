@@ -1,10 +1,12 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { APIError } from '../../../types/errors'
 import { useManualPdfExportController } from './useManualPdfExportController'
 
 const toast = vi.hoisted(() => ({
   dismiss: vi.fn(),
   error: vi.fn(),
+  info: vi.fn(),
   loading: vi.fn(),
   success: vi.fn(),
   warning: vi.fn(),
@@ -28,8 +30,9 @@ function makeParams(
     openPdfPaywall: vi.fn(),
     defaultFilename: 'valuation',
     pdfSuffix: 'report',
-    staleHint: 'PDF is stale',
-    exportFailedTitle: 'PDF export failed',
+  staleHint: 'PDF is stale',
+  transientDownloadHint: 'Server temporarily unavailable',
+  exportFailedTitle: 'PDF export failed',
     exportFailedDescription: 'Please try again',
     generatingTitle: 'Generating PDF',
     downloadedTitle: 'PDF downloaded',
@@ -70,6 +73,35 @@ describe('useManualPdfExportController', () => {
     expect(result.current.isExporting).toBe(false)
     expect(result.current.downloadHistory).toHaveLength(1)
     expect(toast.success).toHaveBeenCalledWith('PDF downloaded')
+  })
+
+  it('shows generating toast instead of stale warning while PDF job is in flight', async () => {
+    const downloadPdf = vi.fn()
+    const { result } = renderHook(() =>
+      useManualPdfExportController(
+        makeParams(downloadPdf, { pdfStale: true, isPdfGenerating: true })
+      )
+    )
+
+    await act(async () => {
+      await result.current.handleExport()
+    })
+
+    expect(downloadPdf).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(toast.info).toHaveBeenCalledWith('Generating PDF', { id: 'pdf-gen' })
+  })
+
+  it('warns on transient download errors without a hard export failure toast', async () => {
+    const downloadPdf = vi.fn().mockRejectedValue(new APIError('pooler blip', 503))
+    const { result } = renderHook(() => useManualPdfExportController(makeParams(downloadPdf)))
+
+    await act(async () => {
+      await result.current.handleExport()
+    })
+
+    expect(toast.warning).toHaveBeenCalledWith('Server temporarily unavailable')
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('aborts and ignores stale export completion after the report id changes', async () => {

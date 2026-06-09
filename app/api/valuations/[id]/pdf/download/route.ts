@@ -31,6 +31,7 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchArrayBufferWithTimeout, fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -141,7 +142,8 @@ async function fetchPdfFromStorage(
 async function titanLookupPdfUrl(
   titanPdfUrl: string,
   cookieHeader: string,
-  deadline: PdfDownloadDeadline
+  deadline: PdfDownloadDeadline,
+  clientContextHeaders: Record<string, string>
 ): Promise<{ pdfUrl: string | null; errorResponse: NextResponse | null }> {
   let titanResponse: Response
   let body: JsonRecord | null
@@ -150,7 +152,7 @@ async function titanLookupPdfUrl(
       titanPdfUrl,
       {
         method: 'GET',
-        headers: titanAuthHeaders(cookieHeader),
+        headers: titanAuthHeaders(cookieHeader, clientContextHeaders),
         credentials: 'include',
       },
       timeoutFor(deadline, TITAN_PDF_GET_MS)
@@ -217,13 +219,17 @@ async function titanLookupPdfUrl(
 async function titanGeneratePdf(
   titanPdfUrl: string,
   cookieHeader: string,
-  deadline: PdfDownloadDeadline
+  deadline: PdfDownloadDeadline,
+  clientContextHeaders: Record<string, string>
 ): Promise<{ pdfUrl: string | null; errorResponse: NextResponse | null }> {
   const { response: postRes, json: body } = await fetchJsonWithTimeout<JsonRecord>(
     titanPdfUrl,
     {
       method: 'POST',
-      headers: titanAuthHeaders(cookieHeader, { 'Content-Type': 'application/json' }),
+      headers: titanAuthHeaders(cookieHeader, {
+        'Content-Type': 'application/json',
+        ...clientContextHeaders,
+      }),
       credentials: 'include',
       body: JSON.stringify({}),
     },
@@ -289,8 +295,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const TITAN_API_URL = getTitanApiUrl(request)
     const titanPdfUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${encodeURIComponent(id)}/pdf`
+    const clientContextHeaders = getTitanClientContextHeaders(request)
 
-    const lookupResult = await titanLookupPdfUrl(titanPdfUrl, cookieHeader, deadline)
+    const lookupResult = await titanLookupPdfUrl(
+      titanPdfUrl,
+      cookieHeader,
+      deadline,
+      clientContextHeaders
+    )
     if (lookupResult.errorResponse) return lookupResult.errorResponse
 
     let pdfUrl = lookupResult.pdfUrl
@@ -298,7 +310,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // No URL yet, or stored file missing / expired / not a PDF — regenerate once.
     if (!pdfBuffer) {
-      const gen = await titanGeneratePdf(titanPdfUrl, cookieHeader, deadline)
+      const gen = await titanGeneratePdf(titanPdfUrl, cookieHeader, deadline, clientContextHeaders)
       if (gen.errorResponse) return gen.errorResponse
       pdfUrl = gen.pdfUrl
       pdfBuffer = pdfUrl ? await fetchPdfFromStorage(pdfUrl, deadline) : null

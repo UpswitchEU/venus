@@ -9,8 +9,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
+import { useClientContext } from '../stores/clientContext'
 import { useSessionStore } from '../store/useSessionStore'
 import { APIError } from '../types/errors'
+import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { generalLogger } from '../utils/logger'
 
 /** Let the BFF return its structured 504 before the browser gives up. */
@@ -69,6 +71,13 @@ type PdfAccessErrorBody = {
   inviteAdvisorRequired?: unknown
   required_tier?: unknown
   upgradeRequired?: unknown
+}
+
+function pdfFetchHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
+    ...useClientContext.getState().getContextHeaders(),
+    ...extra,
+  }
 }
 
 function buildPdfAccessErrorContext(errBody: PdfAccessErrorBody): Record<string, unknown> {
@@ -253,11 +262,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         try {
           const response = await fetch(`/api/valuations/pdf/status/${encodeURIComponent(jobId)}`, {
             credentials: 'include',
+            headers: pdfFetchHeaders(),
             signal: statusAbortHandle.signal,
           })
           if (pollRunIdRef.current !== pollRunId) return
 
           if (!response.ok) {
+            if (isPdfTransientUpstreamStatus(response.status)) {
+              generalLogger.debug('[PDF] Polling status transient upstream error — will retry', {
+                jobId,
+                pollCount,
+                status: response.status,
+              })
+              return
+            }
             if (response.status === 402) {
               const timer = pollingRef.current
               if (timer) {
@@ -391,7 +409,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       try {
         response = await fetch(`/api/valuations/${encodeURIComponent(targetReportId)}/pdf`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: pdfFetchHeaders({ 'Content-Type': 'application/json' }),
           credentials: 'include',
           signal: generationAbortHandle.signal,
         })
@@ -402,6 +420,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}))
+        if (isPdfTransientUpstreamStatus(response.status)) {
+          throw new APIError('PDF generation temporarily unavailable', response.status)
+        }
         if (response.status === 402) {
           const errMsg =
             (typeof errBody.message === 'string' && errBody.message) ||
@@ -482,6 +503,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       if (error instanceof APIError && error.statusCode === 402) {
         throw error
       }
+      if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {
+        // Titan pooler blips — leave PDF staleness lifecycle in charge of the banner;
+        // do not surface a hard error that would fight the "updating" UX.
+        if (isCurrentGeneration()) {
+          isGeneratingRef.current = false
+          setState({
+            status: 'none',
+            url: null,
+            error: null,
+            progress: 0,
+          })
+        }
+        return null
+      }
       if (isCurrentGeneration()) {
         isGeneratingRef.current = false
         const message = error instanceof Error ? error.message : 'PDF generation failed'
@@ -543,6 +578,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             `/api/valuations/${encodeURIComponent(targetReportId)}/pdf/download?_=${encodeURIComponent(String(Date.now()))}`,
             {
               credentials: 'include',
+              headers: pdfFetchHeaders(),
               signal: downloadAbortHandle.signal,
               cache: 'no-store',
             }
@@ -569,6 +605,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               })
             }
             throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
+          }
+          if (isPdfTransientUpstreamStatus(response.status)) {
+            throw new APIError('PDF download temporarily unavailable', response.status)
           }
           throw new Error(errMsg)
         }
@@ -602,6 +641,15 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         URL.revokeObjectURL(blobUrl)
       } catch (error) {
         if (error instanceof APIError && error.statusCode === 402) {
+          throw error
+        }
+        if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {
+          if (isCurrentDownload()) {
+            setState((prev) => ({
+              ...prev,
+              error: null,
+            }))
+          }
           throw error
         }
         if (error instanceof Error && error.name === 'AbortError') {

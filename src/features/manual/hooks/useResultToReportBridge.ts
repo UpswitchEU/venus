@@ -83,6 +83,8 @@ export interface UseResultToReportBridgeParams {
   setShowFullscreenModal: Dispatch<SetStateAction<boolean>>
   /** `usePdfGeneration().generatePdf` — fired in background on first map. */
   generatePdf: (() => Promise<unknown>) | undefined
+  /** Skip duplicate POST /pdf while `usePdfGeneration` is already in flight. */
+  isPdfGenerating?: boolean
 }
 
 function resultPdfTriggerFingerprint(result: ValuationResponse): string {
@@ -121,9 +123,11 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     setRightPanelView,
     setShowFullscreenModal,
     generatePdf,
+    isPdfGenerating = false,
   } = params
 
   const generatePdfRef = useLatestRef(generatePdf)
+  const isPdfGeneratingRef = useLatestRef(isPdfGenerating)
   const lastPdfTriggerFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -182,7 +186,13 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
 
       // 8. Background PDF generation — only when PDF is stale and fingerprint changed
       // (guards against poll merges re-firing POST /pdf).
-      if (reportId && mappedReport.htmlReport && canDownloadPdf && isPdfLikelyStaleVenus(mappedReport)) {
+      if (
+        reportId &&
+        mappedReport.htmlReport &&
+        canDownloadPdf &&
+        !isPdfGeneratingRef.current &&
+        isPdfLikelyStaleVenus(mappedReport)
+      ) {
         const pdfFingerprint = resultPdfTriggerFingerprint(result)
         if (lastPdfTriggerFingerprintRef.current !== pdfFingerprint) {
           lastPdfTriggerFingerprintRef.current = pdfFingerprint

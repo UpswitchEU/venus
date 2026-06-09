@@ -48,6 +48,7 @@ export interface UseManualMethodPersistenceControllerParams {
   allowedMethodKeys: readonly string[] | null
   canDownloadPdf: boolean
   generatePdf: () => Promise<string | null>
+  isPdfGenerating?: boolean
   openStarterPaywall: (reason: ManualStarterPaywallReason) => void
   persistedReportLookupId: string | null | undefined
   preSelectableMethodsForNav: readonly string[]
@@ -93,6 +94,7 @@ export function useManualMethodPersistenceController({
   allowedMethodKeys,
   canDownloadPdf,
   generatePdf,
+  isPdfGenerating = false,
   openStarterPaywall,
   persistedReportLookupId,
   preSelectableMethodsForNav,
@@ -152,6 +154,7 @@ export function useManualMethodPersistenceController({
   const { refreshReportAfterEdit } = useManualReportRefreshAfterEdit({
     canDownloadPdf,
     generatePdf,
+    isPdfGenerating,
     persistedReportLookupId,
     setReport,
     setResult,

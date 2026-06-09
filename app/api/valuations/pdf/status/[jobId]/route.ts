@@ -15,6 +15,7 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,9 +45,13 @@ function isUpstreamTimeout(error: unknown): boolean {
   )
 }
 
-function titanAuthHeaders(cookieHeader: string): Record<string, string> {
+function titanAuthHeaders(
+  cookieHeader: string,
+  extra: Record<string, string> = {}
+): Record<string, string> {
   const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
   return {
+    ...extra,
     Cookie: cookieHeader,
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
   }
@@ -75,7 +80,7 @@ export async function GET(
       titanUrl,
       {
         method: 'GET',
-        headers: titanAuthHeaders(cookieHeader),
+        headers: titanAuthHeaders(cookieHeader, getTitanClientContextHeaders(request)),
         credentials: 'include',
       },
       TITAN_PDF_STATUS_MS

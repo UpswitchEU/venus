@@ -60,6 +60,33 @@ describe('/api/valuations/[id]/pdf', () => {
     mocks.getTitanApiUrl.mockReturnValue('https://api.upswitch.app')
   })
 
+  it('forwards delegated client-context headers to Titan on generation', async () => {
+    authFromCookieStore()
+    mocks.fetch.mockResolvedValue(titanJsonResponse(200, { success: true, jobId: 'pdf_report-1' }))
+
+    const req = new NextRequest('https://valuation.upswitch.app/api/valuations/report-1/pdf', {
+      method: 'POST',
+      headers: {
+        'X-Relationship-Id': 'rel-1',
+        'X-Accountant-User-Id': 'adv-1',
+        'X-Client-User-Id': 'client-1',
+      },
+    })
+
+    await POST(req, { params: Promise.resolve({ id: 'report-1' }) })
+
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Relationship-Id': 'rel-1',
+          'X-Accountant-User-Id': 'adv-1',
+          'X-Client-User-Id': 'client-1',
+        }),
+      })
+    )
+  })
+
   it('queues async PDF generation with merged BFF auth cookies', async () => {
     authFromCookieStore()
     mocks.fetch.mockResolvedValue(titanJsonResponse(200, { success: true, jobId: 'pdf_report-1' }))

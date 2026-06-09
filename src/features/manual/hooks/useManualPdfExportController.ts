@@ -4,6 +4,7 @@ import type { DownloadHistoryItem } from '../../../components/calculator'
 import { trackPDFDownload } from '../../../lib/analytics'
 import { APIError } from '../../../types/errors'
 import { generalLogger } from '../../../utils/logger'
+import { isPdfTransientUpstreamStatus } from '../../../utils/pdfTransientUpstream'
 import {
   buildManualDownloadHistoryItem,
   buildManualPdfFilename,
@@ -20,6 +21,8 @@ export interface UseManualPdfExportControllerParams {
   resolvedReportId?: string | null
   canDownloadPdf: boolean
   pdfStale: boolean
+  /** When true, a background PDF job is running — do not toast "stale" on export. */
+  isPdfGenerating?: boolean
   downloadPdf: (
     url?: string,
     filename?: string,
@@ -30,6 +33,8 @@ export interface UseManualPdfExportControllerParams {
   defaultFilename: string
   pdfSuffix: string
   staleHint: string
+  /** Shown when Titan/BFF returns transient 5xx during download (pooler blips). */
+  transientDownloadHint: string
   exportFailedTitle: string
   exportFailedDescription: string
   generatingTitle: string
@@ -50,11 +55,13 @@ export function useManualPdfExportController({
   resolvedReportId,
   canDownloadPdf,
   pdfStale,
+  isPdfGenerating = false,
   downloadPdf,
   openPdfPaywall,
   defaultFilename,
   pdfSuffix,
   staleHint,
+  transientDownloadHint,
   exportFailedTitle,
   exportFailedDescription,
   generatingTitle,
@@ -96,6 +103,10 @@ export function useManualPdfExportController({
       return
     }
     if (pdfStale) {
+      if (isPdfGenerating) {
+        toast.info(generatingTitle, { id: PDF_EXPORT_TOAST_ID })
+        return
+      }
       toast.warning(staleHint)
       return
     }
@@ -144,6 +155,10 @@ export function useManualPdfExportController({
         if (isCurrentRun()) openPdfPaywall()
         return
       }
+      if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {
+        if (isCurrentRun()) toast.warning(transientDownloadHint)
+        return
+      }
       if (error instanceof Error && error.name === 'AbortError') {
         return
       }
@@ -172,10 +187,12 @@ export function useManualPdfExportController({
     generatingTitle,
     openPdfPaywall,
     pdfStale,
+    isPdfGenerating,
     pdfSuffix,
     report,
     currentPdfReportId,
     staleHint,
+    transientDownloadHint,
   ])
 
   return { isExporting, downloadHistory, handleExport }

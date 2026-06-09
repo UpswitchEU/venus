@@ -17,6 +17,7 @@ import UrlGeneratorService from '../../../services/urlGenerator'
 import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { APIError } from '../../../types/errors'
+import { isPdfTransientUpstreamStatus } from '../../../utils/pdfTransientUpstream'
 import type { ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { generateReportId } from '../../../utils/reportIdGenerator'
@@ -138,6 +139,10 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
             valuationId: currentResult.valuation_id,
           })
         }
+        return
+      }
+      if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {
+        if (isCurrentRun()) toast.warning(tToast('pdfPollDegradedHint'))
         return
       }
       if (error instanceof Error && error.name === 'AbortError') return

@@ -22,6 +22,8 @@ type ManualPdfGenerator = () => Promise<string | null>
 export interface UseManualReportRefreshAfterEditParams {
   canDownloadPdf: boolean
   generatePdf?: ManualPdfGenerator
+  /** Skip kicking a second job while async PDF generation is already in flight. */
+  isPdfGenerating?: boolean
   persistedReportLookupId?: string | null
   setReport: Dispatch<SetStateAction<ValuationReportData | null>>
   setResult: (result: ValuationResponse | null) => void
@@ -34,6 +36,7 @@ export interface UseManualReportRefreshAfterEditResult {
 export function useManualReportRefreshAfterEdit({
   canDownloadPdf,
   generatePdf,
+  isPdfGenerating = false,
   persistedReportLookupId,
   setReport,
   setResult,
@@ -128,6 +131,7 @@ export function useManualReportRefreshAfterEdit({
           regeneratePdfAfterValuationEdit({
             canDownloadPdf,
             generatePdf,
+            isPdfGenerating,
             reportMeta: {
               reportUpdatedAt: fresh.updated_at
                 ? new Date(String(fresh.updated_at))
@@ -157,6 +161,7 @@ export function useManualReportRefreshAfterEdit({
           regeneratePdfAfterValuationEdit({
             canDownloadPdf,
             generatePdf,
+            isPdfGenerating,
             // HTML came from patch fallback — PDF is stale by definition.
             forceRegenerate: true,
           })
@@ -165,7 +170,7 @@ export function useManualReportRefreshAfterEdit({
         return false
       }
     },
-    [canDownloadPdf, generatePdf, persistedReportLookupId, setReport, setResult]
+    [canDownloadPdf, generatePdf, isPdfGenerating, persistedReportLookupId, setReport, setResult]
   )
 
   return { refreshReportAfterEdit }
@@ -174,15 +179,17 @@ export function useManualReportRefreshAfterEdit({
 function regeneratePdfAfterValuationEdit({
   canDownloadPdf,
   generatePdf,
+  isPdfGenerating = false,
   reportMeta,
   forceRegenerate = false,
 }: {
   canDownloadPdf: boolean
   generatePdf?: ManualPdfGenerator
+  isPdfGenerating?: boolean
   reportMeta?: Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'>
   forceRegenerate?: boolean
 }) {
-  if (!canDownloadPdf || !generatePdf) return
+  if (!canDownloadPdf || !generatePdf || isPdfGenerating) return
   if (!forceRegenerate && reportMeta && !isPdfLikelyStaleVenus(reportMeta)) return
 
   generatePdf().catch((err: unknown) => {

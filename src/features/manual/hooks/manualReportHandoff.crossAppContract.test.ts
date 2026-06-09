@@ -71,6 +71,17 @@ describe('manual report handoff load contract', () => {
     expect(source).toMatch(/isPdfLikelyStaleVenus\(mappedReport\)/)
     expect(source).toMatch(/lastPdfTriggerFingerprintRef/)
     expect(source).toMatch(/resultPdfTriggerFingerprint/)
+    expect(source).toMatch(/isPdfGeneratingRef/)
+  })
+
+  it('useManualPdfExportController surfaces transient download degradation softly', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualPdfExportController.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/transientDownloadHint/)
+    expect(source).toMatch(/isPdfTransientUpstreamStatus/)
+    expect(source).toMatch(/isPdfGenerating/)
   })
 
   it('useManualReportRefreshAfterEdit respects PDF staleness before regenerate', () => {
@@ -80,6 +91,7 @@ describe('manual report handoff load contract', () => {
     )
     expect(source).toMatch(/isPdfLikelyStaleVenus/)
     expect(source).toMatch(/forceRegenerate/)
+    expect(source).toMatch(/isPdfGenerating/)
   })
 
   it('usePreSelectedMethodSessionSync skips autosave when session snapshot already matches store', () => {
@@ -128,6 +140,30 @@ describe('manual report handoff load contract', () => {
     )
     expect(source).toMatch(/generatePdfRef/)
     expect(source).not.toMatch(/generatePdf,\n    isMobile/)
+  })
+
+  it('ManualLayout wires PDF staleness lifecycle with generation state', () => {
+    const source = readFileSync(
+      join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'),
+      'utf8'
+    )
+    expect(source).toMatch(/isPdfGenerating/)
+    expect(source).toMatch(/usePdfStalenessLifecycle/)
+    expect(source).toMatch(/isPdfReady/)
+  })
+
+  it('usePdfStalenessLifecycle recovers after generation and forwards poll freshness', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'usePdfStalenessLifecycle.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/isPdfGenerating/)
+    expect(source).toMatch(/runStalePollOnce/)
+    expect(source).toMatch(/pdfIsFresh/)
+    expect(source).toMatch(/wasPdfGeneratingRef/)
+    expect(source).toMatch(/lastPolledPdfGeneratedAtMsRef/)
+    expect(source).toMatch(/pdfStillStaleAfterRetry/)
+    expect(source).toMatch(/isTransientPollError\(err\)/)
   })
 
   it('integration test covers re-render storm with real persistence coordinator', () => {

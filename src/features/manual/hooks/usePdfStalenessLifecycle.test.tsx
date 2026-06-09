@@ -58,6 +58,7 @@ function makeParams(
   return {
     report: makeReport(),
     isPdfReady: false,
+    isPdfGenerating: false,
     pdfGenerationState: { url: null },
     persistedReportLookupId: 'uuid-aaaa-bbbb',
     canDownloadPdf: true,
@@ -109,9 +110,26 @@ describe('usePdfStalenessLifecycle', () => {
       )
       expect(result.current.pdfStale).toBe(false)
     })
+
+    it('returns false when local PDF is ready with a URL even if pdfGeneratedAt lags', () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const { result } = renderHook(() =>
+        usePdfStalenessLifecycle(
+          makeParams({
+            report,
+            isPdfReady: true,
+            pdfGenerationState: { url: 'https://example/fresh.pdf' },
+          })
+        )
+      )
+      expect(result.current.pdfStale).toBe(false)
+    })
   })
 
-  describe('60s wait timeout', () => {
+  describe('wait timeout', () => {
     it('flips pdfWaitTimedOut true after 60 seconds while stale', () => {
       const report = makeReport({
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
@@ -121,7 +139,7 @@ describe('usePdfStalenessLifecycle', () => {
         usePdfStalenessLifecycle(
           makeParams({
             report,
-            getReport: vi.fn().mockRejectedValue(new APIError('busy', 502)),
+            persistedReportLookupId: null,
           })
         )
       )
@@ -138,6 +156,70 @@ describe('usePdfStalenessLifecycle', () => {
       expect(result.current.pdfWaitTimedOut).toBe(true)
     })
 
+    it('increments pdfPollTransientCount on transient 503 poll errors', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const getReport = vi.fn().mockRejectedValue(new APIError('pooler', 503))
+      const { result } = renderHook(() =>
+        usePdfStalenessLifecycle(makeParams({ report, getReport }))
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_600)
+      })
+
+      expect(result.current.pdfPollTransientCount).toBeGreaterThanOrEqual(1)
+    })
+
+    it('extends the stall deadline after transient 503 poll errors', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const getReport = vi.fn().mockRejectedValue(new APIError('pooler', 503))
+      const { result } = renderHook(() =>
+        usePdfStalenessLifecycle(makeParams({ report, getReport }))
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_600)
+      })
+      expect(getReport).toHaveBeenCalled()
+
+      act(() => {
+        vi.advanceTimersByTime(60_001)
+      })
+      expect(result.current.pdfWaitTimedOut).toBe(false)
+
+      act(() => {
+        vi.advanceTimersByTime(20_000)
+      })
+      expect(result.current.pdfWaitTimedOut).toBe(true)
+    })
+
+    it('does not surface stalled while async PDF generation is in flight', () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const { result, rerender } = renderHook(
+        (props: UsePdfStalenessLifecycleParams) => usePdfStalenessLifecycle(props),
+        {
+          initialProps: makeParams({ report, persistedReportLookupId: null }),
+        }
+      )
+
+      act(() => {
+        vi.advanceTimersByTime(60_001)
+      })
+      expect(result.current.pdfWaitTimedOut).toBe(true)
+
+      rerender(makeParams({ report, isPdfGenerating: true, persistedReportLookupId: null }))
+      expect(result.current.pdfWaitTimedOut).toBe(false)
+    })
+
     it('resets pdfWaitTimedOut when staleness clears', () => {
       const stale = makeReport({
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
@@ -152,7 +234,7 @@ describe('usePdfStalenessLifecycle', () => {
         {
           initialProps: makeParams({
             report: stale,
-            getReport: vi.fn().mockRejectedValue(new APIError('busy', 502)),
+            persistedReportLookupId: null,
           }),
         }
       )
@@ -203,12 +285,38 @@ describe('usePdfStalenessLifecycle', () => {
       expect(getReport).not.toHaveBeenCalled()
     })
 
+    it('surfaces stalled banner after unchanged stale pdf_generated_at streak', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const staleResponse = {
+        ...makeFreshResponse(),
+        updated_at: '2026-05-01T14:00:00.000Z',
+        pdf_generated_at: '2026-05-01T13:00:00.000Z',
+        pdf_url: 'https://example/old.pdf',
+      } as ValuationResponse
+      const getReport = vi.fn().mockResolvedValue(staleResponse)
+      const { result } = renderHook(() =>
+        usePdfStalenessLifecycle(makeParams({ report, getReport }))
+      )
+
+      await act(async () => {
+        for (let i = 0; i < 12; i++) {
+          await vi.advanceTimersByTimeAsync(2_500)
+        }
+      })
+
+      expect(result.current.pdfWaitTimedOut).toBe(true)
+      expect(getReport.mock.calls.length).toBeGreaterThanOrEqual(12)
+    })
+
     it('does not poll once stalled (after the 60s wait timer fires)', async () => {
       const report = makeReport({
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
         pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
       })
-      const getReport = vi.fn().mockRejectedValue(new APIError('whatever', 502))
+      const getReport = vi.fn().mockRejectedValue(new APIError('whatever', 500))
       const { result } = renderHook(() =>
         usePdfStalenessLifecycle(makeParams({ report, getReport }))
       )
@@ -451,10 +559,122 @@ describe('usePdfStalenessLifecycle', () => {
     })
   })
 
-  // Note: the "clear session-404 backoff state on lookup-id change" reset is
-  // covered by inspection of the dedicated useEffect at the top of the hook
-  // (lines starting `useEffect(() => { bySessionBackoffUntilRef.current = 0; ... }, [persistedReportLookupId])`).
-  // A behavioral test would require the polling loop to fire deterministically,
-  // which the `setInterval` + async + fake-timer interaction does not
-  // currently support reliably (see the polling-kickoff describe block).
+  it('re-arms the wait timer when retry refetch still returns a stale PDF row', async () => {
+    const report = makeReport({
+      reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+      pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+    })
+    const staleResponse = {
+      ...makeFreshResponse(),
+      updated_at: '2026-05-01T14:00:00.000Z',
+      pdf_generated_at: '2026-05-01T13:00:00.000Z',
+      pdf_url: 'https://example/old.pdf',
+    } as ValuationResponse
+    const getReport = vi.fn().mockResolvedValue(staleResponse)
+    const generatePdf = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() =>
+      usePdfStalenessLifecycle(makeParams({ report, getReport, generatePdf }))
+    )
+
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+
+    expect(result.current.pdfWaitTimedOut).toBe(true)
+  })
+
+  it('does not toast on transient retry getReport errors', async () => {
+    const report = makeReport({
+      reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+      pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+    })
+    const getReport = vi.fn().mockRejectedValue(new APIError('pooler', 503))
+    const showRetryFailureToast = vi.fn()
+    const { result } = renderHook(() =>
+      usePdfStalenessLifecycle(
+        makeParams({ report, getReport, showRetryFailureToast })
+      )
+    )
+
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    expect(showRetryFailureToast).not.toHaveBeenCalled()
+  })
+
+  it('clears pdfWaitTimedOut when retry refetch returns a fresh pdf_generated_at', async () => {
+    const report = makeReport({
+      reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+      pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+    })
+    const getReport = vi.fn().mockRejectedValue(new APIError('busy', 500))
+    const params = makeParams({ report, getReport })
+    const { result } = renderHook(() => usePdfStalenessLifecycle(params))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+    expect(result.current.pdfWaitTimedOut).toBe(true)
+
+    getReport.mockResolvedValue(makeFreshResponse())
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    expect(result.current.pdfWaitTimedOut).toBe(false)
+  })
+
+  describe('post-generation sync poll', () => {
+    beforeEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('polls immediately when async generation finishes', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const getReport = vi.fn().mockResolvedValue(makeFreshResponse())
+      const { rerender } = renderHook(
+        (props: UsePdfStalenessLifecycleParams) => usePdfStalenessLifecycle(props),
+        {
+          initialProps: makeParams({ report, getReport, isPdfGenerating: true }),
+        }
+      )
+
+      expect(getReport).not.toHaveBeenCalled()
+
+      rerender(makeParams({ report, getReport, isPdfGenerating: false }))
+
+      await waitFor(() => expect(getReport).toHaveBeenCalledTimes(1))
+    })
+
+    it('recovers from stalled state when generation finishes in the background', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const getReport = vi.fn().mockResolvedValue(makeFreshResponse())
+      const { result, rerender } = renderHook(
+        (props: UsePdfStalenessLifecycleParams) => usePdfStalenessLifecycle(props),
+        {
+          initialProps: makeParams({
+            report,
+            getReport,
+            isPdfGenerating: true,
+          }),
+        }
+      )
+
+      rerender(makeParams({ report, getReport, isPdfGenerating: false }))
+
+      await waitFor(() => expect(getReport).toHaveBeenCalledTimes(1))
+      expect(result.current.pdfWaitTimedOut).toBe(false)
+    })
+  })
 })

@@ -90,6 +90,37 @@ describe('useManualReportRefreshAfterEdit', () => {
     expect(generatePdf).toHaveBeenCalledTimes(1)
   })
 
+  it('skips regenerate when async PDF generation is already in flight', async () => {
+    getReport.mockResolvedValue({
+      ...makeFreshReport(),
+      pdf_generated_at: '2026-05-27T10:00:00.000Z',
+    })
+    const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')
+    const setReport = vi.fn((updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
+      updater({
+        id: REPORT_ID,
+        htmlReport: '<div>old</div>',
+      } as ValuationReportData)
+    })
+
+    const { result } = renderHook(() =>
+      useManualReportRefreshAfterEdit({
+        canDownloadPdf: true,
+        generatePdf,
+        isPdfGenerating: true,
+        persistedReportLookupId: REPORT_ID,
+        setReport,
+        setResult: vi.fn(),
+      })
+    )
+
+    await act(async () => {
+      await result.current.refreshReportAfterEdit('<div>patch</div>')
+    })
+
+    expect(generatePdf).not.toHaveBeenCalled()
+  })
+
   it('force-regenerates PDF from patch HTML when getReport fails', async () => {
     getReport.mockRejectedValue(new Error('timeout'))
     const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')

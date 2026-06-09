@@ -25,6 +25,7 @@ describe('manual PDF download contract', () => {
 
     expect(source).toMatch(/usePdfGeneration/)
     expect(source).toMatch(/downloadPdf\(undefined, filename, abortController\.signal, reportId\)/)
+    expect(source).toMatch(/isPdfTransientUpstreamStatus/)
     expect(source).not.toMatch(/downloadAccountantViewPDF/)
     expect(source).not.toMatch(/accountant-view/)
   })
@@ -49,5 +50,41 @@ describe('manual PDF download contract', () => {
     expect(source).toMatch(
       /\/api\/valuations\/\$\{encodeURIComponent\(targetReportId\)\}\/pdf\/download/
     )
+  })
+
+  it('usePdfGeneration forwards delegated client-context headers on PDF BFF fetches', () => {
+    const source = readVenus('hooks/usePdfGeneration.ts')
+
+    expect(source).toMatch(/getContextHeaders/)
+    expect(source).toMatch(/pdfFetchHeaders/)
+  })
+
+  it('ManualPdfStaleBanner surfaces transient poll degradation', () => {
+    const source = readVenus('features/manual/components/ManualPdfStaleBanner.tsx')
+    expect(source).toMatch(/pdfPollTransientCount/)
+    expect(source).toMatch(/pdfPollDegradedHint/)
+  })
+
+  it('PDF transient upstream statuses are centralized', () => {
+    expect(readVenus('utils/pdfTransientUpstream.ts')).toMatch(/PDF_TRANSIENT_UPSTREAM_STATUSES/)
+    expect(readVenus('hooks/usePdfGeneration.ts')).toMatch(/isPdfTransientUpstreamStatus/)
+    expect(readVenus('features/manual/hooks/usePdfStalenessLifecycle.ts')).toMatch(
+      /isPdfTransientUpstreamStatus/
+    )
+    expect(readVenus('features/manual/hooks/useManualPdfExportController.ts')).toMatch(
+      /isPdfTransientUpstreamStatus/
+    )
+    expect(readVenus('components/ValuationToolbar.tsx')).toMatch(/isPdfTransientUpstreamStatus/)
+  })
+
+  it('PDF BFF routes forward client-context headers to Titan', () => {
+    for (const path of [
+      '../app/api/valuations/[id]/pdf/route.ts',
+      '../app/api/valuations/pdf/status/[jobId]/route.ts',
+      '../app/api/valuations/[id]/pdf/download/route.ts',
+    ]) {
+      const source = readVenus(path)
+      expect(source).toMatch(/getTitanClientContextHeaders/)
+    }
   })
 })

@@ -173,6 +173,18 @@ describe('useResultToReportBridge', () => {
       renderHook(() => useResultToReportBridge(params))
       expect(params.generatePdf).not.toHaveBeenCalled()
     })
+
+    it('does NOT call generatePdf while async generation is already in flight', () => {
+      const params = makeParams({
+        isPdfGenerating: true,
+        result: makeResult({
+          updated_at: '2026-01-15T12:00:00.000Z',
+          pdf_generated_at: null,
+        }),
+      })
+      renderHook(() => useResultToReportBridge(params))
+      expect(params.generatePdf).not.toHaveBeenCalled()
+    })
   })
 
   describe('mobile fullscreen', () => {

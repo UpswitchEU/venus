@@ -67,6 +67,37 @@ describe('/api/valuations/[id]/pdf/download', () => {
     mocks.getTitanApiUrl.mockReturnValue('https://api.upswitch.app')
   })
 
+  it('forwards delegated client-context headers to Titan on download', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token; upswitch_refresh_token=refresh-token',
+      cookieSource: 'cookieStore',
+    })
+    mocks.fetch
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, pdfUrl: 'https://cdn/report.pdf' }))
+      .mockResolvedValueOnce(pdfResponse())
+
+    const req = new NextRequest('https://valuation.upswitch.app/api/valuations/report-1/pdf/download', {
+      headers: {
+        'X-Relationship-Id': 'rel-1',
+        'X-Accountant-User-Id': 'adv-1',
+        'X-Client-User-Id': 'client-1',
+      },
+    })
+
+    await GET(req, { params: Promise.resolve({ id: 'report-1' }) })
+
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v2/valuations/reports/report-1/pdf'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Relationship-Id': 'rel-1',
+          'X-Accountant-User-Id': 'adv-1',
+          'X-Client-User-Id': 'client-1',
+        }),
+      })
+    )
+  })
+
   it('regenerates and streams a PDF using merged BFF auth cookies', async () => {
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: 'upswitch_access_token=jwt-token; upswitch_refresh_token=refresh-token',
