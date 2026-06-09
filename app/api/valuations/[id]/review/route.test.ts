@@ -88,6 +88,25 @@ describe('GET /api/valuations/[id]/review', () => {
     )
   })
 
+  it('proxies Venus session keys to Titan review endpoint', async () => {
+    mocks.fetchJsonWithTimeout.mockResolvedValue({
+      response: new Response(JSON.stringify({ reviewState: 'auto_generated' }), { status: 200 }),
+      json: { reviewState: 'auto_generated' },
+    })
+
+    const sessionKey = 'val_1781030158252_2f2f01a2a05eb4dc_155606c85e59dc9d'
+    const request = new NextRequest(
+      `https://preview.valuation.upswitch.app/api/valuations/${encodeURIComponent(sessionKey)}/review`
+    )
+    await GET(request, { params: Promise.resolve({ id: sessionKey }) })
+
+    expect(mocks.fetchJsonWithTimeout).toHaveBeenCalledWith(
+      `https://api.upswitch.app/api/v2/valuations/${encodeURIComponent(sessionKey)}/review`,
+      expect.any(Object),
+      35_000
+    )
+  })
+
   it('returns a friendly message when Titan review state is temporarily unavailable', async () => {
     mocks.fetchJsonWithTimeout.mockResolvedValue({
       response: new Response(JSON.stringify({ message: 'Service Unavailable' }), {

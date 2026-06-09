@@ -91,6 +91,8 @@ describe('manual report handoff load contract', () => {
     )
     expect(source).toMatch(/fetchBffJsonWithTransientRetry/)
     expect(source).toMatch(/REVIEW_STATE_BACKGROUND_RETRY_MS/)
+    expect(source).toMatch(/REVIEW_STATE_PENDING_REPORT_RETRY_MS/)
+    expect(source).toMatch(/isReviewPendingReportFailure/)
     expect(source).toMatch(/allowApproveWithoutReviewState/)
     expect(source).toMatch(/setAllowApproveWithoutReviewState\(true\)/)
     expect(source).toMatch(/isTransientUpstreamFailure/)

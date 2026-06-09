@@ -34,10 +34,24 @@ interface UseManualReportApprovalParams {
 type LoadReviewStateResult = {
   loaded: boolean
   transient: boolean
+  pendingReport: boolean
 }
 
 const REVIEW_STATE_BACKGROUND_RETRY_MS = 8_000
+/** Session key may hit review before Titan links report_id (~1s after calculate). */
+const REVIEW_STATE_PENDING_REPORT_RETRY_MS = 2_000
 const REVIEW_STATE_BACKGROUND_MAX_ATTEMPTS = 5
+
+/** Titan 404 while valuation save is still linking session → report. */
+function isReviewPendingReportFailure(res: Response, json?: ReviewBffPayload): boolean {
+  if (res.status !== 404) return false
+  const message = json?.message?.toLowerCase() ?? ''
+  return (
+    message.includes('report yet') ||
+    message.includes('not have a report') ||
+    message.includes('run valuation first')
+  )
+}
 
 function isSuccessfulReviewPayload(json: ReviewBffPayload): json is ReviewBffPayload & {
   success: true
@@ -89,7 +103,6 @@ export function useManualReportApproval({
     let cancelled = false
     let backgroundTimer: ReturnType<typeof setTimeout> | null = null
     let backgroundAttempts = 0
-    let sawTransientLoadFailure = false
 
     const loadReviewState = async (options?: {
       background?: boolean
@@ -98,40 +111,38 @@ export function useManualReportApproval({
         const { res, json } = await fetchBffJsonWithTransientRetry<ReviewBffPayload>(
           `/api/valuations/${encodeURIComponent(reportId)}/review`
         )
-        if (cancelled) return { loaded: true, transient: false }
+        if (cancelled) return { loaded: true, transient: false, pendingReport: false }
 
         if (res.ok && isSuccessfulReviewPayload(json)) {
           setReviewState(json.data.reviewState)
           setAllowApproveWithoutReviewState(false)
-          return { loaded: true, transient: false }
+          return { loaded: true, transient: false, pendingReport: false }
         }
 
         const transient = isTransientUpstreamFailure(res, json)
-        if (transient) {
-          sawTransientLoadFailure = true
-        } else if (!options?.background) {
+        const pendingReport = isReviewPendingReportFailure(res, json)
+        if (!transient && !pendingReport && !options?.background) {
           setReviewState(null)
           setAllowApproveWithoutReviewState(false)
         }
 
-        return { loaded: false, transient }
+        return { loaded: false, transient, pendingReport }
       } catch (error) {
         if (!cancelled && !options?.background) {
           setReviewState(null)
         }
         if (isNetworkFailure(error)) {
-          sawTransientLoadFailure = true
-          return { loaded: false, transient: true }
+          return { loaded: false, transient: true, pendingReport: false }
         }
         if (!cancelled && !options?.background) {
           setAllowApproveWithoutReviewState(false)
         }
-        return { loaded: false, transient: false }
+        return { loaded: false, transient: false, pendingReport: false }
       }
     }
 
-    const scheduleBackgroundReload = () => {
-      if (cancelled || !sawTransientLoadFailure) return
+    const scheduleBackgroundReload = (delayMs: number) => {
+      if (cancelled) return
       if (backgroundAttempts >= REVIEW_STATE_BACKGROUND_MAX_ATTEMPTS) return
 
       backgroundTimer = setTimeout(() => {
@@ -140,17 +151,22 @@ export function useManualReportApproval({
           const result = await loadReviewState({ background: true })
           if (result.loaded || cancelled) return
           if (result.transient) {
-            scheduleBackgroundReload()
+            scheduleBackgroundReload(REVIEW_STATE_BACKGROUND_RETRY_MS)
+          } else if (result.pendingReport) {
+            scheduleBackgroundReload(REVIEW_STATE_PENDING_REPORT_RETRY_MS)
           }
         })()
-      }, REVIEW_STATE_BACKGROUND_RETRY_MS)
+      }, delayMs)
     }
 
     void (async () => {
       const result = await loadReviewState()
-      if (!result.loaded && !cancelled && result.transient) {
+      if (result.loaded || cancelled) return
+      if (result.transient) {
         setAllowApproveWithoutReviewState(true)
-        scheduleBackgroundReload()
+        scheduleBackgroundReload(REVIEW_STATE_BACKGROUND_RETRY_MS)
+      } else if (result.pendingReport) {
+        scheduleBackgroundReload(REVIEW_STATE_PENDING_REPORT_RETRY_MS)
       }
     })()
 
