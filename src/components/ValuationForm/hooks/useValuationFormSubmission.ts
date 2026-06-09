@@ -31,6 +31,7 @@ import {
 } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
+import { isSessionPoolPressureCircuitOpen } from '../../../hooks/sessionPoolPressureCircuit'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
@@ -263,16 +264,23 @@ export const useValuationFormSubmission = (
             }
 
             // Fire-and-forget: Don't await to avoid blocking calculation
-            // The sync will happen in the background, and data will be saved after calculation anyway
-            sessionService.saveSession(reportId, sessionUpdate).catch((syncError) => {
-              generalLogger.warn(
-                '[Manual] Background sync failed before calculation, continuing anyway',
-                {
-                  error: syncError instanceof Error ? syncError.message : String(syncError),
-                  reportId,
-                }
+            // Skip during pool-pressure cooldown to avoid amplifying DB checkout storms.
+            if (!isSessionPoolPressureCircuitOpen()) {
+              sessionService.saveSession(reportId, sessionUpdate).catch((syncError) => {
+                generalLogger.warn(
+                  '[Manual] Background sync failed before calculation, continuing anyway',
+                  {
+                    error: syncError instanceof Error ? syncError.message : String(syncError),
+                    reportId,
+                  }
+                )
+              })
+            } else {
+              generalLogger.info(
+                '[Manual] Skipping pre-calculation sync while session pool-pressure circuit is open',
+                { reportId }
               )
-            })
+            }
 
             generalLogger.info(
               '[Manual] Form data sync initiated (non-blocking) before calculation',

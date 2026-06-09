@@ -113,6 +113,14 @@ export function CalculatorNav({
   onNormalizationFeatureLocked,
   versionControlFeatureLocked = false,
   onVersionControlFeatureLocked,
+  showSignAttest = false,
+  onSignAttest,
+  isAttesting = false,
+  showApproveValuation = false,
+  onApproveValuation,
+  isApprovingValuation = false,
+  approveValuationLabel,
+  signAttestLabel,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -761,6 +769,14 @@ export function CalculatorNav({
               pdfPlanLocked={pdfPlanLocked}
               pdfDownloadTooltip={pdfDownloadTooltip}
               downloadHistory={downloadHistory}
+              showSignAttest={showSignAttest}
+              onSignAttest={onSignAttest}
+              isAttesting={isAttesting}
+              showApproveValuation={showApproveValuation}
+              onApproveValuation={onApproveValuation}
+              isApprovingValuation={isApprovingValuation}
+              approveValuationLabel={approveValuationLabel}
+              signAttestLabel={signAttestLabel}
             />
           </div>
 
@@ -863,6 +879,7 @@ export function CalculatorNav({
               onDownload={onDownload}
               onRedownload={onRedownload}
               onFullscreen={onFullscreen}
+              onPreview={onPreview}
               onOpenNormalization={onOpenNormalization}
               normalizationCount={normalizationCount}
               normalizationFeatureLocked={normalizationFeatureLocked}
@@ -872,6 +889,14 @@ export function CalculatorNav({
               pdfDownloadTooltip={pdfDownloadTooltip}
               downloadHistory={downloadHistory}
               compactTouchTarget
+              showSignAttest={showSignAttest}
+              onSignAttest={onSignAttest}
+              isAttesting={isAttesting}
+              showApproveValuation={showApproveValuation}
+              onApproveValuation={onApproveValuation}
+              isApprovingValuation={isApprovingValuation}
+              approveValuationLabel={approveValuationLabel}
+              signAttestLabel={signAttestLabel}
             />
           </div>
 

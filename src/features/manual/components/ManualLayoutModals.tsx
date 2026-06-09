@@ -48,6 +48,7 @@ export interface ManualLayoutModalsProps {
   isAccountantMode: boolean
   isCalculating: boolean
   isConfirmingNewValuation: boolean
+  isExporting?: boolean
   isGenerating: boolean
   isHydratingEditModalData: boolean
   isMethodSwitchRendering: boolean
@@ -111,6 +112,7 @@ export function ManualLayoutModals({
   isAccountantMode,
   isCalculating,
   isConfirmingNewValuation,
+  isExporting = false,
   isGenerating,
   isHydratingEditModalData,
   isMethodSwitchRendering,
@@ -151,6 +153,7 @@ export function ManualLayoutModals({
         onOpenChange={setShowFullscreenModal}
         report={report}
         onDownload={handleExport}
+        isExporting={isExporting}
         onShare={
           isAccountantMode && clientContextId
             ? () => {

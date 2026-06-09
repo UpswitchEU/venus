@@ -39,8 +39,8 @@ import {
 import { NameGenerator } from '../utils/nameGenerator'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
 import {
-  getMercuryDelegatedAutosaveDeferRemainingMs,
   getMercurySourceApp,
+  getSessionAutosaveDeferRemainingMs,
   MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
   observeMercuryDelegatedRestoration,
 } from './formSessionAutosaveDefer'
@@ -215,31 +215,35 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
 
       const activeReportId = reportIdRef.current
       const sourceApp = getMercurySourceApp()
-      const deferRemainingMs = getMercuryDelegatedAutosaveDeferRemainingMs({
+      const sessionState = useSessionStore.getState()
+      const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
         reportId: activeReportId,
         restorationComplete: true,
+        sessionStatus: sessionState.status,
         sourceApp,
       })
       if (deferRemainingMs > 0) {
-        generalLogger.debug(
-          '[useFormSessionSync] Deferring autosave during Mercury delegated handoff settle window',
-          {
-            reportId: activeReportId,
-            deferMs: MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
-            retryInMs: deferRemainingMs,
-          }
-        )
-        if (deferRetryTimerRef.current) clearTimeout(deferRetryTimerRef.current)
-        deferRetryTimerRef.current = setTimeout(() => {
-          deferRetryTimerRef.current = null
-          void debouncedSyncToSession(formDataRef.current)
-        }, deferRemainingMs + 25)
+        if (Number.isFinite(deferRemainingMs)) {
+          generalLogger.debug(
+            '[useFormSessionSync] Deferring autosave during load settle / pool-pressure window',
+            {
+              reportId: activeReportId,
+              deferMs: MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
+              retryInMs: deferRemainingMs,
+            }
+          )
+          if (deferRetryTimerRef.current) clearTimeout(deferRetryTimerRef.current)
+          deferRetryTimerRef.current = setTimeout(() => {
+            deferRetryTimerRef.current = null
+            void debouncedSyncToSession(formDataRef.current)
+          }, deferRemainingMs + 25)
+        }
         return
       }
 
       // Read session state inside the debounced function (not subscribed)
-      const currentSession = useSessionStore.getState().session
-      const updateSessionData = useSessionStore.getState().updateSessionData
+      const currentSession = sessionState.session
+      const updateSessionData = sessionState.updateSessionData
 
       if (!currentSession || !activeReportId || currentSession.reportId !== activeReportId) {
         return

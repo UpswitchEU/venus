@@ -25,6 +25,7 @@ import {
   subscribeRefreshCompleted,
   wasRefreshedRecently,
 } from '../utils/auth/cross-tab-refresh'
+import { isUpstreamPoolPressureHttpStatus } from './sessionPoolPressureCircuit'
 import { getLogoutAbortSignal } from '../utils/auth/logout-abort'
 import { extractAuthMeUserPayload } from '../utils/auth/parse-auth-me-response'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
@@ -150,6 +151,12 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
               intervalRef.current = null
             }
             onTokenExpired?.()
+            return false
+          }
+
+          if (isUpstreamPoolPressureHttpStatus(status)) {
+            generalLogger.warn('Token refresh skipped during upstream pool pressure', { status })
+            onRefreshFailure?.(toError(error))
             return false
           }
 

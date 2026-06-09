@@ -127,6 +127,8 @@ export {
   type UseManualNavigationControllerParams,
   useManualNavigationController,
 } from './useManualNavigationController'
+export { useManualReportApproval } from './useManualReportApproval'
+export { useManualReportAttestation } from './useManualReportAttestation'
 export {
   type UseManualNewValuationFlowParams,
   type UseManualNewValuationFlowResult,

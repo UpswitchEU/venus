@@ -3,17 +3,24 @@ import {
   clearRestorationObserved,
   getMercuryDelegatedAutosaveDeferRemainingMs,
   getMercurySourceApp,
+  getSessionAutosaveDeferRemainingMs,
   MERCURY_DELEGATED_AUTOSAVE_DEFER_MS,
   observeMercuryDelegatedRestoration,
   resetRestorationObservedForTests,
   shouldDeferMercuryDelegatedFormAutosave,
+  shouldDeferSessionAutosave,
 } from '../formSessionAutosaveDefer'
+import {
+  recordSessionPoolPressure503,
+  resetSessionPoolPressureCircuitForTests,
+} from '../sessionPoolPressureCircuit'
 
 const EXISTING_REPORT_ID = '35a422c3-028f-4d46-88e5-27ac5519826c'
 
 describe('formSessionAutosaveDefer', () => {
   beforeEach(() => {
     resetRestorationObservedForTests()
+    resetSessionPoolPressureCircuitForTests()
     vi.stubGlobal('window', {
       location: { search: '' },
     })
@@ -120,5 +127,35 @@ describe('formSessionAutosaveDefer', () => {
       location: { search: '?source=mercury&clientId=abc' },
     })
     expect(getMercurySourceApp()).toBe('mercury')
+  })
+
+  it('defers autosave while session is still loading', () => {
+    expect(
+      shouldDeferSessionAutosave({
+        reportId: EXISTING_REPORT_ID,
+        restorationComplete: true,
+        sessionStatus: 'loading',
+      })
+    ).toBe(true)
+    expect(
+      getSessionAutosaveDeferRemainingMs({
+        reportId: EXISTING_REPORT_ID,
+        restorationComplete: true,
+        sessionStatus: 'loading',
+      })
+    ).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  it('defers autosave while pool-pressure circuit is open', () => {
+    const now = 3_000_000
+    recordSessionPoolPressure503(now)
+    expect(
+      shouldDeferSessionAutosave({
+        reportId: EXISTING_REPORT_ID,
+        restorationComplete: true,
+        sessionStatus: 'loaded',
+        now: now + 100,
+      })
+    ).toBe(true)
   })
 })

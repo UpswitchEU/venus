@@ -28,6 +28,11 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import {
+  awaitSessionPoolPressureGate,
+  recordSessionPoolPressureFromHttpError,
+  recordSuccessfulSessionPatch,
+} from '../../../hooks/sessionPoolPressureCircuit'
+import {
   stripReportBlobsFromSessionPatch,
   stripReportBlobsFromValuationResult,
   stripReportsFromValuationSessionPatchUpdates,
@@ -135,14 +140,11 @@ function isTransientSessionPatchError(error: unknown): boolean {
   if (status === 429 || status === 404) {
     return false
   }
-  if (
-    status === 408 ||
-    status === 499 ||
-    status === 500 ||
-    status === 502 ||
-    status === 503 ||
-    status === 504
-  ) {
+  // 503/504 indicate upstream pool pressure or BFF timeout — retrying compounds load.
+  if (status === 503 || status === 504) {
+    return false
+  }
+  if (status === 408 || status === 499 || status === 500 || status === 502) {
     return true
   }
   if (isNetworkError(error) || isTimeoutLikeError(error)) {
@@ -182,7 +184,8 @@ function normalizeSaveValuationResultResponse(
 export class SessionAPI extends HttpClient {
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
-  private static readonly SESSION_PATCH_TIMEOUT_MS = 60000
+  /** Align with Titan/Supabase pool checkout (~15s) plus network margin. */
+  static readonly SESSION_PATCH_TIMEOUT_MS = 20_000
   private static readonly TRANSIENT_PATCH_RETRY_DELAYS_MS = [500, 1500]
 
   private static markSessionDeleted(reportId: string): void {
@@ -214,6 +217,14 @@ export class SessionAPI extends HttpClient {
     patchBody: Record<string, unknown>,
     options?: APIRequestConfig
   ): Promise<unknown> {
+    const gateReady = await awaitSessionPoolPressureGate({ maxWaitMs: 120_000 })
+    if (!gateReady) {
+      const deferred = Object.assign(new Error('Session PATCH deferred: database pool pressure'), {
+        response: { status: 503 },
+      })
+      throw deferred
+    }
+
     for (let attempt = 0; ; attempt += 1) {
       try {
         const patchOptions: APIRequestConfig = {
@@ -221,7 +232,7 @@ export class SessionAPI extends HttpClient {
           timeout: options?.timeout ?? SessionAPI.SESSION_PATCH_TIMEOUT_MS,
           retry: options?.retry ?? { maxRetries: 0 },
         }
-        return await this.executeRequest<unknown>(
+        const response = await this.executeRequest<unknown>(
           requestConfig({
             method: 'PATCH',
             url: `/api/v2/valuations/sessions/${reportId}`,
@@ -230,7 +241,10 @@ export class SessionAPI extends HttpClient {
           }),
           patchOptions
         )
+        recordSuccessfulSessionPatch()
+        return response
       } catch (error) {
+        recordSessionPoolPressureFromHttpError(error)
         const retryDelay = SessionAPI.TRANSIENT_PATCH_RETRY_DELAYS_MS[attempt]
         if (!isTransientSessionPatchError(error) || retryDelay == null) {
           throw error
@@ -408,6 +422,7 @@ export class SessionAPI extends HttpClient {
       const timeoutOptions = {
         ...options,
         timeout: 30000,
+        retry: options?.retry ?? { maxRetries: 0 },
       }
 
       // ✅ FIX: HttpClient unwraps response.data?.data || response.data
@@ -444,7 +459,20 @@ export class SessionAPI extends HttpClient {
         session: enrichedSessionData,
       }
     } catch (error) {
-      // Retry logic with exponential backoff
+      recordSessionPoolPressureFromHttpError(error)
+      const axiosError = toAxiosLikeError(error)
+      const status = axiosError.response?.status
+
+      // Pool pressure / gateway timeout — do not retry; compounds load during outages.
+      if (status === 503 || status === 504) {
+        apiLogger.warn('[SessionAPI] GET session unavailable (pool pressure)', {
+          reportId,
+          status,
+        })
+        this.handleSessionError(error, 'get session')
+      }
+
+      // Retry logic with exponential backoff (network / timeout only)
       const isRetryable = isNetworkError(error) || isTimeoutLikeError(error)
 
       if (isRetryable && attempt < maxRetries) {
@@ -462,8 +490,6 @@ export class SessionAPI extends HttpClient {
       }
 
       // Max retries reached or non-retryable error
-      const axiosError = toAxiosLikeError(error)
-
       apiLogger.error('[SessionAPI] GET session error', {
         reportId,
         status: axiosError?.response?.status,

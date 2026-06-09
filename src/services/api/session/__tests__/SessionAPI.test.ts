@@ -7,6 +7,7 @@
 
 import type { AxiosRequestConfig } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetSessionPoolPressureCircuitForTests } from '../../../../hooks/sessionPoolPressureCircuit'
 import type { ValuationResponse, ValuationSession } from '../../../../types/valuation'
 import { type APIRequestConfig, HttpClient } from '../../HttpClient'
 import { type CreateValuationSessionInput, SessionAPI } from '../SessionAPI'
@@ -66,6 +67,7 @@ describe('SessionAPI', () => {
   let api: SessionAPI
 
   beforeEach(() => {
+    resetSessionPoolPressureCircuitForTests()
     vi.clearAllMocks()
     executeRequestSpy.mockReset()
     api = new SessionAPI()
@@ -288,7 +290,7 @@ describe('SessionAPI', () => {
         }),
         expect.objectContaining({
           retry: expect.objectContaining({ maxRetries: 0 }),
-          timeout: 60000,
+          timeout: 20000,
         })
       )
     })

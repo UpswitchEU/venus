@@ -16,6 +16,7 @@ import { APIError, AuthenticationError, NetworkError } from '../../../types/erro
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { apiLogger } from '../../../utils/logger'
+import { recordSessionPoolPressureFromHttpError } from '../../../hooks/sessionPoolPressureCircuit'
 import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
@@ -76,7 +77,11 @@ export class ReportAPI extends HttpClient {
         )
         return normalizeValuationResultEnvelope(response)
       } catch (error) {
+        recordSessionPoolPressureFromHttpError(error)
         const status = (error as { response?: { status?: number } })?.response?.status
+        if (status === 503 || status === 504) {
+          this.handleReportError(error, 'get report')
+        }
         if (isBySession && status === 404 && attempt < maxAttempts - 1) {
           // Short-circuit: Titan tags by-session 404s with
           // ``transient: false`` when the report is deleted, soft-

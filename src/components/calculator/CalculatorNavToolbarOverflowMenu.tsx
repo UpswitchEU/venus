@@ -3,12 +3,14 @@ import {
   CheckCircle2,
   Database,
   Download,
+  Eye,
   FileSpreadsheet,
   History,
   Loader2,
   Lock,
   Maximize2,
   MoreHorizontal,
+  ShieldCheck,
 } from 'lucide-react'
 import type { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
@@ -28,6 +30,7 @@ interface ToolbarOverflowMenuProps {
   onDownload?: () => void | Promise<void>
   onRedownload?: (item: DownloadHistoryItem) => void
   onFullscreen?: () => void
+  onPreview?: () => void
   onOpenNormalization?: () => void
   normalizationCount?: number
   normalizationFeatureLocked?: boolean
@@ -37,6 +40,14 @@ interface ToolbarOverflowMenuProps {
   pdfDownloadTooltip: string | null
   downloadHistory: DownloadHistoryItem[]
   compactTouchTarget?: boolean
+  showSignAttest?: boolean
+  onSignAttest?: () => void | Promise<void>
+  isAttesting?: boolean
+  showApproveValuation?: boolean
+  onApproveValuation?: () => void | Promise<void>
+  isApprovingValuation?: boolean
+  approveValuationLabel?: string
+  signAttestLabel?: string
 }
 
 export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
@@ -51,6 +62,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   onDownload,
   onRedownload,
   onFullscreen,
+  onPreview,
   onOpenNormalization,
   normalizationCount = 0,
   normalizationFeatureLocked = false,
@@ -60,15 +72,33 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   pdfDownloadTooltip,
   downloadHistory,
   compactTouchTarget = false,
+  showSignAttest = false,
+  onSignAttest,
+  isAttesting = false,
+  showApproveValuation = false,
+  onApproveValuation,
+  isApprovingValuation = false,
+  approveValuationLabel = 'Approve valuation',
+  signAttestLabel = 'Sign & attest report',
 }) => {
   const hasSourceData = showSourceDataToggle && !!onToggleSourceData
   const hasHistory = !!onShowHistory
   const hasDownload = !!onDownload
   const hasFullscreen = !!onFullscreen
+  const hasPreview = compactTouchTarget && !!onPreview
   const hasNormalization = !!onOpenNormalization
+  const hasSignAttest = showSignAttest && !!onSignAttest
+  const hasApproveValuation = showApproveValuation && !!onApproveValuation
   const hasPendingNormalization = hasNormalization && normalizationCount > 0
   const hasAnyAction =
-    hasSourceData || hasHistory || hasDownload || hasFullscreen || hasNormalization
+    hasSourceData ||
+    hasHistory ||
+    hasDownload ||
+    hasFullscreen ||
+    hasPreview ||
+    hasNormalization ||
+    hasSignAttest ||
+    hasApproveValuation
 
   if (!hasAnyAction) return null
 
@@ -82,8 +112,9 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
     (sourceDataOpen && hasSourceData) ||
     (rightPanelView === 'history' && hasReport) ||
     hasPendingNormalization
-  const showPanelDivider = (hasSourceData || hasHistory) && (hasDownload || hasFullscreen)
-
+  const showPanelDivider =
+    (hasSourceData || hasHistory) &&
+    (hasDownload || hasFullscreen || hasPreview || hasSignAttest || hasApproveValuation)
   return (
     <Dropdown
       align="end"
@@ -209,6 +240,24 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
 
         {showPanelDivider && <div className="h-px bg-foreground/[0.06] my-1.5" />}
 
+        {hasPreview && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onPreview}
+            disabled={!hasReport}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport
+                ? 'text-foreground/30 cursor-not-allowed'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            <Eye className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            <span className="flex-1">{t('report.preview')}</span>
+          </button>
+        )}
+
         {hasDownload && (
           <button
             type="button"
@@ -260,6 +309,50 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
           >
             <Maximize2 className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
             <span className="flex-1">{t('report.fullscreen')}</span>
+          </button>
+        )}
+
+        {hasApproveValuation && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => void onApproveValuation?.()}
+            disabled={!hasReport || isApprovingValuation}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport || isApprovingValuation
+                ? 'opacity-50 cursor-not-allowed'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            {isApprovingValuation ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" aria-hidden />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            )}
+            <span className="flex-1">{approveValuationLabel}</span>
+          </button>
+        )}
+
+        {hasSignAttest && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => void onSignAttest?.()}
+            disabled={!hasReport || isAttesting}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport || isAttesting
+                ? 'opacity-50 cursor-not-allowed'
+                : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            {isAttesting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" aria-hidden />
+            ) : (
+              <ShieldCheck className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            )}
+            <span className="flex-1">{signAttestLabel}</span>
           </button>
         )}
 

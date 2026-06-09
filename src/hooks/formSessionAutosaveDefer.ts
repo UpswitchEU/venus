@@ -1,7 +1,50 @@
 import { looksLikeExistingReportId } from '../utils/identifiers'
+import {
+  getSessionPatchThrottleRemainingMs,
+  getSessionPoolPressureCooldownRemainingMs,
+  isSessionPoolPressureCircuitOpen,
+} from './sessionPoolPressureCircuit'
 
 /** Quiet window after restoration on Mercury existing-report handoffs. */
 export const MERCURY_DELEGATED_AUTOSAVE_DEFER_MS = 2500
+
+export type SessionAutosaveGateStatus = 'idle' | 'loading' | 'loaded' | 'error'
+
+export function getSessionAutosaveDeferRemainingMs(args: {
+  reportId: string | null | undefined
+  restorationComplete: boolean
+  sessionStatus?: SessionAutosaveGateStatus
+  sourceApp?: string | null
+  now?: number
+}): number {
+  const { reportId, restorationComplete, sessionStatus, now = Date.now() } = args
+  if (!restorationComplete) return Number.POSITIVE_INFINITY
+  if (sessionStatus && sessionStatus !== 'loaded') return Number.POSITIVE_INFINITY
+
+  const mercuryRemaining = getMercuryDelegatedAutosaveDeferRemainingMs({
+    reportId,
+    restorationComplete,
+    sourceApp: args.sourceApp,
+    now,
+  })
+  const poolRemaining = getSessionPoolPressureCooldownRemainingMs(now)
+  const throttleRemaining = getSessionPatchThrottleRemainingMs(now)
+  return Math.max(mercuryRemaining, poolRemaining, throttleRemaining)
+}
+
+export function shouldDeferSessionAutosave(args: {
+  reportId: string | null | undefined
+  restorationComplete: boolean
+  sessionStatus?: SessionAutosaveGateStatus
+  sourceApp?: string | null
+  now?: number
+}): boolean {
+  if (!args.restorationComplete) return true
+  if (args.sessionStatus && args.sessionStatus !== 'loaded') return true
+  if (shouldDeferMercuryDelegatedFormAutosave(args)) return true
+  if (isSessionPoolPressureCircuitOpen(args.now)) return true
+  return false
+}
 
 const restorationObservedAtByReport = new Map<string, number>()
 

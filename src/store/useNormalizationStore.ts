@@ -16,6 +16,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { isUpstreamPoolPressureHttpStatus } from '../hooks/sessionPoolPressureCircuit'
 import type {
   NormalizationItem,
   NormalizationSource,
@@ -23,6 +24,10 @@ import type {
 } from '../components/calculator/UnifiedNormalizationTypes'
 import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
+import {
+  getMercurySourceApp,
+  getSessionAutosaveDeferRemainingMs,
+} from '../hooks/formSessionAutosaveDefer'
 import type {
   ConfidenceScoreValue,
   CreateNormalizationRequest,
@@ -36,6 +41,7 @@ import {
   writeBrowserRecoveryValue,
 } from '../utils/browserRecoveryStorage'
 import { generalLogger } from '../utils/logger'
+import { useSessionStore } from './useSessionStore'
 import { appliesToYear } from '../utils/normalizationMath'
 import { isValidSessionId } from '../utils/sessionIdValidation'
 
@@ -370,9 +376,21 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       persistToSession: async (reportId) => {
         if (!reportId) return
+        const sessionState = useSessionStore.getState()
+        const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
+          reportId,
+          restorationComplete: sessionState.restorationComplete,
+          sessionStatus: sessionState.status,
+          sourceApp: getMercurySourceApp(),
+        })
+        if (deferRemainingMs > 0) return
+
+        const { session, updateSessionData, saveSession } = sessionState
+        if (!session || session.reportId !== reportId) return
+
         const { items } = get()
-        const { sessionService } = await import('../services')
-        await sessionService.saveSession(reportId, { _normalizations: items })
+        await updateSessionData({ _normalizations: items })
+        await saveSession('autosave')
         generalLogger.debug('[NormalizationStore] Persisted to session', {
           reportId: reportId.substring(0, 12),
           count: items.length,
@@ -432,6 +450,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                   ? (err.details as { code?: string }).code
                   : undefined
               if (code === 'NORMALIZATION_SNAPSHOT_CONFLICT') return true
+              if (isUpstreamPoolPressureHttpStatus(err.status)) return false
               return err.status >= 500
             }
             if (err instanceof TypeError) return true
@@ -711,6 +730,23 @@ let lastItemsJson = ''
 
 /** Run session persist immediately; used by debounce callback and visibilitychange flush */
 async function runSessionPersist(reportId: string): Promise<void> {
+  const sessionState = useSessionStore.getState()
+  const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
+    reportId,
+    restorationComplete: sessionState.restorationComplete,
+    sessionStatus: sessionState.status,
+    sourceApp: getMercurySourceApp(),
+  })
+  if (deferRemainingMs > 0) {
+    if (Number.isFinite(deferRemainingMs)) {
+      sessionPersistTimer = setTimeout(() => {
+        sessionPersistTimer = null
+        void runSessionPersist(reportId)
+      }, deferRemainingMs + 25)
+    }
+    return
+  }
+
   if (isSessionPersistInFlight) {
     pendingVisibilityFlushReportId = reportId
     return

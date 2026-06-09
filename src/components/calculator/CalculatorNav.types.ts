@@ -87,4 +87,14 @@ export interface CalculatorNavProps {
   onNormalizationFeatureLocked?: () => void
   versionControlFeatureLocked?: boolean
   onVersionControlFeatureLocked?: () => void
+  /** Advisor-only Upswitch Attest (DocuSeal) signing entry point. */
+  showSignAttest?: boolean
+  onSignAttest?: () => void | Promise<void>
+  isAttesting?: boolean
+  /** Advisor-only soft approval (shows on PDF cover). */
+  showApproveValuation?: boolean
+  onApproveValuation?: () => void | Promise<void>
+  isApprovingValuation?: boolean
+  approveValuationLabel?: string
+  signAttestLabel?: string
 }

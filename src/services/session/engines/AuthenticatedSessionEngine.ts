@@ -19,6 +19,10 @@
  */
 
 import type { ValuationSession } from '../../../types/valuation'
+import {
+  awaitSessionPoolPressureGate,
+  recordSessionPoolPressureFromHttpError,
+} from '../../../hooks/sessionPoolPressureCircuit'
 import { generalLogger } from '../../../utils/logger'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
 import { sessionService } from '../../index'
@@ -166,6 +170,10 @@ function isRetryableSessionSaveError(error: unknown): boolean {
   if (status === 400 || status === 401 || status === 403 || status === 404 || status === 409) {
     return false
   }
+  // Pool-pressure / BFF timeout — client retry storms make recovery slower.
+  if (status === 503 || status === 504) {
+    return false
+  }
   if (
     status === 408 ||
     status === 429 ||
@@ -187,7 +195,23 @@ function isRetryableSessionSaveError(error: unknown): boolean {
     return false
   }
 
-  if (readRetryableStatusFromText(text) !== undefined) return true
+  if (readRetryableStatusFromText(text) !== undefined) {
+    const textStatus = readRetryableStatusFromText(text)
+    if (textStatus === 503 || textStatus === 504) return false
+    return true
+  }
+
+  if (/\bstatus code 503\b/i.test(text) || /\bstatus code 504\b/i.test(text)) {
+    return false
+  }
+
+  if (
+    text.includes('database temporarily unavailable') ||
+    text.includes('database pool pressure') ||
+    text.includes('session patch deferred')
+  ) {
+    return false
+  }
 
   return (
     text.includes('fetch') ||
@@ -201,8 +225,6 @@ function isRetryableSessionSaveError(error: unknown): boolean {
     text.includes('cancelled') ||
     text.includes('timeout') ||
     text.includes('timed out') ||
-    text.includes('temporarily unavailable') ||
-    text.includes('service unavailable') ||
     text.includes('did not respond in time') ||
     text.includes('upstream_timeout') ||
     text.includes('server error') ||
@@ -572,11 +594,27 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
   }
 
+  private async waitForAutosavePatchGate(): Promise<boolean> {
+    return awaitSessionPoolPressureGate({
+      shouldContinue: () => !!this.currentSession,
+      onWait: (waitMs) => {
+        generalLogger.debug('[AuthenticatedSessionEngine] Waiting for autosave patch gate', {
+          reportId: this.currentSession?.reportId,
+          waitMs,
+        })
+      },
+    })
+  }
+
   private async drainSaveQueue(reason: 'user' | 'autosave' | 'system'): Promise<void> {
     let nextReason = reason
 
     do {
       if (nextReason === 'autosave') {
+        const ready = await this.waitForAutosavePatchGate()
+        if (!ready) {
+          return
+        }
         await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_SETTLE_MS))
       }
 
@@ -674,6 +712,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
         return mutationVersionAtSend
       } catch (error) {
+        recordSessionPoolPressureFromHttpError(error)
+
         const isRetryableError = isRetryableSessionSaveError(error)
         const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
 

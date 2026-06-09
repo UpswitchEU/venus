@@ -46,6 +46,8 @@ import {
   useManualMethodPersistenceController,
   useManualModalState,
   useManualNavigationController,
+  useManualReportApproval,
+  useManualReportAttestation,
   useManualNormalizationController,
   useManualNormalizationState,
   useManualPanelStorageReset,
@@ -729,9 +731,62 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setReport,
     setRightPanelView,
     setShowFullscreenModal,
+    isMobile,
     translate: t,
     translateReport: tReport,
   })
+
+  const attestReportId = resolvedReportId ?? reportId ?? null
+  const { canSignAttest, handleSignAttest, isAttesting } = useManualReportAttestation({
+    reportId: attestReportId,
+    enabled:
+      showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
+    startedTitle: t('attestStarted'),
+    successTitle: t('attestSuccess'),
+    successDescription: t('attestSuccessDesc'),
+    failedTitle: t('attestFailed'),
+    notFinalizedDescription: t('attestReportNotFinalized'),
+  })
+
+  const {
+    approveLabel,
+    canApprove,
+    handleApprove,
+    isApproving,
+  } = useManualReportApproval({
+    reportId: attestReportId,
+    enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
+    approveLabel: t('approveValuation'),
+    approvedTitle: t('valuationApproved'),
+    failedTitle: t('approveValuationFailed'),
+  })
+
+  const urlActionDownloadHandledForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (urlAction !== 'download') return
+    if (!report || pdfStale || !canDownloadPdf || isExporting) return
+    if (!attestReportId || attestReportId === 'new') return
+    if (urlActionDownloadHandledForRef.current === attestReportId) return
+    urlActionDownloadHandledForRef.current = attestReportId
+    void handleExport()
+  }, [
+    attestReportId,
+    canDownloadPdf,
+    handleExport,
+    isExporting,
+    pdfStale,
+    report,
+    urlAction,
+  ])
+
+  const urlActionPreviewHandledForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (urlAction !== 'preview') return
+    if (!report || !attestReportId || attestReportId === 'new') return
+    if (urlActionPreviewHandledForRef.current === attestReportId) return
+    urlActionPreviewHandledForRef.current = attestReportId
+    handlePreview()
+  }, [attestReportId, handlePreview, report, urlAction])
 
   const {
     showUnifiedNormalizationModal,
@@ -913,10 +968,18 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           hasReport={!!report}
           isAccountantMode={isAccountantMode}
           isCalculating={isCalculating}
+          isAttesting={isAttesting}
           isExporting={isExporting}
           isGenerating={isGenerating}
           isMobile={isMobile}
           navValuationSummary={navValuationSummary}
+          onSignAttest={canSignAttest ? handleSignAttest : undefined}
+          showSignAttest={canSignAttest}
+          onApproveValuation={canApprove ? handleApprove : undefined}
+          showApproveValuation={canApprove}
+          isApprovingValuation={isApproving}
+          approveValuationLabel={approveLabel}
+          signAttestLabel={t('signAttestReport')}
           onExitClientView={handleExitClientView}
           onNavigateToBilling={handleNavigateToBilling}
           onNavigateToDashboard={handleNavigateToDashboard}
@@ -1011,6 +1074,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           isAccountantMode={isAccountantMode}
           isCalculating={isCalculating}
           isConfirmingNewValuation={isConfirmingNewValuation}
+          isExporting={isExporting}
           isGenerating={isGenerating}
           isHydratingEditModalData={isHydratingEditModalData}
           isMethodSwitchRendering={isMethodSwitchRendering}

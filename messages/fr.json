@@ -2182,6 +2182,7 @@
 		"pdfStalledBlurb": "Le serveur n'a pas fini de mettre à jour le fichier téléchargeable. Vous pouvez réessayer de générer ou, si disponible, ouvrir le PDF précédent.",
 		"pdfRetry": "Générer à nouveau",
 		"pdfOpenLastVersion": "Ouvrir le PDF précédent",
+		"pdfDismiss": "Fermer",
 		"pdfPollDegradedHint": "La synchronisation avec le serveur a échoué temporairement. Réessayer le corrige généralement.",
 		"downloadPdfStaleHint": "Attendez que la mise à jour du PDF soit terminée pour télécharger la dernière version.",
 		"modalEditInputsMissing": "Les entrées de valorisation enregistrées pour ce rapport sont introuvables. Exécutez un calcul complet dans l'espace de travail ou contactez l'assistance si le problème persiste.",
@@ -2217,7 +2218,16 @@
 		"guest": "Invité",
 		"retry": "Réessayer",
 		"reminderSent": "Rappel envoyé au client",
-		"versionCreateFailed": "Échec de la création de la version"
+		"versionCreateFailed": "Échec de la création de la version",
+		"attestStarted": "Démarrage d’Upswitch Attest…",
+		"attestSuccess": "Invitation de signature envoyée",
+		"attestSuccessDesc": "Consultez votre e-mail pour finaliser la signature eIDAS.",
+		"attestFailed": "Impossible de démarrer l’attestation",
+		"attestReportNotFinalized": "Finalisez le rapport de valorisation avant de lancer Upswitch Attest.",
+		"signAttestReport": "Signer et attester",
+		"approveValuation": "Approuver la valorisation",
+		"valuationApproved": "Valorisation approuvée",
+		"approveValuationFailed": "Impossible d’approuver la valorisation"
 	},
 	"versionCompare": {
 		"typeInitial": "Initiale",

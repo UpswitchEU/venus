@@ -2182,6 +2182,7 @@
 		"pdfStalledBlurb": "De server heeft het downloadbestand nog niet bijgewerkt. U kunt opnieuw proberen te genereren of — als beschikbaar — de vorige PDF openen.",
 		"pdfRetry": "Opnieuw genereren",
 		"pdfOpenLastVersion": "Vorige PDF openen",
+		"pdfDismiss": "Sluiten",
 		"pdfPollDegradedHint": "Synchronisatie met de server mislukte tijdelijk. Opnieuw proberen helpt meestal.",
 		"downloadPdfStaleHint": "Wacht tot de PDF klaar is met bijwerken om de nieuwste versie te downloaden.",
 		"modalEditInputsMissing": "Opgeslagen waarderingsinvoer voor dit rapport is niet gevonden. Voer een volledige berekening uit in de werkomgeving, of neem contact op met support als dit aanhoudt.",
@@ -2217,7 +2218,16 @@
 		"normalizationNotSavedRetry": "Nu opnieuw proberen",
 		"normalizationNotSavedSession": "Sessie niet gevonden. Bereken eerst uw bedrijfsschatting of vernieuw de pagina.",
 		"reminderSent": "Herinnering verstuurd naar klant",
-		"versionCreateFailed": "Versie aanmaken mislukt"
+		"versionCreateFailed": "Versie aanmaken mislukt",
+		"attestStarted": "Upswitch Attest wordt gestart…",
+		"attestSuccess": "Uitnodiging om te ondertekenen verstuurd",
+		"attestSuccessDesc": "Controleer uw e-mail om de eIDAS-handtekening te voltooien.",
+		"attestFailed": "Attestatie kon niet worden gestart",
+		"attestReportNotFinalized": "Rond de waarderingsrapportage af voordat u Upswitch Attest start.",
+		"signAttestReport": "Ondertekenen & attesteren",
+		"approveValuation": "Waardering goedkeuren",
+		"valuationApproved": "Waardering goedgekeurd",
+		"approveValuationFailed": "Waardering kon niet worden goedgekeurd"
 	},
 	"versionCompare": {
 		"typeInitial": "Initieel",

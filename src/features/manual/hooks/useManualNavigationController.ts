@@ -1,6 +1,6 @@
 import { useTransitionRouter } from 'next-view-transitions'
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
-import { trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
+import { trackFullscreenOpen, trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
 import { useManualMercuryNavigationActions } from './useManualMercuryNavigationActions'
 import { useManualNewValuationFlow } from './useManualNewValuationFlow'
@@ -43,6 +43,7 @@ export interface UseManualNavigationControllerParams {
   setReport: Dispatch<SetStateAction<ValuationReportData | null>>
   setRightPanelView: Dispatch<SetStateAction<RightPanelView>>
   setShowFullscreenModal: Dispatch<SetStateAction<boolean>>
+  isMobile?: boolean
   translate: (key: string) => string
   translateReport: (key: string) => string
 }
@@ -68,6 +69,7 @@ export function useManualNavigationController({
   setReport,
   setRightPanelView,
   setShowFullscreenModal,
+  isMobile = false,
   translate,
   translateReport,
 }: UseManualNavigationControllerParams) {
@@ -93,7 +95,10 @@ export function useManualNavigationController({
   const handlePreview = useCallback(() => {
     trackPreviewOpen()
     setRightPanelView('preview')
-  }, [setRightPanelView])
+    if (isMobile) {
+      setShowFullscreenModal(true)
+    }
+  }, [isMobile, setRightPanelView, setShowFullscreenModal])
 
   const handleShowHistory = useCallback(() => {
     trackVersionHistoryOpen()
@@ -101,6 +106,7 @@ export function useManualNavigationController({
   }, [setRightPanelView])
 
   const handleFullscreen = useCallback(() => {
+    trackFullscreenOpen()
     setShowFullscreenModal(true)
   }, [setShowFullscreenModal])
 

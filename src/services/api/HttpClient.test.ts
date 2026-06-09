@@ -117,4 +117,20 @@ describe('HttpClient valuation result transport guard', () => {
 
     expect(requests[0].timeout).toBe(120_000)
   })
+
+  it('does not retry 503 or 504 responses (upstream pool pressure)', async () => {
+    const requestStub = vi.fn(async () => {
+      throw Object.assign(new Error('Service unavailable'), {
+        isAxiosError: true as const,
+        response: { status: 503, data: { message: 'Database temporarily unavailable' } },
+      })
+    })
+    client.setRequestStub(requestStub)
+
+    await expect(
+      client.request({ method: 'GET', url: '/api/v2/valuations/sessions/val_pressure' })
+    ).rejects.toThrow('Service unavailable')
+
+    expect(requestStub).toHaveBeenCalledTimes(1)
+  })
 })

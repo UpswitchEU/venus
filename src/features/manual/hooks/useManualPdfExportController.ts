@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { DownloadHistoryItem } from '../../../components/calculator'
+import { trackPDFDownload } from '../../../lib/analytics'
 import { APIError } from '../../../types/errors'
 import { generalLogger } from '../../../utils/logger'
 import {
@@ -136,6 +137,7 @@ export function useManualPdfExportController({
         }),
         ...prev,
       ])
+      trackPDFDownload()
       toast.success(downloadedTitle)
     } catch (error) {
       if (error instanceof APIError && error.statusCode === 402) {

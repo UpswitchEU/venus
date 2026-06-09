@@ -26,6 +26,10 @@ vi.mock('../../../utils/logger', async (importOriginal) => {
 })
 
 import { AuthenticatedSessionEngine } from './AuthenticatedSessionEngine'
+import {
+  recordSessionPoolPressure503,
+  resetSessionPoolPressureCircuitForTests,
+} from '../../../hooks/sessionPoolPressureCircuit'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -40,6 +44,7 @@ function deferred<T>() {
 describe('AuthenticatedSessionEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetSessionPoolPressureCircuitForTests()
   })
 
   it('deduplicates same-report loads through the full engine merge path', async () => {
@@ -579,26 +584,14 @@ describe('AuthenticatedSessionEngine', () => {
     }
   })
 
-  it('retries transient save outages when the HTTP 503 only appears in the message', async () => {
+  it('does not retry pool-pressure 503 save failures', async () => {
     vi.useFakeTimers()
 
     try {
       const createdAt = new Date('2026-06-02T09:05:00.000Z')
-      const updatedSession = {
-        reportId: 'val_auth_status_text_blip',
-        currentView: 'manual' as const,
-        dataSource: 'manual' as const,
-        createdAt,
-        updatedAt: new Date('2026-06-02T09:05:01.000Z'),
-        sessionData: { company_name: 'Restaurant Decan' },
-        partialData: {},
-      }
-
-      sessionServiceMocks.saveSession
-        .mockRejectedValueOnce(
-          new Error('Failed to save session: Request failed with status code 503')
-        )
-        .mockResolvedValueOnce(updatedSession)
+      sessionServiceMocks.saveSession.mockRejectedValue(
+        new Error('Failed to save session: Request failed with status code 503')
+      )
 
       const engine = new AuthenticatedSessionEngine()
       engine.updateSession({
@@ -611,15 +604,13 @@ describe('AuthenticatedSessionEngine', () => {
         partialData: {},
       })
 
-      const savePromise = engine.saveSession('autosave')
+      const savePromise = expect(engine.saveSession('autosave')).rejects.toThrow(
+        'Request failed with status code 503'
+      )
       await vi.advanceTimersByTimeAsync(750)
-      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
-
-      await vi.advanceTimersByTimeAsync(1000)
       await savePromise
 
-      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
-      expect(engine.getSession()?.updatedAt).toEqual(updatedSession.updatedAt)
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
@@ -666,6 +657,49 @@ describe('AuthenticatedSessionEngine', () => {
 
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
       expect(engine.getSession()?.updatedAt).toEqual(updatedSession.updatedAt)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('defers autosave until pool-pressure circuit closes', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const createdAt = new Date('2026-06-02T09:07:00.000Z')
+      const updatedSession = {
+        reportId: 'val_pool_circuit',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt,
+        updatedAt: new Date('2026-06-02T09:07:01.000Z'),
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      }
+      sessionServiceMocks.saveSession.mockResolvedValue(updatedSession)
+
+      const circuitOpenedAt = Date.now()
+      recordSessionPoolPressure503(circuitOpenedAt)
+
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_pool_circuit',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'Restaurant Decan' },
+        partialData: {},
+      })
+
+      const savePromise = engine.saveSession('autosave')
+      await vi.advanceTimersByTimeAsync(750)
+      expect(sessionServiceMocks.saveSession).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(8000)
+      await savePromise
+
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }

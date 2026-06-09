@@ -610,11 +610,18 @@ export class HttpClient {
    *
    * Does NOT retry:
    * - 4xx client errors (except 408, 429)
+   * - 503/504 (upstream pool pressure / gateway timeout — retry storms slow recovery)
    * - Authentication errors (401, 403)
    * - Validation errors (400)
    */
   private shouldRetryError(error: unknown): boolean {
     const status = getAxiosStatus(error)
+
+    // Pool-pressure / BFF timeout — never retry; Titan advertises Retry-After and
+    // the session circuit handles client-side backoff.
+    if (status === 503 || status === 504) {
+      return false
+    }
 
     // Retry 429 before classifyError: message text containing "429" maps to ratelimit and would otherwise skip retry
     if (status === 429) {

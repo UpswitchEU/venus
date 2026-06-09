@@ -1,4 +1,3 @@
-import { toast } from 'sonner'
 import {
   CalculatorNav,
   type CalculatorNavProps,
@@ -35,6 +34,14 @@ export interface ManualLayoutNavProps {
   handleShowHistory: () => void
   handleSwitchWorkspace?: () => void
   hasReport: boolean
+  isAttesting?: boolean
+  onSignAttest?: () => void | Promise<void>
+  showSignAttest?: boolean
+  isApprovingValuation?: boolean
+  onApproveValuation?: () => void | Promise<void>
+  showApproveValuation?: boolean
+  approveValuationLabel?: string
+  signAttestLabel?: string
   isAccountantMode: boolean
   isCalculating: boolean
   isExporting: boolean
@@ -92,6 +99,14 @@ export function ManualLayoutNav({
   handleShowHistory,
   handleSwitchWorkspace,
   hasReport,
+  isAttesting,
+  onSignAttest,
+  showSignAttest,
+  isApprovingValuation,
+  onApproveValuation,
+  showApproveValuation,
+  approveValuationLabel,
+  signAttestLabel,
   isAccountantMode,
   isCalculating,
   isExporting,
@@ -157,13 +172,19 @@ export function ManualLayoutNav({
               }
               if (item.url) {
                 window.open(item.url, '_blank')
-              } else {
-                toast.info(translate('pdfRegenerating'), {
-                  description: translate('pdfRegeneratingDesc'),
-                })
+                return
               }
+              void handleExport()
             }
       }
+      onSignAttest={onSignAttest}
+      isAttesting={isAttesting}
+      showSignAttest={showSignAttest}
+      onApproveValuation={onApproveValuation}
+      isApprovingValuation={isApprovingValuation}
+      showApproveValuation={showApproveValuation}
+      approveValuationLabel={approveValuationLabel}
+      signAttestLabel={signAttestLabel}
       onNavigateToDashboard={onNavigateToDashboard}
       onNavigateToBilling={onNavigateToBilling}
       onNavigateToHelp={onNavigateToHelp}

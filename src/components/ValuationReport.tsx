@@ -42,6 +42,7 @@ const ValuationSessionManager = React.lazy(() =>
  *
  * URL Action Parameters (for Mercury integration):
  * - action=download: Trigger PDF download after report loads
+ * - action=preview: Open report preview after report loads
  * - tab=info: Start with info tab instead of preview
  */
 interface ValuationReportProps {

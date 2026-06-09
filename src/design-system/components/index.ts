@@ -67,6 +67,7 @@ export {
 export type {
   BusinessType,
   BusinessTypeSearchInputProps,
+  KboConfirmedCardProps,
   KBOCompany,
   KBOSearchInputProps,
 } from './EntitySearch'
@@ -76,6 +77,7 @@ export type {
 export {
   BusinessTypeSearchInput,
   categoryIcons,
+  KboConfirmedCard,
   KBOSearchInput,
 } from './EntitySearch'
 export {

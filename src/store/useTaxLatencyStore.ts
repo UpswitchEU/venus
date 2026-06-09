@@ -18,7 +18,12 @@ import {
   removeBrowserRecoveryValue,
   writeBrowserRecoveryValue,
 } from '../utils/browserRecoveryStorage'
+import {
+  getMercurySourceApp,
+  getSessionAutosaveDeferRemainingMs,
+} from '../hooks/formSessionAutosaveDefer'
 import { generalLogger } from '../utils/logger'
+import { useSessionStore } from './useSessionStore'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -393,9 +398,21 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 
       persistToSession: async (reportId) => {
         if (!reportId) return
+        const sessionState = useSessionStore.getState()
+        const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
+          reportId,
+          restorationComplete: sessionState.restorationComplete,
+          sessionStatus: sessionState.status,
+          sourceApp: getMercurySourceApp(),
+        })
+        if (deferRemainingMs > 0) return
+
+        const { session, updateSessionData, saveSession } = sessionState
+        if (!session || session.reportId !== reportId) return
+
         const { items } = get()
-        const { sessionService } = await import('../services')
-        await sessionService.saveSession(reportId, { _taxLatencies: items })
+        await updateSessionData({ _taxLatencies: items })
+        await saveSession('autosave')
         generalLogger.debug('[TaxLatencyStore] Persisted to session', {
           reportId: reportId.substring(0, 12),
           count: items.length,
@@ -433,6 +450,23 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 // ─────────────────────────────────────────
 
 async function runTaxLatencySessionPersist(reportId: string): Promise<void> {
+  const sessionState = useSessionStore.getState()
+  const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
+    reportId,
+    restorationComplete: sessionState.restorationComplete,
+    sessionStatus: sessionState.status,
+    sourceApp: getMercurySourceApp(),
+  })
+  if (deferRemainingMs > 0) {
+    if (Number.isFinite(deferRemainingMs)) {
+      sessionPersistTimer = setTimeout(() => {
+        sessionPersistTimer = null
+        void runTaxLatencySessionPersist(reportId)
+      }, deferRemainingMs + 25)
+    }
+    return
+  }
+
   if (isSessionPersistInFlight) {
     pendingVisibilityFlushReportId = reportId
     return

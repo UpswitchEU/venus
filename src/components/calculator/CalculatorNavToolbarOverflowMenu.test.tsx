@@ -42,6 +42,65 @@ describe('CalculatorNavToolbarOverflowMenu', () => {
     expect(screen.queryByText('Normalisatie')).not.toBeInTheDocument()
   })
 
+  it('shows preview on compact mobile overflow when onPreview is provided', () => {
+    const onPreview = vi.fn()
+    render(
+      <ToolbarOverflowMenu
+        navLocale="nl"
+        t={t}
+        hasReport
+        rightPanelView="report"
+        showSourceDataToggle={false}
+        sourceDataOpen={false}
+        onDownload={vi.fn()}
+        onPreview={onPreview}
+        isExporting={false}
+        pdfPlanLocked={false}
+        pdfDownloadTooltip={null}
+        downloadHistory={[]}
+        compactTouchTarget
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Meer acties' }))
+    fireEvent.click(screen.getByText('report.preview'))
+    expect(onPreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows approve and sign actions when enabled', () => {
+    const onApprove = vi.fn()
+    const onSignAttest = vi.fn()
+
+    render(
+      <ToolbarOverflowMenu
+        navLocale="en"
+        t={t}
+        hasReport
+        rightPanelView="report"
+        showSourceDataToggle={false}
+        sourceDataOpen={false}
+        onDownload={vi.fn()}
+        isExporting={false}
+        pdfPlanLocked={false}
+        pdfDownloadTooltip={null}
+        downloadHistory={[]}
+        showApproveValuation
+        onApproveValuation={onApprove}
+        approveValuationLabel="Approve valuation"
+        showSignAttest
+        onSignAttest={onSignAttest}
+        signAttestLabel="Sign & attest report"
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    fireEvent.click(screen.getByText('Approve valuation'))
+    fireEvent.click(screen.getByText('Sign & attest report'))
+
+    expect(onApprove).toHaveBeenCalledTimes(1)
+    expect(onSignAttest).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the normalization badge only when the normalization action is available', () => {
     render(
       <ToolbarOverflowMenu

@@ -44,6 +44,16 @@ describe('manual report handoff load contract', () => {
     )
   })
 
+  it('ManualLayoutNav forwards sign, approve, and preview affordances to CalculatorNav', () => {
+    const source = readFileSync(
+      join(__dirname, manualComponentsRoot, 'ManualLayoutNav.tsx'),
+      'utf8'
+    )
+    expect(source).toMatch(/showSignAttest=\{showSignAttest\}/)
+    expect(source).toMatch(/showApproveValuation=\{showApproveValuation\}/)
+    expect(source).toMatch(/onPreview=\{handlePreview\}/)
+  })
+
   it('ManualLayoutNav does not map method persist spinner onto overflow-menu isExporting', () => {
     const source = readFileSync(
       join(__dirname, manualComponentsRoot, 'ManualLayoutNav.tsx'),
@@ -83,7 +93,7 @@ describe('manual report handoff load contract', () => {
 
   it('useFormSessionSync defers Mercury delegated autosave during post-restoration settle window', () => {
     const source = readFileSync(join(__dirname, '../../../hooks/useFormSessionSync.ts'), 'utf8')
-    expect(source).toMatch(/getMercuryDelegatedAutosaveDeferRemainingMs/)
+    expect(source).toMatch(/getSessionAutosaveDeferRemainingMs/)
     expect(source).toMatch(/observeMercuryDelegatedRestoration/)
     expect(source).toMatch(/deferRetryTimerRef/)
     expect(source).toMatch(/reportIdRef/)
@@ -96,7 +106,7 @@ describe('manual report handoff load contract', () => {
       join(__dirname, '../../../hooks/usePreSelectedMethodSessionSync.ts'),
       'utf8'
     )
-    expect(source).toMatch(/getMercuryDelegatedAutosaveDeferRemainingMs/)
+    expect(source).toMatch(/getSessionAutosaveDeferRemainingMs/)
     expect(source).toMatch(/observeMercuryDelegatedRestoration/)
     expect(source).toMatch(/persistRetryTimerRef/)
     expect(source).toMatch(/reportKeyRef/)

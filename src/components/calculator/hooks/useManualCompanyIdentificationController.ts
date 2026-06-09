@@ -123,6 +123,14 @@ export function useManualCompanyIdentificationController({
       setSelectedCompany(company)
       setCompanySearchValue(company.name ?? '')
 
+      // NACE codes carry two granularities (mirrors mapRegistrySearchResultToKboCompany):
+      //  - `canonical`   → the broad canonical NACE used as the primary nace_code
+      //  - `displayCode` → the most specific code (registry activity sub-code when
+      //    present), surfaced to the user and stored as activity_code only when it
+      //    actually differs from the canonical (otherwise it's redundant).
+      const canonical = company.canonicalNaceCode?.trim() || company.naceCode?.trim() || ''
+      const displayCode = company.activityCode?.trim() || canonical
+
       const baseUpdates: Partial<ValuationFormData> = {
         companyName: company.name ?? '',
         kboNumber: company.kboNumber ?? '',

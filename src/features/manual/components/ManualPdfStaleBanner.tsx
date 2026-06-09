@@ -1,4 +1,5 @@
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, X } from 'lucide-react'
+import { useState } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { AuroraButton } from '../../../design-system/components/Button'
 
@@ -25,7 +26,19 @@ export function ManualPdfStaleBanner({
   report,
   translate,
 }: ManualPdfStaleBannerProps) {
+  // Dismissal is scoped to one stale cycle: the report itself is always
+  // viewable in the panel, so the "couldn't refresh the downloadable PDF"
+  // notice must be dismissible rather than perpetual when the backend can't
+  // self-heal (e.g. a ValuationIQ signature mismatch). A fresh edit bumps
+  // `reportUpdatedAt` → new cycle key → the notice re-arms automatically.
+  const cycleKey = report?.reportUpdatedAt instanceof Date ? report.reportUpdatedAt.getTime() : 0
+  const [dismissedCycleKey, setDismissedCycleKey] = useState<number | null>(null)
+
   if (!report || !pdfStale) return null
+
+  // Only the "stalled" state is dismissible. The benign "updating" spinner
+  // (not yet timed out) is transient and self-clears, so it always shows.
+  if (pdfWaitTimedOut && dismissedCycleKey === cycleKey) return null
 
   const pollBlurb = pdfWaitTimedOut
     ? translate('pdfStalledBlurb')
@@ -76,6 +89,15 @@ export function ManualPdfStaleBanner({
               {translate('pdfOpenLastVersion')}
             </AuroraButton>
           ) : null}
+          <button
+            type="button"
+            aria-label={translate('pdfDismiss')}
+            title={translate('pdfDismiss')}
+            className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/45 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
+            onClick={() => setDismissedCycleKey(cycleKey)}
+          >
+            <X className="w-4 h-4" aria-hidden />
+          </button>
         </div>
       ) : null}
     </div>

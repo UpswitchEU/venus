@@ -431,4 +431,48 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/refreshes token and retries bootstrap/)
     expect(source).toMatch(/not JSON/)
   })
+
+  it('SessionAPI does not retry 503/504 session PATCH failures', () => {
+    const path = join(__dirname, '../../services/api/session/SessionAPI.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/503\/504 indicate upstream pool pressure/)
+    expect(source).toMatch(/status === 503 \|\| status === 504/)
+    expect(source).toMatch(/recordSessionPoolPressureFromHttpError/)
+    expect(source).toMatch(/awaitSessionPoolPressureGate/)
+  })
+
+  it('AuthenticatedSessionEngine does not retry 503/504 autosave failures', () => {
+    const path = join(__dirname, '../../services/session/engines/AuthenticatedSessionEngine.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/Pool-pressure \/ BFF timeout/)
+    expect(source).toMatch(/awaitSessionPoolPressureGate/)
+    expect(source).toMatch(/recordSessionPoolPressureFromHttpError/)
+  })
+
+  it('HttpClient does not retry 503/504 by default', () => {
+    const path = join(__dirname, '../../services/api/HttpClient.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/status === 503 \|\| status === 504/)
+    expect(source).toMatch(/never retry/)
+  })
+
+  it('useTokenRefresh does not retry auth refresh on upstream pool pressure', () => {
+    const path = join(__dirname, '../../hooks/useTokenRefresh.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/isUpstreamPoolPressureHttpStatus/)
+    expect(source).toMatch(/Token refresh skipped during upstream pool pressure/)
+  })
+
+  it('normalization and tax stores route session persist through engine queue', () => {
+    const normalizationPath = join(__dirname, '../../store/useNormalizationStore.ts')
+    const taxPath = join(__dirname, '../../store/useTaxLatencyStore.ts')
+    const normalizationSource = readFileSync(normalizationPath, 'utf8')
+    const taxSource = readFileSync(taxPath, 'utf8')
+    expect(normalizationSource).toMatch(/updateSessionData\(\{ _normalizations: items \}\)/)
+    expect(normalizationSource).toMatch(/saveSession\('autosave'\)/)
+    expect(normalizationSource).not.toMatch(/sessionService\.saveSession/)
+    expect(taxSource).toMatch(/updateSessionData\(\{ _taxLatencies: items \}\)/)
+    expect(taxSource).toMatch(/saveSession\('autosave'\)/)
+    expect(taxSource).not.toMatch(/sessionService\.saveSession/)
+  })
 })

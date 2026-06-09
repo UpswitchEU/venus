@@ -70,13 +70,8 @@ test.describe('Valuation Data Persistence', () => {
     await expect(page.locator('input[name="company_name"]')).toHaveValue('Persistence Test Company')
     await expect(page.locator('input[name="revenue"]')).toHaveValue('1000000')
     
-    // Verify info tab is accessible
-    await page.click('button:has-text("Info")')
-    await expect(page.locator('[data-testid="info-tab-content"]')).toBeVisible({ timeout: 5000 })
-    
-    // Verify version history tab is accessible
-    await page.click('button:has-text("History")')
-    await expect(page.locator('[data-testid="version-history"]')).toBeVisible({ timeout: 5000 })
+    // Report preview remains the primary post-calculation surface (Info tab removed).
+    await expect(page.locator('.valuation-report-container')).toBeVisible()
   })
 
   test('should restore partial session (form only, no report)', async ({ page }) => {

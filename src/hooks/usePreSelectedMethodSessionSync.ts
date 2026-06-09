@@ -29,8 +29,8 @@ import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 import {
   clearRestorationObserved,
-  getMercuryDelegatedAutosaveDeferRemainingMs,
   getMercurySourceApp,
+  getSessionAutosaveDeferRemainingMs,
   observeMercuryDelegatedRestoration,
 } from './formSessionAutosaveDefer'
 
@@ -144,15 +144,19 @@ export function usePreSelectedMethodSessionSync({
 
   const runPersist = useCallback(() => {
     const activeReportKey = reportKeyRef.current
-    const { session, updateSessionData, saveSession } = useSessionStore.getState()
+    const sessionState = useSessionStore.getState()
+    const { session, updateSessionData, saveSession } = sessionState
     if (!session?.reportId || !activeReportKey || session.reportId !== activeReportKey) return 0
 
-    const deferRemainingMs = getMercuryDelegatedAutosaveDeferRemainingMs({
+    const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
       reportId: activeReportKey,
       restorationComplete: true,
+      sessionStatus: sessionState.status,
       sourceApp: getMercurySourceApp(),
     })
-    if (deferRemainingMs > 0) return deferRemainingMs
+    if (deferRemainingMs > 0) {
+      return Number.isFinite(deferRemainingMs) ? deferRemainingMs : 0
+    }
 
     const store = useManualResultsStore.getState()
     const valueToStore = toSessionPreSelectedFieldValue(
