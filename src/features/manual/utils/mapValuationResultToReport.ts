@@ -67,6 +67,9 @@ type ReportResultRecord = Record<string, unknown> & {
   }
   dcf_valuation?: { historical_fcf_readiness?: unknown }
   report_context?: { selected_valuation_method?: unknown }
+  render_fingerprint?: unknown
+  pdf_render_fingerprint?: unknown
+  pdf_coherent?: unknown
 }
 
 function readOptionalString(value: unknown): string | undefined {
@@ -178,6 +181,9 @@ export function mapValuationResultToReport(
         ? new Date(String(r.pdf_generated_at))
         : null,
     pdfUrl: canDownloadPdf && typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
+    renderFingerprint: readOptionalString(r.render_fingerprint) ?? null,
+    pdfRenderFingerprint: readOptionalString(r.pdf_render_fingerprint) ?? null,
+    pdfCoherent: typeof r.pdf_coherent === 'boolean' ? r.pdf_coherent : null,
   } as ValuationReportData
 }
 

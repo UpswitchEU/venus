@@ -148,6 +148,9 @@ function reportPatchFromFreshResponse(
   | 'reportUpdatedAt'
   | 'pdfGeneratedAt'
   | 'pdfUrl'
+  | 'renderFingerprint'
+  | 'pdfRenderFingerprint'
+  | 'pdfCoherent'
   | 'valuation'
   | 'valuationLow'
   | 'valuationHigh'
@@ -166,6 +169,11 @@ function reportPatchFromFreshResponse(
         ? new Date(String(fresh.pdf_generated_at))
         : null,
     pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+    renderFingerprint:
+      typeof fresh.render_fingerprint === 'string' ? fresh.render_fingerprint : null,
+    pdfRenderFingerprint:
+      typeof fresh.pdf_render_fingerprint === 'string' ? fresh.pdf_render_fingerprint : null,
+    pdfCoherent: typeof fresh.pdf_coherent === 'boolean' ? fresh.pdf_coherent : null,
     valuation: presentation.valuation,
     valuationLow: presentation.valuationLow,
     valuationHigh: presentation.valuationHigh,
@@ -310,6 +318,9 @@ export function usePdfStalenessLifecycle(
           reportUpdatedAt: patch.reportUpdatedAt,
           pdfGeneratedAt: patch.pdfGeneratedAt,
           pdfUrl: patch.pdfUrl,
+          renderFingerprint: patch.renderFingerprint,
+          pdfRenderFingerprint: patch.pdfRenderFingerprint,
+          pdfCoherent: patch.pdfCoherent,
         })
       if (pdfIsFresh) {
         unchangedStreakRef.current = 0
@@ -569,6 +580,9 @@ export function usePdfStalenessLifecycle(
           reportUpdatedAt: patch.reportUpdatedAt,
           pdfGeneratedAt: patch.pdfGeneratedAt,
           pdfUrl: patch.pdfUrl,
+          renderFingerprint: patch.renderFingerprint,
+          pdfRenderFingerprint: patch.pdfRenderFingerprint,
+          pdfCoherent: patch.pdfCoherent,
         })
       if (pdfStillStaleAfterRetry && !isPdfGeneratingRef.current) {
         scheduleWaitTimeout()

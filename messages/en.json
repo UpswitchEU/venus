@@ -2183,8 +2183,6 @@
 		"pdfDownloadPlanBlockedDesc": "Your report is available online with a watermark. Open your dashboard for options to unlock the watermark-free PDF.",
 		"pdfRegenerating": "PDF is being regenerated...",
 		"pdfRegeneratingDesc": "This may take a moment.",
-		"pdfUpdating": "PDF is updating…",
-		"pdfUpdatingBlurb": "The downloadable file is being regenerated after your last change. This usually takes a few seconds.",
 		"pdfStillGenerating": "The PDF may still be generating. Try exporting again in a moment.",
 		"pdfStalledTitle": "PDF not ready yet",
 		"pdfStalledBlurb": "The server has not finished updating the downloadable file. You can try generating again or — if available — open the previous PDF.",

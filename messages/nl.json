@@ -2175,8 +2175,6 @@
 		"pdfDownloadPlanBlockedDesc": "Uw rapport is online beschikbaar met watermerk. Open uw dashboard voor opties om de PDF zonder watermerk te ontgrendelen.",
 		"pdfRegenerating": "PDF wordt opnieuw gegenereerd...",
 		"pdfRegeneratingDesc": "Dit kan even duren.",
-		"pdfUpdating": "PDF wordt bijgewerkt…",
-		"pdfUpdatingBlurb": "Het downloadbestand wordt opnieuw gegenereerd na je laatste wijziging. Dit duurt meestal enkele seconden.",
 		"pdfStillGenerating": "De PDF wordt mogelijk nog gegenereerd. Probeer het over een ogenblik opnieuw te exporteren.",
 		"pdfStalledTitle": "PDF nog niet klaar",
 		"pdfStalledBlurb": "De server heeft het downloadbestand nog niet bijgewerkt. U kunt opnieuw proberen te genereren of — als beschikbaar — de vorige PDF openen.",

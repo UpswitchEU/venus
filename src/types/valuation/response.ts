@@ -378,6 +378,13 @@ export interface ValuationResponse {
   html_report?: string
   /** Render snapshot fingerprint from Titan (guards stale HTML fallback). */
   render_fingerprint?: string
+  /** Fingerprint the persisted PDF was built from (`metadata.pdf_render_fingerprint`). */
+  pdf_render_fingerprint?: string | null
+  /**
+   * Authoritative PDF coherence from Titan (`getCoherentPersistedPdfUrl`): `true` when the
+   * persisted PDF provably matches current economics. Preferred over fingerprint comparison.
+   */
+  pdf_coherent?: boolean | null
 
   /** EV → equity bridge steps (aligned with report valuation_waterfall_steps) */
   ev_equity_waterfall_steps?: EvEquityWaterfallStep[]

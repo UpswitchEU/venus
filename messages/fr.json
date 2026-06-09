@@ -2175,8 +2175,6 @@
 		"pdfDownloadPlanBlockedDesc": "Votre rapport est disponible en ligne avec un filigrane. Ouvrez votre tableau de bord pour connaître les options permettant de déverrouiller le PDF sans filigrane.",
 		"pdfRegenerating": "Le PDF est en cours de régénération...",
 		"pdfRegeneratingDesc": "Cela peut prendre un moment.",
-		"pdfUpdating": "Le PDF est mis à jour…",
-		"pdfUpdatingBlurb": "Le fichier téléchargeable est en cours de régénération après votre dernière modification. Cela prend généralement quelques secondes.",
 		"pdfStillGenerating": "Le PDF est peut-être encore en cours de génération. Essayez à nouveau d'exporter dans un instant.",
 		"pdfStalledTitle": "Le PDF n'est pas encore prêt",
 		"pdfStalledBlurb": "Le serveur n'a pas fini de mettre à jour le fichier téléchargeable. Vous pouvez réessayer de générer ou, si disponible, ouvrir le PDF précédent.",

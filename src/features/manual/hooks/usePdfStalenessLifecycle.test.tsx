@@ -336,6 +336,36 @@ describe('usePdfStalenessLifecycle', () => {
       expect(getReport.mock.calls.length).toBeGreaterThanOrEqual(12)
     })
 
+    it('never surfaces the stalled banner when polls report pdf_coherent=true despite stale timestamps', async () => {
+      // The exact no-op-open shape: updated_at > pdf_generated_at (timestamps say
+      // "stale") but Titan's authoritative raw-vs-raw coherence says the PDF still
+      // matches current economics. The poll must recognise freshness and never
+      // escalate to the stalled banner, even across the 12-unchanged streak window.
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const coherentResponse = {
+        ...makeFreshResponse(),
+        updated_at: '2026-05-01T14:00:00.000Z',
+        pdf_generated_at: '2026-05-01T13:00:00.000Z',
+        pdf_url: 'https://example/old.pdf',
+        pdf_coherent: true,
+      } as ValuationResponse
+      const getReport = vi.fn().mockResolvedValue(coherentResponse)
+      const { result } = renderHook(() =>
+        usePdfStalenessLifecycle(makeParams({ report, getReport }))
+      )
+
+      await act(async () => {
+        for (let i = 0; i < 12; i++) {
+          await vi.advanceTimersByTimeAsync(2_500)
+        }
+      })
+
+      expect(result.current.pdfWaitTimedOut).toBe(false)
+    })
+
     it('does not poll once stalled (after the 60s wait timer fires)', async () => {
       const report = makeReport({
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),

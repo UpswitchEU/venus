@@ -61,6 +61,36 @@ describe('mapValuationResultToReport', () => {
     })
   })
 
+  describe('PDF staleness fields', () => {
+    it('maps render/pdf fingerprints and the authoritative pdf_coherent flag', () => {
+      const report = mapValuationResultToReport({
+        result: makeResult({
+          render_fingerprint: 'fp-render',
+          pdf_render_fingerprint: 'fp-pdf',
+          pdf_coherent: true,
+        }),
+        selectedMethod: 'dcf',
+        reportId: undefined,
+        canDownloadPdf: true,
+        tReport: translate,
+      })
+      expect(report.renderFingerprint).toBe('fp-render')
+      expect(report.pdfRenderFingerprint).toBe('fp-pdf')
+      expect(report.pdfCoherent).toBe(true)
+    })
+
+    it('defaults pdfCoherent to null when the response omits it', () => {
+      const report = mapValuationResultToReport({
+        result: makeResult(),
+        selectedMethod: 'dcf',
+        reportId: undefined,
+        canDownloadPdf: true,
+        tReport: translate,
+      })
+      expect(report.pdfCoherent).toBeNull()
+    })
+  })
+
   describe('company name', () => {
     it('uses result.company_name when present', () => {
       const report = mapValuationResultToReport({

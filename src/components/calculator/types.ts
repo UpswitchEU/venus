@@ -36,6 +36,21 @@ export interface ValuationReportData {
   reportUpdatedAt?: Date
   pdfGeneratedAt?: Date | null
   pdfUrl?: string | null
+  /**
+   * Current render fingerprint of the economic snapshot (from `valuation_result`).
+   * Compared against `pdfRenderFingerprint` for economics-aware PDF staleness so a
+   * no-op open (which only bumps `updated_at` via the read-path HTML self-heal)
+   * does not falsely mark the PDF stale.
+   */
+  renderFingerprint?: string | null
+  /** Render fingerprint the persisted PDF was built from (`metadata.pdf_render_fingerprint`). */
+  pdfRenderFingerprint?: string | null
+  /**
+   * Authoritative PDF coherence from Titan (`getCoherentPersistedPdfUrl` — raw-vs-raw
+   * fingerprint + timestamp parity). `true` means the persisted PDF provably matches
+   * current economics; staleness logic treats it as the definitive "fresh" signal.
+   */
+  pdfCoherent?: boolean | null
   dcfHistoricalFcfReadiness?: {
     status: 'imported_ready' | 'partial' | 'manual_fallback'
     historical_years_count: number

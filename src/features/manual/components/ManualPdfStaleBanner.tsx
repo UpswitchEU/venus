@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, X } from 'lucide-react'
+import { AlertCircle, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -38,15 +38,19 @@ export function ManualPdfStaleBanner({
 
   if (!report || !pdfStale) return null
 
-  // Only the "stalled" state is dismissible. The benign "updating" spinner
-  // (not yet timed out) is transient and self-clears, so it always shows.
-  if (pdfWaitTimedOut && dismissedCycleKey === cycleKey) return null
+  // The benign "updating" state is intentionally invisible: the report itself
+  // is fully viewable and the downloadable PDF refreshes silently in the
+  // background. Surfacing a spinner banner here just creates friction on every
+  // open (and lingers when a background regen is slow). We only render when the
+  // refresh genuinely stalls/fails (`pdfWaitTimedOut`), giving the user an
+  // actionable retry. Dismissal is scoped to one stale cycle.
+  if (!pdfWaitTimedOut) return null
+  if (dismissedCycleKey === cycleKey) return null
 
-  const pollBlurb = pdfWaitTimedOut
-    ? translate('pdfStalledBlurb')
-    : pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
+  const pollBlurb =
+    pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
       ? translate('pdfPollDegradedHint')
-      : translate('pdfUpdatingBlurb')
+      : translate('pdfStalledBlurb')
 
   return (
     <div
@@ -54,54 +58,46 @@ export function ManualPdfStaleBanner({
       className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex flex-col sm:flex-row sm:items-start gap-3"
     >
       <div className="flex items-start gap-3 min-w-0 flex-1">
-        {pdfWaitTimedOut ? (
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-primary" aria-hidden />
-        ) : (
-          <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
-        )}
+        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-primary" aria-hidden />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            {pdfWaitTimedOut ? translate('pdfStalledTitle') : translate('pdfUpdating')}
-          </p>
+          <p className="text-sm font-medium text-foreground">{translate('pdfStalledTitle')}</p>
           <p className="text-[11px] text-foreground/55 mt-1 leading-snug">{pollBlurb}</p>
         </div>
       </div>
-      {pdfWaitTimedOut ? (
-        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+      <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+        <AuroraButton
+          type="button"
+          size="sm"
+          variant="primary"
+          loading={isPdfRetrying}
+          disabled={isPdfRetrying || !persistedReportLookupId}
+          onClick={() => void onRetry()}
+        >
+          {translate('pdfRetry')}
+        </AuroraButton>
+        {canDownloadPdf && report.pdfUrl ? (
           <AuroraButton
             type="button"
             size="sm"
-            variant="primary"
-            loading={isPdfRetrying}
-            disabled={isPdfRetrying || !persistedReportLookupId}
-            onClick={() => void onRetry()}
+            variant="outline"
+            disabled={isPdfRetrying}
+            onClick={() => {
+              if (report.pdfUrl) window.open(report.pdfUrl, '_blank', 'noopener,noreferrer')
+            }}
           >
-            {translate('pdfRetry')}
+            {translate('pdfOpenLastVersion')}
           </AuroraButton>
-          {canDownloadPdf && report.pdfUrl ? (
-            <AuroraButton
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isPdfRetrying}
-              onClick={() => {
-                if (report.pdfUrl) window.open(report.pdfUrl, '_blank', 'noopener,noreferrer')
-              }}
-            >
-              {translate('pdfOpenLastVersion')}
-            </AuroraButton>
-          ) : null}
-          <button
-            type="button"
-            aria-label={translate('pdfDismiss')}
-            title={translate('pdfDismiss')}
-            className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/45 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
-            onClick={() => setDismissedCycleKey(cycleKey)}
-          >
-            <X className="w-4 h-4" aria-hidden />
-          </button>
-        </div>
-      ) : null}
+        ) : null}
+        <button
+          type="button"
+          aria-label={translate('pdfDismiss')}
+          title={translate('pdfDismiss')}
+          className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/45 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
+          onClick={() => setDismissedCycleKey(cycleKey)}
+        >
+          <X className="w-4 h-4" aria-hidden />
+        </button>
+      </div>
     </div>
   )
 }

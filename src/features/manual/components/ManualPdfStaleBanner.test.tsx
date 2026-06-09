@@ -40,8 +40,11 @@ describe('ManualPdfStaleBanner', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows updating copy while waiting for Titan', () => {
-    render(
+  it('renders nothing for the benign updating state (stale but not timed out)', () => {
+    // The report is fully viewable and the PDF refreshes silently in the
+    // background, so the benign "updating" state must not surface a banner —
+    // showing it on every open is the friction the user complained about.
+    const { container } = render(
       <ManualPdfStaleBanner
         canDownloadPdf
         isPdfRetrying={false}
@@ -55,11 +58,12 @@ describe('ManualPdfStaleBanner', () => {
         translate={translate}
       />
     )
-    expect(screen.getByText('pdfUpdating')).toBeInTheDocument()
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByText('pdfUpdating')).not.toBeInTheDocument()
     expect(screen.queryByText('pdfRetry')).not.toBeInTheDocument()
   })
 
-  it('shows degraded hint after transient poll errors', () => {
+  it('shows degraded hint after transient poll errors once stalled', () => {
     render(
       <ManualPdfStaleBanner
         canDownloadPdf
@@ -69,7 +73,7 @@ describe('ManualPdfStaleBanner', () => {
         pdfPollErrorCount={0}
         pdfPollTransientCount={2}
         pdfStale
-        pdfWaitTimedOut={false}
+        pdfWaitTimedOut
         report={makeReport()}
         translate={translate}
       />
