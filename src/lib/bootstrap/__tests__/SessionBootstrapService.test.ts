@@ -1007,6 +1007,74 @@ describe('SessionBootstrapService', () => {
       expect(result.prefillData).toBeDefined()
     })
 
+    it('bypasses Titan result cache when delegated gate is unresolved', async () => {
+      const context: BootstrapContext = {
+        reportId: 'dba236f5-31eb-4ab9-b995-e52c64dce70c',
+        sourceApp: 'mercury',
+        clientId: 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd',
+        mercuryPersonaMode: 'accountant',
+        locale: 'nl',
+      }
+
+      const cachedState: SessionBootstrapState = {
+        identity: {
+          type: 'authenticated',
+          userId: 'user-1',
+        },
+        report: {
+          mode: 'existing',
+          reportId: context.reportId!,
+          hasExistingData: true,
+          status: 'active',
+        },
+        prefillData: {
+          sources: [],
+          confidence: 0,
+          fieldsPopulated: [],
+          fieldsRemaining: [],
+        },
+        ui: {
+          suggestedFlow: 'manual',
+          showWelcomeBack: false,
+        },
+      }
+
+      const executeTitan = vi.fn().mockResolvedValue(cachedState)
+      ;(
+        service as unknown as {
+          _executeBootstrapViaTitan: typeof executeTitan
+        }
+      )._executeBootstrapViaTitan = executeTitan
+
+      const { useClientContext } = await import('../../../stores/clientContext')
+      const matchingRelationshipId = 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+      const getStateSpy = vi.spyOn(useClientContext, 'getState')
+
+      getStateSpy.mockReturnValue({
+        isActingAsClient: true,
+        accountant: { id: 'acc-1', email: 'acc@firm.be' },
+        relationshipId: matchingRelationshipId,
+        contextGateResolved: true,
+        getContextHeaders: () => ({}),
+      } as ReturnType<typeof useClientContext.getState>)
+
+      await service.bootstrapViaTitan(context)
+      expect(executeTitan).toHaveBeenCalledTimes(1)
+      expect(service.hasCompletedFor(context)).toBe(true)
+
+      executeTitan.mockClear()
+      getStateSpy.mockReturnValue({
+        isActingAsClient: true,
+        accountant: { id: 'acc-1', email: 'acc@firm.be' },
+        relationshipId: matchingRelationshipId,
+        contextGateResolved: false,
+        getContextHeaders: () => ({}),
+      } as ReturnType<typeof useClientContext.getState>)
+
+      await service.bootstrapViaTitan(context)
+      expect(executeTitan).toHaveBeenCalledTimes(1)
+    })
+
     it('aborts Titan bootstrap when stored relationshipId mismatches URL clientId', async () => {
       vi.useFakeTimers()
 

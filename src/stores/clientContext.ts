@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
 import {
-  clearPersistedClientContextStorage,
+  clearDelegatedClientContext,
   discardStalePersistedClientContextOnRehydrate,
   isPersistedContextStaleForUrl,
   urlRequiresDelegatedClientContext,
@@ -72,7 +72,7 @@ export const useClientContext = create<ClientContextState>()(
         // Validate context structure (clientUser null when invitation not accepted)
         if (!context.accountantUser?.id || !context.relationship?.id) {
           generalLogger.warn('[ClientContext] Invalid context structure, clearing')
-          get().clearClientContext()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return
         }
 
@@ -120,7 +120,7 @@ export const useClientContext = create<ClientContextState>()(
         // Check if context is expired (older than TTL)
         if (state.lastValidatedAt && Date.now() - state.lastValidatedAt > CONTEXT_VALIDITY_TTL) {
           generalLogger.warn('[ClientContext] Context expired, clearing')
-          get().clearClientContext()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return false
         }
 
@@ -132,7 +132,7 @@ export const useClientContext = create<ClientContextState>()(
             hasRelationshipId: !!state.relationshipId,
             contextAge: state.lastValidatedAt ? Date.now() - state.lastValidatedAt : 'never',
           })
-          get().clearClientContext()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return false
         }
 
@@ -150,7 +150,7 @@ export const useClientContext = create<ClientContextState>()(
           return true
         } catch (error) {
           generalLogger.warn('[ClientContext] Validation failed, clearing context', { error })
-          get().clearClientContext()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return false
         }
       },
@@ -165,15 +165,14 @@ export const useClientContext = create<ClientContextState>()(
 
         if (isPersistedContextStaleForUrl(state.relationshipId)) {
           generalLogger.warn('[ClientContext] Stale relationshipId for URL clientId — clearing headers')
-          get().clearClientContext()
-          clearPersistedClientContextStorage()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return {} as Record<string, string>
         }
 
         // Validate before returning headers (client null = pending invitation, accountant-owned)
         if (!state.accountant?.id || !state.relationshipId) {
           generalLogger.warn('[ClientContext] Invalid context for headers, clearing')
-          get().clearClientContext()
+          clearDelegatedClientContext(() => get().clearClientContext())
           return {} as Record<string, string>
         }
 

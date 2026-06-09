@@ -205,6 +205,34 @@ export class SessionBootstrapService {
     }
   }
 
+  /** Do not hydrate bootstrap cache for delegated handoffs until the store gate matches the URL. */
+  private async isDelegatedBootstrapCacheAllowed(
+    context: BootstrapContext,
+    hasClientTokenHint = false
+  ): Promise<boolean> {
+    const needsClientContext = shouldWaitForMercuryClientContextBeforeBootstrap({
+      sourceApp: context.sourceApp,
+      reportId: context.reportId,
+      clientId: context.clientId,
+      clientToken: context.clientToken,
+      mercuryPersonaMode: context.mercuryPersonaMode,
+      url: context.url,
+      hasClientTokenHint,
+    })
+    if (!needsClientContext) return true
+
+    const { useClientContext } = await import('../../stores/clientContext')
+    const ctx = useClientContext.getState()
+    return isDelegatedClientContextReadyForBootstrap({
+      needsMercuryClientContext: true,
+      contextGateResolved: ctx.contextGateResolved,
+      clientId: context.clientId,
+      isActingAsClient: ctx.isActingAsClient,
+      accountantId: ctx.accountant?.id ?? null,
+      relationshipId: ctx.relationshipId,
+    })
+  }
+
   /**
    * Main bootstrap entry point
    *
@@ -224,7 +252,7 @@ export class SessionBootstrapService {
     )
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
       const cachedResult = this.getCachedResult(context)
-      if (cachedResult) {
+      if (cachedResult && (await this.isDelegatedBootstrapCacheAllowed(context))) {
         recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
         return cachedResult
       }
@@ -233,7 +261,10 @@ export class SessionBootstrapService {
 
     // Guard 2: Result cache
     if (this.hasCompletedFor(context)) {
-      if (this.lastSuccessfulResult) {
+      if (
+        this.lastSuccessfulResult &&
+        (await this.isDelegatedBootstrapCacheAllowed(context))
+      ) {
         recordBootstrapReportMode(
           this.lastSuccessfulResult.report.reportId,
           this.lastSuccessfulResult.report.mode
@@ -245,11 +276,14 @@ export class SessionBootstrapService {
     const opts = { ...DEFAULT_OPTIONS, ...options }
     const startTime = performance.now()
 
-    // Guard 3: In-flight dedup
+    // Guard 3: In-flight dedup (only while delegated gate still matches the URL)
     const inflight = this.bootstrapPromiseCache.get(cacheKey)
-    if (inflight && opts.useCache) {
+    if (inflight && opts.useCache && (await this.isDelegatedBootstrapCacheAllowed(context))) {
       this.logger.info('[Bootstrap] Returning in-flight request')
       return inflight
+    }
+    if (inflight) {
+      this.bootstrapPromiseCache.delete(cacheKey)
     }
 
     this.callTimestamps.push(now)
@@ -887,6 +921,7 @@ export class SessionBootstrapService {
     // Full ID for cache matching; truncated only for log readability
     const cacheKey = this.getCacheKey(context)
     const logReportId = context.reportId?.substring(0, 30) || 'new'
+    const hints = parseBootstrapHints(context)
 
     // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
     const now = Date.now()
@@ -897,7 +932,7 @@ export class SessionBootstrapService {
       const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`
       this.logger.error(msg)
       const cachedResult = this.getCachedResult(context)
-      if (cachedResult) {
+      if (cachedResult && (await this.isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))) {
         this.logger.info('[Bootstrap] Returning scoped cached result from circuit breaker')
         recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
         return cachedResult
@@ -907,10 +942,13 @@ export class SessionBootstrapService {
 
     // Guard 2: Result cache — return cached result if fresh
     if (this.hasCompletedFor(context)) {
-      this.logger.info(
-        `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
-      )
-      if (this.lastSuccessfulResult) {
+      if (
+        this.lastSuccessfulResult &&
+        (await this.isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))
+      ) {
+        this.logger.info(
+          `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
+        )
         recordBootstrapReportMode(
           this.lastSuccessfulResult.report.reportId,
           this.lastSuccessfulResult.report.mode
@@ -921,11 +959,14 @@ export class SessionBootstrapService {
 
     const titanCacheKey = `titan:${cacheKey}`
 
-    // Guard 3: Dedup in-flight request
+    // Guard 3: Dedup in-flight request (only while delegated gate still matches the URL)
     const inflight = this.bootstrapPromiseCache.get(titanCacheKey)
-    if (inflight) {
+    if (inflight && (await this.isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))) {
       this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)')
       return inflight
+    }
+    if (inflight) {
+      this.bootstrapPromiseCache.delete(titanCacheKey)
     }
 
     const promise = this._executeBootstrapViaTitan(context, options)

@@ -87,6 +87,44 @@ function getScopedGlobalResult(
   return returnedId === requestedReportKey ? lastGlobalResult : null
 }
 
+function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): {
+  authSettled: boolean
+  needsDelegatedContext: boolean
+  ready: boolean
+} {
+  const authState = useAuthStore.getState()
+  const authSettled = !authState.loading && !authState.isInitializing && !authState.isRefreshing
+  const needsDelegatedContext = shouldWaitForMercuryClientContextBeforeBootstrap({
+    sourceApp: activeContext.sourceApp,
+    reportId: activeContext.reportId,
+    clientId: activeContext.clientId,
+    clientToken: activeContext.clientToken,
+    mercuryPersonaMode: activeContext.mercuryPersonaMode,
+    url: activeContext.url,
+    hasClientTokenHint: !!activeContext.clientToken?.trim(),
+  })
+
+  if (!authSettled) {
+    return { authSettled, needsDelegatedContext, ready: false }
+  }
+
+  if (!needsDelegatedContext) {
+    return { authSettled, needsDelegatedContext, ready: true }
+  }
+
+  const ctx = useClientContext.getState()
+  const ready = isDelegatedClientContextReadyForBootstrap({
+    needsMercuryClientContext: true,
+    contextGateResolved: ctx.contextGateResolved,
+    clientId: activeContext.clientId,
+    isActingAsClient: ctx.isActingAsClient,
+    accountantId: ctx.accountant?.id ?? null,
+    relationshipId: ctx.relationshipId,
+  })
+
+  return { authSettled, needsDelegatedContext, ready }
+}
+
 function rememberScopedGlobalResult(
   context: BootstrapContextShape | null | undefined,
   result: SessionBootstrapState
@@ -266,6 +304,34 @@ export function BootstrapProvider({
       return
     }
 
+    const { authSettled, ready: delegatedReady } = readDelegatedBootstrapReadiness(activeContext)
+
+    if (!authSettled) {
+      generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap')
+      bootstrapStartedRef.current = false
+      return
+    }
+
+    if (!delegatedReady) {
+      generalLogger.warn(
+        '[BootstrapProvider] Delegated client context not ready — deferring Titan bootstrap',
+        {
+          reportId: activeContext.reportId?.substring(0, 30),
+          hasClientId: !!activeContext.clientId?.trim(),
+          storedRelationshipId:
+            useClientContext.getState().relationshipId?.substring(0, 8) ?? null,
+          authError: useAuthStore.getState().error?.substring(0, 80),
+        }
+      )
+      bootstrapStartedRef.current = false
+      if (mountedRef.current) {
+        setIsBootstrapping(false)
+        const message = useAuthStore.getState().error?.trim()
+        if (message) setBootstrapError(message)
+      }
+      return
+    }
+
     // Guard 2 (module-level): bootstrap already completed in a previous mount
     if (bootstrapCompletedGlobally) {
       const cached =
@@ -311,56 +377,6 @@ export function BootstrapProvider({
       setBootstrapState(cachedResult)
       onBootstrapCompleteRef.current?.(cachedResult)
       return
-    }
-
-    // RELOAD LOOP FIX: Always wait for auth before bootstrap.
-    // Previously we skipped this when isFromMercury (optimistic), which caused
-    // bootstrap to run before auth validated cookies → 401 → redirect → loop.
-    const authState = useAuthStore.getState()
-    if (authState.loading || authState.isInitializing || authState.isRefreshing) {
-      generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap')
-      bootstrapStartedRef.current = false
-      return
-    }
-
-    const needsDelegatedContext = shouldWaitForMercuryClientContextBeforeBootstrap({
-      sourceApp: activeContext.sourceApp,
-      reportId: activeContext.reportId,
-      clientId: activeContext.clientId,
-      clientToken: activeContext.clientToken,
-      mercuryPersonaMode: activeContext.mercuryPersonaMode,
-      url: activeContext.url,
-      hasClientTokenHint: !!activeContext.clientToken?.trim(),
-    })
-    if (needsDelegatedContext) {
-      const ctx = useClientContext.getState()
-      if (
-        !isDelegatedClientContextReadyForBootstrap({
-          needsMercuryClientContext: true,
-          contextGateResolved: ctx.contextGateResolved,
-          clientId: activeContext.clientId,
-          isActingAsClient: ctx.isActingAsClient,
-          accountantId: ctx.accountant?.id ?? null,
-          relationshipId: ctx.relationshipId,
-        })
-      ) {
-        generalLogger.warn(
-          '[BootstrapProvider] Delegated client context not ready — deferring Titan bootstrap',
-          {
-            reportId: activeContext.reportId?.substring(0, 30),
-            hasClientId: !!activeContext.clientId?.trim(),
-            storedRelationshipId: ctx.relationshipId?.substring(0, 8) ?? null,
-            authError: authState.error?.substring(0, 80),
-          }
-        )
-        bootstrapStartedRef.current = false
-        if (mountedRef.current) {
-          setIsBootstrapping(false)
-          const message = authState.error?.trim()
-          if (message) setBootstrapError(message)
-        }
-        return
-      }
     }
 
     bootstrapStartedRef.current = true
@@ -618,6 +634,10 @@ export function BootstrapProvider({
     bootstrapStartedRef.current = false
     bootstrapCompletedRef.current = false
     bootstrapCompletedGlobally = false
+    lastGlobalResult = null
+    lastGlobalContextKey = null
+    bootstrapService.clearCache()
+    bootstrapService.clearInflightCache()
 
     void refreshDelegatedClientContextIfNeeded({
       clientId: activeContext.clientId,
@@ -683,6 +703,10 @@ export function BootstrapProvider({
   useEffect(() => {
     if (bootstrapCompletedGlobally) {
       if (bootstrapStartedRef.current) {
+        return
+      }
+
+      if (!authReady) {
         return
       }
 

@@ -277,6 +277,14 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/isPersistedContextStaleForUrl/)
   })
 
+  it('SessionBootstrapService skips cache when delegated gate is unresolved', () => {
+    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/isDelegatedBootstrapCacheAllowed/)
+    expect(source).toMatch(/isDelegatedClientContextReadyForBootstrap/)
+    expect(source).toMatch(/inflight && \(await this\.isDelegatedBootstrapCacheAllowed/)
+  })
+
   it('BootstrapProvider runBootstrap uses URL-matched delegated context gate', () => {
     const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
     const source = readFileSync(path, 'utf8')
@@ -300,6 +308,14 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/urlRequiresDelegatedClientContext/)
     expect(source).toMatch(/contextGateResolved/)
+    expect(source).toMatch(/clearDelegatedClientContext/)
+    expect(source).not.toMatch(/get\(\)\.clearClientContext\(\)\s*\n\s*return \{\} as Record/)
+  })
+
+  it('clientContext validateContext uses full delegated teardown', () => {
+    const path = join(__dirname, '../../stores/clientContext.ts')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/validateContext:[\s\S]*clearDelegatedClientContext/)
   })
 
   it('AuthGate waits for contextGateResolved on clientToken handoffs', () => {
@@ -336,6 +352,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/refreshDelegatedClientContextIfNeeded/)
+    expect(source).toMatch(/bootstrapService\.clearCache\(\)/)
+    expect(source).toMatch(/readDelegatedBootstrapReadiness/)
     expect(source).toMatch(/delegationCacheKey/)
   })
 

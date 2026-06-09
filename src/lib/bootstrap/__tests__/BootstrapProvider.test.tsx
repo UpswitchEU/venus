@@ -82,6 +82,10 @@ vi.mock('../../../stores/clientContext', () => {
   return { useClientContext }
 })
 
+vi.mock('../../auth/delegatedClientContextRefresh', () => ({
+  refreshDelegatedClientContextIfNeeded: vi.fn().mockResolvedValue(undefined),
+}))
+
 function makeContext(
   reportId: string,
   overrides: Partial<BootstrapContext> = {}
@@ -363,6 +367,70 @@ describe('BootstrapProvider', () => {
       expect(text).toContain(':ready:Failed to fetch client context')
     })
     expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('does not hydrate singleton bootstrap cache when delegated gate is unresolved', async () => {
+    const reportId = 'dba236f5-31eb-4ab9-b995-e52c64dce70c'
+    const clientId = 'e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
+    mocks.getCachedResult.mockReturnValue(makeState(reportId))
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = clientId
+    mocks.clientContextState.contextGateResolved = false
+
+    render(
+      <BootstrapProvider
+        context={makeContext(reportId, { clientId, mercuryPersonaMode: 'accountant' })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+    expect(screen.getByTestId('report-state')).toHaveTextContent(':loading:ok')
+  })
+
+  it('clears bootstrap cache when delegated handoff changes in-session', async () => {
+    const reportId = 'dba236f5-31eb-4ab9-b995-e52c64dce70c'
+    mocks.clientContextState.isActingAsClient = true
+    mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
+    mocks.clientContextState.relationshipId = 'client-a'
+    mocks.clientContextState.contextGateResolved = true
+    mocks.bootstrapViaTitan.mockResolvedValue(makeState(reportId))
+
+    const { rerender } = render(
+      <BootstrapProvider
+        context={makeContext(reportId, { clientId: 'client-a', mercuryPersonaMode: 'accountant' })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('report-state')).toHaveTextContent(`${reportId}:ready:ok`)
+    })
+
+    mocks.clearCache.mockClear()
+    mocks.clearInflightCache.mockClear()
+    mocks.clientContextState.relationshipId = 'client-b'
+    mocks.clientContextState.contextGateResolved = false
+
+    rerender(
+      <BootstrapProvider
+        context={makeContext(reportId, { clientId: 'client-b', mercuryPersonaMode: 'accountant' })}
+        autoBootstrap={true}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+
+    await waitFor(() => {
+      expect(mocks.clearCache).toHaveBeenCalled()
+      expect(mocks.clearInflightCache).toHaveBeenCalled()
+    })
   })
 
   it('clears in-flight bootstrap work on explicit retry', async () => {
