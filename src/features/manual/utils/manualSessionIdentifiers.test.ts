@@ -45,6 +45,16 @@ describe('manualSessionIdentifiers', () => {
     ).toBeNull()
   })
 
+  it('falls back from persisted UUID lookup to hydration session key for PDF stale polls', () => {
+    const sessionKeyOnly = {
+      session: { key: sessionKey },
+      resolvedReportId: sessionKey,
+      reportId: 'new' as const,
+    }
+    expect(resolveManualPersistedReportLookupId(sessionKeyOnly)).toBeNull()
+    expect(resolveManualReportHydrationLookupId(sessionKeyOnly)).toBe(sessionKey)
+  })
+
   it('chooses UUIDs or val session keys for hydration lookups', () => {
     expect(
       resolveManualReportHydrationLookupId({

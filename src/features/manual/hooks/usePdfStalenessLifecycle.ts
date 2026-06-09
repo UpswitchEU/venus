@@ -25,8 +25,9 @@
  *   6. When async generation finishes, one immediate `getReport` syncs Titan's
  *      `pdf_generated_at` without waiting for the next 2.5s interval.
  *   7. Retry resets the unchanged streak + wait state, kicks `generatePdf()`,
- *      refetches the report, and merges. 402 paywall → starter modal;
- *      other errors → toast.
+ *      refetches the report, and merges. Still-stale refetch re-arms the wait
+ *      timer; transient 5xx on retry extends the deadline without a toast.
+ *      402 paywall → starter modal; other errors → toast.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -473,6 +474,7 @@ export function usePdfStalenessLifecycle(
     // new report's state. The cancelled check after the await bails before
     // any writes.
     let cancelled = false
+    void runStalePollOnce(persistedReportLookupId, () => !cancelled)
     const id = setInterval(() => {
       if (cancelled) return
       void runStalePollOnce(persistedReportLookupId, () => !cancelled)

@@ -150,6 +150,17 @@ describe('manual report handoff load contract', () => {
     expect(source).toMatch(/isPdfGenerating/)
     expect(source).toMatch(/usePdfStalenessLifecycle/)
     expect(source).toMatch(/isPdfReady/)
+    expect(source).toMatch(/pdfStalePollLookupId/)
+    expect(source).toMatch(/persistedReportLookupId: pdfStalePollLookupId/)
+  })
+
+  it('useManualReportIdentifiers exposes pdfStalePollLookupId fallback for val_* routes', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualReportIdentifiers.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/pdfStalePollLookupId/)
+    expect(source).toMatch(/persistedReportLookupId \?\? reportHydrationLookupId/)
   })
 
   it('usePdfStalenessLifecycle recovers after generation and forwards poll freshness', () => {
@@ -162,6 +173,7 @@ describe('manual report handoff load contract', () => {
     expect(source).toMatch(/pdfIsFresh/)
     expect(source).toMatch(/wasPdfGeneratingRef/)
     expect(source).toMatch(/lastPolledPdfGeneratedAtMsRef/)
+    expect(source).toMatch(/void runStalePollOnce\(persistedReportLookupId/)
     expect(source).toMatch(/pdfStillStaleAfterRetry/)
     expect(source).toMatch(/isTransientPollError\(err\)/)
   })

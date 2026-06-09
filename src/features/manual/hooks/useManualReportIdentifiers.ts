@@ -15,6 +15,8 @@ export interface ManualReportIdentifiers {
   linkedIdentifier: string | null
   manualChatReportId: string
   persistedReportLookupId: string | null
+  /** UUID-first persisted id, else val_* / hydration key — used for PDF stale polls + retry. */
+  pdfStalePollLookupId: string | null
   reportHydrationLookupId: string | null
   resolvedReportId: string
 }
@@ -75,11 +77,16 @@ export function useManualReportIdentifiers({
     return resolveManualReportHydrationLookupId({ session, resolvedReportId, reportId })
   }, [session, resolvedReportId, reportId])
 
+  const pdfStalePollLookupId = useMemo(() => {
+    return persistedReportLookupId ?? reportHydrationLookupId
+  }, [persistedReportLookupId, reportHydrationLookupId])
+
   return {
     calculationRequestIdentifiers,
     linkedIdentifier,
     manualChatReportId,
     persistedReportLookupId,
+    pdfStalePollLookupId,
     reportHydrationLookupId,
     resolvedReportId,
   }

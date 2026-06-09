@@ -178,7 +178,14 @@ describe('usePdfStalenessLifecycle', () => {
         reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
         pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
       })
-      const getReport = vi.fn().mockRejectedValue(new APIError('pooler', 503))
+      let pollCalls = 0
+      const getReport = vi.fn().mockImplementation(async () => {
+        pollCalls += 1
+        if (pollCalls <= 2) {
+          throw new APIError('pooler', 503)
+        }
+        return new Promise<ValuationResponse>(() => {})
+      })
       const { result } = renderHook(() =>
         usePdfStalenessLifecycle(makeParams({ report, getReport }))
       )
@@ -186,15 +193,18 @@ describe('usePdfStalenessLifecycle', () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2_600)
       })
-      expect(getReport).toHaveBeenCalled()
+      expect(pollCalls).toBeGreaterThanOrEqual(2)
+      expect(result.current.pdfPollTransientCount).toBe(2)
 
-      act(() => {
-        vi.advanceTimersByTime(60_001)
+      // Base 60s window alone must not fire once transient blips extended the deadline.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_001)
       })
       expect(result.current.pdfWaitTimedOut).toBe(false)
 
-      act(() => {
-        vi.advanceTimersByTime(20_000)
+      // Two +20s extensions → 100s stall window from the last reschedule.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(42_000)
       })
       expect(result.current.pdfWaitTimedOut).toBe(true)
     })
@@ -254,6 +264,21 @@ describe('usePdfStalenessLifecycle', () => {
     // QA flow — these unit tests verify the kickoff conditions only because
     // `setInterval` with an async callback does not cooperate cleanly with
     // fake-timer microtask flushing.
+
+    it('polls immediately when a stale cycle begins', async () => {
+      const report = makeReport({
+        reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
+        pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
+      })
+      const getReport = vi.fn().mockResolvedValue(makeFreshResponse())
+      renderHook(() => usePdfStalenessLifecycle(makeParams({ report, getReport })))
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(getReport).toHaveBeenCalledTimes(1)
+    })
 
     it('does not poll when persistedReportLookupId is null', async () => {
       const report = makeReport({

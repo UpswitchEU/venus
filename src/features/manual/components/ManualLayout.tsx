@@ -181,6 +181,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     linkedIdentifier,
     manualChatReportId,
     persistedReportLookupId,
+    pdfStalePollLookupId,
     reportHydrationLookupId,
     resolvedReportId,
   } = useManualReportIdentifiers({
@@ -381,7 +382,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     isPdfReady,
     isPdfGenerating,
     pdfGenerationState,
-    persistedReportLookupId,
+    persistedReportLookupId: pdfStalePollLookupId,
     canDownloadPdf,
     generatePdf,
     getReport: backendAPI.getReport.bind(backendAPI),
@@ -1014,7 +1015,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           canDownloadPdf={canDownloadPdf}
           isPdfRetrying={isPdfRetrying}
           onRetry={handleRetryPdfStalled}
-          persistedReportLookupId={persistedReportLookupId}
+          persistedReportLookupId={pdfStalePollLookupId}
           pdfPollErrorCount={pdfPollErrorCount}
           pdfPollTransientCount={pdfPollTransientCount}
           pdfStale={pdfStale}
