@@ -5,11 +5,12 @@ import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
   try {
     const { cookieHeader } = await getBffCookieHeaderForTitan(request)
-    const titanApiUrl = getTitanApiUrl()
+    const titanApiUrl = getTitanApiUrl(request)
     const { response, json } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/attestations/readiness`,
       {

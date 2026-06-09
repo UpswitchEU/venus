@@ -67,12 +67,21 @@ describe('manual PDF download contract', () => {
 
   it('PDF transient upstream statuses are centralized', () => {
     expect(readVenus('utils/pdfTransientUpstream.ts')).toMatch(/PDF_TRANSIENT_UPSTREAM_STATUSES/)
+    expect(readVenus('utils/pdfTransientUpstream.ts')).toMatch(
+      /isPdfTransientUpstreamStatus\(status: number \| undefined\)/
+    )
     expect(readVenus('hooks/usePdfGeneration.ts')).toMatch(/isPdfTransientUpstreamStatus/)
     expect(readVenus('features/manual/hooks/usePdfStalenessLifecycle.ts')).toMatch(
       /isPdfTransientUpstreamStatus/
     )
     expect(readVenus('features/manual/hooks/useManualPdfExportController.ts')).toMatch(
       /isPdfTransientUpstreamStatus/
+    )
+    expect(readVenus('features/manual/hooks/useManualReportApproval.ts')).toMatch(
+      /fetchBffJsonWithTransientRetry/
+    )
+    expect(readVenus('features/manual/hooks/useManualReportApproval.ts')).toMatch(
+      /isTransientUpstreamFailure/
     )
     expect(readVenus('components/ValuationToolbar.tsx')).toMatch(/isPdfTransientUpstreamStatus/)
   })

@@ -73,6 +73,7 @@ describe('/api/attestations', () => {
       }),
       55_000
     )
+    expect(mocks.getTitanApiUrl).toHaveBeenCalledWith(request)
   })
 
   it('forwards Titan error messages when creation fails', async () => {

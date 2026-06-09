@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { cookieHeader } = await getBffCookieHeaderForTitan(request)
-    const titanApiUrl = getTitanApiUrl()
+    const titanApiUrl = getTitanApiUrl(request)
     const { response, json } = await fetchJsonWithTimeout(
       `${titanApiUrl}/api/v2/attestations`,
       {

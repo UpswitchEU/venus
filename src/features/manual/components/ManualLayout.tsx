@@ -766,6 +766,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     approveLabel: t('approveValuation'),
     approvedTitle: t('valuationApproved'),
     failedTitle: t('approveValuationFailed'),
+    transientFailedDescription: t('approveValuationTransientFailed'),
   })
 
   const urlActionDownloadHandledForRef = useRef<string | null>(null)

@@ -53,6 +53,7 @@ describe('GET /api/attestations/readiness', () => {
       }),
       10_000
     )
+    expect(mocks.getTitanApiUrl).toHaveBeenCalledWith(request)
   })
 
   it('returns a disabled readiness envelope when the probe throws', async () => {

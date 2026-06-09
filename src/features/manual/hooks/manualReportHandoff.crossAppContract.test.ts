@@ -11,6 +11,16 @@ import { describe, expect, it } from 'vitest'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const manualHooksRoot = '.'
 const manualComponentsRoot = '../components'
+const venusRoot = join(__dirname, '../../..')
+const venusAppRoot = join(__dirname, '../../../..')
+
+function readVenus(pathFromSrc: string): string {
+  return readFileSync(join(venusRoot, pathFromSrc), 'utf8')
+}
+
+function readVenusApp(pathFromApp: string): string {
+  return readFileSync(join(venusAppRoot, pathFromApp), 'utf8')
+}
 
 describe('manual report handoff load contract', () => {
   it('useValuationPersistenceCoordinator stabilizes its public API with useMemo', () => {
@@ -72,6 +82,30 @@ describe('manual report handoff load contract', () => {
     expect(source).toMatch(/lastPdfTriggerFingerprintRef/)
     expect(source).toMatch(/resultPdfTriggerFingerprint/)
     expect(source).toMatch(/isPdfGeneratingRef/)
+  })
+
+  it('useManualReportApproval retries review load and approve through fetchBffJsonWithTransientRetry', () => {
+    const source = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualReportApproval.ts'),
+      'utf8'
+    )
+    expect(source).toMatch(/fetchBffJsonWithTransientRetry/)
+    expect(source).toMatch(/REVIEW_STATE_BACKGROUND_RETRY_MS/)
+    expect(source).toMatch(/allowApproveWithoutReviewState/)
+    expect(source).toMatch(/setAllowApproveWithoutReviewState\(true\)/)
+    expect(source).toMatch(/isTransientUpstreamFailure/)
+  })
+
+  it('attestation BFF routes resolve Titan host from the incoming request', () => {
+    expect(readVenusApp('app/api/attestations/readiness/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
+    expect(readVenusApp('app/api/attestations/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
+  })
+
+  it('review BFF routes resolve Titan host from the incoming request', () => {
+    expect(readVenusApp('app/api/valuations/[id]/review/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
+    expect(readVenusApp('app/api/valuations/[id]/review/approve/route.ts')).toMatch(
+      /getTitanApiUrl\(request\)/
+    )
   })
 
   it('useManualPdfExportController surfaces transient download degradation softly', () => {

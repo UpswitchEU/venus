@@ -19,6 +19,7 @@ import { generalLogger } from '../utils/logger'
 const PDF_DOWNLOAD_FETCH_MS = 125_000
 const PDF_STATUS_FETCH_MS = 10_000
 const PDF_STATUS_POLL_INTERVAL_MS = 2_000
+const PDF_STATUS_POLL_MAX_BACKOFF_MS = 16_000
 const PDF_STATUS_MAX_POLL_MS = 5 * 60_000
 
 type TimeoutAbortHandle = {
@@ -163,7 +164,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     pollInFlightRef.current = false
 
     if (pollingRef.current) {
-      clearInterval(pollingRef.current)
+      clearTimeout(pollingRef.current)
       pollingRef.current = null
     }
     if (statusPollAbortRef.current) {
@@ -201,7 +202,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   useEffect(() => {
     return () => {
       if (pollingRef.current) {
-        clearInterval(pollingRef.current)
+        clearTimeout(pollingRef.current)
       }
       if (statusPollAbortRef.current) {
         statusPollAbortRef.current.abort()
@@ -218,9 +219,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   const startPolling = useCallback(
     (jobId: string) => {
       const pollRunId = ++pollRunIdRef.current
-      // Clear any existing polling
       if (pollingRef.current) {
-        clearInterval(pollingRef.current)
+        clearTimeout(pollingRef.current)
         pollingRef.current = null
       }
       if (statusPollAbortRef.current) {
@@ -230,19 +230,34 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       pollInFlightRef.current = false
 
       let pollCount = 0
+      let consecutiveTransientErrors = 0
       const startedAt = Date.now()
 
-      pollingRef.current = setInterval(async () => {
+      const stopPollingTimer = () => {
+        if (pollingRef.current) {
+          clearTimeout(pollingRef.current)
+          pollingRef.current = null
+        }
+      }
+
+      const scheduleNextPoll = (delayMs: number) => {
         if (pollRunIdRef.current !== pollRunId) return
-        if (pollInFlightRef.current) return
+        stopPollingTimer()
+        pollingRef.current = setTimeout(() => {
+          void runPoll()
+        }, delayMs)
+      }
+
+      const runPoll = async () => {
+        if (pollRunIdRef.current !== pollRunId) return
+        if (pollInFlightRef.current) {
+          scheduleNextPoll(PDF_STATUS_POLL_INTERVAL_MS)
+          return
+        }
         pollCount++
 
         if (Date.now() - startedAt > PDF_STATUS_MAX_POLL_MS) {
-          const timer = pollingRef.current
-          if (timer) {
-            clearInterval(timer)
-            pollingRef.current = null
-          }
+          stopPollingTimer()
           isGeneratingRef.current = false
           if (mountedRef.current) {
             setState({
@@ -258,6 +273,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         pollInFlightRef.current = true
         const statusAbortHandle = createTimeoutAbortHandle(PDF_STATUS_FETCH_MS)
         statusPollAbortRef.current = statusAbortHandle
+        let shouldContinuePolling = true
+        let nextPollDelayMs = PDF_STATUS_POLL_INTERVAL_MS
 
         try {
           const response = await fetch(`/api/valuations/pdf/status/${encodeURIComponent(jobId)}`, {
@@ -269,20 +286,23 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
           if (!response.ok) {
             if (isPdfTransientUpstreamStatus(response.status)) {
+              consecutiveTransientErrors++
+              nextPollDelayMs = Math.min(
+                PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
+                PDF_STATUS_POLL_MAX_BACKOFF_MS
+              )
               generalLogger.debug('[PDF] Polling status transient upstream error — will retry', {
                 jobId,
                 pollCount,
                 status: response.status,
+                nextPollDelayMs,
               })
               return
             }
             if (response.status === 402) {
-              const timer = pollingRef.current
-              if (timer) {
-                clearInterval(timer)
-                pollingRef.current = null
-              }
+              stopPollingTimer()
               isGeneratingRef.current = false
+              shouldContinuePolling = false
               if (mountedRef.current) {
                 setState({
                   status: 'none',
@@ -296,22 +316,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             throw new Error('Failed to check status')
           }
 
+          consecutiveTransientErrors = 0
+
           const data = await response.json()
           if (pollRunIdRef.current !== pollRunId) return
 
           if (!mountedRef.current) return
 
-          // Update progress
           const progress = Math.min(30 + pollCount, 90)
           setState((prev) => ({ ...prev, progress }))
 
           if (data.status === 'completed' && data.pdfUrl) {
-            const timer = pollingRef.current
-            if (timer) {
-              clearInterval(timer)
-              pollingRef.current = null
-            }
+            stopPollingTimer()
             isGeneratingRef.current = false
+            shouldContinuePolling = false
             if (mountedRef.current) {
               setState({
                 status: 'ready',
@@ -321,12 +339,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               })
             }
           } else if (data.status === 'failed') {
-            const timer = pollingRef.current
-            if (timer) {
-              clearInterval(timer)
-              pollingRef.current = null
-            }
+            stopPollingTimer()
             isGeneratingRef.current = false
+            shouldContinuePolling = false
             if (mountedRef.current) {
               setState({
                 status: 'error',
@@ -340,11 +355,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           if (error instanceof Error && error.name === 'AbortError') {
             if (statusAbortHandle.didTimeout()) {
               generalLogger.warn('[PDF] Polling status request timed out', { jobId, pollCount })
+              consecutiveTransientErrors++
+              nextPollDelayMs = Math.min(
+                PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
+                PDF_STATUS_POLL_MAX_BACKOFF_MS
+              )
             }
             return
           }
-          // Don't fail on polling errors - keep trying
-          generalLogger.warn('[PDF] Polling error', { error })
+          consecutiveTransientErrors++
+          nextPollDelayMs = Math.min(
+            PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
+            PDF_STATUS_POLL_MAX_BACKOFF_MS
+          )
+          generalLogger.warn('[PDF] Polling error', { error, nextPollDelayMs })
         } finally {
           statusAbortHandle.cleanup()
           if (statusPollAbortRef.current === statusAbortHandle) {
@@ -352,9 +376,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           }
           if (pollRunIdRef.current === pollRunId) {
             pollInFlightRef.current = false
+            if (shouldContinuePolling) {
+              scheduleNextPoll(nextPollDelayMs)
+            }
           }
         }
-      }, PDF_STATUS_POLL_INTERVAL_MS)
+      }
+
+      scheduleNextPoll(PDF_STATUS_POLL_INTERVAL_MS)
     },
     [mountedRef]
   )

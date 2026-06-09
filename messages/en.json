@@ -2176,6 +2176,7 @@
 		"approveValuation": "Approve valuation",
 		"valuationApproved": "Valuation approved",
 		"approveValuationFailed": "Could not approve valuation",
+		"approveValuationTransientFailed": "The server is temporarily busy. Wait a moment and try again.",
 		"pdfExportFailed": "PDF export failed",
 		"pdfExportFailedDesc": "Please try again.",
 		"pdfDownloadPlanBlocked": "PDF download unavailable",

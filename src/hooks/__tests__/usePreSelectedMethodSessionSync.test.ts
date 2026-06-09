@@ -8,6 +8,10 @@ import {
 } from '../../constants/sessionUiKeys'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import {
+  resetRestorationObservedForTests,
+} from '../formSessionAutosaveDefer'
+import { resetSessionPoolPressureCircuitForTests } from '../sessionPoolPressureCircuit'
 import { usePreSelectedMethodSessionSync } from '../usePreSelectedMethodSessionSync'
 
 const saveSession = vi.fn().mockResolvedValue(undefined)
@@ -17,9 +21,12 @@ beforeEach(() => {
   vi.useFakeTimers()
   saveSession.mockClear()
   updateSessionData.mockClear()
+  resetRestorationObservedForTests()
+  resetSessionPoolPressureCircuitForTests()
 
   useSessionStore.setState({
     restorationComplete: true,
+    status: 'loaded',
     session: {
       reportId: 'report-1',
       sessionData: {
@@ -116,6 +123,7 @@ describe('usePreSelectedMethodSessionSync', () => {
   it('seeds blended selected methods from the URL when the session has no stored preference', () => {
     useSessionStore.setState({
       restorationComplete: true,
+      status: 'loaded',
       session: {
         reportId: 'report-url-seed',
         sessionData: {},

@@ -16,5 +16,6 @@ describe('pdfTransientUpstream', () => {
     expect(isPdfTransientUpstreamStatus(500)).toBe(false)
     expect(isPdfTransientUpstreamStatus(401)).toBe(false)
     expect(isPdfTransientUpstreamStatus(404)).toBe(false)
+    expect(isPdfTransientUpstreamStatus(undefined)).toBe(false)
   })
 })

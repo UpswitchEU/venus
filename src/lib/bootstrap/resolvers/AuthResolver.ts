@@ -542,18 +542,37 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           relationshipId: contextState.relationshipId,
         })
       ) {
+        const accountant = contextState.accountant
+        const relationshipId = contextState.relationshipId?.trim()
+        if (!accountant || !relationshipId) {
+          this.logger.warn(
+            '[AuthResolver] Delegated bootstrap gate passed but store context is incomplete',
+            {
+              hasAccountant: !!accountant,
+              hasRelationshipId: !!relationshipId,
+              clientId: truncateForLog(context.clientId ?? 'null'),
+            }
+          )
+          return {
+            success: false,
+            data: this.fallback(),
+            error: 'Delegated client context incomplete in store',
+            durationMs: performance.now() - startTime,
+          }
+        }
+
         this.logger.info('[AuthResolver] Found existing client context in store', {
           clientId: truncateForLog(contextState.client?.id ?? 'null'),
-          accountantId: truncateForLog(contextState.accountant.id),
+          accountantId: truncateForLog(accountant.id),
         })
 
         const clientContext: ClientContext = {
           clientUserId: contextState.client?.id ?? null,
           clientEmail: contextState.client?.email ?? null,
           clientCompanyName: contextState.client?.fullName ?? undefined,
-          accountantUserId: contextState.accountant.id,
-          accountantEmail: contextState.accountant.email || '',
-          relationshipId: contextState.relationshipId,
+          accountantUserId: accountant.id,
+          accountantEmail: accountant.email || '',
+          relationshipId,
           permissions: {
             canCreateValuations: true,
             canViewReports: true,
@@ -561,12 +580,12 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           },
         }
 
-        const effectiveUserId = contextState.client?.id ?? contextState.accountant.id
+        const effectiveUserId = contextState.client?.id ?? accountant.id
         const identity: IdentityState = {
           type: 'accountant_for_client',
           userId: effectiveUserId,
           clientContext,
-          email: contextState.accountant.email,
+          email: accountant.email,
         }
 
         return {

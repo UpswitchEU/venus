@@ -73,7 +73,47 @@ describe('POST /api/valuations/[id]/review/approve', () => {
         }),
         body: JSON.stringify({ notes: 'Looks good' }),
       }),
-      10_000
+      35_000
     )
+    expect(mocks.getTitanApiUrl).toHaveBeenCalledWith(request)
+  })
+
+  it('returns a friendly message when Titan is temporarily unavailable', async () => {
+    mocks.fetchJsonWithTimeout.mockResolvedValue({
+      response: new Response(JSON.stringify({ message: 'Service Unavailable' }), {
+        status: 503,
+      }),
+      json: { message: 'Service Unavailable' },
+    })
+
+    const request = new NextRequest(
+      'https://valuation.upswitch.app/api/valuations/report-1/review/approve',
+      { method: 'POST', body: JSON.stringify({}) }
+    )
+    const response = await POST(request, { params: Promise.resolve({ id: 'report-1' }) })
+    const json = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(json).toEqual({
+      success: false,
+      message: 'The valuation service is temporarily busy. Please try again in a moment.',
+    })
+  })
+
+  it('returns a friendly message when the Titan approve call times out', async () => {
+    mocks.fetchJsonWithTimeout.mockRejectedValue(new Error('fetch timeout after 35000ms'))
+
+    const request = new NextRequest(
+      'https://valuation.upswitch.app/api/valuations/report-1/review/approve',
+      { method: 'POST', body: JSON.stringify({}) }
+    )
+    const response = await POST(request, { params: Promise.resolve({ id: 'report-1' }) })
+    const json = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(json).toEqual({
+      success: false,
+      message: 'The valuation service is temporarily busy. Please try again in a moment.',
+    })
   })
 })

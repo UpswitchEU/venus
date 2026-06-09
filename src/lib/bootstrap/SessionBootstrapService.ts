@@ -1076,7 +1076,7 @@ export class SessionBootstrapService {
           this.logger.error(
             `[Bootstrap:${traceId}] Aborting Titan bootstrap — delegated context mismatch`,
             {
-              urlClientId: context.clientId.substring(0, 8),
+              urlClientId: context.clientId?.substring(0, 8) ?? null,
               storedRelationshipId: ctx.relationshipId?.substring(0, 8) ?? null,
             }
           )

@@ -61,6 +61,6 @@ describe('Venus attestation product boundary', () => {
     expect(source).toMatch(
       /useManualReportApproval\(\{[\s\S]*enabled: showFullAdvisorMethodNav && isAccountantMode/
     )
-    expect(source).toMatch(/signAttestLabel=\{t\('signAttestReport'\)\}/)
+    expect(source).toMatch(/transientFailedDescription: t\('approveValuationTransientFailed'\)/)
   })
 })

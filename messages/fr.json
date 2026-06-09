@@ -2227,7 +2227,8 @@
 		"signAttestReport": "Signer et attester",
 		"approveValuation": "Approuver la valorisation",
 		"valuationApproved": "Valorisation approuvée",
-		"approveValuationFailed": "Impossible d’approuver la valorisation"
+		"approveValuationFailed": "Impossible d’approuver la valorisation",
+		"approveValuationTransientFailed": "Le serveur est temporairement surchargé. Attendez un instant et réessayez."
 	},
 	"versionCompare": {
 		"typeInitial": "Initiale",

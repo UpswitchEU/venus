@@ -148,7 +148,7 @@ describe('usePdfGeneration', () => {
     expect(result.current.state.status).toBe('generating')
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(6_000)
+      await vi.advanceTimersByTimeAsync(10_000)
     })
 
     expect(statusCalls).toBeGreaterThanOrEqual(3)

@@ -2227,7 +2227,8 @@
 		"signAttestReport": "Ondertekenen & attesteren",
 		"approveValuation": "Waardering goedkeuren",
 		"valuationApproved": "Waardering goedgekeurd",
-		"approveValuationFailed": "Waardering kon niet worden goedgekeurd"
+		"approveValuationFailed": "Waardering kon niet worden goedgekeurd",
+		"approveValuationTransientFailed": "De server is tijdelijk overbelast. Wacht even en probeer opnieuw."
 	},
 	"versionCompare": {
 		"typeInitial": "Initieel",
