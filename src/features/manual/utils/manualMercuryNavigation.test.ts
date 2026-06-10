@@ -161,6 +161,21 @@ describe('manualMercuryNavigation', () => {
     ).toContain('/nl/advisor/clients/rel-1')
   })
 
+  it('appends newClientName when exiting back to Mercury client detail', () => {
+    const url = buildManualExitClientViewTarget({
+      returnUrl: null,
+      clientContextId: 'rel-1',
+      currentLocale: 'nl',
+      sourceApp: 'mercury',
+      mercuryUrl: 'https://mercury.test/',
+      hasCompletedValuation: true,
+      companyName: '  Acme BV  ',
+    })
+
+    expect(url).toContain('/nl/advisor/clients/rel-1')
+    expect(url).toMatch(/newClientName=Acme(\+|%20)BV/)
+  })
+
   it('builds fallback URLs for client and dashboard exits', () => {
     expect(
       buildManualExitClientViewFallbackUrl({

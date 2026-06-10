@@ -6,6 +6,7 @@ vi.mock('@/utils/getMercuryUrl', () => ({
 
 import {
   applyMercuryCelebrationQuery,
+  applyMercuryNewClientNameQuery,
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
   isSafeMercuryReturnUrlInput,
@@ -109,6 +110,25 @@ describe('applyMercuryCelebrationQuery', () => {
     )
     expect(stripsOurs).not.toContain('from=valuation')
     expect(stripsOurs).toContain('utm_source=x')
+  })
+})
+
+describe('applyMercuryNewClientNameQuery', () => {
+  it('appends newClientName on advisor client dossier URLs', () => {
+    const url = applyMercuryNewClientNameQuery(
+      'https://upswitch.app/nl/advisor/clients/c1?from=valuation',
+      'Restaurant Upswitch'
+    )
+    expect(url).toContain('newClientName=Restaurant+Upswitch')
+  })
+
+  it('ignores empty company names', () => {
+    expect(
+      applyMercuryNewClientNameQuery(
+        'https://upswitch.app/nl/advisor/clients/c1',
+        '   '
+      )
+    ).toBe('https://upswitch.app/nl/advisor/clients/c1')
   })
 })
 

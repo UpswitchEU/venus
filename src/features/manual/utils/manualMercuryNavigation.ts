@@ -1,4 +1,5 @@
 import {
+  applyMercuryNewClientNameQuery,
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
@@ -246,6 +247,26 @@ export function hasCompletedManualValuation(report: unknown, session: unknown): 
   )
 }
 
+export function resolveManualMercuryCompanyName(
+  report: unknown,
+  session: unknown
+): string | undefined {
+  const reportRecord = asRecord(report)
+  const sessionRecord = asRecord(session)
+  const candidates = [
+    reportRecord?.companyName,
+    reportRecord?.company_name,
+    sessionRecord?.companyName,
+    sessionRecord?.company_name,
+  ]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+  return undefined
+}
+
 export interface BuildManualExitClientViewTargetParams {
   returnUrl: string | null
   clientContextId?: string | null
@@ -253,6 +274,7 @@ export interface BuildManualExitClientViewTargetParams {
   sourceApp?: string | null
   mercuryUrl: string
   hasCompletedValuation: boolean
+  companyName?: string | null
 }
 
 export function buildManualExitClientViewTarget({
@@ -262,6 +284,7 @@ export function buildManualExitClientViewTarget({
   sourceApp,
   mercuryUrl,
   hasCompletedValuation,
+  companyName,
 }: BuildManualExitClientViewTargetParams): string {
   const locale = getManualMercuryLocale(currentLocale)
   const mercuryBaseUrl = normalizeMercuryBaseUrl(mercuryUrl)
@@ -270,12 +293,15 @@ export function buildManualExitClientViewTarget({
     : null
   const normalizedReturnUrl = stripStaleSellerDashboardPhaseFromReturnUrl(returnUrl)
 
-  return getSafeMercuryReturnUrl(normalizedReturnUrl ?? clientDetailFallback, {
-    clientContextId: clientContextId ?? undefined,
-    locale,
-    sourceApp: sourceApp ?? undefined,
-    celebrateMercuryReturn: hasCompletedValuation,
-  })
+  return applyMercuryNewClientNameQuery(
+    getSafeMercuryReturnUrl(normalizedReturnUrl ?? clientDetailFallback, {
+      clientContextId: clientContextId ?? undefined,
+      locale,
+      sourceApp: sourceApp ?? undefined,
+      celebrateMercuryReturn: hasCompletedValuation,
+    }),
+    companyName
+  )
 }
 
 export interface BuildManualExitClientViewFallbackUrlParams {

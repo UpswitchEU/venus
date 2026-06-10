@@ -61,6 +61,8 @@ export const MERCURY_CELEBRATION_QUERY_KEY = 'from'
 export const MERCURY_CELEBRATION_QUERY_VALUE = 'valuation'
 /** Legacy value emitted before the codename strip — Mercury still accepts it on read. */
 export const MERCURY_CELEBRATION_QUERY_VALUE_LEGACY = 'venus'
+/** Seeds Mercury cold-nav dossier shell with a known company name after Venus exit. */
+export const MERCURY_NEW_CLIENT_NAME_QUERY_KEY = 'newClientName'
 
 /**
  * Pathnames that should carry the celebration marker on a successful return.
@@ -131,6 +133,27 @@ export function applyMercuryCelebrationQuery(urlString: string, celebrate: boole
         u.searchParams.delete(MERCURY_CELEBRATION_QUERY_KEY)
       }
     }
+    return u.toString()
+  } catch {
+    return urlString
+  }
+}
+
+export function applyMercuryNewClientNameQuery(
+  urlString: string,
+  companyName: string | null | undefined
+): string {
+  const trimmed = companyName?.trim()
+  if (!trimmed) return urlString
+  try {
+    const u = new URL(urlString)
+    if (
+      !u.pathname.includes('/advisor/clients/') &&
+      !u.pathname.includes('/accountant/clients/')
+    ) {
+      return urlString
+    }
+    u.searchParams.set(MERCURY_NEW_CLIENT_NAME_QUERY_KEY, trimmed)
     return u.toString()
   } catch {
     return urlString

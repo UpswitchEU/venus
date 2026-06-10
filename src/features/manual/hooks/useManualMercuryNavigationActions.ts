@@ -20,6 +20,7 @@ import {
   getManualBackNavigationDecision,
   getManualMercuryLocale,
   hasCompletedManualValuation,
+  resolveManualMercuryCompanyName,
   type ManualMercuryLocale,
 } from '../utils/manualMercuryNavigation'
 import {
@@ -83,6 +84,7 @@ export function useManualMercuryNavigationActions({
         currentLocale,
         clientContextId,
         hasCompletedValuation: hasCompletedManualValuation(report, session),
+        companyName: resolveManualMercuryCompanyName(report, session),
       })
     } catch (error) {
       generalLogger.error('[ManualLayout] handleExitClientView failed', {
