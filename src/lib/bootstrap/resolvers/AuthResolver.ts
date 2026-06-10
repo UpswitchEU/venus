@@ -11,6 +11,7 @@
  * @module lib/bootstrap/resolvers/AuthResolver
  */
 
+import { isTransientAuthCheckStatus } from '@/lib/auth/store'
 import { markRefreshCompleted, wasRefreshedRecently } from '@/utils/auth/cross-tab-refresh'
 import { getLogoutAbortSignal } from '@/utils/auth/logout-abort'
 import {
@@ -145,6 +146,43 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         return {
           success: true,
           data: cookieResult.data,
+          source: 'cookie',
+          durationMs: performance.now() - startTime,
+        }
+      }
+
+      // Priority 2.5: Transient unavailability is NOT "logged out". During
+      // the 2026-06-10 pool-pressure incident a 503 on /api/auth/me ejected a
+      // cookie-valid advisor to the Mercury login page mid-valuation. Mirror
+      // checkSession's policy: keep the already-authenticated store user and
+      // let the session continue; the next auth probe re-verifies for real.
+      if (!cookieResult.success && cookieResult.transient) {
+        const cachedIdentity = await this.identityFromAuthStoreCache()
+        if (cachedIdentity) {
+          this.logger.warn(
+            '[AuthResolver] Auth check temporarily unavailable - keeping authenticated store user',
+            { error: cookieResult.error }
+          )
+          return {
+            success: true,
+            data: cachedIdentity,
+            source: 'auth_store_cache',
+            transient: true,
+            durationMs: performance.now() - startTime,
+          }
+        }
+        // Cold load during an outage: no cached identity to fall back on.
+        // Surface a retryable failure instead of a login redirect — the user
+        // may well BE logged in; we simply cannot verify it right now.
+        this.logger.warn(
+          '[AuthResolver] Auth check temporarily unavailable and no cached user - returning transient failure',
+          { error: cookieResult.error }
+        )
+        return {
+          success: false,
+          data: this.fallback(),
+          error: 'Authentication is temporarily unavailable. Please try again in a moment.',
+          transient: true,
           source: 'cookie',
           durationMs: performance.now() - startTime,
         }
@@ -420,6 +458,10 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           success: false,
           data: this.fallback(),
           error: `Auth check failed (${response.status})`,
+          // 5xx/408/429 is the auth service being unavailable, not a verdict
+          // on the user's cookies — flag it so resolve() does not convert
+          // pool pressure into a login redirect.
+          transient: isTransientAuthCheckStatus(response.status),
           durationMs: performance.now() - startTime,
         }
       }
@@ -459,8 +501,36 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         success: false,
         data: this.fallback(),
         error: error instanceof Error ? error.message : 'Network error',
+        // A thrown fetch (network drop, timeout abort, logout abort) never
+        // saw an auth verdict either.
+        transient: true,
         durationMs: performance.now() - startTime,
       }
+    }
+  }
+
+  /**
+   * Identity from the already-authenticated Zustand auth store, if any.
+   *
+   * Used only when the live auth probe failed TRANSIENTLY: the store user was
+   * verified by a real /me round-trip earlier in this tab, so it is a safer
+   * answer than "unauthenticated" while the auth service is unreachable.
+   */
+  private async identityFromAuthStoreCache(): Promise<IdentityState | null> {
+    try {
+      const { useAuthStore } = await import('../../auth')
+      const user = useAuthStore.getState().user
+      if (!user?.id) return null
+      const [firstName, ...rest] = (user.name ?? '').trim().split(/\s+/)
+      return {
+        type: 'authenticated',
+        userId: user.id,
+        email: typeof user.email === 'string' ? user.email : undefined,
+        firstName: firstName || undefined,
+        lastName: rest.length > 0 ? rest.join(' ') : undefined,
+      }
+    } catch {
+      return null
     }
   }
 

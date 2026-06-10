@@ -507,6 +507,14 @@ export interface ResolverResult<T> {
   error?: string
   source?: string
   durationMs: number
+  /**
+   * True when the failure was infrastructure unavailability (5xx/408/429,
+   * network drop, timeout) rather than a definitive auth verdict. Consumers
+   * must NOT treat a transient failure as "logged out" — during the
+   * 2026-06-10 pool-pressure incident a 503 on /api/auth/me ejected a
+   * cookie-valid advisor to the Mercury login page.
+   */
+  transient?: boolean
 }
 
 export interface BootstrapResolver<T> {
