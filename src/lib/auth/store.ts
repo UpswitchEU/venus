@@ -185,7 +185,7 @@ export const useAuthStore = create<AuthState>()(
                           kind === 'auth_failed'
                             ? 'Token refresh failed - refresh token expired'
                             : 'Token refresh failed - server error',
-                          { status: refreshResponse.status, message: errorMessage },
+                          { status: refreshResponse.status, message: errorMessage }
                         )
                         return { ok: false, kind }
                       }
