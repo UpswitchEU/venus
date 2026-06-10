@@ -7,6 +7,7 @@ vi.mock('@/utils/getMercuryUrl', () => ({
 import {
   applyMercuryCelebrationQuery,
   applyMercuryNewClientNameQuery,
+  applyMercuryReportIdQuery,
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
   isSafeMercuryReturnUrlInput,
@@ -129,6 +130,25 @@ describe('applyMercuryNewClientNameQuery', () => {
         '   '
       )
     ).toBe('https://upswitch.app/nl/advisor/clients/c1')
+  })
+})
+
+describe('applyMercuryReportIdQuery', () => {
+  it('appends reportId on advisor client dossier URLs', () => {
+    const url = applyMercuryReportIdQuery(
+      'https://upswitch.app/nl/advisor/clients/c1?from=valuation',
+      'report-abc'
+    )
+    expect(url).toContain('reportId=report-abc')
+  })
+
+  it('ignores empty report ids and non-client paths', () => {
+    expect(
+      applyMercuryReportIdQuery('https://upswitch.app/nl/advisor/clients/c1', '   ')
+    ).toBe('https://upswitch.app/nl/advisor/clients/c1')
+    expect(
+      applyMercuryReportIdQuery('https://upswitch.app/nl/advisor/dashboard', 'report-abc')
+    ).toBe('https://upswitch.app/nl/advisor/dashboard')
   })
 })
 

@@ -129,6 +129,7 @@ export interface BuildManualMercuryReturnFromBrowserParams {
   hasCompletedValuation: boolean
   mercuryUrl?: string
   companyName?: string | null
+  reportId?: string | null
 }
 
 /** Resolve a safe Mercury return URL from browser handoff state. */
@@ -138,6 +139,7 @@ export function buildManualMercuryReturnFromBrowser({
   hasCompletedValuation,
   mercuryUrl,
   companyName,
+  reportId,
 }: BuildManualMercuryReturnFromBrowserParams): string {
   const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
   return buildManualExitClientViewTarget({
@@ -148,6 +150,7 @@ export function buildManualMercuryReturnFromBrowser({
     mercuryUrl: mercuryUrl ?? getMercuryUrl(),
     hasCompletedValuation,
     companyName,
+    reportId,
   })
 }
 

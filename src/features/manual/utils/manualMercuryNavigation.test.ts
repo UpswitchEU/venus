@@ -23,6 +23,7 @@ import {
   getManualMercuryLocale,
   hasCompletedManualValuation,
   resolveManualListingRelationshipId,
+  resolveManualMercuryReportId,
 } from './manualMercuryNavigation'
 
 describe('manualMercuryNavigation', () => {
@@ -174,6 +175,44 @@ describe('manualMercuryNavigation', () => {
 
     expect(url).toContain('/nl/advisor/clients/rel-1')
     expect(url).toMatch(/newClientName=Acme(\+|%20)BV/)
+  })
+
+  it('resolves Mercury handoff reportId from resolved id, report, or session', () => {
+    expect(resolveManualMercuryReportId(null, null, 'resolved-id')).toBe('resolved-id')
+    expect(
+      resolveManualMercuryReportId({ id: 'report-from-object' }, { reportId: 'session-id' })
+    ).toBe('report-from-object')
+    expect(resolveManualMercuryReportId(null, { reportId: 'session-only' })).toBe('session-only')
+    expect(resolveManualMercuryReportId(null, null)).toBeUndefined()
+  })
+
+  it('appends reportId on celebration return so Mercury can latch the saved report', () => {
+    const url = buildManualExitClientViewTarget({
+      returnUrl: null,
+      clientContextId: 'rel-1',
+      currentLocale: 'nl',
+      sourceApp: 'mercury',
+      mercuryUrl: 'https://mercury.test/',
+      hasCompletedValuation: true,
+      reportId: 'report-abc',
+    })
+
+    expect(url).toContain('from=valuation')
+    expect(url).toContain('reportId=report-abc')
+  })
+
+  it('does not append reportId when the valuation was not completed', () => {
+    const url = buildManualExitClientViewTarget({
+      returnUrl: null,
+      clientContextId: 'rel-1',
+      currentLocale: 'nl',
+      sourceApp: 'mercury',
+      mercuryUrl: 'https://mercury.test/',
+      hasCompletedValuation: false,
+      reportId: 'report-abc',
+    })
+
+    expect(url).not.toContain('reportId=')
   })
 
   it('builds fallback URLs for client and dashboard exits', () => {

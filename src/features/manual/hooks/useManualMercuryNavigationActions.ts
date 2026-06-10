@@ -21,6 +21,7 @@ import {
   getManualMercuryLocale,
   hasCompletedManualValuation,
   resolveManualMercuryCompanyName,
+  resolveManualMercuryReportId,
   type ManualMercuryLocale,
 } from '../utils/manualMercuryNavigation'
 import {
@@ -85,6 +86,7 @@ export function useManualMercuryNavigationActions({
         clientContextId,
         hasCompletedValuation: hasCompletedManualValuation(report, session),
         companyName: resolveManualMercuryCompanyName(report, session),
+        reportId: resolveManualMercuryReportId(report, session, resolvedReportId),
       })
     } catch (error) {
       generalLogger.error('[ManualLayout] handleExitClientView failed', {
@@ -110,7 +112,7 @@ export function useManualMercuryNavigationActions({
         // Last-ditch navigation failed; nothing useful left to do.
       }
     }
-  }, [clientContextId, currentLocale, report, session])
+  }, [clientContextId, currentLocale, report, resolvedReportId, session])
 
   const handleBack = useCallback(() => {
     if (typeof window !== 'undefined') {

@@ -63,6 +63,8 @@ export const MERCURY_CELEBRATION_QUERY_VALUE = 'valuation'
 export const MERCURY_CELEBRATION_QUERY_VALUE_LEGACY = 'venus'
 /** Seeds Mercury cold-nav dossier shell with a known company name after Venus exit. */
 export const MERCURY_NEW_CLIENT_NAME_QUERY_KEY = 'newClientName'
+/** Lets Mercury target the saved report when reconciling after `?from=valuation`. */
+export const MERCURY_REPORT_ID_QUERY_KEY = 'reportId'
 
 /**
  * Pathnames that should carry the celebration marker on a successful return.
@@ -154,6 +156,27 @@ export function applyMercuryNewClientNameQuery(
       return urlString
     }
     u.searchParams.set(MERCURY_NEW_CLIENT_NAME_QUERY_KEY, trimmed)
+    return u.toString()
+  } catch {
+    return urlString
+  }
+}
+
+export function applyMercuryReportIdQuery(
+  urlString: string,
+  reportId: string | null | undefined
+): string {
+  const trimmed = reportId?.trim()
+  if (!trimmed) return urlString
+  try {
+    const u = new URL(urlString)
+    if (
+      !u.pathname.includes('/advisor/clients/') &&
+      !u.pathname.includes('/accountant/clients/')
+    ) {
+      return urlString
+    }
+    u.searchParams.set(MERCURY_REPORT_ID_QUERY_KEY, trimmed)
     return u.toString()
   } catch {
     return urlString

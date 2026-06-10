@@ -1,5 +1,6 @@
 import {
   applyMercuryNewClientNameQuery,
+  applyMercuryReportIdQuery,
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
@@ -247,6 +248,28 @@ export function hasCompletedManualValuation(report: unknown, session: unknown): 
   )
 }
 
+export function resolveManualMercuryReportId(
+  report: unknown,
+  session: unknown,
+  resolvedReportId?: unknown
+): string | undefined {
+  const resolved =
+    typeof resolvedReportId === 'string' && resolvedReportId.trim()
+      ? resolvedReportId.trim()
+      : undefined
+  if (resolved) return resolved
+
+  const reportRecord = asRecord(report)
+  const sessionRecord = asRecord(session)
+  const candidates = [reportRecord?.id, reportRecord?.reportId, sessionRecord?.reportId]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+  return undefined
+}
+
 export function resolveManualMercuryCompanyName(
   report: unknown,
   session: unknown
@@ -275,6 +298,7 @@ export interface BuildManualExitClientViewTargetParams {
   mercuryUrl: string
   hasCompletedValuation: boolean
   companyName?: string | null
+  reportId?: string | null
 }
 
 export function buildManualExitClientViewTarget({
@@ -285,6 +309,7 @@ export function buildManualExitClientViewTarget({
   mercuryUrl,
   hasCompletedValuation,
   companyName,
+  reportId,
 }: BuildManualExitClientViewTargetParams): string {
   const locale = getManualMercuryLocale(currentLocale)
   const mercuryBaseUrl = normalizeMercuryBaseUrl(mercuryUrl)
@@ -293,14 +318,16 @@ export function buildManualExitClientViewTarget({
     : null
   const normalizedReturnUrl = stripStaleSellerDashboardPhaseFromReturnUrl(returnUrl)
 
-  return applyMercuryNewClientNameQuery(
-    getSafeMercuryReturnUrl(normalizedReturnUrl ?? clientDetailFallback, {
-      clientContextId: clientContextId ?? undefined,
-      locale,
-      sourceApp: sourceApp ?? undefined,
-      celebrateMercuryReturn: hasCompletedValuation,
-    }),
-    companyName
+  const withCelebration = getSafeMercuryReturnUrl(normalizedReturnUrl ?? clientDetailFallback, {
+    clientContextId: clientContextId ?? undefined,
+    locale,
+    sourceApp: sourceApp ?? undefined,
+    celebrateMercuryReturn: hasCompletedValuation,
+  })
+
+  return applyMercuryReportIdQuery(
+    applyMercuryNewClientNameQuery(withCelebration, companyName),
+    hasCompletedValuation ? reportId : null
   )
 }
 
