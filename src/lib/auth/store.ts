@@ -12,10 +12,11 @@ import {
 import { getLogoutAbortSignal, triggerLogoutAbort } from '../../utils/auth/logout-abort'
 import { extractAuthMeUserPayload } from '../../utils/auth/parse-auth-me-response'
 import {
+  classifyRefreshStatus,
   getActiveRefreshPromise,
-  getLastRefreshFailureKind,
+  type RefreshOutcome,
   setActiveRefreshPromise,
-  setLastRefreshFailureKind,
+  TRANSIENT_REFRESH_OUTCOME,
 } from '../../utils/auth/refreshMutex'
 import {
   CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
@@ -25,9 +26,9 @@ import { generalLogger } from '../../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { clearAuthCache, getAuthCache, setAuthCache } from './authCache'
 import { API_URL } from './config'
-import { clearDelegatedClientContext } from './persistedClientContext'
 import { clearInitThrottle } from './initGuards'
 import { resetAuthInitializationRuntime } from './initRuntime'
+import { clearDelegatedClientContext } from './persistedClientContext'
 
 interface AuthState {
   user: User | null
@@ -159,15 +160,10 @@ export const useAuthStore = create<AuthState>()(
 
               try {
                 if (!getActiveRefreshPromise()) {
-                  const promise = (async () => {
-                    // Reset to the fail-safe default: any non-auth failure below
-                    // (5xx / network / timeout) leaves this as `transient`, so a
-                    // backend blip preserves the session instead of logging out.
-                    setLastRefreshFailureKind('transient')
+                  const promise = (async (): Promise<RefreshOutcome> => {
                     try {
                       if (wasRefreshedRecently()) {
-                        setLastRefreshFailureKind('none')
-                        return true
+                        return { ok: true, kind: 'none' }
                       }
 
                       const refreshResponse = await fetchWithTimeoutClient('/api/auth/refresh', {
@@ -181,43 +177,31 @@ export const useAuthStore = create<AuthState>()(
                       if (!refreshResponse.ok) {
                         const errorData = await refreshResponse.json().catch(() => ({}))
                         const errorMessage = errorData.message || 'Token refresh failed'
-
-                        if (refreshResponse.status === 401 || refreshResponse.status === 403) {
-                          // Definitive auth rejection — the refresh token really
-                          // is expired/invalid. This is the ONLY refresh outcome
-                          // that may clear the session.
-                          setLastRefreshFailureKind('auth_failed')
-                          logAuthError('Token refresh failed - refresh token expired', {
-                            status: refreshResponse.status,
-                            message: errorMessage,
-                          })
-                          return false
-                        }
-
-                        // Transient backend failure (pool pressure / 5xx). Cookies
-                        // are still valid; keep the session and retry next check.
-                        setLastRefreshFailureKind('transient')
-                        logAuthError('Token refresh failed - server error', {
-                          status: refreshResponse.status,
-                          message: errorMessage,
-                        })
-                        return false
+                        // Only a definitive 401/403 may clear the session; every
+                        // other failure (pool pressure / 5xx) is transient — the
+                        // cookies are still valid, keep the session and retry.
+                        const kind = classifyRefreshStatus(refreshResponse.status)
+                        logAuthError(
+                          kind === 'auth_failed'
+                            ? 'Token refresh failed - refresh token expired'
+                            : 'Token refresh failed - server error',
+                          { status: refreshResponse.status, message: errorMessage },
+                        )
+                        return { ok: false, kind }
                       }
 
                       markRefreshCompleted()
-                      setLastRefreshFailureKind('none')
-                      return true
+                      return { ok: true, kind: 'none' }
                     } catch (refreshError) {
                       // Network error / abort / timeout — transient, never a
                       // logout signal.
-                      setLastRefreshFailureKind('transient')
                       logAuthError('Token refresh failed - network error', {
                         error:
                           refreshError instanceof Error
                             ? refreshError.message
                             : String(refreshError),
                       })
-                      return false
+                      return { ok: false, kind: 'transient' }
                     } finally {
                       setActiveRefreshPromise(null)
                     }
@@ -227,11 +211,16 @@ export const useAuthStore = create<AuthState>()(
                 }
 
                 const activeRefreshPromise = getActiveRefreshPromise()
-                const refreshSuccess = activeRefreshPromise ? await activeRefreshPromise : false
+                // The verdict travels WITH the resolved outcome, so we read the
+                // classification of the exact attempt we awaited — no shared
+                // mutable flag a concurrent refresh could clobber.
+                const refreshOutcome = activeRefreshPromise
+                  ? await activeRefreshPromise
+                  : TRANSIENT_REFRESH_OUTCOME
 
                 if (abortCheckSessionIfLoggingOut()) return null
 
-                if (refreshSuccess) {
+                if (refreshOutcome.ok) {
                   const retryResponse = await fetchWithTimeoutClient('/api/auth/me', {
                     method: 'GET',
                     credentials: 'include',
@@ -257,11 +246,33 @@ export const useAuthStore = create<AuthState>()(
                       await broadcastLoginIfNewSession(user, priorUserId)
                       return user
                     }
+                  } else if (isTransientAuthCheckStatus(retryResponse.status)) {
+                    // Cookies were just rotated, but the post-refresh /me hit a
+                    // transient backend error (pool pressure / 5xx). Keep the
+                    // session and retry on the next check — never log out here.
+                    const currentUser = get().user
+                    logAuthError('Post-refresh auth check temporarily unavailable', {
+                      status: retryResponse.status,
+                    })
+                    set({ loading: false, error: null })
+                    return currentUser
                   } else {
                     logAuthError('Auth check failed after token refresh', {
                       status: retryResponse.status,
                     })
                   }
+                } else if (refreshOutcome.kind !== 'auth_failed') {
+                  // The refresh did NOT fail because the token is expired — it hit
+                  // a transient backend failure (pool pressure / 5xx / network /
+                  // timeout). A transient /refresh failure must never become a
+                  // logout + redirect to the home page (staging 2026-06-10
+                  // incident: 503 on session save → /me 401 → /refresh 503 →
+                  // setUser(null) → bounced to Mercury). Preserve the session and
+                  // let the next check retry once the pool recovers.
+                  const currentUser = get().user
+                  logAuthError('Token refresh temporarily unavailable — preserving session', {})
+                  set({ loading: false, error: null })
+                  return currentUser
                 } else {
                   logAuthError('Token refresh failed - authentication required', {})
                 }
@@ -310,6 +321,19 @@ export const useAuthStore = create<AuthState>()(
             logAuthError('Session check failed', { error: errorMessage })
             trackAuthFailure(errorMessage, { method: 'cookie' })
             authMetrics.recordFailure()
+
+            // A throw here is a network failure / timeout / abort reaching the
+            // BFF — transient, NOT an auth verdict (a real logout returns 401,
+            // it doesn't throw). If we already have a user, keep the session and
+            // retry on the next check rather than clearing it (which logs the
+            // user out and bounces them to home on a backend blip — the
+            // 2026-06-10 pool-pressure incident). Only clear when there's nothing
+            // to preserve.
+            const currentUser = get().user
+            if (currentUser) {
+              set({ loading: false, error: null })
+              return currentUser
+            }
 
             get().setUser(null)
             get().setError(errorMessage)

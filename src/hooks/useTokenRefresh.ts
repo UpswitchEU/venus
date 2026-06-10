@@ -25,13 +25,19 @@ import {
   subscribeRefreshCompleted,
   wasRefreshedRecently,
 } from '../utils/auth/cross-tab-refresh'
-import { isUpstreamPoolPressureHttpStatus } from './sessionPoolPressureCircuit'
 import { getLogoutAbortSignal } from '../utils/auth/logout-abort'
 import { extractAuthMeUserPayload } from '../utils/auth/parse-auth-me-response'
-import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
+import {
+  awaitRefreshOk,
+  getActiveRefreshPromise,
+  type RefreshFailureKind,
+  type RefreshOutcome,
+  setActiveRefreshPromise,
+} from '../utils/auth/refreshMutex'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
 import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS } from '../utils/auth-fetch-timeout'
 import { generalLogger } from '../utils/logger'
+import { isUpstreamPoolPressureHttpStatus } from './sessionPoolPressureCircuit'
 
 const CHECK_INTERVAL = 5 * 60 * 1000
 /** Spread interval fires across tabs to make thundering-herd refresh impossible. */
@@ -75,7 +81,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       // wait for it instead of sending a duplicate request.
       const existing = getActiveRefreshPromise()
       if (existing) {
-        return existing
+        return awaitRefreshOk(existing)
       }
 
       if (isRefreshingRef.current) {
@@ -98,7 +104,13 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       isRefreshingRef.current = true
       lastRefreshAttemptRef.current = now
 
-      const promise = (async () => {
+      // Classification for any awaiter sharing this promise via the mutex (e.g.
+      // checkSession). The hook keeps its own boolean control flow (incl. the
+      // recursive retry + self-clear-on-401 below); we attach the verdict to the
+      // outcome the mutex exposes so the shared promise carries an accurate
+      // `kind` — only a definitive 401/403 may clear a session.
+      let outcomeKind: RefreshFailureKind = 'transient'
+      const boolPromise = (async (): Promise<boolean> => {
         try {
           const response = await axios.post(
             '/api/auth/refresh',
@@ -116,6 +128,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           const success = response.data?.success === true || !!user
           if (success) {
             markRefreshCompleted()
+            outcomeKind = 'none'
             onRefreshSuccess?.()
             return true
           } else {
@@ -126,6 +139,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
 
           const status = getAxiosStatus(error)
           if (status === 401 || status === 403) {
+            outcomeKind = 'auth_failed'
             const { isInitializing, loading } = useAuthStore.getState()
             if (isInitializing || loading) {
               generalLogger.debug(
@@ -178,8 +192,14 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         }
       })()
 
-      setActiveRefreshPromise(promise)
-      return promise
+      // Expose the verdict-carrying outcome to the shared mutex; callers of this
+      // hook still receive a plain boolean.
+      const outcomePromise: Promise<RefreshOutcome> = boolPromise.then((ok) => ({
+        ok,
+        kind: outcomeKind,
+      }))
+      setActiveRefreshPromise(outcomePromise)
+      return boolPromise
     },
     [onRefreshSuccess, onRefreshFailure, onTokenExpired]
   )
@@ -290,7 +310,7 @@ export const useManualTokenRefresh = () => {
     const existing = getActiveRefreshPromise()
     if (existing) {
       generalLogger.debug('Token refresh already in progress (shared mutex), waiting')
-      return existing
+      return awaitRefreshOk(existing)
     }
 
     if (isRefreshingRef.current) {
@@ -300,7 +320,8 @@ export const useManualTokenRefresh = () => {
 
     isRefreshingRef.current = true
 
-    const promise = (async () => {
+    let outcomeKind: RefreshFailureKind = 'transient'
+    const boolPromise = (async (): Promise<boolean> => {
       try {
         const response = await axios.post(
           '/api/auth/refresh',
@@ -316,6 +337,7 @@ export const useManualTokenRefresh = () => {
         const success = response.data?.success === true || !!user
         if (success) {
           markRefreshCompleted()
+          outcomeKind = 'none'
           generalLogger.debug('Manual token refresh successful (dual-token rotation complete)')
           return true
         } else {
@@ -323,6 +345,11 @@ export const useManualTokenRefresh = () => {
         }
       } catch (error) {
         generalLogger.error('Manual token refresh failed', { error })
+        // Only a definitive 401/403 may flag a session for clearing; any other
+        // failure stays `transient`.
+        if (getAxiosStatus(error) === 401 || getAxiosStatus(error) === 403) {
+          outcomeKind = 'auth_failed'
+        }
         return false
       } finally {
         isRefreshingRef.current = false
@@ -330,8 +357,12 @@ export const useManualTokenRefresh = () => {
       }
     })()
 
-    setActiveRefreshPromise(promise)
-    return promise
+    const outcomePromise: Promise<RefreshOutcome> = boolPromise.then((ok) => ({
+      ok,
+      kind: outcomeKind,
+    }))
+    setActiveRefreshPromise(outcomePromise)
+    return boolPromise
   }, [])
 
   return {

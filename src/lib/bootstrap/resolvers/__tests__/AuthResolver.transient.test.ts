@@ -66,6 +66,9 @@ vi.mock('@/utils/auth/cross-tab-refresh', () => ({
 vi.mock('@/utils/auth/refreshMutex', () => ({
   getActiveRefreshPromise: () => null,
   setActiveRefreshPromise: vi.fn(),
+  awaitRefreshOk: async (p: Promise<{ ok: boolean }> | null) => (p ? (await p).ok : false),
+  classifyRefreshStatus: (status: number | undefined) =>
+    status === 401 || status === 403 ? 'auth_failed' : 'transient',
 }))
 
 vi.mock('@/utils/getMercuryUrl', () => ({
@@ -73,8 +76,8 @@ vi.mock('@/utils/getMercuryUrl', () => ({
   getMercuryUrl: () => 'https://preview.upswitch.app',
 }))
 
-import { AuthResolver, AuthenticationRequiredError } from '../AuthResolver'
 import type { BootstrapContext, BootstrapHints } from '../../types'
+import { AuthenticationRequiredError, AuthResolver } from '../AuthResolver'
 
 function makeContext(): BootstrapContext {
   return {

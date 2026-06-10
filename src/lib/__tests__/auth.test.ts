@@ -7,6 +7,12 @@
 
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearLastRefreshAt } from '../../utils/auth/cross-tab-refresh'
+import {
+  getLastRefreshFailureKind,
+  setActiveRefreshPromise,
+  setLastRefreshFailureKind,
+} from '../../utils/auth/refreshMutex'
 import { clearAuthCache } from '../auth/authCache'
 import { useAuthStore } from '../auth/store'
 import { useAuth } from '../auth/useAuth'
@@ -253,6 +259,107 @@ describe('Authentication Module', () => {
       expect(useAuthStore.getState().loading).toBe(false)
       expect(useAuthStore.getState().error).toBeNull()
       expect(clearClientContextMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Token refresh under DB pool pressure (no logout on transient 503)', () => {
+    const currentUser = {
+      id: 'user123',
+      email: 'test@example.com',
+      name: 'Test User',
+      role: 'user',
+    }
+
+    beforeEach(() => {
+      // Ensure the on-demand refresh actually fires (not short-circuited by the
+      // cross-tab recency window) and the shared mutex starts clean.
+      clearLastRefreshAt()
+      setActiveRefreshPromise(null)
+      useAuthStore.setState({ user: currentUser, loading: true, error: null })
+    })
+
+    it('PRESERVES the session when /me 401s and the token refresh hits a transient 503', async () => {
+      // The exact 2026-06-10 incident: access token expired (→ /me 401), then
+      // POST /refresh hit the exhausted Supavisor pool (503). Pre-fix this cleared
+      // the user and bounced them to the Mercury home page. It must now keep the
+      // session and let the next check retry once the pool recovers.
+      fetchMock()
+        .mockResolvedValueOnce(responseStub({ ok: false, status: 401, json: async () => ({}) }))
+        .mockResolvedValueOnce(
+          responseStub({
+            ok: false,
+            status: 503,
+            json: async () => ({ message: 'Database temporarily unavailable' }),
+          })
+        )
+
+      const { checkSession } = useAuthStore.getState()
+      const user = await checkSession()
+
+      expect(user).toEqual(currentUser)
+      expect(useAuthStore.getState().user).toEqual(currentUser)
+      expect(useAuthStore.getState().error).toBeNull()
+      // A transient refresh failure must NOT clear the identity / client context.
+      expect(clearClientContextMock).not.toHaveBeenCalled()
+    })
+
+    it('PRESERVES the session when /me 401s and the refresh request throws (timeout/network)', async () => {
+      fetchMock()
+        .mockResolvedValueOnce(responseStub({ ok: false, status: 401, json: async () => ({}) }))
+        .mockRejectedValueOnce(new Error('The operation timed out'))
+
+      const { checkSession } = useAuthStore.getState()
+      const user = await checkSession()
+
+      expect(user).toEqual(currentUser)
+      expect(useAuthStore.getState().user).toEqual(currentUser)
+      expect(clearClientContextMock).not.toHaveBeenCalled()
+    })
+
+    it('does NOT log out on a transient 503 even when a STALE auth_failed kind lingered from a prior logout', async () => {
+      // Airtight-mutex regression: a previous real logout left the shared
+      // classification at `auth_failed`. A later on-demand refresh that fails
+      // transiently (503) must reset the kind on registration, so the session
+      // is PRESERVED. Without the reset-on-register, the stale `auth_failed`
+      // would resurrect the exact spurious-logout bug on a backend blip.
+      setLastRefreshFailureKind('auth_failed')
+
+      fetchMock()
+        .mockResolvedValueOnce(responseStub({ ok: false, status: 401, json: async () => ({}) }))
+        .mockResolvedValueOnce(
+          responseStub({
+            ok: false,
+            status: 503,
+            json: async () => ({ message: 'Database temporarily unavailable' }),
+          })
+        )
+
+      const { checkSession } = useAuthStore.getState()
+      const user = await checkSession()
+
+      expect(user).toEqual(currentUser)
+      expect(useAuthStore.getState().user).toEqual(currentUser)
+      expect(getLastRefreshFailureKind()).toBe('transient')
+    })
+
+    it('STILL logs out when the refresh is genuinely rejected (401 = refresh token expired)', async () => {
+      // The one case that must still clear the session: a definitive auth
+      // rejection on the refresh itself.
+      fetchMock()
+        .mockResolvedValueOnce(responseStub({ ok: false, status: 401, json: async () => ({}) }))
+        .mockResolvedValueOnce(
+          responseStub({
+            ok: false,
+            status: 401,
+            json: async () => ({ message: 'Refresh token expired' }),
+          })
+        )
+
+      const { checkSession } = useAuthStore.getState()
+      const user = await checkSession()
+
+      expect(user).toBeNull()
+      expect(useAuthStore.getState().user).toBeNull()
     })
   })
 

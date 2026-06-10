@@ -21,7 +21,13 @@ import {
   type MercuryAuthBootstrap,
 } from '@/utils/auth/mercury-auth-bootstrap'
 import { extractAuthMeUserPayload } from '@/utils/auth/parse-auth-me-response'
-import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
+import {
+  awaitRefreshOk,
+  classifyRefreshStatus,
+  getActiveRefreshPromise,
+  type RefreshOutcome,
+  setActiveRefreshPromise,
+} from '@/utils/auth/refreshMutex'
 import {
   CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
   fetchWithTimeoutClient,
@@ -550,9 +556,9 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
     }
     const existing = getActiveRefreshPromise()
     if (existing) {
-      return existing
+      return awaitRefreshOk(existing)
     }
-    const promise = (async () => {
+    const promise = (async (): Promise<RefreshOutcome> => {
       try {
         const response = await fetchWithTimeoutClient('/api/auth/refresh', {
           method: 'POST',
@@ -563,16 +569,19 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         })
         if (response.ok) {
           markRefreshCompleted()
+          return { ok: true, kind: 'none' }
         }
-        return response.ok
+        // Only a definitive 401/403 may clear a session shared via the mutex
+        // (e.g. checkSession); transient 5xx preserves it.
+        return { ok: false, kind: classifyRefreshStatus(response.status) }
       } catch {
-        return false
+        return { ok: false, kind: 'transient' }
       } finally {
         setActiveRefreshPromise(null)
       }
     })()
     setActiveRefreshPromise(promise)
-    return promise
+    return awaitRefreshOk(promise)
   }
 
   /**

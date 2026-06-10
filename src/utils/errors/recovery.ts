@@ -6,7 +6,13 @@
 
 import { markRefreshCompleted, wasRefreshedRecently } from '../auth/cross-tab-refresh'
 import { getLogoutAbortSignal } from '../auth/logout-abort'
-import { getActiveRefreshPromise, setActiveRefreshPromise } from '../auth/refreshMutex'
+import {
+  awaitRefreshOk,
+  classifyRefreshStatus,
+  getActiveRefreshPromise,
+  type RefreshOutcome,
+  setActiveRefreshPromise,
+} from '../auth/refreshMutex'
 import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS, fetchWithTimeoutClient } from '../auth-fetch-timeout'
 import { apiLogger } from '../logger'
 import { AppError } from './types'
@@ -226,9 +232,9 @@ export class ErrorRecoveryManager {
           }
           const existing = getActiveRefreshPromise()
           if (existing) {
-            return existing
+            return awaitRefreshOk(existing)
           }
-          const promise = (async () => {
+          const promise = (async (): Promise<RefreshOutcome> => {
             try {
               const response = await fetchWithTimeoutClient('/api/auth/refresh', {
                 method: 'POST',
@@ -238,14 +244,18 @@ export class ErrorRecoveryManager {
               })
               if (response.ok) {
                 markRefreshCompleted()
+                return { ok: true, kind: 'none' }
               }
-              return response.ok
+              // Classify for any awaiter sharing this promise via the mutex
+              // (e.g. checkSession): only a definitive 401/403 may clear the
+              // session; everything else is transient.
+              return { ok: false, kind: classifyRefreshStatus(response.status) }
             } finally {
               setActiveRefreshPromise(null)
             }
           })()
           setActiveRefreshPromise(promise)
-          return promise
+          return awaitRefreshOk(promise)
         } catch {
           window.location.href = '/login'
           return false
