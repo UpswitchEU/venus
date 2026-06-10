@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearLastRefreshAt } from '../../utils/auth/cross-tab-refresh'
 import { setActiveRefreshPromise } from '../../utils/auth/refreshMutex'
 import { clearAuthCache } from '../auth/authCache'
-import { useAuthStore } from '../auth/store'
+import { useAuthStore, wasLastSessionCheckTransient } from '../auth/store'
 import { useAuth } from '../auth/useAuth'
 
 function fetchMock() {
@@ -368,6 +368,72 @@ describe('Authentication Module', () => {
 
       expect(user).toBeNull()
       expect(useAuthStore.getState().user).toBeNull()
+    })
+  })
+
+  describe('Session-check transient verdict (wasLastSessionCheckTransient)', () => {
+    // AuthGate reads this to tell "temporarily unverifiable" (show a retry)
+    // apart from "definitively logged out" (eject to login) when there is no
+    // cached user — so a pool-pressure blip never bounces a cookie-valid user.
+    beforeEach(() => {
+      clearLastRefreshAt()
+      setActiveRefreshPromise(null)
+      useAuthStore.setState({ user: null, loading: false, error: null })
+    })
+
+    it('arms the flag when a cold-load /me 503s with no cached user', async () => {
+      fetchMock().mockResolvedValueOnce(
+        responseStub({ ok: false, status: 503, json: async () => ({}) })
+      )
+
+      const user = await useAuthStore.getState().checkSession()
+
+      expect(user).toBeNull()
+      expect(wasLastSessionCheckTransient()).toBe(true)
+    })
+
+    it('arms the flag when a cold-load /me throws (network/timeout)', async () => {
+      fetchMock().mockRejectedValueOnce(new Error('The operation timed out'))
+
+      const user = await useAuthStore.getState().checkSession()
+
+      expect(user).toBeNull()
+      expect(wasLastSessionCheckTransient()).toBe(true)
+    })
+
+    it('does NOT arm the flag on a definitive logout (/me 401 → /refresh 401)', async () => {
+      fetchMock()
+        .mockResolvedValueOnce(responseStub({ ok: false, status: 401, json: async () => ({}) }))
+        .mockResolvedValueOnce(
+          responseStub({ ok: false, status: 401, json: async () => ({ message: 'expired' }) })
+        )
+
+      const user = await useAuthStore.getState().checkSession()
+
+      expect(user).toBeNull()
+      // Definitive rejection → AuthGate should eject, not show a retry.
+      expect(wasLastSessionCheckTransient()).toBe(false)
+    })
+
+    it('does NOT arm the flag on a successful auth, and a later transient supersedes it', async () => {
+      const mockUser = { id: 'u1', email: 'a@b.com', name: 'A', role: 'user' }
+      fetchMock().mockResolvedValueOnce(
+        responseStub({ ok: true, json: async () => ({ success: true, data: { user: mockUser } }) })
+      )
+
+      const user = await useAuthStore.getState().checkSession()
+
+      expect(user).toEqual(mockUser)
+      expect(wasLastSessionCheckTransient()).toBe(false)
+
+      // A subsequent transient probe re-arms the flag (no stale-false leak).
+      clearAuthCache()
+      useAuthStore.setState({ user: null })
+      fetchMock().mockResolvedValueOnce(
+        responseStub({ ok: false, status: 503, json: async () => ({}) })
+      )
+      await useAuthStore.getState().checkSession()
+      expect(wasLastSessionCheckTransient()).toBe(true)
     })
   })
 

@@ -14,7 +14,7 @@ export { clearAuthCache } from './auth/authCache'
 export { isClientContextReady, waitForClientContext } from './auth/clientContextGate'
 export { clearInitThrottle, clearReloadCounter } from './auth/initGuards'
 export { getInitTraceId } from './auth/initRuntime'
-export { useAuthStore } from './auth/store'
+export { useAuthStore, wasLastSessionCheckTransient } from './auth/store'
 export { useAuth } from './auth/useAuth'
 
 import { initializeAuth } from './auth/initializeAuth'

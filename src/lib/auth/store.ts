@@ -56,6 +56,22 @@ interface AuthState {
 let checkSessionPromise: Promise<User | null> | null = null
 let venusLogoutNavigationPending = false
 
+/**
+ * Sticky verdict from the most recent COMPLETED `checkSession()` network probe:
+ * `true` when it ended on a TRANSIENT failure (5xx/408/429/network/timeout) —
+ * i.e. the auth service could neither confirm nor deny the cookies. Consumers
+ * (AuthGate) read this to tell "temporarily unverifiable" apart from
+ * "definitively logged out" when there is no cached user: a transient cold load
+ * must show a retry, never a Mercury login eject (2026-06-10 pool-pressure
+ * incident). Mirrors the module-level `lastClientTokenExchangeFailure` getter in
+ * AuthResolver. Single-flight (`checkSessionPromise`) means no read/write race.
+ */
+let lastSessionCheckWasTransient = false
+
+export function wasLastSessionCheckTransient(): boolean {
+  return lastSessionCheckWasTransient
+}
+
 function abortCheckSessionIfLoggingOut(): boolean {
   return typeof window !== 'undefined' && !!window.__isLoggingOut
 }
@@ -142,6 +158,10 @@ export const useAuthStore = create<AuthState>()(
         }
 
         checkSessionPromise = (async () => {
+          // A fresh probe supersedes any prior transient verdict; only the
+          // transient branches below re-arm it. Success and a definitive 401
+          // both leave it false.
+          lastSessionCheckWasTransient = false
           try {
             const response = await fetchWithTimeoutClient('/api/auth/me', {
               method: 'GET',
@@ -254,6 +274,7 @@ export const useAuthStore = create<AuthState>()(
                     logAuthError('Post-refresh auth check temporarily unavailable', {
                       status: retryResponse.status,
                     })
+                    lastSessionCheckWasTransient = true
                     set({ loading: false, error: null })
                     return currentUser
                   } else {
@@ -271,6 +292,7 @@ export const useAuthStore = create<AuthState>()(
                   // let the next check retry once the pool recovers.
                   const currentUser = get().user
                   logAuthError('Token refresh temporarily unavailable — preserving session', {})
+                  lastSessionCheckWasTransient = true
                   set({ loading: false, error: null })
                   return currentUser
                 } else {
@@ -309,6 +331,7 @@ export const useAuthStore = create<AuthState>()(
               logAuthError('Auth check temporarily unavailable', { status: response.status })
               trackAuthFailure(`auth_check_${response.status}`, { method: 'cookie' })
               authMetrics.recordFailure()
+              lastSessionCheckWasTransient = true
               set({ loading: false, error: null })
               return currentUser
             }
@@ -321,6 +344,10 @@ export const useAuthStore = create<AuthState>()(
             logAuthError('Session check failed', { error: errorMessage })
             trackAuthFailure(errorMessage, { method: 'cookie' })
             authMetrics.recordFailure()
+            // A throw is a network drop / timeout / abort reaching the BFF —
+            // transient, NOT an auth verdict. Mark it so a cold load (no cached
+            // user) shows a retry instead of ejecting to login.
+            lastSessionCheckWasTransient = true
 
             // A throw here is a network failure / timeout / abort reaching the
             // BFF — transient, NOT an auth verdict (a real logout returns 401,

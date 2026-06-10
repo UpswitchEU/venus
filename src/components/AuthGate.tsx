@@ -25,7 +25,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
 import type { User } from '../contexts/AuthContextTypes'
 import { useLanguageSync } from '../hooks/useLanguageSync'
-import { clearInitThrottle, clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
+import {
+  clearInitThrottle,
+  clearReloadCounter,
+  getInitTraceId,
+  useAuthStore,
+  wasLastSessionCheckTransient,
+} from '../lib/auth'
 import {
   clearLastClientTokenExchangeFailure,
   getLastClientTokenExchangeFailure,
@@ -400,6 +406,20 @@ export function AuthGate({
       settle('redirect', buildLoginUrl())
     }
 
+    // No confirmed user. Eject to Mercury login ONLY when the session was
+    // definitively rejected. A TRANSIENT auth-probe failure (5xx/408/429/
+    // network/timeout) means the service could not verify cookies that may well
+    // be valid — surface a retryable card instead of bouncing a cookie-valid
+    // user to login mid-session (2026-06-10 pool-pressure incident). The card
+    // still offers "Log In", so a genuinely logged-out user is never stuck.
+    function handleNoUser() {
+      if (wasLastSessionCheckTransient()) {
+        settle('error', tRef.current('temporarilyUnavailable'))
+        return
+      }
+      redirectToLogin()
+    }
+
     function checkAuth() {
       if (wasAuthReady) return
       // Navigational logout clears the user before the document unloads; do not
@@ -424,9 +444,10 @@ export function AuthGate({
           return
         }
 
-        // Unauthenticated users → login redirect; authenticated users → error UI
+        // No confirmed user → eject only if definitively logged out (transient
+        // failures get a retry); authenticated users → error UI.
         if (!useAuthStore.getState().user) {
-          redirectToLogin()
+          handleNoUser()
         } else {
           settle('error', authError)
         }
@@ -469,7 +490,7 @@ export function AuthGate({
       // Final gate: must have a user
       const user = useAuthStore.getState().user
       if (!user) {
-        redirectToLogin()
+        handleNoUser()
         return
       }
 

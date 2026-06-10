@@ -1129,7 +1129,8 @@
 			"logIn": "Connectez-vous",
 			"tryAgain": "Réessayez",
 			"goBack": "Retourner",
-			"timeout": "Le contrôle d'authentification a expiré. Veuillez actualiser la page."
+			"timeout": "Le contrôle d'authentification a expiré. Veuillez actualiser la page.",
+			"temporarilyUnavailable": "Nous n'avons pas pu vérifier votre session pour le moment. Veuillez réessayer dans un instant."
 		}
 	},
 	"calculator": {

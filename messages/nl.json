@@ -1129,7 +1129,8 @@
 			"logIn": "Inloggen",
 			"tryAgain": "Opnieuw proberen",
 			"goBack": "Terug",
-			"timeout": "Authenticatiecontrole timed out. Vernieuw de pagina."
+			"timeout": "Authenticatiecontrole timed out. Vernieuw de pagina.",
+			"temporarilyUnavailable": "We konden je sessie nu niet verifiëren. Probeer het zo meteen opnieuw."
 		}
 	},
 	"calculator": {

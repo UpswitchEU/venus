@@ -1129,7 +1129,8 @@
 			"logIn": "Log In",
 			"tryAgain": "Try Again",
 			"goBack": "Go Back",
-			"timeout": "Authentication check timed out. Please refresh the page."
+			"timeout": "Authentication check timed out. Please refresh the page.",
+			"temporarilyUnavailable": "We couldn't verify your session right now. Please try again in a moment."
 		}
 	},
 	"calculator": {
