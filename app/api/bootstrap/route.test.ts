@@ -213,4 +213,49 @@ describe('POST /api/bootstrap', () => {
     expect(mocks.fetchWithTimeout.mock.calls[1]?.[0]).toContain('/auth/refresh')
     expect(mocks.fetchWithTimeout.mock.calls[2]?.[0]).toContain('/valuations/bootstrap')
   })
+
+  it('returns 401 when the post-401 refresh is a definitive auth rejection (403)', async () => {
+    mocks.fetchWithTimeout
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: 'Unauthorized' }))
+      .mockResolvedValueOnce(jsonResponse(403, { success: false, error: 'Forbidden' }))
+
+    const res = await POST(makeRequest({ reportId: 'rep-1' }))
+    const payload = await res.json()
+
+    // A genuinely-invalid session still ejects to login (correct).
+    expect(res.status).toBe(401)
+    expect(payload.error).toBe('Session expired')
+    // bootstrap (401) + refresh (403), no retry of bootstrap.
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledTimes(2)
+    expect(mocks.fetchWithTimeout.mock.calls[1]?.[0]).toContain('/auth/refresh')
+  })
+
+  it('returns 503 (not 401) when the post-401 refresh fails transiently (Titan 5xx)', async () => {
+    mocks.fetchWithTimeout
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: 'Unauthorized' }))
+      .mockResolvedValueOnce(jsonResponse(503, { success: false, error: 'Service Unavailable' }))
+
+    const res = await POST(makeRequest({ reportId: 'rep-1' }))
+    const payload = await res.json()
+
+    // 503 → SessionBootstrapService maps to a retryable timeout state, NOT a
+    // Mercury login redirect. A cookie-valid advisor is never ejected because
+    // the auth service was momentarily unavailable under pool pressure.
+    expect(res.status).toBe(503)
+    expect(payload.error).toBe('Authentication temporarily unavailable')
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns 503 (not 401) when the post-401 refresh hop times out', async () => {
+    mocks.fetchWithTimeout
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: 'Unauthorized' }))
+      .mockRejectedValueOnce(new AuthUpstreamTimeoutError('api.upswitch.app'))
+
+    const res = await POST(makeRequest({ reportId: 'rep-1' }))
+    const payload = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(payload.error).toBe('Authentication temporarily unavailable')
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledTimes(2)
+  })
 })

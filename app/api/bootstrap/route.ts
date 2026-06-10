@@ -16,6 +16,7 @@ import {
   remainingBootstrapRouteBudgetMs,
   VENUS_BOOTSTRAP_TOKEN_REFRESH_TIMEOUT_MS,
 } from '@/lib/bootstrap/bootstrapProxyTimeouts'
+import { classifyRefreshStatus } from '@/utils/auth/refreshMutex'
 import {
   AuthUpstreamTimeoutError,
   getBffCookieHeaderForTitan,
@@ -34,12 +35,19 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 /**
- * Attempt to refresh the access token and return new cookies
+ * Attempt to refresh the access token and return new cookies.
+ *
+ * `transient` distinguishes a definitive auth rejection (refresh token
+ * genuinely invalid → the user must log in again) from transient backend
+ * unavailability (Titan 5xx/408/429 under pool pressure, or a timeout/network
+ * drop → the session is still valid, just retry). The caller MUST NOT convert a
+ * transient failure into a 401: doing so ejected a cookie-valid advisor to the
+ * Mercury login page during the 2026-06-10 pool-exhaustion incident.
  */
 async function tryRefreshToken(
   request: NextRequest,
   timeoutMs: number
-): Promise<{ success: boolean; newCookies: string[] }> {
+): Promise<{ success: boolean; newCookies: string[]; transient: boolean }> {
   try {
     const titanApiUrl = getTitanApiUrl(request)
     const { cookieHeader, refreshTokenFromStore } = await getBffCookieHeaderForTitan(request)
@@ -58,10 +66,14 @@ async function tryRefreshToken(
     )
 
     if (!refreshResponse.ok) {
+      // Only a definitive 401/403 is an auth verdict; everything else
+      // (5xx/408/429/unknown) is the auth service being unavailable.
+      const transient = classifyRefreshStatus(refreshResponse.status) !== 'auth_failed'
       generalLogger.warn('[Bootstrap Route] Token refresh failed', {
         status: refreshResponse.status,
+        transient,
       })
-      return { success: false, newCookies: [] }
+      return { success: false, newCookies: [], transient }
     }
 
     const newCookies = getResponseSetCookieList(refreshResponse)
@@ -69,12 +81,13 @@ async function tryRefreshToken(
       newCookiesCount: newCookies.length,
     })
 
-    return { success: true, newCookies }
+    return { success: true, newCookies, transient: false }
   } catch (error) {
+    // A thrown refresh (timeout/abort/network drop) never saw an auth verdict.
     generalLogger.error('[Bootstrap Route] Token refresh error', {
       error: error instanceof Error ? error.message : String(error),
     })
-    return { success: false, newCookies: [] }
+    return { success: false, newCookies: [], transient: true }
   }
 }
 
@@ -262,6 +275,25 @@ export async function POST(request: NextRequest) {
 
         const retryCookies = getResponseSetCookieList(response)
         allSetCookieHeaders.push(...retryCookies)
+      } else if (refreshResult.transient) {
+        // The refresh hop could not complete because Titan was transiently
+        // unavailable (5xx/408/429/timeout), NOT because the session is
+        // invalid. Returning 401 here would make SessionBootstrapService throw
+        // AuthenticationRequiredError → a hard redirect to Mercury login for a
+        // cookie-valid user. Return 503 instead, which the client maps to a
+        // retryable "temporarily unavailable" state.
+        generalLogger.warn(
+          '[Bootstrap Route] Token refresh temporarily unavailable - returning 503 (not a logout)'
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Authentication temporarily unavailable',
+            message: 'Could not verify your session right now. Please try again in a moment.',
+            bootstrapDurationMs: Date.now() - startTime,
+          },
+          { status: 503 }
+        )
       } else {
         generalLogger.warn('[Bootstrap Route] Token refresh failed - returning 401')
         return NextResponse.json(
