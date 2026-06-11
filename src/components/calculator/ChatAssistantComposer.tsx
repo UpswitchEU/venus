@@ -107,7 +107,7 @@ export function ChatAssistantComposer({
                   {index > 0 && <span className="text-foreground/25 mx-1.5">·</span>}
                   {label}
                   <span className="text-foreground/35"> → </span>€
-                  {item.value.toLocaleString(currencyLocale)}
+                  {Math.round(item.value).toLocaleString(currencyLocale)}
                 </span>
               )
             })}

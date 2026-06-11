@@ -40,11 +40,13 @@ export function ChatAssistantMarketplaceProposalCards({
             const isApproved = req.decision === 'approved'
             const summary = req.valuationSummary
             const ccy = summary?.currency ?? 'EUR'
+            // Whole euros — the engine emits float artifacts (739316.805)
+            // and chat cards must never show sub-euro precision.
             const fmt = (value: string | number | null | undefined) => {
               if (value == null || value === '') return null
               const n = Number(value)
               if (Number.isFinite(n)) {
-                return `${ccy === 'EUR' ? '€' : `${ccy} `}${n.toLocaleString(currencyLocale)}`
+                return `${ccy === 'EUR' ? '€' : `${ccy} `}${Math.round(n).toLocaleString(currencyLocale)}`
               }
               return String(value)
             }

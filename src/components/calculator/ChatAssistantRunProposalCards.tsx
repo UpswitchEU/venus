@@ -56,11 +56,11 @@ export function ChatAssistantRunProposalCards({
             const summaryBits: string[] = []
             if (revenueNum !== null)
               summaryBits.push(
-                `${ca('proposalCards.valuation.labelRevenue')} €${revenueNum.toLocaleString(currencyLocale)}`
+                `${ca('proposalCards.valuation.labelRevenue')} €${Math.round(revenueNum).toLocaleString(currencyLocale)}`
               )
             if (ebitdaForDisplay !== null)
               summaryBits.push(
-                `EBITDA${ebitdaNormNum ? '*' : ''} €${ebitdaForDisplay.toLocaleString(currencyLocale)}`
+                `EBITDA${ebitdaNormNum ? '*' : ''} €${Math.round(ebitdaForDisplay).toLocaleString(currencyLocale)}`
               )
             if (summary?.business_type) summaryBits.push(summary.business_type)
             if (summary && summary.applied_normalizations > 0)
@@ -134,9 +134,11 @@ export function ChatAssistantRunProposalCards({
             const isApproved = req.decision === 'approved'
             const result = req.resultSummary
             const ccy = result?.currency ?? 'EUR'
+            // Whole euros — the engine emits float artifacts (739316.805)
+            // and chat cards must never show sub-euro precision.
             const fmt = (n: number | null | undefined) =>
               n != null && Number.isFinite(n)
-                ? `${ccy === 'EUR' ? '€' : `${ccy} `}${Number(n).toLocaleString(currencyLocale)}`
+                ? `${ccy === 'EUR' ? '€' : `${ccy} `}${Math.round(Number(n)).toLocaleString(currencyLocale)}`
                 : null
             const midpoint = fmt(result?.midpoint)
             const min = fmt(result?.min)

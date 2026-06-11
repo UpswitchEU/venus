@@ -30,7 +30,10 @@ export function formatManualParsedCommandResponse(args: {
   const currencyLocale =
     args.currentLocale === 'fr' ? 'fr-BE' : args.currentLocale === 'en' ? 'en-BE' : 'nl-BE'
   const commandsList = args.parsedCommands
-    .map((command) => `- **${command.label}** → €${command.value.toLocaleString(currencyLocale)}`)
+    .map(
+      (command) =>
+        `- **${command.label}** → €${Math.round(command.value).toLocaleString(currencyLocale)}`
+    )
     .join('\n')
 
   return `${args.heading}\n\n${commandsList}`

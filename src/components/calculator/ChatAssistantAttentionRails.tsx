@@ -215,7 +215,7 @@ export function PendingFieldUpdatesCard({
               </span>
               <span className="font-mono text-foreground/65 tabular-nums">
                 {typeof update.value === 'number'
-                  ? `€${update.value.toLocaleString(currencyLocale)}`
+                  ? `€${Math.round(update.value).toLocaleString(currencyLocale)}`
                   : String(update.value ?? '')}
               </span>
               <span className="flex items-center gap-2 text-xs shrink-0">

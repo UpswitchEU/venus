@@ -320,7 +320,7 @@ export function MessageBubble({
               if (confidenceLabel) meta.push(confidenceLabel)
               if (update.impact)
                 meta.push(
-                  `+€${update.impact.valuationDelta.toLocaleString(currencyLocale)} ${ca('impactOnValue').toLowerCase()}`
+                  `+€${Math.round(update.impact.valuationDelta).toLocaleString(currencyLocale)} ${ca('impactOnValue').toLowerCase()}`
                 )
 
               return (
@@ -329,7 +329,7 @@ export function MessageBubble({
                     {update.label}
                     <span className="text-foreground/35 mx-1.5">·</span>
                     <span className="font-mono">
-                      €{update.value.toLocaleString(currencyLocale)}
+                      €{Math.round(update.value).toLocaleString(currencyLocale)}
                     </span>
                   </p>
                   {meta.length > 0 && (
@@ -380,8 +380,8 @@ export function MessageBubble({
                   {isPending && (
                     <p className="text-foreground/55 text-xs mt-1 font-mono">
                       {ca('impactEbitdaToValue', {
-                        ebitda: suggestion.amount.toLocaleString(currencyLocale),
-                        value: valuationImpact.toLocaleString(currencyLocale),
+                        ebitda: Math.round(suggestion.amount).toLocaleString(currencyLocale),
+                        value: Math.round(valuationImpact).toLocaleString(currencyLocale),
                       })}
                     </p>
                   )}

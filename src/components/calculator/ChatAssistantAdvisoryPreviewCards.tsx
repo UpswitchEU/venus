@@ -268,7 +268,7 @@ export function ChatAssistantAdvisoryPreviewCards({
             const isBlocked = bootstrap.status === 'blocked' || bootstrap.status === 'failed'
             const fmtEuros = (value: number | null | undefined) =>
               value != null && Number.isFinite(Number(value))
-                ? `€${Number(value).toLocaleString(currencyLocale)}`
+                ? `€${Math.round(Number(value)).toLocaleString(currencyLocale)}`
                 : null
             const summaryBits: string[] = []
             if (bootstrap.identity?.legalName) summaryBits.push(bootstrap.identity.legalName)

@@ -100,5 +100,5 @@ export function formatManualChatFieldUpdateValue(value: unknown, currentLocale: 
   if (typeof value !== 'number') return String(value)
   const currencyLocale =
     currentLocale === 'fr' ? 'fr-BE' : currentLocale === 'en' ? 'en-BE' : 'nl-BE'
-  return `€${value.toLocaleString(currencyLocale)}`
+  return `€${Math.round(value).toLocaleString(currencyLocale)}`
 }
