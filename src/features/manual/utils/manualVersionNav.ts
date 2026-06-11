@@ -31,6 +31,11 @@ function hasUsableNavPrices(prices: NavVersionPrices): boolean {
   return prices.askPrice > 0 || prices.priceRange.min > 0 || prices.priceRange.max > 0
 }
 
+function midpointFromRange(min: number | null, max: number | null): number | null {
+  if (min == null || max == null || min <= 0 || max <= 0) return null
+  return Math.round((min + max) / 2)
+}
+
 function pricesFromCurrentSummary(
   summary: CurrentValuationSummary | undefined,
   report: ValuationReportData | null
@@ -40,8 +45,9 @@ function pricesFromCurrentSummary(
     const min = finiteNumber(summary.priceRange?.min)
     const max = finiteNumber(summary.priceRange?.max)
     if (askPrice != null && min != null && max != null) {
+      const fallbackAsk = midpointFromRange(min, max)
       return {
-        askPrice,
+        askPrice: askPrice > 0 ? askPrice : (fallbackAsk ?? askPrice),
         priceRange: { min, max },
       }
     }
@@ -50,13 +56,18 @@ function pricesFromCurrentSummary(
   if (!report) return null
 
   const valuation = finiteNumber(report.valuation) ?? 0
-  const askPrice = finiteNumber(report.recommendedAskingPrice) ?? valuation
+  const min = finiteNumber(report.valuationLow) ?? Math.round(valuation * 0.85)
+  const max = finiteNumber(report.valuationHigh) ?? Math.round(valuation * 1.15)
+  const recommendedAskingPrice = finiteNumber(report.recommendedAskingPrice)
+  const askPrice =
+    recommendedAskingPrice != null && recommendedAskingPrice > 0
+      ? recommendedAskingPrice
+      : valuation > 0
+        ? valuation
+        : (midpointFromRange(min, max) ?? valuation)
   return {
     askPrice,
-    priceRange: {
-      min: finiteNumber(report.valuationLow) ?? Math.round(valuation * 0.85),
-      max: finiteNumber(report.valuationHigh) ?? Math.round(valuation * 1.15),
-    },
+    priceRange: { min, max },
   }
 }
 

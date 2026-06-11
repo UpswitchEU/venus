@@ -172,6 +172,16 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function toPositiveFiniteNumber(value: unknown): number | null {
+  const numeric = toFiniteNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
+}
+
+function midpointFromPositiveRange(low: number | null, high: number | null): number | null {
+  if (low == null || high == null || low <= 0 || high <= 0) return null
+  return Math.round((low + high) / 2)
+}
+
 function toFiniteNumberArray(value: unknown): number[] | null {
   if (!Array.isArray(value)) return null
   const normalized = value.map(toFiniteNumber)
@@ -593,19 +603,29 @@ function synthesizeMinimalValuationResultsMap(
   const reportContext = rc ?? {}
   const nested = nestedRecord(valuationResult, 'valuation_result')
 
-  const equityMid =
-    toFiniteNumber(reportContext.equity_value) ??
-    toFiniteNumber(reportContext.equity_value_mid) ??
-    toFiniteNumber(valuationResult.equity_value_mid) ??
-    toFiniteNumber(valuationResult.valuation_midpoint) ??
-    toFiniteNumber(nested?.equity_value_mid) ??
+  const equityLow =
+    toFiniteNumber(reportContext.equity_value_low) ??
+    toFiniteNumber(valuationResult.equity_value_low) ??
+    toFiniteNumber(nested?.equity_value_low) ??
     null
+  const equityHigh =
+    toFiniteNumber(reportContext.equity_value_high) ??
+    toFiniteNumber(valuationResult.equity_value_high) ??
+    toFiniteNumber(nested?.equity_value_high) ??
+    null
+  const equityMid =
+    toPositiveFiniteNumber(reportContext.equity_value) ??
+    toPositiveFiniteNumber(reportContext.equity_value_mid) ??
+    toPositiveFiniteNumber(valuationResult.equity_value_mid) ??
+    toPositiveFiniteNumber(valuationResult.valuation_midpoint) ??
+    toPositiveFiniteNumber(nested?.equity_value_mid) ??
+    midpointFromPositiveRange(equityLow, equityHigh)
 
   const enterpriseMid =
-    toFiniteNumber(reportContext.valuation) ??
-    toFiniteNumber(reportContext.enterprise_value_mid) ??
-    toFiniteNumber(valuationResult.enterprise_value_mid) ??
-    toFiniteNumber(nested?.enterprise_value_mid) ??
+    toPositiveFiniteNumber(reportContext.valuation) ??
+    toPositiveFiniteNumber(reportContext.enterprise_value_mid) ??
+    toPositiveFiniteNumber(valuationResult.enterprise_value_mid) ??
+    toPositiveFiniteNumber(nested?.enterprise_value_mid) ??
     null
 
   const multiple =
@@ -622,14 +642,6 @@ function synthesizeMinimalValuationResultsMap(
   const methodKey = resolveSelectedMethodForSynthesis(valuationResult, context)
   const currentRevenue = extractRevenueForMethodEligibility(valuationResult, reportContext, nested)
 
-  const equityLow =
-    toFiniteNumber(reportContext.equity_value_low) ??
-    toFiniteNumber(valuationResult.equity_value_low) ??
-    null
-  const equityHigh =
-    toFiniteNumber(reportContext.equity_value_high) ??
-    toFiniteNumber(valuationResult.equity_value_high) ??
-    null
   const multipleLow = toFiniteNumber(reportContext.multiple_low)
   const multipleHigh = toFiniteNumber(reportContext.multiple_high)
 
@@ -811,9 +823,9 @@ export function normalizeValuationResultWithMethodMap(
   const map = extractValuationResultsMap(value, null)
   if (!map) return value
 
-  const withMap = hasNonEmptyValuationResults(value)
-    ? value
-    : { ...value, valuation_results: map }
+  const withMap = hasNonEmptyValuationResults(value) ? value : { ...value, valuation_results: map }
 
-  return normalizeValuationResultEnvelope(withMap as unknown as ValuationResponse) as unknown as UnknownRecord
+  return normalizeValuationResultEnvelope(
+    withMap as unknown as ValuationResponse
+  ) as unknown as UnknownRecord
 }

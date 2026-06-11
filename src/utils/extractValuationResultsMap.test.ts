@@ -446,6 +446,29 @@ describe('extractValuationResultsMap', () => {
     expect(out?.upswitch_adaptive?.multiple_used).toBe(4.2)
   })
 
+  it('ignores zero midpoint when synthesizing from a positive valuation range', () => {
+    const payload = {
+      valuation_results: {},
+      details: { valuation_results: {} },
+      report_context: {
+        equity_value_low: 12_800_000,
+        equity_value_mid: 0,
+        equity_value_high: 18_400_000,
+        applied_multiple: 4.2,
+      },
+    }
+
+    const out = extractValuationResultsMap(payload, {
+      selectedValuationMethod: 'upswitch_adaptive',
+    })
+
+    expect(out?.upswitch_adaptive?.value).toBe(15_600_000)
+    expect(out?.upswitch_adaptive?.details).toMatchObject({
+      equity_range_low: 12_800_000,
+      equity_range_high: 18_400_000,
+    })
+  })
+
   it('marks synthesized revenue methods unavailable when payload revenue is zero', () => {
     const payload = {
       valuation_results: {},

@@ -1,4 +1,5 @@
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
+import { getFinalValuation } from '@/utils/valuationResultAccess'
 
 export interface ManualLiveMultiplePreview {
   previewEquity: number
@@ -30,6 +31,11 @@ function readOptionalFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+function readPositiveFiniteNumber(value: unknown): number | null {
+  const numeric = readOptionalFiniteNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
+}
+
 function sumBalanceSheetAdjustments(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (!Array.isArray(value)) return 0
@@ -56,7 +62,9 @@ export function buildManualLiveMultiplePreview({
   const balanceSheetAdj = sumBalanceSheetAdjustments(
     details?.balance_sheet_adjustments ?? resultRecord?.balance_sheet_adjustments
   )
-  const currentHeadline = readFiniteNumber(report?.valuation ?? resultRecord?.equity_value_mid ?? 0)
+  const currentHeadline = readFiniteNumber(
+    readPositiveFiniteNumber(report?.valuation) ?? getFinalValuation(resultRecord) ?? 0
+  )
   const appliedMultiple = readOptionalFiniteNumber(appliedMedian)
   const resultMultiples = asRecord(resultRecord?.multiples_valuation)
   const benchmarkMultiple =

@@ -49,6 +49,27 @@ describe('manualLiveMultiplePreview', () => {
     })
   })
 
+  it('computes delta from a positive range midpoint when the headline is zero', () => {
+    expect(
+      buildManualLiveMultiplePreview({
+        report: { htmlReport: '<main>report</main>', valuation: 0 },
+        methodAcceptsOverride: true,
+        appliedMedian: 6,
+        benchmarkMedian: 5,
+        result: {
+          ebitda: 80_000,
+          net_debt: 20_000,
+          equity_value_low: 360_000,
+          equity_value_mid: 0,
+          equity_value_high: 440_000,
+        },
+      })
+    ).toMatchObject({
+      previewEquity: 460_000,
+      delta: 60_000,
+    })
+  })
+
   it('returns null when preview inputs are not actionable', () => {
     const base = {
       result: { ebitda: 100_000 },

@@ -128,6 +128,53 @@ describe('useSynthesisReportHeadlineSync', () => {
     expect(updater({ valuation: 384_000 } as ValuationReportData).valuation).toBe(567_771)
   })
 
+  it('repairs a zero recommendedAskingPrice from a positive method-only headline', () => {
+    const setReport = vi.fn()
+    useManualResultsStore.setState({
+      preSelectedMethods: ['dcf'],
+      userWeights: {},
+    } as Parameters<typeof useManualResultsStore.setState>[0])
+
+    const report = {
+      id: 'draft',
+      companyName: 'Co',
+      valuation: 15_600_000,
+      valuationLow: 12_800_000,
+      valuationHigh: 18_400_000,
+      recommendedAskingPrice: 0,
+      ebitda: 10,
+      multiple: 1,
+      generatedAt: new Date(),
+      confidenceLevel: 'low',
+      metrics: [],
+    } as ValuationReportData
+
+    renderHook(() =>
+      useSynthesisReportHeadlineSync({
+        result: {
+          selected_valuation_method: 'dcf',
+          valuation_results: {
+            dcf: {
+              available: true,
+              value: 15_600_000,
+              details: {
+                equity_range_low: 12_800_000,
+                equity_range_high: 18_400_000,
+              },
+            },
+          },
+        } as unknown as ValuationResponse,
+        report,
+        selectedMethod: 'dcf',
+        setReport,
+      })
+    )
+
+    expect(setReport).toHaveBeenCalled()
+    const updater = setReport.mock.calls[0][0] as (prev: ValuationReportData) => ValuationReportData
+    expect(updater(report).recommendedAskingPrice).toBe(15_600_000)
+  })
+
   it('does not update when headline already matches method-only valuation', () => {
     const setReport = vi.fn()
     useManualResultsStore.setState({

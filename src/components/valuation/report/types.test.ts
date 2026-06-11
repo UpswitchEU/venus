@@ -85,4 +85,20 @@ describe('convertApiResponseToReportData', () => {
       actual_capex_years: 2,
     })
   })
+
+  it('derives valuation from a positive range when midpoint and asking price are zero', () => {
+    const report = convertApiResponseToReportData({
+      valuation_id: 'val_123_test',
+      company_name: 'Range BV',
+      equity_value_mid: 0,
+      recommended_asking_price: 0,
+      equity_value_low: 12_800_000,
+      equity_value_high: 18_400_000,
+    })
+
+    expect(report.valuation).toBe(15_600_000)
+    expect(report.valuationLow).toBe(12_800_000)
+    expect(report.valuationHigh).toBe(18_400_000)
+    expect(report.recommendedAskingPrice).toBeUndefined()
+  })
 })

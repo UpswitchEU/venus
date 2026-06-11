@@ -30,6 +30,7 @@ import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import { createRandomId } from '../utils/secureRandom'
+import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
@@ -37,19 +38,7 @@ import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
-type UnknownRecord = Record<string, unknown>
 type PersistedVersionMetadata = ValuationVersion & { _hasHtmlReport?: boolean }
-
-function asRecord(value: unknown): UnknownRecord | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : null
-}
-
-function getFinalValuation(result: unknown): number {
-  const valuationSummary = asRecord(asRecord(result)?.valuation_summary)
-  return coalesceFiniteNumber(valuationSummary?.final_valuation)
-}
 
 /**
  * Storage adapter that catches QuotaExceededError and gracefully degrades.
@@ -809,8 +798,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           vB.valuationResult &&
           typeof vB.valuationResult === 'object'
             ? (() => {
-                const vAVal = getFinalValuation(vA.valuationResult)
-                const vBVal = getFinalValuation(vB.valuationResult)
+                const vAVal = getAccessibleFinalValuation(vA.valuationResult)
+                const vBVal = getAccessibleFinalValuation(vB.valuationResult)
+                if (vAVal == null || vBVal == null) return null
                 const absoluteChange = vBVal - vAVal
                 const denom = Math.abs(vAVal) > 1e-9 ? Math.abs(vAVal) : null
                 return {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { ValuationResponse } from '../../../types/valuation'
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
@@ -124,6 +125,51 @@ describe('deriveManualReportPresentation', () => {
     expect(presentation.valuationLow).toBe(340000)
     expect(presentation.valuationHigh).toBe(500000)
   })
+
+  it('uses the positive range midpoint when the method row omits a headline value', () => {
+    const result = {
+      selected_valuation_method: 'upswitch_adaptive',
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: null,
+          details: {
+            equity_range_low: 12_800_000,
+            equity_range_high: 18_400_000,
+          },
+        },
+      },
+    } as unknown as ValuationResponse
+
+    const presentation = deriveManualReportPresentation(result, 'upswitch_adaptive')
+
+    expect(presentation.valuation).toBe(15_600_000)
+    expect(presentation.valuationLow).toBe(12_800_000)
+    expect(presentation.valuationHigh).toBe(18_400_000)
+  })
+
+  it('ignores a zero synthesis headline when a positive method range exists', () => {
+    const result = {
+      selected_valuation_method: 'upswitch_adaptive',
+      weighted_valuation: { blended_equity_value: 0 },
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: null,
+          details: {
+            equity_range_low: 12_800_000,
+            equity_range_high: 18_400_000,
+          },
+        },
+      },
+    } as unknown as ValuationResponse
+
+    const presentation = deriveManualReportPresentation(result, 'upswitch_adaptive')
+
+    expect(presentation.valuation).toBe(15_600_000)
+    expect(presentation.valuationLow).toBe(12_800_000)
+    expect(presentation.valuationHigh).toBe(18_400_000)
+  })
 })
 
 describe('resolveSynthesisAwarePresentation', () => {
@@ -238,5 +284,27 @@ describe('deriveNavPricesForVersionNav', () => {
     }
 
     expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive').askPrice).toBe(400000)
+  })
+
+  it('ignores a zero recommended_asking_price when a positive valuation range exists', () => {
+    const result = {
+      selected_valuation_method: 'upswitch_adaptive',
+      recommended_asking_price: 0,
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: null,
+          details: {
+            equity_range_low: 12_800_000,
+            equity_range_high: 18_400_000,
+          },
+        },
+      },
+    } as unknown as ValuationResponse
+
+    const nav = deriveNavPricesForVersionNav(result, 'upswitch_adaptive')
+
+    expect(nav.askPrice).toBe(15_600_000)
+    expect(nav.priceRange).toEqual({ min: 12_800_000, max: 18_400_000 })
   })
 })

@@ -161,4 +161,26 @@ describe('generateContextAwareLocalResponse', () => {
     expect(res.content).toContain('€428.000-€618.000')
     expect(res.content).not.toContain('n.v.t.')
   })
+
+  it('ignores zero valuation and asking price when a positive range is loaded', () => {
+    const res = generateContextAwareLocalResponse({
+      ...base,
+      message: 'Leg de waardering uit',
+      companyName: 'Range BV',
+      assistantIntent: 'explain_value',
+      formData: {
+        _valuationSummary: {
+          valuation: 0,
+          valuationLow: 12_800_000,
+          valuationHigh: 18_400_000,
+          recommendedAskingPrice: 0,
+        },
+      },
+    })
+
+    expect(res.content).toContain('€15.600.000')
+    expect(res.content).toContain('€12.800.000-€18.400.000')
+    expect(res.content).not.toContain('€0')
+    expect(res.content).not.toContain('Aanbevolen vraagprijs')
+  })
 })

@@ -55,6 +55,41 @@ export type {
   ValuationVersion,
 } from './CalculatorNav.types'
 
+type NavDisplaySummary = NonNullable<CalculatorNavProps['valuationSummary']>
+
+function finiteNumber(value: unknown): number | null {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function midpointFromPositiveRange(min: number | null, max: number | null): number | null {
+  if (min == null || max == null || min <= 0 || max <= 0) return null
+  return Math.round((min + max) / 2)
+}
+
+function normalizeNavDisplaySummary(summary: NavDisplaySummary | null): NavDisplaySummary | null {
+  if (!summary) return null
+
+  const min = finiteNumber(summary.priceRange?.min)
+  const max = finiteNumber(summary.priceRange?.max)
+  const askPrice = finiteNumber(summary.askPrice)
+  const inferredAsk = midpointFromPositiveRange(min, max)
+
+  if (askPrice != null && askPrice > 0) {
+    return summary
+  }
+
+  if (inferredAsk != null && min != null && max != null) {
+    return {
+      ...summary,
+      askPrice: inferredAsk,
+      priceRange: { min, max },
+    }
+  }
+
+  return askPrice != null || min != null || max != null ? summary : null
+}
+
 export function CalculatorNav({
   companyName,
   onBack,
@@ -134,7 +169,7 @@ export function CalculatorNav({
     valuationVersions.find((v) => v.isActive) ||
     valuationVersions[0]
   const activeVersionId = activeVersion?.id
-  const displaySummary =
+  const rawDisplaySummary =
     valuationSummary ||
     (activeVersion
       ? {
@@ -143,6 +178,7 @@ export function CalculatorNav({
           confidence: 'high' as const,
         }
       : null)
+  const displaySummary = normalizeNavDisplaySummary(rawDisplaySummary)
 
   const preSelectableMethods = useMemo(() => {
     if (preSelectableMethodsForNavProp != null) {

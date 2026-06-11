@@ -237,6 +237,37 @@ describe('useVersionHistoryStore', () => {
       expect(comparison?.changes.ebitda?.to).toBe(750000)
       expect(comparison?.valuationDelta?.direction).toBe('increase')
     })
+
+    it('compares versions using a positive range midpoint when final valuation is zero', async () => {
+      const { createVersion, compareVersions } = useVersionHistoryStore.getState()
+
+      await createVersion({
+        reportId: 'val_test_123',
+        formData: {} as any,
+        valuationResult: {
+          valuation_summary: { final_valuation: 0 },
+          equity_value_low: 12_800_000,
+          equity_value_mid: 0,
+          equity_value_high: 18_400_000,
+          recommended_asking_price: 0,
+        } as any,
+      })
+
+      await createVersion({
+        reportId: 'val_test_123',
+        formData: {} as any,
+        valuationResult: {
+          valuation_summary: { final_valuation: 20_000_000 },
+        } as any,
+      })
+
+      const comparison = compareVersions('val_test_123', 1, 2)
+
+      expect(comparison?.valuationDelta).toMatchObject({
+        absoluteChange: 4_400_000,
+        direction: 'increase',
+      })
+    })
   })
 
   describe('deleteVersion', () => {

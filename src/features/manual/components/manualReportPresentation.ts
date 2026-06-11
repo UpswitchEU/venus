@@ -42,6 +42,18 @@ function isUsableRow(method: unknown): boolean {
   return v != null && Number.isFinite(Number(v))
 }
 
+function positiveFiniteNumber(value: unknown): number | null {
+  const numeric = coalesceFiniteNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
+}
+
+function midpointFromRange(low: unknown, high: unknown): number | null {
+  const lowValue = positiveFiniteNumber(low)
+  const highValue = positiveFiniteNumber(high)
+  if (lowValue == null || highValue == null) return null
+  return Math.round((lowValue + highValue) / 2)
+}
+
 export type DeriveManualReportPresentationOpts = {
   /** Live client blend (current weights); wins over server-persisted synthesis. */
   clientBlendedValue?: number | null
@@ -49,7 +61,7 @@ export type DeriveManualReportPresentationOpts = {
 
 function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
   const weighted = asRecord(r.weighted_valuation)
-  const fromWeighted = coalesceFiniteNumber(weighted.blended_equity_value)
+  const fromWeighted = positiveFiniteNumber(weighted.blended_equity_value)
   if (fromWeighted != null) return fromWeighted
 
   const candidates = [
@@ -62,7 +74,7 @@ function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
   ]
 
   for (const candidate of candidates) {
-    const value = coalesceFiniteNumber(
+    const value = positiveFiniteNumber(
       candidate.synthesis_blended_value ?? candidate.blended_equity_value
     )
     if (value != null) return value
@@ -71,9 +83,7 @@ function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
   return null
 }
 
-function readSynthesisRangeFromResult(
-  r: ManualReportRecord
-): { low?: number; high?: number } {
+function readSynthesisRangeFromResult(r: ManualReportRecord): { low?: number; high?: number } {
   const weighted = asRecord(r.weighted_valuation)
   const contributions = Array.isArray(weighted.contributions) ? weighted.contributions : []
   const equityValues = contributions
@@ -177,13 +187,13 @@ export function deriveManualReportPresentation(
   const methodDetails = asRecord(methodData?.details)
   const multiplesValuation = asRecord(r.multiples_valuation)
 
-  const methodValuation =
-    Number(
-      methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid
-    ) || 0
+  const methodValueRaw =
+    methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid
 
   const clientBlend =
-    opts?.clientBlendedValue != null && Number.isFinite(opts.clientBlendedValue)
+    opts?.clientBlendedValue != null &&
+    Number.isFinite(opts.clientBlendedValue) &&
+    opts.clientBlendedValue > 0
       ? opts.clientBlendedValue
       : null
   const serverSynthesis =
@@ -191,10 +201,8 @@ export function deriveManualReportPresentation(
       ? readSynthesisHeadlineFromResult(r)
       : null
   const synthesisHeadline = clientBlend ?? serverSynthesis
-  const synthesisRange =
-    synthesisHeadline != null ? readSynthesisRangeFromResult(r) : {}
+  const synthesisRange = synthesisHeadline != null ? readSynthesisRangeFromResult(r) : {}
 
-  const valuation = synthesisHeadline ?? methodValuation
   const valuationLowRaw =
     synthesisRange.low ??
     methodDetails.equity_range_low ??
@@ -207,6 +215,12 @@ export function deriveManualReportPresentation(
     r.equity_value_high ??
     r.valuation_max ??
     details.equity_value_high
+  const methodValuation =
+    positiveFiniteNumber(methodValueRaw) ??
+    midpointFromRange(valuationLowRaw, valuationHighRaw) ??
+    coalesceFiniteNumber(methodValueRaw) ??
+    0
+  const valuation = synthesisHeadline ?? methodValuation
   const multipleRaw =
     methodData?.multiple_used ??
     valuationResult.multiple ??
@@ -265,8 +279,11 @@ export function deriveNavPricesForVersionNav(
   const valuation = presentation.valuation
   const askingRaw = r.recommended_asking_price ?? details.recommended_asking_price
   const askingFinite =
-    askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
-  const askPrice = askingFinite ?? valuation
+    askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
+      ? Number(askingRaw)
+      : undefined
+  const rangeMidpoint = midpointFromRange(valuationLow, valuationHigh)
+  const askPrice = askingFinite ?? (valuation > 0 ? valuation : (rangeMidpoint ?? valuation))
   return {
     priceRange: {
       min:

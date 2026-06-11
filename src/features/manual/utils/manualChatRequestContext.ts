@@ -130,7 +130,9 @@ export function buildManualChatValuationSummary(
     ...(Number.isFinite(valuation) ? { valuation } : {}),
     ...(Number.isFinite(valuationLow) ? { valuationLow } : {}),
     ...(Number.isFinite(valuationHigh) ? { valuationHigh } : {}),
-    ...(Number.isFinite(recommendedAskingPrice) ? { recommendedAskingPrice } : {}),
+    ...(Number.isFinite(recommendedAskingPrice) && recommendedAskingPrice > 0
+      ? { recommendedAskingPrice }
+      : {}),
     ...(Number.isFinite(normalizedEbitda) ? { normalizedEbitda } : {}),
     ...(Number.isFinite(reportedEbitda) ? { reportedEbitda } : {}),
     ...(Number.isFinite(multiple) ? { multiple } : {}),

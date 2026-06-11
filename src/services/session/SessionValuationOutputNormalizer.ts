@@ -18,6 +18,22 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
 }
 
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function positiveFiniteNumber(value: unknown): number | null {
+  const numeric = finiteNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
+}
+
+function midpointFromPositiveRange(min: number | null, max: number | null): number | null {
+  if (min == null || max == null || min <= 0 || max <= 0) return null
+  return Math.round((min + max) / 2)
+}
+
 export interface PricingRange {
   min: number
   mid: number
@@ -28,10 +44,15 @@ export interface PricingRange {
 function toPricingRange(value: unknown): PricingRange | null {
   const record = asRecord(value)
   if (!record) return null
+  const min = finiteNumber(record.min)
+  const max = finiteNumber(record.max)
+  const rawMid = finiteNumber(record.mid)
+  const mid = positiveFiniteNumber(rawMid) ?? midpointFromPositiveRange(min, max) ?? rawMid
+
   return {
-    min: coalesceFiniteNumber(record.min),
-    mid: coalesceFiniteNumber(record.mid),
-    max: coalesceFiniteNumber(record.max),
+    min: min ?? 0,
+    mid: mid ?? 0,
+    max: max ?? 0,
     currency: optionalString(record.currency) ?? 'EUR',
   }
 }
@@ -141,15 +162,20 @@ export function extractPricingRange(
   }
 
   if (valuationResult && valuationRecord) {
-    const min = valuationResult.equity_value_low || valuationRecord.valuation_min
-    const mid = valuationResult.equity_value_mid || valuationRecord.valuation_midpoint
-    const max = valuationResult.equity_value_high || valuationRecord.valuation_max
+    const min =
+      finiteNumber(valuationResult.equity_value_low) ?? finiteNumber(valuationRecord.valuation_min)
+    const max =
+      finiteNumber(valuationResult.equity_value_high) ?? finiteNumber(valuationRecord.valuation_max)
+    const rawMid =
+      finiteNumber(valuationResult.equity_value_mid) ??
+      finiteNumber(valuationRecord.valuation_midpoint)
+    const mid = positiveFiniteNumber(rawMid) ?? midpointFromPositiveRange(min, max) ?? rawMid
 
-    if (min !== undefined || mid !== undefined || max !== undefined) {
+    if (min != null || mid != null || max != null) {
       return {
-        min: coalesceFiniteNumber(min),
-        mid: coalesceFiniteNumber(mid),
-        max: coalesceFiniteNumber(max),
+        min: min ?? 0,
+        mid: mid ?? 0,
+        max: max ?? 0,
         currency: optionalString(valuationRecord.currency) ?? 'EUR',
       }
     }

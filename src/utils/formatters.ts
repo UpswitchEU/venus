@@ -10,6 +10,12 @@
 import type { User } from '../contexts/AuthContextTypes'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { type DecimalInput, parseDecimal, toNumber } from './decimal'
+import {
+  getEquityValueHigh,
+  getEquityValueLow,
+  getEquityValueMid,
+  getRecommendedAskingPrice,
+} from './valuationResultAccess'
 
 /**
  * Input type for formatting functions.
@@ -131,21 +137,17 @@ export function formatVersionLabel(version: ValuationVersion): string {
     return 'Pending calculation'
   }
 
-  // Check if we have the required valuation values
-  const hasLow = result.equity_value_low !== undefined && result.equity_value_low !== null
-  const hasHigh = result.equity_value_high !== undefined && result.equity_value_high !== null
-  const hasAsking =
-    result.recommended_asking_price !== undefined && result.recommended_asking_price !== null
+  const low = getEquityValueLow(result)
+  const high = getEquityValueHigh(result)
+  const asking = getRecommendedAskingPrice(result) ?? getEquityValueMid(result)
 
-  // If we don't have all values, show pending
-  if (!hasLow || !hasHigh || !hasAsking) {
+  if (low == null || high == null || high <= 0 || asking == null || asking <= 0) {
     return 'Pending calculation'
   }
 
-  // Use formatCurrency which now handles both string and number inputs
-  const low = formatCurrency(result.equity_value_low)
-  const high = formatCurrency(result.equity_value_high)
-  const asking = formatCurrency(result.recommended_asking_price)
+  const lowLabel = formatCurrency(low)
+  const highLabel = formatCurrency(high)
+  const askingLabel = formatCurrency(asking)
 
   // Check if version has normalized EBITDA
   const hasNormalizedEbitda =
@@ -162,7 +164,7 @@ export function formatVersionLabel(version: ValuationVersion): string {
     ? ` [Normalized: ${normalizedYearsCount}yr${normalizedYearsCount > 1 ? 's' : ''}]`
     : ''
 
-  return `${low} - ${high} (Ask: ${asking})${normalizationIndicator}`
+  return `${lowLabel} - ${highLabel} (Ask: ${askingLabel})${normalizationIndicator}`
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -100,4 +100,23 @@ describe('ManualPdfStaleBanner', () => {
     expect(screen.getByText('pdfRetry')).toBeInTheDocument()
     expect(screen.getByText('pdfOpenLastVersion')).toBeInTheDocument()
   })
+
+  it('shows previous PDF CTA when only the generation hook has the URL', () => {
+    render(
+      <ManualPdfStaleBanner
+        canDownloadPdf
+        isPdfRetrying={false}
+        onRetry={vi.fn()}
+        persistedReportLookupId="uuid-1"
+        availablePdfUrl="https://example/hook.pdf"
+        pdfPollErrorCount={0}
+        pdfPollTransientCount={0}
+        pdfStale
+        pdfWaitTimedOut
+        report={{ ...makeReport(), pdfUrl: undefined }}
+        translate={translate}
+      />
+    )
+    expect(screen.getByText('pdfOpenLastVersion')).toBeInTheDocument()
+  })
 })

@@ -175,4 +175,45 @@ describe('CalculatorNav', () => {
     expect(screen.getAllByText('€389K')).toHaveLength(2)
     expect(screen.getAllByText('€288K–€485K')).toHaveLength(2)
   })
+
+  it('infers the displayed headline from range when a summary ask price is zero', () => {
+    render(
+      <CalculatorNav
+        companyName="LGS workshop"
+        hasReport
+        valuationSummary={{
+          askPrice: 0,
+          priceRange: { min: 12_800_000, max: 18_400_000 },
+          confidence: 'high',
+        }}
+      />
+    )
+
+    expect(screen.queryByText('€0K')).not.toBeInTheDocument()
+    expect(screen.getByText('€15.6M')).toBeInTheDocument()
+    expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
+  })
+
+  it('infers the displayed headline from range when the active version ask price is zero', () => {
+    render(
+      <CalculatorNav
+        companyName="LGS workshop"
+        hasReport
+        valuationVersions={[
+          {
+            id: 'version-1',
+            label: 'v1',
+            askPrice: 0,
+            priceRange: { min: 12_800_000, max: 18_400_000 },
+            timestamp: new Date('2026-06-02T09:37:00.000Z'),
+            isActive: true,
+          },
+        ]}
+      />
+    )
+
+    expect(screen.queryByText('€0K')).not.toBeInTheDocument()
+    expect(screen.getByText('€15.6M')).toBeInTheDocument()
+    expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
+  })
 })

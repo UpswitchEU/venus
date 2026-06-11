@@ -38,9 +38,25 @@ describe('reportHtmlRecovery', () => {
 
     const enriched = enrichRecoveryValuationSnapshot(session, null)
     expect(enriched?.equity_value_mid).toBe(750_000)
-    expect(sessionPayloadNeedsRenderableHtmlRecovery({ ...session, valuationResult: enriched })).toBe(
-      true
-    )
+    expect(
+      sessionPayloadNeedsRenderableHtmlRecovery({ ...session, valuationResult: enriched })
+    ).toBe(true)
+  })
+
+  it('repairs zero recovery midpoint from a positive valuation range', () => {
+    const session = {
+      reportId: 'val_zero_mid_recovery',
+      valuationResult: {
+        equity_value_low: 500_000,
+        equity_value_mid: 0,
+        equity_value_high: 1_000_000,
+      },
+      htmlReport: '',
+    } as unknown as ValuationSession
+
+    const enriched = enrichRecoveryValuationSnapshot(session, null)
+
+    expect(enriched?.equity_value_mid).toBe(750_000)
   })
 
   it('merges recovered HTML into both top-level and details fields', () => {
@@ -78,9 +94,9 @@ describe('reportHtmlRecovery', () => {
 
     const enriched = enrichRecoveryValuationSnapshot(session, null)
     expect(enriched?.equity_value_mid).toBe(750_000)
-    expect(sessionPayloadNeedsRenderableHtmlRecovery({ ...session, valuationResult: enriched })).toBe(
-      true
-    )
+    expect(
+      sessionPayloadNeedsRenderableHtmlRecovery({ ...session, valuationResult: enriched })
+    ).toBe(true)
   })
 
   it('preserves client-recovered HTML when server session is still stale', () => {

@@ -11,6 +11,7 @@ import { Calendar, Clock, Trash2, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useState } from 'react'
 import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date-like'
+import { getFinalValuation } from '@/utils/valuationResultAccess'
 import { formatCurrency } from '../../../config/countries'
 import type { ValuationSession } from '../../../types/valuation'
 
@@ -20,12 +21,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-function readValuationAmount(value: unknown): number {
-  const valuationResult = asRecord(value)
-  const valuationSummary = asRecord(valuationResult?.valuation_summary)
-  const rawValue = valuationSummary?.final_valuation ?? valuationResult?.value
-  const amount = Number(rawValue)
-  return Number.isFinite(amount) ? amount : 0
+function readValuationAmount(value: unknown): number | null {
+  return getFinalValuation(value)
 }
 
 export interface ReportCardProps {
@@ -62,6 +59,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
   // Get valuation result if available (completed reports)
   // Type assertion since sessionData can contain valuation_result from backend
   const valuationResult = asRecord(report.sessionData)?.valuation_result ?? null
+  const valuationAmount = valuationResult ? readValuationAmount(valuationResult) : null
 
   // Format date
   const formatDate = (date: Date) => {
@@ -218,11 +216,11 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
         )}
 
         {/* Valuation result preview (for completed reports) */}
-        {status === 'completed' && valuationResult && (
+        {status === 'completed' && valuationAmount != null && (
           <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
             <p className="text-xs text-muted-foreground mb-1">{t('estimatedValue')}</p>
             <p className="text-xl font-bold text-success">
-              {formatCurrency(readValuationAmount(valuationResult), countryCode)}
+              {formatCurrency(valuationAmount, countryCode)}
             </p>
           </div>
         )}

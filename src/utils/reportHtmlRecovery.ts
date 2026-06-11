@@ -1,10 +1,6 @@
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import {
-  getEquityValueHigh,
-  getEquityValueLow,
-  getEquityValueMid,
-} from './valuationResultAccess'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
+import { getEquityValueHigh, getEquityValueLow, getEquityValueMid } from './valuationResultAccess'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -61,25 +57,30 @@ export function enrichRecoveryValuationSnapshot(
   const fromSessionData = sessionData?.valuation_result ?? sessionData?.valuationResult
   const baseRecord = asRecord(result ?? session?.valuationResult ?? fromSessionData)
   const pricingRange =
-    sessionData?._pricingRange ?? sessionData?.pricingRange ?? baseRecord?.pricing_range ?? baseRecord?.priceRange
+    sessionData?._pricingRange ??
+    sessionData?.pricingRange ??
+    baseRecord?.pricing_range ??
+    baseRecord?.priceRange
 
   if (baseRecord) {
-    if (valuationSnapshotHasRange(baseRecord) || !pricingRangeHasValue(pricingRange)) {
+    if (!valuationSnapshotHasRange(baseRecord) && !pricingRangeHasValue(pricingRange)) {
       return baseRecord
     }
     const pr = asRecord(pricingRange)
-    if (!pr) return baseRecord
-    return {
-      ...baseRecord,
-      equity_value_low: baseRecord.equity_value_low ?? pr.min,
-      equity_value_mid: baseRecord.equity_value_mid ?? pr.mid,
-      equity_value_high: baseRecord.equity_value_high ?? pr.max,
-      pricing_range: baseRecord.pricing_range ?? pricingRange,
-    }
+    const low = getEquityValueLow(baseRecord) ?? pr?.min
+    const mid = getEquityValueMid(baseRecord) ?? pr?.mid
+    const high = getEquityValueHigh(baseRecord) ?? pr?.max
+    const enriched = { ...baseRecord }
+    if (low != null) enriched.equity_value_low = low
+    if (mid != null) enriched.equity_value_mid = mid
+    if (high != null) enriched.equity_value_high = high
+    if (pricingRange != null) enriched.pricing_range = baseRecord.pricing_range ?? pricingRange
+    return enriched
   }
 
   if (pricingRangeHasValue(pricingRange)) {
-    const pr = asRecord(pricingRange)!
+    const pr = asRecord(pricingRange)
+    if (!pr) return null
     return {
       equity_value_low: pr.min,
       equity_value_mid: pr.mid,

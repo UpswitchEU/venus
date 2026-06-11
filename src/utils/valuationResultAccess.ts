@@ -22,6 +22,19 @@ function firstFiniteNumber(...values: unknown[]): number | null {
   return null
 }
 
+function firstPositiveFiniteNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    const numeric = toFiniteNumber(value)
+    if (numeric !== null && numeric > 0) return numeric
+  }
+  return null
+}
+
+function midpointFromPositiveRange(low: number | null, high: number | null): number | null {
+  if (low == null || high == null || low <= 0 || high <= 0) return null
+  return Math.round((low + high) / 2)
+}
+
 function valuationSummary(value: unknown): Record<string, unknown> | null {
   return asRecord(getRecordValue(value, 'valuation_summary'))
 }
@@ -31,6 +44,21 @@ function details(value: unknown): Record<string, unknown> | null {
 }
 
 export function getFinalValuation(value: unknown): number | null {
+  const summary = valuationSummary(value)
+  const detail = details(value)
+  return (
+    firstPositiveFiniteNumber(
+      summary?.final_valuation,
+      getRecordValue(value, 'value'),
+      getRecordValue(value, 'equity_value_mid'),
+      getRecordValue(value, 'valuation_midpoint'),
+      detail?.valuation_midpoint,
+      detail?.equity_value_mid
+    ) ?? midpointFromPositiveRange(getEquityValueLow(value), getEquityValueHigh(value))
+  )
+}
+
+export function getRawFinalValuation(value: unknown): number | null {
   const summary = valuationSummary(value)
   const detail = details(value)
   return firstFiniteNumber(
@@ -56,7 +84,12 @@ export function getEquityValueLow(value: unknown): number | null {
 }
 
 export function getEquityValueMid(value: unknown): number | null {
-  return firstFiniteNumber(getRecordValue(value, 'equity_value_mid'), getFinalValuation(value))
+  return (
+    firstPositiveFiniteNumber(
+      getRecordValue(value, 'equity_value_mid'),
+      getRawFinalValuation(value)
+    ) ?? getFinalValuation(value)
+  )
 }
 
 export function getEquityValueHigh(value: unknown): number | null {
@@ -73,7 +106,7 @@ export function getEquityValueHigh(value: unknown): number | null {
 
 export function getRecommendedAskingPrice(value: unknown): number | null {
   const summary = valuationSummary(value)
-  return firstFiniteNumber(
+  return firstPositiveFiniteNumber(
     getRecordValue(value, 'recommended_asking_price'),
     summary?.recommended_asking_price
   )

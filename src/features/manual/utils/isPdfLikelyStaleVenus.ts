@@ -36,9 +36,10 @@ function trimmedString(value: unknown): string {
  * not falsely mark a present, current PDF as stale (the cause of the perpetual
  * "PDF wordt bijgewerkt…" banner + needless regen stampede).
  *
- * Falls back to the timestamp heuristic only when a fingerprint is unavailable:
- * the PDF is stale when it was generated before the last report update. If the API
- * returns `pdf_url` but omits `pdf_generated_at`, we do not treat the PDF as stale.
+ * Falls back to the timestamp heuristic only when fingerprint evidence is
+ * unavailable. If the API returns `pdf_url` but omits `pdf_generated_at`, we do
+ * not treat the PDF as stale; otherwise a URL alone means "downloadable previous
+ * PDF exists", not necessarily "fresh".
  *
  * Uses epoch-ms parsing so `Date` / ISO strings from JSON both work at runtime.
  */

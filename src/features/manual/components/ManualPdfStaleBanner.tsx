@@ -8,6 +8,7 @@ interface ManualPdfStaleBannerProps {
   isPdfRetrying: boolean
   onRetry: () => Promise<void> | void
   persistedReportLookupId: string | null | undefined
+  availablePdfUrl?: string | null
   pdfPollErrorCount: number
   pdfPollTransientCount: number
   pdfStale: boolean
@@ -21,6 +22,7 @@ export function ManualPdfStaleBanner({
   isPdfRetrying,
   onRetry,
   persistedReportLookupId,
+  availablePdfUrl,
   pdfPollErrorCount,
   pdfPollTransientCount,
   pdfStale,
@@ -51,6 +53,7 @@ export function ManualPdfStaleBanner({
     pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
       ? translate('pdfPollDegradedHint')
       : translate('pdfStalledBlurb')
+  const lastPdfUrl = report.pdfUrl || availablePdfUrl || null
 
   return (
     <div
@@ -75,14 +78,14 @@ export function ManualPdfStaleBanner({
         >
           {translate('pdfRetry')}
         </AuroraButton>
-        {canDownloadPdf && report.pdfUrl ? (
+        {canDownloadPdf && lastPdfUrl ? (
           <AuroraButton
             type="button"
             size="sm"
             variant="outline"
             disabled={isPdfRetrying}
             onClick={() => {
-              if (report.pdfUrl) window.open(report.pdfUrl, '_blank', 'noopener,noreferrer')
+              window.open(lastPdfUrl, '_blank', 'noopener,noreferrer')
             }}
           >
             {translate('pdfOpenLastVersion')}

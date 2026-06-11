@@ -119,6 +119,11 @@ function readNumber(value: unknown): number | null {
   return Number.isFinite(number) ? sign * number : null
 }
 
+function readPositiveNumber(value: unknown): number | null {
+  const number = readNumber(value)
+  return number != null && number > 0 ? number : null
+}
+
 function readNormalizations(request: AIChatRequest): NormalizationLike[] {
   if (!Array.isArray(request.normalizations)) return []
   return request.normalizations as NormalizationLike[]
@@ -148,7 +153,10 @@ export function isOfflineFallbackContent(content: string): boolean {
   return /AI tijdelijk niet beschikbaar|AI temporarily unavailable/i.test(content)
 }
 
-function buildExplainEbitdaFallback(request: AIChatRequest, locale: LocalChatLocale): AIChatResponse {
+function buildExplainEbitdaFallback(
+  request: AIChatRequest,
+  locale: LocalChatLocale
+): AIChatResponse {
   const norms = readNormalizations(request)
   const accepted = norms.filter((n) => n.status === 'accepted')
   const summary = readSummary(request.formData)
@@ -209,19 +217,22 @@ function buildExplainEbitdaFallback(request: AIChatRequest, locale: LocalChatLoc
   }
 }
 
-function buildExplainValueFallback(request: AIChatRequest, locale: LocalChatLocale): AIChatResponse {
+function buildExplainValueFallback(
+  request: AIChatRequest,
+  locale: LocalChatLocale
+): AIChatResponse {
   const companyName =
     request.companyName ||
     textForLocale(locale, { en: 'this company', nl: 'dit bedrijf', fr: 'cette entreprise' })
   const summary = readSummary(request.formData)
   const valuationSummary = readValuationSummary(request.formData)
-  const valuation = readNumber(valuationSummary?.valuation)
-  const valuationLow = readNumber(valuationSummary?.valuationLow)
-  const valuationHigh = readNumber(valuationSummary?.valuationHigh)
+  const valuation = readPositiveNumber(valuationSummary?.valuation)
+  const valuationLow = readPositiveNumber(valuationSummary?.valuationLow)
+  const valuationHigh = readPositiveNumber(valuationSummary?.valuationHigh)
   const headlineValue =
     valuation ??
     (valuationLow != null && valuationHigh != null ? (valuationLow + valuationHigh) / 2 : null)
-  const recommendedAskingPrice = readNumber(valuationSummary?.recommendedAskingPrice)
+  const recommendedAskingPrice = readPositiveNumber(valuationSummary?.recommendedAskingPrice)
   const normalizedEbitda = readNumber(valuationSummary?.normalizedEbitda)
   const multiple = readNumber(valuationSummary?.multiple)
   const accepted = summary?.accepted ?? 0
@@ -288,11 +299,13 @@ function buildExplainValueFallback(request: AIChatRequest, locale: LocalChatLoca
 }
 
 function buildSuggestNormsFallback(locale: LocalChatLocale): AIChatResponse {
-  const content = offlineBanner(locale) + textForLocale(locale, {
-    en: 'Relevant normalizations:\n\n1. **Owner salary** - Market rate\n2. **Rent costs** - Market value\n3. **Vehicle costs** - Private use\n4. **One-time costs** - Legal etc.\n\n**Quick commands:**\n- *"Normalize owner salary to €60k"*\n- *"Set rent costs to €24k"*',
-    nl: 'Relevante normalisaties:\n\n1. **Eigenaarssalaris** - Marktconform niveau\n2. **Huurkosten** - Marktwaarde\n3. **Autokosten** - Privégebruik\n4. **Eenmalige kosten** - Juridisch etc.\n\n**Snelle commando\'s:**\n- *"Normaliseer eigenaarssalaris naar €60k"*\n- *"Zet huurkosten op €24k"*',
-    fr: 'Normalisations pertinentes :\n\n1. **Rémunération du dirigeant** - niveau de marché\n2. **Loyers** - valeur de marché\n3. **Frais de véhicule** - usage privé\n4. **Coûts exceptionnels** - juridique, etc.\n\n**Commandes rapides :**\n- *"Normaliser la rémunération du dirigeant à 60 k€"*\n- *"Fixer les loyers à 24 k€"*',
-  })
+  const content =
+    offlineBanner(locale) +
+    textForLocale(locale, {
+      en: 'Relevant normalizations:\n\n1. **Owner salary** - Market rate\n2. **Rent costs** - Market value\n3. **Vehicle costs** - Private use\n4. **One-time costs** - Legal etc.\n\n**Quick commands:**\n- *"Normalize owner salary to €60k"*\n- *"Set rent costs to €24k"*',
+      nl: 'Relevante normalisaties:\n\n1. **Eigenaarssalaris** - Marktconform niveau\n2. **Huurkosten** - Marktwaarde\n3. **Autokosten** - Privégebruik\n4. **Eenmalige kosten** - Juridisch etc.\n\n**Snelle commando\'s:**\n- *"Normaliseer eigenaarssalaris naar €60k"*\n- *"Zet huurkosten op €24k"*',
+      fr: 'Normalisations pertinentes :\n\n1. **Rémunération du dirigeant** - niveau de marché\n2. **Loyers** - valeur de marché\n3. **Frais de véhicule** - usage privé\n4. **Coûts exceptionnels** - juridique, etc.\n\n**Commandes rapides :**\n- *"Normaliser la rémunération du dirigeant à 60 k€"*\n- *"Fixer les loyers à 24 k€"*',
+    })
 
   return { success: true, content, fallback: true }
 }

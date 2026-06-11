@@ -41,13 +41,24 @@ export function useSynthesisReportHeadlineSync({
       preSelectedMethods,
       userWeights,
     })
-    const nextAsk = alignAsk ? nextValuation : report.recommendedAskingPrice
+    const hasPositiveNextValuation = Number.isFinite(nextValuation) && nextValuation > 0
+    const reportAsk =
+      report.recommendedAskingPrice == null ? null : Number(report.recommendedAskingPrice)
+    const reportAskIsBroken =
+      report.recommendedAskingPrice != null &&
+      (!Number.isFinite(reportAsk) || (reportAsk != null && reportAsk <= 0))
+    const shouldWriteAsk = alignAsk || (reportAskIsBroken && hasPositiveNextValuation)
+    const nextAsk = shouldWriteAsk
+      ? hasPositiveNextValuation
+        ? nextValuation
+        : undefined
+      : report.recommendedAskingPrice
 
     if (
       report.valuation === nextValuation &&
       report.valuationLow === nextLow &&
       report.valuationHigh === nextHigh &&
-      (!alignAsk || report.recommendedAskingPrice === nextAsk)
+      (!shouldWriteAsk || report.recommendedAskingPrice === nextAsk)
     ) {
       return
     }
@@ -59,7 +70,7 @@ export function useSynthesisReportHeadlineSync({
             valuation: nextValuation,
             valuationLow: nextLow,
             valuationHigh: nextHigh,
-            ...(alignAsk ? { recommendedAskingPrice: nextAsk } : {}),
+            ...(shouldWriteAsk ? { recommendedAskingPrice: nextAsk } : {}),
           }
         : prev
     )

@@ -29,6 +29,11 @@ function finiteNumber(value: unknown): number | undefined {
   return Number.isFinite(numeric) ? numeric : undefined
 }
 
+function positiveFiniteNumber(value: unknown): number | undefined {
+  const numeric = finiteNumber(value)
+  return numeric !== undefined && numeric > 0 ? numeric : undefined
+}
+
 async function loadCurrentReport(
   reportId: string
 ): Promise<CompleteValuationData['currentReport'] | undefined> {
@@ -74,8 +79,8 @@ async function loadPricingRange(
           min: low,
           max: high,
           suggested:
-            finiteNumber(result.equity_value_mid) ??
-            finiteNumber(result.recommended_asking_price) ??
+            positiveFiniteNumber(result.equity_value_mid) ??
+            positiveFiniteNumber(result.recommended_asking_price) ??
             (low + high) / 2,
         }
       }

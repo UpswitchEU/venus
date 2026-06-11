@@ -3,8 +3,14 @@ import type { ValuationRequest, ValuationResponse, ValuationSession } from '../.
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
-import { backendAPI } from '../backendApi'
+import {
+  getEquityValueHigh,
+  getEquityValueLow,
+  getFinalValuation,
+  getRecommendedAskingPrice,
+} from '../../utils/valuationResultAccess'
 import { VALUATION_OPERATION_TIMEOUT_MS } from '../api/valuationTimeouts'
+import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
 
@@ -20,6 +26,10 @@ function finiteNumber(value: unknown): number | undefined {
   const numeric =
     typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   return Number.isFinite(numeric) ? numeric : undefined
+}
+
+function optionalNumber(value: number | null): number | undefined {
+  return value == null ? undefined : value
 }
 
 export async function saveCompleteValuationSession(
@@ -115,6 +125,8 @@ export async function saveCompleteValuationSession(
         const versions = versionStore.versions[reportId] || []
         const latestVersion = versionStore.getLatestVersion(reportId)
         const clientContext = useClientContext.getState()
+        const broadcastValuationResult = data.valuationResult ?? {}
+        const finalValuation = getFinalValuation(broadcastValuationResult)
 
         broadcastReportUpdated({
           reportId,
@@ -124,11 +136,17 @@ export async function saveCompleteValuationSession(
             ? (clientContext.relationshipId ?? undefined)
             : undefined,
           valuationResult: {
-            equity_value_low: finiteNumber(data.valuationResult.equity_value_low),
-            equity_value_mid: finiteNumber(data.valuationResult.equity_value_mid),
-            equity_value_high: finiteNumber(data.valuationResult.equity_value_high),
-            recommended_asking_price: finiteNumber(data.valuationResult.recommended_asking_price),
-            confidence_score: finiteNumber(data.valuationResult.confidence_score),
+            equity_value_low:
+              optionalNumber(getEquityValueLow(broadcastValuationResult)) ??
+              finiteNumber(data.valuationResult.equity_value_low),
+            equity_value_mid: optionalNumber(finalValuation),
+            equity_value_high:
+              optionalNumber(getEquityValueHigh(broadcastValuationResult)) ??
+              finiteNumber(data.valuationResult.equity_value_high),
+            recommended_asking_price: optionalNumber(
+              getRecommendedAskingPrice(broadcastValuationResult) ?? finalValuation
+            ),
+            confidence_score: finiteNumber(broadcastValuationResult.confidence_score),
             methodology: data.valuationResult.methodology,
           },
           versionCount: versions.length,

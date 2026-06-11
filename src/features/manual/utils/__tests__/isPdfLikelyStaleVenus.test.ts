@@ -127,6 +127,18 @@ describe('isPdfLikelyStaleVenus', () => {
       expect(isPdfLikelyStaleVenus(r)).toBe(true)
     })
 
+    it('still falls back to timestamps when pdfUrl exists but only one fingerprint is present', () => {
+      const r = {
+        ...base(),
+        reportUpdatedAt: new Date('2025-01-15T12:00:00Z'),
+        pdfGeneratedAt: new Date('2025-01-10T12:00:00Z'),
+        pdfUrl: 'https://example.com/report.pdf',
+        renderFingerprint: 'fp-economics-A',
+        pdfRenderFingerprint: null,
+      } as ValuationReportData
+      expect(isPdfLikelyStaleVenus(r)).toBe(true)
+    })
+
     it('ignores blank-string fingerprints and uses the timestamp fallback', () => {
       const t = new Date('2025-01-15T12:00:00Z')
       const r = {

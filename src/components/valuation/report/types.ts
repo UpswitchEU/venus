@@ -8,6 +8,12 @@
  */
 
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
+import {
+  getEquityValueHigh,
+  getEquityValueLow,
+  getFinalValuation,
+  getRecommendedAskingPrice,
+} from '../../../utils/valuationResultAccess'
 
 function normalizeMethodSignal(value: unknown): string {
   if (value == null) return ''
@@ -204,6 +210,9 @@ export function convertApiResponseToReportData(
       ? Number(currentYear.revenue)
       : undefined
   const ebitdaMultiple = coalesceFiniteNumber(multiples?.ebitda_multiple)
+  const valuationLow = getEquityValueLow(apiResponse)
+  const valuationHigh = getEquityValueHigh(apiResponse)
+  const recommendedAskingPrice = getRecommendedAskingPrice(apiResponse)
 
   return {
     id: String(apiResponse.valuation_id || apiResponse.id || ''),
@@ -214,11 +223,9 @@ export function convertApiResponseToReportData(
         ? new Date(String(apiResponse.generated_at))
         : new Date(),
 
-    valuation: coalesceFiniteNumber(apiResponse.equity_value_mid),
-    valuationLow:
-      apiResponse.equity_value_low != null ? Number(apiResponse.equity_value_low) : undefined,
-    valuationHigh:
-      apiResponse.equity_value_high != null ? Number(apiResponse.equity_value_high) : undefined,
+    valuation: getFinalValuation(apiResponse) ?? coalesceFiniteNumber(apiResponse.equity_value_mid),
+    valuationLow: valuationLow ?? undefined,
+    valuationHigh: valuationHigh ?? undefined,
 
     ebitda,
     reportedEbitda:
@@ -289,10 +296,7 @@ export function convertApiResponseToReportData(
         : undefined,
 
     htmlReport: apiResponse.html_report ? String(apiResponse.html_report) : undefined,
-    recommendedAskingPrice:
-      apiResponse.recommended_asking_price != null
-        ? Number(apiResponse.recommended_asking_price)
-        : undefined,
+    recommendedAskingPrice: recommendedAskingPrice ?? undefined,
     dcfHistoricalFcfReadiness: shouldExposeDcfReadiness(apiResponse)
       ? ((apiResponse.dcf_valuation as Record<string, unknown> | undefined)
           ?.historical_fcf_readiness as ValuationReportData['dcfHistoricalFcfReadiness'])

@@ -87,10 +87,16 @@ export function useManualSynthesisController({
     const hasSynthesis = resultHasWeightedSynthesisSignal(
       result as unknown as Record<string, unknown>
     )
+    const reportAskingPrice =
+      report.recommendedAskingPrice != null &&
+      Number.isFinite(report.recommendedAskingPrice) &&
+      report.recommendedAskingPrice > 0
+        ? report.recommendedAskingPrice
+        : null
     const primaryValue =
       hasSynthesis || blend != null
         ? (blend ?? presentation.valuation)
-        : (report.recommendedAskingPrice ?? presentation.valuation)
+        : (reportAskingPrice ?? presentation.valuation)
     return {
       priceRange: {
         min: presentation.valuationLow ?? report.valuationLow ?? Math.round(primaryValue * 0.85),

@@ -46,12 +46,12 @@ import {
   useManualMethodPersistenceController,
   useManualModalState,
   useManualNavigationController,
-  useManualReportApproval,
-  useManualReportAttestation,
   useManualNormalizationController,
   useManualNormalizationState,
   useManualPanelStorageReset,
   useManualRecalculateConfirmation,
+  useManualReportApproval,
+  useManualReportAttestation,
   useManualReportHtmlRecovery,
   useManualReportIdentifiers,
   useManualReportMethodHydration,
@@ -746,8 +746,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const attestReportId = resolvedReportId ?? reportId ?? null
   const { canSignAttest, handleSignAttest, isAttesting } = useManualReportAttestation({
     reportId: attestReportId,
-    enabled:
-      showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
+    enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
     startedTitle: t('attestStarted'),
     successTitle: t('attestSuccess'),
     successDescription: t('attestSuccessDesc'),
@@ -755,12 +754,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     notFinalizedDescription: t('attestReportNotFinalized'),
   })
 
-  const {
-    approveLabel,
-    canApprove,
-    handleApprove,
-    isApproving,
-  } = useManualReportApproval({
+  const { approveLabel, canApprove, handleApprove, isApproving } = useManualReportApproval({
     reportId: attestReportId,
     enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
     approveLabel: t('approveValuation'),
@@ -1017,6 +1011,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           isPdfRetrying={isPdfRetrying}
           onRetry={handleRetryPdfStalled}
           persistedReportLookupId={pdfStalePollLookupId}
+          availablePdfUrl={pdfGenerationState.url}
           pdfPollErrorCount={pdfPollErrorCount}
           pdfPollTransientCount={pdfPollTransientCount}
           pdfStale={pdfStale}

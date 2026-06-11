@@ -232,6 +232,26 @@ describe('manualChatRequestContext', () => {
     })
   })
 
+  it('omits a zero recommended ask from chat valuation summary', () => {
+    const valuationSummary = buildManualChatValuationSummary({
+      id: '48d52144-1fa9-44e7-b077-8dc22310c2ac',
+      companyName: 'Bakkerij Klaas',
+      valuation: 559_986,
+      valuationLow: 428_000,
+      valuationHigh: 617_000,
+      ebitda: 100_000,
+      recommendedAskingPrice: 0,
+      generatedAt: new Date('2026-05-31T08:38:46.000Z'),
+    } as never)
+
+    expect(valuationSummary).toMatchObject({
+      valuation: 559_986,
+      valuationLow: 428_000,
+      valuationHigh: 617_000,
+    })
+    expect(valuationSummary).not.toHaveProperty('recommendedAskingPrice')
+  })
+
   it('resolves assistantIntent from message and explicit chip intent', () => {
     const explain = buildManualAIChatRequest({
       message: 'Verklaar deze EBITDA',

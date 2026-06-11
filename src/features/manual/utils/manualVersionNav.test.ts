@@ -109,6 +109,42 @@ describe('manualVersionNav', () => {
     })
   })
 
+  it('does not let a zero live summary ask price override a positive range', () => {
+    const createdAt = new Date('2026-06-02T08:00:00.000Z')
+    const [navItem] = buildManualVersionHistoryForNav({
+      report: {
+        companyName: 'LGS workshop',
+        valuation: 0,
+        valuationLow: 12_800_000,
+        valuationHigh: 18_400_000,
+        recommendedAskingPrice: 0,
+        generatedAt: createdAt,
+      } as unknown as ValuationReportData,
+      selectedMethod: 'upswitch_adaptive',
+      currentVersionLabel: 'Current',
+      currentValuationSummary: {
+        askPrice: 0,
+        priceRange: { min: 12_800_000, max: 18_400_000 },
+      },
+      versions: [
+        {
+          id: 'version-1',
+          versionNumber: 1,
+          versionLabel: 'Version 1',
+          createdAt,
+          isActive: true,
+          formData: { selected_method: 'upswitch_adaptive' },
+          valuationResult: null,
+        } as unknown as ValuationVersion,
+      ],
+    })
+
+    expect(navItem).toMatchObject({
+      askPrice: 15_600_000,
+      priceRange: { min: 12_800_000, max: 18_400_000 },
+    })
+  })
+
   it('uses activeVersionNumber to identify the current lightweight version', () => {
     const createdAt = new Date('2026-06-02T08:00:00.000Z')
     const navItems = buildManualVersionHistoryForNav({

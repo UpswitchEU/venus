@@ -223,6 +223,31 @@ describe('mapValuationResultToReport', () => {
       expect(report.recommendedAskingPrice).toBe(567_771)
     })
 
+    it('ignores zero recommended_asking_price when the presentation has a positive range', () => {
+      const report = mapValuationResultToReport({
+        result: {
+          recommended_asking_price: 0,
+          valuation_results: {
+            upswitch_adaptive: {
+              available: true,
+              value: null,
+              details: {
+                equity_range_low: 12_800_000,
+                equity_range_high: 18_400_000,
+              },
+            },
+          },
+        } as unknown as ValuationResponse,
+        selectedMethod: 'upswitch_adaptive',
+        reportId: 'r1',
+        canDownloadPdf: false,
+        tReport: translate,
+      })
+
+      expect(report.valuation).toBe(15_600_000)
+      expect(report.recommendedAskingPrice).toBe(15_600_000)
+    })
+
     it('uses presentation.multipleRange when present (via deriveManualReportPresentation)', () => {
       const report = mapValuationResultToReport({
         result: makeResult({

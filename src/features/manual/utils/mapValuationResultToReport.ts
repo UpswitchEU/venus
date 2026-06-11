@@ -83,7 +83,16 @@ function readOptionalString(value: unknown): string | undefined {
 export function mapValuationResultToReport(
   opts: MapValuationResultToReportOpts
 ): ValuationReportData {
-  const { result, sessionHtmlReport, standaloneHtmlReport, selectedMethod, reportId, canDownloadPdf, tReport, clientBlendedValue } = opts
+  const {
+    result,
+    sessionHtmlReport,
+    standaloneHtmlReport,
+    selectedMethod,
+    reportId,
+    canDownloadPdf,
+    tReport,
+    clientBlendedValue,
+  } = opts
   const r = result as unknown as ReportResultRecord
 
   const presentation = deriveManualReportPresentation(result, selectedMethod, {
@@ -104,12 +113,14 @@ export function mapValuationResultToReport(
 
   const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
   const askingPrice =
-    askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
+    askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
+      ? Number(askingRaw)
+      : undefined
   const hasSynthesisHeadline =
     clientBlendedValue != null || resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
   const recommendedAskingPrice = hasSynthesisHeadline
     ? presentation.valuation
-    : askingPrice ?? presentation.valuation
+    : (askingPrice ?? presentation.valuation)
   const htmlReport = getFirstRenderableReportHtml(
     readOptionalString(r.html_report),
     readOptionalString(r.htmlReport),
