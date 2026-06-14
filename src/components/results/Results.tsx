@@ -2,6 +2,7 @@ import { useTranslations } from 'next-intl'
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Switch } from '../../design-system/components/Switch'
 import { trackOwnerProfilingCapBindRendered } from '../../lib/analytics'
+import { extractPresentationContract } from '../../services/session/SessionValuationOutputNormalizer'
 import { useSessionStore } from '../../store/useSessionStore'
 import { isBuyerReadinessPackage } from '../../types/buyerReadiness'
 import type { ValuationResponse } from '../../types/valuation'
@@ -17,6 +18,7 @@ import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart
 import { OwnerProfilingPeerPanel } from './OwnerProfilingPeerPanel'
 import { OwnerProfilingReportChip } from './OwnerProfilingReportChip'
 import { OwnerProfilingSkippedWatermark } from './OwnerProfilingSkippedWatermark'
+import { PresentationContractPanel } from './PresentationContractPanel'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -97,6 +99,14 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
 
   const ownerProfilingState = useMemo(
     () => deriveOwnerProfilingState(sessionValuationResult, result ?? undefined),
+    [sessionValuationResult, result]
+  )
+
+  // BET-462 — the honest presentation contract for this valuation. Source order
+  // matches the chip/peer-panel resolution (session result wins over a stale
+  // response). Null until Titan attaches it ⇒ the panel renders nothing.
+  const presentationContract = useMemo(
+    () => extractPresentationContract(sessionValuationResult ?? result ?? undefined),
     [sessionValuationResult, result]
   )
 
@@ -271,10 +281,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   if (renderError === 'payload_too_large' && !htmlReport) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px] p-4">
-        <ErrorState
-          title={t('renderPayloadTooLarge')}
-          message={t('renderPayloadTooLargeDesc')}
-        />
+        <ErrorState title={t('renderPayloadTooLarge')} message={t('renderPayloadTooLargeDesc')} />
       </div>
     )
   }
@@ -307,6 +314,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
           data-show-enterprise-bridge={showEnterpriseBridge ? 'true' : 'false'}
         >
           <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+            <PresentationContractPanel contract={presentationContract} />
             {enterpriseBridgeToolbar}
             <BuyerReadinessPanel readiness={sessionBuyerReadiness} />
             {ownerProfilingState?.mode === 'chip' ? (
@@ -368,11 +376,13 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
           }
         `}
       </style>
-      {(sessionBuyerReadiness ||
+      {(presentationContract ||
+        sessionBuyerReadiness ||
         ownerProfilingState ||
         hasEvEquitySteps ||
         showEnterpriseBridgeToolbar) && (
         <div className="mx-auto max-w-4xl space-y-3 px-4 pt-4">
+          <PresentationContractPanel contract={presentationContract} />
           {enterpriseBridgeToolbar}
           <BuyerReadinessPanel readiness={sessionBuyerReadiness} />
           {ownerProfilingState?.mode === 'chip' ? (

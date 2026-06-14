@@ -1,5 +1,5 @@
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
-import type { ValuationResponse } from '../../types/valuation'
+import type { PresentationContract, ValuationResponse } from '../../types/valuation'
 import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
@@ -54,6 +54,85 @@ function toPricingRange(value: unknown): PricingRange | null {
     mid: mid ?? 0,
     max: max ?? 0,
     currency: optionalString(record.currency) ?? 'EUR',
+  }
+}
+
+const PRESENTATION_TIERS = ['indicative', 'defensible', 'attested'] as const
+const PRESENTATION_DISPLAY_MODES = ['band_only', 'point_and_band'] as const
+const PRESENTATION_POINT_BASES = ['none', 'policy', 'proven_calibration', 'attested'] as const
+
+/**
+ * BET-462 — defensively read the backend's presentation contract off a valuation
+ * result. Returns null unless the tier, display and human copy are all well-formed
+ * so a malformed payload can never over-state confidence — the surface then shows
+ * nothing extra (gated render). Tolerates both `presentation_contract` (Venus snake
+ * convention) and `presentationContract` (Titan camel) top-level keys, and a nested
+ * `details.*` location. Honesty invariant: an `indicative` tier is ALWAYS coerced to
+ * `band_only` regardless of the wire `display`.
+ */
+export function extractPresentationContract(
+  result: ValuationResponse | null | undefined
+): PresentationContract | null {
+  if (!result) return null
+  const record = result as unknown as SessionRecord
+  const details = asRecord(record.details)
+  const raw =
+    asRecord(record.presentation_contract) ??
+    asRecord((record as SessionRecord).presentationContract) ??
+    asRecord(details?.presentation_contract) ??
+    asRecord(details?.presentationContract)
+  if (!raw) return null
+
+  const tier = raw.tier
+  if (typeof tier !== 'string' || !(PRESENTATION_TIERS as readonly string[]).includes(tier)) {
+    return null
+  }
+  const typedTier = tier as PresentationContract['tier']
+
+  const tierLabel = optionalString(raw.tierLabel)
+  const confidenceLabel = optionalString(raw.confidenceLabel)
+  const disclaimer = optionalString(raw.disclaimer)
+  // Require the human-facing copy — a band with no honest label is worse than none.
+  if (!tierLabel || !confidenceLabel || !disclaimer) return null
+
+  const confidence = (['low', 'medium', 'high'] as const).includes(
+    raw.confidence as PresentationContract['confidence']
+  )
+    ? (raw.confidence as PresentationContract['confidence'])
+    : 'low'
+
+  const wireDisplay = (PRESENTATION_DISPLAY_MODES as readonly string[]).includes(
+    raw.display as string
+  )
+    ? (raw.display as PresentationContract['display'])
+    : 'band_only'
+  // Indicative is never a point — coerce defensively even if the wire disagrees.
+  const display: PresentationContract['display'] =
+    typedTier === 'indicative' ? 'band_only' : wireDisplay
+  const showPointEstimate = display === 'point_and_band' && raw.showPointEstimate !== false
+
+  const pointEstimateBasis = (PRESENTATION_POINT_BASES as readonly string[]).includes(
+    raw.pointEstimateBasis as string
+  )
+    ? (raw.pointEstimateBasis as PresentationContract['pointEstimateBasis'])
+    : showPointEstimate
+      ? 'policy'
+      : 'none'
+
+  const rawFloor = typeof raw.bandFloorWidth === 'number' ? raw.bandFloorWidth : Number.NaN
+  const bandFloorWidth = Number.isFinite(rawFloor) && rawFloor > 0 && rawFloor < 1 ? rawFloor : 0.3
+
+  return {
+    tier: typedTier,
+    tierLabel,
+    tierDescription: optionalString(raw.tierDescription) ?? '',
+    display,
+    showPointEstimate,
+    pointEstimateBasis,
+    bandFloorWidth,
+    confidence,
+    confidenceLabel,
+    disclaimer,
   }
 }
 

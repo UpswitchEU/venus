@@ -13,6 +13,29 @@ import type {
 } from './modular'
 import type { ApiNumeric, ValuationRequest, YearDataInput } from './request'
 
+/**
+ * BET-462 — the canonical VALUATION PRESENTATION CONTRACT (Titan
+ * `buildValuationPresentationContract`). The honest display directives every
+ * surface reads to render the number by tier, so a false-precision point can
+ * never appear at the indicative tier. Inner fields mirror Titan verbatim
+ * (camelCase); all copy fields are the backend's brand-reviewed strings, rendered
+ * as-is. Optional on the response — present only once the backend attaches it.
+ */
+export interface PresentationContract {
+  tier: 'indicative' | 'defensible' | 'attested'
+  tierLabel: string
+  tierDescription: string
+  /** `band_only` ⇒ a RANGE only, never a single point (no false precision). */
+  display: 'band_only' | 'point_and_band'
+  showPointEstimate: boolean
+  pointEstimateBasis: 'none' | 'policy' | 'proven_calibration' | 'attested'
+  /** Minimum band half-width as a fraction of the base (0.3 ⇒ ±30%). */
+  bandFloorWidth: number
+  confidence: 'low' | 'medium' | 'high'
+  confidenceLabel: string
+  disclaimer: string
+}
+
 export interface ValuationResponse {
   valuation_id: string
   company_name: string
@@ -40,6 +63,13 @@ export interface ValuationResponse {
   overall_confidence: string
   /** Alias for confidence_score - API returns as string for precision */
   confidence?: ApiNumeric // Alias for confidence_score
+  /**
+   * BET-462 — the backend's honest presentation contract for THIS valuation.
+   * Present only once Titan attaches it to the calculate/session response;
+   * surfaces render it (tier label + confidence + disclaimer, band-only vs
+   * point+band) only when present, so behaviour is unchanged until then.
+   */
+  presentation_contract?: PresentationContract
   multiple_adjustment_summary?: {
     metric_key: 'ev_ebitda_median'
     business_type_id?: string | null
