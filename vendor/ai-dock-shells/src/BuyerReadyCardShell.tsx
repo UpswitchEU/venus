@@ -181,9 +181,7 @@ export function BuyerReadyCardShell({
 
 			<div className='border-t border-foreground/[0.06] px-3 py-2 space-y-1.5 text-[10px]'>
 				{children}
-				{successNote ? (
-					<p className='text-success/90'>{successNote}</p>
-				) : null}
+				{successNote ? <p className='text-success/90'>{successNote}</p> : null}
 				{rejectedNote ? (
 					<p className='text-foreground/55'>{rejectedNote}</p>
 				) : null}
