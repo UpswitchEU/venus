@@ -545,7 +545,7 @@ export interface RegistrySearchHit {
 }
 
 export interface RegistrySearchResults {
-  registry: 'KBO' | 'KVK'
+  registry: 'KBO' | 'KVK' | 'Companies House'
   query: string
   totalFound: number
   hits: RegistrySearchHit[]

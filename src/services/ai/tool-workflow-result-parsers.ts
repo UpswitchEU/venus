@@ -149,27 +149,30 @@ export function parseListingCreateRequest(data: unknown): ListingCreateRequest[]
 }
 
 /**
- * Mirror of Mercury's `registry_search_results` parser branch. Both KBO
- * (BE) and KVK (NL) tool results collapse to one envelope so the consumer
- * can dispatch on shape, not registry -- the `registry` field carries the
- * label. Defensive: drops malformed hits, returns `[]` on bad input.
+ * Mirror of Mercury's `registry_search_results` parser branch. KBO (BE),
+ * KVK (NL), and Companies House (GB) tool results collapse to one envelope
+ * so the consumer can dispatch on shape, not registry -- the `registry`
+ * field carries the label. Defensive: drops malformed hits, returns `[]`
+ * on bad input.
  */
 export function parseRegistrySearchResults(data: unknown): RegistrySearchResults[] {
   if (!data || typeof data !== 'object') return []
   const d = data as Record<string, unknown>
   const registryRaw = typeof d.registry_name === 'string' ? d.registry_name : ''
-  const registry: 'KBO' | 'KVK' = registryRaw === 'KVK' ? 'KVK' : 'KBO'
+  const registry: 'KBO' | 'KVK' | 'Companies House' =
+    registryRaw === 'Companies House' ? 'Companies House' : registryRaw === 'KVK' ? 'KVK' : 'KBO'
 
   const hitsArr = Array.isArray(d.results) ? d.results : []
   const hits: RegistrySearchHit[] = hitsArr
     .filter((h): h is Record<string, unknown> => typeof h === 'object' && h !== null)
     .map((h) => {
-      const num =
-        typeof h.kvk_number === 'string'
-          ? h.kvk_number
-          : typeof h.kbo_number === 'string'
-            ? h.kbo_number
-            : ''
+      const kvkNumber = typeof h.kvk_number === 'string' ? h.kvk_number : null
+      const companiesHouseNumber =
+        typeof h.companies_house_number === 'string' ? h.companies_house_number : null
+      const registrationNumber =
+        typeof h.registration_number === 'string' ? h.registration_number : null
+      const kboNumber = typeof h.kbo_number === 'string' ? h.kbo_number : null
+      const num = kvkNumber ?? companiesHouseNumber ?? registrationNumber ?? kboNumber ?? ''
       return {
         companyNumber: num,
         companyName: typeof h.company_name === 'string' ? h.company_name : '',
@@ -178,7 +181,13 @@ export function parseRegistrySearchResults(data: unknown): RegistrySearchResults
         postalCode: typeof h.postal_code === 'string' ? h.postal_code : null,
         address: typeof h.address === 'string' ? h.address : null,
         countryCode:
-          typeof h.country_code === 'string' ? h.country_code : registry === 'KVK' ? 'NL' : 'BE',
+          typeof h.country_code === 'string'
+            ? h.country_code
+            : registry === 'KVK'
+              ? 'NL'
+              : registry === 'Companies House'
+                ? 'GB'
+                : 'BE',
         naceCode: typeof h.nace_code === 'string' ? h.nace_code : null,
         naceDescription: typeof h.nace_description === 'string' ? h.nace_description : null,
         businessTypeId: typeof h.business_type_id === 'string' ? h.business_type_id : null,

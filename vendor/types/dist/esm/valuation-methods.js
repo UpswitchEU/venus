@@ -19,6 +19,8 @@ export const VALUATION_RESULT_METHOD_KEYS = [
     'pe_ratio',
     'owner_adaptive',
     'custom_weighted',
+    'real_estate_yield',
+    'upswitch_adaptive_multiples_only',
 ];
 export const VALUATION_METHOD_KEYS = [
     'upswitch_adaptive',

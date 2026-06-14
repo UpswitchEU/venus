@@ -20,6 +20,8 @@ export const VALUATION_RESULT_METHOD_KEYS = [
   'pe_ratio',
   'owner_adaptive',
   'custom_weighted',
+  'real_estate_yield',
+  'upswitch_adaptive_multiples_only',
 ] as const;
 
 export type ValuationResultMethodKey = (typeof VALUATION_RESULT_METHOD_KEYS)[number];

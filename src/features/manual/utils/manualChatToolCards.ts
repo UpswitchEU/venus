@@ -19,19 +19,11 @@ type ValuationMethodPreferenceCard = NonNullable<
   ChatMessage['valuationMethodPreferenceRequests']
 >[number]
 type BulkValuationRunCard = NonNullable<ChatMessage['bulkValuationRunRequests']>[number]
-type ListingFieldUpdateCard = NonNullable<
-  ChatMessage['listingFieldUpdateRequests']
->[number]
-type NormalizationDismissCard = NonNullable<
-  ChatMessage['normalizationDismissRequests']
->[number]
-type WorkspaceClientsPreviewCard = NonNullable<
-  ChatMessage['workspaceClientsPreviews']
->[number]
+type ListingFieldUpdateCard = NonNullable<ChatMessage['listingFieldUpdateRequests']>[number]
+type NormalizationDismissCard = NonNullable<ChatMessage['normalizationDismissRequests']>[number]
+type WorkspaceClientsPreviewCard = NonNullable<ChatMessage['workspaceClientsPreviews']>[number]
 type ValuationDefaultsCard = NonNullable<ChatMessage['valuationDefaultsRequests']>[number]
-type ValuationDefaultsPreviewCard = NonNullable<
-  ChatMessage['valuationDefaultsPreviews']
->[number]
+type ValuationDefaultsPreviewCard = NonNullable<ChatMessage['valuationDefaultsPreviews']>[number]
 type AcknowledgeWarningCard = NonNullable<ChatMessage['acknowledgeWarningRequests']>[number]
 type SecureCredentialCard = NonNullable<ChatMessage['secureCredentialRequests']>[number]
 type CsvUploadCard = NonNullable<ChatMessage['csvUploadRequests']>[number]
@@ -658,6 +650,7 @@ export function parseManualChatStreamToolResult(
         return { type: 'business_type_search_results', data }
       case 'search_kbo_registry':
       case 'search_kvk_registry':
+      case 'search_companies_house_registry':
         return { type: 'registry_search_results', data }
       case 'advisor_add_client_widget':
         return { type: 'add_client_widget', data }

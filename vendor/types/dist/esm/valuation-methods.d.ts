@@ -4,7 +4,7 @@
  * Source: apps/valuation-iq/src/domain/method_keys.py
  * Regenerate with: upswitch-platform sync:valuation-method-contracts
  */
-export declare const VALUATION_RESULT_METHOD_KEYS: readonly ["dcf", "ebitda_multiple", "omzet_multiple", "revenue_multiple", "sde_multiple", "adjusted_nav", "upswitch_adaptive", "arr_multiple", "fiscal_4x", "liquidation_analysis", "startup_valuation", "pe_ratio", "owner_adaptive", "custom_weighted"];
+export declare const VALUATION_RESULT_METHOD_KEYS: readonly ["dcf", "ebitda_multiple", "omzet_multiple", "revenue_multiple", "sde_multiple", "adjusted_nav", "upswitch_adaptive", "arr_multiple", "fiscal_4x", "liquidation_analysis", "startup_valuation", "pe_ratio", "owner_adaptive", "custom_weighted", "real_estate_yield", "upswitch_adaptive_multiples_only"];
 export type ValuationResultMethodKey = (typeof VALUATION_RESULT_METHOD_KEYS)[number];
 export declare const VALUATION_METHOD_KEYS: readonly ["upswitch_adaptive", "ebitda_multiple", "omzet_multiple", "dcf", "sde_multiple", "arr_multiple", "adjusted_nav", "fiscal_4x", "startup_valuation", "liquidation_analysis"];
 export type ValuationMethodKey = (typeof VALUATION_METHOD_KEYS)[number];

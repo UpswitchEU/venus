@@ -29,6 +29,7 @@ exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     propose_share_token: 'share_token_request',
     propose_share_token_revoke: 'share_token_revoke_request',
     propose_valuation_method_preference: 'valuation_method_preference_request',
+    propose_method_weights_selection: 'valuation_method_selection_request',
     propose_valuation_defaults: 'valuation_defaults_request',
     propose_acknowledge_warning: 'acknowledge_warning_request',
     propose_secure_credential: 'secure_credential_request',
@@ -50,6 +51,7 @@ exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     search_business_types: 'business_type_search_results',
     search_kbo_registry: 'registry_search_results',
     search_kvk_registry: 'registry_search_results',
+    search_companies_house_registry: 'registry_search_results',
     suggest_normalization_batch: 'normalization_suggestion_batch',
     propose_normalization_dismiss: 'normalization_dismiss_request',
     get_buyer_ready_package: 'buyer_ready_package_status',
@@ -88,6 +90,7 @@ exports.AI_ACTION_TOOL_RESULT_TYPES = [
     'share_token_request',
     'share_token_revoke_request',
     'valuation_method_preference_request',
+    'valuation_method_selection_request',
     'valuation_defaults_request',
     'acknowledge_warning_request',
     'secure_credential_request',
@@ -166,6 +169,6 @@ function isAiActionToolResultType(value) {
     return typeof value === 'string' && AI_ACTION_TOOL_RESULT_TYPE_SET.has(value);
 }
 function classifyAiActionToolResultType(toolName) {
-    return exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data';
+    return (exports.AI_ACTION_TOOL_NAME_TO_RESULT_TYPE[toolName] ?? 'data');
 }
 //# sourceMappingURL=ai-actions.js.map

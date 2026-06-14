@@ -716,13 +716,14 @@ export interface ChatMessage {
   businessTypeSearchResults?: BusinessTypeSearchResults[]
   /**
    * Read-only registry-search picker rendered when the agent calls
-   * search_kbo_registry (BE) or search_kvk_registry (NL). Click a row
-   * to fire a follow-up "Use {name} ({registry} {number})" message and
-   * let the agent chain. Mirrors the Mercury RegistrySearchResultsCard.
+   * search_kbo_registry (BE), search_kvk_registry (NL), or
+   * search_companies_house_registry (GB). Click a row to fire a follow-up
+   * "Use {name} ({registry} {number})" message and let the agent chain.
+   * Mirrors the Mercury RegistrySearchResultsCard.
    */
   registrySearchResults?: Array<{
     id: string
-    registry: 'KBO' | 'KVK'
+    registry: 'KBO' | 'KVK' | 'Companies House'
     query: string
     totalFound: number
     hits: Array<{
