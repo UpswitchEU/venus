@@ -54,15 +54,16 @@ const translations: Record<string, Record<string, string>> = {
     zeroDraftBlurb: 'Download de Zero Draft als CSV.',
   },
   valuationEditModal: {
-    title: 'Waardering bewerken',
-    description: 'Pas de waarderingsmethode en EV/EBITDA-multiple aan.',
+    title: 'Hoofdcijfer kiezen',
+    description:
+      'Kies welk berekend resultaat in rapport en PDF als hoofdwaarde verschijnt. Herberekenen en multiple-calibratie gebeuren in de preparer.',
     loadingTitle: 'Methodedata wordt geladen',
     loadingBlurb:
       'We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.',
     retryMethodDataLoad: 'Opnieuw laden',
     continueImportReview: 'Ga verder met gegevens controleren',
-    methodSection: 'Methode',
-    persistingMethod: 'Methode opslaan en rapport vernieuwen…',
+    methodSection: 'Hoofdcijfer uit berekende methodes',
+    persistingMethod: 'Hoofdcijfer opslaan en rapport vernieuwen…',
   },
   preparerMultiple: {
     contextSeparator: ' · ',
@@ -232,7 +233,7 @@ describe('ValuationEditModal', () => {
     )
 
     expect(screen.queryByText('Methodedata niet beschikbaar')).not.toBeInTheDocument()
-    expect(screen.getByText('Waardering bewerken')).toBeInTheDocument()
+    expect(screen.getByText('Hoofdcijfer kiezen')).toBeInTheDocument()
     expect(screen.getByText('Alle methoden in één oogopslag')).toBeInTheDocument()
     expect(screen.getByText('Waarde')).toBeInTheDocument()
     expect(screen.getAllByText('Multiple').length).toBeGreaterThanOrEqual(1)
@@ -262,7 +263,7 @@ describe('ValuationEditModal', () => {
       />
     )
 
-    expect(screen.getByText('Methode opslaan en rapport vernieuwen…')).toBeInTheDocument()
+    expect(screen.getByText('Hoofdcijfer opslaan en rapport vernieuwen…')).toBeInTheDocument()
 
     const radios = screen.getAllByRole('radio')
     expect(radios.length).toBeGreaterThanOrEqual(2)

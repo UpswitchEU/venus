@@ -230,7 +230,9 @@ export function ManualLayoutModals({
         zeroDraftCreatedAt={
           report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
         }
-        showPreparerMultiple={showPreparerMultiplePanel}
+        // EV/EBITDA calibration belongs to the preparer calculation flow.
+        // The report modal is only for selecting the headline result.
+        showPreparerMultiple={false}
         isMethodPersisting={isMethodSwitchRendering}
         firmCountryCode={userFirmCountryCode ?? undefined}
         planAllowedMethodKeys={

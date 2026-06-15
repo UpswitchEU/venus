@@ -714,7 +714,7 @@ export function ValuationEditModal({
               fiscalAnchor={fiscalAnchor}
               benchmarkMultiple={benchmarkNum}
               appliedMultiple={appliedNum}
-              previewEquity={liveEquityPreview}
+              previewEquity={showPreparerMultiple ? liveEquityPreview : null}
             />
 
             <ValuationEditModalPreparerSection
