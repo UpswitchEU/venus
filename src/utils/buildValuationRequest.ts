@@ -13,12 +13,7 @@ import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/us
 import type { DataResponse } from '../types/data-collection'
 import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaNormalization'
 import { ValidationError } from '../types/errors'
-import type {
-  BusinessTypeSegmentInput,
-  ValuationFormData,
-  ValuationRequest,
-  YearDataInput,
-} from '../types/valuation'
+import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
@@ -31,6 +26,7 @@ import {
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 import { generalLogger } from './logger'
+import { normalizeBusinessTypeSegments } from './normalizeBusinessTypeSegments'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import {
@@ -61,36 +57,6 @@ type FormDataRecord = ValuationFormData & Record<string, unknown>
 
 function toFiniteNumber(value: unknown): number | null {
   return parseFlexibleNumber(value) ?? null
-}
-
-function normalizeBusinessTypeSegments(
-  segments: BusinessTypeSegmentInput[] | undefined
-): BusinessTypeSegmentInput[] {
-  if (!Array.isArray(segments) || segments.length <= 1) return []
-
-  return segments.flatMap((segment) => {
-    const businessTypeId = normalizeBusinessTypeId(segment.business_type_id)
-    if (!businessTypeId) return []
-
-    const earnings = toFiniteNumber(segment.earnings)
-    const multiple = toFiniteNumber(segment.multiple ?? segment.applied_multiple)
-    const weight = toFiniteNumber(segment.weight)
-    const basis = segment.basis ?? segment.earnings_basis
-
-    return [
-      {
-        business_type_id: businessTypeId,
-        ...(segment.business_type_title
-          ? { business_type_title: segment.business_type_title }
-          : {}),
-        ...(segment.nace_code ? { nace_code: segment.nace_code } : {}),
-        ...(basis ? { basis, earnings_basis: basis } : {}),
-        ...(earnings != null ? { earnings } : {}),
-        ...(multiple != null ? { multiple } : {}),
-        ...(weight != null ? { weight } : {}),
-      },
-    ]
-  })
 }
 
 function hasValidHistoricalEbitdaWeights(weights: Record<number, number>): boolean {

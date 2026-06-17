@@ -1,3 +1,4 @@
+import type { KBOCompany, BusinessType as SearchBusinessType } from '../../../design-system'
 import type { BusinessType } from '../../../services/businessTypesApi'
 import type { BusinessTypeSegmentInput, ValuationFormData } from '../../../types/valuation'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
@@ -76,6 +77,102 @@ function firstSegmentEarnings(segment?: BusinessTypeSegmentInput): number | stri
     segment.ebitda ??
     segment.revenue ??
     null
+  )
+}
+
+export function uniqueBusinessTypeIds(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const normalized = normalizeBusinessTypeId(value)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    out.push(normalized)
+  }
+  return out
+}
+
+export function selectedBusinessTypeIdsFromFormData(
+  formData: Pick<ValuationFormData, 'business_type_id' | 'business_type_segments'> & {
+    businessType?: string
+  }
+): string[] {
+  const segmentIds =
+    formData.business_type_segments
+      ?.map((segment) => segment.business_type_id)
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0) ?? []
+  if (segmentIds.length > 1) return uniqueBusinessTypeIds(segmentIds)
+  return uniqueBusinessTypeIds([formData.business_type_id, formData.businessType])
+}
+
+function getCompanyBusinessTypeIds(company: KBOCompany): string[] {
+  return uniqueBusinessTypeIds([...(company.businessTypeIds ?? []), company.businessTypeId])
+}
+
+function getBusinessTypeTitleFromCompany(company: KBOCompany, id: string): string {
+  return (
+    company.businessTypeCandidates?.find((candidate) => candidate.id === id)?.title ||
+    (normalizeBusinessTypeId(company.businessTypeId) === id
+      ? company.businessTypeTitle
+      : undefined) ||
+    id
+  )
+}
+
+function buildFallbackBusinessTypeFromCompany(company: KBOCompany, id: string): BusinessType {
+  const title = getBusinessTypeTitleFromCompany(company, id)
+  return {
+    id,
+    title,
+    description: '',
+    icon: '🏢',
+    category: '',
+    category_id: '',
+    industryMapping: id,
+    keywords: [],
+    popular: false,
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+export function buildApiBusinessTypeFromSearchType(
+  id: string,
+  businessType: SearchBusinessType
+): BusinessType {
+  return {
+    id,
+    title: businessType.name,
+    description: businessType.description ?? '',
+    icon: businessType.emoji ?? '🏢',
+    category: businessType.category,
+    category_id: businessType.category,
+    industryMapping: businessType.code || id,
+    keywords: [],
+    popular: Boolean(businessType.popular),
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+export function resolveBusinessTypesFromKboCompany(
+  company: KBOCompany,
+  businessTypes: BusinessType[]
+): BusinessType[] {
+  const ids = getCompanyBusinessTypeIds(company)
+  if (ids.length === 0) return []
+
+  const businessTypeById = new Map(
+    businessTypes.map((businessType) => [
+      normalizeBusinessTypeId(businessType.id) ?? businessType.id,
+      businessType,
+    ])
+  )
+
+  return ids.map(
+    (id) => businessTypeById.get(id) ?? buildFallbackBusinessTypeFromCompany(company, id)
   )
 }
 

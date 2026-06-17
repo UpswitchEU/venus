@@ -141,6 +141,49 @@ describe('buildStartupValuationRequest', () => {
     expect(req.business_type).toBe('private_company')
   })
 
+  it('threads normalized multi business-type segments when provided', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Acme',
+      businessTypeId: 'accounting',
+      businessTypeSegments: [
+        {
+          business_type_id: 'accounting',
+          business_type_title: 'Accounting practice',
+          basis: 'EBITDA',
+          earnings: '120000',
+          multiple: '5.4',
+        },
+        {
+          business_type_id: 'tax-advisory',
+          business_type_title: 'Tax advisory',
+          basis: 'EBITDA',
+          earnings: 80000,
+          applied_multiple: 6.1,
+        },
+      ],
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.business_type_segments).toEqual([
+      {
+        business_type_id: 'accounting',
+        business_type_title: 'Accounting practice',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        earnings: 120000,
+        multiple: 5.4,
+      },
+      {
+        business_type_id: 'tax-advisory',
+        business_type_title: 'Tax advisory',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        earnings: 80000,
+        multiple: 6.1,
+      },
+    ])
+  })
+
   it('canonicalizes legacy business-type aliases before submit', () => {
     const req = buildStartupValuationRequest({
       companyName: 'Upswitch',

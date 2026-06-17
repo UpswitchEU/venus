@@ -15,11 +15,12 @@
  */
 
 import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
-import type { ValuationRequest } from '../types/valuation'
+import type { BusinessTypeSegmentInput, ValuationRequest } from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { getCurrentFilingYear } from './fiscalYear'
 import { getMercuryUrl } from './getMercuryUrl'
+import { normalizeBusinessTypeSegments } from './normalizeBusinessTypeSegments'
 
 export interface BuildStartupValuationRequestOptions {
   companyName: string
@@ -30,6 +31,7 @@ export interface BuildStartupValuationRequestOptions {
   naceCode?: string
   naceDescription?: string
   businessTypeId?: string
+  businessTypeSegments?: BusinessTypeSegmentInput[]
   businessType?: string
   startupInputs: Record<string, unknown>
   locale?: 'nl' | 'en' | 'fr'
@@ -75,6 +77,7 @@ export function buildStartupValuationRequest({
   naceCode,
   naceDescription,
   businessTypeId,
+  businessTypeSegments,
   businessType,
   startupInputs,
   locale,
@@ -86,6 +89,7 @@ export function buildStartupValuationRequest({
     normalizedBusinessTypeId && !isLegalFormBusinessTypeValue(normalizedBusinessTypeId)
       ? normalizedBusinessTypeId
       : undefined
+  const cleanBusinessTypeSegments = normalizeBusinessTypeSegments(businessTypeSegments)
   const filingYear = getCurrentFilingYear()
   const cleanFoundingYear = (() => {
     const year = Number(foundingYear)
@@ -105,6 +109,9 @@ export function buildStartupValuationRequest({
     ...(naceCode ? { nace_code: naceCode } : {}),
     ...(naceDescription ? { nace_description: naceDescription } : {}),
     ...(cleanBusinessTypeId ? { business_type_id: cleanBusinessTypeId } : {}),
+    ...(cleanBusinessTypeSegments.length > 1
+      ? { business_type_segments: cleanBusinessTypeSegments }
+      : {}),
     ...(businessType ? { business_type: businessType } : {}),
 
     // Placeholder financial frame — the Startup Valuation Engine does not

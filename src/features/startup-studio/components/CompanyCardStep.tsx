@@ -31,18 +31,25 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BusinessTypeSelector } from '@/components/BusinessTypeSelector'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
-import { TARGET_COUNTRIES } from '@/config/countries'
 import {
-  type BusinessType,
-  BusinessTypeSearchInput,
-  type KBOCompany,
-  KBOSearchInput,
-} from '@/design-system'
+  buildBusinessTypeFormData,
+  buildBusinessTypeSegmentsFormData,
+  resolveBusinessTypesFromKboCompany,
+  selectedBusinessTypeIdsFromFormData,
+} from '@/components/ValuationForm/utils/businessTypeFormData'
+import { TARGET_COUNTRIES } from '@/config/countries'
+import { AuroraNumberInput, type KBOCompany, KBOSearchInput } from '@/design-system'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { AuroraSelect } from '@/design-system/components/Select'
+import {
+  coerceStudioLocale,
+  studioIntlLocale,
+} from '@/features/startup-studio/i18n/useStudioLocale'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
+import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
 import { registryService } from '@/services/registry/registryService'
 import type { CompanySearchResult } from '@/services/registry/types'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
@@ -54,13 +61,10 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
-import { mapApiBusinessTypeForEntitySearch } from '@/utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { mapRegistrySearchResultToKboCompany } from '@/utils/mapRegistrySearchResultToKboCompany'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
-import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 
 interface CompanyCardStepProps {
   /** @deprecated Route locale from next-intl is used. */
@@ -217,6 +221,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
   const country = useManualFormStore((s) => (s.formData.country_code ?? 'BE').toUpperCase())
   const businessTypeId = useManualFormStore((s) => s.formData.business_type_id ?? '')
+  const businessTypeSegments = useManualFormStore((s) => s.formData.business_type_segments ?? [])
   const legalForm = useManualFormStore(
     (s) => (s.formData as { legal_form?: string }).legal_form ?? ''
   )
@@ -390,20 +395,50 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   // -------------------------------------------------------------------
   // Business types (canonical Titan list)
   // -------------------------------------------------------------------
-  const {
-    businessTypes,
-    loading: businessTypesLoading,
-    error: businessTypesError,
-    refetch: refetchBusinessTypes,
-  } = useBusinessTypes()
+  const { businessTypes } = useBusinessTypes()
 
-  const businessTypesForSearch = useMemo<BusinessType[]>(() => {
-    return businessTypes.map(mapApiBusinessTypeForEntitySearch)
-  }, [businessTypes])
+  const selectedBusinessTypeIds = useMemo(
+    () =>
+      selectedBusinessTypeIdsFromFormData({
+        business_type_id: businessTypeId,
+        business_type_segments: businessTypeSegments,
+      }),
+    [businessTypeId, businessTypeSegments]
+  )
 
   // -------------------------------------------------------------------
   // Selection handlers
   // -------------------------------------------------------------------
+  const applyBusinessTypeSelection = useCallback(
+    (selectedBusinessTypes: ApiBusinessType[], extraUpdates: Record<string, unknown> = {}) => {
+      const primaryBusinessType = selectedBusinessTypes[0]
+      if (!primaryBusinessType) {
+        updateFormData({
+          ...extraUpdates,
+          business_type_id: undefined,
+          business_type_title: undefined,
+          business_type_segments: [],
+          business_model: undefined,
+          industry: undefined,
+        } as Record<string, unknown>)
+        return
+      }
+
+      const primaryPatch = buildBusinessTypeFormData(primaryBusinessType)
+      const segmentPatch =
+        selectedBusinessTypes.length > 1
+          ? buildBusinessTypeSegmentsFormData(selectedBusinessTypes, businessTypeSegments)
+          : { business_type_segments: [] }
+
+      updateFormData({
+        ...extraUpdates,
+        ...primaryPatch,
+        ...segmentPatch,
+      } as Record<string, unknown>)
+    },
+    [businessTypeSegments, updateFormData]
+  )
+
   const handleCompanySelect = useCallback(
     (company: KBOCompany) => {
       setSelectedCompany(company)
@@ -417,14 +452,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         nace_code: canonical || undefined,
         nace_description: company.naceDescription || undefined,
       }
-      const businessTypeId = normalizeBusinessTypeId(company.businessTypeId)
-      if (businessTypeId) {
-        const mapped = businessTypesForSearch.find((bt) => bt.id === businessTypeId)
-        updates.business_type_id = businessTypeId
-        if (mapped) {
-          updates.industry = mapped.category
-        }
-      }
+      const seededBusinessTypes = resolveBusinessTypesFromKboCompany(company, businessTypes)
       // Founding year — registry-supplied incorporation year drives the
       // engine envelope's ``founding_year`` field AND seeds the funding
       // stage default below.  Only set when the form-store doesn't
@@ -443,7 +471,11 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       // Bridge `legal_form` → SME `business_structure` mapping for any
       // downstream consumer that branches on it.  No-op if mapping fails.
       mapLegalFormToBusinessStructure(company.legalForm ?? '')
-      updateFormData(updates)
+      if (seededBusinessTypes.length > 0) {
+        applyBusinessTypeSelection(seededBusinessTypes, updates)
+      } else {
+        updateFormData(updates)
+      }
       setField('country_code', String(updates.country_code))
 
       // Stage smart-default — registry incorporation year → cohort
@@ -467,7 +499,14 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         }
       }
     },
-    [businessTypesForSearch, country, setField, updateFormData, seedStageFromFoundingYearIfDefault]
+    [
+      applyBusinessTypeSelection,
+      businessTypes,
+      country,
+      setField,
+      updateFormData,
+      seedStageFromFoundingYearIfDefault,
+    ]
   )
 
   const handleClearCompany = useCallback(() => {
@@ -480,19 +519,33 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       nace_code: undefined,
       nace_description: undefined,
       business_type_id: undefined,
+      business_type_title: undefined,
+      business_type_segments: [],
+      business_model: undefined,
       industry: undefined,
     } as Record<string, unknown>)
   }, [updateFormData])
 
-  const handleBusinessTypeSelect = useCallback(
-    (value: string, businessType?: BusinessType) => {
-      const businessTypeId = normalizeBusinessTypeId(value)
-      updateFormData({
-        business_type_id: businessTypeId,
-        industry: businessType?.category,
-      } as Record<string, unknown>)
+  const handleBusinessTypeSelectionChange = useCallback(
+    (_ids: string[], selectedBusinessTypes: ApiBusinessType[]) => {
+      applyBusinessTypeSelection(selectedBusinessTypes)
     },
-    [updateFormData]
+    [applyBusinessTypeSelection]
+  )
+
+  const updateSegmentEarnings = useCallback(
+    (index: number, earnings: string) => {
+      const nextSegments = businessTypeSegments.map((segment, segmentIndex) =>
+        segmentIndex === index
+          ? {
+              ...segment,
+              earnings: earnings.trim() ? earnings : null,
+            }
+          : segment
+      )
+      updateFormData({ business_type_segments: nextSegments })
+    },
+    [businessTypeSegments, updateFormData]
   )
 
   // -------------------------------------------------------------------
@@ -562,20 +615,64 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           />
         )}
 
-        <BusinessTypeSearchInput
+        <BusinessTypeSelector
           label={t('businessType')}
-          value={businessTypeId}
-          onChange={handleBusinessTypeSelect}
-          types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
-          loading={businessTypesLoading}
-          loadError={businessTypesError}
-          onRetryLoad={refetchBusinessTypes}
-          naceMatchedTypeId={
-            selectedCompany?.naceCode && businessTypeId ? businessTypeId : undefined
-          }
-          countryCode={country}
-          size="sm"
+          value={selectedBusinessTypeIds}
+          onChange={() => undefined}
+          onSelectionChange={handleBusinessTypeSelectionChange}
+          selectionMode="multiple"
+          showPreview={selectedBusinessTypeIds.length <= 1}
         />
+
+        {businessTypeSegments.length > 1 && (
+          <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
+            <div className="mb-2 text-xs font-semibold text-foreground">Segment earnings</div>
+            <div className="space-y-3">
+              {businessTypeSegments.map((segment, index) => {
+                const basis = segment.basis ?? segment.earnings_basis
+                const multiple =
+                  typeof segment.multiple === 'number' || typeof segment.multiple === 'string'
+                    ? segment.multiple
+                    : segment.applied_multiple
+                const multipleNumber = Number(multiple)
+
+                return (
+                  <div
+                    key={`${segment.business_type_id}-${index}`}
+                    className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_180px]"
+                  >
+                    <div className="min-w-0 self-center">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {segment.business_type_title ?? segment.business_type_id}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
+                        {basis && (
+                          <span className="rounded-md bg-foreground/[0.06] px-2 py-1">{basis}</span>
+                        )}
+                        {Number.isFinite(multipleNumber) && (
+                          <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
+                            {multipleNumber.toFixed(1)}x
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <AuroraNumberInput
+                      label={basis ? `${basis} earnings` : 'Segment earnings'}
+                      placeholder="0"
+                      name={`business_type_segments.${index}.earnings`}
+                      value={segment.earnings ?? ''}
+                      onChange={(event) => updateSegmentEarnings(index, event.target.value)}
+                      min={0}
+                      step={1000}
+                      prefix="EUR"
+                      formatAsCurrency
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <AuroraSelect
           label={t('legalForm')}

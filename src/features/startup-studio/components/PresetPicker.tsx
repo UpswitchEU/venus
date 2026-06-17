@@ -25,7 +25,10 @@ import {
   STUDIO_PRESETS,
   type StudioPreset,
 } from '@/features/startup-studio/data/presets'
-import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
+import {
+  coerceStudioLocale,
+  studioIntlLocale,
+} from '@/features/startup-studio/i18n/useStudioLocale'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import { cn } from '@/lib/utils'
 import type { BusinessType } from '@/services/businessTypesApi'
@@ -73,7 +76,7 @@ const SECTOR_TO_DB_CATEGORY: Record<StartupSector, string[]> = {
  *
  * Returns `null` when the catalogue hasn't loaded yet OR no match
  * exists; the caller is expected to leave `business_type_id`
- * unchanged in that case (the BusinessTypeSearchInput is still the
+ * unchanged in that case (the shared BusinessTypeSelector is still the
  * authoritative way for the founder to pick / override).
  */
 export function resolveBusinessTypeIdForSector(

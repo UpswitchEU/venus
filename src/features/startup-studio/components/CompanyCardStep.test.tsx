@@ -30,6 +30,47 @@ import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { CompanyCardStep } from './CompanyCardStep'
 
+const businessTypeFixtures = vi.hoisted(() => ({
+  accountingType: {
+    id: 'accounting',
+    title: 'Accounting practice',
+    description: '',
+    icon: 'chart',
+    category: 'Professional Services',
+    category_id: 'professional-services',
+    industryMapping: 'professional-services',
+    keywords: [],
+    popular: false,
+    primaryMultiple: {
+      label: 'EV/EBITDA',
+      basis: 'EBITDA',
+      median: 5.4,
+    },
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  },
+  taxType: {
+    id: 'tax-advisory',
+    title: 'Tax advisory',
+    description: '',
+    icon: 'briefcase',
+    category: 'Professional Services',
+    category_id: 'professional-services',
+    industryMapping: 'professional-services',
+    keywords: [],
+    popular: false,
+    primaryMultiple: {
+      label: 'EV/EBITDA',
+      basis: 'EBITDA',
+      median: 6.1,
+    },
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  },
+}))
+
 // `next-intl` and the design-system Select pull in heavy modules that
 // aren't relevant here; the store-level assertions are framework-free.
 vi.mock('next-intl', () => ({
@@ -62,17 +103,41 @@ vi.mock('next-intl', () => ({
 }))
 
 // `useBusinessTypes` hits a network endpoint we don't want to exercise
-// from a unit test.  Returning an empty list keeps the dropdown
-// rendered (no preview) without changing the bridge contract.
+// from a unit test.  The fixtures keep the selector/KBO bridge deterministic.
 vi.mock('@/hooks/useBusinessTypes', () => ({
   useBusinessTypes: () => ({
-    businessTypes: [],
+    businessTypes: [businessTypeFixtures.accountingType, businessTypeFixtures.taxType],
     loading: false,
     error: null,
     refetch: () => {
       /* no-op for tests */
     },
   }),
+}))
+
+vi.mock('@/components/BusinessTypeSelector', () => ({
+  BusinessTypeSelector: ({
+    label,
+    onSelectionChange,
+    value,
+  }: {
+    label: string
+    onSelectionChange?: (ids: string[], businessTypes: unknown[]) => void
+    value: string[]
+  }) => (
+    <button
+      type="button"
+      data-testid="business-type-selector"
+      onClick={() =>
+        onSelectionChange?.(
+          ['accounting', 'tax-advisory'],
+          [businessTypeFixtures.accountingType, businessTypeFixtures.taxType]
+        )
+      }
+    >
+      {label}:{value.join(',')}
+    </button>
+  ),
 }))
 
 const initialFormSnapshot = useManualFormStore.getState()
@@ -171,5 +236,30 @@ describe('CompanyCardStep — identity bridge', () => {
     const stored = useManualFormStore.getState().formData.company_name ?? ''
     expect(stored.length).toBeLessThanOrEqual(120)
     expect(stored.length).toBeGreaterThan(0)
+  })
+
+  it('stores multi business-type selections as canonical segments with multiples', () => {
+    render(<CompanyCardStep locale="en" />)
+
+    fireEvent.click(screen.getByTestId('business-type-selector'))
+
+    expect(useManualFormStore.getState().formData).toMatchObject({
+      business_type_id: 'accounting',
+      business_type_title: 'Accounting practice',
+      business_type_segments: [
+        {
+          business_type_id: 'accounting',
+          business_type_title: 'Accounting practice',
+          basis: 'EBITDA',
+          multiple: 5.4,
+        },
+        {
+          business_type_id: 'tax-advisory',
+          business_type_title: 'Tax advisory',
+          basis: 'EBITDA',
+          multiple: 6.1,
+        },
+      ],
+    })
   })
 })

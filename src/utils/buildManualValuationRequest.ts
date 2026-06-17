@@ -44,6 +44,7 @@ export function buildManualValuationRequest(
       naceCode: naceTrim || undefined,
       naceDescription: formData.nace_description,
       businessTypeId: formData.business_type_id,
+      businessTypeSegments: formData.business_type_segments,
       businessType: formData.business_type,
       startupInputs,
       locale,

@@ -17,94 +17,16 @@ import { mapApiBusinessTypeForEntitySearch } from '../../../utils/businessTypeSe
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { mapRegistrySearchResultToKboCompany } from '../../../utils/mapRegistrySearchResultToKboCompany'
 import {
+  buildApiBusinessTypeFromSearchType,
   buildBusinessTypeFormData,
   buildBusinessTypeSegmentsFormData,
+  resolveBusinessTypesFromKboCompany,
+  selectedBusinessTypeIdsFromFormData,
 } from '../../ValuationForm/utils/businessTypeFormData'
 import { useManualNaceBusinessTypePrefill } from './useManualNaceBusinessTypePrefill'
 
 type StoreFormPatch = Record<string, unknown>
 type Translate = (key: string) => string
-
-type BusinessTypeSegment = NonNullable<ValuationFormData['business_type_segments']>[number]
-
-function uniqueBusinessTypeIds(values: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const value of values) {
-    const normalized = normalizeBusinessTypeId(value)
-    if (!normalized || seen.has(normalized)) continue
-    seen.add(normalized)
-    out.push(normalized)
-  }
-  return out
-}
-
-function getCompanyBusinessTypeIds(company: KBOCompany): string[] {
-  return uniqueBusinessTypeIds([...(company.businessTypeIds ?? []), company.businessTypeId])
-}
-
-function getBusinessTypeTitleFromCompany(company: KBOCompany, id: string): string {
-  return (
-    company.businessTypeCandidates?.find((candidate) => candidate.id === id)?.title ||
-    (normalizeBusinessTypeId(company.businessTypeId) === id
-      ? company.businessTypeTitle
-      : undefined) ||
-    id
-  )
-}
-
-function buildFallbackApiBusinessType(company: KBOCompany, id: string): ApiBusinessType {
-  const title = getBusinessTypeTitleFromCompany(company, id)
-  return {
-    id,
-    title,
-    description: '',
-    icon: '🏢',
-    category: '',
-    category_id: '',
-    industryMapping: id,
-    keywords: [],
-    popular: false,
-    status: 'active',
-    createdAt: '',
-    updatedAt: '',
-  }
-}
-
-function buildApiBusinessTypeFromSearchType(
-  id: string,
-  businessType: SearchBusinessType
-): ApiBusinessType {
-  return {
-    id,
-    title: businessType.name,
-    description: businessType.description ?? '',
-    icon: businessType.emoji ?? '🏢',
-    category: businessType.category,
-    category_id: businessType.category,
-    industryMapping: businessType.code || id,
-    keywords: [],
-    popular: Boolean(businessType.popular),
-    status: 'active',
-    createdAt: '',
-    updatedAt: '',
-  }
-}
-
-function resolveCompanyApiBusinessTypes(
-  company: KBOCompany,
-  businessTypes: ApiBusinessType[]
-): ApiBusinessType[] {
-  const ids = getCompanyBusinessTypeIds(company)
-  if (ids.length === 0) return []
-  const businessTypeById = new Map(
-    businessTypes.map((businessType) => [
-      normalizeBusinessTypeId(businessType.id) ?? businessType.id,
-      businessType,
-    ])
-  )
-  return ids.map((id) => businessTypeById.get(id) ?? buildFallbackApiBusinessType(company, id))
-}
 
 export interface UseManualCompanyIdentificationControllerParams {
   executePrefillCompanyReset: () => void
@@ -191,14 +113,10 @@ export function useManualCompanyIdentificationController({
     () => businessTypes.map(mapApiBusinessTypeForEntitySearch),
     [businessTypes]
   )
-  const selectedBusinessTypeIds = useMemo(() => {
-    const segmentIds =
-      formData.business_type_segments
-        ?.map((segment: BusinessTypeSegment) => segment.business_type_id)
-        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0) ?? []
-    if (segmentIds.length > 1) return uniqueBusinessTypeIds(segmentIds)
-    return uniqueBusinessTypeIds([formData.business_type_id, formData.businessType])
-  }, [formData.businessType, formData.business_type_id, formData.business_type_segments])
+  const selectedBusinessTypeIds = useMemo(
+    () => selectedBusinessTypeIdsFromFormData(formData),
+    [formData]
+  )
 
   const {
     clearNacePrefillError,
@@ -319,7 +237,7 @@ export function useManualCompanyIdentificationController({
           : { activity_code: undefined }),
       })
 
-      const seededBusinessTypes = resolveCompanyApiBusinessTypes(company, businessTypes)
+      const seededBusinessTypes = resolveBusinessTypesFromKboCompany(company, businessTypes)
       if (seededBusinessTypes.length > 0) {
         applyApiBusinessTypeSelection(seededBusinessTypes, baseUpdates)
         return
