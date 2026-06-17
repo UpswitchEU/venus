@@ -18,6 +18,7 @@ import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type WeightingMode = 'standard' | 'weighted'
+type MultipleTypeKey = 'ev_ebitda' | 'ev_revenue' | 'pe'
 type AdvisorDiscountKey =
   | 'size_discount'
   | 'liquidity_discount'
@@ -35,6 +36,9 @@ export interface AdvancedAdvisorControlsSectionProps {
   sectorAverageMultiple?: number | null
   multipleCalibrationAdjustment?: number
   multipleCalibrationNote?: string
+  effectiveMultipleOverride?: number
+  effectiveMultipleOverrideNote?: string
+  multipleTypeWeights?: Record<string, number>
   riskAnalysisEnabled?: boolean
   advisorDiscountWeights?: Record<string, number>
   discountFloorFactor?: number
@@ -72,6 +76,16 @@ const ADVISOR_DISCOUNT_ROWS: Array<{
   { key: 'owner_concentration', labelKey: 'ownerConcentration' },
 ]
 
+const MULTIPLE_TYPE_ROWS: Array<{
+  key: MultipleTypeKey
+  labelKey: string
+  defaultWeight: number
+}> = [
+  { key: 'ev_ebitda', labelKey: 'evEbitdaBlend', defaultWeight: 60 },
+  { key: 'ev_revenue', labelKey: 'evRevenueBlend', defaultWeight: 30 },
+  { key: 'pe', labelKey: 'peBlend', defaultWeight: 10 },
+]
+
 function clampDiscountWeight(value: unknown): number {
   const numeric = toFiniteNumber(value)
   if (numeric == null) return 1
@@ -82,6 +96,35 @@ function clampDiscountFloorFactor(value: unknown): number {
   const numeric = toFiniteNumber(value)
   if (numeric == null) return 0.45
   return Math.min(1, Math.max(0, Math.round(numeric * 100) / 100))
+}
+
+function normalizeMultipleTypeWeight(value: unknown, fallback: number): number {
+  const numeric = toFiniteNumber(value)
+  if (numeric == null) return fallback
+  const percent = Math.abs(numeric) <= 1.5 ? numeric * 100 : numeric
+  return Math.min(100, Math.max(0, Math.round(percent)))
+}
+
+function normalizeMultipleTypeWeights(
+  weights: Record<string, number> | undefined
+): Record<MultipleTypeKey, number> {
+  const hasAdvisorWeights = !!weights && Object.keys(weights).length > 0
+  const raw: Record<MultipleTypeKey, number> = {
+    ev_ebitda: normalizeMultipleTypeWeight(weights?.ev_ebitda, hasAdvisorWeights ? 0 : 60),
+    ev_revenue: normalizeMultipleTypeWeight(weights?.ev_revenue, hasAdvisorWeights ? 0 : 30),
+    pe: normalizeMultipleTypeWeight(weights?.pe, hasAdvisorWeights ? 0 : 10),
+  }
+  const total = raw.ev_ebitda + raw.ev_revenue + raw.pe
+  if (total === 100) return raw
+  if (total <= 0) return { ev_ebitda: 60, ev_revenue: 30, pe: 10 }
+
+  const evEbitda = Math.round((raw.ev_ebitda / total) * 100)
+  const evRevenue = Math.round((raw.ev_revenue / total) * 100)
+  return {
+    ev_ebitda: evEbitda,
+    ev_revenue: evRevenue,
+    pe: Math.max(0, 100 - evEbitda - evRevenue),
+  }
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -99,6 +142,9 @@ export function AdvancedAdvisorControlsSection({
   sectorAverageMultiple,
   multipleCalibrationAdjustment,
   multipleCalibrationNote,
+  effectiveMultipleOverride,
+  effectiveMultipleOverrideNote,
+  multipleTypeWeights,
   riskAnalysisEnabled,
   advisorDiscountWeights,
   discountFloorFactor,
@@ -123,6 +169,10 @@ export function AdvancedAdvisorControlsSection({
   const yearKeys = useMemo(() => years.map(String), [years])
   const mode = historicalEbitdaWeightingMode ?? 'standard'
   const canWeight = years.length >= 3
+  const multipleBlendWeights = useMemo(
+    () => normalizeMultipleTypeWeights(multipleTypeWeights),
+    [multipleTypeWeights]
+  )
   const riskEnabled = riskAnalysisEnabled ?? true
   const floorFactor = clampDiscountFloorFactor(discountFloorFactor)
   const discountWeights = useMemo(() => {
@@ -157,7 +207,13 @@ export function AdvancedAdvisorControlsSection({
       : null
   const requiresCalibrationNote = adjustment !== 0
   const noteComplete = !requiresCalibrationNote || Boolean(multipleCalibrationNote?.trim())
-  const complete = noteComplete && (mode !== 'weighted' || !canWeight || years.length >= 3)
+  const requiresEffectiveOverrideNote = effectiveMultipleOverride != null
+  const effectiveOverrideNoteComplete =
+    !requiresEffectiveOverrideNote || Boolean(effectiveMultipleOverrideNote?.trim())
+  const complete =
+    noteComplete &&
+    effectiveOverrideNoteComplete &&
+    (mode !== 'weighted' || !canWeight || years.length >= 3)
 
   const updateWeight = (year: number, nextValue: number) => {
     const next = rebalanceMethodWeights(rawWeights, String(year), Math.round(nextValue))
@@ -182,6 +238,17 @@ export function AdvancedAdvisorControlsSection({
     } else {
       onFieldChange('historical_ebitda_weights', undefined)
     }
+  }
+
+  const updateMultipleTypeWeight = (key: MultipleTypeKey, nextValue: number) => {
+    onFieldChange(
+      'multiple_type_weights',
+      rebalanceMethodWeights(multipleBlendWeights, key, Math.round(nextValue))
+    )
+  }
+
+  const resetMultipleTypeWeights = () => {
+    onFieldChange('multiple_type_weights', undefined)
   }
 
   const updateDiscountWeight = (key: AdvisorDiscountKey, nextValue: number) => {
@@ -237,6 +304,65 @@ export function AdvancedAdvisorControlsSection({
           label={t('waterfallToggle')}
           disabled={disabled}
         />
+
+        <div className="space-y-3 rounded-lg border border-foreground/10 bg-background/40 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-foreground">
+                {t('multipleTypeBlendTitle')}
+              </div>
+              <p className="text-xs text-foreground/55">{t('multipleTypeBlendSubtitle')}</p>
+            </div>
+            <AuroraButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={resetMultipleTypeWeights}
+              disabled={disabled}
+              className="gap-1.5 text-xs sm:self-start"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t('resetMultipleBlend')}
+            </AuroraButton>
+          </div>
+
+          <div className="space-y-3">
+            {MULTIPLE_TYPE_ROWS.map((row) => {
+              const value = multipleBlendWeights[row.key]
+              const isModelDefault = value === row.defaultWeight
+              return (
+                <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_3.5rem] gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium text-foreground/75">
+                        {t(row.labelKey)}
+                      </span>
+                      <span className="font-mono text-xs tabular-nums text-foreground/60">
+                        {value}%
+                      </span>
+                    </div>
+                    <Slider
+                      value={value}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onChange={(next) => updateMultipleTypeWeight(row.key, next)}
+                      disabled={disabled}
+                      showTooltip
+                      formatValue={(v) => `${Math.round(v)}%`}
+                      aria-label={`${t(row.labelKey)} ${t('multipleTypeWeight')}`}
+                    />
+                  </div>
+                  <div className="flex items-end justify-end pb-[0.8125rem]">
+                    <span className="rounded-md border border-foreground/10 bg-foreground/[0.03] px-2 py-1 text-[10px] font-medium text-foreground/55">
+                      {isModelDefault ? t('discountModelDefault') : t('discountAdvisorWeight')}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
         <div className="space-y-3 rounded-lg border border-foreground/10 bg-background/40 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -409,6 +535,47 @@ export function AdvancedAdvisorControlsSection({
             disabled={disabled}
           />
         )}
+
+        <div className="space-y-3" data-testid="effective-multiple-override-block">
+          <AuroraInput
+            id="effective-multiple-override"
+            name="effective_multiple_override"
+            type="number"
+            min="0.1"
+            max="50"
+            step="0.1"
+            label={t('effectiveMultipleOverride')}
+            size="sm"
+            value={effectiveMultipleOverride ?? ''}
+            onChange={(event) => {
+              const value = toFiniteNumber(event.target.value)
+              onFieldChange('effective_multiple_override', value ?? undefined)
+            }}
+            disabled={disabled}
+          />
+
+          {requiresEffectiveOverrideNote && (
+            <AuroraTextarea
+              id="effective-multiple-override-note"
+              name="effective_multiple_override_note"
+              label={t('effectiveMultipleOverrideNote')}
+              value={effectiveMultipleOverrideNote ?? ''}
+              onChange={(event) =>
+                onFieldChange('effective_multiple_override_note', event.target.value)
+              }
+              size="sm"
+              rows={3}
+              required
+              touched={requiresEffectiveOverrideNote}
+              error={
+                !effectiveOverrideNoteComplete
+                  ? t('effectiveMultipleOverrideNoteRequired')
+                  : undefined
+              }
+              disabled={disabled}
+            />
+          )}
+        </div>
 
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

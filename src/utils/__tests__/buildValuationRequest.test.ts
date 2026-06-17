@@ -1284,6 +1284,13 @@ describe('buildValuationRequest', () => {
         estimated_market_rent: 42_000,
         multiple_calibration_adjustment: -1,
         multiple_calibration_note: '  Afslag wegens leveranciersafhankelijkheid  ',
+        effective_multiple_override: 6,
+        effective_multiple_override_note: '  Strategische koper-premie bevestigd  ',
+        multiple_type_weights: {
+          ev_ebitda: 50,
+          ev_revenue: 40,
+          pe: 10,
+        },
         advisor_discount_weights: {
           size_discount: 0,
           liquidity_discount: 1.25,
@@ -1310,6 +1317,13 @@ describe('buildValuationRequest', () => {
     expect(result.estimated_market_rent).toBeUndefined()
     expect(result.multiple_calibration_adjustment).toBe(-1)
     expect(result.multiple_calibration_note).toBe('Afslag wegens leveranciersafhankelijkheid')
+    expect(result.effective_multiple_override).toBe(6)
+    expect(result.effective_multiple_override_note).toBe('Strategische koper-premie bevestigd')
+    expect(result.multiple_type_weights).toEqual({
+      ev_ebitda: 50,
+      ev_revenue: 40,
+      pe: 10,
+    })
     expect(result.advisor_discount_weights).toEqual({
       size_discount: 0,
       liquidity_discount: 1.25,
@@ -1401,6 +1415,40 @@ describe('buildValuationRequest', () => {
     ).toThrow('Specific risk/quality premium must be between -10.0x and +10.0x.')
   })
 
+  it('rejects final effective multiple overrides without an audit note', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          effective_multiple_override: 6,
+          effective_multiple_override_note: '   ',
+        }),
+        []
+      )
+    ).toThrow('Effective multiple override note is required')
+  })
+
+  it('rejects final effective multiple overrides outside the engine-supported range', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          effective_multiple_override: 0,
+          effective_multiple_override_note: 'Te laag',
+        }),
+        []
+      )
+    ).toThrow('Effective multiple override must be greater than 0.0x')
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          effective_multiple_override: 50.1,
+          effective_multiple_override_note: 'Te hoog',
+        }),
+        []
+      )
+    ).toThrow('Effective multiple override must be greater than 0.0x')
+  })
+
   it('rejects advisor discount controls outside the engine-supported range', () => {
     expect(() =>
       buildValuationRequest(
@@ -1421,6 +1469,50 @@ describe('buildValuationRequest', () => {
         []
       )
     ).toThrow('Discount stack floor must be between 0% and 100%.')
+  })
+
+  it('normalizes ratio-style multiple-type blend weights to percentages', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        multiple_type_weights: {
+          ev_ebitda: 0.5,
+          ev_revenue: 0.4,
+          pe: 0.1,
+        },
+      }),
+      []
+    )
+
+    expect(result.multiple_type_weights).toEqual({
+      ev_ebitda: 50,
+      ev_revenue: 40,
+      pe: 10,
+    })
+  })
+
+  it('rejects malformed multiple-type blend weights before calling the valuation engine', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          multiple_type_weights: {
+            ev_ebitda: 60,
+            ev_revenue: 20,
+          },
+        }),
+        []
+      )
+    ).toThrow('Multiple-type blend weights must sum to 100%.')
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          multiple_type_weights: {
+            ev_ebitda: 101,
+          },
+        }),
+        []
+      )
+    ).toThrow('Multiple-type blend weights must be between 0% and 100%.')
   })
 
   it('rejects malformed historical EBITDA weights before calling the valuation engine', () => {

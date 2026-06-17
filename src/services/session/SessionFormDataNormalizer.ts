@@ -358,6 +358,8 @@ function buildFieldMappings(): [string, ...string[]][] {
     ['estimated_market_rent', 'estimatedMarketRent'],
     ['multiple_calibration_adjustment', 'multipleCalibrationAdjustment'],
     ['multiple_calibration_note', 'multipleCalibrationNote'],
+    ['effective_multiple_override', 'effectiveMultipleOverride'],
+    ['effective_multiple_override_note', 'effectiveMultipleOverrideNote'],
     ['historical_ebitda_weighting_mode', 'historicalEbitdaWeightingMode'],
     ['historical_ebitda_weights', 'historicalEbitdaWeights'],
     ['show_enterprise_to_equity_bridge', 'showEnterpriseToEquityBridge'],

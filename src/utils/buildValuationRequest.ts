@@ -77,6 +77,43 @@ function toBooleanOrNull(value: unknown): boolean | null {
   return null
 }
 
+function normalizeMultipleTypeWeights(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const weights: Record<string, number> = {}
+  for (const [key, rawValue] of Object.entries(value)) {
+    const numeric = toFiniteNumber(rawValue)
+    if (numeric == null) continue
+    if (numeric < 0 || numeric > 100) {
+      throw new ValidationError(
+        'Multiple-type blend weights must be between 0% and 100%.',
+        `multiple_type_weights.${key}`,
+        rawValue
+      )
+    }
+    weights[key] = numeric
+  }
+
+  const total = Object.values(weights).reduce((sum, weight) => sum + weight, 0)
+  if (total <= 0) return null
+  const ratioMode = total <= 1.5
+  const normalized = Object.fromEntries(
+    Object.entries(weights).map(([key, weight]) => [
+      key,
+      Math.round((ratioMode ? weight * 100 : weight) * 100) / 100,
+    ])
+  )
+  const normalizedTotal = Object.values(normalized).reduce((sum, weight) => sum + weight, 0)
+  if (Math.abs(normalizedTotal - 100) > 1) {
+    throw new ValidationError(
+      'Multiple-type blend weights must sum to 100%.',
+      'multiple_type_weights',
+      value
+    )
+  }
+  return normalized
+}
+
 function normalizeAdvisorDiscountWeights(value: unknown): Record<string, number> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
 
@@ -898,6 +935,12 @@ export function buildValuationRequest(
   const multipleCalibrationAdjustment = toFiniteNumber(fd.multiple_calibration_adjustment)
   const multipleCalibrationNote =
     typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
+  const effectiveMultipleOverride = toFiniteNumber(fd.effective_multiple_override)
+  const effectiveMultipleOverrideNote =
+    typeof fd.effective_multiple_override_note === 'string'
+      ? fd.effective_multiple_override_note.trim()
+      : ''
+  const multipleTypeWeights = normalizeMultipleTypeWeights(fd.multiple_type_weights)
   const advisorDiscountWeights = normalizeAdvisorDiscountWeights(fd.advisor_discount_weights)
   const riskAnalysisEnabled = toBooleanOrNull(fd.risk_analysis_enabled)
   const discountFloorFactor = toFiniteNumber(fd.discount_floor_factor)
@@ -920,6 +963,23 @@ export function buildValuationRequest(
       'Calibration note is required when applying a specific risk/quality premium.',
       'multiple_calibration_note',
       fd.multiple_calibration_note
+    )
+  }
+  if (
+    effectiveMultipleOverride != null &&
+    (effectiveMultipleOverride <= 0 || effectiveMultipleOverride > 50)
+  ) {
+    throw new ValidationError(
+      'Effective multiple override must be greater than 0.0x and no more than 50.0x.',
+      'effective_multiple_override',
+      fd.effective_multiple_override
+    )
+  }
+  if (effectiveMultipleOverride != null && !effectiveMultipleOverrideNote) {
+    throw new ValidationError(
+      'Effective multiple override note is required when setting the final multiple.',
+      'effective_multiple_override_note',
+      fd.effective_multiple_override_note
     )
   }
   if (discountFloorFactor != null && (discountFloorFactor < 0 || discountFloorFactor > 1)) {
@@ -1178,6 +1238,13 @@ export function buildValuationRequest(
       multipleCalibrationNote && {
         multiple_calibration_note: multipleCalibrationNote,
       }),
+    ...(effectiveMultipleOverride != null && {
+      effective_multiple_override: effectiveMultipleOverride,
+      effective_multiple_override_note: effectiveMultipleOverrideNote,
+    }),
+    ...(multipleTypeWeights && {
+      multiple_type_weights: multipleTypeWeights,
+    }),
     ...(advisorDiscountWeights && {
       advisor_discount_weights: advisorDiscountWeights,
     }),

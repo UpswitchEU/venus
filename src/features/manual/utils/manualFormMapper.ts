@@ -227,6 +227,15 @@ export function mapClarityFormToVenusStore(
     ...(data.multiple_calibration_note != null && {
       multiple_calibration_note: data.multiple_calibration_note,
     }),
+    ...(data.effective_multiple_override != null && {
+      effective_multiple_override: data.effective_multiple_override,
+    }),
+    ...(data.effective_multiple_override_note != null && {
+      effective_multiple_override_note: data.effective_multiple_override_note,
+    }),
+    ...(data.multiple_type_weights != null && {
+      multiple_type_weights: data.multiple_type_weights,
+    }),
     ...(data.advisor_discount_weights != null && {
       advisor_discount_weights: data.advisor_discount_weights,
     }),

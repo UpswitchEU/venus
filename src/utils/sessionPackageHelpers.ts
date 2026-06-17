@@ -30,6 +30,9 @@ const SESSION_SNAPSHOT_KEYS_FROM_VALUATION_REQUEST = [
   'user_weights',
   'user_weight_justification',
   /** Advisor multiple-control decisions used by ValuationIQ. */
+  'effective_multiple_override',
+  'effective_multiple_override_note',
+  'multiple_type_weights',
   'advisor_discount_weights',
   'risk_analysis_enabled',
   'discount_floor_factor',

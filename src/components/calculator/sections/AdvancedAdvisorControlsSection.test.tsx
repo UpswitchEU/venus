@@ -56,6 +56,26 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.queryByLabelText(/calibrationNote/)).not.toBeInTheDocument()
   })
 
+  it('requires an audit note when a final effective multiple override is set', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} effectiveMultipleOverride={6} />)
+
+    const noteInput = screen.getByLabelText(/effectiveMultipleOverrideNote/)
+
+    expect(noteInput).toBeRequired()
+    expect(noteInput).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('effectiveMultipleOverrideNoteRequired')).toBeInTheDocument()
+  })
+
+  it('emits final effective multiple override changes', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} />)
+
+    fireEvent.change(screen.getByLabelText(/effectiveMultipleOverride/), {
+      target: { value: '6.25' },
+    })
+
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('effective_multiple_override', 6.25)
+  })
+
   it('initializes weighted historical EBITDA controls with an exact equal split', () => {
     render(<AdvancedAdvisorControlsSection {...baseProps} />)
 
@@ -89,6 +109,34 @@ describe('AdvancedAdvisorControlsSection', () => {
     render(<AdvancedAdvisorControlsSection {...baseProps} advisorDefaultsAppliedFields={[]} />)
 
     expect(screen.queryByText('prefilledFromSettings')).not.toBeInTheDocument()
+  })
+
+  it('updates advisor multiple-type blend weights and keeps the blend at 100%', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} />)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'evRevenueBlend multipleTypeWeight' }), {
+      key: 'ArrowRight',
+    })
+
+    const call = baseProps.onFieldChange.mock.calls.find(
+      ([field]) => field === 'multiple_type_weights'
+    )
+    const weights = call?.[1] as Record<string, number>
+    expect(weights.ev_revenue).toBe(31)
+    expect(Object.values(weights).reduce((sum, weight) => sum + weight, 0)).toBe(100)
+  })
+
+  it('resets advisor multiple-type blend weights to the model default', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleTypeWeights={{ ev_revenue: 80, ev_ebitda: 20 }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /resetMultipleBlend/ }))
+
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('multiple_type_weights', undefined)
   })
 
   it('emits the risk-analysis master toggle and discloses pre-adjustment reference mode', () => {

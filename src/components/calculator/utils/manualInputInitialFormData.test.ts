@@ -41,12 +41,16 @@ describe('buildManualInputInitialFormData', () => {
       estimated_market_rent: 42_000,
       multiple_calibration_adjustment: -0.75,
       multiple_calibration_note: 'Supplier concentration',
+      effective_multiple_override: 6,
+      effective_multiple_override_note: 'Strategic buyer premium',
       historical_ebitda_weighting_mode: 'weighted',
       historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
       show_enterprise_to_equity_bridge: false,
       owner_salary_addback: 80_000,
       owner_role: 'working',
-      yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }] as YearlyFinancials[],
+      yearlyFinancials: [
+        { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+      ] as YearlyFinancials[],
     } as Partial<ManualValuationFormData>)
 
     expect(result).toMatchObject({
@@ -57,6 +61,8 @@ describe('buildManualInputInitialFormData', () => {
       estimated_market_rent: 42_000,
       multiple_calibration_adjustment: -0.75,
       multiple_calibration_note: 'Supplier concentration',
+      effective_multiple_override: 6,
+      effective_multiple_override_note: 'Strategic buyer premium',
       historical_ebitda_weighting_mode: 'weighted',
       historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
       show_enterprise_to_equity_bridge: false,

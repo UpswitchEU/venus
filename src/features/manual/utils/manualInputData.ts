@@ -77,6 +77,8 @@ export function buildManualInputInitialData({
     estimated_market_rent: formStoreData.estimated_market_rent,
     multiple_calibration_adjustment: formStoreData.multiple_calibration_adjustment,
     multiple_calibration_note: formStoreData.multiple_calibration_note,
+    effective_multiple_override: formStoreData.effective_multiple_override,
+    effective_multiple_override_note: formStoreData.effective_multiple_override_note,
     historical_ebitda_weighting_mode: formStoreData.historical_ebitda_weighting_mode,
     historical_ebitda_weights: formStoreData.historical_ebitda_weights,
     show_enterprise_to_equity_bridge: formStoreData.show_enterprise_to_equity_bridge,

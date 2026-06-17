@@ -393,6 +393,9 @@ export interface ValuationRequest {
   estimated_market_rent?: number
   multiple_calibration_adjustment?: number
   multiple_calibration_note?: string
+  effective_multiple_override?: number
+  effective_multiple_override_note?: string
+  multiple_type_weights?: Record<string, number>
   advisor_discount_weights?: Record<string, number>
   risk_analysis_enabled?: boolean
   discount_floor_factor?: number
@@ -588,6 +591,9 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   estimated_market_rent?: number
   multiple_calibration_adjustment?: number
   multiple_calibration_note?: string
+  effective_multiple_override?: number
+  effective_multiple_override_note?: string
+  multiple_type_weights?: Record<string, number>
   advisor_discount_weights?: Record<string, number>
   risk_analysis_enabled?: boolean
   discount_floor_factor?: number
