@@ -30,12 +30,23 @@ export interface CompanySearchResult {
   activity_label?: string
   taxonomy?: string
   canonical_nace_code?: string
+  nace_codes?: string[]
   postal_code?: string
   city?: string
   /** Server-resolved business type ID from sector DB (Titan enrichment). */
   business_type_id?: string
   /** Server-resolved sector title (e.g. "Logistics"). */
   business_type_title?: string
+  /** Server-resolved business type IDs when multiple registry activities match. */
+  business_type_ids?: string[]
+  /** Server-resolved business type candidates with optional NACE provenance. */
+  business_type_candidates?: Array<{
+    id?: string
+    business_type_id?: string
+    title?: string
+    business_type_title?: string
+    nace_code?: string
+  }>
 }
 
 export interface CompanyFinancialData {

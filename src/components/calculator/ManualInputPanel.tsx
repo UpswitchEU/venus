@@ -355,19 +355,16 @@ export function ManualInputPanel({
   )
 
   const {
-    businessTypesError,
-    businessTypesForSearch,
-    businessTypesLoading,
     executeClearCompany,
-    handleBusinessTypeSelect,
+    handleBusinessTypeSelectionChange,
     handleClearCompany,
     handleCompanySelect,
     kboSearchFn,
     nacePrefillError,
-    refetchBusinessTypes,
     retryNacePrefill,
     searchCountry,
     selectedBusinessType,
+    selectedBusinessTypeIds,
   } = useManualCompanyIdentificationController({
     executePrefillCompanyReset,
     formData,
@@ -620,15 +617,12 @@ export function ManualInputPanel({
               prefillCompanyRef={prefillCompanyRef}
               setShowChangeCompanyWarning={setShowChangeCompanyWarning}
               executeClearCompany={executeClearCompany}
-              businessTypesForSearch={businessTypesForSearch}
-              businessTypesLoading={businessTypesLoading}
-              businessTypesError={businessTypesError}
-              refetchBusinessTypes={refetchBusinessTypes}
               nacePrefillError={nacePrefillError}
               retryNacePrefill={retryNacePrefill}
               selectedBusinessType={selectedBusinessType}
+              selectedBusinessTypeIds={selectedBusinessTypeIds}
               effectiveMethods={effectiveMethods}
-              handleBusinessTypeSelect={handleBusinessTypeSelect}
+              handleBusinessTypeSelectionChange={handleBusinessTypeSelectionChange}
             />
 
             <OwnershipStructureSection

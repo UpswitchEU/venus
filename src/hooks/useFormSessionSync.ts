@@ -36,7 +36,11 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
-import { buildCurrentYearData, isYearRowForecast, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
+import {
+  buildCurrentYearData,
+  isYearRowForecast,
+  OPTIONAL_YEAR_DATA_FIELDS,
+} from '../utils/yearData'
 import {
   getMercurySourceApp,
   getSessionAutosaveDeferRemainingMs,
@@ -218,9 +222,7 @@ export function areFormAndSessionDataEqualForAutosync(
     taxLatencyItems !== undefined && Array.isArray(taxLatencyItems) && taxLatencyItems.length > 0
       ? { ...fd, _taxLatencies: taxLatencyItems }
       : fd
-  if (
-    autosyncWritableSignature(fdForSig) !== autosyncWritableSignature(sessionSurface)
-  ) {
+  if (autosyncWritableSignature(fdForSig) !== autosyncWritableSignature(sessionSurface)) {
     return false
   }
 

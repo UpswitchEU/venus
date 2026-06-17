@@ -5,16 +5,17 @@ import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import {
-  type BusinessType,
-  BusinessTypeSearchInput,
+  AuroraNumberInput,
+  type BusinessType as SearchBusinessType,
   type KBOCompany,
   KBOSearchInput,
 } from '@/design-system'
 import { KboConfirmedCard } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
+import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { TARGET_COUNTRIES } from '../../../config/countries'
-import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
+import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 
@@ -51,15 +52,15 @@ interface CompanyIdentificationSectionProps {
   prefillCompanyRef: MutableRefObject<{ name: string; kbo: string } | null>
   setShowChangeCompanyWarning: Dispatch<SetStateAction<boolean>>
   executeClearCompany: () => void
-  businessTypesForSearch: BusinessType[]
-  businessTypesLoading: boolean
-  businessTypesError?: string | null
-  refetchBusinessTypes: () => void
   nacePrefillError: string | null
   retryNacePrefill: () => void
-  selectedBusinessType: BusinessType | null
+  selectedBusinessType: SearchBusinessType | null
+  selectedBusinessTypeIds: string[]
   effectiveMethods: string[]
-  handleBusinessTypeSelect: (value: string, businessType?: BusinessType) => void
+  handleBusinessTypeSelectionChange: (
+    businessTypeIds: string[],
+    selectedBusinessTypes: ApiBusinessType[]
+  ) => void
 }
 
 export function CompanyIdentificationSection({
@@ -83,21 +84,34 @@ export function CompanyIdentificationSection({
   prefillCompanyRef,
   setShowChangeCompanyWarning,
   executeClearCompany,
-  businessTypesForSearch,
-  businessTypesLoading,
-  businessTypesError,
-  refetchBusinessTypes,
   nacePrefillError,
   retryNacePrefill,
   selectedBusinessType,
+  selectedBusinessTypeIds,
   effectiveMethods,
-  handleBusinessTypeSelect,
+  handleBusinessTypeSelectionChange,
 }: CompanyIdentificationSectionProps) {
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
   const activityCodeLabel = getFinancialTerm('activityCode', searchCountry)
     .replace(/-code$/i, '')
     .trim()
+  const selectedSegments = formData.business_type_segments ?? []
+  const updateSegmentEarnings = (index: number, earnings: string) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
+      segmentIndex === index
+        ? {
+            ...segment,
+            earnings: earnings.trim() ? earnings : null,
+          }
+        : segment
+    )
+    updateField(
+      'business_type_segments',
+      nextSegments as ManualValuationFormData['business_type_segments']
+    )
+    updateFormData({ business_type_segments: nextSegments })
+  }
 
   return (
     // `id` is a jump target for the "Sector controleren" quality-warning CTA
@@ -209,23 +223,14 @@ export function CompanyIdentificationSection({
             <div className="space-y-1">
               <div className="flex items-start gap-1.5">
                 <div className="flex-1 min-w-0">
-                  <BusinessTypeSearchInput
+                  <BusinessTypeSelector
                     label={mi('fields.businessType')}
-                    value={formData.businessType}
-                    onChange={handleBusinessTypeSelect}
-                    types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
-                    loading={businessTypesLoading}
-                    loadError={businessTypesError}
-                    onRetryLoad={refetchBusinessTypes}
-                    naceMatchedTypeId={
-                      selectedCompany?.naceCode &&
-                      formData.businessType?.trim() &&
-                      !looksLikeNaceCode(formData.businessType)
-                        ? formData.businessType.trim()
-                        : undefined
-                    }
-                    size="sm"
-                    disabled={isCalculating}
+                    value={selectedBusinessTypeIds}
+                    onChange={() => undefined}
+                    onSelectionChange={handleBusinessTypeSelectionChange}
+                    selectionMode="multiple"
+                    showPreview={selectedBusinessTypeIds.length <= 1}
+                    className={isCalculating ? 'pointer-events-none opacity-60' : ''}
                   />
                 </div>
               </div>
@@ -250,6 +255,57 @@ export function CompanyIdentificationSection({
                     {mi('businessTypeArrMethodNote')}
                   </p>
                 ) : null}
+              </div>
+            )}
+            {selectedSegments.length > 1 && (
+              <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
+                <div className="mb-2 text-xs font-semibold text-foreground">Segment earnings</div>
+                <div className="space-y-3">
+                  {selectedSegments.map((segment, index) => {
+                    const basis = segment.basis ?? segment.earnings_basis
+                    const multiple =
+                      typeof segment.multiple === 'number' || typeof segment.multiple === 'string'
+                        ? segment.multiple
+                        : segment.applied_multiple
+                    const multipleNumber = Number(multiple)
+
+                    return (
+                      <div
+                        key={`${segment.business_type_id}-${index}`}
+                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_180px]"
+                      >
+                        <div className="min-w-0 self-center">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {segment.business_type_title ?? segment.business_type_id}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
+                            {basis && (
+                              <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
+                                {basis}
+                              </span>
+                            )}
+                            {Number.isFinite(multipleNumber) && (
+                              <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
+                                {multipleNumber.toFixed(1)}x
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <AuroraNumberInput
+                          label={basis ? `${basis} earnings` : 'Segment earnings'}
+                          placeholder="0"
+                          name={`business_type_segments.${index}.earnings`}
+                          value={segment.earnings ?? ''}
+                          onChange={(event) => updateSegmentEarnings(index, event.target.value)}
+                          min={0}
+                          step={1000}
+                          prefix="EUR"
+                          formatAsCurrency
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
 

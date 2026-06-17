@@ -81,4 +81,45 @@ describe('mapRegistrySearchResultToKboCompany', () => {
       ).foundingYear
     ).toBe(2020)
   })
+
+  it('preserves multi business-type and NACE candidates from registry enrichment', () => {
+    expect(
+      mapRegistrySearchResultToKboCompany(
+        hit({
+          business_type_id: 'accounting',
+          business_type_title: 'Accounting practice',
+          business_type_ids: ['accounting', 'tax-advisory'],
+          business_type_candidates: [
+            {
+              business_type_id: 'accounting',
+              business_type_title: 'Accounting practice',
+              nace_code: '69201',
+            },
+            {
+              id: 'tax-advisory',
+              title: 'Tax advisory',
+              nace_code: '69202',
+            },
+          ],
+          nace_codes: ['69201', '69202'],
+        })
+      )
+    ).toMatchObject({
+      businessTypeId: 'accounting',
+      businessTypeIds: ['accounting', 'tax-advisory'],
+      businessTypeCandidates: [
+        {
+          id: 'accounting',
+          title: 'Accounting practice',
+          naceCode: '69201',
+        },
+        {
+          id: 'tax-advisory',
+          title: 'Tax advisory',
+          naceCode: '69202',
+        },
+      ],
+      naceCodes: ['69201', '69202'],
+    })
+  })
 })

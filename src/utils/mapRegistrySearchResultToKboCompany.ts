@@ -33,11 +33,21 @@ export function mapRegistrySearchResultToKboCompany(
   const businessTypeId = normalizeBusinessTypeId(btIdRaw)
   const businessTypeTitle =
     typeof btTitleRaw === 'string' && btTitleRaw.trim() ? btTitleRaw.trim() : undefined
+  const businessTypeCandidates = parseBusinessTypeCandidates(
+    raw.business_type_candidates ?? raw.businessTypeCandidates
+  )
+  const businessTypeIds = dedupeStrings([
+    ...parseStringArray(raw.business_type_ids ?? raw.businessTypeIds).map(normalizeBusinessTypeId),
+    ...businessTypeCandidates.map((candidate) => candidate.id),
+    businessTypeId,
+  ])
+  const naceCodes = dedupeStrings(
+    parseStringArray(raw.nace_codes ?? raw.naceCodes).map((code) => code.trim())
+  )
 
   const registration = result.kbo_number || result.registration_number || ''
   const countryCode = (result.country_code || searchCountry).trim().toUpperCase().slice(0, 2)
-  const foundingYear =
-    foundingYearOverride ?? parseFoundingYearFromRegistryHit(raw)
+  const foundingYear = foundingYearOverride ?? parseFoundingYearFromRegistryHit(raw)
 
   return {
     id: result.company_id || registration.replace(/[.\s]/g, '') || `kbo-${index}`,
@@ -56,6 +66,9 @@ export function mapRegistrySearchResultToKboCompany(
     countryCode,
     businessTypeId,
     businessTypeTitle,
+    ...(businessTypeIds.length > 0 ? { businessTypeIds } : {}),
+    ...(businessTypeCandidates.length > 0 ? { businessTypeCandidates } : {}),
+    ...(naceCodes.length > 0 ? { naceCodes } : {}),
     ...(foundingYear != null ? { foundingYear } : {}),
   }
 }
@@ -71,4 +84,42 @@ function parseFoundingYearFromRegistryHit(raw: Record<string, unknown>): number 
     if (match) return Number(match[0])
   }
   return undefined
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function parseBusinessTypeCandidates(
+  value: unknown
+): NonNullable<KBOCompany['businessTypeCandidates']> {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const raw = item as Record<string, unknown>
+    const id = normalizeBusinessTypeId(raw.business_type_id ?? raw.id)
+    if (!id) return []
+    const titleRaw = raw.business_type_title ?? raw.title
+    const naceRaw = raw.nace_code ?? raw.naceCode
+    return [
+      {
+        id,
+        ...(typeof titleRaw === 'string' && titleRaw.trim() ? { title: titleRaw.trim() } : {}),
+        ...(typeof naceRaw === 'string' && naceRaw.trim() ? { naceCode: naceRaw.trim() } : {}),
+      },
+    ]
+  })
+}
+
+function dedupeStrings(values: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const normalized = typeof value === 'string' ? value.trim() : ''
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    out.push(normalized)
+  }
+  return out
 }

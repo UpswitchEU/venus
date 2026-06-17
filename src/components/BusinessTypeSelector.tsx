@@ -19,6 +19,7 @@ import { useBusinessTypes } from '../hooks/useBusinessTypes'
 import type { BusinessType } from '../services/businessTypesApi'
 
 interface BusinessTypeSelectorProps {
+  label?: string
   value: string | string[] | null
   onChange: (businessTypeId: string | string[]) => void
   onSelectionChange?: (businessTypeIds: string[], businessTypes: BusinessType[]) => void
@@ -130,6 +131,7 @@ function toSharedOption(businessType: BusinessType): SharedBusinessTypeOption {
 }
 
 export function BusinessTypeSelector({
+  label = 'Business Type',
   value,
   onChange,
   onSelectionChange,
@@ -212,7 +214,7 @@ export function BusinessTypeSelector({
     <div className={`business-type-selector ${className}`}>
       <div>
         <label className="mb-2 block text-sm font-medium text-foreground">
-          Business Type <span className="text-rust-500">*</span>
+          {label} <span className="text-rust-500">*</span>
         </label>
         <BusinessTypeMultiSelect
           value={value}

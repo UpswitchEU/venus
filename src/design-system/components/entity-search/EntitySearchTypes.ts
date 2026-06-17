@@ -1,5 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 
+export interface KBOBusinessTypeCandidate {
+  id: string
+  title?: string
+  naceCode?: string | null
+}
+
 export interface KBOCompany {
   id: string
   name: string
@@ -30,6 +36,12 @@ export interface KBOCompany {
   businessTypeId?: string
   /** Human-readable sector title from sector DB (e.g. "Logistics"). */
   businessTypeTitle?: string
+  /** Ordered server-resolved business type IDs when multiple KBO/NACE activities were matched. */
+  businessTypeIds?: string[]
+  /** Server-resolved business type candidates with optional NACE provenance. */
+  businessTypeCandidates?: KBOBusinessTypeCandidate[]
+  /** Additional registry activity codes beyond the primary canonical/display code. */
+  naceCodes?: string[]
 }
 
 export interface BusinessType {

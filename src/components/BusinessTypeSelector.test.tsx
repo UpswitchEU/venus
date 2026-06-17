@@ -36,6 +36,19 @@ vi.mock('../hooks/useBusinessTypeFull', () => ({
 }))
 
 describe('BusinessTypeSelector selection modes', () => {
+  it('uses a caller-provided label', () => {
+    render(
+      <BusinessTypeSelector
+        label="Bedrijfstype"
+        value={[]}
+        selectionMode="multiple"
+        onChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/Bedrijfstype/)).toBeInTheDocument()
+  })
+
   it('keeps only the newest selected business type in single-selection mode', () => {
     const onChange = vi.fn()
     const onSelectionChange = vi.fn()

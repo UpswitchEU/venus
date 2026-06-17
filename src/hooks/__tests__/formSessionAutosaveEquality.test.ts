@@ -235,15 +235,11 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
   it('returns false when historical-year cash-flow detail differs', () => {
     const form = {
       ...base,
-      historical_years_data: [
-        { year: 2023, revenue: 900_000, ebitda: 180_000, capex: 15_000 },
-      ],
+      historical_years_data: [{ year: 2023, revenue: 900_000, ebitda: 180_000, capex: 15_000 }],
     }
     const sess = {
       ...base,
-      historical_years_data: [
-        { year: 2023, revenue: 900_000, ebitda: 180_000, capex: 20_000 },
-      ],
+      historical_years_data: [{ year: 2023, revenue: 900_000, ebitda: 180_000, capex: 20_000 }],
     } as Record<string, unknown>
 
     expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
@@ -293,19 +289,19 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
 
   it('treats boolean true and string "true" as equal for filing_year_confirmed (no sync thrash)', () => {
     const a = { ...base, filing_year_confirmed: true as const }
-    const b = { ...base, filing_year_confirmed: 'true' as any }
+    const b = { ...base, filing_year_confirmed: 'true' }
     expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
   })
 
   it('treats boolean true and string "1" as equal (ORM / DB bit serialization)', () => {
     const a = { ...base, filing_year_confirmed: true as const }
-    const b = { ...base, filing_year_confirmed: '1' as any }
+    const b = { ...base, filing_year_confirmed: '1' }
     expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
   })
 
   it('treats false and string "false" as equal for filing_year_confirmed', () => {
     const a = { ...base, filing_year_confirmed: false as const }
-    const b = { ...base, filing_year_confirmed: 'false' as any }
+    const b = { ...base, filing_year_confirmed: 'false' }
     expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
   })
 

@@ -6,8 +6,9 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { type BusinessType, type KBOCompany } from '@/design-system'
+import { type BusinessType as SearchBusinessType, type KBOCompany } from '@/design-system'
 import { useBusinessTypes } from '../../../hooks/useBusinessTypes'
+import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
 import { registryService } from '../../../services/registry/registryService'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import type { ManualValuationFormData as ValuationFormData } from '../../../types/valuation'
@@ -15,10 +16,95 @@ import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { mapApiBusinessTypeForEntitySearch } from '../../../utils/businessTypeSearchMapping'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { mapRegistrySearchResultToKboCompany } from '../../../utils/mapRegistrySearchResultToKboCompany'
+import {
+  buildBusinessTypeFormData,
+  buildBusinessTypeSegmentsFormData,
+} from '../../ValuationForm/utils/businessTypeFormData'
 import { useManualNaceBusinessTypePrefill } from './useManualNaceBusinessTypePrefill'
 
 type StoreFormPatch = Record<string, unknown>
 type Translate = (key: string) => string
+
+type BusinessTypeSegment = NonNullable<ValuationFormData['business_type_segments']>[number]
+
+function uniqueBusinessTypeIds(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const normalized = normalizeBusinessTypeId(value)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    out.push(normalized)
+  }
+  return out
+}
+
+function getCompanyBusinessTypeIds(company: KBOCompany): string[] {
+  return uniqueBusinessTypeIds([...(company.businessTypeIds ?? []), company.businessTypeId])
+}
+
+function getBusinessTypeTitleFromCompany(company: KBOCompany, id: string): string {
+  return (
+    company.businessTypeCandidates?.find((candidate) => candidate.id === id)?.title ||
+    (normalizeBusinessTypeId(company.businessTypeId) === id
+      ? company.businessTypeTitle
+      : undefined) ||
+    id
+  )
+}
+
+function buildFallbackApiBusinessType(company: KBOCompany, id: string): ApiBusinessType {
+  const title = getBusinessTypeTitleFromCompany(company, id)
+  return {
+    id,
+    title,
+    description: '',
+    icon: '🏢',
+    category: '',
+    category_id: '',
+    industryMapping: id,
+    keywords: [],
+    popular: false,
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+function buildApiBusinessTypeFromSearchType(
+  id: string,
+  businessType: SearchBusinessType
+): ApiBusinessType {
+  return {
+    id,
+    title: businessType.name,
+    description: businessType.description ?? '',
+    icon: businessType.emoji ?? '🏢',
+    category: businessType.category,
+    category_id: businessType.category,
+    industryMapping: businessType.code || id,
+    keywords: [],
+    popular: Boolean(businessType.popular),
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+function resolveCompanyApiBusinessTypes(
+  company: KBOCompany,
+  businessTypes: ApiBusinessType[]
+): ApiBusinessType[] {
+  const ids = getCompanyBusinessTypeIds(company)
+  if (ids.length === 0) return []
+  const businessTypeById = new Map(
+    businessTypes.map((businessType) => [
+      normalizeBusinessTypeId(businessType.id) ?? businessType.id,
+      businessType,
+    ])
+  )
+  return ids.map((id) => businessTypeById.get(id) ?? buildFallbackApiBusinessType(company, id))
+}
 
 export interface UseManualCompanyIdentificationControllerParams {
   executePrefillCompanyReset: () => void
@@ -38,10 +124,14 @@ export interface UseManualCompanyIdentificationControllerParams {
 
 export interface UseManualCompanyIdentificationControllerResult {
   businessTypesError: string | null
-  businessTypesForSearch: BusinessType[]
+  businessTypesForSearch: SearchBusinessType[]
   businessTypesLoading: boolean
   executeClearCompany: () => void
-  handleBusinessTypeSelect: (value: string, businessType?: BusinessType) => void
+  handleBusinessTypeSelect: (value: string, businessType?: SearchBusinessType) => void
+  handleBusinessTypeSelectionChange: (
+    businessTypeIds: string[],
+    selectedBusinessTypes: ApiBusinessType[]
+  ) => void
   handleClearCompany: () => void
   handleCompanySelect: (company: KBOCompany) => Promise<void>
   kboSearchFn: (query: string, signal?: AbortSignal) => Promise<KBOCompany[]>
@@ -49,7 +139,8 @@ export interface UseManualCompanyIdentificationControllerResult {
   refetchBusinessTypes: () => Promise<void>
   retryNacePrefill: () => void
   searchCountry: string
-  selectedBusinessType: BusinessType | null
+  selectedBusinessType: SearchBusinessType | null
+  selectedBusinessTypeIds: string[]
 }
 
 export function useManualCompanyIdentificationController({
@@ -67,7 +158,7 @@ export function useManualCompanyIdentificationController({
   translate,
   updateFormData,
 }: UseManualCompanyIdentificationControllerParams): UseManualCompanyIdentificationControllerResult {
-  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null)
+  const [selectedBusinessType, setSelectedBusinessType] = useState<SearchBusinessType | null>(null)
   const searchCountry = formData.country || initialCountry || 'BE'
 
   const kboSearchFn = useCallback(
@@ -100,6 +191,14 @@ export function useManualCompanyIdentificationController({
     () => businessTypes.map(mapApiBusinessTypeForEntitySearch),
     [businessTypes]
   )
+  const selectedBusinessTypeIds = useMemo(() => {
+    const segmentIds =
+      formData.business_type_segments
+        ?.map((segment: BusinessTypeSegment) => segment.business_type_id)
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0) ?? []
+    if (segmentIds.length > 1) return uniqueBusinessTypeIds(segmentIds)
+    return uniqueBusinessTypeIds([formData.business_type_id, formData.businessType])
+  }, [formData.businessType, formData.business_type_id, formData.business_type_segments])
 
   const {
     clearNacePrefillError,
@@ -117,6 +216,68 @@ export function useManualCompanyIdentificationController({
     translate,
     updateFormData,
   })
+
+  const applyApiBusinessTypeSelection = useCallback(
+    (selectedBusinessTypes: ApiBusinessType[], baseUpdates: Partial<ValuationFormData> = {}) => {
+      const primaryBusinessType = selectedBusinessTypes[0]
+      clearNacePrefillError()
+
+      if (!primaryBusinessType) {
+        setSelectedBusinessType(null)
+        setFormData((prev) => ({
+          ...prev,
+          businessType: '',
+          businessTypeCode: '',
+          industry: '',
+          business_type_id: undefined,
+          business_type_title: undefined,
+          business_type_segments: [],
+          business_model: undefined,
+        }))
+        updateFormData({
+          business_type_id: undefined,
+          business_type_title: undefined,
+          business_type_segments: [],
+          business_model: undefined,
+          industry: undefined,
+        })
+        return
+      }
+
+      const primaryPatch = buildBusinessTypeFormData(primaryBusinessType)
+      const segmentPatch =
+        selectedBusinessTypes.length > 1
+          ? buildBusinessTypeSegmentsFormData(
+              selectedBusinessTypes,
+              formData.business_type_segments
+            )
+          : { business_type_segments: [] }
+      const mappedPrimary = mapApiBusinessTypeForEntitySearch(primaryBusinessType)
+      const primaryId =
+        normalizeBusinessTypeId(primaryPatch.business_type_id) ??
+        normalizeBusinessTypeId(primaryBusinessType.id) ??
+        primaryBusinessType.id
+      const nextLocalPatch: Partial<ValuationFormData> = {
+        ...baseUpdates,
+        ...primaryPatch,
+        ...segmentPatch,
+        businessType: primaryId,
+        businessTypeCode: mappedPrimary.code || primaryId,
+        industry:
+          typeof primaryPatch.industry === 'string' && primaryPatch.industry.trim()
+            ? primaryPatch.industry
+            : mappedPrimary.category,
+      }
+
+      setSelectedBusinessType(mappedPrimary)
+      setFormData((prev) => ({ ...prev, ...nextLocalPatch }))
+      updateFormData({
+        ...primaryPatch,
+        ...segmentPatch,
+      })
+    },
+    [clearNacePrefillError, formData.business_type_segments, setFormData, updateFormData]
+  )
 
   const handleCompanySelect = useCallback(
     async (company: KBOCompany) => {
@@ -158,6 +319,12 @@ export function useManualCompanyIdentificationController({
           : { activity_code: undefined }),
       })
 
+      const seededBusinessTypes = resolveCompanyApiBusinessTypes(company, businessTypes)
+      if (seededBusinessTypes.length > 0) {
+        applyApiBusinessTypeSelection(seededBusinessTypes, baseUpdates)
+        return
+      }
+
       await prefillBusinessTypeForCompany(
         company,
         baseUpdates,
@@ -165,6 +332,8 @@ export function useManualCompanyIdentificationController({
       )
     },
     [
+      applyApiBusinessTypeSelection,
+      businessTypes,
       clearNacePrefillError,
       prefillBusinessTypeForCompany,
       setCompanySearchValue,
@@ -175,39 +344,28 @@ export function useManualCompanyIdentificationController({
   )
 
   const handleBusinessTypeSelect = useCallback(
-    (value: string, businessType?: BusinessType) => {
+    (value: string, businessType?: SearchBusinessType) => {
       const normalizedValue = normalizeBusinessTypeId(value)
-      const normalizedCode = normalizeBusinessTypeId(businessType?.code) ?? businessType?.code
-      const normalizedBusinessType =
-        businessType &&
-        ((normalizedValue && normalizedValue !== businessType.id) ||
-          (normalizedCode && normalizedCode !== businessType.code))
-          ? {
-              ...businessType,
-              id: normalizedValue ?? businessType.id,
-              code: normalizedCode ?? businessType.code,
-            }
-          : businessType
-      setSelectedBusinessType(normalizedBusinessType || null)
-      clearNacePrefillError()
-      setFormData((prev) => ({
-        ...prev,
-        businessType: normalizedValue ?? '',
-        businessTypeCode: normalizedBusinessType
-          ? (normalizedCode ?? normalizedBusinessType.code)
-          : '',
-        industry: normalizedBusinessType ? normalizedBusinessType.category : '',
-      }))
-      if (normalizedBusinessType && normalizedValue) {
-        updateFormData({
-          business_type_id: normalizedValue,
-          industry: normalizedBusinessType.category,
-        })
-      } else {
-        updateFormData({ business_type_id: undefined, industry: undefined })
+      if (!normalizedValue || !businessType) {
+        applyApiBusinessTypeSelection([])
+        return
       }
+      applyApiBusinessTypeSelection([
+        buildApiBusinessTypeFromSearchType(normalizedValue, {
+          ...businessType,
+          id: normalizedValue,
+          code: normalizeBusinessTypeId(businessType.code) ?? businessType.code,
+        }),
+      ])
     },
-    [clearNacePrefillError, setFormData, updateFormData]
+    [applyApiBusinessTypeSelection]
+  )
+
+  const handleBusinessTypeSelectionChange = useCallback(
+    (_businessTypeIds: string[], selectedBusinessTypes: ApiBusinessType[]) => {
+      applyApiBusinessTypeSelection(selectedBusinessTypes)
+    },
+    [applyApiBusinessTypeSelection]
   )
 
   const executeClearCompany = useCallback(() => {
@@ -227,9 +385,16 @@ export function useManualCompanyIdentificationController({
       businessType: '',
       businessTypeCode: '',
       industry: '',
+      business_type_id: undefined,
+      business_type_title: undefined,
+      business_type_segments: [],
+      business_model: undefined,
     }))
     updateFormData({
       business_type_id: undefined,
+      business_type_title: undefined,
+      business_type_segments: [],
+      business_model: undefined,
       industry: undefined,
       kbo_number: '',
       legal_form: '',
@@ -253,6 +418,7 @@ export function useManualCompanyIdentificationController({
     businessTypesLoading,
     executeClearCompany,
     handleBusinessTypeSelect,
+    handleBusinessTypeSelectionChange,
     handleClearCompany,
     handleCompanySelect,
     kboSearchFn,
@@ -261,5 +427,6 @@ export function useManualCompanyIdentificationController({
     retryNacePrefill,
     searchCountry,
     selectedBusinessType,
+    selectedBusinessTypeIds,
   }
 }
