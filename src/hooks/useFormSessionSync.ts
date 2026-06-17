@@ -34,10 +34,9 @@ import {
   mergeSessionSurfaceForOptionalPrefill,
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
-  stableOptionalPrefillSourceSignature,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
-import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
+import { buildCurrentYearData, isYearRowForecast, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
 import {
   getMercurySourceApp,
   getSessionAutosaveDeferRemainingMs,
@@ -49,16 +48,75 @@ const SKIP_OPTIONAL_SESSION_SYNC_KEYS = new Set<string>(['revenue', 'ebitda', 's
 
 type AutosyncDataRoot = Record<string, unknown>
 
-type YearMetricsRow = { year: unknown; revenue: unknown; ebitda: unknown }
+const AUTOSYNC_YEAR_FIELDS = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS] as const
 
-function fingerprintHistoricalSlice(rows: unknown): YearMetricsRow[] {
+function normalizeComparableAutosyncValue(value: unknown): string {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : ''
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    const numeric = Number(trimmed)
+    return Number.isFinite(numeric) ? String(numeric) : trimmed
+  }
+  if (typeof value === 'boolean') return value ? '1' : '0'
+  return JSON.stringify(value)
+}
+
+function fingerprintYearRecord(row: unknown): string {
+  if (row == null || typeof row !== 'object' || Array.isArray(row)) return ''
+  const r = row as Record<string, unknown>
+  const fields = AUTOSYNC_YEAR_FIELDS.map(
+    (field) => `${field}:${normalizeComparableAutosyncValue(r[field])}`
+  )
+  fields.push(`forecast:${isYearRowForecast(r) ? '1' : '0'}`)
+  return fields.join(',')
+}
+
+function fingerprintYearRows(rows: unknown): string[] {
   if (!Array.isArray(rows)) return []
   return rows
     .filter(
       (y): y is Record<string, unknown> => y != null && typeof y === 'object' && !Array.isArray(y)
     )
-    .map((y) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
-    .sort((a, b) => Number(a.year) - Number(b.year))
+    .map(fingerprintYearRecord)
+    .sort((a, b) => {
+      const yearA = Number(a.match(/^year:([^,]*)/)?.[1] ?? Number.NaN)
+      const yearB = Number(b.match(/^year:([^,]*)/)?.[1] ?? Number.NaN)
+      if (Number.isFinite(yearA) && Number.isFinite(yearB) && yearA !== yearB) {
+        return yearA - yearB
+      }
+      return a.localeCompare(b)
+    })
+}
+
+function autosyncWritableSignature(record: Record<string, unknown>): string {
+  const parts: string[] = []
+
+  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
+    if (SKIP_OPTIONAL_SESSION_SYNC_KEYS.has(key)) continue
+    if (!Object.hasOwn(record, key)) continue
+    const value = record[key]
+    if (value === undefined || value === null) continue
+    if (typeof value === 'string' && value.trim() === '') continue
+    parts.push(`${key}:${normalizeComparableAutosyncValue(value)}`)
+  }
+
+  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
+    if (!Object.hasOwn(record, key)) continue
+    const value = record[key]
+    if (value === undefined || value === null) continue
+    parts.push(`${key}:${JSON.stringify(value)}`)
+  }
+
+  for (const key of ['comparables', 'balance_sheet_adjustments'] as const) {
+    if (!Object.hasOwn(record, key)) continue
+    const value = record[key]
+    if (value === undefined || value === null) continue
+    parts.push(`${key}:${JSON.stringify(value)}`)
+  }
+
+  return parts.sort().join('|')
 }
 
 function isAutosyncComparableRoot(value: unknown): value is AutosyncDataRoot {
@@ -124,11 +182,8 @@ export function areFormAndSessionDataEqualForAutosync(
     return false
   }
   if (formCurrentYear || sessionCurrentYear) {
-    const fieldsToCompare = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS]
-    for (const field of fieldsToCompare) {
-      if (formCurrentYear?.[field] !== sessionCurrentYear?.[field]) {
-        return false
-      }
+    if (fingerprintYearRecord(formCurrentYear) !== fingerprintYearRecord(sessionCurrentYear)) {
+      return false
     }
   }
 
@@ -137,8 +192,8 @@ export function areFormAndSessionDataEqualForAutosync(
     ? sessionSurface.historical_years_data
     : []
   if (formHistNorm.length !== sessHistNorm.length) return false
-  const formStr = JSON.stringify(fingerprintHistoricalSlice(formHistNorm))
-  const sessStr = JSON.stringify(fingerprintHistoricalSlice(sessHistNorm))
+  const formStr = JSON.stringify(fingerprintYearRows(formHistNorm))
+  const sessStr = JSON.stringify(fingerprintYearRows(sessHistNorm))
   if (formStr !== sessStr) return false
 
   const formFc = Array.isArray(fd.forecast_years_data) ? fd.forecast_years_data : []
@@ -146,8 +201,8 @@ export function areFormAndSessionDataEqualForAutosync(
     ? sessionSurface.forecast_years_data
     : []
   if (formFc.length !== sessFc.length) return false
-  const fcFormStr = JSON.stringify(fingerprintHistoricalSlice(formFc))
-  const fcSessStr = JSON.stringify(fingerprintHistoricalSlice(sessFc))
+  const fcFormStr = JSON.stringify(fingerprintYearRows(formFc))
+  const fcSessStr = JSON.stringify(fingerprintYearRows(sessFc))
   if (fcFormStr !== fcSessStr) return false
 
   // Inject the store-side tax latencies into the form-side signature
@@ -164,8 +219,7 @@ export function areFormAndSessionDataEqualForAutosync(
       ? { ...fd, _taxLatencies: taxLatencyItems }
       : fd
   if (
-    stableOptionalPrefillSourceSignature(fdForSig) !==
-    stableOptionalPrefillSourceSignature(sessionSurface)
+    autosyncWritableSignature(fdForSig) !== autosyncWritableSignature(sessionSurface)
   ) {
     return false
   }

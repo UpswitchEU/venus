@@ -146,6 +146,109 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
   })
 
+  it('ignores provider-only raw year_data when normalized financial rows already match', () => {
+    const current = {
+      year: 2024,
+      revenue: 1_000_000,
+      ebitda: 200_000,
+      cash: 50_000,
+      total_debt: 25_000,
+    }
+    const historical = [
+      {
+        year: 2023,
+        revenue: 900_000,
+        ebitda: 180_000,
+        capex: 15_000,
+        free_cash_flow: 125_000,
+      },
+    ]
+    const form = {
+      ...base,
+      current_year_data: current,
+      historical_years_data: historical,
+    }
+    const sess = {
+      ...base,
+      current_year_data: current,
+      historical_years_data: historical,
+      year_data: {
+        2024: current,
+        2023: historical[0],
+      },
+      _financial_data_source: 'silverfin',
+      _import_quality: {
+        2024: { confidence_score: 0.94 },
+        2023: { confidence_score: 0.91 },
+      },
+    } as Record<string, unknown>
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('normalizes numeric strings in current_year_data to avoid autosave churn', () => {
+    const form = {
+      ...base,
+      current_year_data: {
+        year: 2024,
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        cash: 50_000,
+      },
+    }
+    const sess = {
+      ...base,
+      current_year_data: {
+        year: '2024',
+        revenue: '1000000',
+        ebitda: '200000',
+        cash: '50000',
+      },
+    } as Record<string, unknown>
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
+  it('returns false when current_year_data balance-sheet fields differ', () => {
+    const form = {
+      ...base,
+      current_year_data: {
+        year: 2024,
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        cash: 50_000,
+      },
+    }
+    const sess = {
+      ...base,
+      current_year_data: {
+        year: 2024,
+        revenue: 1_000_000,
+        ebitda: 200_000,
+        cash: 75_000,
+      },
+    } as Record<string, unknown>
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
+  })
+
+  it('returns false when historical-year cash-flow detail differs', () => {
+    const form = {
+      ...base,
+      historical_years_data: [
+        { year: 2023, revenue: 900_000, ebitda: 180_000, capex: 15_000 },
+      ],
+    }
+    const sess = {
+      ...base,
+      historical_years_data: [
+        { year: 2023, revenue: 900_000, ebitda: 180_000, capex: 20_000 },
+      ],
+    } as Record<string, unknown>
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
+  })
+
   it('reads _taxLatencies from merged surface when only stored under _businessInfo', () => {
     const tl = [{ id: 'x', type: 'passive' as const }]
     const form = { ...base }
