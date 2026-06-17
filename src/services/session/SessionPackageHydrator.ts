@@ -95,6 +95,7 @@ const PACKAGE_CAMEL_TO_SNAKE: Record<string, string> = {
   kboNumber: 'kbo_number',
   vatNumber: 'vat_number',
   businessTypeId: 'business_type_id',
+  businessTypeSegments: 'business_type_segments',
   businessDescription: 'business_description',
   subIndustry: 'subIndustry',
   employeeCount: 'number_of_employees',

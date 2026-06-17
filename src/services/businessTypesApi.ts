@@ -47,6 +47,32 @@ export interface BusinessType {
   keyMetrics?: string[]
   typicalEmployeeRange?: { min: number; max: number }
   typicalRevenueRange?: { min: number; max: number }
+  evEbitdaMedian?: number
+  evEbitdaP10?: number
+  evEbitdaP25?: number
+  evEbitdaP75?: number
+  evEbitdaP90?: number
+  evRevenueMedian?: number
+  evRevenueP10?: number
+  evRevenueP25?: number
+  evRevenueP75?: number
+  evRevenueP90?: number
+  peRatioMedian?: number
+  peRatioP10?: number
+  peRatioP25?: number
+  peRatioP75?: number
+  peRatioP90?: number
+  multipleBasis?: string
+  lowSampleSuppressed?: boolean
+  primaryMultiple?: {
+    metric?: string | null
+    label?: string | null
+    median?: number | null
+    p25?: number | null
+    p75?: number | null
+    basis?: string | null
+    lowSampleSuppressed?: boolean | null
+  }
   status: string
   createdAt: string
   updatedAt: string
@@ -267,6 +293,8 @@ function normalizeBusinessType(value: unknown): BusinessType | null {
 
   const categoryId = asString(value.category_id, asString(value.categoryId, 'other'))
   const now = new Date().toISOString()
+  const rawPrimaryMultiple = value.primaryMultiple ?? value.primary_multiple
+  const primaryMultiple = isRecord(rawPrimaryMultiple) ? rawPrimaryMultiple : null
 
   return {
     id,
@@ -288,6 +316,36 @@ function normalizeBusinessType(value: unknown): BusinessType | null {
     keyMetrics: asStringArray(value.keyMetrics ?? value.key_metrics),
     typicalEmployeeRange: asRange(value.typicalEmployeeRange ?? value.typical_employee_range),
     typicalRevenueRange: asRange(value.typicalRevenueRange ?? value.typical_revenue_range),
+    evEbitdaMedian: asOptionalNumber(value.evEbitdaMedian ?? value.ev_ebitda_median),
+    evEbitdaP10: asOptionalNumber(value.evEbitdaP10 ?? value.ev_ebitda_p10),
+    evEbitdaP25: asOptionalNumber(value.evEbitdaP25 ?? value.ev_ebitda_p25),
+    evEbitdaP75: asOptionalNumber(value.evEbitdaP75 ?? value.ev_ebitda_p75),
+    evEbitdaP90: asOptionalNumber(value.evEbitdaP90 ?? value.ev_ebitda_p90),
+    evRevenueMedian: asOptionalNumber(value.evRevenueMedian ?? value.ev_revenue_median),
+    evRevenueP10: asOptionalNumber(value.evRevenueP10 ?? value.ev_revenue_p10),
+    evRevenueP25: asOptionalNumber(value.evRevenueP25 ?? value.ev_revenue_p25),
+    evRevenueP75: asOptionalNumber(value.evRevenueP75 ?? value.ev_revenue_p75),
+    evRevenueP90: asOptionalNumber(value.evRevenueP90 ?? value.ev_revenue_p90),
+    peRatioMedian: asOptionalNumber(value.peRatioMedian ?? value.pe_ratio_median),
+    peRatioP10: asOptionalNumber(value.peRatioP10 ?? value.pe_ratio_p10),
+    peRatioP25: asOptionalNumber(value.peRatioP25 ?? value.pe_ratio_p25),
+    peRatioP75: asOptionalNumber(value.peRatioP75 ?? value.pe_ratio_p75),
+    peRatioP90: asOptionalNumber(value.peRatioP90 ?? value.pe_ratio_p90),
+    multipleBasis: asOptionalString(value.multipleBasis ?? value.multiple_basis),
+    lowSampleSuppressed: value.lowSampleSuppressed === true || value.low_sample_suppressed === true,
+    primaryMultiple: primaryMultiple
+      ? {
+          metric: asOptionalString(primaryMultiple.metric),
+          label: asOptionalString(primaryMultiple.label),
+          median: asOptionalNumber(primaryMultiple.median),
+          p25: asOptionalNumber(primaryMultiple.p25),
+          p75: asOptionalNumber(primaryMultiple.p75),
+          basis: asOptionalString(primaryMultiple.basis),
+          lowSampleSuppressed:
+            primaryMultiple.lowSampleSuppressed === true ||
+            primaryMultiple.low_sample_suppressed === true,
+        }
+      : undefined,
     status: asString(value.status, 'active'),
     createdAt: asString(value.createdAt, asString(value.created_at, now)),
     updatedAt: asString(value.updatedAt, asString(value.updated_at, now)),

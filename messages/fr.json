@@ -1157,6 +1157,11 @@
 	},
 	"manualInput": {
 		"resetToNbb": "Réinitialisation aux valeurs NBB",
+		"advisorExpertMode": {
+			"ariaLabel": "Mode de contrôle conseiller",
+			"default": "Valeurs propriétaire",
+			"expert": "Mode expert"
+		},
 		"synthesis": {
 			"lockedTitle": "Verrouillé",
 			"lockedDescription": "Ajoutez plus de méthodes de valorisation pour débloquer la synthèse."
@@ -2038,6 +2043,16 @@
 				"riskAnalysisToggle": "Appliquer la couche de risque qualitative",
 				"riskAnalysisToggleDescription": "Si desactive, le multiple comparable est affiche uniquement comme reference avant ajustement.",
 				"preAdjustmentReference": "L'analyse de risque est desactivee. Le rapport libellera le multiple de marche comme reference avant ajustement, pas comme recommandation du conseiller.",
+				"livePreviewTitle": "Apercu de valeur en direct",
+				"livePreviewBefore": "Avant",
+				"livePreviewAfter": "Apres",
+				"livePreviewMultiplePremium": "Prime",
+				"livePreviewEffectiveOverride": "Multiple effectif",
+				"livePreviewMultipleBlend": "Mix de multiples",
+				"livePreviewRiskOff": "Couche risque inactive",
+				"livePreviewDiscountWeights": "Ponderation des decotes",
+				"livePreviewDiscountFloor": "Plancher de decote",
+				"livePreviewHistoricalWeights": "Ponderation historique",
 				"multipleTypeBlendTitle": "Ponderation des types de multiples",
 				"multipleTypeBlendSubtitle": "Ponderez les jambes EV/EBITDA, EV/Revenue et P/E. Les poids doivent totaliser 100%.",
 				"multipleTypeWeight": "poids du type de multiple",

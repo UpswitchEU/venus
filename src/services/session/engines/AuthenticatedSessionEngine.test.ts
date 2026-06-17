@@ -255,6 +255,46 @@ describe('AuthenticatedSessionEngine', () => {
     expect(JSON.stringify(payload).length).toBeLessThan(10_000)
   })
 
+  it('skips duplicate autosave payloads after a successful save', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const createdAt = new Date('2026-06-17T13:43:00.000Z')
+      const updatedSession = {
+        reportId: 'val_duplicate_autosave',
+        currentView: 'manual' as const,
+        dataSource: 'manual' as const,
+        createdAt,
+        updatedAt: new Date('2026-06-17T13:43:01.000Z'),
+        sessionData: { company_name: 'Stemafisk BV', revenue: 1_000_000 },
+        partialData: {},
+      }
+      sessionServiceMocks.saveSession.mockResolvedValue(updatedSession)
+
+      const engine = new AuthenticatedSessionEngine()
+      engine.updateSession({
+        reportId: 'val_duplicate_autosave',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt,
+        updatedAt: createdAt,
+        sessionData: { company_name: 'Stemafisk BV', revenue: 1_000_000 },
+        partialData: {},
+      })
+
+      await engine.saveSession('user')
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+      const autosave = engine.saveSession('autosave')
+      await vi.advanceTimersByTimeAsync(750)
+      await autosave
+
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('serializes overlapping saves and preserves local edits made while the first save is in flight', async () => {
     vi.useFakeTimers()
 

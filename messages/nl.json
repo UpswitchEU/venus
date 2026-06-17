@@ -1157,6 +1157,11 @@
 	},
 	"manualInput": {
 		"resetToNbb": "Herstel naar NBB-waarden",
+		"advisorExpertMode": {
+			"ariaLabel": "Adviseurcontrolemodus",
+			"default": "Eigenaarsdefault",
+			"expert": "Expertmodus"
+		},
 		"synthesis": {
 			"lockedTitle": "Vergrendeld",
 			"lockedDescription": "Voeg meer waarderingsmethodes toe om de synthese te ontgrendelen."
@@ -2038,6 +2043,16 @@
 				"riskAnalysisToggle": "Pas kwalitatieve risicolaag toe",
 				"riskAnalysisToggleDescription": "Uitgeschakeld wordt de vergelijkbare multiple enkel als pre-adjustment referentie getoond.",
 				"preAdjustmentReference": "Risicoanalyse staat uit. Het rapport labelt de markt-multiple als pre-adjustment referentie, niet als adviseursaanbeveling.",
+				"livePreviewTitle": "Live waardepreview",
+				"livePreviewBefore": "Voor",
+				"livePreviewAfter": "Na",
+				"livePreviewMultiplePremium": "Premie",
+				"livePreviewEffectiveOverride": "Effectieve multiple",
+				"livePreviewMultipleBlend": "Multiple-blend",
+				"livePreviewRiskOff": "Risicolaag uit",
+				"livePreviewDiscountWeights": "Discountweging",
+				"livePreviewDiscountFloor": "Discountvloer",
+				"livePreviewHistoricalWeights": "Historische weging",
 				"multipleTypeBlendTitle": "Multiple-type blend",
 				"multipleTypeBlendSubtitle": "Weeg de EV/EBITDA-, EV/Revenue- en P/E-benen. Wegingen moeten optellen tot 100%.",
 				"multipleTypeWeight": "multiple-type weging",

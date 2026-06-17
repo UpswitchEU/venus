@@ -23,6 +23,7 @@
       "@/*": ["./src/*"],
       "@upswitch/ai-actions": ["./vendor/ai-actions/dist/index.d.ts"],
       "@upswitch/ai-dock-shells": ["./vendor/ai-dock-shells/src/index.ts"],
+      "@upswitch/business-type-selector": ["./vendor/business-type-selector/src/index.ts"],
       "@upswitch/types": ["./vendor/types/src/index.ts"],
       "@upswitch/types/*": ["./vendor/types/src/*"],
       "@/components/*": ["./src/components/*"],

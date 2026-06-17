@@ -13,7 +13,12 @@ import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/us
 import type { DataResponse } from '../types/data-collection'
 import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaNormalization'
 import { ValidationError } from '../types/errors'
-import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
+import type {
+  BusinessTypeSegmentInput,
+  ValuationFormData,
+  ValuationRequest,
+  YearDataInput,
+} from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
@@ -56,6 +61,36 @@ type FormDataRecord = ValuationFormData & Record<string, unknown>
 
 function toFiniteNumber(value: unknown): number | null {
   return parseFlexibleNumber(value) ?? null
+}
+
+function normalizeBusinessTypeSegments(
+  segments: BusinessTypeSegmentInput[] | undefined
+): BusinessTypeSegmentInput[] {
+  if (!Array.isArray(segments) || segments.length <= 1) return []
+
+  return segments.flatMap((segment) => {
+    const businessTypeId = normalizeBusinessTypeId(segment.business_type_id)
+    if (!businessTypeId) return []
+
+    const earnings = toFiniteNumber(segment.earnings)
+    const multiple = toFiniteNumber(segment.multiple ?? segment.applied_multiple)
+    const weight = toFiniteNumber(segment.weight)
+    const basis = segment.basis ?? segment.earnings_basis
+
+    return [
+      {
+        business_type_id: businessTypeId,
+        ...(segment.business_type_title
+          ? { business_type_title: segment.business_type_title }
+          : {}),
+        ...(segment.nace_code ? { nace_code: segment.nace_code } : {}),
+        ...(basis ? { basis, earnings_basis: basis } : {}),
+        ...(earnings != null ? { earnings } : {}),
+        ...(multiple != null ? { multiple } : {}),
+        ...(weight != null ? { weight } : {}),
+      },
+    ]
+  })
 }
 
 function hasValidHistoricalEbitdaWeights(weights: Record<number, number>): boolean {
@@ -438,6 +473,7 @@ export function buildValuationRequest(
   let industry = formData.industry
   let businessModel = formData.business_model
   const businessTypeId = normalizeBusinessTypeId(formData.business_type_id)
+  const businessTypeSegments = normalizeBusinessTypeSegments(formData.business_type_segments)
 
   // If industry is missing but business_type_id is present, log warning
   // (industry should have been set when business type was selected)
@@ -1213,6 +1249,7 @@ export function buildValuationRequest(
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
     ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
+    ...(businessTypeSegments.length > 1 ? { business_type_segments: businessTypeSegments } : {}),
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,

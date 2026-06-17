@@ -235,6 +235,31 @@ function isRetryableSessionSaveError(error: unknown): boolean {
 
 const AUTOSAVE_SETTLE_MS = 750
 
+function normalizeForAutosaveFingerprint(value: unknown): unknown {
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeForAutosaveFingerprint(item))
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const normalized: Record<string, unknown> = {}
+    for (const key of Object.keys(record).sort()) {
+      const child = record[key]
+      if (child !== undefined) {
+        normalized[key] = normalizeForAutosaveFingerprint(child)
+      }
+    }
+    return normalized
+  }
+  return value
+}
+
+function autosavePayloadFingerprint(payload: Record<string, unknown>): string {
+  return JSON.stringify(normalizeForAutosaveFingerprint(payload))
+}
+
 function mergeQueuedLocalSession(
   serverSession: ValuationSession,
   localSession: ValuationSession
@@ -287,6 +312,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   // Multiple hooks can trigger saves simultaneously, causing data loss when they race
   private savePromise: Promise<void> | null = null
   private savePending: boolean = false
+  private lastPersistedSaveFingerprint: string | null = null
 
   /**
    * Load session from backend
@@ -660,21 +686,15 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        // Strip server-rendered artifacts (valuation_result, html_report,
-        // pdf_html_report) before shipping the PATCH. These are produced
-        // backend-side and don't need to round-trip — leaving them in
-        // turned the autosave into a multi-MB upload that triggered
-        // ``Premature close`` 500s on the METANOUS revisit (Titan log
-        // content-length: 13920316). See BACKEND_COMPUTED_SESSION_KEYS.
-        const mergedPayload = {
-          ...(this.currentSession.sessionData || {}),
-          ...(this.currentSession.partialData || {}),
+        const updates = this.buildSavePayload()
+        const payloadFingerprint = autosavePayloadFingerprint(updates)
+        if (reason === 'autosave' && payloadFingerprint === this.lastPersistedSaveFingerprint) {
+          generalLogger.debug('[AuthenticatedSessionEngine] Skipping unchanged autosave payload', {
+            reportId: this.currentSession.reportId,
+          })
+          return this.localMutationVersion
         }
-        const updates = {
-          ...stripBackendComputedFields(mergedPayload),
-          currentView: this.currentSession.currentView,
-          ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
-        }
+
         const mutationVersionAtSend = this.localMutationVersion
 
         const updatedSession = await sessionService.saveSession(
@@ -710,6 +730,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           }
         }
 
+        this.lastPersistedSaveFingerprint = payloadFingerprint
         return mutationVersionAtSend
       } catch (error) {
         recordSessionPoolPressureFromHttpError(error)
@@ -740,6 +761,27 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
 
     return this.localMutationVersion
+  }
+
+  private buildSavePayload(): Record<string, unknown> {
+    if (!this.currentSession) return {}
+
+    // Strip server-rendered artifacts (valuation_result, html_report,
+    // pdf_html_report) before shipping the PATCH. These are produced
+    // backend-side and don't need to round-trip — leaving them in
+    // turned the autosave into a multi-MB upload that triggered
+    // ``Premature close`` 500s on the METANOUS revisit (Titan log
+    // content-length: 13920316). See BACKEND_COMPUTED_SESSION_KEYS.
+    const mergedPayload = {
+      ...(this.currentSession.sessionData || {}),
+      ...(this.currentSession.partialData || {}),
+    }
+
+    return {
+      ...stripBackendComputedFields(mergedPayload),
+      currentView: this.currentSession.currentView,
+      ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
+    }
   }
 
   /**

@@ -1157,6 +1157,11 @@
 	},
 	"manualInput": {
 		"resetToNbb": "Reset to NBB values",
+		"advisorExpertMode": {
+			"ariaLabel": "Advisor control mode",
+			"default": "Owner defaults",
+			"expert": "Expert mode"
+		},
 		"synthesis": {
 			"lockedTitle": "Locked",
 			"lockedDescription": "Add more valuation methods to unlock the synthesis."
@@ -2036,6 +2041,16 @@
 				"riskAnalysisToggle": "Apply qualitative risk layer",
 				"riskAnalysisToggleDescription": "When off, the comparable multiple is shown as a pre-adjustment reference only.",
 				"preAdjustmentReference": "Risk analysis is off. The report will label the market multiple as a pre-adjustment reference, not as the advisor recommendation.",
+				"livePreviewTitle": "Live value preview",
+				"livePreviewBefore": "Before",
+				"livePreviewAfter": "After",
+				"livePreviewMultiplePremium": "Premium",
+				"livePreviewEffectiveOverride": "Effective multiple",
+				"livePreviewMultipleBlend": "Multiple blend",
+				"livePreviewRiskOff": "Risk layer off",
+				"livePreviewDiscountWeights": "Discount weights",
+				"livePreviewDiscountFloor": "Discount floor",
+				"livePreviewHistoricalWeights": "Historical weights",
 				"multipleTypeBlendTitle": "Multiple-type blend",
 				"multipleTypeBlendSubtitle": "Weight the EV/EBITDA, EV/Revenue and P/E legs. Weights must sum to 100%.",
 				"multipleTypeWeight": "multiple-type weight",

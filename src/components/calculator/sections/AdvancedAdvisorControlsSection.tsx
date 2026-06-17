@@ -42,6 +42,8 @@ export interface AdvancedAdvisorControlsSectionProps {
   riskAnalysisEnabled?: boolean
   advisorDiscountWeights?: Record<string, number>
   discountFloorFactor?: number
+  previewEbitda?: number | null
+  previewCurrencyFormatter?: Intl.NumberFormat
   historicalYears: number[]
   historicalEbitdaWeightingMode?: WeightingMode
   historicalEbitdaWeights?: Record<number, number>
@@ -148,6 +150,8 @@ export function AdvancedAdvisorControlsSection({
   riskAnalysisEnabled,
   advisorDiscountWeights,
   discountFloorFactor,
+  previewEbitda,
+  previewCurrencyFormatter,
   historicalYears,
   historicalEbitdaWeightingMode,
   historicalEbitdaWeights,
@@ -205,6 +209,94 @@ export function AdvancedAdvisorControlsSection({
     sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)
       ? sectorAverageMultiple + adjustment
       : null
+  const previewBaselineMultiple =
+    sectorAverageMultiple != null &&
+    Number.isFinite(sectorAverageMultiple) &&
+    sectorAverageMultiple > 0
+      ? sectorAverageMultiple
+      : null
+  const previewEffectiveMultiple = (() => {
+    const explicitOverride = toFiniteNumber(effectiveMultipleOverride)
+    if (explicitOverride != null && explicitOverride > 0) return explicitOverride
+    if (calibratedMultiple != null && calibratedMultiple > 0) return calibratedMultiple
+    return null
+  })()
+  const previewEbitdaBasis = (() => {
+    const numeric = toFiniteNumber(previewEbitda)
+    return numeric != null && numeric > 0 ? numeric : null
+  })()
+  const previewCurrency = previewCurrencyFormatter?.resolvedOptions().currency ?? 'EUR'
+  const fallbackCurrencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', {
+        style: 'currency',
+        currency: previewCurrency,
+        maximumFractionDigits: 0,
+      }),
+    [locale, previewCurrency]
+  )
+  const currencyFormatter = previewCurrencyFormatter ?? fallbackCurrencyFormatter
+  const signedPercentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', {
+        maximumFractionDigits: 1,
+        signDisplay: 'always',
+      }),
+    [locale]
+  )
+  const livePreview = (() => {
+    if (
+      previewBaselineMultiple == null ||
+      previewEffectiveMultiple == null ||
+      previewEbitdaBasis == null
+    ) {
+      return null
+    }
+    const beforeValue = previewBaselineMultiple * previewEbitdaBasis
+    const afterValue = previewEffectiveMultiple * previewEbitdaBasis
+    const deltaValue = afterValue - beforeValue
+    const deltaPercent = beforeValue === 0 ? null : (deltaValue / beforeValue) * 100
+    const maxValue = Math.max(Math.abs(beforeValue), Math.abs(afterValue), 1)
+
+    return {
+      afterMultiple: previewEffectiveMultiple,
+      afterValue,
+      afterWidth: `${Math.max(8, Math.min(100, (Math.abs(afterValue) / maxValue) * 100))}%`,
+      beforeMultiple: previewBaselineMultiple,
+      beforeValue,
+      beforeWidth: `${Math.max(8, Math.min(100, (Math.abs(beforeValue) / maxValue) * 100))}%`,
+      deltaPercent,
+      deltaValue,
+    }
+  })()
+  const activePreviewChanges = useMemo(() => {
+    const changes: string[] = []
+    if (adjustment !== 0) changes.push(t('livePreviewMultiplePremium'))
+    if (effectiveMultipleOverride != null) changes.push(t('livePreviewEffectiveOverride'))
+    if (MULTIPLE_TYPE_ROWS.some((row) => multipleBlendWeights[row.key] !== row.defaultWeight)) {
+      changes.push(t('livePreviewMultipleBlend'))
+    }
+    if (!riskEnabled) changes.push(t('livePreviewRiskOff'))
+    if (ADVISOR_DISCOUNT_ROWS.some((row) => discountWeights[row.key] !== 1)) {
+      changes.push(t('livePreviewDiscountWeights'))
+    }
+    if (floorFactor !== 0.45) changes.push(t('livePreviewDiscountFloor'))
+    if (mode === 'weighted') changes.push(t('livePreviewHistoricalWeights'))
+    return changes
+  }, [
+    adjustment,
+    discountWeights,
+    effectiveMultipleOverride,
+    floorFactor,
+    mode,
+    multipleBlendWeights,
+    riskEnabled,
+    t,
+  ])
+  const formatSignedCurrency = (value: number) => {
+    if (value > 0) return `+${currencyFormatter.format(value)}`
+    return currencyFormatter.format(value)
+  }
   const requiresCalibrationNote = adjustment !== 0
   const noteComplete = !requiresCalibrationNote || Boolean(multipleCalibrationNote?.trim())
   const requiresEffectiveOverrideNote = effectiveMultipleOverride != null
@@ -304,6 +396,89 @@ export function AdvancedAdvisorControlsSection({
           label={t('waterfallToggle')}
           disabled={disabled}
         />
+
+        {livePreview && (
+          <div
+            className="rounded-lg border border-primary/15 bg-primary/[0.045] p-4 space-y-3"
+            data-testid="advisor-controls-live-preview"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-foreground">{t('livePreviewTitle')}</div>
+                <div className="mt-1 text-xs text-foreground/55">
+                  {previewEbitdaBasis != null ? currencyFormatter.format(previewEbitdaBasis) : '—'}{' '}
+                  EBITDA
+                </div>
+              </div>
+              <div
+                className={`font-mono text-sm font-semibold tabular-nums ${
+                  livePreview.deltaValue >= 0 ? 'text-success' : 'text-destructive'
+                }`}
+                data-testid="advisor-controls-live-preview-delta"
+              >
+                {formatSignedCurrency(livePreview.deltaValue)}
+                {livePreview.deltaPercent != null
+                  ? ` (${signedPercentFormatter.format(livePreview.deltaPercent)}%)`
+                  : ''}
+              </div>
+            </div>
+
+            <div className="grid gap-2 text-xs sm:grid-cols-2">
+              <div className="rounded-md border border-foreground/10 bg-background/55 px-3 py-2">
+                <div className="text-foreground/55">{t('livePreviewBefore')}</div>
+                <div
+                  className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground"
+                  data-testid="advisor-controls-live-preview-before"
+                >
+                  {currencyFormatter.format(livePreview.beforeValue)}
+                </div>
+                <div className="mt-0.5 font-mono text-[11px] tabular-nums text-foreground/55">
+                  {livePreview.beforeMultiple.toFixed(2)}x
+                </div>
+              </div>
+              <div className="rounded-md border border-foreground/10 bg-background/55 px-3 py-2">
+                <div className="text-foreground/55">{t('livePreviewAfter')}</div>
+                <div
+                  className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground"
+                  data-testid="advisor-controls-live-preview-after"
+                >
+                  {currencyFormatter.format(livePreview.afterValue)}
+                </div>
+                <div className="mt-0.5 font-mono text-[11px] tabular-nums text-foreground/55">
+                  {livePreview.afterMultiple.toFixed(2)}x
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1" data-testid="advisor-controls-curve-shift">
+              <div className="h-1.5 rounded-full bg-foreground/10">
+                <div
+                  className="h-full rounded-full bg-foreground/35"
+                  style={{ width: livePreview.beforeWidth }}
+                />
+              </div>
+              <div className="h-1.5 rounded-full bg-foreground/10">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: livePreview.afterWidth }}
+                />
+              </div>
+            </div>
+
+            {activePreviewChanges.length > 0 && (
+              <div className="flex flex-wrap gap-1.5" data-testid="advisor-controls-active-changes">
+                {activePreviewChanges.map((change) => (
+                  <span
+                    key={change}
+                    className="rounded-md border border-primary/15 bg-background/60 px-2 py-1 text-[10px] font-medium text-foreground/65"
+                  >
+                    {change}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-3 rounded-lg border border-foreground/10 bg-background/40 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

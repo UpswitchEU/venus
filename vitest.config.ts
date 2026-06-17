@@ -45,6 +45,10 @@ export default defineConfig({
       '@/types': path.resolve(__dirname, './src/types'),
       '@upswitch/ai-actions': path.resolve(__dirname, './vendor/ai-actions/dist/index.js'),
       '@upswitch/ai-dock-shells': path.resolve(__dirname, './vendor/ai-dock-shells/src/index.ts'),
+      '@upswitch/business-type-selector': path.resolve(
+        __dirname,
+        './vendor/business-type-selector/src/index.ts'
+      ),
       '@upswitch/types/valuation-methods': path.resolve(
         __dirname,
         '../../packages/types/src/valuation-methods.ts'

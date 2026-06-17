@@ -243,6 +243,7 @@ export interface ValuationRequest {
 
   // NEW: PostgreSQL business type integration
   business_type_id?: string // PostgreSQL business type ID
+  business_type_segments?: BusinessTypeSegmentInput[]
   business_context?: {
     dcfPreference?: number // 0-1: Weight for DCF methodology
     multiplesPreference?: number // 0-1: Weight for Multiples methodology
@@ -410,6 +411,22 @@ export interface ValuationRequest {
     note?: string
     acknowledged_extreme?: boolean
   }
+}
+
+export interface BusinessTypeSegmentInput {
+  business_type_id: string
+  business_type_title?: string
+  nace_code?: string
+  basis?: 'SDE' | 'EBITDA' | 'EBIT' | 'Revenue'
+  earnings_basis?: 'SDE' | 'EBITDA' | 'EBIT' | 'Revenue'
+  earnings?: number | string | null
+  adjusted_earnings?: number | string | null
+  adjusted_ebitda?: number | string | null
+  ebitda?: number | string | null
+  revenue?: number | string | null
+  multiple?: number | string | null
+  applied_multiple?: number | string | null
+  weight?: number | string | null
 }
 
 export interface TaxLatencyInput {

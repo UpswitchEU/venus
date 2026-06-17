@@ -65,6 +65,7 @@ export async function saveCompleteValuationSession(
         recurring_revenue_percentage: data.formData.recurring_revenue_percentage,
         shares_for_sale: 100,
         business_type_id: data.formData.business_type_id,
+        business_type_segments: data.formData.business_type_segments,
         business_context: data.formData.business_context,
         comparables: data.formData.comparables,
       })

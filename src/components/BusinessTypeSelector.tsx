@@ -1,51 +1,163 @@
 /**
- * BusinessTypeSelector Component
+ * BusinessTypeSelector adapter.
  *
- * Enhanced business type selector with metadata preview.
- * Shows typical ranges, key metrics, and smart defaults.
- *
- * @author UpSwitch CTO Team
- * @version 2.0.0
+ * Venus owns the data hooks and metadata preview. The multi-select/chip/inline
+ * multiple UI is shared with Mercury via `@upswitch/business-type-selector`.
  */
 
+import {
+  BusinessTypeMultiSelect,
+  type BusinessTypeMultiSelectCopy,
+  type BusinessTypePrimaryMultiple,
+  type BusinessTypeOption as SharedBusinessTypeOption,
+} from '@upswitch/business-type-selector'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypes } from '../hooks/useBusinessTypes'
-
-// ============================================================================
-// TYPES
-// ============================================================================
+import type { BusinessType } from '../services/businessTypesApi'
 
 interface BusinessTypeSelectorProps {
-  value: string | null
-  onChange: (businessTypeId: string) => void
+  value: string | string[] | null
+  onChange: (businessTypeId: string | string[]) => void
+  onSelectionChange?: (businessTypeIds: string[], businessTypes: BusinessType[]) => void
   onMetadataLoaded?: (metadata: BusinessTypeFull) => void
+  selectionMode?: 'single' | 'multiple'
   showPreview?: boolean
   className?: string
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+function selectorCopy(
+  locale: string,
+  t: ReturnType<typeof useTranslations>
+): BusinessTypeMultiSelectCopy {
+  const isDutch = locale === 'nl'
+  const isFrench = locale === 'fr'
+  return {
+    searchPlaceholder: isFrench
+      ? 'Rechercher des types d’entreprise...'
+      : isDutch
+        ? 'Zoek bedrijfstypes...'
+        : 'Search business types...',
+    selectPlaceholder: t('selectBusinessType'),
+    allCategories: isFrench
+      ? 'Toutes les categories'
+      : isDutch
+        ? 'Alle categorieen'
+        : 'All categories',
+    loading: t('loadingBusinessTypes'),
+    empty: isFrench
+      ? 'Aucun type d’entreprise trouve'
+      : isDutch
+        ? 'Geen bedrijfstypes gevonden'
+        : 'No business types found',
+    popular: isFrench ? 'Populaire' : isDutch ? 'Populair' : 'Popular',
+    required: isFrench ? '* Obligatoire' : isDutch ? '* Verplicht' : '* Required',
+    offline: isFrench ? 'Donnees hors ligne' : isDutch ? 'Offline gegevens' : 'Using offline data',
+    selectedLabel: isFrench
+      ? 'Types d’entreprise selectionnes'
+      : isDutch
+        ? 'Geselecteerde bedrijfstypes'
+        : 'Selected business types',
+    clearSelection: isFrench ? 'Supprimer' : isDutch ? 'Verwijderen' : 'Remove',
+    multipleUnavailable: isFrench
+      ? 'Multiple indisponible'
+      : isDutch
+        ? 'Multiple niet beschikbaar'
+        : 'Multiple not available',
+    lowSampleSuppressed: isFrench
+      ? 'Multiple masque: echantillon faible'
+      : isDutch
+        ? 'Multiple verborgen: lage steekproef'
+        : 'Multiple hidden: low sample',
+  }
+}
+
+function primaryMultipleFromBusinessType(
+  businessType: BusinessType
+): BusinessTypePrimaryMultiple | null {
+  if (businessType.primaryMultiple) return businessType.primaryMultiple
+
+  if (typeof businessType.evEbitdaMedian === 'number') {
+    return {
+      metric: 'ev_ebitda',
+      label: 'EV/EBITDA',
+      median: businessType.evEbitdaMedian,
+      p25: businessType.evEbitdaP25,
+      p75: businessType.evEbitdaP75,
+      basis: businessType.multipleBasis,
+      lowSampleSuppressed: businessType.lowSampleSuppressed,
+    }
+  }
+  if (typeof businessType.evRevenueMedian === 'number') {
+    return {
+      metric: 'ev_revenue',
+      label: 'EV/Revenue',
+      median: businessType.evRevenueMedian,
+      p25: businessType.evRevenueP25,
+      p75: businessType.evRevenueP75,
+      basis: businessType.multipleBasis,
+      lowSampleSuppressed: businessType.lowSampleSuppressed,
+    }
+  }
+  if (typeof businessType.peRatioMedian === 'number') {
+    return {
+      metric: 'pe',
+      label: 'P/E',
+      median: businessType.peRatioMedian,
+      p25: businessType.peRatioP25,
+      p75: businessType.peRatioP75,
+      basis: businessType.multipleBasis,
+      lowSampleSuppressed: businessType.lowSampleSuppressed,
+    }
+  }
+  return null
+}
+
+function toSharedOption(businessType: BusinessType): SharedBusinessTypeOption {
+  return {
+    id: businessType.id,
+    title: businessType.title,
+    description: businessType.description || businessType.short_description,
+    icon: businessType.icon,
+    categoryId: businessType.category_id,
+    categoryLabel: businessType.category,
+    keywords: businessType.keywords,
+    popular: businessType.popular,
+    primaryMultiple: primaryMultipleFromBusinessType(businessType),
+  }
+}
 
 export function BusinessTypeSelector({
   value,
   onChange,
+  onSelectionChange,
   onMetadataLoaded,
+  selectionMode = 'multiple',
   showPreview = true,
   className = '',
 }: BusinessTypeSelectorProps) {
   const t = useTranslations('common')
   const locale = useLocale()
   const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
-  const { businessTypeOptions, loading: loadingTypes } = useBusinessTypes()
-  const [selectedId, setSelectedId] = useState<string | null>(value)
+  const { businessTypes, loading: loadingTypes, error: loadingError } = useBusinessTypes()
+  const [selectedId, setSelectedId] = useState<string | null>(
+    Array.isArray(value) ? value[0] || null : value
+  )
 
-  // Load full metadata when a business type is selected
+  useEffect(() => {
+    setSelectedId(Array.isArray(value) ? value[0] || null : value)
+  }, [value])
+
   const { businessType: selectedMetadata, loading: loadingMetadata } =
     useBusinessTypeFull(selectedId)
+
+  const options = useMemo(() => businessTypes.map(toSharedOption), [businessTypes])
+  const businessTypeById = useMemo(
+    () => new Map(businessTypes.map((businessType) => [businessType.id, businessType])),
+    [businessTypes]
+  )
 
   const keyMetricLabels = Array.from(
     new Set(
@@ -57,20 +169,31 @@ export function BusinessTypeSelector({
   const requiredQuestionsCount =
     selectedMetadata?.questions.filter((question) => question.required).length ?? 0
 
-  // Notify parent when metadata is loaded
   useEffect(() => {
     if (selectedMetadata && onMetadataLoaded) {
       onMetadataLoaded(selectedMetadata)
     }
   }, [selectedMetadata, onMetadataLoaded])
 
-  // Handle selection
-  const handleSelect = (businessTypeId: string) => {
-    setSelectedId(businessTypeId)
-    onChange(businessTypeId)
+  const handleSelectionChange = (ids: string[]) => {
+    const currentIds = Array.isArray(value) ? value : value ? [value] : []
+    const normalizedIds =
+      selectionMode === 'single'
+        ? ids
+            .filter((id) => !currentIds.includes(id))
+            .slice(-1)
+            .concat(ids.filter((id) => currentIds.includes(id)).slice(0, 1))
+            .slice(0, 1)
+        : ids
+    const selectedBusinessTypes = normalizedIds.flatMap((id) => {
+      const businessType = businessTypeById.get(id)
+      return businessType ? [businessType] : []
+    })
+    setSelectedId(normalizedIds[0] || null)
+    onSelectionChange?.(normalizedIds, selectedBusinessTypes)
+    onChange(normalizedIds.length > 1 ? normalizedIds : normalizedIds[0] || '')
   }
 
-  // Format currency
   const formatCurrency = (amount?: number) => {
     if (!amount) return 'N/A'
     return new Intl.NumberFormat(currencyLocale, {
@@ -80,46 +203,37 @@ export function BusinessTypeSelector({
     }).format(amount)
   }
 
-  // Format percentage
-  const formatPercentage = (value?: number) => {
-    if (!value) return 'N/A'
-    return `${value}%`
+  const formatPercentage = (percentageValue?: number) => {
+    if (!percentageValue) return 'N/A'
+    return `${percentageValue}%`
   }
 
   return (
     <div className={`business-type-selector ${className}`}>
-      {/* Selector Dropdown */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
+        <label className="mb-2 block text-sm font-medium text-foreground">
           Business Type <span className="text-rust-500">*</span>
         </label>
-        <select
-          value={selectedId || ''}
-          onChange={(e) => handleSelect(e.target.value)}
-          disabled={loadingTypes}
-          className="block w-full rounded-md border-foreground/10 shadow-sm focus:border-primary focus:ring-primary"
-        >
-          <option value="">
-            {loadingTypes ? t('loadingBusinessTypes') : t('selectBusinessType')}
-          </option>
-          {businessTypeOptions.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
+        <BusinessTypeMultiSelect
+          value={value}
+          options={options}
+          onChange={handleSelectionChange}
+          copy={selectorCopy(locale, t)}
+          loading={loadingTypes}
+          error={loadingError}
+          required
+          showCategories={false}
+        />
       </div>
 
-      {/* Metadata Preview */}
       {showPreview && selectedId && (
         <div className="mt-4">
           {loadingMetadata ? (
-            <div className="flex items-center justify-center p-6 bg-muted rounded-lg">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="flex items-center justify-center rounded-lg bg-muted p-6">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
             </div>
           ) : selectedMetadata ? (
-            <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-lg p-6 space-y-4">
-              {/* Header */}
+            <div className="space-y-4 rounded-lg bg-gradient-to-br from-primary-50 to-canvas p-6">
               <div className="flex items-center space-x-3">
                 <span className="text-4xl">{selectedMetadata.icon || '🏢'}</span>
                 <div>
@@ -132,47 +246,43 @@ export function BusinessTypeSelector({
                 </div>
               </div>
 
-              {/* Typical Ranges */}
               {(selectedMetadata.typical_revenue_median ||
                 selectedMetadata.typical_ebitda_margin_median ||
                 selectedMetadata.typical_employee_median) && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Revenue */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {selectedMetadata.typical_revenue_median && (
-                    <div className="bg-card rounded-md p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Typical Revenue</p>
+                    <div className="rounded-md bg-card p-3">
+                      <p className="mb-1 text-xs text-muted-foreground">Typical Revenue</p>
                       <p className="text-lg font-semibold text-foreground">
                         {formatCurrency(selectedMetadata.typical_revenue_median)}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Range: {formatCurrency(selectedMetadata.typical_revenue_min)} -{' '}
                         {formatCurrency(selectedMetadata.typical_revenue_max)}
                       </p>
                     </div>
                   )}
 
-                  {/* EBITDA Margin */}
                   {selectedMetadata.typical_ebitda_margin_median && (
-                    <div className="bg-card rounded-md p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Typical EBITDA Margin</p>
+                    <div className="rounded-md bg-card p-3">
+                      <p className="mb-1 text-xs text-muted-foreground">Typical EBITDA Margin</p>
                       <p className="text-lg font-semibold text-foreground">
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_median)}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Range: {formatPercentage(selectedMetadata.typical_ebitda_margin_min)} -{' '}
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_max)}
                       </p>
                     </div>
                   )}
 
-                  {/* Employees */}
                   {selectedMetadata.typical_employee_median && (
-                    <div className="bg-card rounded-md p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Typical Employees</p>
+                    <div className="rounded-md bg-card p-3">
+                      <p className="mb-1 text-xs text-muted-foreground">Typical Employees</p>
                       <p className="text-lg font-semibold text-foreground">
                         {selectedMetadata.typical_employee_median}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Range: {selectedMetadata.typical_employee_min} -{' '}
                         {selectedMetadata.typical_employee_max}
                       </p>
@@ -181,17 +291,16 @@ export function BusinessTypeSelector({
                 </div>
               )}
 
-              {/* Key Metrics */}
               {keyMetricLabels.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-foreground mb-2">
+                  <p className="mb-2 text-sm font-medium text-foreground">
                     Key Metrics We'll Ask About:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {keyMetricLabels.map((label) => (
                       <span
                         key={label}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                        className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
                       >
                         {label}
                       </span>
@@ -200,43 +309,15 @@ export function BusinessTypeSelector({
                 </div>
               )}
 
-              {/* Questions Count */}
               {selectedMetadata.questions && selectedMetadata.questions.length > 0 && (
                 <div className="flex items-center text-sm text-muted-foreground">
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
                   {selectedMetadata.questions.length} targeted questions
                   {requiredQuestionsCount > 0 && ` (${requiredQuestionsCount} required)`}
                 </div>
               )}
 
-              {/* Valuation Method Preference */}
               {selectedMetadata.dcf_preference && (
                 <div className="flex items-center text-sm text-muted-foreground">
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                    />
-                  </svg>
                   Valuation: {Math.round(selectedMetadata.dcf_preference * 100)}% DCF,{' '}
                   {Math.round(selectedMetadata.multiples_preference * 100)}% Multiples
                 </div>

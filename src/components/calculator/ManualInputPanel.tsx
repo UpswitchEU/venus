@@ -275,11 +275,7 @@ export function ManualInputPanel({
         .replace(/NACE/g, activityCodeShort)
         .replace(
           /KBO-nummer/g,
-          getFinancialTerm(
-            'registrationNumber',
-            formData.country,
-            locale === 'fr' ? 'fr' : 'nl'
-          )
+          getFinancialTerm('registrationNumber', formData.country, locale === 'fr' ? 'fr' : 'nl')
         )
         .replace(/KBO number/g, getFinancialTerm('registrationNumber', formData.country, 'en')),
     [activityCodeShort, activityCodeTerm, formData.country, locale]
@@ -698,6 +694,7 @@ export function ManualInputPanel({
             <ManualInputMethodSections
               adaptiveHeaderSteps={adaptiveHeaderSteps}
               advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
+              advisorExpertModeDefault={isAccountantTierRole(user?.role)}
               balanceSheetCarveOutStep={balanceSheetCarveOutStep}
               canApplyDcfProjectionAutofill={canApplyDcfProjectionAutofill}
               disabled={isCalculating}

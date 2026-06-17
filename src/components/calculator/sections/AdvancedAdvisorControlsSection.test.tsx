@@ -14,6 +14,12 @@ vi.mock('../../../utils/getMercuryAppOrigin', () => ({
 const baseProps = {
   step: 6,
   sectorAverageMultiple: 5.5,
+  previewEbitda: 100_000,
+  previewCurrencyFormatter: new Intl.NumberFormat('en-BE', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }),
   historicalYears: [2023, 2024, 2025],
   onFieldChange: vi.fn(),
 }
@@ -217,6 +223,89 @@ describe('AdvancedAdvisorControlsSection', () => {
     // has been typed. Calibrated equals sector because adjustment is 0.
     expect(tape.textContent).toContain('5.50x')
     expect(tape.textContent).toContain('—')
+  })
+
+  it('renders a live before-and-after valuation preview for a calibration premium', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={1.25}
+        multipleCalibrationNote="strong recurring revenue"
+      />
+    )
+
+    expect(screen.getByTestId('advisor-controls-live-preview-before').textContent).toContain(
+      '€550,000'
+    )
+    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
+      '€675,000'
+    )
+    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
+      '+€125,000'
+    )
+    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
+      '+22,7%'
+    )
+    expect(screen.getByTestId('advisor-controls-curve-shift')).toBeInTheDocument()
+    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
+      'livePreviewMultiplePremium'
+    )
+  })
+
+  it('uses the final effective multiple override in the live preview when present', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleCalibrationAdjustment={0.5}
+        multipleCalibrationNote="quality premium"
+        effectiveMultipleOverride={7.5}
+        effectiveMultipleOverrideNote="final defended multiple"
+      />
+    )
+
+    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
+      '€750,000'
+    )
+    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
+      '+€200,000'
+    )
+    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
+      'livePreviewEffectiveOverride'
+    )
+  })
+
+  it('surfaces active value-moving risk, blend, floor, and weighting controls in the preview', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        multipleTypeWeights={{ ev_ebitda: 30, ev_revenue: 50, pe: 20 }}
+        riskAnalysisEnabled={false}
+        advisorDiscountWeights={{ size_discount: 0.5, liquidity_discount: 1.25 }}
+        discountFloorFactor={0.4}
+        historicalEbitdaWeightingMode="weighted"
+      />
+    )
+
+    const activeChanges = screen.getByTestId('advisor-controls-active-changes').textContent
+
+    expect(activeChanges).toContain('livePreviewMultipleBlend')
+    expect(activeChanges).toContain('livePreviewRiskOff')
+    expect(activeChanges).toContain('livePreviewDiscountWeights')
+    expect(activeChanges).toContain('livePreviewDiscountFloor')
+    expect(activeChanges).toContain('livePreviewHistoricalWeights')
+    expect(screen.getByTestId('advisor-controls-live-preview')).toBeInTheDocument()
+  })
+
+  it('does not render the live preview without a sector multiple or EBITDA basis', () => {
+    const { rerender } = render(
+      <AdvancedAdvisorControlsSection {...baseProps} sectorAverageMultiple={null} />
+    )
+
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+
+    rerender(<AdvancedAdvisorControlsSection {...baseProps} previewEbitda={null} />)
+
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
   })
 
   it('formats a positive premium with a leading + sign and updates the calibrated row', () => {

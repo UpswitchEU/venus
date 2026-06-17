@@ -821,6 +821,70 @@ describe('buildValuationRequest', () => {
     expect(result.historical_years_data).toEqual([])
   })
 
+  it('forwards multi-segment business type earnings for true SOTP valuation', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'recycling',
+        business_type_segments: [
+          {
+            business_type_id: 'recycling',
+            business_type_title: 'Recycling Services',
+            basis: 'EBITDA',
+            earnings: '700000',
+            multiple: 4.2,
+          },
+          {
+            business_type_id: 'transport',
+            business_type_title: 'Transport',
+            earnings_basis: 'Revenue',
+            earnings: '300000',
+            multiple: '1.1',
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'recycling',
+        business_type_title: 'Recycling Services',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        earnings: 700000,
+        multiple: 4.2,
+      },
+      {
+        business_type_id: 'transport',
+        business_type_title: 'Transport',
+        basis: 'Revenue',
+        earnings_basis: 'Revenue',
+        earnings: 300000,
+        multiple: 1.1,
+      },
+    ])
+  })
+
+  it('does not serialize a stale single business type segment', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'recycling',
+        business_type_segments: [
+          {
+            business_type_id: 'recycling',
+            business_type_title: 'Recycling Services',
+            basis: 'EBITDA',
+            earnings: 700000,
+            multiple: 4.2,
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.business_type_segments).toBeUndefined()
+  })
+
   it('drops zero-revenue historical rows even when normalization metadata targets them', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(

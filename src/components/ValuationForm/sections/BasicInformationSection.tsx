@@ -10,6 +10,7 @@
 import { useTranslations } from 'next-intl'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET_COUNTRIES } from '../../../config/countries'
+import { showAdvisorCalculatorSurface } from '../../../constants/accountantPlanMethods'
 import {
   AuroraFormAlert,
   AuroraFormGrid,
@@ -18,19 +19,24 @@ import {
   AuroraNumberInput,
   AuroraSelect,
 } from '../../../design-system/components'
+import { SegmentedControl } from '../../../design-system/components/SegmentedControl'
+import { useAuth } from '../../../hooks/useAuth'
+import { useBootstrapStatus } from '../../../hooks/useBootstrapStatus'
 import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
-import { suggestionService } from '../../../services/businessTypeSuggestionApi'
 import type { BusinessType } from '../../../services/businessTypesApi'
 import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import { useManualResultsStore } from '../../../store/manual'
-import type { ValuationFormData } from '../../../types/valuation'
+import type { BusinessTypeSegmentInput, ValuationFormData } from '../../../types/valuation'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
-import { CustomBusinessTypeSearch } from '../../forms'
+import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import CompanyNameInput from '../../forms/CompanyNameInput'
-import { buildBusinessTypeFormData } from '../utils/businessTypeFormData'
+import {
+  buildBusinessTypeFormData,
+  buildBusinessTypeSegmentsFormData,
+} from '../utils/businessTypeFormData'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -123,9 +129,16 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   businessTypes,
   businessTypesLoading,
   businessTypesError,
-  prefilledQuery,
 }) => {
   const t = useTranslations()
+  const { user } = useAuth()
+  const bootstrapStatus = useBootstrapStatus()
+  const roleDefaultsToExpertMode = showAdvisorCalculatorSurface(
+    bootstrapStatus.isAccountantFlow,
+    user?.role
+  )
+  const [expertModeOverride, setExpertModeOverride] = useState<boolean | null>(null)
+  const expertModeEnabled = expertModeOverride ?? roleDefaultsToExpertMode
   // Track which fields were auto-filled from registry
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([])
   const registryBusinessTypeSyncRef = useRef<{
@@ -154,6 +167,87 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     country_code: effectiveCountryCode,
     industry: formData.industry,
   })
+
+  const selectedBusinessTypeIds = useMemo(() => {
+    const segmentIds =
+      formData.business_type_segments
+        ?.map((segment) => normalizeBusinessTypeId(segment.business_type_id))
+        .filter((id): id is string => Boolean(id)) ?? []
+    if (segmentIds.length > 1) return segmentIds
+    return formData.business_type_id ? [formData.business_type_id] : []
+  }, [formData.business_type_id, formData.business_type_segments])
+  const visibleBusinessTypeIds = expertModeEnabled
+    ? selectedBusinessTypeIds
+    : selectedBusinessTypeIds.slice(0, 1)
+
+  const selectedSegments = formData.business_type_segments ?? []
+
+  const updateSegmentEarnings = (index: number, earnings: string) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
+      segmentIndex === index
+        ? {
+            ...segment,
+            earnings: earnings.trim() ? earnings : null,
+          }
+        : segment
+    )
+    updateFormData({ business_type_segments: nextSegments })
+  }
+
+  const handleBusinessTypeSelectionChange = (
+    businessTypeIds: string[],
+    selectedBusinessTypes: BusinessType[]
+  ) => {
+    generalLogger.debug('Business type selection changed', {
+      businessTypeIds,
+      selectionCount: selectedBusinessTypes.length,
+    })
+
+    const primaryBusinessType = selectedBusinessTypes[0]
+    if (!primaryBusinessType) {
+      useManualResultsStore.getState().clearResults()
+      updateFormData({
+        business_type_id: undefined,
+        business_type_title: undefined,
+        business_type_segments: [],
+      })
+      return
+    }
+
+    generalLogger.info('Business type selected', {
+      id: primaryBusinessType.id,
+      title: primaryBusinessType.title,
+      industryMapping: primaryBusinessType.industryMapping,
+      industry: primaryBusinessType.industry,
+      segmentCount: selectedBusinessTypes.length,
+      metadata: {
+        dcfPreference: primaryBusinessType.dcfPreference,
+        multiplesPreference: primaryBusinessType.multiplesPreference,
+        ownerDependencyImpact: primaryBusinessType.ownerDependencyImpact,
+      },
+    })
+
+    if (!primaryBusinessType.industry && !primaryBusinessType.industryMapping) {
+      generalLogger.warn(
+        'Business type missing industry classification — using services fallback',
+        { id: primaryBusinessType.id }
+      )
+    }
+
+    useManualResultsStore.getState().clearResults()
+    const segmentPatch =
+      selectedBusinessTypes.length > 1
+        ? buildBusinessTypeSegmentsFormData(
+            selectedBusinessTypes,
+            formData.business_type_segments as BusinessTypeSegmentInput[] | undefined
+          )
+        : { business_type_segments: [] }
+
+    updateFormData({
+      ...buildBusinessTypeFormData(primaryBusinessType),
+      ...segmentPatch,
+    })
+  }
 
   // Construct initial selected company from stored KBO data if available
   // This allows the company summary card to show when restoring a previously verified company
@@ -476,80 +570,26 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         {/* Business Type Selector - replaces Industry, Sub-Industry, and Business Model */}
         {/* MOVED TO TOP: Aligns with AI-guided flow & enables intelligent triage from question 1 */}
         <AuroraFullWidthField>
-          <CustomBusinessTypeSearch
-            value={formData.business_type_id}
-            businessTypes={businessTypes}
-            initialQuery={prefilledQuery && !formData.business_type_id ? prefilledQuery : undefined}
-            onChange={(businessType) => {
-              // Log selected business type for debugging
-              generalLogger.debug('Business type selected', {
-                id: businessType.id,
-                title: businessType.title,
-                dcfPreference: businessType.dcfPreference,
-                multiplesPreference: businessType.multiplesPreference,
-                ownerDependencyImpact: businessType.ownerDependencyImpact,
-                keyMetrics: businessType.keyMetrics,
-                hasPreferences: !!(
-                  businessType.dcfPreference !== undefined &&
-                  businessType.multiplesPreference !== undefined
-                ),
-                allKeys: Object.keys(businessType),
-              })
-
-              generalLogger.info('Business type selected', {
-                id: businessType.id,
-                title: businessType.title,
-                industryMapping: businessType.industryMapping,
-                industry: businessType.industry,
-                metadata: {
-                  dcfPreference: businessType.dcfPreference,
-                  multiplesPreference: businessType.multiplesPreference,
-                  ownerDependencyImpact: businessType.ownerDependencyImpact,
-                },
-              })
-
-              // Warn if industry classification is missing but proceed with 'services' fallback
-              if (!businessType.industry && !businessType.industryMapping) {
-                generalLogger.warn(
-                  'Business type missing industry classification — using services fallback',
-                  { id: businessType.id }
-                )
-              }
-
-              useManualResultsStore.getState().clearResults()
-              updateFormData(buildBusinessTypeFormData(businessType))
-            }}
-            onSuggest={async (suggestion) => {
-              try {
-                await suggestionService.submitSuggestion({
-                  suggestion,
-                  context: {
-                    industry: formData.industry,
-                    search_query: suggestion,
-                    description: `User searched for: ${suggestion}`,
-                  },
-                })
-
-                generalLogger.info('Business type suggestion submitted', { suggestion })
-              } catch (error) {
-                // BANK-GRADE: Specific error handling - suggestion submission failure
-                if (error instanceof Error) {
-                  generalLogger.error('Failed to submit suggestion', {
-                    error: error.message,
-                    stack: error.stack,
-                  })
-                } else {
-                  generalLogger.error('Failed to submit suggestion', {
-                    error: String(error),
-                  })
-                }
-              }
-            }}
-            placeholder={t('forms.fields.businessTypeSearch')}
-            label={t('forms.fields.businessType')}
-            required
-            loading={businessTypesLoading}
-            disabled={businessTypesLoading}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <SegmentedControl<'default' | 'expert'>
+              value={expertModeEnabled ? 'expert' : 'default'}
+              onChange={(value) => setExpertModeOverride(value === 'expert')}
+              options={[
+                { value: 'default', label: t('manualInput.advisorExpertMode.default') },
+                { value: 'expert', label: t('manualInput.advisorExpertMode.expert') },
+              ]}
+              size="sm"
+              variant="pills"
+              aria-label={t('manualInput.advisorExpertMode.ariaLabel')}
+            />
+          </div>
+          <BusinessTypeSelector
+            value={visibleBusinessTypeIds}
+            onChange={() => undefined}
+            onSelectionChange={handleBusinessTypeSelectionChange}
+            selectionMode={expertModeEnabled ? 'multiple' : 'single'}
+            showPreview={visibleBusinessTypeIds.length <= 1}
+            className={businessTypesLoading ? 'pointer-events-none opacity-60' : ''}
           />
           {businessTypesError && (
             <p className="mt-2 text-sm text-warning">
@@ -557,6 +597,60 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             </p>
           )}
         </AuroraFullWidthField>
+
+        {expertModeEnabled && selectedSegments.length > 1 && (
+          <AuroraFullWidthField>
+            <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-4">
+              <div className="mb-3 text-sm font-semibold text-foreground">Segment earnings</div>
+              <div className="space-y-3">
+                {selectedSegments.map((segment, index) => {
+                  const basis = segment.basis ?? segment.earnings_basis
+                  const multiple =
+                    typeof segment.multiple === 'number' || typeof segment.multiple === 'string'
+                      ? segment.multiple
+                      : segment.applied_multiple
+                  const multipleNumber = Number(multiple)
+
+                  return (
+                    <div
+                      key={`${segment.business_type_id}-${index}`}
+                      className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_220px]"
+                    >
+                      <div className="min-w-0 self-center">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {segment.business_type_title ?? segment.business_type_id}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
+                          {basis && (
+                            <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
+                              {basis}
+                            </span>
+                          )}
+                          {Number.isFinite(multipleNumber) && (
+                            <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
+                              {multipleNumber.toFixed(1)}x
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <AuroraNumberInput
+                        label={basis ? `${basis} earnings` : 'Segment earnings'}
+                        placeholder="0"
+                        name={`business_type_segments.${index}.earnings`}
+                        value={segment.earnings ?? ''}
+                        onChange={(event) => updateSegmentEarnings(index, event.target.value)}
+                        min={0}
+                        step={1000}
+                        prefix="EUR"
+                        formatAsCurrency
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </AuroraFullWidthField>
+        )}
 
         {/* Company Name with KBO Registry Check */}
         {/* MOVED AFTER BUSINESS TYPE: Enables context-aware KBO validation */}

@@ -39,19 +39,25 @@ export type AdvisorDefaultAppliedField =
 export interface AdvisorControlsTriggerProps {
   advisorDefaultsAppliedFields?: ReadonlyArray<AdvisorDefaultAppliedField>
   sectorAverageMultiple: number | null
+  previewEbitda?: number | null
+  previewCurrencyFormatter?: Intl.NumberFormat
   advisorWeightingYears: number[]
   formData: ManualValuationFormData
   setFormData: Dispatch<SetStateAction<ManualValuationFormData>>
   disabled: boolean
+  className?: string
 }
 
 export function AdvisorControlsTrigger({
   advisorDefaultsAppliedFields,
   sectorAverageMultiple,
+  previewEbitda,
+  previewCurrencyFormatter,
   advisorWeightingYears,
   formData,
   setFormData,
   disabled,
+  className = 'mt-4 flex flex-wrap items-center gap-2',
 }: AdvisorControlsTriggerProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
   const open = useAdvisorControlsModalStore((s) => s.open)
@@ -82,7 +88,7 @@ export function AdvisorControlsTrigger({
   }, [])
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className={className}>
       {/*
        * AuroraButton variant="outline" matches the Aurora Clarity medium-
        * emphasis affordance: low-key in the wizard data flow, but reads
@@ -138,6 +144,8 @@ export function AdvisorControlsTrigger({
         open={open}
         onOpenChange={setOpen}
         sectorAverageMultiple={sectorAverageMultiple}
+        previewEbitda={previewEbitda}
+        previewCurrencyFormatter={previewCurrencyFormatter}
         multipleCalibrationAdjustment={formData.multiple_calibration_adjustment}
         multipleCalibrationNote={formData.multiple_calibration_note}
         effectiveMultipleOverride={formData.effective_multiple_override}

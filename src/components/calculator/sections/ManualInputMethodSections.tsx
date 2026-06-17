@@ -3,7 +3,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
+import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { isYearRowForecast } from '@/utils/yearData'
@@ -30,6 +31,7 @@ interface ManualInputMethodSectionsProps {
    * settings" hint — the values themselves are in `formData`.
    */
   advisorDefaultsAppliedFields?: ReadonlyArray<AdvisorDefaultAppliedField>
+  advisorExpertModeDefault?: boolean
   balanceSheetCarveOutStep: number
   canApplyDcfProjectionAutofill: boolean
   disabled: boolean
@@ -64,6 +66,7 @@ interface ManualInputMethodSectionsProps {
 export function ManualInputMethodSections({
   adaptiveHeaderSteps,
   advisorDefaultsAppliedFields,
+  advisorExpertModeDefault = false,
   balanceSheetCarveOutStep,
   canApplyDcfProjectionAutofill,
   disabled,
@@ -95,6 +98,8 @@ export function ManualInputMethodSections({
   terminalValueMethod,
 }: ManualInputMethodSectionsProps) {
   const mi = useTranslations('manualInput')
+  const [advisorExpertModeOverride, setAdvisorExpertModeOverride] = useState<boolean | null>(null)
+  const advisorExpertModeEnabled = advisorExpertModeOverride ?? advisorExpertModeDefault
   const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
   const prevSynthesisMethodCountRef = useRef(0)
   const advisorWeightingYears = useMemo(() => {
@@ -130,6 +135,23 @@ export function ManualInputMethodSections({
     }
     return null
   }, [formData.business_context])
+  const advisorControlsPreviewEbitda = useMemo(() => {
+    const candidates = [
+      normalizedData.totalYearsWithData > 0 ? normalizedData.averageNormalizedEbitda : undefined,
+      formData.current_year_data?.ebitda,
+      formData.ebitda,
+    ]
+    for (const candidate of candidates) {
+      const value = parseFlexibleNumber(candidate)
+      if (value !== undefined && value > 0) return value
+    }
+    return null
+  }, [
+    formData.current_year_data?.ebitda,
+    formData.ebitda,
+    normalizedData.averageNormalizedEbitda,
+    normalizedData.totalYearsWithData,
+  ])
 
   useEffect(() => {
     const nextCount = synthesisMethods.length
@@ -192,14 +214,32 @@ export function ManualInputMethodSections({
        * point; the same modal is also reachable from the kebab menu on the
        * active valuation in ManualLayoutNav.
        */}
-      <AdvisorControlsTrigger
-        advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
-        sectorAverageMultiple={sectorAverageMultiple}
-        advisorWeightingYears={advisorWeightingYears}
-        formData={formData}
-        setFormData={setFormData}
-        disabled={disabled}
-      />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SegmentedControl<'default' | 'expert'>
+          value={advisorExpertModeEnabled ? 'expert' : 'default'}
+          onChange={(value) => setAdvisorExpertModeOverride(value === 'expert')}
+          options={[
+            { value: 'default', label: mi('advisorExpertMode.default') },
+            { value: 'expert', label: mi('advisorExpertMode.expert') },
+          ]}
+          size="sm"
+          variant="pills"
+          aria-label={mi('advisorExpertMode.ariaLabel')}
+        />
+        {advisorExpertModeEnabled && (
+          <AdvisorControlsTrigger
+            advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
+            sectorAverageMultiple={sectorAverageMultiple}
+            previewEbitda={advisorControlsPreviewEbitda}
+            previewCurrencyFormatter={previewCurrencyFormatter}
+            advisorWeightingYears={advisorWeightingYears}
+            formData={formData}
+            setFormData={setFormData}
+            disabled={disabled}
+            className="flex flex-wrap items-center gap-2"
+          />
+        )}
+      </div>
 
       <div className="mt-4 flex flex-col gap-6">
         <AdaptiveSections

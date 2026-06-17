@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildBusinessTypeFormData } from './businessTypeFormData'
+import {
+  buildBusinessTypeFormData,
+  buildBusinessTypeSegmentsFormData,
+} from './businessTypeFormData'
 
 describe('buildBusinessTypeFormData', () => {
   it('maps a business_type_id to one consistent valuation classification payload', () => {
@@ -39,5 +42,54 @@ describe('buildBusinessTypeFormData', () => {
       _internal_typical_employee_range: { min: 1, max: 10 },
       _internal_typical_revenue_range: { min: 100000, max: 1000000 },
     })
+  })
+})
+
+describe('buildBusinessTypeSegmentsFormData', () => {
+  it('maps selected business types to SOTP segment rows and preserves advisor earnings', () => {
+    const result = buildBusinessTypeSegmentsFormData(
+      [
+        {
+          id: ' recycling ',
+          title: 'Recycling Services',
+          evEbitdaMedian: 4.2,
+        },
+        {
+          id: 'transport',
+          title: 'Transport',
+          primaryMultiple: {
+            label: 'EV/Revenue',
+            median: 1.1,
+          },
+        },
+      ],
+      [
+        {
+          business_type_id: 'recycling',
+          business_type_title: 'Old label',
+          earnings: '700000',
+          multiple: 3.8,
+          basis: 'EBITDA',
+        },
+      ]
+    )
+
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'recycling',
+        business_type_title: 'Recycling Services',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        earnings: '700000',
+        multiple: 4.2,
+      },
+      {
+        business_type_id: 'transport',
+        business_type_title: 'Transport',
+        basis: 'Revenue',
+        earnings_basis: 'Revenue',
+        multiple: 1.1,
+      },
+    ])
   })
 })

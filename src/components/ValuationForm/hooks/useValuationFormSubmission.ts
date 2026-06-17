@@ -15,6 +15,7 @@ import {
   buildManualCalculationRequest,
   type ManualCalculationRequest,
 } from '../../../features/manual/utils/manualValuationRequest'
+import { isSessionPoolPressureCircuitOpen } from '../../../hooks/sessionPoolPressureCircuit'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
@@ -31,7 +32,6 @@ import {
 } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
-import { isSessionPoolPressureCircuitOpen } from '../../../hooks/sessionPoolPressureCircuit'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
@@ -258,6 +258,7 @@ export const useValuationFormSubmission = (
               recurring_revenue_percentage: formData.recurring_revenue_percentage,
               comparables: formData.comparables,
               business_type_id: formData.business_type_id,
+              business_type_segments: formData.business_type_segments,
               business_type: formData.business_type,
               shares_for_sale: 100,
               business_context: formData.business_context,
