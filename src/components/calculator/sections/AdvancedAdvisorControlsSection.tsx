@@ -8,16 +8,22 @@ import {
   normalizeRemainderWeights,
   rebalanceMethodWeights,
 } from '@/constants/methodFieldConfig'
-import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraFormAlert } from '@/design-system/components/FormSection'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { Switch } from '@/design-system/components/Switch'
+import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type WeightingMode = 'standard' | 'weighted'
+type AdvisorDiscountKey =
+  | 'size_discount'
+  | 'liquidity_discount'
+  | 'country_adjustment'
+  | 'growth_premium'
+  | 'owner_concentration'
 
 type AdvisorDefaultAppliedField =
   | 'multiple_calibration_adjustment'
@@ -29,6 +35,9 @@ export interface AdvancedAdvisorControlsSectionProps {
   sectorAverageMultiple?: number | null
   multipleCalibrationAdjustment?: number
   multipleCalibrationNote?: string
+  riskAnalysisEnabled?: boolean
+  advisorDiscountWeights?: Record<string, number>
+  discountFloorFactor?: number
   historicalYears: number[]
   historicalEbitdaWeightingMode?: WeightingMode
   historicalEbitdaWeights?: Record<number, number>
@@ -52,6 +61,28 @@ export interface AdvancedAdvisorControlsSectionProps {
   disabled?: boolean
 }
 
+const ADVISOR_DISCOUNT_ROWS: Array<{
+  key: AdvisorDiscountKey
+  labelKey: string
+}> = [
+  { key: 'size_discount', labelKey: 'sizeDiscount' },
+  { key: 'liquidity_discount', labelKey: 'liquidityDiscount' },
+  { key: 'country_adjustment', labelKey: 'countryAdjustment' },
+  { key: 'growth_premium', labelKey: 'growthPremium' },
+  { key: 'owner_concentration', labelKey: 'ownerConcentration' },
+]
+
+function clampDiscountWeight(value: unknown): number {
+  const numeric = toFiniteNumber(value)
+  if (numeric == null) return 1
+  return Math.min(2, Math.max(0, Math.round(numeric * 100) / 100))
+}
+
+function clampDiscountFloorFactor(value: unknown): number {
+  const numeric = toFiniteNumber(value)
+  if (numeric == null) return 0.45
+  return Math.min(1, Math.max(0, Math.round(numeric * 100) / 100))
+}
 
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
@@ -68,6 +99,9 @@ export function AdvancedAdvisorControlsSection({
   sectorAverageMultiple,
   multipleCalibrationAdjustment,
   multipleCalibrationNote,
+  riskAnalysisEnabled,
+  advisorDiscountWeights,
+  discountFloorFactor,
   historicalYears,
   historicalEbitdaWeightingMode,
   historicalEbitdaWeights,
@@ -79,8 +113,7 @@ export function AdvancedAdvisorControlsSection({
 }: AdvancedAdvisorControlsSectionProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
   const locale = useLocale()
-  const showPrefilledHint =
-    (advisorDefaultsAppliedFields?.length ?? 0) > 0
+  const showPrefilledHint = (advisorDefaultsAppliedFields?.length ?? 0) > 0
   const mercuryAppOrigin = useMemo(() => resolveMercuryAppOrigin(), [])
   const prefilledSettingsHref = mercuryAppOrigin
     ? `${mercuryAppOrigin}/${locale}/advisor/settings?tab=valuation`
@@ -90,6 +123,21 @@ export function AdvancedAdvisorControlsSection({
   const yearKeys = useMemo(() => years.map(String), [years])
   const mode = historicalEbitdaWeightingMode ?? 'standard'
   const canWeight = years.length >= 3
+  const riskEnabled = riskAnalysisEnabled ?? true
+  const floorFactor = clampDiscountFloorFactor(discountFloorFactor)
+  const discountWeights = useMemo(() => {
+    const out: Record<AdvisorDiscountKey, number> = {
+      size_discount: 1,
+      liquidity_discount: 1,
+      country_adjustment: 1,
+      growth_premium: 1,
+      owner_concentration: 1,
+    }
+    for (const row of ADVISOR_DISCOUNT_ROWS) {
+      out[row.key] = clampDiscountWeight(advisorDiscountWeights?.[row.key])
+    }
+    return out
+  }, [advisorDiscountWeights])
   const rawWeights = useMemo(() => {
     const out: Record<string, number> = {}
     const fallback = equalWeightsFor(yearKeys)
@@ -136,6 +184,18 @@ export function AdvancedAdvisorControlsSection({
     }
   }
 
+  const updateDiscountWeight = (key: AdvisorDiscountKey, nextValue: number) => {
+    onFieldChange('advisor_discount_weights', {
+      ...discountWeights,
+      [key]: clampDiscountWeight(nextValue),
+    })
+  }
+
+  const resetDiscountControls = () => {
+    onFieldChange('advisor_discount_weights', undefined)
+    onFieldChange('discount_floor_factor', undefined)
+  }
+
   // AuroraFormAlert type='info' is the DS-canonical place for this kind
   // of contextual hint — it carries the same Aurora primary tint we were
   // hand-rolling, plus the motion + spacing tokens. The Sparkles glyph
@@ -177,6 +237,99 @@ export function AdvancedAdvisorControlsSection({
           label={t('waterfallToggle')}
           disabled={disabled}
         />
+
+        <div className="space-y-3 rounded-lg border border-foreground/10 bg-background/40 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <Switch
+              checked={riskEnabled}
+              onChange={(checked) => onFieldChange('risk_analysis_enabled', checked)}
+              label={t('riskAnalysisToggle')}
+              description={t('riskAnalysisToggleDescription')}
+              size="sm"
+              disabled={disabled}
+            />
+            <AuroraButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={resetDiscountControls}
+              disabled={disabled}
+              className="gap-1.5 text-xs sm:self-start"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t('resetRiskWeights')}
+            </AuroraButton>
+          </div>
+
+          {!riskEnabled && (
+            <AuroraFormAlert type="info" icon={<Info className="h-3.5 w-3.5" aria-hidden />}>
+              {t('preAdjustmentReference')}
+            </AuroraFormAlert>
+          )}
+
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-foreground">{t('discountWeightingTitle')}</div>
+            <p className="text-xs text-foreground/55">{t('discountWeightingSubtitle')}</p>
+          </div>
+
+          <div className="space-y-3">
+            {ADVISOR_DISCOUNT_ROWS.map((row) => {
+              const value = discountWeights[row.key]
+              return (
+                <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_3.5rem] gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium text-foreground/75">
+                        {t(row.labelKey)}
+                      </span>
+                      <span className="font-mono text-xs tabular-nums text-foreground/60">
+                        {value.toFixed(2)}x
+                      </span>
+                    </div>
+                    <Slider
+                      value={value}
+                      min={0}
+                      max={2}
+                      step={0.05}
+                      onChange={(next) => updateDiscountWeight(row.key, next)}
+                      disabled={disabled || !riskEnabled}
+                      showTooltip
+                      formatValue={(v) => `${v.toFixed(2)}x`}
+                      aria-label={`${t(row.labelKey)} ${t('advisorWeight')}`}
+                    />
+                  </div>
+                  <div className="flex items-end justify-end pb-[0.8125rem]">
+                    <span className="rounded-md border border-foreground/10 bg-foreground/[0.03] px-2 py-1 text-[10px] font-medium text-foreground/55">
+                      {value === 1 ? t('discountModelDefault') : t('discountAdvisorWeight')}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="space-y-1.5 border-t border-foreground/10 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-foreground/75">{t('discountFloor')}</span>
+              <span className="font-mono text-xs tabular-nums text-foreground/60">
+                {Math.round(floorFactor * 100)}%
+              </span>
+            </div>
+            <Slider
+              value={floorFactor}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(next) => {
+                onFieldChange('discount_floor_factor', clampDiscountFloorFactor(next))
+              }}
+              disabled={disabled || !riskEnabled}
+              showTooltip
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              aria-label={t('discountFloorAriaLabel')}
+            />
+          </div>
+        </div>
 
         {/*
          * Multiple calibration block.

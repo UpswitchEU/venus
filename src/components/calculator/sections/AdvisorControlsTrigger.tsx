@@ -105,9 +105,7 @@ export function AdvisorControlsTrigger({
       >
         <SlidersHorizontal className="h-3.5 w-3.5 text-foreground/55" aria-hidden />
         <span>{t('openModalButton')}</span>
-        <span className="text-xs text-foreground/45">
-          — {t('openModalButtonHint')}
-        </span>
+        <span className="text-xs text-foreground/45">— {t('openModalButtonHint')}</span>
       </AuroraButton>
 
       {/*
@@ -142,6 +140,9 @@ export function AdvisorControlsTrigger({
         sectorAverageMultiple={sectorAverageMultiple}
         multipleCalibrationAdjustment={formData.multiple_calibration_adjustment}
         multipleCalibrationNote={formData.multiple_calibration_note}
+        riskAnalysisEnabled={formData.risk_analysis_enabled}
+        advisorDiscountWeights={formData.advisor_discount_weights}
+        discountFloorFactor={formData.discount_floor_factor}
         historicalYears={advisorWeightingYears}
         historicalEbitdaWeightingMode={formData.historical_ebitda_weighting_mode}
         historicalEbitdaWeights={formData.historical_ebitda_weights}

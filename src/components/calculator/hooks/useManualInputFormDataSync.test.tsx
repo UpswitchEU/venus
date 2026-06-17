@@ -26,6 +26,9 @@ describe('useManualInputFormDataSync', () => {
       estimated_market_rent: 42_000,
       multiple_calibration_adjustment: -0.75,
       multiple_calibration_note: 'Supplier concentration',
+      advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
+      risk_analysis_enabled: false,
+      discount_floor_factor: 0.4,
       historical_ebitda_weighting_mode: 'weighted',
       historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
       show_enterprise_to_equity_bridge: false,
@@ -51,6 +54,9 @@ describe('useManualInputFormDataSync', () => {
       real_estate_market_value: 900_000,
       real_estate_book_value: 650_000,
       estimated_market_rent: 42_000,
+      advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
+      risk_analysis_enabled: false,
+      discount_floor_factor: 0.4,
     })
 
     await waitFor(() => expect(onFormDataChange).toHaveBeenCalled())
@@ -62,6 +68,9 @@ describe('useManualInputFormDataSync', () => {
       estimated_market_rent: 42_000,
       multiple_calibration_adjustment: -0.75,
       multiple_calibration_note: 'Supplier concentration',
+      advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
+      risk_analysis_enabled: false,
+      discount_floor_factor: 0.4,
       historical_ebitda_weighting_mode: 'weighted',
       historical_ebitda_weights: { 2023: 10, 2024: 30, 2025: 60 },
       show_enterprise_to_equity_bridge: false,

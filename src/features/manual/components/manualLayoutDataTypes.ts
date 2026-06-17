@@ -64,6 +64,9 @@ export interface CollectedData {
   estimated_market_rent?: number
   multiple_calibration_adjustment?: number
   multiple_calibration_note?: string
+  advisor_discount_weights?: Record<string, number>
+  risk_analysis_enabled?: boolean
+  discount_floor_factor?: number
   historical_ebitda_weighting_mode?: 'standard' | 'weighted'
   historical_ebitda_weights?: Record<number, number>
   show_enterprise_to_equity_bridge?: boolean

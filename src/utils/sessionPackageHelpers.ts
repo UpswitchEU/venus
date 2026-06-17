@@ -29,6 +29,10 @@ const SESSION_SNAPSHOT_KEYS_FROM_VALUATION_REQUEST = [
   /** Waarderingssynthese — must match calculate payload when blending methods. */
   'user_weights',
   'user_weight_justification',
+  /** Advisor multiple-control decisions used by ValuationIQ. */
+  'advisor_discount_weights',
+  'risk_analysis_enabled',
+  'discount_floor_factor',
 ] as const
 
 function applyCanonicalFieldsFromValuationRequest(

@@ -227,6 +227,15 @@ export function mapClarityFormToVenusStore(
     ...(data.multiple_calibration_note != null && {
       multiple_calibration_note: data.multiple_calibration_note,
     }),
+    ...(data.advisor_discount_weights != null && {
+      advisor_discount_weights: data.advisor_discount_weights,
+    }),
+    ...(data.risk_analysis_enabled != null && {
+      risk_analysis_enabled: data.risk_analysis_enabled,
+    }),
+    ...(data.discount_floor_factor != null && {
+      discount_floor_factor: data.discount_floor_factor,
+    }),
     ...(data.historical_ebitda_weighting_mode != null && {
       historical_ebitda_weighting_mode: data.historical_ebitda_weighting_mode,
     }),

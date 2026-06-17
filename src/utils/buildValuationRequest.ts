@@ -77,6 +77,25 @@ function toBooleanOrNull(value: unknown): boolean | null {
   return null
 }
 
+function normalizeAdvisorDiscountWeights(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const weights: Record<string, number> = {}
+  for (const [key, rawValue] of Object.entries(value)) {
+    const numeric = toFiniteNumber(rawValue)
+    if (numeric == null) continue
+    if (numeric < 0 || numeric > 2) {
+      throw new ValidationError(
+        'Advisor discount influence must be between 0.00x and 2.00x.',
+        `advisor_discount_weights.${key}`,
+        rawValue
+      )
+    }
+    weights[key] = Math.round(numeric * 100) / 100
+  }
+  return Object.keys(weights).length > 0 ? weights : null
+}
+
 function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string' && typeof value !== 'number') return null
   const trimmed = String(value).trim()
@@ -879,6 +898,9 @@ export function buildValuationRequest(
   const multipleCalibrationAdjustment = toFiniteNumber(fd.multiple_calibration_adjustment)
   const multipleCalibrationNote =
     typeof fd.multiple_calibration_note === 'string' ? fd.multiple_calibration_note.trim() : ''
+  const advisorDiscountWeights = normalizeAdvisorDiscountWeights(fd.advisor_discount_weights)
+  const riskAnalysisEnabled = toBooleanOrNull(fd.risk_analysis_enabled)
+  const discountFloorFactor = toFiniteNumber(fd.discount_floor_factor)
   if (
     multipleCalibrationAdjustment != null &&
     (multipleCalibrationAdjustment < -10 || multipleCalibrationAdjustment > 10)
@@ -898,6 +920,13 @@ export function buildValuationRequest(
       'Calibration note is required when applying a specific risk/quality premium.',
       'multiple_calibration_note',
       fd.multiple_calibration_note
+    )
+  }
+  if (discountFloorFactor != null && (discountFloorFactor < 0 || discountFloorFactor > 1)) {
+    throw new ValidationError(
+      'Discount stack floor must be between 0% and 100%.',
+      'discount_floor_factor',
+      fd.discount_floor_factor
     )
   }
 
@@ -1149,6 +1178,15 @@ export function buildValuationRequest(
       multipleCalibrationNote && {
         multiple_calibration_note: multipleCalibrationNote,
       }),
+    ...(advisorDiscountWeights && {
+      advisor_discount_weights: advisorDiscountWeights,
+    }),
+    ...(riskAnalysisEnabled != null && {
+      risk_analysis_enabled: riskAnalysisEnabled,
+    }),
+    ...(discountFloorFactor != null && {
+      discount_floor_factor: discountFloorFactor,
+    }),
     ...(fd.historical_ebitda_weighting_mode && {
       historical_ebitda_weighting_mode: fd.historical_ebitda_weighting_mode,
     }),

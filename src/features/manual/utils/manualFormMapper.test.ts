@@ -199,6 +199,9 @@ describe('mapClarityFormToVenusStore', () => {
         dcf_terminal_value_method: 'exit_multiple',
         nav_other_revaluations: 25_000,
         saas_customer_concentration_pct: 30,
+        advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
+        risk_analysis_enabled: false,
+        discount_floor_factor: 0.4,
         owner_salary_addback: 80_000,
       },
       storeForm()
@@ -211,6 +214,9 @@ describe('mapClarityFormToVenusStore', () => {
       dcf_terminal_value_method: 'exit_multiple',
       nav_other_revaluations: 25_000,
       saas_customer_concentration_pct: 30,
+      advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
+      risk_analysis_enabled: false,
+      discount_floor_factor: 0.4,
       owner_salary_addback: 80_000,
     })
   })

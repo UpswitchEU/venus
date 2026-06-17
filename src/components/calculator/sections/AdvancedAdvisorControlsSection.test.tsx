@@ -86,14 +86,62 @@ describe('AdvancedAdvisorControlsSection', () => {
   })
 
   it('hides the prefilled-from-settings hint when no advisor defaults were applied', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} advisorDefaultsAppliedFields={[]} />)
+
+    expect(screen.queryByText('prefilledFromSettings')).not.toBeInTheDocument()
+  })
+
+  it('emits the risk-analysis master toggle and discloses pre-adjustment reference mode', () => {
+    render(<AdvancedAdvisorControlsSection {...baseProps} riskAnalysisEnabled={false} />)
+
+    fireEvent.click(screen.getByRole('switch', { name: /riskAnalysisToggle/ }))
+
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('risk_analysis_enabled', true)
+    expect(screen.getByText('preAdjustmentReference')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'sizeDiscount advisorWeight' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
+  })
+
+  it('updates advisor discount influence multipliers within the engine band', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
-        advisorDefaultsAppliedFields={[]}
+        advisorDiscountWeights={{ size_discount: 0.5, liquidity_discount: 1.25 }}
       />
     )
 
-    expect(screen.queryByText('prefilledFromSettings')).not.toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'sizeDiscount advisorWeight' }), {
+      key: 'ArrowRight',
+    })
+
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('advisor_discount_weights', {
+      size_discount: 0.55,
+      liquidity_discount: 1.25,
+      country_adjustment: 1,
+      growth_premium: 1,
+      owner_concentration: 1,
+    })
+  })
+
+  it('updates and resets the defended discount floor alongside discount weights', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        advisorDiscountWeights={{ size_discount: 0.5 }}
+        discountFloorFactor={0.4}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'discountFloorAriaLabel' }), {
+      key: 'ArrowRight',
+    })
+    fireEvent.click(screen.getByRole('button', { name: /resetRiskWeights/ }))
+
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('discount_floor_factor', 0.45)
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('advisor_discount_weights', undefined)
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith('discount_floor_factor', undefined)
   })
 
   it('renders the prefilled-from-settings link with the locale-scoped Mercury settings tab URL', () => {
@@ -107,10 +155,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     )
 
     const link = screen.getByRole('link', { name: 'prefilledFromSettingsLink' })
-    expect(link).toHaveAttribute(
-      'href',
-      'https://upswitch.test/en/advisor/settings?tab=valuation'
-    )
+    expect(link).toHaveAttribute('href', 'https://upswitch.test/en/advisor/settings?tab=valuation')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer noopener')
   })
@@ -158,12 +203,7 @@ describe('AdvancedAdvisorControlsSection', () => {
   })
 
   it('shows an em-dash for sector + calibrated when no sector multiple is available', () => {
-    render(
-      <AdvancedAdvisorControlsSection
-        {...baseProps}
-        sectorAverageMultiple={null}
-      />
-    )
+    render(<AdvancedAdvisorControlsSection {...baseProps} sectorAverageMultiple={null} />)
 
     const tape = screen.getByTestId('advisor-calibration-derivation')
     // Three em-dashes: sector row, premium row, calibrated row.
@@ -180,9 +220,7 @@ describe('AdvancedAdvisorControlsSection', () => {
   })
 
   it('omits the section chrome when chrome="bare" — the modal supplies its own header', () => {
-    const { container } = render(
-      <AdvancedAdvisorControlsSection {...baseProps} chrome='bare' />
-    )
+    const { container } = render(<AdvancedAdvisorControlsSection {...baseProps} chrome="bare" />)
     expect(container.querySelector('section')).toBeNull()
     // The body (the rounded inner card with the toggle + calibration block)
     // is still mounted — we only drop the section/header wrapper.

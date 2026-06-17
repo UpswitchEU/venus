@@ -32,6 +32,9 @@ export function useManualInputFormDataSync({
       real_estate_market_value: formData.real_estate_market_value,
       real_estate_book_value: formData.real_estate_book_value,
       estimated_market_rent: formData.estimated_market_rent,
+      advisor_discount_weights: formData.advisor_discount_weights,
+      risk_analysis_enabled: formData.risk_analysis_enabled,
+      discount_floor_factor: formData.discount_floor_factor,
       current_year_data: current
         ? buildCurrentYearData({
             year: Number.parseInt(current.year, 10),
@@ -121,6 +124,9 @@ export function useManualInputFormDataSync({
       estimated_market_rent: formData.estimated_market_rent,
       multiple_calibration_adjustment: formData.multiple_calibration_adjustment,
       multiple_calibration_note: formData.multiple_calibration_note,
+      advisor_discount_weights: formData.advisor_discount_weights,
+      risk_analysis_enabled: formData.risk_analysis_enabled,
+      discount_floor_factor: formData.discount_floor_factor,
       historical_ebitda_weighting_mode: formData.historical_ebitda_weighting_mode,
       historical_ebitda_weights: formData.historical_ebitda_weights,
       show_enterprise_to_equity_bridge: formData.show_enterprise_to_equity_bridge,

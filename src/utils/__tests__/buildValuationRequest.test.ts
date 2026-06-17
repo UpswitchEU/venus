@@ -1284,6 +1284,14 @@ describe('buildValuationRequest', () => {
         estimated_market_rent: 42_000,
         multiple_calibration_adjustment: -1,
         multiple_calibration_note: '  Afslag wegens leveranciersafhankelijkheid  ',
+        advisor_discount_weights: {
+          size_discount: 0,
+          liquidity_discount: 1.25,
+          country_adjustment: 2,
+          growth_premium: 0.75,
+        },
+        risk_analysis_enabled: false,
+        discount_floor_factor: 0.4,
         historical_ebitda_weighting_mode: 'weighted',
         historical_ebitda_weights: {
           [getCurrentFilingYear() - 3]: 10,
@@ -1302,6 +1310,14 @@ describe('buildValuationRequest', () => {
     expect(result.estimated_market_rent).toBeUndefined()
     expect(result.multiple_calibration_adjustment).toBe(-1)
     expect(result.multiple_calibration_note).toBe('Afslag wegens leveranciersafhankelijkheid')
+    expect(result.advisor_discount_weights).toEqual({
+      size_discount: 0,
+      liquidity_discount: 1.25,
+      country_adjustment: 2,
+      growth_premium: 0.75,
+    })
+    expect(result.risk_analysis_enabled).toBe(false)
+    expect(result.discount_floor_factor).toBe(0.4)
     expect(result.historical_ebitda_weighting_mode).toBe('weighted')
     expect(result.historical_ebitda_weights).toEqual({
       [getCurrentFilingYear() - 3]: 10,
@@ -1383,6 +1399,28 @@ describe('buildValuationRequest', () => {
         []
       )
     ).toThrow('Specific risk/quality premium must be between -10.0x and +10.0x.')
+  })
+
+  it('rejects advisor discount controls outside the engine-supported range', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          advisor_discount_weights: {
+            size_discount: 2.1,
+          },
+        }),
+        []
+      )
+    ).toThrow('Advisor discount influence must be between 0.00x and 2.00x.')
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          discount_floor_factor: -0.05,
+        }),
+        []
+      )
+    ).toThrow('Discount stack floor must be between 0% and 100%.')
   })
 
   it('rejects malformed historical EBITDA weights before calling the valuation engine', () => {
