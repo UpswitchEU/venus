@@ -72,7 +72,7 @@
 		"sectorDefault": "Voorgevuld · sectorstandaard",
 		"stageDefault": "Voorgevuld · fasestandaard",
 		"benchmarkDefault": "Voorgevuld · sector-mediaan",
-		"mercury": "Voorgevuld · vanuit Mercury",
+		"mercury": "Voorgevuld · vanuit je workspace",
 		"yourOverride": "Door jou aangepast"
 	},
 	"berkus": {
@@ -183,7 +183,7 @@
 		"multipleOverrideTitle": "Exit EV/Omzet-multiple",
 		"multipleOverrideLead": "Voorgevuld vanaf de sector-mediaan. Override als je een scherpere peer-set hebt.",
 		"multipleLabel": "Exit EV/Omzet-multiple (×)",
-		"multipleDescDefault": "Sector-default voor {sector}: {mid}× (bandbreedte {low}–{high}×, Athena Q1 2026). We vulden {mid}× voor je in.",
+		"multipleDescDefault": "Sector-default voor {sector}: {mid}× (bandbreedte {low}–{high}×, Upswitch-benchmark Q1 2026). We vulden {mid}× voor je in.",
 		"multipleDescOverridden": "Je hebt de sector-default ({mid}×) overschreven naar {applied}×. Voeg hieronder één regel rationale toe — die verschijnt letterlijk op je investor-PDF.",
 		"multipleResetBtn": "Zet terug naar sector-mediaan ({mid}×)",
 		"multipleRationaleLabel": "Waarom deze multiple? (verschijnt op je PDF)",
@@ -191,8 +191,8 @@
 		"multipleRationaleHint": "Eén zin volstaat. Investeerders verwachten een peer-vergelijking, een recent deal-datapunt of een publieke comparable.",
 		"multipleRationalePlaceholder": "bv. \"Recente Bessemer Cloud Index voor vertical SaaS op ons ARPU-segment print 8–10×.\"",
 		"multipleOutOfBandWarn": "Buiten de sector P25–P75-band ({low}–{high}×). Voeg hieronder een onderbouwing toe.",
-		"exitFooter": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Athena Q1 2026",
-		"exitFooterOffline": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Athena Q1 2026 · offline"
+		"exitFooter": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Upswitch-benchmark Q1 2026",
+		"exitFooterOffline": "Sector exit-multiple: {mult}× · bandbreedte {low}–{high}× · {sector} · Upswitch-benchmark Q1 2026 · offline"
 	},
 	"round": {
 		"kindTitle": "Welk soort ronde haal je op?",

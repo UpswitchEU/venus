@@ -9,7 +9,7 @@ export const METHOD_PREVIEW_AUDIT = {
   upswitch_adaptive: {
     bonusSections: [] as const,
     clientPreview:
-      'headline equity range comes from full valuation response; no duplicate formula in Venus',
+      'headline equity range comes from full valuation response; no duplicate formula in the calculator',
   },
   omzet_multiple: {
     bonusSections: ['revenue_quality'] as const,

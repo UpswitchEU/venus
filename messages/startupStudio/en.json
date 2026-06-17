@@ -72,7 +72,7 @@
 		"sectorDefault": "Pre-filled · sector default",
 		"stageDefault": "Pre-filled · stage default",
 		"benchmarkDefault": "Pre-filled · benchmark median",
-		"mercury": "Pre-filled · from Mercury",
+		"mercury": "Pre-filled · from your workspace",
 		"yourOverride": "Your override"
 	},
 	"berkus": {
@@ -183,7 +183,7 @@
 		"multipleOverrideTitle": "Exit EV/Revenue multiple",
 		"multipleOverrideLead": "Pre-filled from the sector median. Override if you have a sharper peer set.",
 		"multipleLabel": "Exit EV/Revenue multiple (×)",
-		"multipleDescDefault": "Sector default for {sector}: {mid}× (range {low}–{high}×, Athena Q1 2026). We pre-filled {mid}×.",
+		"multipleDescDefault": "Sector default for {sector}: {mid}× (range {low}–{high}×, Upswitch benchmark Q1 2026). We pre-filled {mid}×.",
 		"multipleDescOverridden": "You overrode the sector default ({mid}×) to {applied}×. Add a one-line rationale below — it appears verbatim on your investor PDF.",
 		"multipleResetBtn": "Reset to sector median ({mid}×)",
 		"multipleRationaleLabel": "Why this multiple? (appears in your PDF)",
@@ -191,8 +191,8 @@
 		"multipleRationaleHint": "One sentence is enough. Investors expect a peer comparable, a recent-deal data point, or a public-comp citation.",
 		"multipleRationalePlaceholder": "e.g. \"Recent Bessemer Cloud Index for vertical SaaS at our ARPU prints 8–10×.\"",
 		"multipleOutOfBandWarn": "Outside the sector P25–P75 band ({low}–{high}×). Add a rationale below.",
-		"exitFooter": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Athena Q1 2026",
-		"exitFooterOffline": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Athena Q1 2026 · offline"
+		"exitFooter": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Upswitch benchmark Q1 2026",
+		"exitFooterOffline": "Sector exit multiple: {mult}× · range {low}–{high}× · {sector} · Upswitch benchmark Q1 2026 · offline"
 	},
 	"round": {
 		"kindTitle": "What kind of round are you raising?",

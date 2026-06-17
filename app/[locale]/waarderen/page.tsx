@@ -49,7 +49,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Q1 2026 Benelux benchmarks',
-        body: 'Live data from our Athena MDM (PitchBook + Dealroom). The engine moves with the market — no stale 2024 numbers.',
+        body: 'Live benchmark data from PitchBook and Dealroom. The engine moves with the market — no stale 2024 numbers.',
       },
     ],
     stepsHeading: '7 steps, 7 minutes',
@@ -73,7 +73,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Bill Payne Scorecard 2024',
-        body: 'Five weighted factors anchored to the regional median (Athena MDM).',
+        body: 'Five weighted factors anchored to the regional benchmark median.',
       },
       {
         title: 'VC method (Sahlman)',
@@ -116,7 +116,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Q1 2026 Benelux benchmarks',
-        body: 'Live data uit ons Athena MDM (PitchBook + Dealroom). De motor leert mee met de markt — geen 2024-cijfers meer.',
+        body: 'Live benchmarkdata uit PitchBook en Dealroom. De motor leert mee met de markt — geen 2024-cijfers meer.',
       },
     ],
     stepsHeading: '7 stappen, 7 minuten',
@@ -140,7 +140,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Bill Payne Scorecard 2024',
-        body: 'Vijf gewogen factoren verankerd op de regionale mediaan (Athena MDM).',
+        body: 'Vijf gewogen factoren verankerd op de regionale benchmarkmediaan.',
       },
       {
         title: 'VC-methode (Sahlman)',
@@ -183,7 +183,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Benchmarks Benelux T1 2026',
-        body: 'Données en direct issues de notre Athena MDM (PitchBook + Dealroom). Le moteur suit le marché — plus de chiffres 2024 périmés.',
+        body: 'Données benchmark en direct issues de PitchBook et Dealroom. Le moteur suit le marché — plus de chiffres 2024 périmés.',
       },
     ],
     stepsHeading: '7 étapes, 7 minutes',
@@ -207,7 +207,7 @@ const PAGE_COPY = {
       },
       {
         title: 'Scorecard Bill Payne 2024',
-        body: 'Cinq facteurs pondérés ancrés sur la médiane régionale (Athena MDM).',
+        body: 'Cinq facteurs pondérés ancrés sur la médiane benchmark régionale.',
       },
       {
         title: 'Méthode VC (Sahlman)',

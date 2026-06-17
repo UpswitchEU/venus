@@ -72,7 +72,7 @@
 		"sectorDefault": "Pré-rempli · secteur par défaut",
 		"stageDefault": "Pré-rempli · étape par défaut",
 		"benchmarkDefault": "Pré-rempli · médiane de référence",
-		"mercury": "Pré-rempli · de Mercure",
+		"mercury": "Pré-rempli · depuis votre espace de travail",
 		"yourOverride": "Votre dérogation"
 	},
 	"berkus": {
@@ -183,7 +183,7 @@
 	"multipleOverrideTitle": "Multiple de sortie VE/chiffre d’affaires",
 		"multipleOverrideLead": "Pré-rempli à partir du médian du secteur. Remplacez si vous disposez d’un ensemble de pairs plus précis.",
 	"multipleLabel": "Multiple de sortie VE/chiffre d’affaires (×)",
-		"multipleDescDefault": "Valeur par défaut du secteur pour {sector} : {mid}× (plage {low} – {high}×, Athena Q1 2026). Nous avons pré-rempli {mid}×.",
+		"multipleDescDefault": "Valeur par défaut du secteur pour {sector} : {mid}× (plage {low} – {high}×, benchmark Upswitch T1 2026). Nous avons pré-rempli {mid}×.",
 		"multipleDescOverridden": "Vous avez remplacé la valeur par défaut du secteur ({mid}×) par {applied}×. Ajoutez une justification d’une ligne ci-dessous – elle apparaît textuellement sur votre PDF investisseur.",
 		"multipleResetBtn": "Réinitialiser à la médiane sectorielle ({mid}×)",
 		"multipleRationaleLabel": "Pourquoi ce multiple ? (apparaît dans votre PDF)",
@@ -191,8 +191,8 @@
 		"multipleRationaleHint": "Une phrase suffit. Les investisseurs s’attendent à un comparable, à un point de données sur une transaction récente ou à une citation publique.",
 		"multipleRationalePlaceholder": "par ex. \"Le récent indice Bessemer Cloud pour le SaaS vertical avec notre ARPU imprime 8 à 10 ×.\"",
 		"multipleOutOfBandWarn": "En dehors de la bande du secteur P25 – P75 ({low} – {high}×). Ajoutez une justification ci-dessous.",
-		"exitFooter": "Multiple de sortie sectoriel : {mult}× · fourchette {low}–{high}× · {sector} · Athena Q1 2026",
-		"exitFooterOffline": "Multiple de sortie sectoriel : {mult}× · fourchette {low}–{high}× · {sector} · Athena Q1 2026 · hors ligne"
+		"exitFooter": "Multiple de sortie sectoriel : {mult}× · fourchette {low}–{high}× · {sector} · benchmark Upswitch T1 2026",
+		"exitFooterOffline": "Multiple de sortie sectoriel : {mult}× · fourchette {low}–{high}× · {sector} · benchmark Upswitch T1 2026 · hors ligne"
 	},
 	"round": {
 		"kindTitle": "Quel type de tour levez-vous ?",

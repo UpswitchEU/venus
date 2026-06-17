@@ -77,7 +77,7 @@ function rowFromBaseline(
     default_target_roi_x: baseline.default_target_roi_x,
     default_dilution_pct: baseline.default_dilution_pct,
     default_yoy_growth_factor: 3.0,
-    source: 'Venus regionalBaseline.ts (offline)',
+    source: 'Offline regional baseline',
     methodology_version: 'studio-v2-offline',
     published_at: '2025-01-01T00:00:00Z',
   }

@@ -78,7 +78,7 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
   subtitle: {
     en: "See the engine on a real example — Upswitch's own pre-seed valuation. Click to load the inputs and watch the numbers.",
     nl: 'Zie de engine op een echt voorbeeld — Upswitch eigen pre-seed waardering. Klik om inputs te laden en de cijfers te zien.',
-    fr: 'Découvrez le moteur sur un exemple réel : la propre évaluation de pré-amorçage d\'Upswitch. Cliquez pour charger les entrées et regarder les chiffres.',
+    fr: "Découvrez le moteur sur un exemple réel : la propre évaluation de pré-amorçage d'Upswitch. Cliquez pour charger les entrées et regarder les chiffres.",
   },
   highlights: {
     en: [
@@ -132,8 +132,8 @@ export const UPSWITCH_DEMO_PRESET: StudioPreset = {
       '200k+ Benelux SMEs changing hands by 2030. €1T+ EU SME exit market. ' +
       'A GDP-grade succession crisis with no Benelux-native solution today.',
     prototype_status:
-      'Full multi-app production system live: Mercury (advisor), Venus (valuation), ' +
-      'Titan API, ValuationIQ engine, Athena MDM, Delphi registry enrichment.',
+      'Full production system live: advisor workspace, valuation engine, API layer, ' +
+      'calculation engine, benchmark data and registry enrichment.',
     strategic_relationships:
       'Live KBO (BE) + KVK (NL) registry integrations; accountancy partner platform; ' +
       'sector-aware NACE enrichment.',
@@ -203,11 +203,7 @@ export const B2B_MARKETPLACE_PRESEED_PRESET: StudioPreset = {
   highlights: {
     en: ['Marketplace sector', 'Typical Y5 ARR anchor', 'Adapts to stage you pick'],
     nl: ['Marktplaats sector', 'Typisch Y5 ARR anker', 'Past aan op gekozen stage'],
-    fr: [
-      'Secteur du marché',
-      'Ancre Y5 ARR typique',
-      'S\'adapte à la stade que vous choisissez',
-    ],
+    fr: ['Secteur du marché', 'Ancre Y5 ARR typique', "S'adapte à la stade que vous choisissez"],
   },
 
   stage: 'pre_seed',
@@ -253,11 +249,7 @@ export const B2B_SAAS_PRESEED_PRESET: StudioPreset = {
   highlights: {
     en: ['SaaS sector', 'Recurring revenue model', 'Adapts to stage you pick'],
     nl: ['SaaS sector', 'Recurring revenue model', 'Past aan op gekozen stage'],
-    fr: [
-      'Secteur SaaS',
-      'Modèle de revenus récurrents',
-      'S\'adapte à la stade que vous choisissez',
-    ],
+    fr: ['Secteur SaaS', 'Modèle de revenus récurrents', "S'adapte à la stade que vous choisissez"],
   },
 
   stage: 'pre_seed',
@@ -314,7 +306,7 @@ export const FINTECH_PRESEED_PRESET: StudioPreset = {
     fr: [
       'Secteur Fintech · fossé réglementé',
       'Bande multiple de sortie supérieure',
-      'S\'adapte à la stade que vous choisissez',
+      "S'adapte à la stade que vous choisissez",
     ],
   },
 

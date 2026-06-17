@@ -108,17 +108,17 @@ function pickIssues(
       title: {
         en: 'Company name is missing',
         nl: 'Bedrijfsnaam ontbreekt',
-        fr: 'Le nom de l\'entreprise est manquant',
+        fr: "Le nom de l'entreprise est manquant",
       },
       body: {
         en: 'The report cover, deck-ready sentence, and PDF filename all reference the company name.',
         nl: 'De rapportcover, deck-zin en PDF-bestandsnaam verwijzen allemaal naar de bedrijfsnaam.',
-        fr: 'La couverture du rapport, la phrase prête à être publiée et le nom du fichier PDF font tous référence au nom de l\'entreprise.',
+        fr: "La couverture du rapport, la phrase prête à être publiée et le nom du fichier PDF font tous référence au nom de l'entreprise.",
       },
       action: {
         en: 'Open Profile and enter the legal company name.',
         nl: 'Open Profiel en vul de juridische bedrijfsnaam in.',
-        fr: 'Ouvrez le profil et entrez le nom légal de l\'entreprise.',
+        fr: "Ouvrez le profil et entrez le nom légal de l'entreprise.",
       },
       assistantPrompt: {
         en: 'Help me set the right legal company name for this valuation. What do I need and where will it appear?',
@@ -153,7 +153,7 @@ function pickIssues(
       assistantPrompt: {
         en: 'Walk me through the five Berkus milestones (sound idea, prototype, team, partnerships, rollout) and help me pick the right maturity level for each based on what we have today.',
         nl: 'Loop met me door de vijf Berkus-mijlpalen (idee, prototype, team, partnerships, rollout) en help me het juiste niveau te kiezen op basis van wat we vandaag hebben.',
-        fr: 'Guidez-moi à travers les cinq étapes de Berkus (idée solide, prototype, équipe, partenariats, déploiement) et aidez-moi à choisir le bon niveau de maturité pour chacun en fonction de ce que nous avons aujourd\'hui.',
+        fr: "Guidez-moi à travers les cinq étapes de Berkus (idée solide, prototype, équipe, partenariats, déploiement) et aidez-moi à choisir le bon niveau de maturité pour chacun en fonction de ce que nous avons aujourd'hui.",
       },
     })
   }
@@ -182,7 +182,7 @@ function pickIssues(
       assistantPrompt: {
         en: 'I am not sure how much to raise. Given my stage and current burn, what round size do similar founders raise and what does that imply for dilution?',
         nl: 'Ik weet niet hoeveel ik wil ophalen. Wat is gebruikelijk voor mijn stage en burn, en wat betekent dat voor dilutie?',
-        fr: 'Je ne sais pas combien augmenter. Compte tenu de mon stade et de ma brûlure actuelle, quelle taille du tour les fondateurs similaires élèvent-ils et qu\'est-ce que cela implique pour la dilution ?',
+        fr: "Je ne sais pas combien augmenter. Compte tenu de mon stade et de ma brûlure actuelle, quelle taille du tour les fondateurs similaires élèvent-ils et qu'est-ce que cela implique pour la dilution ?",
       },
     })
   }
@@ -220,12 +220,12 @@ function pickIssues(
       action: {
         en: 'Open Exit story and add year-5 revenue + exit multiple, or enter MRR/ARR in Traction.',
         nl: 'Open Exit-verhaal en voeg jaar-5 omzet + exit-multiple toe, of vul MRR/ARR in onder Tractie.',
-        fr: 'Ouvrez l\'histoire de sortie et ajoutez les revenus de l\'année 5 + le multiple de sortie, ou entrez MRR/ARR dans Traction.',
+        fr: "Ouvrez l'histoire de sortie et ajoutez les revenus de l'année 5 + le multiple de sortie, ou entrez MRR/ARR dans Traction.",
       },
       assistantPrompt: {
         en: 'My valuation is firing only the Berkus leg even though my stage is post pre-seed. Help me build out the exit story (year-5 revenue, exit multiple, target ROI) so the VC leg engages too.',
         nl: 'Mijn waardering activeert alleen de Berkus-leg terwijl mijn stage post pre-seed is. Help me het exit-verhaal uit te bouwen (jaar-5 omzet, exit-multiple, target ROI) zodat de VC-leg ook meedoet.',
-        fr: 'Ma valorisation ne déclenche que la composante Berkus même si mon stade est post-pré-amorçage. Aidez-moi à élaborer l\'histoire de sortie (revenus de la cinquième année, multiples de sortie, retour sur investissement cible) afin que la composante VC s\'engage également.',
+        fr: "Ma valorisation ne déclenche que la composante Berkus même si mon stade est post-pré-amorçage. Aidez-moi à élaborer l'histoire de sortie (revenus de la cinquième année, multiples de sortie, retour sur investissement cible) afin que la composante VC s'engage également.",
       },
     })
   }
@@ -255,12 +255,12 @@ function pickIssues(
       body: {
         en: 'For SaaS / marketplace / fintech, comparable multiples are anchored to ARR. Without it, the SaaS-forward leg is dropped and the blend collapses to milestone-only.',
         nl: 'Voor SaaS / marketplace / fintech worden vergelijkbare multiples geijkt op ARR. Zonder die input wordt de SaaS-forward leg gedropt en valt de blend terug op enkel mijlpalen.',
-        fr: 'Pour le SaaS/place de marché/fintech, des multiples comparables sont ancrés à l\'ARR. Sans cela, la jambe avant SaaS est abandonnée et le mélange se réduit à un jalon uniquement.',
+        fr: "Pour le SaaS/place de marché/fintech, des multiples comparables sont ancrés à l'ARR. Sans cela, la jambe avant SaaS est abandonnée et le mélange se réduit à un jalon uniquement.",
       },
       action: {
         en: 'In Traction, enter current MRR or ARR — even an early figure activates the SaaS leg.',
         nl: 'Vul in Tractie huidige MRR of ARR in — zelfs een vroege schatting activeert de SaaS-leg.',
-        fr: 'Dans Traction, saisissez le MRR ou l\'ARR actuel – même un chiffre précoce active la branche SaaS.',
+        fr: "Dans Traction, saisissez le MRR ou l'ARR actuel – même un chiffre précoce active la branche SaaS.",
       },
       assistantPrompt: {
         en: 'My sector typically prices on ARR but I have not entered MRR/ARR yet. Help me figure out what to put — or whether pre-revenue is genuinely the right framing for the report.',
@@ -285,12 +285,12 @@ function pickIssues(
       body: {
         en: 'Year-5 revenue, exit multiple or target ROI is missing. Without the VC leg the blend leans heavily on the SaaS-forward / Berkus legs.',
         nl: 'Jaar-5 omzet, exit-multiple of target ROI ontbreekt. Zonder de VC-leg leunt de blend zwaar op de SaaS-forward / Berkus-legs.',
-        fr: 'Les revenus de la cinquième année, les sorties multiples ou le retour sur investissement cible sont manquants. Sans la jambe VC, le mélange s\'appuie fortement sur les jambes SaaS-forward / Berkus.',
+        fr: "Les revenus de la cinquième année, les sorties multiples ou le retour sur investissement cible sont manquants. Sans la jambe VC, le mélange s'appuie fortement sur les jambes SaaS-forward / Berkus.",
       },
       action: {
         en: 'Fill year-5 revenue, exit multiple, and target ROI in Exit story.',
         nl: 'Vul jaar-5 omzet, exit-multiple en target ROI in onder Exit-verhaal.',
-        fr: 'Remplissez les revenus de la cinquième année, quittez plusieurs et ciblez le retour sur investissement dans l\'histoire de sortie.',
+        fr: "Remplissez les revenus de la cinquième année, quittez plusieurs et ciblez le retour sur investissement dans l'histoire de sortie.",
       },
       assistantPrompt: {
         en: 'The VC method leg is greyed out. Walk me through what year-5 revenue, exit multiple, and target ROI to use — sector benchmarks if possible.',
@@ -332,7 +332,7 @@ function pickIssues(
         action: {
           en: 'Either lower Year-5 to the sector range, or add an evidence note on Berkus / Scorecard explaining the moat.',
           nl: 'Verlaag Year-5 naar de sectorrange, of voeg een onderbouwing toe op Berkus / Scorecard die de moat uitlegt.',
-          fr: 'Soit abaissez l\'année 5 à la fourchette du secteur, soit ajoutez une note de preuve sur Berkus / Scorecard expliquant le fossé.',
+          fr: "Soit abaissez l'année 5 à la fourchette du secteur, soit ajoutez une note de preuve sur Berkus / Scorecard expliquant le fossé.",
         },
         assistantPrompt: {
           en: `My Year-5 revenue (${formatEur(y5Value)}) is ${ratio.toFixed(1)}× the sector default. Help me decide whether to defend it with a moat thesis or dial it down.`,
@@ -365,7 +365,7 @@ function pickIssues(
         action: {
           en: 'Raise Year-5 above your forward 12mo ARR, or revisit MRR / monthly growth in Traction if those inputs are stale.',
           nl: 'Verhoog Year-5 boven je forward 12mo ARR, of corrigeer MRR / maandelijkse groei onder Tractie als die inputs verouderd zijn.',
-          fr: 'Augmentez l\'année 5 au-dessus de votre ARR à terme de 12 mois, ou revisitez le MRR / la croissance mensuelle de Traction si ces entrées sont obsolètes.',
+          fr: "Augmentez l'année 5 au-dessus de votre ARR à terme de 12 mois, ou revisitez le MRR / la croissance mensuelle de Traction si ces entrées sont obsolètes.",
         },
         assistantPrompt: {
           en: `My Year-5 revenue (${formatEur(y5Value)}) is below the 12mo forward ARR (${formatEur(forwardArr)}) my MRR + growth imply. What's a credible Year-5 anchor for my stage?`,
@@ -398,7 +398,7 @@ function pickIssues(
       body: {
         en: `The Target ROI field is the *fund-side* return hurdle (what the VC needs back to justify the cheque) — typically 30× pre-seed, 20× seed, 10× Series A. Below 5× is almost certainly a typo or a confusion with your personal expected return. The lower this number, the higher your pre-money — so investors will challenge it.`,
         nl: `Het Target ROI-veld is de *fonds-zijde* return hurdle (wat de VC terug moet zien om de cheque te rechtvaardigen) — typisch 30× pre-seed, 20× seed, 10× Series A. Onder 5× is bijna zeker een typfout of verwarring met je persoonlijke verwachte rendement. Hoe lager dit cijfer, hoe hoger je pre-money — investeerders zullen het aanvechten.`,
-        fr: 'Le champ ROI cible est l\'obstacle de retour *côté fonds* (ce dont le capital-risque a besoin pour justifier le chèque) — généralement 30 × pré-amorçage, 20 × graine, 10 × série A. En dessous de 5 × est presque certainement une faute de frappe ou une confusion avec votre rendement personnel attendu. Plus ce nombre est bas, plus votre pré-argent est élevé – les investisseurs le contesteront donc.',
+        fr: "Le champ ROI cible est l'obstacle de retour *côté fonds* (ce dont le capital-risque a besoin pour justifier le chèque) — généralement 30 × pré-amorçage, 20 × graine, 10 × série A. En dessous de 5 × est presque certainement une faute de frappe ou une confusion avec votre rendement personnel attendu. Plus ce nombre est bas, plus votre pré-argent est élevé – les investisseurs le contesteront donc.",
       },
       action: {
         en: 'Use a stage-typical preset (30×/20×/10×) under Exit story, or confirm a value above 5×.',
@@ -480,7 +480,7 @@ function pickIssues(
       body: {
         en: 'Each milestone card prints its evidence sentence in the investor PDF. Less than two filled means the report reads like a slider exercise rather than a defended position.',
         nl: 'Elke mijlpaal-kaart drukt zijn onderbouwing af in de investor-PDF. Minder dan twee ingevuld doet het rapport lezen als een schuifoefening in plaats van een verdedigde stelling.',
-        fr: 'Chaque carte d\'étape imprime sa phrase de preuve dans le PDF de l\'investisseur. Moins de deux réponses signifient que le rapport se lit comme un exercice de curseur plutôt que comme une position défendue.',
+        fr: "Chaque carte d'étape imprime sa phrase de preuve dans le PDF de l'investisseur. Moins de deux réponses signifient que le rapport se lit comme un exercice de curseur plutôt que comme une position défendue.",
       },
       action: {
         en: 'Add evidence notes to at least two milestone cards in Risk reduction.',
@@ -490,7 +490,7 @@ function pickIssues(
       assistantPrompt: {
         en: 'Help me draft tight, evidence-based one-liners for the milestones I have selected. Use what is already in the wizard plus reasonable defaults — I will edit afterwards.',
         nl: 'Help me korte, onderbouwde zinnen op te stellen voor de mijlpalen die ik gekozen heb. Gebruik wat er al in de wizard staat en redelijke defaults — ik bewerk daarna.',
-        fr: 'Aidez-moi à rédiger des lignes directrices précises et fondées sur des preuves pour les étapes que j\'ai sélectionnées. Utilisez ce qui est déjà dans l\'assistant ainsi que les valeurs par défaut raisonnables - je modifierai ensuite.',
+        fr: "Aidez-moi à rédiger des lignes directrices précises et fondées sur des preuves pour les étapes que j'ai sélectionnées. Utilisez ce qui est déjà dans l'assistant ainsi que les valeurs par défaut raisonnables - je modifierai ensuite.",
       },
     })
   }
@@ -510,7 +510,7 @@ function pickIssues(
       body: {
         en: 'The inception-bet overlay assumes a spike founder profile (prior exit, top-tier scaleup alumnus, deep domain). Without any pedigree flag the multiplier is hard to defend in front of investors.',
         nl: 'De inception-bet overlay veronderstelt een spike-founder-profiel (eerdere exit, top-scaleup alumnus, diepe domein-expertise). Zonder pedigree-vlag is de multiplier moeilijk te verdedigen tegenover investeerders.',
-        fr: 'La superposition de pari de création suppose un profil de fondateur de pointe (sortie préalable, ancien élève de premier plan, domaine profond). Sans aucun drapeau d\'origine, le multiplicateur est difficile à défendre devant les investisseurs.',
+        fr: "La superposition de pari de création suppose un profil de fondateur de pointe (sortie préalable, ancien élève de premier plan, domaine profond). Sans aucun drapeau d'origine, le multiplicateur est difficile à défendre devant les investisseurs.",
       },
       action: {
         en: 'Open Team pedigree and tick at least one signal — or change lens.',
@@ -520,7 +520,7 @@ function pickIssues(
       assistantPrompt: {
         en: 'I picked the inception-bet lens but my pedigree flags are all empty. Help me decide — should I pick a different lens, or is there a pedigree claim I forgot to mark?',
         nl: 'Ik koos de inception-bet lens maar mijn pedigree-vlaggen staan leeg. Help me beslissen — moet ik een andere lens kiezen, of is er een pedigree-claim die ik vergat aan te vinken?',
-        fr: 'J\'ai choisi l\'objectif du pari initial, mais mes drapeaux de pedigree sont tous vides. Aidez-moi à décider : dois-je choisir un objectif différent ou y a-t-il une déclaration d\'ascendance que j\'ai oublié de noter ?',
+        fr: "J'ai choisi l'objectif du pari initial, mais mes drapeaux de pedigree sont tous vides. Aidez-moi à décider : dois-je choisir un objectif différent ou y a-t-il une déclaration d'ascendance que j'ai oublié de noter ?",
       },
     })
   }
@@ -550,9 +550,9 @@ function pickIssues(
         fr: 'La référence régionale provient du cache hors ligne',
       },
       body: {
-        en: 'The live Athena feed is unreachable; the wizard is using its static Q1-2026 baseline. Numbers are still defensible but will not reflect the latest quarterly refresh.',
-        nl: 'De live Athena-feed is onbereikbaar; de wizard gebruikt zijn statische Q1-2026 baseline. Cijfers blijven verdedigbaar maar weerspiegelen niet de laatste kwartaal-update.',
-        fr: 'Le flux Athena en direct est inaccessible ; l\'assistant utilise sa référence statique T1-2026. Les chiffres sont toujours défendables mais ne refléteront pas la dernière actualisation trimestrielle.',
+        en: 'The live benchmark feed is unreachable; the wizard is using its static Q1-2026 baseline. Numbers are still defensible but will not reflect the latest quarterly refresh.',
+        nl: 'De live benchmarkfeed is onbereikbaar; de wizard gebruikt zijn statische Q1-2026 baseline. Cijfers blijven verdedigbaar maar weerspiegelen niet de laatste kwartaal-update.',
+        fr: "Le flux benchmark en direct est inaccessible ; l'assistant utilise sa référence statique T1-2026. Les chiffres sont toujours défendables mais ne refléteront pas la dernière actualisation trimestrielle.",
       },
       action: {
         en: 'No action required — proceed, or wait if you want the latest quarterly refresh.',
@@ -562,7 +562,7 @@ function pickIssues(
       assistantPrompt: {
         en: 'The benchmark fell back to the offline cache. Is this a known outage, and should I pause the report until the live feed is back?',
         nl: 'De benchmark is teruggevallen op de offline cache. Is dit een bekende storing, en moet ik het rapport uitstellen tot de live feed terug is?',
-        fr: 'Le benchmark est revenu au cache hors ligne. S\'agit-il d\'une panne connue et dois-je suspendre le rapport jusqu\'à ce que le flux en direct soit de retour ?',
+        fr: "Le benchmark est revenu au cache hors ligne. S'agit-il d'une panne connue et dois-je suspendre le rapport jusqu'à ce que le flux en direct soit de retour ?",
       },
     })
   }

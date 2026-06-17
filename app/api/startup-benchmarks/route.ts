@@ -66,7 +66,7 @@ function staticRows(region: string | null, stage: string | null, sector: string 
       default_target_roi_x: roi,
       default_dilution_pct: dil,
       default_yoy_growth_factor: growth,
-      source: 'Venus static fallback (Q1 2026)',
+      source: 'Offline benchmark fallback (Q1 2026)',
       methodology_version: 'studio-v2-2026q1-fallback',
       published_at: '2026-01-01T00:00:00Z',
     })).filter((row) => (!stage || row.stage === stage) && (!sector || row.sector === sector))
@@ -111,8 +111,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           rows: staticRows(region, stage, sector),
-          source: 'venus-static-fallback',
-          warning: `Athena returned ${res.status}`,
+          source: 'offline-benchmark-fallback',
+          warning: `Benchmark feed returned ${res.status}`,
         },
         { headers: { 'cache-control': 'public, s-maxage=60' } }
       )
@@ -122,8 +122,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           rows: staticRows(region, stage, sector),
-          source: 'venus-static-fallback',
-          warning: 'Athena returned malformed JSON — using static Q1 2026 numbers.',
+          source: 'offline-benchmark-fallback',
+          warning: 'Benchmark feed returned malformed JSON — using static Q1 2026 numbers.',
         },
         { headers: { 'cache-control': 'public, s-maxage=60' } }
       )
@@ -138,8 +138,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         rows: staticRows(region, stage, sector),
-        source: 'venus-static-fallback',
-        warning: 'Athena unreachable — using static Q1 2026 numbers.',
+        source: 'offline-benchmark-fallback',
+        warning: 'Benchmark feed unreachable — using static Q1 2026 numbers.',
       },
       { headers: { 'cache-control': 'public, s-maxage=60' } }
     )
