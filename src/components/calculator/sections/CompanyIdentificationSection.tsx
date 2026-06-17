@@ -6,17 +6,17 @@ import { useTranslations } from 'next-intl'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import {
   AuroraNumberInput,
-  type BusinessType as SearchBusinessType,
   type KBOCompany,
   KBOSearchInput,
+  KboConfirmedCard,
+  type BusinessType as SearchBusinessType,
 } from '@/design-system'
-import { KboConfirmedCard } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
-import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
 import type { ManualValuationFormData } from '../../../types/valuation'
+import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 
 const businessStructures = [

@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { type BusinessType as SearchBusinessType, type KBOCompany } from '@/design-system'
+import { type KBOCompany, type BusinessType as SearchBusinessType } from '@/design-system'
 import { useBusinessTypes } from '../../../hooks/useBusinessTypes'
 import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
 import { registryService } from '../../../services/registry/registryService'
