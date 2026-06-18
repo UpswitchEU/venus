@@ -26,7 +26,10 @@ import {
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 import { generalLogger } from './logger'
-import { normalizeBusinessTypeSegments } from './normalizeBusinessTypeSegments'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from './normalizeBusinessTypeSegments'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import {
@@ -439,7 +442,12 @@ export function buildValuationRequest(
   let industry = formData.industry
   let businessModel = formData.business_model
   const businessTypeId = normalizeBusinessTypeId(formData.business_type_id)
-  const businessTypeSegments = normalizeBusinessTypeSegments(formData.business_type_segments)
+  const businessTypeSegments = resolveBusinessTypeSegments({
+    business_type_segments: formData.business_type_segments,
+    business_type_mix: formData.business_type_mix,
+    business_type_weights: formData.business_type_weights,
+  })
+  const businessTypeWeights = businessTypeWeightsFromSegments(businessTypeSegments)
 
   // If industry is missing but business_type_id is present, log warning
   // (industry should have been set when business type was selected)
@@ -1215,7 +1223,13 @@ export function buildValuationRequest(
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
     ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
-    ...(businessTypeSegments.length > 0 ? { business_type_segments: businessTypeSegments } : {}),
+    ...(businessTypeSegments.length > 0
+      ? {
+          business_type_segments: businessTypeSegments,
+          business_type_mix: businessTypeSegments,
+          business_type_weights: businessTypeWeights,
+        }
+      : {}),
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,

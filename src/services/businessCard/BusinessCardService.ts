@@ -16,7 +16,10 @@ import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
-import { normalizeBusinessTypeSegments } from '../../utils/normalizeBusinessTypeSegments'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from '../../utils/normalizeBusinessTypeSegments'
 
 const businessCardLogger = createContextLogger('BusinessCardService')
 
@@ -40,19 +43,6 @@ export interface BusinessCardData {
 export interface BusinessCardService {
   fetchBusinessCard(token: string): Promise<BusinessCardData>
   transformToValuationRequest(businessCard: BusinessCardData): Partial<ValuationRequest>
-}
-
-function segmentsFromWeights(
-  weights: BusinessCardData['business_type_weights']
-): BusinessTypeSegmentInput[] {
-  if (!weights || typeof weights !== 'object' || Array.isArray(weights)) return []
-  return Object.entries(weights)
-    .flatMap(([businessTypeId, weight]) => {
-      const normalizedId = normalizeBusinessTypeId(businessTypeId)
-      if (!normalizedId) return []
-      return [{ business_type_id: normalizedId, weight: weight ?? null }]
-    })
-    .sort((a, b) => Number(b.weight ?? 0) - Number(a.weight ?? 0))
 }
 
 class BusinessCardServiceImpl implements BusinessCardService {
@@ -127,14 +117,16 @@ class BusinessCardServiceImpl implements BusinessCardService {
       valuationRequest.industry = businessCard.industry as IndustryCode
     }
 
-    const businessTypeSegments = normalizeBusinessTypeSegments(
-      businessCard.business_type_segments ??
-        businessCard.business_type_mix ??
-        segmentsFromWeights(businessCard.business_type_weights)
-    )
+    const businessTypeSegments = resolveBusinessTypeSegments({
+      business_type_segments: businessCard.business_type_segments,
+      business_type_mix: businessCard.business_type_mix,
+      business_type_weights: businessCard.business_type_weights,
+    })
     const primaryBusinessTypeId = businessTypeSegments[0]?.business_type_id
     if (businessTypeSegments.length > 0) {
       valuationRequest.business_type_segments = businessTypeSegments
+      valuationRequest.business_type_mix = businessTypeSegments
+      valuationRequest.business_type_weights = businessTypeWeightsFromSegments(businessTypeSegments)
     }
 
     const businessTypeId = normalizeBusinessTypeId(

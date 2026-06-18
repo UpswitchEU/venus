@@ -66,4 +66,30 @@ describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
       },
     })
   })
+
+  it('falls back to business_type_mix when Titan returns an empty segments array', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        company_name: 'Boekhoudkantoor Venus',
+        business_type_segments: [],
+        business_type_mix: [
+          { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+          { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+        ],
+      }),
+    } as Response)
+
+    await expect(fetchBusinessCardData('client-123456')).resolves.toMatchObject({
+      business_type_id: 'accounting',
+      business_type_segments: [
+        { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+        { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+      ],
+      business_type_weights: {
+        accounting: 65,
+        'tax-advisory': 35,
+      },
+    })
+  })
 })

@@ -96,6 +96,8 @@ const PACKAGE_CAMEL_TO_SNAKE: Record<string, string> = {
   vatNumber: 'vat_number',
   businessTypeId: 'business_type_id',
   businessTypeSegments: 'business_type_segments',
+  businessTypeMix: 'business_type_mix',
+  businessTypeWeights: 'business_type_weights',
   businessDescription: 'business_description',
   subIndustry: 'subIndustry',
   employeeCount: 'number_of_employees',

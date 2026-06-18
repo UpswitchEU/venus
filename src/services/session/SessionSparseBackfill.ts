@@ -7,7 +7,10 @@ import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
-import { normalizeBusinessTypeSegments } from '../../utils/normalizeBusinessTypeSegments'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from '../../utils/normalizeBusinessTypeSegments'
 import {
   mergeSessionSurfaceForOptionalPrefill,
   sessionEnvelopeHasIdentitySignals,
@@ -167,30 +170,24 @@ function isPlaceholderYearArray(value: unknown): boolean {
   })
 }
 
-function businessTypeSegmentsFromWeights(value: unknown): Array<Record<string, unknown>> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
-  return Object.entries(value as Record<string, unknown>)
-    .flatMap(([businessTypeId, weight]) => {
-      const normalizedId = normalizeBusinessTypeId(businessTypeId)
-      if (!normalizedId) return []
-      return [{ business_type_id: normalizedId, weight }]
-    })
-    .sort((a, b) => Number(b.weight ?? 0) - Number(a.weight ?? 0))
-}
-
 function readBusinessTypeSegmentsFromCard(
   businessCard: Record<string, unknown>
 ): BusinessTypeSegmentInput[] {
-  const rawSegments =
-    businessCard.business_type_segments ??
-    businessCard.business_type_mix ??
-    businessCard.business_type_candidates
-  const normalized = normalizeBusinessTypeSegments(
-    Array.isArray(rawSegments)
-      ? rawSegments
-      : businessTypeSegmentsFromWeights(businessCard.business_type_weights)
-  )
-  return normalized
+  const segments = Array.isArray(businessCard.business_type_segments)
+    ? (businessCard.business_type_segments as BusinessTypeSegmentInput[])
+    : undefined
+  const mixSource = Array.isArray(businessCard.business_type_mix)
+    ? businessCard.business_type_mix
+    : businessCard.business_type_candidates
+  const mix = Array.isArray(mixSource) ? (mixSource as BusinessTypeSegmentInput[]) : undefined
+
+  return resolveBusinessTypeSegments({
+    business_type_segments: segments,
+    business_type_mix: mix,
+    business_type_weights: businessCard.business_type_weights as
+      | Record<string, number | string | null | undefined>
+      | undefined,
+  })
 }
 
 function shouldBackfillSparseValue(
@@ -334,12 +331,7 @@ export async function fetchBusinessCardData(
     if (businessTypeSegments.length > 0) {
       data.business_type_segments = businessTypeSegments
       data.business_type_mix = businessTypeSegments
-      data.business_type_weights = Object.fromEntries(
-        businessTypeSegments.map((segment) => [
-          segment.business_type_id,
-          segment.weight ?? Number((100 / businessTypeSegments.length).toFixed(2)),
-        ])
-      )
+      data.business_type_weights = businessTypeWeightsFromSegments(businessTypeSegments)
       if (!data.business_type_id) {
         data.business_type_id = businessTypeSegments[0]?.business_type_id
       }

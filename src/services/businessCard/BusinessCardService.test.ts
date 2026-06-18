@@ -71,6 +71,28 @@ describe('BusinessCardService', () => {
         weight: 35,
       },
     ])
+    expect(result.business_type_mix).toEqual(result.business_type_segments)
+    expect(result.business_type_weights).toEqual({
+      accounting: 65,
+      'tax-advisory': 35,
+    })
+  })
+
+  it('falls back to business-card mix when segments are present but empty', () => {
+    const result = businessCardService.transformToValuationRequest({
+      company_name: 'Boekhoudkantoor Venus',
+      business_type_segments: [],
+      business_type_mix: [
+        { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+        { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+      ],
+    })
+
+    expect(result.business_type_id).toBe('accounting')
+    expect(result.business_type_segments).toEqual([
+      { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+      { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+    ])
   })
 
   it('derives business-card segments from compact weights when no list is present', () => {
@@ -87,5 +109,10 @@ describe('BusinessCardService', () => {
       { business_type_id: 'software', weight: 0.6 },
       { business_type_id: 'consulting', weight: 0.4 },
     ])
+    expect(result.business_type_mix).toEqual(result.business_type_segments)
+    expect(result.business_type_weights).toEqual({
+      software: 0.6,
+      consulting: 0.4,
+    })
   })
 })

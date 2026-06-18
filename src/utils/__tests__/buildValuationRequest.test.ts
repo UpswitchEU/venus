@@ -867,6 +867,51 @@ describe('buildValuationRequest', () => {
         weight: 30,
       },
     ])
+    expect(result.business_type_mix).toEqual(result.business_type_segments)
+    expect(result.business_type_weights).toEqual({
+      recycling: 70,
+      transport: 30,
+    })
+  })
+
+  it('falls back to business_type_mix when form segments are empty', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'recycling',
+        business_type_segments: [],
+        business_type_mix: [
+          {
+            business_type_id: 'recycling',
+            business_type_title: 'Recycling Services',
+            weight: 70,
+          },
+          {
+            business_type_id: 'transport',
+            business_type_title: 'Transport',
+            weight: 30,
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'recycling',
+        business_type_title: 'Recycling Services',
+        weight: 70,
+      },
+      {
+        business_type_id: 'transport',
+        business_type_title: 'Transport',
+        weight: 30,
+      },
+    ])
+    expect(result.business_type_mix).toEqual(result.business_type_segments)
+    expect(result.business_type_weights).toEqual({
+      recycling: 70,
+      transport: 30,
+    })
   })
 
   it('forwards a single business type segment as a 100% benchmark mix', () => {

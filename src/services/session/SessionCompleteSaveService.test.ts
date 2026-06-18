@@ -94,4 +94,138 @@ describe('saveCompleteValuationSession', () => {
       })
     )
   })
+
+  it('persists the full weighted business type mix on complete save', async () => {
+    await saveCompleteValuationSession(
+      'val_multi_type',
+      {
+        formData: {
+          company_name: 'Venus Advisory BV',
+          business_type_id: 'accounting',
+          business_type_segments: [
+            { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+          business_type_mix: [
+            { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+          business_type_weights: {
+            accounting: 65,
+            'tax-advisory': 35,
+          },
+        },
+      },
+      async () =>
+        ({
+          reportId: 'val_multi_type',
+          name: 'Venus Advisory BV',
+        }) as ValuationSession
+    )
+
+    expect(mocks.updateValuationSession).toHaveBeenCalledWith(
+      'val_multi_type',
+      {
+        sessionData: expect.objectContaining({
+          business_type_id: 'accounting',
+          business_type_segments: [
+            { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+          business_type_mix: [
+            { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+          business_type_weights: {
+            accounting: 65,
+            'tax-advisory': 35,
+          },
+        }),
+      },
+      expect.any(Object)
+    )
+  })
+
+  it('derives business type mix and weights from weighted segments on complete save', async () => {
+    await saveCompleteValuationSession(
+      'val_segments_only',
+      {
+        formData: {
+          company_name: 'Segments Only BV',
+          business_type_id: 'accounting',
+          business_type_segments: [
+            { business_type_id: 'accounting ', business_type_title: 'Accounting', weight: '65' },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+        },
+      },
+      async () =>
+        ({
+          reportId: 'val_segments_only',
+          name: 'Segments Only BV',
+        }) as ValuationSession
+    )
+
+    const normalizedSegments = [
+      { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+      { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+    ]
+
+    expect(mocks.updateValuationSession).toHaveBeenCalledWith(
+      'val_segments_only',
+      {
+        sessionData: expect.objectContaining({
+          business_type_segments: normalizedSegments,
+          business_type_mix: normalizedSegments,
+          business_type_weights: {
+            accounting: 65,
+            'tax-advisory': 35,
+          },
+        }),
+      },
+      expect.any(Object)
+    )
+  })
+
+  it('falls back to business type mix when complete-save segments are empty', async () => {
+    await saveCompleteValuationSession(
+      'val_empty_segments_mix',
+      {
+        formData: {
+          company_name: 'Mix Fallback BV',
+          business_type_id: 'accounting',
+          business_type_segments: [],
+          business_type_mix: [
+            { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+            { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+          ],
+        },
+      },
+      async () =>
+        ({
+          reportId: 'val_empty_segments_mix',
+          name: 'Mix Fallback BV',
+        }) as ValuationSession
+    )
+
+    const normalizedSegments = [
+      { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+      { business_type_id: 'tax-advisory', business_type_title: 'Tax Advisory', weight: 35 },
+    ]
+
+    expect(mocks.updateValuationSession).toHaveBeenCalledWith(
+      'val_empty_segments_mix',
+      {
+        sessionData: expect.objectContaining({
+          business_type_segments: normalizedSegments,
+          business_type_mix: normalizedSegments,
+          business_type_weights: {
+            accounting: 65,
+            'tax-advisory': 35,
+          },
+        }),
+      },
+      expect.any(Object)
+    )
+  })
 })

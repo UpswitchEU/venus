@@ -45,6 +45,8 @@ export function buildManualValuationRequest(
       naceDescription: formData.nace_description,
       businessTypeId: formData.business_type_id,
       businessTypeSegments: formData.business_type_segments,
+      businessTypeMix: formData.business_type_mix,
+      businessTypeWeights: formData.business_type_weights,
       businessType: formData.business_type,
       startupInputs,
       locale,

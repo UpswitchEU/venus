@@ -2,6 +2,10 @@ import { ApplicationError, NetworkError, ValidationError } from '../../types/err
 import type { ValuationRequest, ValuationResponse, ValuationSession } from '../../types/valuation'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from '../../utils/normalizeBusinessTypeSegments'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
   getEquityValueHigh,
@@ -52,6 +56,14 @@ export async function saveCompleteValuationSession(
     const sessionUpdate: Partial<ValuationRequest> = {}
 
     if (data.formData) {
+      const businessTypeSegments = resolveBusinessTypeSegments({
+        business_type_segments: data.formData.business_type_segments,
+        business_type_mix: data.formData.business_type_mix,
+        business_type_weights: data.formData.business_type_weights,
+      })
+      const businessTypeWeights =
+        data.formData.business_type_weights ?? businessTypeWeightsFromSegments(businessTypeSegments)
+
       Object.assign(sessionUpdate, {
         company_name: data.formData.company_name,
         country_code: data.formData.country_code,
@@ -65,7 +77,11 @@ export async function saveCompleteValuationSession(
         recurring_revenue_percentage: data.formData.recurring_revenue_percentage,
         shares_for_sale: 100,
         business_type_id: data.formData.business_type_id,
-        business_type_segments: data.formData.business_type_segments,
+        business_type_segments:
+          businessTypeSegments.length > 0 ? businessTypeSegments : data.formData.business_type_segments,
+        business_type_mix:
+          businessTypeSegments.length > 0 ? businessTypeSegments : data.formData.business_type_mix,
+        business_type_weights: businessTypeWeights,
         business_context: data.formData.business_context,
         comparables: data.formData.comparables,
       })

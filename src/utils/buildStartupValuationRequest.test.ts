@@ -186,6 +186,34 @@ describe('buildStartupValuationRequest', () => {
         weight: 40,
       },
     ])
+    expect(req.business_type_mix).toEqual(req.business_type_segments)
+    expect(req.business_type_weights).toEqual({
+      accounting: 60,
+      'tax-advisory': 40,
+    })
+  })
+
+  it('falls back to business-type mix when startup segments are empty', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Acme',
+      businessTypeId: 'accounting',
+      businessTypeSegments: [],
+      businessTypeMix: [
+        { business_type_id: 'accounting', business_type_title: 'Accounting practice', weight: 65 },
+        { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+      ],
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.business_type_segments).toEqual([
+      { business_type_id: 'accounting', business_type_title: 'Accounting practice', weight: 65 },
+      { business_type_id: 'tax-advisory', business_type_title: 'Tax advisory', weight: 35 },
+    ])
+    expect(req.business_type_mix).toEqual(req.business_type_segments)
+    expect(req.business_type_weights).toEqual({
+      accounting: 65,
+      'tax-advisory': 35,
+    })
   })
 
   it('threads a single business-type segment as a 100% benchmark mix', () => {

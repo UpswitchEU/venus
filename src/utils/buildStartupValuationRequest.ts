@@ -20,7 +20,10 @@ import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { getCurrentFilingYear } from './fiscalYear'
 import { getMercuryUrl } from './getMercuryUrl'
-import { normalizeBusinessTypeSegments } from './normalizeBusinessTypeSegments'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from './normalizeBusinessTypeSegments'
 
 export interface BuildStartupValuationRequestOptions {
   companyName: string
@@ -32,6 +35,8 @@ export interface BuildStartupValuationRequestOptions {
   naceDescription?: string
   businessTypeId?: string
   businessTypeSegments?: BusinessTypeSegmentInput[]
+  businessTypeMix?: BusinessTypeSegmentInput[]
+  businessTypeWeights?: Record<string, number | string | null | undefined>
   businessType?: string
   startupInputs: Record<string, unknown>
   locale?: 'nl' | 'en' | 'fr'
@@ -78,6 +83,8 @@ export function buildStartupValuationRequest({
   naceDescription,
   businessTypeId,
   businessTypeSegments,
+  businessTypeMix,
+  businessTypeWeights,
   businessType,
   startupInputs,
   locale,
@@ -89,7 +96,12 @@ export function buildStartupValuationRequest({
     normalizedBusinessTypeId && !isLegalFormBusinessTypeValue(normalizedBusinessTypeId)
       ? normalizedBusinessTypeId
       : undefined
-  const cleanBusinessTypeSegments = normalizeBusinessTypeSegments(businessTypeSegments)
+  const cleanBusinessTypeSegments = resolveBusinessTypeSegments({
+    business_type_segments: businessTypeSegments,
+    business_type_mix: businessTypeMix,
+    business_type_weights: businessTypeWeights,
+  })
+  const cleanBusinessTypeWeights = businessTypeWeightsFromSegments(cleanBusinessTypeSegments)
   const filingYear = getCurrentFilingYear()
   const cleanFoundingYear = (() => {
     const year = Number(foundingYear)
@@ -110,7 +122,11 @@ export function buildStartupValuationRequest({
     ...(naceDescription ? { nace_description: naceDescription } : {}),
     ...(cleanBusinessTypeId ? { business_type_id: cleanBusinessTypeId } : {}),
     ...(cleanBusinessTypeSegments.length > 0
-      ? { business_type_segments: cleanBusinessTypeSegments }
+      ? {
+          business_type_segments: cleanBusinessTypeSegments,
+          business_type_mix: cleanBusinessTypeSegments,
+          business_type_weights: cleanBusinessTypeWeights,
+        }
       : {}),
     ...(businessType ? { business_type: businessType } : {}),
 

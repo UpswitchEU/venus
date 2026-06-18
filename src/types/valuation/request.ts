@@ -244,6 +244,8 @@ export interface ValuationRequest {
   // NEW: PostgreSQL business type integration
   business_type_id?: string // PostgreSQL business type ID
   business_type_segments?: BusinessTypeSegmentInput[]
+  business_type_mix?: BusinessTypeSegmentInput[]
+  business_type_weights?: Record<string, number | string | null | undefined>
   business_context?: {
     dcfPreference?: number // 0-1: Weight for DCF methodology
     multiplesPreference?: number // 0-1: Weight for Multiples methodology
