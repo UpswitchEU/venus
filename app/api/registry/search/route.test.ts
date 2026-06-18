@@ -68,6 +68,53 @@ describe('POST /api/registry/search', () => {
     })
   })
 
+  it('passes Titan multi business-type enrichment through unchanged', async () => {
+    const enrichedResponse = {
+      success: true,
+      results: [
+        {
+          company_id: '0631747439',
+          company_name: 'Boekhoudkantoor Venus',
+          registration_number: '0631747439',
+          country_code: 'BE',
+          nace_code: '69.201',
+          nace_codes: ['69.201', '70.220'],
+          business_type_id: 'accounting_firm',
+          business_type_title: 'Accounting firm',
+          business_type_candidates: [
+            {
+              nace_code: '69.201',
+              business_type_id: 'accounting_firm',
+              business_type_title: 'Accounting firm',
+              is_primary: true,
+            },
+            {
+              nace_code: '70.220',
+              business_type_id: 'business_consulting',
+              business_type_title: 'Business consulting',
+              is_primary: false,
+            },
+          ],
+          default_business_type_id: 'accounting_firm',
+          requires_segment_confirmation: true,
+        },
+      ],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(enrichedResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    )
+
+    const res = await POST(makeRequest({ company_name: 'Boekhoudkantoor Venus' }))
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual(enrichedResponse)
+  })
+
   it('falls back to v1 when v2 returns 404', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>
     fetchMock
