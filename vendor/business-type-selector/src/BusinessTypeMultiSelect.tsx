@@ -271,29 +271,37 @@ export function BusinessTypeMultiSelect({
 					className='mb-3 flex flex-wrap gap-2'
 					aria-label={copy.selectedLabel}
 				>
-					{selectedOptions.map((option) => (
-						<span
-							key={option.id}
-							className='inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-sm text-blue-950'
-						>
-							<span aria-hidden='true'>{option.icon || ''}</span>
-							<span className='truncate'>{option.title}</span>
-							{option.categoryLabel && (
-								<span className='rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] uppercase text-blue-800'>
-									{option.categoryLabel}
-								</span>
-							)}
-							<button
-								type='button'
-								onClick={() => clearOption(option.id)}
-								className='ml-1 rounded-full px-1 text-blue-700 hover:bg-blue-100'
-								aria-label={`${copy.clearSelection}: ${option.title}`}
-								disabled={disabled}
+					{selectedOptions.map((option) => {
+						const multipleLabel = formatMultiple(option.primaryMultiple);
+						return (
+							<span
+								key={option.id}
+								className='inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-sm text-blue-950'
 							>
-								x
-							</button>
-						</span>
-					))}
+								<span aria-hidden='true'>{option.icon || ''}</span>
+								<span className='truncate'>{option.title}</span>
+								{showMultiples && multipleLabel && (
+									<span className='rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-blue-900'>
+										{multipleLabel}
+									</span>
+								)}
+								{option.categoryLabel && (
+									<span className='rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] uppercase text-blue-800'>
+										{option.categoryLabel}
+									</span>
+								)}
+								<button
+									type='button'
+									onClick={() => clearOption(option.id)}
+									className='ml-1 rounded-full px-1 text-blue-700 hover:bg-blue-100'
+									aria-label={`${copy.clearSelection}: ${option.title}`}
+									disabled={disabled}
+								>
+									x
+								</button>
+							</span>
+						);
+					})}
 				</div>
 			)}
 

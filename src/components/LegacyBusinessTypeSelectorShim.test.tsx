@@ -64,6 +64,6 @@ describe('legacy business type selector shims', () => {
     expect(container.querySelector('.relative.border.rounded-xl.shadow-sm')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Boekhoudkantoor' }))
-    expect(screen.getByText(/EV\/EBITDA 5.4x/)).toBeInTheDocument()
+    expect(screen.getAllByText(/EV\/EBITDA 5.4x/).length).toBeGreaterThan(0)
   })
 })
