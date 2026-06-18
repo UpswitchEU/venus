@@ -6,11 +6,17 @@
  * Dependency Inversion: Depends on API abstraction
  */
 
-import type { IndustryCode, ValuationRequest, YearDataInput } from '../../types/valuation'
+import type {
+  BusinessTypeSegmentInput,
+  IndustryCode,
+  ValuationRequest,
+  YearDataInput,
+} from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
+import { normalizeBusinessTypeSegments } from '../../utils/normalizeBusinessTypeSegments'
 
 const businessCardLogger = createContextLogger('BusinessCardService')
 
@@ -18,6 +24,9 @@ export interface BusinessCardData {
   company_name?: string
   industry?: string
   business_type_id?: string
+  business_type_mix?: BusinessTypeSegmentInput[]
+  business_type_segments?: BusinessTypeSegmentInput[]
+  business_type_weights?: Record<string, number | string | null | undefined>
   revenue?: number
   employee_count?: number
   country_code?: string
@@ -31,6 +40,19 @@ export interface BusinessCardData {
 export interface BusinessCardService {
   fetchBusinessCard(token: string): Promise<BusinessCardData>
   transformToValuationRequest(businessCard: BusinessCardData): Partial<ValuationRequest>
+}
+
+function segmentsFromWeights(
+  weights: BusinessCardData['business_type_weights']
+): BusinessTypeSegmentInput[] {
+  if (!weights || typeof weights !== 'object' || Array.isArray(weights)) return []
+  return Object.entries(weights)
+    .flatMap(([businessTypeId, weight]) => {
+      const normalizedId = normalizeBusinessTypeId(businessTypeId)
+      if (!normalizedId) return []
+      return [{ business_type_id: normalizedId, weight: weight ?? null }]
+    })
+    .sort((a, b) => Number(b.weight ?? 0) - Number(a.weight ?? 0))
 }
 
 class BusinessCardServiceImpl implements BusinessCardService {
@@ -105,7 +127,19 @@ class BusinessCardServiceImpl implements BusinessCardService {
       valuationRequest.industry = businessCard.industry as IndustryCode
     }
 
-    const businessTypeId = normalizeBusinessTypeId(businessCard.business_type_id)
+    const businessTypeSegments = normalizeBusinessTypeSegments(
+      businessCard.business_type_segments ??
+        businessCard.business_type_mix ??
+        segmentsFromWeights(businessCard.business_type_weights)
+    )
+    const primaryBusinessTypeId = businessTypeSegments[0]?.business_type_id
+    if (businessTypeSegments.length > 0) {
+      valuationRequest.business_type_segments = businessTypeSegments
+    }
+
+    const businessTypeId = normalizeBusinessTypeId(
+      businessCard.business_type_id ?? primaryBusinessTypeId
+    )
     if (businessTypeId) {
       valuationRequest.business_type_id = businessTypeId
     }

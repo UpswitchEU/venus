@@ -832,6 +832,7 @@ describe('buildValuationRequest', () => {
             basis: 'EBITDA',
             earnings: '700000',
             multiple: 4.2,
+            weight: '70',
           },
           {
             business_type_id: 'transport',
@@ -839,6 +840,7 @@ describe('buildValuationRequest', () => {
             earnings_basis: 'Revenue',
             earnings: '300000',
             multiple: '1.1',
+            weight: 30,
           },
         ],
       }),
@@ -853,6 +855,7 @@ describe('buildValuationRequest', () => {
         earnings_basis: 'EBITDA',
         earnings: 700000,
         multiple: 4.2,
+        weight: 70,
       },
       {
         business_type_id: 'transport',
@@ -861,11 +864,12 @@ describe('buildValuationRequest', () => {
         earnings_basis: 'Revenue',
         earnings: 300000,
         multiple: 1.1,
+        weight: 30,
       },
     ])
   })
 
-  it('does not serialize a stale single business type segment', () => {
+  it('forwards a single business type segment as a 100% benchmark mix', () => {
     const result = buildValuationRequest(
       makeFormData({
         business_type_id: 'recycling',
@@ -882,7 +886,16 @@ describe('buildValuationRequest', () => {
       []
     )
 
-    expect(result.business_type_segments).toBeUndefined()
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'recycling',
+        business_type_title: 'Recycling Services',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        earnings: 700000,
+        multiple: 4.2,
+      },
+    ])
   })
 
   it('drops zero-revenue historical rows even when normalization metadata targets them', () => {

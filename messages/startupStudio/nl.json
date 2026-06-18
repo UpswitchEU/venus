@@ -240,6 +240,7 @@
 		"calculating": "Berekenen…",
 		"generate": "Genereer startup-waardering",
 		"hintMissingCompany": "Vul eerst de bedrijfsnaam bovenaan in om je rapport te genereren.",
+		"hintMissingBusinessType": "Selecteer minstens één bedrijfstype zodat de waardering de juiste benchmarkmix gebruikt.",
 		"hintMissingMilestone": "Kies minstens één mijlpaal in “Risico-reductie” voor een verdedigbare waardering.",
 		"hintBlockerIssues": "{count, plural, one {# blocker} other {# blockers}} moeten worden opgelost voordat het rapport kan worden gegenereerd — open de assistent om te zien wat."
 	},

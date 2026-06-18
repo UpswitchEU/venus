@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { BASE_SPARSE_BACKFILL_KEYS } from '../SessionSparseBackfill'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BASE_SPARSE_BACKFILL_KEYS, fetchBusinessCardData } from '../SessionSparseBackfill'
 
 /**
  * Contract: Hermes/integration blobs must stay in BASE_SPARSE_BACKFILL_KEYS so
@@ -12,6 +12,9 @@ const REQUIRED = [
   'canonical_nace_code',
   'taxonomy',
   'subIndustry',
+  'business_type_segments',
+  'business_type_mix',
+  'business_type_weights',
   '_import_quality',
   'import_quality',
   '_financial_data_source',
@@ -22,7 +25,45 @@ const REQUIRED = [
 ] as const
 
 describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it.each(REQUIRED)('includes %s', (key) => {
     expect(BASE_SPARSE_BACKFILL_KEYS).toContain(key)
+  })
+
+  it('parses weighted business-type mix from Titan business-card responses', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        company_name: 'Boekhoudkantoor Venus',
+        business_type_id: 'accounting',
+        business_type_segments: [
+          { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+          {
+            business_type_id: 'tax-advisory',
+            business_type_title: 'Tax advisory',
+            weight: 35,
+          },
+        ],
+      }),
+    } as Response)
+
+    await expect(fetchBusinessCardData('client-123456')).resolves.toMatchObject({
+      business_type_id: 'accounting',
+      business_type_segments: [
+        { business_type_id: 'accounting', business_type_title: 'Accounting', weight: 65 },
+        {
+          business_type_id: 'tax-advisory',
+          business_type_title: 'Tax advisory',
+          weight: 35,
+        },
+      ],
+      business_type_weights: {
+        accounting: 65,
+        'tax-advisory': 35,
+      },
+    })
   })
 })

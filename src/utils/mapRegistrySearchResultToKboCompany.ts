@@ -102,14 +102,62 @@ function parseBusinessTypeCandidates(
     if (!id) return []
     const titleRaw = raw.business_type_title ?? raw.title
     const naceRaw = raw.nace_code ?? raw.naceCode
+    const weight = parseNumber(
+      raw.weight ??
+        raw.business_type_weight ??
+        raw.businessTypeWeight ??
+        raw.normalized_weight ??
+        raw.normalizedWeight ??
+        raw.allocation ??
+        raw.share
+    )
+    const primaryMultiple = parsePrimaryMultiple(raw.primary_multiple ?? raw.primaryMultiple)
     return [
       {
         id,
         ...(typeof titleRaw === 'string' && titleRaw.trim() ? { title: titleRaw.trim() } : {}),
         ...(typeof naceRaw === 'string' && naceRaw.trim() ? { naceCode: naceRaw.trim() } : {}),
+        ...(weight !== undefined ? { weight } : {}),
+        ...(primaryMultiple ? { primaryMultiple } : {}),
       },
     ]
   })
+}
+
+function parseNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+function parseString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function parsePrimaryMultiple(
+  value: unknown
+): NonNullable<
+  NonNullable<KBOCompany['businessTypeCandidates']>[number]['primaryMultiple']
+> | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const median = parseNumber(raw.median)
+  if (median === undefined) return null
+  const lowSampleSuppressed =
+    raw.lowSampleSuppressed === true || raw.low_sample_suppressed === true ? true : undefined
+
+  return {
+    median,
+    ...(parseString(raw.metric) ? { metric: parseString(raw.metric) } : {}),
+    ...(parseString(raw.label) ? { label: parseString(raw.label) } : {}),
+    ...(parseNumber(raw.p25) !== undefined ? { p25: parseNumber(raw.p25) } : {}),
+    ...(parseNumber(raw.p75) !== undefined ? { p75: parseNumber(raw.p75) } : {}),
+    ...(parseString(raw.basis) ? { basis: parseString(raw.basis) } : {}),
+    ...(lowSampleSuppressed !== undefined ? { lowSampleSuppressed } : {}),
+  }
 }
 
 function dedupeStrings(values: Array<string | undefined | null>): string[] {

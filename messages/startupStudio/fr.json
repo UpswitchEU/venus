@@ -240,6 +240,7 @@
 		"calculating": "Calcul…",
 		"generate": "Générer une valorisation startup",
 		"hintMissingCompany": "Ajoutez le nom de l'entreprise ci-dessus pour débloquer la génération de rapports.",
+		"hintMissingBusinessType": "Sélectionnez au moins un type d'entreprise afin que la valorisation utilise le bon mix de références.",
 		"hintMissingMilestone": "Choisissez au moins une étape dans la « Réduction des risques » pour une évaluation défendable.",
 		"hintBlockerIssues": "{count, plural, one {#bloqueur} other {#bloqueurs}}doit être corrigé avant que le rapport puisse être expédié – ouvrez l'assistant pour voir quoi."
 	},

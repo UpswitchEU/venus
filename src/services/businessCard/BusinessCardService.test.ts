@@ -39,4 +39,53 @@ describe('BusinessCardService', () => {
       ebitda: 0,
     })
   })
+
+  it('maps weighted business-card mix into canonical valuation segments', () => {
+    const result = businessCardService.transformToValuationRequest({
+      company_name: 'Boekhoudkantoor Venus',
+      business_type_id: 'accounting',
+      business_type_mix: [
+        {
+          business_type_id: 'accounting',
+          business_type_title: 'Accounting',
+          weight: 65,
+        },
+        {
+          business_type_id: 'tax-advisory',
+          business_type_title: 'Tax advisory',
+          weight: 35,
+        },
+      ],
+    })
+
+    expect(result.business_type_id).toBe('accounting')
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'accounting',
+        business_type_title: 'Accounting',
+        weight: 65,
+      },
+      {
+        business_type_id: 'tax-advisory',
+        business_type_title: 'Tax advisory',
+        weight: 35,
+      },
+    ])
+  })
+
+  it('derives business-card segments from compact weights when no list is present', () => {
+    const result = businessCardService.transformToValuationRequest({
+      company_name: 'Weighted Co',
+      business_type_weights: {
+        consulting: '0.4',
+        software: '0.6',
+      },
+    })
+
+    expect(result.business_type_id).toBe('software')
+    expect(result.business_type_segments).toEqual([
+      { business_type_id: 'software', weight: 0.6 },
+      { business_type_id: 'consulting', weight: 0.4 },
+    ])
+  })
 })

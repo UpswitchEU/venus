@@ -179,6 +179,9 @@ export function useManualSubmitController({
         {
           ...data,
           businessTypeId: submittedBusinessTypeId,
+          business_type_id: storeFormDataBeforeSubmit.business_type_id,
+          business_type_segments:
+            data.business_type_segments ?? storeFormDataBeforeSubmit.business_type_segments,
         },
         effectiveMethod
       )

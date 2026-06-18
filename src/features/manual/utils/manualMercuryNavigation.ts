@@ -371,13 +371,13 @@ export function buildManualImportReviewTarget({
   mercuryUrl,
 }: BuildManualImportReviewTargetParams): { targetPath: string; targetUrl: string } {
   const locale = getManualMercuryLocale(currentLocale)
-  const qs = new URLSearchParams({ import_review: '1' })
+  const qs = new URLSearchParams({ clientId: relationshipId })
   const pendingImportReviewKey = getManualImportReviewSessionKey(resolvedReportId)
   if (pendingImportReviewKey) {
-    qs.set('session_key', pendingImportReviewKey)
+    qs.set('sessionKey', pendingImportReviewKey)
   }
 
-  const targetPath = `/${locale}/advisor/clients/${encodeURIComponent(relationshipId)}?${qs}`
+  const targetPath = `/${locale}/advisor/import-review?${qs}`
   return {
     targetPath,
     targetUrl: `${normalizeMercuryBaseUrl(mercuryUrl)}${targetPath}`,

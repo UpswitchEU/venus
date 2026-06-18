@@ -1215,7 +1215,7 @@ export function buildValuationRequest(
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
     ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
-    ...(businessTypeSegments.length > 1 ? { business_type_segments: businessTypeSegments } : {}),
+    ...(businessTypeSegments.length > 0 ? { business_type_segments: businessTypeSegments } : {}),
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,

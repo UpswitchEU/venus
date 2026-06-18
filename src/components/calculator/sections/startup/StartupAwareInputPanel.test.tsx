@@ -98,6 +98,8 @@ vi.mock('next-intl', () => ({
       calculating: 'Calculating…',
       generate: 'Generate startup valuation',
       hintMissingCompany: 'Add the company name above to unlock report generation.',
+      hintMissingBusinessType:
+        'Select at least one business type so the valuation can use the right benchmark mix.',
       hintMissingMilestone:
         'Pick at least one milestone in “Risk reduction” for a defensible valuation.',
     }

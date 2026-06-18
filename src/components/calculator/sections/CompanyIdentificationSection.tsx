@@ -140,18 +140,28 @@ export function CompanyIdentificationSection({
       naceCode,
       basis,
       multiple,
+      primaryMultiple,
     }: {
       id?: string | null
       title?: string | null
       naceCode?: string | null
       basis?: string | null
       multiple?: unknown
+      primaryMultiple?: SharedBusinessTypeOption['primaryMultiple']
     }) => {
       const cleanId = id?.trim()
       if (!cleanId || seen.has(cleanId)) return
       seen.add(cleanId)
       const median = finiteNumber(multiple)
       const cleanBasis = basis?.trim() || undefined
+      const derivedPrimaryMultiple =
+        median !== undefined
+          ? {
+              label: multipleLabelForBasis(cleanBasis) ?? cleanBasis ?? 'Multiple',
+              basis: cleanBasis,
+              median,
+            }
+          : undefined
 
       options.push({
         id: cleanId,
@@ -160,14 +170,7 @@ export function CompanyIdentificationSection({
         categoryId: 'kbo-nace',
         categoryLabel: 'KBO/NACE',
         naceCodes: naceCode?.trim() ? [naceCode.trim()] : undefined,
-        primaryMultiple:
-          median !== undefined
-            ? {
-                label: multipleLabelForBasis(cleanBasis) ?? cleanBasis ?? 'Multiple',
-                basis: cleanBasis,
-                median,
-              }
-            : undefined,
+        primaryMultiple: primaryMultiple ?? derivedPrimaryMultiple,
       })
     }
 
@@ -178,6 +181,7 @@ export function CompanyIdentificationSection({
         naceCode: segment.nace_code ?? kboCandidateById.get(segment.business_type_id)?.naceCode,
         basis: segment.basis ?? segment.earnings_basis,
         multiple: segment.multiple ?? segment.applied_multiple,
+        primaryMultiple: kboCandidateById.get(segment.business_type_id)?.primaryMultiple,
       })
     }
 
@@ -192,6 +196,7 @@ export function CompanyIdentificationSection({
         naceCode: selectedCompany?.canonicalNaceCode ?? selectedCompany?.naceCode,
         basis: selectedSegments[0]?.basis ?? selectedSegments[0]?.earnings_basis,
         multiple: selectedSegments[0]?.multiple ?? selectedSegments[0]?.applied_multiple,
+        primaryMultiple: primaryId ? kboCandidateById.get(primaryId)?.primaryMultiple : undefined,
       })
     }
 
@@ -201,6 +206,7 @@ export function CompanyIdentificationSection({
         id,
         title: candidate?.title,
         naceCode: candidate?.naceCode,
+        primaryMultiple: candidate?.primaryMultiple,
       })
     }
 
@@ -221,6 +227,22 @@ export function CompanyIdentificationSection({
         ? {
             ...segment,
             earnings: earnings.trim() ? earnings : null,
+          }
+        : segment
+    )
+    updateField(
+      'business_type_segments',
+      nextSegments as ManualValuationFormData['business_type_segments']
+    )
+    updateFormData({ business_type_segments: nextSegments })
+  }
+
+  const updateSegmentWeight = (index: number, weight: string) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
+      segmentIndex === index
+        ? {
+            ...segment,
+            weight: weight.trim() ? weight : null,
           }
         : segment
     )
@@ -378,7 +400,7 @@ export function CompanyIdentificationSection({
             )}
             {selectedSegments.length > 1 && (
               <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
-                <div className="mb-2 text-xs font-semibold text-foreground">Segment earnings</div>
+                <div className="mb-2 text-xs font-semibold text-foreground">Segment weighting</div>
                 <div className="space-y-3">
                   {selectedSegments.map((segment, index) => {
                     const basis = segment.basis ?? segment.earnings_basis
@@ -387,11 +409,15 @@ export function CompanyIdentificationSection({
                         ? segment.multiple
                         : segment.applied_multiple
                     const multipleNumber = Number(multiple)
+                    const weightValue =
+                      segment.weight != null
+                        ? segment.weight
+                        : Number((100 / selectedSegments.length).toFixed(2))
 
                     return (
                       <div
                         key={`${segment.business_type_id}-${index}`}
-                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_180px]"
+                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_120px_180px]"
                       >
                         <div className="min-w-0 self-center">
                           <div className="truncate text-sm font-medium text-foreground">
@@ -410,6 +436,18 @@ export function CompanyIdentificationSection({
                             )}
                           </div>
                         </div>
+                        <AuroraNumberInput
+                          label="Weight"
+                          placeholder="Auto"
+                          name={`business_type_segments.${index}.weight`}
+                          value={weightValue}
+                          onChange={(event) => updateSegmentWeight(index, event.target.value)}
+                          min={0}
+                          max={100}
+                          step={5}
+                          suffix="%"
+                          allowDecimals
+                        />
                         <AuroraNumberInput
                           label={basis ? `${basis} earnings` : 'Segment earnings'}
                           placeholder="0"

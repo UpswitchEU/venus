@@ -133,12 +133,14 @@ describe('useManualCompanyIdentificationController', () => {
             business_type_title: 'Accounting practice',
             basis: 'EBITDA',
             multiple: 5.4,
+            weight: 50,
           }),
           expect.objectContaining({
             business_type_id: 'tax-advisory',
             business_type_title: 'Tax advisory',
             basis: 'EBITDA',
             multiple: 6.1,
+            weight: 50,
           }),
         ],
       })
@@ -151,10 +153,30 @@ describe('useManualCompanyIdentificationController', () => {
       businessType: 'accounting',
       business_type_id: 'accounting',
       business_type_segments: [
-        expect.objectContaining({ business_type_id: 'accounting', multiple: 5.4 }),
-        expect.objectContaining({ business_type_id: 'tax-advisory', multiple: 6.1 }),
+        expect.objectContaining({ business_type_id: 'accounting', multiple: 5.4, weight: 50 }),
+        expect.objectContaining({ business_type_id: 'tax-advisory', multiple: 6.1, weight: 50 }),
       ],
     })
+  })
+
+  it('stores a single selected business type as a 100% segment', () => {
+    const { result, updateFormData } = renderController(baseFormData)
+
+    act(() => {
+      result.current.handleBusinessTypeSelectionChange(['accounting'], [accountingType])
+    })
+
+    expect(updateFormData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_type_id: 'accounting',
+        business_type_segments: [
+          expect.objectContaining({
+            business_type_id: 'accounting',
+            weight: 100,
+          }),
+        ],
+      })
+    )
   })
 
   it('applies KBO-resolved multiple business types without falling back to single NACE prefill', async () => {
@@ -174,8 +196,8 @@ describe('useManualCompanyIdentificationController', () => {
         countryCode: 'BE',
         businessTypeIds: ['accounting', 'tax-advisory'],
         businessTypeCandidates: [
-          { id: 'accounting', title: 'Accounting practice', naceCode: '69201' },
-          { id: 'tax-advisory', title: 'Tax advisory', naceCode: '69202' },
+          { id: 'accounting', title: 'Accounting practice', naceCode: '69201', weight: 70 },
+          { id: 'tax-advisory', title: 'Tax advisory', naceCode: '69202', weight: 30 },
         ],
       })
     })
@@ -185,8 +207,8 @@ describe('useManualCompanyIdentificationController', () => {
       expect.objectContaining({
         business_type_id: 'accounting',
         business_type_segments: [
-          expect.objectContaining({ business_type_id: 'accounting' }),
-          expect.objectContaining({ business_type_id: 'tax-advisory' }),
+          expect.objectContaining({ business_type_id: 'accounting', weight: 70 }),
+          expect.objectContaining({ business_type_id: 'tax-advisory', weight: 30 }),
         ],
       })
     )

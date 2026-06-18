@@ -30,20 +30,31 @@ export interface ManualSubmitValidationData {
   businessTypeCode?: string | null
   businessTypeId?: string | null
   business_type_id?: string | null
+  business_type_segments?: Array<{ business_type_id?: string | null } | null> | null
   yearlyFinancials?: YearlyFinancialLike[] | null
 }
 
-function hasResolvedBusinessType(data: ManualSubmitValidationData): boolean {
-  return Boolean(
-    data.businessType?.trim() ||
+function hasResolvedBusinessType(
+  data: ManualSubmitValidationData,
+  options: { allowLooseBusinessTypeLabel?: boolean } = {}
+): boolean {
+  const hasSegment = data.business_type_segments?.some((segment) =>
+    Boolean(segment?.business_type_id?.trim())
+  )
+  const hasCanonicalIdentity = Boolean(
+    hasSegment ||
       data.businessTypeCode?.trim() ||
       data.businessTypeId?.trim() ||
       data.business_type_id?.trim()
   )
+  if (hasCanonicalIdentity) return true
+  if (!options.allowLooseBusinessTypeLabel) return false
+  return Boolean(data.businessType?.trim())
 }
 
 /**
- * Validates only the minimum submit blockers. Venture-path methods skip SME
+ * Validates only the minimum submit blockers. Every valuation path needs a
+ * resolved business-type identity; venture-path methods only skip SME
  * historical-financial blockers because their engine is milestone driven.
  */
 export function getManualSubmitValidationIssue(
@@ -52,9 +63,13 @@ export function getManualSubmitValidationIssue(
 ): ManualSubmitValidationIssue | null {
   if (!data.companyName?.trim()) return 'companyNameMissing'
 
-  if (isVenturePathMethodKey(effectiveMethod)) return null
+  const isVenturePath = isVenturePathMethodKey(effectiveMethod)
+  if (!hasResolvedBusinessType(data, { allowLooseBusinessTypeLabel: !isVenturePath })) {
+    return 'businessTypeMissing'
+  }
 
-  if (!hasResolvedBusinessType(data)) return 'businessTypeMissing'
+  if (isVenturePath) return null
+
   if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials ?? [])) {
     return 'financialDataIncomplete'
   }

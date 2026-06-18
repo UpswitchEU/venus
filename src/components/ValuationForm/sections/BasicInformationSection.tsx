@@ -173,12 +173,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       formData.business_type_segments
         ?.map((segment) => normalizeBusinessTypeId(segment.business_type_id))
         .filter((id): id is string => Boolean(id)) ?? []
-    if (segmentIds.length > 1) return segmentIds
+    if (segmentIds.length > 0) return segmentIds
     return formData.business_type_id ? [formData.business_type_id] : []
   }, [formData.business_type_id, formData.business_type_segments])
-  const visibleBusinessTypeIds = expertModeEnabled
-    ? selectedBusinessTypeIds
-    : selectedBusinessTypeIds.slice(0, 1)
+  const visibleBusinessTypeIds = selectedBusinessTypeIds
 
   const selectedSegments = formData.business_type_segments ?? []
 
@@ -188,6 +186,18 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         ? {
             ...segment,
             earnings: earnings.trim() ? earnings : null,
+          }
+        : segment
+    )
+    updateFormData({ business_type_segments: nextSegments })
+  }
+
+  const updateSegmentWeight = (index: number, weight: string) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
+      segmentIndex === index
+        ? {
+            ...segment,
+            weight: weight.trim() ? weight : null,
           }
         : segment
     )
@@ -235,13 +245,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     }
 
     useManualResultsStore.getState().clearResults()
-    const segmentPatch =
-      selectedBusinessTypes.length > 1
-        ? buildBusinessTypeSegmentsFormData(
-            selectedBusinessTypes,
-            formData.business_type_segments as BusinessTypeSegmentInput[] | undefined
-          )
-        : { business_type_segments: [] }
+    const segmentPatch = buildBusinessTypeSegmentsFormData(
+      selectedBusinessTypes,
+      formData.business_type_segments as BusinessTypeSegmentInput[] | undefined
+    )
 
     updateFormData({
       ...buildBusinessTypeFormData(primaryBusinessType),
@@ -587,7 +594,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             value={visibleBusinessTypeIds}
             onChange={() => undefined}
             onSelectionChange={handleBusinessTypeSelectionChange}
-            selectionMode={expertModeEnabled ? 'multiple' : 'single'}
+            selectionMode="multiple"
             showPreview={visibleBusinessTypeIds.length <= 1}
             className={businessTypesLoading ? 'pointer-events-none opacity-60' : ''}
           />
@@ -598,10 +605,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           )}
         </AuroraFullWidthField>
 
-        {expertModeEnabled && selectedSegments.length > 1 && (
+        {selectedSegments.length > 1 && (
           <AuroraFullWidthField>
             <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-4">
-              <div className="mb-3 text-sm font-semibold text-foreground">Segment earnings</div>
+              <div className="mb-3 text-sm font-semibold text-foreground">Segment weighting</div>
               <div className="space-y-3">
                 {selectedSegments.map((segment, index) => {
                   const basis = segment.basis ?? segment.earnings_basis
@@ -610,11 +617,15 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                       ? segment.multiple
                       : segment.applied_multiple
                   const multipleNumber = Number(multiple)
+                  const weightValue =
+                    segment.weight != null
+                      ? segment.weight
+                      : Number((100 / selectedSegments.length).toFixed(2))
 
                   return (
                     <div
                       key={`${segment.business_type_id}-${index}`}
-                      className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_220px]"
+                      className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_120px_220px]"
                     >
                       <div className="min-w-0 self-center">
                         <div className="truncate text-sm font-medium text-foreground">
@@ -633,6 +644,18 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                           )}
                         </div>
                       </div>
+                      <AuroraNumberInput
+                        label="Weight"
+                        placeholder="Auto"
+                        name={`business_type_segments.${index}.weight`}
+                        value={weightValue}
+                        onChange={(event) => updateSegmentWeight(index, event.target.value)}
+                        min={0}
+                        max={100}
+                        step={5}
+                        suffix="%"
+                        allowDecimals
+                      />
                       <AuroraNumberInput
                         label={basis ? `${basis} earnings` : 'Segment earnings'}
                         placeholder="0"

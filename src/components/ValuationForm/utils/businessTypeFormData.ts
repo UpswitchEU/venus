@@ -80,6 +80,71 @@ function firstSegmentEarnings(segment?: BusinessTypeSegmentInput): number | stri
   )
 }
 
+function normalizeWeightToPercent(value: unknown): number | undefined {
+  const numeric = finiteNumber(value)
+  if (numeric === undefined || numeric < 0) return undefined
+  return numeric <= 1 ? numeric * 100 : numeric
+}
+
+function roundPercent(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function rebalanceWeightsToHundred(weights: number[]): number[] {
+  if (weights.length === 0) return []
+
+  const rounded = weights.map((weight) => roundPercent(Math.max(0, weight)))
+  const total = rounded.reduce((sum, weight) => sum + weight, 0)
+  const diff = roundPercent(100 - total)
+  if (Math.abs(diff) < 0.01) return rounded
+
+  const targetIndex = rounded.reduce(
+    (bestIndex, weight, index) => (weight > rounded[bestIndex] ? index : bestIndex),
+    0
+  )
+  return rounded.map((weight, index) => (index === targetIndex ? roundPercent(weight + diff) : weight))
+}
+
+function equalWeights(count: number): number[] {
+  if (count <= 0) return []
+  return rebalanceWeightsToHundred(Array.from({ length: count }, () => 100 / count))
+}
+
+function resolveSegmentWeights(
+  businessTypes: BusinessTypeFormSource[],
+  existingById: Map<string, BusinessTypeSegmentInput>
+): number[] {
+  if (businessTypes.length <= 1) return businessTypes.length === 1 ? [100] : []
+
+  const rawWeights = businessTypes.map((businessType) => {
+    const businessTypeId = normalizeBusinessTypeId(businessType.id) ?? businessType.id
+    const existing = existingById.get(businessTypeId)
+    return normalizeWeightToPercent(existing?.weight ?? businessType.suggestedWeight)
+  })
+
+  if (rawWeights.every((weight) => weight === undefined)) {
+    return equalWeights(businessTypes.length)
+  }
+
+  const knownTotal = rawWeights.reduce<number>((sum, weight) => sum + (weight ?? 0), 0)
+  const missingCount = rawWeights.filter((weight) => weight === undefined).length
+  if (missingCount > 0 && knownTotal > 0 && knownTotal < 100) {
+    const missingWeight = (100 - knownTotal) / missingCount
+    return rebalanceWeightsToHundred(
+      rawWeights.map((weight) => (weight === undefined ? missingWeight : weight))
+    )
+  }
+
+  const fallbackWeight = 100 / businessTypes.length
+  const relativeWeights = rawWeights.map((weight) => weight ?? fallbackWeight)
+  const relativeTotal = relativeWeights.reduce((sum, weight) => sum + Math.max(0, weight), 0)
+  if (relativeTotal <= 0) return equalWeights(businessTypes.length)
+
+  return rebalanceWeightsToHundred(
+    relativeWeights.map((weight) => (Math.max(0, weight) / relativeTotal) * 100)
+  )
+}
+
 export function uniqueBusinessTypeIds(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -101,7 +166,7 @@ export function selectedBusinessTypeIdsFromFormData(
     formData.business_type_segments
       ?.map((segment) => segment.business_type_id)
       .filter((id): id is string => typeof id === 'string' && id.trim().length > 0) ?? []
-  if (segmentIds.length > 1) return uniqueBusinessTypeIds(segmentIds)
+  if (segmentIds.length > 0) return uniqueBusinessTypeIds(segmentIds)
   return uniqueBusinessTypeIds([formData.business_type_id, formData.businessType])
 }
 
@@ -121,6 +186,7 @@ function getBusinessTypeTitleFromCompany(company: KBOCompany, id: string): strin
 
 function buildFallbackBusinessTypeFromCompany(company: KBOCompany, id: string): BusinessType {
   const title = getBusinessTypeTitleFromCompany(company, id)
+  const candidate = company.businessTypeCandidates?.find((item) => item.id === id)
   return {
     id,
     title,
@@ -131,6 +197,8 @@ function buildFallbackBusinessTypeFromCompany(company: KBOCompany, id: string): 
     industryMapping: id,
     keywords: [],
     popular: false,
+    suggestedWeight: candidate?.weight,
+    ...(candidate?.primaryMultiple ? { primaryMultiple: candidate.primaryMultiple } : {}),
     status: 'active',
     createdAt: '',
     updatedAt: '',
@@ -171,9 +239,20 @@ export function resolveBusinessTypesFromKboCompany(
     ])
   )
 
-  return ids.map(
-    (id) => businessTypeById.get(id) ?? buildFallbackBusinessTypeFromCompany(company, id)
-  )
+  return ids.map((id) => {
+    const candidate = company.businessTypeCandidates?.find((item) => item.id === id)
+    const catalogBusinessType = businessTypeById.get(id)
+    if (catalogBusinessType) {
+      return {
+        ...catalogBusinessType,
+        ...(candidate?.primaryMultiple && !catalogBusinessType.primaryMultiple
+          ? { primaryMultiple: candidate.primaryMultiple }
+          : {}),
+        ...(candidate?.weight !== undefined ? { suggestedWeight: candidate.weight } : {}),
+      }
+    }
+    return buildFallbackBusinessTypeFromCompany(company, id)
+  })
 }
 
 export function buildBusinessTypeFormData(
@@ -208,9 +287,10 @@ export function buildBusinessTypeSegmentsFormData(
       return id ? [[id, segment] as const] : []
     })
   )
+  const weights = resolveSegmentWeights(businessTypes, existingById)
 
   return {
-    business_type_segments: businessTypes.map((businessType) => {
+    business_type_segments: businessTypes.map((businessType, index) => {
       const businessTypeId = normalizeBusinessTypeId(businessType.id) ?? businessType.id
       const existing = existingById.get(businessTypeId)
       const seed = primaryMultipleSeed(businessType)
@@ -223,7 +303,7 @@ export function buildBusinessTypeSegmentsFormData(
         ...(basis ? { basis, earnings_basis: basis } : {}),
         ...(earnings != null ? { earnings } : {}),
         ...(seed.multiple != null ? { multiple: seed.multiple } : {}),
-        ...(existing?.weight != null ? { weight: existing.weight } : {}),
+        weight: weights[index] ?? 100,
       }
     }),
   }

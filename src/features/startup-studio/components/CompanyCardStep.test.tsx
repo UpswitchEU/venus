@@ -252,14 +252,17 @@ describe('CompanyCardStep — identity bridge', () => {
           business_type_title: 'Accounting practice',
           basis: 'EBITDA',
           multiple: 5.4,
+          weight: 50,
         },
         {
           business_type_id: 'tax-advisory',
           business_type_title: 'Tax advisory',
           basis: 'EBITDA',
           multiple: 6.1,
+          weight: 50,
         },
       ],
     })
+    expect(screen.getAllByText('Weight')).toHaveLength(2)
   })
 })

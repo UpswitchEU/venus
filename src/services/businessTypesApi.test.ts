@@ -82,31 +82,48 @@ describe('businessTypesApiService', () => {
 
     const result = await businessTypesApiService.getBusinessTypes()
 
-    expect(result).toEqual([
-      {
-        id: 'vertical_ai',
-        title: 'Vertical AI Platform',
-        description: 'AI workflow automation.',
-        short_description: undefined,
-        icon: '\u{1F4A1}',
-        category: 'Software',
-        category_id: 'technology',
-        industryMapping: 'vertical_ai_software',
-        industry: undefined,
-        keywords: [],
-        popular: true,
-        dcfPreference: 0.7,
-        multiplesPreference: 0.3,
-        ownerDependencyImpact: 0.2,
-        keyMetrics: ['arr', 'nrr'],
-        typicalEmployeeRange: { min: 2, max: 40 },
-        typicalRevenueRange: { min: 100000, max: 5000000 },
-        status: 'active',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
-      },
-    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: 'vertical_ai',
+      title: 'Vertical AI Platform',
+      description: 'AI workflow automation.',
+      icon: '\u{1F4A1}',
+      category: 'Software',
+      category_id: 'technology',
+      industryMapping: 'vertical_ai_software',
+      keywords: [],
+      popular: true,
+      dcfPreference: 0.7,
+      multiplesPreference: 0.3,
+      ownerDependencyImpact: 0.2,
+      keyMetrics: ['arr', 'nrr'],
+      typicalEmployeeRange: { min: 2, max: 40 },
+      typicalRevenueRange: { min: 100000, max: 5000000 },
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    })
 
+    const cached = JSON.parse(
+      localStorage.getItem('upswitch_valuation_tester_business_types_cache') ?? '{}'
+    )
+    expect(cached.data.businessTypes).toEqual(result)
+  })
+
+  it('serves hardcoded fallback business types when the catalog endpoint is unavailable', async () => {
+    const { businessTypesApiService } = await import('./businessTypesApi')
+    mockApiGet.mockRejectedValue(new Error('backend offline'))
+
+    const result = await businessTypesApiService.getBusinessTypes()
+
+    expect(result.length).toBeGreaterThan(0)
+    expect(result).toContainEqual(
+      expect.objectContaining({
+        id: 'services',
+        title: 'Services',
+        category: 'Professional',
+      })
+    )
     const cached = JSON.parse(
       localStorage.getItem('upswitch_valuation_tester_business_types_cache') ?? '{}'
     )

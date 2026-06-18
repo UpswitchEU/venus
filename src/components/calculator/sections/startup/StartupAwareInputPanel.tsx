@@ -128,6 +128,33 @@ export interface AdvisorHandoff {
   source?: string
 }
 
+function hasResolvedStartupBusinessType(formData: ValuationFormData): boolean {
+  const businessTypeCode =
+    typeof (formData as { businessTypeCode?: unknown }).businessTypeCode === 'string'
+      ? ((formData as { businessTypeCode?: string }).businessTypeCode ?? '').trim()
+      : ''
+  return Boolean(
+    formData.business_type_id?.trim() ||
+      businessTypeCode ||
+      (formData.business_type_segments ?? []).some((segment) =>
+        Boolean(segment.business_type_id?.trim())
+      )
+  )
+}
+
+function getStartupBusinessTypeDisplay(formData: ValuationFormData): string {
+  const firstSegment = (formData.business_type_segments ?? []).find((segment) =>
+    Boolean(segment.business_type_id?.trim())
+  )
+  return (
+    formData.business_type_title?.trim() ||
+    firstSegment?.business_type_title?.trim() ||
+    formData.business_type_id?.trim() ||
+    firstSegment?.business_type_id?.trim() ||
+    'startup'
+  )
+}
+
 /**
  * Build the synthetic ``data`` payload that ``handleManualSubmit`` is
  * shaped to receive.  The startup engine derives value entirely from
@@ -146,10 +173,11 @@ export function buildStartupSubmitPayload(): StartupSubmitPayload {
     typeof fy === 'number' && Number.isFinite(fy) && fy >= 1900 && fy <= 2100
       ? fy
       : getCurrentFilingYear()
+  const businessTypeDisplay = getStartupBusinessTypeDisplay(formState)
   return {
     companyName: formState.company_name?.trim() || 'Unknown Startup',
-    businessType: formState.business_type ?? 'startup',
-    businessStructure: formState.business_type ?? 'startup',
+    businessType: businessTypeDisplay,
+    businessStructure: formState.business_type ?? 'company',
     industry: formState.industry ?? 'technology',
     business_model: formState.business_model ?? sector,
     businessModel: formState.business_model ?? sector,
@@ -190,6 +218,9 @@ export function StartupSubmitFooter({
   const params = useParams<{ locale?: string; id?: string }>()
   const t = useTranslations('startupStudio.submit')
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
+  const hasBusinessTypeIdentity = useManualFormStore((s) =>
+    hasResolvedStartupBusinessType(s.formData as ValuationFormData)
+  )
   // Reactive milestone-pick gate.  We subscribe to `maturity` so the
   // submit button flips from disabled → enabled the moment the founder
   // picks their first Berkus / Scorecard option, without waiting for
@@ -247,6 +278,7 @@ export function StartupSubmitFooter({
       if (!onSubmit) return false
       if (isCalculating) return false
       if (!companyName.trim()) return false
+      if (!hasBusinessTypeIdentity) return false
       if (!hasAnyMilestone) return false
       // A15 — extra blockers (e.g. positive pedigree flag with empty
       // evidence) also gate. The button is already disabled in this
@@ -257,7 +289,14 @@ export function StartupSubmitFooter({
       setReviewOpen(true)
       return true
     },
-    [onSubmit, isCalculating, companyName, hasAnyMilestone, hasExtraBlockers]
+    [
+      onSubmit,
+      isCalculating,
+      companyName,
+      hasBusinessTypeIdentity,
+      hasAnyMilestone,
+      hasExtraBlockers,
+    ]
   )
 
   const handleClick = useCallback(() => {
@@ -291,25 +330,33 @@ export function StartupSubmitFooter({
   }, [])
 
   const missingCompanyName = !companyName.trim()
+  const missingBusinessType = !hasBusinessTypeIdentity
   const missingMilestone = !hasAnyMilestone
   // Disabled state mirrors every gate the click handler enforces — so
   // a disabled button never silently no-ops on click (the silent no-op
   // pattern feels broken to the user).  A15 added blocker-issue gate.
-  const disabled = isCalculating || missingCompanyName || missingMilestone || hasExtraBlockers
+  const disabled =
+    isCalculating ||
+    missingCompanyName ||
+    missingBusinessType ||
+    missingMilestone ||
+    hasExtraBlockers
 
   // The helper text is mutually exclusive: company-name takes priority
   // because the founder typically lands at the top of the panel and
-  // hasn't scrolled down to the milestones yet.  Once they fill in the
-  // identity, the milestone hint takes over, and finally any other
-  // engine-blocker findings (A15) so a founder always sees the
-  // single most-actionable next step under the disabled button.
+  // hasn't scrolled down to the classification/milestones yet.  Once
+  // they fill in identity, business type takes priority over the
+  // milestone hint because Titan/ValuationIQ need the benchmark scope
+  // before they can produce a defensible report.
   const helperText = missingCompanyName
     ? t('hintMissingCompany')
-    : missingMilestone
-      ? t('hintMissingMilestone')
-      : hasExtraBlockers
-        ? t('hintBlockerIssues', { count: extraBlockers.length })
-        : null
+    : missingBusinessType
+      ? t('hintMissingBusinessType')
+      : missingMilestone
+        ? t('hintMissingMilestone')
+        : hasExtraBlockers
+          ? t('hintBlockerIssues', { count: extraBlockers.length })
+          : null
 
   return (
     <>

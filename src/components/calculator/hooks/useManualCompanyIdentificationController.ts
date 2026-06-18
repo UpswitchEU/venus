@@ -163,13 +163,10 @@ export function useManualCompanyIdentificationController({
       }
 
       const primaryPatch = buildBusinessTypeFormData(primaryBusinessType)
-      const segmentPatch =
-        selectedBusinessTypes.length > 1
-          ? buildBusinessTypeSegmentsFormData(
-              selectedBusinessTypes,
-              formData.business_type_segments
-            )
-          : { business_type_segments: [] }
+      const segmentPatch = buildBusinessTypeSegmentsFormData(
+        selectedBusinessTypes,
+        formData.business_type_segments
+      )
       const mappedPrimary = mapApiBusinessTypeForEntitySearch(primaryBusinessType)
       const primaryId =
         normalizeBusinessTypeId(primaryPatch.business_type_id) ??

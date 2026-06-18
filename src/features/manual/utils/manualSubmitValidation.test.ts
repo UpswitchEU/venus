@@ -72,6 +72,23 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBeNull()
   })
 
+  it('accepts restored multi-segment business type identity for SME methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Upswitch',
+          businessType: '',
+          business_type_segments: [
+            { business_type_id: 'accounting' },
+            { business_type_id: 'tax-advisory' },
+          ],
+          yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
   it('requires a complete financial year for SME methods', () => {
     expect(
       getManualSubmitValidationIssue(
@@ -85,12 +102,43 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBe('financialDataIncomplete')
   })
 
-  it('skips SME financial blockers for venture-path methods', () => {
+  it('requires canonical business type identity for venture-path methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Acme',
+          businessType: 'startup',
+          yearlyFinancials: [],
+        },
+        'startup_valuation'
+      )
+    ).toBe('businessTypeMissing')
+  })
+
+  it('accepts multi-segment business type identity for venture-path methods', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Acme',
+          businessType: 'startup',
+          business_type_segments: [
+            { business_type_id: 'saas' },
+            { business_type_id: 'marketplace' },
+          ],
+          yearlyFinancials: [],
+        },
+        'startup_valuation'
+      )
+    ).toBeNull()
+  })
+
+  it('skips SME financial blockers for venture-path methods after business type is resolved', () => {
     expect(
       getManualSubmitValidationIssue(
         {
           companyName: 'Acme',
           businessType: '',
+          businessTypeId: 'saas',
           yearlyFinancials: [],
         },
         'startup_valuation'

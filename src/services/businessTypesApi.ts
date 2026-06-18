@@ -64,6 +64,7 @@ export interface BusinessType {
   peRatioP90?: number
   multipleBasis?: string
   lowSampleSuppressed?: boolean
+  suggestedWeight?: number | string | null
   primaryMultiple?: {
     metric?: string | null
     label?: string | null
@@ -796,9 +797,24 @@ class BusinessTypesApiService {
       return allBusinessTypes
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to fetch business types', { error })
-      throw error instanceof Error
-        ? error
-        : new Error('Bedrijfstypes laden mislukt. Probeer het later opnieuw.')
+      const cachedData = await businessTypesCache.getBusinessTypes()
+      if (cachedData?.businessTypes.length) {
+        generalLogger.warn('[BusinessTypesAPI] Serving cached business types after API failure', {
+          count: cachedData.businessTypes.length,
+        })
+        return cachedData.businessTypes
+      }
+
+      const fallbackBusinessTypes = this.getHardcodedBusinessTypes()
+      generalLogger.warn('[BusinessTypesAPI] Serving hardcoded business types after API failure', {
+        count: fallbackBusinessTypes.length,
+      })
+      await businessTypesCache.setBusinessTypes({
+        businessTypes: fallbackBusinessTypes,
+        categories: [],
+        popularTypes: fallbackBusinessTypes.filter((bt) => bt.popular),
+      })
+      return fallbackBusinessTypes
     }
   }
 

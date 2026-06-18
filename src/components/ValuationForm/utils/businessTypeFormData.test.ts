@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildBusinessTypeFormData,
   buildBusinessTypeSegmentsFormData,
+  resolveBusinessTypesFromKboCompany,
 } from './businessTypeFormData'
 
 describe('buildBusinessTypeFormData', () => {
@@ -46,6 +47,31 @@ describe('buildBusinessTypeFormData', () => {
 })
 
 describe('buildBusinessTypeSegmentsFormData', () => {
+  it('keeps a single selected business type as a canonical 100% segment', () => {
+    const result = buildBusinessTypeSegmentsFormData([
+      {
+        id: 'accounting',
+        title: 'Accounting practice',
+        primaryMultiple: {
+          label: 'EV/EBITDA',
+          basis: 'EBITDA',
+          median: 5.4,
+        },
+      },
+    ])
+
+    expect(result.business_type_segments).toEqual([
+      {
+        business_type_id: 'accounting',
+        business_type_title: 'Accounting practice',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        multiple: 5.4,
+        weight: 100,
+      },
+    ])
+  })
+
   it('maps selected business types to SOTP segment rows and preserves advisor earnings', () => {
     const result = buildBusinessTypeSegmentsFormData(
       [
@@ -70,6 +96,7 @@ describe('buildBusinessTypeSegmentsFormData', () => {
           earnings: '700000',
           multiple: 3.8,
           basis: 'EBITDA',
+          weight: 70,
         },
       ]
     )
@@ -82,6 +109,7 @@ describe('buildBusinessTypeSegmentsFormData', () => {
         earnings_basis: 'EBITDA',
         earnings: '700000',
         multiple: 4.2,
+        weight: 70,
       },
       {
         business_type_id: 'transport',
@@ -89,7 +117,135 @@ describe('buildBusinessTypeSegmentsFormData', () => {
         basis: 'Revenue',
         earnings_basis: 'Revenue',
         multiple: 1.1,
+        weight: 30,
       },
+    ])
+  })
+
+  it('seeds fallback KBO candidates with their primary multiples when the catalog is unavailable', () => {
+    const selected = resolveBusinessTypesFromKboCompany(
+      {
+        id: 'kbo-123',
+        name: 'Boekhoudkantoor Venus',
+        kboNumber: '0123456789',
+        legalForm: 'BV',
+        address: '',
+        postalCode: '',
+        city: '',
+        businessTypeIds: ['accounting_firm', 'business_consulting'],
+        businessTypeCandidates: [
+          {
+            id: 'accounting_firm',
+            title: 'Boekhoudkantoor',
+            naceCode: '69.201',
+            primaryMultiple: {
+              label: 'EV/EBITDA',
+              basis: 'EBITDA',
+              median: 5.4,
+            },
+          },
+          {
+            id: 'business_consulting',
+            title: 'Business consulting',
+            naceCode: '70.220',
+            primaryMultiple: {
+              label: 'EV/Revenue',
+              basis: 'Revenue',
+              median: 1.3,
+            },
+          },
+        ],
+      },
+      []
+    )
+
+    expect(buildBusinessTypeSegmentsFormData(selected).business_type_segments).toEqual([
+      {
+        business_type_id: 'accounting_firm',
+        business_type_title: 'Boekhoudkantoor',
+        basis: 'EBITDA',
+        earnings_basis: 'EBITDA',
+        multiple: 5.4,
+        weight: 50,
+      },
+      {
+        business_type_id: 'business_consulting',
+        business_type_title: 'Business consulting',
+        basis: 'Revenue',
+        earnings_basis: 'Revenue',
+        multiple: 1.3,
+        weight: 50,
+      },
+    ])
+  })
+
+  it('honors KBO suggested candidate weights when catalog business types are available', () => {
+    const selected = resolveBusinessTypesFromKboCompany(
+      {
+        id: 'kbo-123',
+        name: 'Boekhoudkantoor Venus',
+        kboNumber: '0123456789',
+        legalForm: 'BV',
+        address: '',
+        postalCode: '',
+        city: '',
+        businessTypeIds: ['accounting_firm', 'business_consulting'],
+        businessTypeCandidates: [
+          {
+            id: 'accounting_firm',
+            title: 'Boekhoudkantoor',
+            weight: 0.65,
+          },
+          {
+            id: 'business_consulting',
+            title: 'Business consulting',
+            weight: 0.35,
+          },
+        ],
+      },
+      [
+        {
+          id: 'accounting_firm',
+          title: 'Accounting catalog',
+          description: '',
+          icon: '📊',
+          category: 'services',
+          category_id: 'services',
+          industryMapping: 'services',
+          keywords: [],
+          popular: false,
+          status: 'active',
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          id: 'business_consulting',
+          title: 'Consulting catalog',
+          description: '',
+          icon: '📊',
+          category: 'services',
+          category_id: 'services',
+          industryMapping: 'services',
+          keywords: [],
+          popular: false,
+          status: 'active',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ]
+    )
+
+    expect(buildBusinessTypeSegmentsFormData(selected).business_type_segments).toEqual([
+      expect.objectContaining({
+        business_type_id: 'accounting_firm',
+        business_type_title: 'Accounting catalog',
+        weight: 65,
+      }),
+      expect.objectContaining({
+        business_type_id: 'business_consulting',
+        business_type_title: 'Consulting catalog',
+        weight: 35,
+      }),
     ])
   })
 })

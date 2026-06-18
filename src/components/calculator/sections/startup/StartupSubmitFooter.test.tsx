@@ -63,6 +63,8 @@ vi.mock('next-intl', () => ({
       calculating: 'Calculating…',
       generate: 'Generate startup valuation',
       hintMissingCompany: 'Add the company name above to unlock report generation.',
+      hintMissingBusinessType:
+        'Select at least one business type so the valuation can use the right benchmark mix.',
       hintMissingMilestone:
         'Pick at least one milestone in “Risk reduction” for a defensible valuation.',
       // reviewGate
@@ -174,6 +176,7 @@ describe('StartupSubmitFooter', () => {
           ...initialFormSnapshot.formData,
           company_name: 'Acme Robotics',
           country_code: 'NL',
+          business_type_id: 'saas',
         },
       },
       true
@@ -226,6 +229,7 @@ describe('StartupSubmitFooter', () => {
           ...initialFormSnapshot.formData,
           company_name: 'Acme Robotics',
           country_code: 'BE',
+          business_type_id: 'saas',
         },
       },
       true
@@ -277,6 +281,42 @@ describe('StartupSubmitFooter', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it('disables submit when no business type has been selected', () => {
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: {
+          ...initialFormSnapshot.formData,
+          company_name: 'Acme Robotics',
+          business_type_id: '',
+          business_type_segments: [],
+        },
+      },
+      true
+    )
+    useStartupValuationStore.setState(
+      {
+        ...initialStudioSnapshot,
+        maturity: { ...initialStudioSnapshot.maturity, sound_idea: 'strong' },
+        sound_idea: MATURITY_TO_SCORE.strong,
+      },
+      true
+    )
+
+    const onSubmit = vi.fn()
+    render(<StartupSubmitFooter onSubmit={onSubmit} isCalculating={false} />)
+
+    const btn = screen.getByRole('button', { name: /generate startup valuation/i })
+    expect(btn).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Select at least one business type so the valuation can use the right benchmark mix.'
+      )
+    ).toBeInTheDocument()
+    fireEvent.click(btn)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('opens the review-defaults modal but does NOT submit when the founder cancels', () => {
     // Cancel-path companion to the confirm test above: the modal must
     // open, give the founder a way out, and never silently fire the
@@ -287,6 +327,7 @@ describe('StartupSubmitFooter', () => {
         formData: {
           ...initialFormSnapshot.formData,
           company_name: 'Acme Robotics',
+          business_type_id: 'saas',
         },
       },
       true
@@ -317,7 +358,11 @@ describe('StartupSubmitFooter', () => {
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
-        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
+        formData: {
+          ...initialFormSnapshot.formData,
+          company_name: 'Acme',
+          business_type_id: 'saas',
+        },
       },
       true
     )
@@ -333,7 +378,11 @@ describe('StartupSubmitFooter', () => {
     useManualFormStore.setState(
       {
         ...initialFormSnapshot,
-        formData: { ...initialFormSnapshot.formData, company_name: 'Acme' },
+        formData: {
+          ...initialFormSnapshot.formData,
+          company_name: 'Acme',
+          business_type_id: 'saas',
+        },
       },
       true
     )
@@ -434,6 +483,24 @@ describe('buildStartupSubmitPayload', () => {
     useStartupValuationStore.setState({ ...initialStudioSnapshot, country_code: 'LU' }, true)
     const payload = buildStartupSubmitPayload()
     expect(payload.country).toBe('LU')
+  })
+
+  it('uses selected business type identity in the synthetic submit payload', () => {
+    useManualFormStore.setState(
+      {
+        ...initialFormSnapshot,
+        formData: {
+          ...initialFormSnapshot.formData,
+          business_type_id: 'accounting-services',
+          business_type_title: 'Accounting services',
+        },
+      },
+      true
+    )
+
+    const payload = buildStartupSubmitPayload()
+    expect(payload.businessType).toBe('Accounting services')
+    expect(payload.businessStructure).toBe(initialFormSnapshot.formData.business_type ?? 'company')
   })
 
   it('prefers the form-store country when both stores have one', () => {

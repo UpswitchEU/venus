@@ -6,6 +6,7 @@ import { generalLogger } from '@/utils/logger'
 import {
   buildManualExitClientViewFallbackUrl,
   buildManualExitClientViewTarget,
+  getManualImportReviewSessionKey,
 } from './manualMercuryNavigation'
 
 export interface ManualMercuryHandoff {
@@ -21,8 +22,7 @@ export function readManualMercuryHandoffFromBrowser(): ManualMercuryHandoff {
   try {
     const urlParams = new URLSearchParams(window.location.search)
     return {
-      returnUrl:
-        sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url'),
+      returnUrl: sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url'),
       sourceApp: sessionStorage.getItem('upswitch_source') ?? urlParams.get('source'),
     }
   } catch {
@@ -33,11 +33,35 @@ export function readManualMercuryHandoffFromBrowser(): ManualMercuryHandoff {
 export function isManualMercuryEmbeddedContext(): boolean {
   if (typeof window === 'undefined') return false
   try {
-    return (
-      sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
-    )
+    return sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true' || window.self !== window.top
   } catch {
     return true
+  }
+}
+
+function rewriteLegacyImportReviewPath(path: string): string {
+  try {
+    const url = new URL(path, 'https://mercury.local')
+    if (url.searchParams.get('import_review') !== '1') return path
+
+    const match = url.pathname.match(/^\/([^/]+)\/advisor\/clients\/([^/]+)\/?$/)
+    if (!match) return path
+
+    const [, locale, encodedClientId] = match
+    const query = new URLSearchParams({ clientId: decodeURIComponent(encodedClientId) })
+    const sessionKey = getManualImportReviewSessionKey(
+      url.searchParams.get('sessionKey') ?? url.searchParams.get('session_key')
+    )
+    if (sessionKey) query.set('sessionKey', sessionKey)
+
+    const focusField = url.searchParams.get('focusField')?.trim()
+    if (focusField) query.set('focusField', focusField)
+    const flagYear = url.searchParams.get('flagYear')?.trim()
+    if (flagYear) query.set('flagYear', flagYear)
+
+    return `/${locale}/advisor/import-review?${query}${url.hash}`
+  } catch {
+    return path
   }
 }
 
@@ -52,8 +76,12 @@ export function resolveMercuryNavigationPathForEmbed(
   const raw = rawUrl.trim()
   if (!raw) return null
 
+  if (raw.startsWith('//')) {
+    return null
+  }
+
   if (raw.startsWith('/')) {
-    return raw
+    return rewriteLegacyImportReviewPath(raw)
   }
 
   const base = (mercuryBaseUrl ?? getMercuryUrl()).replace(/\/$/, '')
@@ -62,7 +90,7 @@ export function resolveMercuryNavigationPathForEmbed(
     const target = new URL(raw)
     if (target.origin !== baseOrigin) return null
     if (!isTrustedUpswitchHostname(target.hostname)) return null
-    return `${target.pathname}${target.search}${target.hash}`
+    return rewriteLegacyImportReviewPath(`${target.pathname}${target.search}${target.hash}`)
   } catch {
     return null
   }

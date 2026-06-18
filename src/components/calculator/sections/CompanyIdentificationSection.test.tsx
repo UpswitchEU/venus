@@ -152,5 +152,73 @@ describe('CompanyIdentificationSection business type fallbacks', () => {
     expect(screen.getByTestId('fallback-tax-advisory')).toHaveTextContent(
       'Fiscaal advies EV/EBITDA 6.1x'
     )
+    expect(screen.getAllByText('Weight')).toHaveLength(2)
+  })
+
+  it('passes KBO candidate multiples to the selector before segment earnings exist', () => {
+    render(
+      <CompanyIdentificationSection
+        formData={{
+          ...formData,
+          business_type_segments: [],
+        }}
+        initialData={{}}
+        readOnlyKbo={false}
+        isCalculating={false}
+        selectedCompany={{
+          ...selectedCompany,
+          businessTypeCandidates: [
+            {
+              id: 'accounting',
+              title: 'Boekhoudkantoor',
+              naceCode: '69201',
+              primaryMultiple: {
+                label: 'EV/EBITDA',
+                basis: 'EBITDA',
+                median: 5.4,
+              },
+            },
+            {
+              id: 'tax-advisory',
+              title: 'Fiscaal advies',
+              naceCode: '69202',
+              primaryMultiple: {
+                label: 'EV/Revenue',
+                basis: 'Revenue',
+                median: 1.2,
+              },
+            },
+          ],
+        }}
+        setSelectedCompany={vi.fn()}
+        companySearchValue="Boekhoudkantoor Venus"
+        setCompanySearchValue={vi.fn()}
+        countryUserOverrideRef={{ current: false }}
+        updateField={vi.fn()}
+        updateFormData={vi.fn()}
+        localizeActivityCodeCopy={(text) => text}
+        searchCountry="BE"
+        kboSearchFn={vi.fn()}
+        handleCompanySelect={vi.fn()}
+        handleClearCompany={vi.fn()}
+        showChangeCompanyWarning={false}
+        prefillCompanyRef={{ current: null }}
+        setShowChangeCompanyWarning={vi.fn()}
+        executeClearCompany={vi.fn()}
+        nacePrefillError={null}
+        retryNacePrefill={vi.fn()}
+        selectedBusinessType={null}
+        selectedBusinessTypeIds={['accounting', 'tax-advisory']}
+        effectiveMethods={['ebitda_multiple']}
+        handleBusinessTypeSelectionChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByTestId('fallback-accounting')).toHaveTextContent(
+      'Boekhoudkantoor EV/EBITDA 5.4x'
+    )
+    expect(screen.getByTestId('fallback-tax-advisory')).toHaveTextContent(
+      'Fiscaal advies EV/Revenue 1.2x'
+    )
   })
 })

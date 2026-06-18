@@ -152,6 +152,7 @@ describe('buildStartupValuationRequest', () => {
           basis: 'EBITDA',
           earnings: '120000',
           multiple: '5.4',
+          weight: 60,
         },
         {
           business_type_id: 'tax-advisory',
@@ -159,6 +160,7 @@ describe('buildStartupValuationRequest', () => {
           basis: 'EBITDA',
           earnings: 80000,
           applied_multiple: 6.1,
+          weight: '40',
         },
       ],
       startupInputs: baseStartupInputs,
@@ -172,6 +174,7 @@ describe('buildStartupValuationRequest', () => {
         earnings_basis: 'EBITDA',
         earnings: 120000,
         multiple: 5.4,
+        weight: 60,
       },
       {
         business_type_id: 'tax-advisory',
@@ -180,6 +183,29 @@ describe('buildStartupValuationRequest', () => {
         earnings_basis: 'EBITDA',
         earnings: 80000,
         multiple: 6.1,
+        weight: 40,
+      },
+    ])
+  })
+
+  it('threads a single business-type segment as a 100% benchmark mix', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Acme',
+      businessTypeSegments: [
+        {
+          business_type_id: 'saas',
+          business_type_title: 'SaaS',
+          weight: 100,
+        },
+      ],
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.business_type_segments).toEqual([
+      {
+        business_type_id: 'saas',
+        business_type_title: 'SaaS',
+        weight: 100,
       },
     ])
   })

@@ -9,7 +9,7 @@ function toFiniteNumber(value: unknown): number | null {
 export function normalizeBusinessTypeSegments(
   segments: BusinessTypeSegmentInput[] | undefined
 ): BusinessTypeSegmentInput[] {
-  if (!Array.isArray(segments) || segments.length <= 1) return []
+  if (!Array.isArray(segments) || segments.length === 0) return []
 
   return segments.flatMap((segment) => {
     const businessTypeId = normalizeBusinessTypeId(segment.business_type_id)

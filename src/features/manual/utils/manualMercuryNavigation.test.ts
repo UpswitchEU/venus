@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildManualContinueToListingUrl,
-  stripStaleSellerDashboardPhaseFromReturnUrl,
   buildManualExitClientViewFallbackUrl,
   buildManualExitClientViewTarget,
   buildManualImportReviewTarget,
@@ -24,6 +23,7 @@ import {
   hasCompletedManualValuation,
   resolveManualListingRelationshipId,
   resolveManualMercuryReportId,
+  stripStaleSellerDashboardPhaseFromReturnUrl,
 } from './manualMercuryNavigation'
 
 describe('manualMercuryNavigation', () => {
@@ -245,9 +245,9 @@ describe('manualMercuryNavigation', () => {
         mercuryUrl: 'https://mercury.test/',
       })
     ).toEqual({
-      targetPath: '/nl/advisor/clients/client%201?import_review=1&session_key=val_abc12345',
+      targetPath: '/nl/advisor/import-review?clientId=client+1&sessionKey=val_abc12345',
       targetUrl:
-        'https://mercury.test/nl/advisor/clients/client%201?import_review=1&session_key=val_abc12345',
+        'https://mercury.test/nl/advisor/import-review?clientId=client+1&sessionKey=val_abc12345',
     })
   })
 

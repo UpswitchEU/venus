@@ -425,10 +425,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       }
 
       const primaryPatch = buildBusinessTypeFormData(primaryBusinessType)
-      const segmentPatch =
-        selectedBusinessTypes.length > 1
-          ? buildBusinessTypeSegmentsFormData(selectedBusinessTypes, businessTypeSegments)
-          : { business_type_segments: [] }
+      const segmentPatch = buildBusinessTypeSegmentsFormData(selectedBusinessTypes, businessTypeSegments)
 
       updateFormData({
         ...extraUpdates,
@@ -548,6 +545,21 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     [businessTypeSegments, updateFormData]
   )
 
+  const updateSegmentWeight = useCallback(
+    (index: number, weight: string) => {
+      const nextSegments = businessTypeSegments.map((segment, segmentIndex) =>
+        segmentIndex === index
+          ? {
+              ...segment,
+              weight: weight.trim() ? weight : null,
+            }
+          : segment
+      )
+      updateFormData({ business_type_segments: nextSegments })
+    },
+    [businessTypeSegments, updateFormData]
+  )
+
   // -------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------
@@ -626,7 +638,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
         {businessTypeSegments.length > 1 && (
           <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
-            <div className="mb-2 text-xs font-semibold text-foreground">Segment earnings</div>
+            <div className="mb-2 text-xs font-semibold text-foreground">Segment weighting</div>
             <div className="space-y-3">
               {businessTypeSegments.map((segment, index) => {
                 const basis = segment.basis ?? segment.earnings_basis
@@ -635,11 +647,15 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
                     ? segment.multiple
                     : segment.applied_multiple
                 const multipleNumber = Number(multiple)
+                const weightValue =
+                  segment.weight != null
+                    ? segment.weight
+                    : Number((100 / businessTypeSegments.length).toFixed(2))
 
                 return (
                   <div
                     key={`${segment.business_type_id}-${index}`}
-                    className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_180px]"
+                    className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_120px_180px]"
                   >
                     <div className="min-w-0 self-center">
                       <div className="truncate text-sm font-medium text-foreground">
@@ -656,6 +672,18 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
                         )}
                       </div>
                     </div>
+                    <AuroraNumberInput
+                      label="Weight"
+                      placeholder="Auto"
+                      name={`business_type_segments.${index}.weight`}
+                      value={weightValue}
+                      onChange={(event) => updateSegmentWeight(index, event.target.value)}
+                      min={0}
+                      max={100}
+                      step={5}
+                      suffix="%"
+                      allowDecimals
+                    />
                     <AuroraNumberInput
                       label={basis ? `${basis} earnings` : 'Segment earnings'}
                       placeholder="0"

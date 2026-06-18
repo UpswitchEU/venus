@@ -109,7 +109,7 @@ export function buildStartupValuationRequest({
     ...(naceCode ? { nace_code: naceCode } : {}),
     ...(naceDescription ? { nace_description: naceDescription } : {}),
     ...(cleanBusinessTypeId ? { business_type_id: cleanBusinessTypeId } : {}),
-    ...(cleanBusinessTypeSegments.length > 1
+    ...(cleanBusinessTypeSegments.length > 0
       ? { business_type_segments: cleanBusinessTypeSegments }
       : {}),
     ...(businessType ? { business_type: businessType } : {}),

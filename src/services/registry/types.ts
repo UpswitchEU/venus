@@ -46,6 +46,26 @@ export interface CompanySearchResult {
     title?: string
     business_type_title?: string
     nace_code?: string
+    primary_multiple?: {
+      metric?: string | null
+      label?: string | null
+      median?: number | string | null
+      p25?: number | string | null
+      p75?: number | string | null
+      basis?: string | null
+      lowSampleSuppressed?: boolean | null
+      low_sample_suppressed?: boolean | null
+    }
+    primaryMultiple?: {
+      metric?: string | null
+      label?: string | null
+      median?: number | string | null
+      p25?: number | string | null
+      p75?: number | string | null
+      basis?: string | null
+      lowSampleSuppressed?: boolean | null
+      low_sample_suppressed?: boolean | null
+    }
   }>
 }
 

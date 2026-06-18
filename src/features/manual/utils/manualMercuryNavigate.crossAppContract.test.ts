@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '@/constants/crossAppMessages'
-import { buildManualContinueToListingUrl } from './manualMercuryNavigation'
 import { resolveMercuryNavigationPathForEmbed } from './manualMercuryNavigate'
+import { buildManualContinueToListingUrl } from './manualMercuryNavigation'
 
 /**
  * Cross-app contract: seller Doorgaan / exit must target Mercury business dashboard
@@ -19,10 +19,7 @@ describe('manualMercuryNavigate cross-app contract', () => {
       hasCompletedValuation: true,
     })
 
-    const path = resolveMercuryNavigationPathForEmbed(
-      targetUrl,
-      'https://preview.upswitch.app'
-    )
+    const path = resolveMercuryNavigationPathForEmbed(targetUrl, 'https://preview.upswitch.app')
     expect(path).toBe('/nl/business/dashboard?from=valuation')
     expect(path).not.toContain('phase=valuation')
     expect(path).not.toContain('/advisor/')

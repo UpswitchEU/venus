@@ -4,6 +4,16 @@ export interface KBOBusinessTypeCandidate {
   id: string
   title?: string
   naceCode?: string | null
+  weight?: number | null
+  primaryMultiple?: {
+    metric?: string | null
+    label?: string | null
+    median?: number | null
+    p25?: number | null
+    p75?: number | null
+    basis?: string | null
+    lowSampleSuppressed?: boolean | null
+  }
 }
 
 export interface KBOCompany {

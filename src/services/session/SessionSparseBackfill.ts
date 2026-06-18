@@ -1,8 +1,13 @@
-import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import type {
+  BusinessTypeSegmentInput,
+  ValuationRequest,
+  ValuationSession,
+} from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
+import { normalizeBusinessTypeSegments } from '../../utils/normalizeBusinessTypeSegments'
 import {
   mergeSessionSurfaceForOptionalPrefill,
   sessionEnvelopeHasIdentitySignals,
@@ -73,6 +78,9 @@ export const BASE_SPARSE_BACKFILL_KEYS = [
   'activity_code',
   'activity_label',
   'business_type_id',
+  'business_type_segments',
+  'business_type_mix',
+  'business_type_weights',
   'subIndustry',
   'industry',
   'revenue',
@@ -157,6 +165,32 @@ function isPlaceholderYearArray(value: unknown): boolean {
     if (!row) return true
     return !isFiniteNonZero(row.revenue) && !isFiniteNonZero(row.ebitda)
   })
+}
+
+function businessTypeSegmentsFromWeights(value: unknown): Array<Record<string, unknown>> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value as Record<string, unknown>)
+    .flatMap(([businessTypeId, weight]) => {
+      const normalizedId = normalizeBusinessTypeId(businessTypeId)
+      if (!normalizedId) return []
+      return [{ business_type_id: normalizedId, weight }]
+    })
+    .sort((a, b) => Number(b.weight ?? 0) - Number(a.weight ?? 0))
+}
+
+function readBusinessTypeSegmentsFromCard(
+  businessCard: Record<string, unknown>
+): BusinessTypeSegmentInput[] {
+  const rawSegments =
+    businessCard.business_type_segments ??
+    businessCard.business_type_mix ??
+    businessCard.business_type_candidates
+  const normalized = normalizeBusinessTypeSegments(
+    Array.isArray(rawSegments)
+      ? rawSegments
+      : businessTypeSegmentsFromWeights(businessCard.business_type_weights)
+  )
+  return normalized
 }
 
 function shouldBackfillSparseValue(
@@ -294,6 +328,20 @@ export async function fetchBusinessCardData(
         !isLegalFormBusinessTypeValue(businessTypeAlias)
       ) {
         data.business_type_id = businessTypeAlias
+      }
+    }
+    const businessTypeSegments = readBusinessTypeSegmentsFromCard(businessCard)
+    if (businessTypeSegments.length > 0) {
+      data.business_type_segments = businessTypeSegments
+      data.business_type_mix = businessTypeSegments
+      data.business_type_weights = Object.fromEntries(
+        businessTypeSegments.map((segment) => [
+          segment.business_type_id,
+          segment.weight ?? Number((100 / businessTypeSegments.length).toFixed(2)),
+        ])
+      )
+      if (!data.business_type_id) {
+        data.business_type_id = businessTypeSegments[0]?.business_type_id
       }
     }
     if (businessCard.industry) data.industry = businessCard.industry
